@@ -1,6 +1,7 @@
 import os
 import uuid
 import re
+from fedbiomed.common.exceptions import FedbiomedError
 from flask import jsonify, request
 from app import app
 from db import database
@@ -15,8 +16,9 @@ from schemas import AddDataSetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
-    GetCsvData
-
+    GetCsvData, \
+    ReadDataLoadingPlan
+from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 
 # Initialize Fed-BioMed DatasetManager
@@ -388,3 +390,39 @@ def get_csv_data():
                      f"is one of csv, tsv or txt: {e}"), 400
 
     return response(data_preview), 200
+
+
+@api.route('/datasets/list-dlps', methods=['GET'])
+def list_data_loading_plans():
+    """List all DLPs in the database
+    """
+    dlps = dataset_manager.list_dlp()
+    index = list(range(len(dlps)))
+    columns = ['name', 'id']
+    data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+
+    return response({'index': index, 'columns': columns, 'data': data}), 200
+
+
+@api.route('/datasets/read-dlp', methods=['POST'])
+@validate_request_data(schema=ReadDataLoadingPlan)
+def read_data_loading_plans():
+    """Read content of a specified DLP
+    """
+    req = request.json
+    data_dlp = {}
+
+    try:
+        dlp, dlbs = dataset_manager.get_dlp_by_id(req['dlp_id'])
+    except FedbiomedError as e:
+        return error(f"Could not read customizations: {e}"), 400
+
+    m2f = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
+    if 'loading_blocks' in dlp and m2f in dlp['loading_blocks']:
+        dlb_id_m2f = dlp['loading_blocks'][m2f]
+        map = [dlb['map'] for dlb in dlbs if dlb['loading_block_serialization_id'] == dlb_id_m2f]
+        if len(map) != 1:
+            return error("Could not read customizations: database coherence error"), 400
+        data_dlp['map'] = map[0]
+
+    return response(data_dlp), 200

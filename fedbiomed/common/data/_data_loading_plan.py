@@ -438,9 +438,6 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
 
-        The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output
-        of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
-
         :warning: Calling this function will *clear* the contained
             DataLoadingBlockTypes. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan.
@@ -473,6 +470,27 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
             loading_block = next(filter(lambda x: x['dlb_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             dlb = DataLoadingBlock.instantiate_class(loading_block)
+            self[loading_block_key] = dlb.deserialize(loading_block)
+        return self
+
+    def deserialize_loading_blocks_from_mapping(self,
+                                                serialized_loading_blocks_mapping: Dict[str, dict]) -> TDataLoadingPlan:
+        """Reconstruct only the loading blocks of the Data Loading Plan
+
+        The input argument must be of the form {str: dict} where the str key is a name that will identify each loading
+        block, and the dict value is a dictionary of loading block metadata used to deserialize the loading block.
+
+        This function may be used to update an existing DataLoadingPlan by adding the deserialized loading blocks.
+
+        Args:
+            serialized_loading_blocks_mapping : a dictionary of {name: metadata} pairs
+        Returns:
+            the self instance
+        """
+
+        for loading_block_key, loading_block in serialized_loading_blocks_mapping.items():
+            exec(f"import {loading_block['loading_block_module']}")
+            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
             self[loading_block_key] = dlb.deserialize(loading_block)
         return self
 

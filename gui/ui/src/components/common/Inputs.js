@@ -223,7 +223,9 @@ export const CheckBox = (props) => {
     return(
         <label className={styles.checkboxLabel}>
             <input className={styles.checkboxInput} name={props.name} type={"checkbox"} checked={checked} onChange={handleChange}/>
-            {props.children}
+                <span className={styles.checkboxText}>
+                    {props.children}
+                </span>
         </label>
     )
 }

@@ -324,6 +324,15 @@ class GetCsvData(Validator):
     })
 
 
+class ReadDataLoadingPlan(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"dlp_id": {"type": "string"}},
+        "required": ["dlp_id"]
+    })
+
+
 class ValidateMedicalFolderReferenceCSV(Validator):
     type = 'json'
     schema = JsonSchema({
@@ -367,6 +376,84 @@ class ValidateMedicalFolderRoot(Validator):
     })
 
 
+class ValidateSubjectsHasAllModalities(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "medical_folder_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            },
+            "modalities": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "Modalities should be given as an array"
+                },
+            },
+            "reference_csv_path": {
+                "type": ["array", "null"],
+                "errorMessages": {
+                    "type": "CSV path should be given as an array"
+                },
+            },
+            "index_col": {
+                "type": ["integer", "null"],
+                "errorMessage": {
+                    "type": "Index column should be an integer"
+                },
+            },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessage": {
+                    "type": "Data loading plan id should be a string"
+                },
+            },
+        },
+        "required": ["medical_folder_root", "modalities", "reference_csv_path", "index_col", "dlp_id"]
+    })
+
+
+class ValidateDataLoadingPlanDeleteRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "dlp_id": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
+        },
+        "required": ["dlp_id"]
+    })
+
+
+class ValidateDataLoadingPlanAddRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "modalities_mapping": {
+                "type": "object",
+                "errorMessages": {
+                    "type": "DLP modalities mapping should be given as an object"
+                },
+            },
+            "name": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "DLP name should be given as an array"
+                },
+            },
+        },
+        "required": ["modalities_mapping", "name"]
+    })
+
+
 class ValidateMedicalFolderAddRequest(Validator):
     type = 'json'
     schema = JsonSchema({
@@ -391,9 +478,15 @@ class ValidateMedicalFolderAddRequest(Validator):
                 "errorMessage": {
                     "type": "Index column should be declared as an integer"}
             },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
             'name': datasetName,
             'tags': datasetTags,
             'desc': datasetDesc
         },
-        "required": ["medical_folder_root", "name", "tags", "desc"]
+        "required": ["medical_folder_root", "name", "tags", "desc", "dlp_id"]
     })

@@ -2,6 +2,12 @@ from app import app
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
+# WARNING: this Database class should not exist, all accesses to TinyDB should occur
+# through the fedbiomed.node_dataset_manager.DatasetManager, this
+# breaks basic object paradigm
+# Until this is refactored (and Database class is removed), please use
+# `DatasetManager` when adding new accesses to the database
+
 class Database:
 
     def __init__(self):
