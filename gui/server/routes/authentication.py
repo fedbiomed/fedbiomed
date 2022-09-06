@@ -225,19 +225,6 @@ def refresh_expiring_jwts():
     return resp, 200
 
 
-@api.route('/protected', methods=['GET'])
-@jwt_required()
-def protected_test():
-    return response('You rock !'), 200
-
-
-@api.route('/admin', methods=['GET'])
-@jwt_required()
-@admin_required
-def admin_test():
-    return response('Only if you are an admin'), 200
-
-
 @api.route('/token/remove', methods=['POST'])
 def logout():
     """ Method used to logout current user.
