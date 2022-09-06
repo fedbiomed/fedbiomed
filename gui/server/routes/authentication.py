@@ -16,7 +16,7 @@ from fedbiomed.common.constants import UserRoleType, UserRequestStatus
 from schemas import ValidateUserFormRequest, ValidateLoginRequest
 from middlewares.auth_validation import validate_email_register, validate_password
 from utils import validate_request_data
-from . import api
+from . import api, auth
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')
@@ -24,7 +24,6 @@ query = user_database.query()
 
 
 @api.route('/update-password', methods=['POST'])
-@jwt_required()
 @validate_request_data(schema=ValidateUserFormRequest)
 @middleware(middlewares=[validate_password])
 def update_password():
@@ -74,7 +73,7 @@ def update_password():
         return error(str(e)), 400
 
 
-@api.route('/register', methods=['POST', 'GET'])
+@auth.route('/register', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
 @middleware(middlewares=[validate_email_register, validate_password])
 def register():
@@ -135,14 +134,14 @@ def register():
         'request_id': res['request_id'],
     }, 'A request has been sent to administrator for account creation'), 201
 
+
 @api.route('/token/auth', methods=['GET'])
-@jwt_required()
-def auth():
+def auto_auth():
     user_info = get_jwt()
     return response(user_info), 200
     
 
-@api.route('/token/login', methods=['POST'])
+@auth.route('/token/login', methods=['POST'])
 @validate_request_data(schema=ValidateLoginRequest)
 def login():
     """ API endpoint for logging user in
@@ -202,7 +201,7 @@ def login():
     return error('Please verify your email and/or your password'), 401
 
 
-@api.route('/token/refresh', methods=['GET'])
+@auth.route('/token/refresh', methods=['GET'])
 @jwt_required(refresh=True)
 # `refresh` = True here, it means accessing api with refresh token instead of access tokens
 def refresh_expiring_jwts():

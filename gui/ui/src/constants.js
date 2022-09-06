@@ -12,11 +12,11 @@ export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
 // Authentication endpoints
-export const EP_LOGIN                   = '/api/token/login'
-export const EP_AUTH                   = '/api/token/auth'
-export const EP_REFRESH                 = '/api/token/refresh'
+export const EP_LOGIN                   = '/api/auth/token/login'
+export const EP_AUTH                    = '/api/token/auth'
+export const EP_REFRESH                 = '/api/auth/token/refresh'
 export const EP_LOGOUT                  = '/api/token/remove'
-export const EP_REGISTER                = '/api/register'
+export const EP_REGISTER                = '/api/auth/register'
 export const EP_UPDATE_PASSWORD         = '/api/update-password'
 
 // Authentication actions

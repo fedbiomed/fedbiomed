@@ -27,7 +27,6 @@ query = user_database.query()
 
 
 @api.route('/admin/users/list', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_users():
     """
@@ -58,7 +57,6 @@ def list_users():
 
 
 @api.route('/admin/users/create', methods=['POST'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateUserFormRequest)
 @middleware(middlewares=[validate_email_register, validate_password])
@@ -127,7 +125,6 @@ def create_user():
 
 
 @api.route('/admin/users/remove', methods=['DELETE'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateUserRemoveRequest)
 def remove_user():
@@ -177,7 +174,6 @@ def remove_user():
 
 
 @api.route('/admin/users/reset-password', methods=['PATCH'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateUserRemoveRequest)
 def reset_user_password():
@@ -227,7 +223,6 @@ def reset_user_password():
 
 
 @api.route('/admin/users/change-role', methods=['PATCH'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateUserChangeRoleRequest)
 def change_user_role():
@@ -271,7 +266,6 @@ def change_user_role():
 
 
 @api.route('/admin/requests/list', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_requests():
     """
@@ -308,7 +302,6 @@ def list_requests():
 
 
 @api.route('/admin/requests/approve', methods=['POST'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateAdminRequestAction)
 def approve_user_request():
@@ -356,7 +349,6 @@ def approve_user_request():
 
 
 @api.route('/admin/requests/reject', methods=['POST'])
-@jwt_required()
 @admin_required
 @validate_request_data(schema=ValidateAdminRequestAction)
 def reject_user_request():

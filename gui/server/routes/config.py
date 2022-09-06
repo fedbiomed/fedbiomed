@@ -9,7 +9,6 @@ from . import api
 
 
 @api.route('/config/node-id', methods=['GET'])
-@jwt_required()
 def node_id():
     """ API enpoint to get node id which GUI will be working for
 
@@ -27,12 +26,10 @@ def node_id():
         'node_id': app.config['NODE_ID']
     }
 
-
     return response(result), 200
 
 
 @api.route('/config/node-environ', methods=['GET'])
-@jwt_required()
 def fedbiomed_environ():
     """ Endpoint that return current configuration for node
 

@@ -10,7 +10,7 @@ from utils import error, response
 from config import Config
 # Import api route blueprint before importing routes
 # and register as blueprint
-from routes import api
+from routes import api, auth
 
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
@@ -49,6 +49,7 @@ assert app.config["JWT_ACCESS_TOKEN_EXPIRES"] < app.config["JWT_REFRESH_TOKEN_EX
 
 jwt = JWTManager(app)
 app.register_blueprint(api)
+app.register_blueprint(auth)
 
 
 # Routes for react build directory

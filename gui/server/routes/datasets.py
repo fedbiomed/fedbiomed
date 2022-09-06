@@ -27,7 +27,6 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 @api.route('/datasets/list', methods=['POST'])
 @validate_request_data(schema=ListDatasetRequest)
-@jwt_required()
 def list_datasets():
     """
     List Datasets saved into Node DB
@@ -65,7 +64,6 @@ def list_datasets():
 
 @api.route('/datasets/remove', methods=['POST'])
 @validate_request_data(schema=RemoveDatasetRequest)
-#@jwt_required(optional=True)
 def remove_dataset():
     """ API endpoint to remove single dataset from database.
     This method removed dataset from database not from file system.
@@ -105,7 +103,6 @@ def remove_dataset():
 @api.route('/datasets/add', methods=['POST'])
 @validate_request_data(schema=AddDataSetRequest)
 @middleware(middlewares=[common.check_tags_already_registered])
-#@jwt_required(optional=True)
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
         uses some methods of data set manager.
@@ -193,7 +190,6 @@ def add_dataset():
 
 @api.route('/datasets/update', methods=['POST'])
 @validate_request_data(schema=UpdateDatasetRequest)
-#@jwt_required(optional=True)
 def update_dataset():
     """API endpoint for updating dataset
 
@@ -230,7 +226,6 @@ def update_dataset():
 
 @api.route('/datasets/preview', methods=['POST'])
 @validate_request_data(schema=PreviewDatasetRequest)
-#@jwt_required(optional=True)
 def get_preview_dataset():
     """API endpoint for getting preview information for dataset
     ----
@@ -284,7 +279,6 @@ def get_preview_dataset():
 
 @api.route('/datasets/add-default-dataset', methods=['POST'])
 @validate_request_data(schema=AddDefaultDatasetRequest)
-#@jwt_required(optional=True)
 def add_default_dataset():
     """API endpoint for adding default dataset
 
@@ -367,7 +361,6 @@ def add_default_dataset():
 
 @api.route('/datasets/get-csv-data', methods=['POST'])
 @validate_request_data(schema=GetCsvData)
-#@jwt_required(optional=True)
 def get_csv_data():
     """
     Loads csv from given path
