@@ -106,6 +106,7 @@ export const setReferenceCSV = (path) => {
         axios.post(EP_LOAD_CSV_DATA, {path : path.path}).then( response => {
             if(response.status === 200){
                 let data = response.data.result
+                dispatch({ type: "RESET_MEDICAL_FOLDER_REF"})
                 dispatch({type: "SET_REFERENCE_CSV", payload: { path: path.path, data: data}})
             }else{
                 dispatch({type: 'ERROR_MODAL', payload: response.data.result.message})

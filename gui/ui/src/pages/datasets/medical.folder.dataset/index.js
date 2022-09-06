@@ -46,9 +46,6 @@ export class Index extends React.Component {
     }
 
     setReferenceCSV = (path) => {
-        if (this.props.medicalFolderDataset.reference_csv) {
-            this.props.setFolderRefColumn({name: null, index: null})
-        }
         this.props.setReferenceCSV(path)
     }
 
