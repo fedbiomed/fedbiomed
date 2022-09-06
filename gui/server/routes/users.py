@@ -59,9 +59,9 @@ def list_users():
 
 @api.route('/admin/users/create', methods=['POST'])
 @jwt_required()
+@admin_required
 @validate_request_data(schema=ValidateUserFormRequest)
 @middleware(middlewares=[validate_email_register, validate_password])
-@admin_required
 def create_user():
     """ API endpoint to register new user in the database (as an admin).
 
@@ -125,10 +125,11 @@ def create_user():
     else:
         return error('Unexpected error, please try again later'), 400
 
+
 @api.route('/admin/users/remove', methods=['DELETE'])
 @jwt_required()
-@validate_request_data(schema=ValidateUserRemoveRequest)
 @admin_required
+@validate_request_data(schema=ValidateUserRemoveRequest)
 def remove_user():
     """ API endpoint to remove user account (as an admin).
 
@@ -155,7 +156,7 @@ def remove_user():
 
     # User can not remove his account
     if user["sub"] == user_id:
-        return error('As admin you can not remove your own account.'), 400
+        return error('Cannot remove your own account.'), 400
 
     try:
         user_table.remove(where('user_id') == user_id)
@@ -177,8 +178,8 @@ def remove_user():
 
 @api.route('/admin/users/reset-password', methods=['PATCH'])
 @jwt_required()
-@validate_request_data(schema=ValidateUserRemoveRequest)
 @admin_required
+@validate_request_data(schema=ValidateUserRemoveRequest)
 def reset_user_password():
     """ API endpoint to reset user password (as an admin).
 
@@ -227,8 +228,8 @@ def reset_user_password():
 
 @api.route('/admin/users/change-role', methods=['PATCH'])
 @jwt_required()
-@validate_request_data(schema=ValidateUserChangeRoleRequest)
 @admin_required
+@validate_request_data(schema=ValidateUserChangeRoleRequest)
 def change_user_role():
     """ API endpoint to change user role (as an admin).
 
