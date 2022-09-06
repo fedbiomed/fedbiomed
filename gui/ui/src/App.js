@@ -28,8 +28,6 @@ import PasswordChange from "./pages/authentication/PasswordChange";
 import UserInfo from "./pages/authentication/UserInfo";
 import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
-import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
-import LogUserLayout from './components/layout/LogUserLayout';
 import UserAccount from './pages/authentication/UserAccount';
 
 
