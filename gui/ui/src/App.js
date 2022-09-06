@@ -63,12 +63,6 @@ function App(props) {
                     <Route index element={<CommonStandards/>} />
                     <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                   </Route>
-                  {/* Go to pocEndpoints page with the access token set */}
-                  {/*<Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}*/}
-                  {/*                                                  removeToken={removeToken} */}
-                  {/*                                                  setToken={setToken}/>} />*/}
-
-                  {/*path="*" stands for all others routes */}
                   <Route
                         path="*" 
                         status={404} 
