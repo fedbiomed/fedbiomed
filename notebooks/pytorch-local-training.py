@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher compare with local training
+# # Fed-BioMed Researcher compare with local training
 
 # This example shows how to run a Fed-BioMed job locally on the server, and then compare the training results with the federated training.
 

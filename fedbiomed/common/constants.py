@@ -1,4 +1,4 @@
-"""Fedbiomed constants/enums"""
+"""Fed-BioMed constants/enums"""
 
 from enum import Enum
 
@@ -42,12 +42,32 @@ class ModelTypes(_BaseEnum):
     """Constant values for model type that will be saved into db
 
     Attributes:
-        REGISTERED: means model saved by a user/hospital/node
+        REQUESTED: means model submitted in-application by the researcher
+        REGISTERED: means model added by a hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
-
+    REQUESTED: str = 'requested'
     REGISTERED: str = 'registered'
     DEFAULT: str = 'default'
+
+
+class ModelApprovalStatus(_BaseEnum):
+    """Enumeration class for model approval status of a model on a node when model approval is active.
+
+    Attributes:
+        APPROVED: model was accepted for this node, can be executed now
+        REJECTED: model was disapproved for this node, cannot be executed
+        PENDING: model is waiting for review and approval, cannot be executed yet
+    """
+    APPROVED: str = "Approved"
+    REJECTED: str = "Rejected"
+    PENDING: str = "Pending"
+    
+    def str2enum(name: str):
+        for e in ModelApprovalStatus:
+            if e.value == name:
+                return e
+        return None
 
 
 class TrainingPlans(_BaseEnum):
@@ -66,6 +86,38 @@ class ProcessTypes(_BaseEnum):
     """
     DATA_LOADER: int = 0
     PARAMS: int = 1
+
+
+class DataLoadingBlockTypes(_BaseEnum):
+    """Base class for typing purposes.
+
+    Concrete enumeration types should be defined within the scope of their
+    implementation or application. To define a concrete enumeration type,
+    one must subclass this class as follows:
+    ```python
+    class MyLoadingBlocks(DataLoadingBlockTypes, Enum):
+        MY_KEY: str 'myKey'
+        MY_OTHER_KEY: str 'myOtherKey'
+    ```
+
+    Subclasses must respect the following conditions:
+    - All fields must be str;
+    - All field values must be unique.
+
+    :warning: this class must always be empty as it is not allowed to
+    contain any fields!
+    """
+    def __init__(self, *args):
+        cls = self.__class__
+        if not isinstance(self.value, str):
+            raise ValueError("all fields of DataLoadingBlockTypes subclasses"
+                             " must be of str type")
+        if any(self.value == e.value for e in cls):
+            a = self.name
+            e = cls(self.value).name
+            raise ValueError(
+                f"duplicate values not allowed in DataLoadingBlockTypes and "
+                f"its subclasses: {a} --> {e}")
 
 
 class ErrorNumbers(_BaseEnum):
@@ -113,7 +165,7 @@ class ErrorNumbers(_BaseEnum):
     FB404: str = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405: str = "FB405: received delayed answer for previous computation round"
     FB406: str = "FB406: list of nodes is empty at data lookup phase"
-    FB407: str = "FB407: list of nodes became empty when training"
+    FB407: str = "FB407: list of nodes became empty when training (no node has answered)"
     FB408: str = "FB408: node did not answer during training"
     FB409: str = "FB409: node sent Status=Error during training"
     FB410: str = "FB410: bad type or value for experiment argument"
@@ -137,9 +189,36 @@ class ErrorNumbers(_BaseEnum):
     FB606: str = "FB606: model manager error"
     FB607: str = "FB607: data manager error"
     FB608: str = "FB608: torch data manager error"
-    FB609: str = "FB608: scikit-learn data manager error"
-    FB610: str = "FB609: Torch based tabular dataset creation error"
+    FB609: str = "FB609: scikit-learn data manager error"
+    FB610: str = "FB610: Torch based tabular dataset creation error"
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
+    FB612: str = "FB612: Torch based NIFTI dataset error"
+    FB613: str = "FB613: Medical Folder dataset error"
+
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
+
+
+class UserRoleType(int, _BaseEnum):
+    """Enumeration class, used to characterize the type of component of the fedbiomed architecture
+
+    Attributes:
+        ADMIN: User with Admin role
+        USER: Simple user
+    """
+
+    ADMIN: int = 1
+    USER: int = 2
+
+
+class UserRequestStatus(str, _BaseEnum):
+    """Enumeration class, used to characterize the status for user registration requests
+
+        Attributes:
+            NEW: New user registration
+            REJECTED: Rejected status
+        """
+
+    NEW: str = "NEW"
+    REJECTED: str = "REJECTED"

@@ -8,20 +8,20 @@ from typing import List
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import torch
 from torch.utils.data import Dataset
 import tempfile
 import pathlib
+from PIL import Image
+import torch
+from torchvision import transforms, datasets
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.dataset_manager import DatasetManager
-
+from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from PIL import Image
-from torchvision import transforms, datasets
 
 
 class TestDatasetManager(unittest.TestCase):
@@ -45,7 +45,6 @@ class TestDatasetManager(unittest.TestCase):
 
         def __getitem__(self, idx):
             return self._data[idx], self._labels[idx]
-
 
     def setUp(self):
         """
@@ -105,26 +104,21 @@ class TestDatasetManager(unittest.TestCase):
         """
         after each test function
         """
-        self.dataset_manager.db.close()
+        self.dataset_manager._db.close()
         os.remove(environ['DB_PATH'])
 
 
-    @patch('tinydb.table.Table.clear_cache')
-    def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self,
-                                                                  tinydb_cache_patch,):
+    def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """
         Test `search_by_id` method with a non existing id
         """
-        tinydb_cache_patch.return_value = None
         # action (should return an empty array)
         res = self.dataset_manager.get_by_id('dataset_id_1234')
         self.assertEqual(res, None)
 
 
     @patch('tinydb.table.Table.get')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_02_get_by_id(self,
-                                          tinydb_cache_patch,
                                           tinydb_get_patch):
         """
         Simulates a query with a correct dataset id by patching Query and
@@ -134,7 +128,6 @@ class TestDatasetManager(unittest.TestCase):
         search_results = {'dataset_id': 'datset_id_1234'}
         dataset_id = 'dataset_id_1234'
         # patches
-        tinydb_cache_patch.return_value = None
         tinydb_get_patch.return_value = search_results
 
         # action
@@ -155,12 +148,10 @@ class TestDatasetManager(unittest.TestCase):
 
     @patch('tinydb.queries.Query.all')
     @patch('tinydb.table.Table.search')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_04_search_by_tags(self,
-                                            tinydb_cache_patch,
-                                            tinydb_search_patch,
-                                            queries_all_patch
-                                            ):
+                                               tinydb_search_patch,
+                                               queries_all_patch
+                                               ):
         """
         Simulates a query with correct dataset tags by patching Query and
         Table.search object/methods
@@ -170,7 +161,6 @@ class TestDatasetManager(unittest.TestCase):
         dataset_tags = ['some', 'tags']
 
         # patches
-        tinydb_cache_patch.return_value = None
         tinydb_search_patch.return_value = search_results
 
         # action
@@ -640,10 +630,8 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('tinydb.table.Table.all')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_21_list_my_data(self,
-                                          clear_cache_patch,
-                                          query_all_patch):
+                                             query_all_patch):
         """
         Checks `list_my_data` method in the normal case scenario
         """
@@ -669,7 +657,6 @@ class TestDatasetManager(unittest.TestCase):
                            ]
 
         # patchers
-        clear_cache_patch.return_value = None
         query_all_patch.return_value = table_all_query
 
         # action
@@ -677,7 +664,6 @@ class TestDatasetManager(unittest.TestCase):
 
         # checks
         query_all_patch.assert_called_once()
-        clear_cache_patch.assert_called_once()
         # check that none of the database contained on the node
         # doesnot contain `dtype`entry
         self.assertNotIn('dtypes', all_data[0].keys())
@@ -980,6 +966,69 @@ class TestDatasetManager(unittest.TestCase):
             # action: we are here passing an empty directory
             # and checking if method raises FedbiomedDatasetManagerError
             self.dataset_manager.load_mednist_database(self.tempdir)
+
+    def test_dataset_manager_30_obfuscate_private_information(self):
+        """Tests if error is raised if dataset is not parsable when calling `obfuscate_privte_information"""
+        metadata_with_private_info  = [{
+            'path': 'private/info',
+            'nonprivate': 'info',
+            'data_type': 'medical-folder',
+            'dataset_parameters': {
+                'tabular_file': 'private/info',
+                'nonprivate': 'info'
+                                   }
+        }]
+        private_metadata = DatasetManager.obfuscate_private_information(metadata_with_private_info)
+        expected_private_metadata = [{
+            'nonprivate': 'info',
+            'data_type': 'medical-folder',
+            'dataset_parameters': {
+                'nonprivate': 'info'
+            }
+        }]
+        self.assertEqual(private_metadata, expected_private_metadata)
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            _ = DatasetManager.obfuscate_private_information([*metadata_with_private_info, 'non-dict-like'])
+
+    @patch('os.path.isdir')
+    def test_dataset_manager_31_data_loading_plan_save(self, patch_isdir):
+        """Tests that DatasetManager correctly saves a DataLoadingPlan"""
+        patch_isdir.return_value = True
+        from test_data_loading_plan import LoadingBlockForTesting
+
+        dlb1 = LoadingBlockForTesting()
+        dlb2 = LoadingBlockForTesting()
+        dlb2.data = {'some': 'other data'}
+
+        dlp = DataLoadingPlan()
+        dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dlb1
+        dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dlb2
+
+        dataset_manager = DatasetManager()
+        dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
+        dataset_manager.add_database(
+            name='dlp-test-db',
+            data_type='default',
+            tags=['test'],
+            description='',
+            dataset_id='test-id-dlp-1234',
+            path='some/test/path',
+            data_loading_plan=dlp
+        )
+
+        self.assertIn('Data_Loading_Plans', dataset_manager._db.tables())
+        dataset = dataset_manager.get_by_id('test-id-dlp-1234')
+        self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
+
+        dlp_metadata, loading_blocks_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
+        self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
+        new_dlp = DataLoadingPlan().deserialize(dlp_metadata, loading_blocks_metadata)
+        self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dlb1.data)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dlb2.data)
+
+        dataset_manager._db.close()
 
 
 if __name__ == '__main__':  # pragma: no cover

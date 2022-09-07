@@ -3,6 +3,7 @@
 Make coordinated release of software (this repo) and documentation (published on `fedbiomed.gitlabpages.inria.fr`)
   * using same version tag
   * corresponding to same software version
+  * **release software before documentation** (for API documentation)
   * release at barely the same time
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands

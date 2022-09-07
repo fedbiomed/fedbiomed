@@ -31,7 +31,7 @@ class SkLearnDataManager(object):
 
         Args:
             inputs: Independent variables (inputs, features) for model training
-            target: Dependent variable/s (target) for model training and evaluation
+            target: Dependent variable/s (target) for model training and validation
             **kwargs: Loader arguments
         """
 
@@ -50,7 +50,7 @@ class SkLearnDataManager(object):
         # Additional loader arguments
         self._loader_arguments = kwargs
 
-        # Subset None means that train/test split has not been performed
+        # Subset None means that train/validation split has not been performed
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
 
@@ -72,11 +72,11 @@ class SkLearnDataManager(object):
         return self._inputs, self._target
 
     def subset_test(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Gets Subset of dataset for test partition.
+        """Gets Subset of dataset for validation partition.
 
         Returns:
-            test_inputs: Input variables of testing subset for model testing
-            test_target: Target variable of testing subset for model testing
+            test_inputs: Input variables of validation subset for model validation
+            test_target: Target variable of validation subset for model validation
         """
         return self._subset_test
 
@@ -102,10 +102,10 @@ class SkLearnDataManager(object):
         return self._inputs, self._target
 
     def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
-        """Splits `np.ndarray` dataset into train and test.
+        """Splits `np.ndarray` dataset into train and validation.
 
         Args:
-             test_ratio: Ratio for testing set partition. Rest of the samples will be used for training
+             test_ratio: Ratio for validation set partition. Rest of the samples will be used for training
 
         Raises:
             FedbiomedSkLearnDataManagerError: If the `test_ratio` is not between 0 and 1
@@ -163,7 +163,7 @@ class SkLearnDataManager(object):
             raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple'
                                                    f'of size 2 that contains inputs/data and target as np.ndarray.')
 
-        # Empty test set
+        # Empty validation set
         if len(subset[0]) == 0 or len(subset[1]) == 0:
             return None
 

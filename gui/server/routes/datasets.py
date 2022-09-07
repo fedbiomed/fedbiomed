@@ -1,23 +1,28 @@
 import os
-import uuid
 import re
-from flask import jsonify, request
-from app import app
-from db import database
+import uuid
 
-from . import api
-from utils import success, error, validate_json, validate_request_data, response
+
+from app import app
+from db import node_database
+from flask import request, current_app
+from middlewares import middleware, common
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
-    ListDatasetRequest
-
+    ListDatasetRequest, \
+    GetCsvData
+from utils import success, error, validate_request_data, response
+from flask_jwt_extended import jwt_required, get_jwt, verify_jwt_in_request
 from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
+
+DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
@@ -43,16 +48,14 @@ def list_datasets():
     """
     req = request.json
     search = req.get('search', None)
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
-    table.clear_cache()
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
         try:
             res = table.all()
-            database.close()
         except Exception as e:
             return error(str(e)), 400
 
@@ -83,17 +86,15 @@ def remove_dataset():
 
     if req['dataset_id']:
 
-        table = database.db().table('_default')
-        query = database.query()
+        table = node_database.table_datasets()
+        query = node_database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
 
         if dataset:
             table.remove(doc_ids=[dataset.doc_id])
-            database.close()
             return success('Dataset has been removed successfully'), 200
 
         else:
-            database.close()
             return error('Can not find specified dataset in the database'), 400
     else:
         return error('Missing `dataset_id` attribute.'), 400
@@ -101,6 +102,7 @@ def remove_dataset():
 
 @api.route('/datasets/add', methods=['POST'])
 @validate_request_data(schema=AddDataSetRequest)
+@middleware(middlewares=[common.check_tags_already_registered])
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
         uses some methods of data set manager.
@@ -125,8 +127,8 @@ def add_dataset():
             message : The message for response
 
     """
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     data_path_rw = app.config['DATA_PATH_RW']
     req = request.json
@@ -210,8 +212,8 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     table.update({"tags": req["tags"],
                   "description": req["desc"],
@@ -245,8 +247,8 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local repository
@@ -302,8 +304,8 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.tags == req['tags'])
 
     if dataset:
@@ -329,14 +331,11 @@ def add_default_dataset():
 
     try:
         shape = dataset_manager.load_default_database(name="MNIST",
-                                                  path=path,
-                                                  as_dataset=False)
+                                                      path=path,
+                                                      as_dataset=False)
     except Exception as e:
         return error(str(e)), 400
 
-    # Create database connection
-    table = database.db().table('_default')
-    query = database.query()
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
@@ -358,3 +357,31 @@ def add_default_dataset():
     res = table.get(query.dataset_id == dataset_id)
 
     return response(res), 200
+
+
+@api.route('/datasets/get-csv-data', methods=['POST'])
+@validate_request_data(schema=GetCsvData)
+def get_csv_data():
+    """
+    Loads csv from given path
+
+    """
+    req = request.json
+
+    # Data path that the files will be read
+    data_path = os.path.join(DATA_PATH_RW, *req['path'])
+
+    if not os.path.isfile(data_path):
+        return error(f"Path does not correspond to a valid data file: {os.path.join(*req['path'])}"), 400
+
+    try:
+        df = dataset_manager.read_csv(data_path)
+        rows = df.shape[0]
+        df.fillna("NULL", inplace=True)
+        data_preview = df.iloc[0:30, :].to_dict('split')
+        data_preview.update({"samples": rows, "displays": 30})
+    except Exception as e:
+        return error(f"Can not read given data file please make sure the format "
+                     f"is one of csv, tsv or txt: {e}"), 400
+
+    return response(data_preview), 200

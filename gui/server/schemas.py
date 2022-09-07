@@ -1,6 +1,26 @@
-from flask import request
 import jsonschema
+from flask import request
 from jsonschema import Draft7Validator, validators
+
+# Constant validators settings
+datasetName = {'type': 'string', "minLength": 4, "maxLength": 128,
+               'errorMessages': {
+                   'minLength': 'Dataset name must have at least 4 character',
+                   'maxLength': 'Dataset name must be max 128 character'
+               }}
+
+datasetTags = {'type': 'array', "minItems": 1, "maxItems": 4,
+               'errorMessages': {
+                   'minItems': 'At least 1 tag should be provided',
+                   'maxItems': 'Tags can be max. 4',
+                   'type': 'Tags are in wrong format'
+               }}
+
+datasetDesc = {'type': 'string', "minLength": 4, "maxLength": 256,
+               'errorMessages': {
+                   'minLength': 'Description must have at least 4 character',
+                   'maxLength': 'Description must be max 256 character'
+               }}
 
 
 def extend_validator(validator_class):
@@ -63,7 +83,7 @@ class Validator:
 class JsonSchema(object):
 
     def __init__(self, schema, message: str = None):
-        """Schema class 
+        """Schema class
 
         Args:
             schema (dict): A dictionary represent the valid schema
@@ -95,7 +115,15 @@ class JsonSchema(object):
             # Raise custom error messages
             message = None
             if e.relative_schema_path[0] == 'required':
-                message = 'Please make sure all required fields has been filled'
+                if "requiredMessages" in self._schema:
+                    index = [i for i, val in enumerate(e.validator_value) if val in e.message][0]
+                    if e.validator_value[index] in self._schema["requiredMessages"]:
+                        message = self._schema["requiredMessages"][e.validator_value[index]]
+                    else:
+                        message = 'Please make sure all required fields have been filled'
+                else:
+                    message = 'Please make sure all required fields have been filled'
+
             elif e.relative_schema_path[0] == 'properties':
                 field = e.relative_schema_path[1]
                 reason = e.relative_schema_path[2]
@@ -103,7 +131,7 @@ class JsonSchema(object):
                 if field in self._schema['properties'] and \
                         'errorMessages' in self._schema['properties'][field] and \
                         reason in self._schema['properties'][field]['errorMessages']:
-                    message = self._schema['properties'][field]['errorMessages'][reason] % e.instance
+                    message = str(self._schema['properties'][field]['errorMessages'][reason]).format(e.instance)
 
             if message:
                 raise jsonschema.ValidationError(message)
@@ -122,6 +150,74 @@ class ListDatasetRequest(Validator):
     })
 
 
+class ListModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "sort_by": {'type': ['string', 'null']},
+             "select_status": {'type': 'string'},
+             "search": {'type': ['object', 'null'],
+                        'properties': {
+                            "by": {"type": "string"},
+                            "text": {"type": "string"}
+                        },
+                        "required": ["by", "text"]}
+
+         },
+         "required": []
+         },
+    )
+
+
+class ApproveRejectModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          },
+             "notes": {"type": ["string", "null"], "default": "No notes available"}
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class DeleteModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          }
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class ModelPreviewRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_path": {"type": "string",
+                            "minLength": 1,
+                            'errorMessages': {"minLength": "model_path must have at least one character"},
+
+                            },
+             "model_id": {"type": "string"},
+         },
+         "required": []
+         }
+    )
+
+
 class AddDataSetRequest(Validator):
     """ Json Schema for reqeust of adding new datasets """
 
@@ -129,30 +225,15 @@ class AddDataSetRequest(Validator):
     schema = JsonSchema({
         'type': 'object',
         'properties': {
-            'name': {'type': 'string', "minLength": 4, "maxLength": 128,
-                     'errorMessages': {
-                         'minLength': 'Dataset name must have at least 4 character',
-                         'maxLength': 'Dataset name must be max 128 character'
-                     }
-                     },
+            'name': datasetName,
             'path': {'type': 'array'},
-            'tags': {'type': 'array', "minItems": 1, "maxItems": 4,
-                     'errorMessages': {
-                         'minItems': 'At least 1 tag should be provided',
-                         'maxItems': 'Tags can be max. 4',
-                         'type': 'Tags are in wrong format'
-                     }
-                     },
+            'tags': datasetTags,
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}],
                      'errorMessages': {
-                        'oneOf': ' "%s" dataset type is not supported'
+                         'oneOf': ' "%s" dataset type is not supported'
                      }},
-            'desc': {'type': 'string', "minLength": 4, "maxLength": 256,
-                     'errorMessages': {
-                         'minLength': 'Description must have at least 4 character',
-                         'maxLength': 'Description must be max 256 character'
-                     }}
+            'desc': datasetDesc
         },
         'required': ['name', 'path', 'tags', 'desc', 'type'],
     }, message=None)
@@ -230,28 +311,250 @@ class AddDefaultDatasetRequest(Validator):
     type = 'json'
     schema = JsonSchema({
         'type': "object",
-        "properties": {"name": {'type': 'string',
-                                "default": 'mnist', "minLength": 4, "maxLength": 128,
-                                'errorMessages': {
-                                    'minLength': 'Dataset name must have at least 4 character',
-                                    'maxLength': 'Dataset name must be max 128 character'
-                                    }
-                                },
+        "properties": {"name": datasetName,
                        'path': {'type': 'array'},
-                       'tags': {'type': 'array', "minItems": 1, "maxItems": 4, 'default': ["#MNIST", "#dataset"],
-                                'errorMessages': {
-                                    'minItems': 'At least 1 tag should be provided',
-                                    'maxItems': 'Tags can be max. 4',
-                                    'type': 'Tags is in wrong format'
-                                }},
+                       'tags': datasetTags,
                        'type': {'type': 'string', 'default': "default",
                                 'oneOf': [{"enum": ['default']}]},
-                       'desc': {'type': 'string', "minLength": 4, "maxLength": 256, 'default' : "Default MNIST dataset",
-                                'errorMessages': {
-                                    'minLength': 'Description must have at least 4 character',
-                                    'maxLength': 'Description must be max 256 character'
-                                }}
+                       'desc': datasetDesc
 
                        },
         "required": []
     })
+
+
+class GetCsvData(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"path": {"type": "array"}},
+        "required": ["path"]
+    })
+
+
+class ValidateMedicalFolderReferenceCSV(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "reference_csv_path": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "CSV path should be given as an array"
+                },
+            },
+            "medical_folder_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path for MedicalFolder dataset should be given as an array."
+                },
+            },
+            "index_col": {
+                "type": "integer",
+                "errorMessage": {
+                    "type": "Index column should be an integer"}
+            }
+        },
+        "required": ["reference_csv_path", "medical_folder_root", "index_col"]
+    })
+
+
+class ValidateMedicalFolderRoot(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "medical_folder_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            }
+        },
+        "required": ["medical_folder_root"]
+    })
+
+
+class ValidateMedicalFolderAddRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "medical_folder_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            },
+            "reference_csv_path": {
+                "type": ["array", "null"],
+                "default": None,
+                "errorMessages": {
+                    "type": "Reference CSV path should be given as an array"
+                },
+            },
+            "index_col": {
+                "type": ["integer", "null"],
+                "default": None,
+                "errorMessage": {
+                    "type": "Index column should be declared as an integer"}
+            },
+            'name': datasetName,
+            'tags': datasetTags,
+            'desc': datasetDesc
+        },
+        "required": ["medical_folder_root", "name", "tags", "desc"]
+    })
+
+
+class ValidateLoginRequest(Validator):
+    type = "json"
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
+            },
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing'
+                         }},
+        },
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is required!',
+            'password': 'Password is required!'
+
+        }
+    })
+
+
+class ValidateUserFormRequest(Validator):
+    """ Json Schema for user registration and login requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
+            },
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing',
+                             'type': 'Please make sure password respects required format'
+                         }},
+            'confirm': {'type': 'string',
+                                 'minLength': 1,
+                                 'errorMessages': {
+                                     'minLength': 'Password is missing',
+                                     'type': 'Please make sure password confirmation corresponds required format'
+                                 }},
+            'name': {'type': 'string',
+                     'minLength': 1,
+                     'errorMessages': {
+                         'minLength': 'Name is missing'
+                     }
+
+                     },
+            'surname': {'type': 'string',
+                        'minLength': 1,
+                        'errorMessages': {
+                            'minLength': 'Surname is missing and it is required'
+                        }
+
+                        }
+        },
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is missing!',
+            'password': 'Password is missing!',
+            'name': 'Password is missing!',
+            'surname': 'Password is missing!',
+        }
+    })
+
+
+class ValidateUserRemoveRequest(Validator):
+    """ Json Schema for user registration and login requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for for to delete'
+                }
+            },
+        },
+        'required': ['user_id'],
+        'requiredMessages': {
+            'user_id': 'ID is required to remove user',
+        }
+    })
+
+
+class ValidateUserChangeRoleRequest(Validator):
+    """ Json Schema for changing user role"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for user'
+                }
+            },
+            'role': {
+                'type': 'integer',
+                'enum': [1, 2],
+                'errorMessages': {
+                    'enum': 'Invalid role'
+                }
+            },
+        },
+        'required': ['user_id', 'role'],
+        'requiredMessages': {
+            'user_id': 'ID is required to change role',
+            'role': 'User role is required to change user role',
+        }
+    })
+
+
+class ListUserRegistrationRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        "properties": {
+            "search": {'type': 'string'}
+        },
+        "required": []
+    })
+
+
+class ValidateAdminRequestAction(Validator):
+    """ Json Schema for administrator actions to handle registration requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'request_id': {
+                'type': 'string',
+                'description': 'id of the user request to validate',
+            }
+        },
+        'required': ['request_id'],
+    }, message=None)

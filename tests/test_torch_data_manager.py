@@ -88,7 +88,7 @@ class TestTorchDataManager(unittest.TestCase):
     def test_torch_data_manager_01_dataset(self):
         """ Testing dataset getter method """
 
-        result = self.torch_data_manager.dataset()
+        result = self.torch_data_manager.dataset
         self.assertEqual(result, self.dataset, 'dataset() returns un expected torch Dataset object')
 
     def test_torch_data_manager_02_split(self):

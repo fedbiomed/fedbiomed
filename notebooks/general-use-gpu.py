@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher GPU usage example
+# # Fed-BioMed Researcher GPU usage example
 
 # This example demonstrates using a Nvidia GPU for training a model.
 # 

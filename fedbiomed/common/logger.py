@@ -1,17 +1,39 @@
 """
 Global logger for fedbiomed
 
-Written above origin Logger class provided by python
+Written above origin Logger class provided by python.
 
-Contains following features:
-- provides a file handler
-- provides a JSON/MQTT handler
+Following features were added from to the original module:
+
+- provides a logger instance of FedLogger, which is also a singleton, so it can be used "as is"
+- provides a dedicated file handler
+- provides a JSON/MQTT handler: all messages with priority greater than error are sent to the MQQT handler
+(this permit to send error messages from a node to a researcher)
 - works on python scripts / ipython / notebook
-- manages handlers with a key. Default keys are 'CONSOLE', 'MQTT', 'FILE',
+- manages a dictionary of handlers. Default keys are 'CONSOLE', 'MQTT', 'FILE',
   but any key is allowed (only one handler by key)
 - allow changing log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
   import logging in caller's code) just as in the initial python logger
+
+**A typical usage is:**
+
+```python
+from fedbiomed.common.logger import logger
+
+logger.info("information message")
+```
+
+All methods of the original python logger are provided. To name a few:
+
+- logger.debug()
+- logger.info()
+- logger.warning()
+- logger.error()
+- logger.critical()
+
+Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the coding conventions used for logger
+(lowerCameCase)
 
 !!! info "Dependency issue"
     Please pay attention to not create dependency loop then importing other fedbiomed package
@@ -130,7 +152,7 @@ class _MqttHandler(logging.Handler):
             # verify the message content with Message validator
             _ = message.NodeMessages.reply_create(msg)
             self._mqtt.publish(self._topic, json.dumps(msg))
-        except Exception as e:  # pragma: no cover
+        except Exception:  # pragma: no cover
             # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher
             # (which was the purpose of the try block which failed)
             print(record.__dict__["asctime"],
@@ -140,7 +162,7 @@ class _MqttHandler(logging.Handler):
             raise FedbiomedLoggerError(_msg)
 
 
-class _FedLogger(metaclass=SingletonMeta):
+class FedLogger(metaclass=SingletonMeta):
     """Base class for the logger. it uses python logging module by composition (only log() method is overwritten)
 
     All methods from the logging module can be accessed through the _logger member of the class if necessary
@@ -395,4 +417,4 @@ class _FedLogger(metaclass=SingletonMeta):
 
 
 """Instantiation of the logger singleton"""
-logger = _FedLogger()
+logger = FedLogger()

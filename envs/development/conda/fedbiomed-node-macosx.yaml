@@ -38,5 +38,9 @@ dependencies:
       - persist-queue >=0.5.1,<0.6.0
       - pytorch-ignite >=0.4.4,<0.5.0
       - pandas >=1.2.3,<2.0.0
+      - openpyxl >= 3.0.9,<3.1
       - scikit-learn <= 0.24.2
       - python-minifier ==2.5.0
+#### Notebook-specific packages ####
+# This section contains packages that are needed only to run specific notebooks
+      - unet == 0.7.7

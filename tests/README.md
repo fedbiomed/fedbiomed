@@ -100,7 +100,7 @@ nosetests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
 coverage html
 ```
 
-and open the **cover/index.html** file in your favorite browser.
+and open the **htmlcov/index.html** file in your favorite browser.
 
 Remark: then using --cover-html instead of --cover-xml, the HTML report does not
 contains files which have not been tested, which leads to a over-estimation of
@@ -331,7 +331,7 @@ $ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
                                  -d ./tests/datasets/mnist.json
 ```
 
-This will run the first tutorial of fed-biomed with one calculation node.
+This will run the first tutorial of Fed-BioMed with one calculation node.
 
 
 #### monai notebook tutorial with 3 nodes

@@ -1,0 +1,54 @@
+.step {
+    display:flex;
+    align-items:center;
+    width: 100%;
+    margin: 10px 0px;
+}
+
+
+.step.notAllowed :global(.button),
+.step.notAllowed :global(a),
+.step.notAllowed :global(input),
+.step.notAllowed :global(button)  {
+    pointer-events: none
+}
+
+.step.notAllowed {
+    opacity: 0.5;
+    cursor:not-allowed;
+}
+
+.number{
+    width: 5%;
+    display: block;
+    text-align: center;
+}
+
+.number span {
+    width: 35px;
+    height: 35px;
+    background: var(--button-color);
+    color: #fff;
+    padding: 9px;
+    border-radius: 20px;
+    display: block;
+    margin: 0 auto;
+}
+
+.label {
+    font-weight: bold;
+}
+
+.content {
+    width: 95%;
+    border-left: 1px solid #eee;
+    padding: 0px;
+}
+
+.contentInner {
+    padding : 10px 10px;
+}
+
+.outlet {
+
+}

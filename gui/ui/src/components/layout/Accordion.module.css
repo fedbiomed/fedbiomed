@@ -1,0 +1,42 @@
+@import "../../assets/var.css";
+
+.wrapper {
+    display: block;
+    margin: 15px 0px;
+}
+
+.wrapperInner {
+    border: 1px solid #eee;
+    border-radius: 10px 10px 0px 0px;
+}
+
+.inner {
+    display: block;
+}
+
+
+.dropdownContent {
+    display: block;
+    max-height : 0px;
+    overflow:scroll;
+    transition: all 0.3s ease-in-out;
+}
+
+.dropdownLabel {
+    background: #eee;
+    padding: 15px;
+    border-radius: 10px 10px 0px 0px;
+    cursor:pointer;
+}
+
+.dropdownContentActive {
+    max-height : 350px;
+}
+
+.green {
+    background: var(--positive-color);
+}
+
+.red {
+    background: var(--attention-color);
+}

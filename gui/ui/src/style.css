@@ -2,6 +2,7 @@
   --error-color : #f44949;
   --primary-color: #003366;
   --secondary-color:#0099cc;
+
 }
 
 
@@ -56,39 +57,49 @@ hr {
 }
 
 .App .main-frame {
-  width: 80%;
+  width: calc(100vw - 250px);
   background-color: transparent;
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - 75px);
+  margin-top: 65px;
+  margin-left: 240px;
  
 }
 
 .App .main-side-bar {
-  width: 20%;
+  width: 240px;
+  position: fixed;
   /* background-color: #003366; */
   background-color: #fff;
   height: 100vh;
-  max-height: 100vh;
-  position: relative;
-  box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
-  -webkit-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
-  -moz-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
+  max-height: calc(100vh - 60px);
+  margin-top: 60px;
+  box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
+  -webkit-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
+  -moz-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
 }
 
 .App .main-frame .router-frame {
-  width : 100%;
-  height: calc(100vh - 60px);
-  max-height: calc(100vh - 60px);
+  width: 100%;
+  height: calc(100vh - 10px);
+  max-height: calc(100vh - 75px);
   overflow: hidden;
+  padding-top: 10px;
 }
 
 .App .main-frame .router-frame .inner {
-  padding: 0px 20px 0px 20px;
+  padding: 20px 20px 0px 20px;
   display: flex;
   flex-flow: column;
   position: relative;
-  height: calc(100vh - 80px);
-  overflow-y: scroll;
+  min-height: calc(100vh - 75px);
+  width: 90%;
+  margin: 0 auto;
+  background: #fff;
+  max-width: 1240px;
+  border-radius: 5px;
+  box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 }
 
 .router-frame .inner .frame-header {
@@ -103,7 +114,6 @@ hr {
 
 .router-frame .inner .frame-content {
   flex: 1 1 auto;
-  overflow-y: scroll;
   padding: 10px;
 }
 
@@ -126,70 +136,6 @@ hr {
     color: #fff;
 }
 
-/* Butons CSS Start----------------------------------------------------------------------------------*/
-.button {
-  display: flex;
-  align-items: center;
-  max-width: 150px;
-  background: #eee;
-  padding: 5px;
-  text-align: center;
-  justify-content: center;
-  border-radius: 5px;
-  cursor:pointer
-}
-
-.button div.icon , .button div.text {
-  text-align: center;
-  margin: 5px;  /* and that, will result in a 10px gap */
-}
-
-.button .icon {
-  width: 25px !important;
-}
-
-.button {
-  width: auto;
-  padding: 10px;
-  color: #fff;
-  background-color: #0b6881;
-  cursor: pointer;
-  margin: 5px;  
-  border-radius: 5px;
-}
-
-.button:hover {
-  background-color: #888;
-}
-
-.button.negative {
-  background-color: #da334f;
-}
-
-.button.negative:hover {
-  background-color: #d3586d;
-}
-
-
-.buttons-wrapper {
-  display: flex;
-}
-
-.buttons-wrapper.float-right {
-  justify-content: flex-end;
-}
-.select-sm-button {
-  padding: 5px 5px 5px 5px;
-  background: var(--primary-color);
-  color: #fff;
-  border-radius: 5px;
-  font-size:10px;
-  text-align: center;
-  }
-
-/* Butons CSS END----------------------------------------------------------------------------------*/
-
-
 /* Header CSS START ------------------------------------------------------------------------------------*/
 
 .header {
@@ -207,6 +153,20 @@ hr {
 /* Header CSS END ------------------------------------------------------------------------------------*/
 
 
+/* ----- Button */
+
+.select-sm-button {
+  padding: 5px 5px 5px 5px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 5px;
+  font-size:10px;
+  text-align: center;
+  }
+
+
+
+
 /* Side Bar Navigation -------------------------------------------------------------------------------*/
 
 .side-nav {
@@ -221,7 +181,7 @@ hr {
   display: flex;
   width: 100%;
   align-items: center;
-  background: #003366;
+  background: var(--button-color);
 }
 
 .side-nav .brand img {
@@ -525,107 +485,6 @@ table.repository-table tr td .name .icon{
   width: 25px;
 }
 
-/* Repository CSS Ends ---------------------------------------------------------------------------------*/
-
-
-/* Datasets CSS Starts =-----------------------------------------------------------------------------------*/
-
-table.datasets, table.data, table.info {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-table.datasets tr, table.data tr, table.info tr{
-  border-bottom: 1px solid #e6e4e4;
-  padding : 10px 0px;
-}
-
-table.datasets tr td, th{
-  text-align: left;
-  padding : 10px 10px;
-}
-
-table.datasets tr:hover {
-  background: #eee;
-  
-}
-table.datasets tr td .icon {
-  width: 100%;
-  text-align: center;
-  cursor:pointer
-}
-
-
-table.datasets tr td .icon{
-  width: 20px;
-}
-table.datasets tr td.center {
-  display: flex;
-  justify-content: center;
-}
-
-table.datasets tr td .icon  {
-  cursor:pointer
-}
-table.datasets tr td .icon.delete:hover  {
-  fill : red
-}
-
-table td .action-buttons {
-  display: flex;
-  justify-content: space-evenly;
-  align-items: center;
-  width: 100%;
-}
-
-div.tag {
-  display: inline-block;
-  width: auto;
-  padding:3px;
-  font-size: 12px;
-  background: #0099cc;
-  color:#fff;
-  border-radius: 3px;
-  margin: 3px;
-}
-
-
-table.data tr td, table.data tr th {
-  padding : 10px;
-  min-width: 100px;
-  max-width: 100px;
-  text-align: center;
-}
-
-table.data tbody tr:nth-child(1) {
-  border-bottom:3px solid var(--primary-color)
-}
-
-table.data tr th {
-  background-color: #eee;
-}
-
-table.info tr td{
-  padding : 10px;
-}
-
-table.info tr td.title{
-  background: #003366;
-  color:#fff
-}
-
-
-div.table {
-  width: 100%;
-  overflow-x: scroll;
-  margin: 10px 0px
-}
-
-
-
-
-
-
 /* Datasets CSS Ends =-----------------------------------------------------------------------------------*/
 
 
@@ -672,13 +531,18 @@ div.table {
 }
 
 .modal-inner .close {
-  right: 0px;
-  top: 0px;
+  right: 5px;
+  top: 4px;
   position: absolute;
   padding: 10px;
-  color: #888;
-  font-size: 15px;
+  font-size: 12px;
   cursor: pointer;
+  background: var(--button-color);
+  color: #fff;
+  border-radius: 20px;
+  width: 15px;
+  text-align: center;
+font-weight: bold;
 }
 
 .modal-overlay .modal-inner .modal-header{
@@ -687,8 +551,10 @@ overflow-y: scroll;
 }
 
 .modal-overlay .modal-inner .modal-content{
-flex: 1 1 auto;
-overflow-y: scroll;
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  display: flex;
+  flex-flow: column;
 }
 
 .modal-overlay .modal-inner .modal-footer{
@@ -710,7 +576,7 @@ justify-content: flex-start;
 
 .form-control {
   width: calc(100% - 40px);
-  margin: 20px 10px;
+  margin: 20px 0px;
 }
 
 .form-control.with-button {
@@ -874,7 +740,7 @@ textarea.input {
   padding: 20px;
       padding-left: 20px;
   border-radius: 10px;
-  padding-left: 35px;
+  padding-left: 45px;
   margin: 10px 0px 10px 0px;
 }
 
@@ -890,8 +756,8 @@ textarea.input {
     left: 10px;
     background: #fff;
     border-radius: 10px;
-    width: 15px;
-    height: 15px;
+    width: 25px;
+    height: 25px;
     padding: 5px;
     text-align: center;
     font-weight: bold;
@@ -957,7 +823,7 @@ a.fed-box-link{
 
 .loader-frame {
   display: none;
-  position: absolute;
+  position: fixed;
   top: 0px;
   right: 0px;
   left: 0px;
@@ -973,10 +839,11 @@ a.fed-box-link{
 }
 
 .lds-ring {
-  display: inline-block;
+  display: block;
   position: relative;
   width: 80px;
   height: 80px;
+  margin: 0 auto;
 }
 .lds-ring div {
   box-sizing: border-box;

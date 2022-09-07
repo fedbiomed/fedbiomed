@@ -11,7 +11,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
     
     return (dispatch, getState) => {
 
-        dispatch({type:'SET_LOADING', payload: true})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing local repository..."}})
         let files
         let folders
 
@@ -36,8 +36,8 @@ export  const getFilesFromRepository = (data, fresh = false) => {
                 let f = data.files.filter(file => file.type === 'file')
                 d.sort((a, b) => a.name.localeCompare(b.name))
                 f.sort((a, b) => a.name.localeCompare(b.name))
-                d.push(...f)
-                data.files = d
+                f.push(...d)
+                data.files = f
 
                 if (currentLevels.length === 0){
                     files[level] = data.files
@@ -71,7 +71,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
         }
 
         ).catch( (error) => {
-            dispatch({type:'SET_LOADING', payload: false})
+            dispatch({type:'SET_LOADING', payload: {status: false}})
             if(error.response){
                 dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
             }else{

@@ -15,7 +15,7 @@ from ._sklearn_data_manager import SkLearnDataManager
 
 
 class TorchDataManager(object):
-    """Wrapper for PyTorch Dataset to manage loading operations for test and train."""
+    """Wrapper for PyTorch Dataset to manage loading operations for validation and train."""
 
     def __init__(self, dataset: Dataset, **kwargs: dict):
         """Construct  of class
@@ -40,6 +40,7 @@ class TorchDataManager(object):
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
 
+    @property
     def dataset(self) -> Dataset:
         """Gets dataset.
 
@@ -49,10 +50,10 @@ class TorchDataManager(object):
         return self._dataset
 
     def subset_test(self) -> Subset:
-        """Gets test subset of the dataset.
+        """Gets validation subset of the dataset.
 
         Returns:
-            Test subset
+            Validation subset
         """
 
         return self._subset_test
@@ -75,16 +76,16 @@ class TorchDataManager(object):
         return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
 
     def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
-        """ Splitting PyTorch Dataset into train and test.
+        """ Splitting PyTorch Dataset into train and validation.
 
         Args:
-             test_ratio: Split ratio for testing set ratio. Rest of the samples will be used for training
+             test_ratio: Split ratio for validation set ratio. Rest of the samples will be used for training
         Raises:
             FedbiomedTorchDataManagerError: If the ratio is not in good format
 
         Returns:
              train_loader: DataLoader for training subset. `None` if the `test_ratio` is `1`
-             test_loader: DataLoader for testing subset. `None` if the `test_ratio` is `0`
+             test_loader: DataLoader for validation subset. `None` if the `test_ratio` is `0`
         """
 
         # Check the argument `ratio` is of type `float`
@@ -114,7 +115,7 @@ class TorchDataManager(object):
             raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                                                  f"{str(self._dataset)}, {str(e)}")
 
-        # Calculate number of samples for train and test subsets
+        # Calculate number of samples for train and validation subsets
         test_samples = math.floor(samples * test_ratio)
         train_samples = samples - test_samples
 
@@ -140,7 +141,7 @@ class TorchDataManager(object):
         return SkLearnDataManager(inputs=inputs, target=target)
 
     def _subset_loader(self, subset: Subset, **kwargs) -> Union[DataLoader, None]:
-        """Loads subset (train/test) partition of as pytorch DataLoader.
+        """Loads subset (train/validation) partition of as pytorch DataLoader.
 
         Args:
             subset: Subset as an instance of PyTorch's `Subset`

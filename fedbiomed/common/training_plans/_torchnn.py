@@ -17,7 +17,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
 from ._base_training_plan import BaseTrainingPlan
 
-from opacus import PrivacyEngine 
+from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
 
 
@@ -141,6 +141,35 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
+    def send_to_device(self,
+                       to_send: Union[torch.Tensor, list, tuple, dict],
+                       device: torch.device
+                       ):
+        """Send inputs to correct device for training.
+
+        Recursively traverses lists, tuples and dicts until it meets a torch Tensor, then sends the Tensor
+        to the specified device.
+
+        Args:
+            to_send: the data to be sent to the device.
+            device: the device to send the data to.
+
+        Raises:
+           FedbiomedTrainingPlanError: when to_send is not the correct type
+        """
+        if isinstance(to_send, torch.Tensor):
+            return to_send.to(device)
+        elif isinstance(to_send, dict):
+            return {key: self.send_to_device(val, device) for key, val in to_send.items()}
+        elif isinstance(to_send, tuple):
+            return tuple(self.send_to_device(d, device) for d in to_send)
+        elif isinstance(to_send, list):
+            return [self.send_to_device(d, device) for d in to_send]
+        else:
+            raise FedbiomedTrainingPlanError(f'{ErrorNumbers.FB310.value} cannot send data to device. '
+                                             f'Data must be a torch Tensor or a list, tuple or dict '
+                                             f'ultimately containing Tensors.')
+
     def training_step(self):
         """All subclasses must provide a training_step the purpose of this actual code is to detect that it
         has been provided
@@ -164,7 +193,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
-        # FIXME 2: remove parameters specific for testing specified in the
+        # FIXME 2: remove parameters specific for validation specified in the
         # training routine
         """Training routine procedure.
 
@@ -174,13 +203,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
         - a `training_step()` function defining how cost is computed. It should output model error for model
         backpropagation.
+        - a `training_step()` function defining how cost is computed. It should output loss values for backpropagation.
 
         Args:
             epochs: Number of epochs (complete pass on data).
             log_interval: Frequency of logging loss values during training.
             lr: Learning rate.
-            batch_maxnum: Equals number of data devided by batch_size, and taking the closest lower integer.
-            dry_run: Whether to stop once the first batch size of the first epoch of the first round is completed.
+            batch_maxnum: Maximum number of batches from the dataset (each containing `batch_size` samples)
+                used for training for each epoch. Remaining samples are ignored. Defaults to 0 (no batch
+                number limit).
+            dry_run: Whether to stop the training round once the first batch of the first epoch is completed.
             use_gpu: researcher requests to use GPU (or not) for training during this round (ie overload the object
                 default use_gpu value) if available on node and proposed by node Defaults to None (don't overload the
                 object default value)
@@ -206,7 +238,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             self.make_optimizer(lr)
 
         if self.dp_args:
-            # Add __preprocess_ldp as preprocess 
+            # Add __preprocess_ldp as preprocess
             self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
 
         # Run preprocess when everything is ready before the training
@@ -235,7 +267,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 batch_ = batch_idx + 1
 
                 self.train()  # model training
-                data, target = data.to(self.device), target.to(self.device)
+                data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
                 self.optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
@@ -259,19 +291,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     # To be used by the nodes to assess budget locally
                     eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.training_data_loader))
 
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
-                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    break
-
-                if batch_ % log_interval == 0:
+                if batch_ % log_interval == 0 or dry_run:
+                    batch_size = self.training_data_loader.batch_size
+                    num_samples_till_now = min(batch_*batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
-                        batch_idx * len(data),
+                        num_samples_till_now,
                         len(self.training_data_loader.dataset),
-                        100 * batch_idx / len(self.training_data_loader),
+                        100 * batch_ / len(self.training_data_loader),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -282,12 +309,19 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                    train=True,
                                                    num_batches=len(self.training_data_loader),
                                                    total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
+                                                   batch_samples=batch_size)
 
                     if dry_run:
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
+
+                # do not take into account more than batch_maxnum
+                # batches from the dataset
+                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
+                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -300,16 +334,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric_args: Dict[str, Any],
                         history_monitor: Any,
                         before_train: Union[bool, None] = None):
-        """Performs testing routine on testing partition of the dataset
+        """Performs validation routine on validation partition of the dataset
 
-        Testing routine can be run any time after train and test split is done. Method sends testing result
+        Validation routine can be run any time after train and validation split is done. Method sends validation result
         back to researcher component as real-time.
 
         Args:
-            metric: Metric that will be used for evaluation
+            metric: Metric that will be used for validation
             metric_args: The arguments for corresponding metric function.
                 Please see [`sklearn.metrics`][sklearn.metrics]
-            history_monitor: Real-time feed-back handler for evaluation results
+            history_monitor: Real-time feed-back handler for validation results
             before_train: Declares whether is performed before training model or not.
 
         Raises:
@@ -319,7 +353,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # TODO: Add preprocess option for testing_data_loader
 
         if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -327,7 +361,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         metric_controller = Metrics()
         tot_samples = len(self.testing_data_loader.dataset)
 
-        self.eval()  # pytorch switch for model evaluation
+        self.eval()  # pytorch switch for model validation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
@@ -348,7 +382,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
-                    # If custom evaluation step returns None
+                    # If custom validation step returns None
                     if m_value is None:
                         msg = ErrorNumbers.FB605.value + \
                             ": metric function returned None"
@@ -366,11 +400,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric = MetricTypes.ACCURACY
                         logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
                                     f"in the training arguments `: using default metric {metric.name}"
-                                    " for model evaluation")
+                                    " for model validation")
                     else:
                         logger.info(
                             f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                            " for model evaluation.")
+                            " for model validation.")
 
                     metric_name = metric.name
 
@@ -393,7 +427,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
-                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
+                logger.debug('Validation: Batch {} [{}/{}] | Metric[{}]: {}'.format(
                     str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
 
                 # Send scalar values via general/feedback topic
@@ -456,14 +490,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             logger.debug("running model.postprocess() method")
             post_params = self.postprocess(self.state_dict())  # Post process
             if self.dp_args:
-                return self.postprocess_dp(post_params) 
+                return self.postprocess_dp(post_params)
             return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
             if self.dp_args:
                 return self.postprocess_dp(self.state_dict())
-            else: 
+            else:
                 pass
 
         return self.state_dict()
@@ -507,10 +541,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         Postprocess of DP parameters implies:
         - If central DP is enabled, model's parameters are perturbed
              according to the provided DP parameters
-        - When the Opacus `PrivacyEngine` is attached to the model, 
-            parameters' names are modified by the addition of `_module.`. 
+        - When the Opacus `PrivacyEngine` is attached to the model,
+            parameters' names are modified by the addition of `_module.`.
             This modification should be undone before communicating to the master
-            for aggregation. This is needed in order to correctly perform 
+            for aggregation. This is needed in order to correctly perform
             download/upload of model's parameters in the following rounds
 
         Args:
@@ -526,7 +560,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.dp_args['type'] == 'central':
 
             sigma_CDP = deepcopy(self.dp_args['sigma_CDP'])
-            
+
             delta_params = {}
             perturbed_params = {}
             for name, param in params.items():
@@ -543,7 +577,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 delta_theta_tilde = deepcopy(delta_param)
                 delta_theta_tilde += sigma_CDP*self.dp_args['clip'] * torch.randn_like(delta_theta_tilde)
                 perturbed_params[key]= delta_theta_tilde + self.init_params[key]
-            
+
             params = deepcopy(perturbed_params )
 
         params_keys = list(params.keys())
@@ -553,11 +587,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 params[newkey] = params.pop(key)
 
         return params
-    
+
     def make_optimizer(self,lr: float):
         """
         Method to define the desired optimizer as class attribute `self.optimizer`.
-        
+
         The default optimizer for torch NN models is `torch.optim.Adam`.
         The user can overwrite this method to provide a custom optimizer.
 
@@ -601,10 +635,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def __preprocess_ldp(self, data_loader):
         """
         Method to enable DP training using Opacus.
-        
+
         This method is executed before starting the training epochs loop any time
         the DP training is enabled. DP training is done here by using the `Opacus`
-        `PrivacyEngine`. Further information are available in the 
+        `PrivacyEngine`. Further information are available in the
         [Opacus webpage](https://opacus.ai/api/privacy_engine.html)
 
         Args:
@@ -622,7 +656,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                                               noise_multiplier=self.dp_args.get('sigma'),
                                                                               max_grad_norm=self.dp_args.get('clip')
                                                                     )
-        
+
         return data_loader
 
 

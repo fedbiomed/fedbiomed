@@ -48,19 +48,19 @@ class MetricStore(dict):
                       metric: dict,
                       iter_: int) -> list[int]:
         """
-        Method adding iteration to MetricStore based on node, training/testing, round and metric.
+        Method adding iteration to MetricStore based on node, training/validation, round and metric.
 
         Args:
             node: The node id that metric value received from
-            train: Training status, If true metric value is for training, Otherwise for testing
-            test_on_global_updates: If True metric value is for testing on global updates. Otherwise,
-                for testing on local updates
+            train: Training status, If true metric value is for training, Otherwise for validation
+            test_on_global_updates: If True metric value is for validation on global updates. Otherwise,
+                for validation on local updates
             round_: The round that metric value has received at
             metric: Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
-            iter_: Iteration number for testing/training.
+            iter_: Iteration number for validation/training.
 
         Returns
-             List of cumulative iteration for each metric/evaluation result
+             List of cumulative iteration for each metric/validation result
         """
 
         if node not in self:
@@ -75,13 +75,13 @@ class MetricStore(dict):
             if metric_name not in self[node][for_]:
                 self._register_metric(node=node, for_=for_, metric_name=metric_name)
 
-            # FIXME: for now, if testing is done on global updates (before model local update)
+            # FIXME: for now, if validation is done on global updates (before model local update)
             # last testing metric value computed on global updates at last round is overwritten
             # by the first one computed at first round
             if round_ in self[node][for_][metric_name]:
 
                 # Each duplication means a new epoch for training, and it is not expected for
-                # testing part. Especially for `testing_on_global_updates`. If there is a duplication
+                # validation part. Especially for `testing_on_global_updates`. If there is a duplication
                 # last value should overwrite
                 duplicate = self._iter_duplication_status(round_=self[node][for_][metric_name][round_],
                                                           next_iter=iter_)
@@ -151,16 +151,16 @@ class MetricStore(dict):
 
         Adds the following fields to node entry:
         - training: loss values from training
-        - testing_global_updates: metric values and names from testing on global updates
-        - testing_local_updates: metric values and names from testing on local updates
+        - testing_global_updates: metric values and names from validation on global updates
+        - testing_local_updates: metric values and names from validation on local updates
 
         Args:
             node: Node id to register
         """
         self[node] = {
             "training": {},
-            "testing_global_updates": {},  # Testing before training
-            "testing_local_updates": {}  # Testing after training
+            "testing_global_updates": {},  # Validation before training
+            "testing_local_updates": {}  # Validation after training
         }
 
     def _register_metric(self, node: str, for_: str, metric_name: str):
@@ -179,14 +179,14 @@ class MetricStore(dict):
     @staticmethod
     def _cumulative_iteration(rounds: dict) -> int:
         """Calculates cumulative iteration for the received metric value. Cumulative iteration
-        should be calculated for each metric value received during training/testing to add it as next `step`
+        should be calculated for each metric value received during training/validation to add it as next `step`
         in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
 
         Args:
             rounds: The dictionary that includes all the rounds for a metric, node and the phase
 
         Returns:
-            int: cumulative iteration for the metric/evaluation result
+            int: cumulative iteration for the metric/validation result
         """
 
         cum_iteration = 0
@@ -299,7 +299,7 @@ class Monitor:
         if message['train'] is True:
             header = 'Training'
         else:
-            header = 'Testing On Global Updates' if message['test_on_global_updates'] else 'Testing On Local ' \
+            header = 'Validation On Global Updates' if message['test_on_global_updates'] else 'Validation On Local ' \
                                                                                            'Updates'
 
         metric_dict = message['metric']
@@ -314,7 +314,8 @@ class Monitor:
                     "\t\t\t\t\t ---------".format(header.upper(),
                                                   message['node_id'],
                                                   '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
-                                                  message['iteration'] * message['batch_samples'],
+                                                  min(message['iteration'] * message['batch_samples'],
+                                                      message['total_samples']),
                                                   message['total_samples'],
                                                   100 * message['iteration'] / message['num_batches'],
                                                   metric_result))

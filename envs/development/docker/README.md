@@ -1,4 +1,4 @@
-# Fedbiomed network
+# Fed-BioMed network
 
 ## Introduction
 

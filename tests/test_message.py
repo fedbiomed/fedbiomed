@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import sys
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -38,13 +38,15 @@ class TestMessage(unittest.TestCase):
             message.AddScalarReply,
             message.LogMessage,
             message.ErrorMessage,
+            message.ApprovalReply,
             message.SearchRequest,
             message.PingRequest,
             message.TrainRequest,
             message.ListReply,
             message.ListRequest,
             message.ModelStatusReply,
-            message.ModelStatusRequest
+            message.ModelStatusRequest,
+            message.ApprovalRequest,
         ]
 
         # test minimal python (only affectation) to insure
@@ -872,7 +874,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -886,7 +888,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -900,7 +902,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -914,7 +916,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved='True',
+            status=True,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -928,7 +930,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation='True',
-            is_approved=True,
+            status='None',
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -942,7 +944,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url=123123,
             command=True)
@@ -956,7 +958,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt')
 
         self.check_class_args(
@@ -965,7 +967,7 @@ class TestMessage(unittest.TestCase):
 
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt')
 
     def test_message_08_log(self):
@@ -1920,7 +1922,7 @@ class TestMessage(unittest.TestCase):
             'job_id': 'titi',
             'success': True,
             'approval_obligation': True,
-            'is_approved': True,
+            'status': ModelApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
             'model_url': 'url',
             'command': 'model-status'
@@ -1944,6 +1946,228 @@ class TestMessage(unittest.TestCase):
 
         r = message.NodeMessages.request_create(params_request)
         self.assertIsInstance(r, message.ModelStatusRequest)
+
+
+    def test_message_25_approval_request(self):
+        """Test the approval request message fabrication/validation"""
+
+        # well formatted message
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=True,
+
+            researcher_id='toto',
+            description='this is a description string',
+            sequence=1234,
+            model_url='http://dev.null',
+            command='do_it')
+
+        # all these test should fail (bad number of args arguments or bad type)
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+        )
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            description='this is a description string',
+            sequence=1234,
+            model_url='http://dev.null',
+            command='do_it',
+            unknown_extra_arg='whatever'
+        )
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id=False,
+            description='this is a description string',
+            sequence=1234,
+            model_url='http://dev.null',
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            description=False,
+            sequence=1234,
+            model_url='http://dev.null',
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            description='this is a description string',
+            sequence="not an integer",
+            model_url='http://dev.null',
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            description='this is a description string',
+            sequence=1234,
+            model_url=False,
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            description='this is a description string',
+            sequence=1234,
+            model_url='http://dev.null',
+            command=None)
+
+
+    def test_message_26_approval_reply(self):
+        """Test the approval reply message fabrication/validation"""
+        # well formatted message
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=True,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success=True,
+            command='do_it')
+
+        # all these test should fail (bad number of args arguments or bad type)
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+        )
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success=True,
+            command='do_it',
+            extra_arg='this will break'
+        )
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id=False,
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success=True,
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id=False,
+            sequence=100,
+            status=200,
+            success=True,
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence="not an int",
+            status=200,
+            success=True,
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status="not an int",
+            success=True,
+            command='do_it')
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success=True,
+            command=False)
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success="not a bool",
+            command='do_it')
+
+
+
+    def test_message_27_approval_protocol(self):
+        """Test the building of the message from the command string for Approval
+        """
+        params_request = {
+            "researcher_id": 'toto',
+            "description": 'this string describes the sent object',
+            "sequence": 12345,
+            "model_url": "http://dev.null",
+            "command": "approval"
+
+        }
+        r = message.ResearcherMessages.request_create(params_request)
+        self.assertIsInstance(r, message.ApprovalRequest)
+
+        r = message.NodeMessages.request_create(params_request)
+        self.assertIsInstance(r, message.ApprovalRequest)
+
+        params_reply = {
+            "researcher_id": 'toto',
+            "node_id": 'titi',
+            "sequence": 12345,
+            "status": 200,
+            "success": True,
+            "command": "approval"
+
+        }
+        r = message.ResearcherMessages.reply_create(params_reply)
+        self.assertIsInstance(r, message.ApprovalReply)
+
+        r = message.NodeMessages.reply_create(params_reply)
+        self.assertIsInstance(r, message.ApprovalReply)
+
 
 
 if __name__ == '__main__':  # pragma: no cover

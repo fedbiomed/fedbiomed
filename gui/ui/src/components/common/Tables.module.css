@@ -1,0 +1,211 @@
+.table_wrapper {
+    position: relative;
+    width: 100%;
+    overflow-x: scroll;
+    -webkit-box-shadow: inset -10px -7px 25px -15px #000000;
+    box-shadow: inset -10px -7px 25px -15px #000000;
+    margin: 20px 0px;
+}
+
+.wrapper_inner {
+    padding:0px;
+}
+
+
+.table_wrapper table {
+    width: 100%;
+    border-collapse: separate;
+    white-space: nowrap;
+    border-spacing: 0;
+}
+
+.table_wrapper table tr {
+    border-bottom: 1px solid #eee;
+    height: 40px;
+}
+
+.table_wrapper table th, .table_wrapper table td {
+    padding: 10px;
+}
+
+
+.dataTable td{
+    min-width: 120px;
+    max-width: 150px;
+}
+
+
+.dataTable thead {
+    position: sticky;
+    border-bottom: 1px solid #333;
+    top: 0;
+}
+
+.stickyHead {
+    position: sticky;
+    border-bottom: 1px solid #333;
+    top: 0;
+}
+
+.table_wrapper table th {
+    background: #eee;
+    border-bottom: 2px solid #333;
+    position: relative;
+    text-align: center;
+}
+
+.table_wrapper table tbody tr:nth-child(1) {
+    border-bottom:3px solid #888
+}
+
+th.activeCol {
+    background: #95afc0 !important;
+}
+
+.activeCol {
+    background: #95afc0;
+    color: #fff;
+    border-top: 3px solid #22a6b3 !important;
+    border-bottom: 0px solid #22a6b3 !important;
+    border-left: 3px solid #22a6b3 !important;
+    border-right: 3px solid #22a6b3 !important;
+    cursor: pointer;
+}
+
+.selectedLabel{
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    background: #6ab04c;
+    border-radius: 3px;
+    padding: 5px;
+}
+
+.displayNote {
+    margin-top: -20px;
+    margin-right: 12px;
+    display: block;
+    float: right;
+    color: #888;
+}
+
+
+
+.entryTable, .dataTable, .tableInfo {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.entryTable tr, .dataTable tr, .tableInfo tr{
+  border-bottom: 1px solid #e6e4e4;
+  padding : 10px 0px;
+}
+
+.entryTable tr td, th{
+  text-align: left;
+  padding : 10px 10px;
+  min-width: 100px;
+  max-width: 150px;
+}
+
+.entryTable thead td {
+    font-weight : bold;
+    background : #eee;
+}
+
+.entryTable tr:hover {
+  background: #eee;
+
+}
+.entryTable tr td :global(.icon) {
+  width: 100%;
+  text-align: center;
+  cursor:pointer
+}
+
+.entryTable tr td :global(.icon){
+  width: 20px;
+}
+.entryTable tr :global(td.center) {
+  display: flex;
+  justify-content: center;
+}
+
+.entryTable tr td :global(.icon)  {
+  cursor:pointer
+}
+
+.entryTable tr td :global(.icon.delete:hover)  {
+  fill : red
+}
+
+.entryTable :global(div.tag) {
+  display: inline-block;
+  width: auto;
+  padding:3px;
+  font-size: 12px;
+  background: #0099cc;
+  color:#fff;
+  border-radius: 3px;
+  margin: 3px;
+}
+
+
+.dataTable tbody::-webkit-scrollbar {
+  margin-left:-10px;
+  width: 10px;               /* width of the entire scrollbar */
+}
+
+.dataTable tbody::-webkit-scrollbar-track {
+  background: orange;        /* color of the tracking area */
+}
+
+.dataTable tbody::-webkit-scrollbar-thumb {
+  background-color: blue;    /* color of the scroll thumb */
+  border-radius: 20px;       /* roundness of the scroll thumb */
+  border: 3px solid orange;  /* creates padding around scroll thumb */
+}
+
+
+
+table td :global(.action-buttons) {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 100%;
+}
+
+
+.dataTable tr td, .dataTable tr th {
+  padding : 10px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center;
+}
+
+.dataTable thead tr {
+  border-bottom:3px solid var(--primary-color)
+}
+
+.dataTable thead td {
+    background: #eee;
+    font-weight: bold;
+    border-bottom: 2px solid #333;
+    position: relative;
+    text-align: center;
+}
+
+.infoTable tr td{
+  padding : 10px;
+}
+
+.infoTable tr :global(td.title){
+  background: var(--button-color);
+  color:#fff
+}
+
+:global(div.table) {
+  width: 100%;
+  overflow-x: scroll;
+  margin: 10px 0px
+}

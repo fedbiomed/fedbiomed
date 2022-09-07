@@ -1,7 +1,40 @@
 '''
-al environment/configuration variables are provided by the
-**Environ** dictionnary. **Environ** is a singleton class,
-meaning that only an instance of Environ is available.
+All environment/configuration variables are provided by the
+**Environ** dictionary.
+
+**Environ** is a singleton class, meaning that only an instance of Environ is available.
+
+Descriptions of global/environment variables
+
+Researcher Global Variables:
+
+- RESEARCHER_ID           : id of the researcher
+- ID                      : equals to researcher id
+- TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
+- EXPERIMENTS_DIR         : folder for saving experiments
+- MESSAGES_QUEUE_DIR      : Path for writing queue files
+
+Nodes Global Variables:
+
+- NODE_ID                 : id of the node
+- ID                      : equals to node id
+- MESSAGES_QUEUE_DIR      : Path for queues
+- DB_PATH                 : TinyDB database path where datasets/models/loading plans are saved
+- DEFAULT_MODELS_DIR      : Path of directory for storing default models
+- MODEL_DIR               : Path of directory for storing registered models
+- MODEL_APPROVAL          : True if the node enables model approval
+- ALLOW_DEFAULT_MODELS    : True if the node enables default models for model approval
+
+Common Global Variables:
+
+- COMPONENT_TYPE          : Node or Researcher
+- CONFIG_DIR              : Configuration file path
+- VAR_DIR                 : Var directory of Fed-BioMed
+- CACHE_DIR               : Cache directory of Fed-BioMed
+- TMP_DIR                 : Temporary directory
+- MQTT_BROKER             : MQTT broker IP address
+- MQTT_BROKER_PORT        : MQTT broker port
+- UPLOADS_URL             : Upload URL for file repository
 '''
 
 import configparser
@@ -15,34 +48,6 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.constants import ComponentType, HashingAlgorithms
-
-"""
-Descriptions of global/environment variables
-
-Resarcher Global Variables:
-    RESEARCHER_ID           : id of the researcher
-    ID                      : equals to researcher id
-    TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
-    EXPERIMENTS_DIR         : folder for saving experiments
-    MESSAGES_QUEUE_DIR      : Path for writing queue files
-
-Nodes Global Variables:
-    NODE_ID                 : id of the node
-    ID                      : equals to node id
-    MESSAGES_QUEUE_DIR      : Path for queues
-    DB_PATH                 : TinyDB database path where datasets are saved
-    MODEL_DB_PATH           : Database where registered model are saved
-
-Common Global Variables:
-    COMPONENT_TYPE          : Node or Researcher
-    CONFIG_DIR              : Configuration file path
-    VAR_DIR                 : Var directory of Fed-Biomed
-    CACHE_DIR               : Cache directory of Fed-BioMed
-    TMP_DIR                 : Temporary directory
-    MQTT_BROKER             : MQTT broker IP address
-    MQTT_BROKER_PORT        : MQTT broker port
-    UPLOADS_URL             : Upload URL for file repository
-"""
 
 
 class Environ(metaclass=SingletonMeta):
@@ -93,7 +98,7 @@ class Environ(metaclass=SingletonMeta):
             FedbiomedEnvironError: If the key does not exist
         """
         if key not in self._values:
-            _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
+            _msg = ErrorNumbers.FB600.value + ": config file does not contain the key: " + str(key)
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
         return self._values[key]
@@ -127,7 +132,7 @@ class Environ(metaclass=SingletonMeta):
              FedbiomedEnvironError: In case of error (OS errors usually)
         """
 
-        # guess the fedbiomed package topir if no rootdir is given
+        # guess the fedbiomed package top dir if no root dir is given
         if rootdir is None:
             # locate the top dir from the file location (got up twice)
             ROOT_DIR = os.path.abspath(
@@ -253,6 +258,13 @@ class Environ(metaclass=SingletonMeta):
         self._values['DEFAULT_MODELS_DIR'] = os.path.join(ROOT_DIR,
                                                           'envs', 'common', 'default_models')
 
+        # default diectory for saving model approved / waiting for approval / rejected
+        self._values['MODEL_DIR'] = os.path.join(VAR_DIR, f'model_{NODE_ID}')
+        # FIXME: we may want to change that
+        # Catch exceptions
+        if not os.path.isdir(self._values['MODEL_DIR'] ):
+            # create model directry 
+            os.mkdir(self._values['MODEL_DIR'])
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
         except configparser.Error:
@@ -293,6 +305,8 @@ class Environ(metaclass=SingletonMeta):
             _msg = ErrorNumbers.FB600.value + ": unknown hashing algorithm: " + str(hashing_algorithm)
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
+
+        self._values['EDITOR'] = os.getenv('EDITOR')
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
         # https://github.com/pytorch/vision/issues/1938
@@ -393,7 +407,7 @@ class Environ(metaclass=SingletonMeta):
         }
 
         # Security variables
-        # Default hashing algorithim is SHA256
+        # Default hashing algorithm is SHA256
         allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS', True)
         model_approval = os.getenv('ENABLE_MODEL_APPROVAL', False)
 

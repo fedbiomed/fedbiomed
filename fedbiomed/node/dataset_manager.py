@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Union, List, Any
+from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -22,8 +22,9 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
 
 from fedbiomed.common.logger import logger
 
@@ -37,8 +38,13 @@ class DatasetManager:
     def __init__(self):
         """Constructor of the class.
         """
-        self.db = TinyDB(environ['DB_PATH'])
-        self.database = Query()
+        self._db = TinyDB(environ['DB_PATH'])
+        self._database = Query()
+
+        # don't use DB read cache to ensure coherence
+        # (eg when mixing CLI commands with a GUI session)
+        self._dataset_table = self._db.table(name='Datasets', cache_size=0)
+        self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
         """Searches for data with given dataset_id.
@@ -51,10 +57,27 @@ class DatasetManager:
                 containing all the fields describing the matching datasets
                 stored in Tiny database.
         """
-        self.db.clear_cache()
-        result = self.db.get(self.database.dataset_id == dataset_id)
+        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
 
         return result
+
+    def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
+        """Search for a DataLoadingPlan with a given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataLoadingPlan IDs always start with 'dlp_' and should be unique in the database.
+
+        Args:
+            dlp_id: (str) the DataLoadingPlan id
+
+        Returns:
+            A dictionary with the DataLoadingPlan metadata corresponding to the given id.
+        """
+        dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
+        return dlp_metadata, self._dlp_table.search(
+            self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -65,8 +88,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        self.db.clear_cache()
-        return self.db.search(self.database.tags.all(tags))
+        return self._dataset_table.search(self._database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -247,9 +269,10 @@ class DatasetManager:
             dataset = datasets.ImageFolder(folder_path,
                                            transform=transforms.ToTensor())
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+            _msg = ErrorNumbers.FB315.value +\
+                "\nThe following error was raised while loading dataset from the selected" \
                 " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
-                   and doesn't have any empty class folder"
+                and doesn't have any empty class folder"
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
@@ -275,7 +298,9 @@ class DatasetManager:
                      tags: Union[tuple, list],
                      description: str,
                      path: str,
-                     dataset_id: str = None):
+                     dataset_id: str = None,
+                     dataset_parameters : Optional[dict] = None,
+                     data_loading_plan: Optional[dict] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -289,6 +314,7 @@ class DatasetManager:
 
         Raises:
             NotImplementedError: `data_type` is not supported.
+            FedbiomedDatasetManagerError: path does not exist or dataset was not saved properly.
         """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
@@ -297,7 +323,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -323,13 +349,45 @@ class DatasetManager:
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
 
+        elif data_type == 'medical-folder':
+            if not os.path.isdir(path):
+                raise FedbiomedDatasetManagerError(f'Folder {path} for Medical Folder Dataset does not exist.')
+
+            if "tabular_file" not in dataset_parameters:
+                logger.info("Medical Folder Dataset will be loaded without reference/demographics data.")
+            else:
+                if not os.path.isfile(dataset_parameters['tabular_file']):
+                    raise FedbiomedDatasetManagerError(f'Path {dataset_parameters["tabular_file"]} does not '
+                                                       f'correspond a file.')
+                if "index_col" not in dataset_parameters:
+                    raise FedbiomedDatasetManagerError('Index column is not provided')
+
+            try:
+                # load using the MedicalFolderController to ensure all available modalities are inspected
+                controller = MedicalFolderController(root=path)
+                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
+                                                        index_col=dataset_parameters.get('index_col', None))
+            except FedbiomedError as e:
+                raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
+            else:
+                shape = dataset.shape()
+
+            # try to read one sample and raise if it doesn't work
+            try:
+                _ = dataset.get_nontransformed_item(0)
+            except Exception as e:
+                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and '
+                                                   f'cannot be read. {e}')
+
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
-                            path=path, dataset_id=dataset_id, dtypes=dtypes)
-        self.db.insert(new_database)
+                            path=path, dataset_id=dataset_id, dtypes=dtypes,
+                            dataset_parameters=dataset_parameters)
+        new_database = self.save_data_loading_plan(new_database, data_loading_plan)
+        self._dataset_table.insert(new_database)
 
         return dataset_id
 
@@ -342,7 +400,7 @@ class DatasetManager:
             tags: Dataset description tags.
         """
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
-        self.db.remove(doc_ids=doc_ids)
+        self._dataset_table.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
                              tags: Union[tuple, list],
@@ -353,7 +411,7 @@ class DatasetManager:
             tags: Tags describing the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
         """
-        self.db.update(modified_dataset, self.database.tags.all(tags))
+        self._dataset_table.update(modified_dataset, self._database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
@@ -364,8 +422,7 @@ class DatasetManager:
         Returns:
             All datasets in the node's database.
         """
-        self.db.clear_cache()
-        my_data = self.db.all()
+        my_data = self._dataset_table.all()
 
         # Do not display dtypes
         for doc in my_data:
@@ -446,3 +503,60 @@ class DatasetManager:
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
+
+    def save_data_loading_plan(self,
+                               current_dataset_metadata: dict,
+                               data_loading_plan: Optional[DataLoadingPlan]
+                               ) -> dict:
+        """Save a DataLoadingPlan to the database.
+
+        This function saves a DataLoadingPlan to the database, and updates the dataset metadata with the correct ID
+        linking the dataset to the DataLoadingPlan.
+
+        If `data_loading_plan` is None, then the function will immediately return its `current_dataset_metadata`
+        argument unchanged.
+
+        Args:
+            current_dataset_metadata: the dictionary of metadata of the dataset that this data_loading_plan was
+                attached to
+            data_loading_plan: the DataLoadingPlan to be saved, or None.
+
+        Returns:
+            The `current_dataset_metadata` argument, optionally enriched with the DataLoadingPlan ID if a save operation
+            was indeed performed.
+        """
+        if data_loading_plan is None:
+            return current_dataset_metadata
+
+        dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
+        self._dlp_table.insert(dlp_metadata)
+        self._dlp_table.insert_multiple(loading_blocks_metadata)
+        current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
+        return current_dataset_metadata
+
+    @staticmethod
+    def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
+        """Remove privacy-sensitive information, to prepare for sharing with a researcher.
+
+        Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
+        prevent sharing this information with a researcher through a reply message.
+
+        Args:
+            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
+                should be in the format af key-value pairs, such as e.g. a dict.
+        Returns:
+             the updated iterable of metadata information objects without privacy-sensitive information
+        """
+        for d in database_metadata:
+            try:
+                # common obfuscations
+                d.pop('path', None)
+                # obfuscations specific for each data type
+                if 'data_type' in d:
+                    if d['data_type'] == 'medical-folder':
+                        if 'dataset_parameters' in d:
+                            d['dataset_parameters'].pop('tabular_file', None)
+            except AttributeError:
+                raise FedbiomedDatasetManagerError(f"Object of type {type(d)} does not support pop or getitem method "
+                                                   f"in obfuscate_private_information.")
+        return database_metadata

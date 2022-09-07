@@ -3,6 +3,15 @@
 # - may need update for properly compiling boringtun
 FROM nvidia/cuda:11.5.0-base-ubuntu20.04 as builder
 
+# install wget though nvidia cuda linux gpg key is obsolete
+RUN apt-key del 7fa2af80 && apt-get update || true && apt install -y wget
+# update nvidia cuda linux gpg repository key
+# https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+    dpkg -i cuda-keyring_1.0-1_all.deb && \
+    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda\/repos/d' /etc/apt/sources.list && \
+    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda\/repos/d' /etc/apt/sources.list.d/*
+
 RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
@@ -21,6 +30,15 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
 # docker base image for VPN server, Fed-BioMed node and researcher
 # - need proper python version for Fed-BioMed
 FROM nvidia/cuda:11.5.0-base-ubuntu20.04
+
+# install wget though nvidia cuda linux gpg key is obsolete
+RUN apt-key del 7fa2af80 && apt-get update || true && apt install -y wget
+# update nvidia cuda linux gpg repository key
+# https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+    dpkg -i cuda-keyring_1.0-1_all.deb && \
+    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda\/repos/d' /etc/apt/sources.list && \
+    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda\/repos/d' /etc/apt/sources.list.d/*
 
 RUN apt-get update && \
     apt-get install -y python3.9-full && \

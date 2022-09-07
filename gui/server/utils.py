@@ -1,12 +1,21 @@
-import os
-import shutil
-import datetime
 import configparser
-from cache import RepositoryCache
-from flask import jsonify, request
+import datetime
+import os
 from functools import wraps
+from hashlib import sha512
+from flask import jsonify, request
+
+from cache import RepositoryCache
 from schemas import Validator
 
+
+def set_password_hash(password: str) -> str:
+    """ Method for setting password hash 
+    Args: 
+
+        password (str): Password of the user
+    """
+    return sha512(password.encode('utf-8')).hexdigest()
 
 def get_node_id(config_file: str):
     """ This method parse given config file and returns node_id
@@ -50,7 +59,7 @@ def error(msg: str):
 
 def success(msg: str):
     """ Function that returns jsonfied success result
-        with a message, it is used for API enpoints  
+        with a message, it is used for API endpoints
     Args:
 
         msg     (str): Response message for successful request.
@@ -176,6 +185,7 @@ def get_disk_usage(path: str):
     """
 
     size = 0
+
     if os.path.isfile(path):
         try:
             size = os.path.getsize(path)
@@ -183,8 +193,8 @@ def get_disk_usage(path: str):
             pass
     elif os.path.isdir(path):
         try:
-            for path, dirs, files in os.walk(path):
-                for f in files:
+            for index, (path, dirs, files) in enumerate(os.walk(path)):
+                for i, f in enumerate(files):
                     fp = os.path.join(path, f)
                     size += os.path.getsize(fp)
         except:
@@ -205,4 +215,7 @@ def parse_size(size):
         if size < 1024.0:
             return formatter % (size, unit)
         size /= 1024.0
+
     return formatter % (size, 'BB')
+
+

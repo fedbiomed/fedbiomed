@@ -1,0 +1,17 @@
+/**
+Global CSS variables
+ */
+
+:root{
+    --header-font-color: #333;
+    --error-color : #f44949;
+    --primary-color: #003366;
+    --dark-fedbiomed: #003366;
+    --hover-font-color: #fff;
+    --bold-font-weight: 600;
+    --button-color: #0b6881;
+    --secondary-color: #d4eef7;
+    --positive-color:#27ae60;
+    --attention-color: #fa983a;
+    --negative-color: #da334f;
+}

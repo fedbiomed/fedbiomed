@@ -4,7 +4,8 @@ const resultState = {
     success : false,
     message : null,
     show : false,
-    loading: false,
+    loading:  false,
+    text: ""
 
 }
 export const resultReducer = ( state = resultState, action) => {
@@ -13,7 +14,9 @@ export const resultReducer = ( state = resultState, action) => {
         case "SET_LOADING":
             return {
                 ...state,
-                loading: action.payload
+                loading: action.payload.status,
+                text : action.payload.text ? action.payload.text : ""
+
             }
         case "ERROR_MODAL":
             return {
@@ -261,3 +264,25 @@ export const datasetPreviewReducer = (state = initialStateDataSetPreview, action
             return state
     }   
 }
+
+
+//----------------------------------------------------------
+// changing password
+
+// const initialPasswordState = {
+//     new_pwd:"",
+//     error: false,
+//     message: ""
+// }
+
+
+// export const setNewPasswordWindow = (state = initialPasswordState, action) => {
+//     switch(action.type){
+//         case 'SETTING_PWD':
+//             return {
+//                 ...state,
+
+//             }
+
+//     }
+// }
