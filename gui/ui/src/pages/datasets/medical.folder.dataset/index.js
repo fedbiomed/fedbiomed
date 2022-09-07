@@ -174,7 +174,7 @@ export class Index extends React.Component {
                        </CheckBox>
                         { !this.props.ignore_reference_csv ? (
                              <FileBrowser
-                                folderPath = {this.props.medicalFolderDataset.reference_csv ? this.props.medicalFolderDataset.reference_csv.path : null}
+                                folderPath = {this.props.medicalFolderDataset.reference_csv ? this.props.medicalFolderDataset.reference_csv.path : []}
                                 onSelect = {this.setReferenceCSV}
                                 onlyExtensions = {[".csv"]}
                                 buttonText = "Select Data File"

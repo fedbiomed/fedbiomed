@@ -57,39 +57,48 @@ hr {
 }
 
 .App .main-frame {
-  width: 80%;
+  width: calc(100vw - 250px);
   background-color: transparent;
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - 75px);
+  margin-top: 65px;
+  margin-left: 240px;
  
 }
 
 .App .main-side-bar {
-  width: 20%;
+  width: 240px;
+  position: fixed;
   /* background-color: #003366; */
   background-color: #fff;
   height: 100vh;
-  max-height: 100vh;
-  position: relative;
-  box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
-  -webkit-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
-  -moz-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
+  max-height: calc(100vh - 60px);
+  margin-top: 60px;
+  box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
+  -webkit-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
+  -moz-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.75);
 }
 
 .App .main-frame .router-frame {
-  width : 100%;
-  height: 100vh;
-  max-height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  height: calc(100vh - 10px);
+  max-height: calc(100vh - 75px);
+  padding-top: 10px;
 }
 
 .App .main-frame .router-frame .inner {
-  padding: 0px 20px 0px 20px;
+  padding: 20px 20px 0px 20px;
   display: flex;
   flex-flow: column;
   position: relative;
-  height: 100vh;
-  overflow-y: scroll;
+  min-height: calc(100vh - 75px);
+  width: 90%;
+  margin: 0 auto;
+  background: #fff;
+  max-width: 1240px;
+  border-radius: 5px;
+  box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 }
 
 .router-frame .inner .frame-header {
@@ -104,7 +113,6 @@ hr {
 
 .router-frame .inner .frame-content {
   flex: 1 1 auto;
-  overflow-y: scroll;
   padding: 10px;
 }
 
@@ -484,7 +492,7 @@ table.repository-table tr td .name .icon{
 .modal-overlay {
   position: fixed;
   display:flex;
-  z-index: 2;
+  z-index: 5;
   justify-content: center;
   align-items: center;
   top: 0px;
@@ -748,8 +756,8 @@ textarea.input {
     left: 10px;
     background: #fff;
     border-radius: 10px;
-    width: 15px;
-    height: 15px;
+    width: 25px;
+    height: 25px;
     padding: 5px;
     text-align: center;
     font-weight: bold;

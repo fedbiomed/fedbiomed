@@ -1,15 +1,11 @@
 import os
-import uuid
 import re
 
-from cache import cached
-from flask import jsonify, request, g
-from db import database
-from . import api
 from app import app
+from cache import cached
+from db import node_database
+from flask import request, g
 from middlewares import middleware, medical_folder_dataset, common
-
-from utils import success, error, validate_json, validate_request_data, response
 from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
     ValidateSubjectsHasAllModalities, \
@@ -17,10 +13,13 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateDataLoadingPlanAddRequest, \
     ValidateDataLoadingPlanDeleteRequest, \
     PreviewDatasetRequest
+from utils import error, validate_request_data, response
 
 from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlockTypes
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
+
 dataset_manager = DatasetManager()
 
 # Medical Folder Controller
@@ -29,9 +28,9 @@ mf_controller = MedicalFolderController()
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
-# Database table (datasets table of TinyDB) and query object
-table = database.db().table_datasets()
-query = database.query()
+# Database table (default datasets table of TinyDB) and query object
+table = node_database.table_datasets()
+query = node_database.query()
 
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
@@ -81,7 +80,6 @@ def add_medical_folder_dataset():
         reference_csv = os.path.join(app.config['DATA_PATH_SAVE'], *req["reference_csv_path"])
         dataset_parameters = {"index_col": req["index_col"],
                               "tabular_file": reference_csv}
-
     try:
         dataset_id = dataset_manager.add_database(
             name=req["name"],

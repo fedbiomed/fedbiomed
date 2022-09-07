@@ -1,0 +1,18 @@
+.headerWrapper {
+    display: flex;
+    align-items: center;
+}
+
+.imgLogo {
+    width: 60px;
+    display: block;
+    margin:  0 auto 20px;
+}
+
+.header{
+    margin-bottom: 20px;
+}
+
+.centered {
+    text-align: center;
+}
