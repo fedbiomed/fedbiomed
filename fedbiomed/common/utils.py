@@ -151,3 +151,42 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
         for it in iterator:
             list_of_floats.append(convert_to_python_float(it))
     return list_of_floats
+
+class DataLoaderWithMemory:
+    """This class allows to iterate the dataloader infinitely batch by batch.
+    When there are no more batches the iterator is reset silently.
+    This class allows to keep the memory of the state of the iterator hence its
+    name.
+    """
+
+    def __init__(self, dataloader):
+        """This initialization takes a dataloader and creates an iterator object
+        from it.
+        
+        Args:
+            dataloader : torch.utils.data.dataloader
+                A dataloader object built from one of the datasets of this repository.
+        """
+        self._dataloader = dataloader
+
+        self._iterator = iter(self._dataloader)
+
+    def _reset_iterator(self):
+        self._iterator = iter(self._dataloader)
+
+    def __len__(self):
+        return len(self._dataloader.dataset)
+
+    def get_samples(self):
+        """This method generates the next batch from the iterator or resets it
+        if needed. It can be called an infinite amount of times.
+
+        Returns:
+            a batch from the iterator (tuple)
+        """
+        try:
+            X, y = self._iterator.next()
+        except StopIteration:
+            self._reset_iterator()
+            X, y = self._iterator.next()
+        return X, y
