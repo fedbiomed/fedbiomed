@@ -132,6 +132,7 @@ class AddScalarReply(Message):
         test_on_local_updates: Declares whether validation is performed over locally updated parameters
         test_on_global_updates: Declares whether validation is performed over aggregated parameters
         metric: Evaluation metroc
+        num_records: Number of records seen during the training in the current epoch
         epoch: Scalar is received at
         total_samples: Number of all samples in dataset
         batch_samples: Number of samples in batch
@@ -151,6 +152,7 @@ class AddScalarReply(Message):
     test_on_local_updates: bool
     test_on_global_updates: bool
     metric: dict
+    num_records: (int, type(None))
     epoch: (int, type(None))
     total_samples: int
     batch_samples: int
