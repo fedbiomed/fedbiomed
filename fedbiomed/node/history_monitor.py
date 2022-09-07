@@ -30,6 +30,7 @@ class HistoryMonitor:
     def add_scalar(self,
                    metric: Dict[str, Union[int, float]],
                    iteration: int,
+                   num_records: int,
                    epoch: int,
                    total_samples: int,
                    batch_samples: int,
@@ -45,6 +46,7 @@ class HistoryMonitor:
         Args:
             metric:  recorded value
             iteration: current epoch iteration.
+            num_records: number of records seen during the training in the current epoch
             epoch: current epoch
             total_samples: TODO
             batch_samples: TODO
@@ -65,6 +67,7 @@ class HistoryMonitor:
             'test_on_local_updates': test_on_local_updates,
             'metric': metric,
             'iteration': iteration,
+            'num_records': num_records,
             'epoch': epoch,
             'total_samples': total_samples,
             'batch_samples': batch_samples,
