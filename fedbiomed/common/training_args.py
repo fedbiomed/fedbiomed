@@ -148,8 +148,8 @@ class TrainingArgs():
 #                "default": 48
             },
 
-            # epochs
-            "epochs": {
+            # num_updates
+            "num_updates": {
                 "rules": [ int ],
                 "required": False,
 #                "default": 1
