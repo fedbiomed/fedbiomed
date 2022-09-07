@@ -33,10 +33,10 @@ export const setFolderPath = (path) => {
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch(checkSubDirectories(path.path))
                 }else{
+                    dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
                 }
                 dispatch({type:'RESET_DLP'})
-                dispatch({type:'RESET_MEDICAL_FOLDER'})
                 dispatch({type:'SET_LOADING', payload: {status: false}})
             }).catch(error => {
 

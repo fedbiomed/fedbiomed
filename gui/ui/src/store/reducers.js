@@ -14,8 +14,8 @@ export const resultReducer = ( state = resultState, action) => {
     switch (action.type){
         case "SET_LOADING":
             if( state.launcher &&
-                state.loading != action.payload &&
-                state.launcher != action.payload.launcher ){
+                state.loading !== action.payload &&
+                state.launcher !== action.payload.launcher ){
                 return state
             }else{
                 return {
