@@ -30,18 +30,16 @@ export const setFolderPath = (path) => {
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
-                    dispatch({type:'RESET_MEDICAL_FOLDER'})
-                    dispatch({type:'RESET_DLP'})
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
-                    dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch(checkSubDirectories(path.path))
                 }else{
-                    dispatch({type:'SET_LOADING', payload: {status: false}})
-                    dispatch({type:'RESET_MEDICAL_FOLDER'})
-                    dispatch({type:'RESET_DLP'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
                 }
+                dispatch({type:'RESET_DLP'})
+                dispatch({type:'RESET_MEDICAL_FOLDER'})
+                dispatch({type:'SET_LOADING', payload: {status: false}})
             }).catch(error => {
+
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch({type:'RESET_MEDICAL_FOLDER'})
                 dispatch({type:'RESET_DLP'})
@@ -185,7 +183,7 @@ function isSameDlpContent(medical_folder, dlp) {
     let m2f_init = dlp.preexisting_dlp.mod2fol_mapping
     let dlp_is_same = true
 
-    // cant be same DLP as loaded when not using a loaded DLP
+    // can't be same DLP as loaded when not using a loaded DLP
     if(!dlp.use_preexisting_dlp) {
         return false
     }
@@ -429,7 +427,7 @@ export const addMedicalFolderDataset = (navigator) => {
             dlp_function = new Promise((resolve) => { resolve('DUMMY') })
         }
 
-        // sequentialize save DLP with next actions
+        // sequentially save DLP with next actions
         dlp_function.then( response => {
             if(response === 'DUMMY' || response.status === 200) {
                 let saved_dlp_id = null
