@@ -81,7 +81,6 @@ def list_data_path():
                 # It is created as list to be able to use it with `os.path.join`
                 exact_path = [*req_path, file]
 
-
                 res['files'].append({"type": path_type,
                                      "name": file,
                                      "path": exact_path,
