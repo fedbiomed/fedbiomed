@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 from fedbiomed.common.constants import TrainingPlans, ProcessTypes
-from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.utils import get_method_spec, DataLoaderWithMemory
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
@@ -176,7 +176,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         raise FedbiomedTrainingPlanError(msg)
 
     def training_routine(self,
-                         epochs: int = 2,
+                         num_updates: int = 10,
                          log_interval: int = 10,
                          lr: Union[int, float] = 1e-3,
                          batch_maxnum: int = 0,
@@ -197,7 +197,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         - a `training_step()` function defining how cost is computed. It should output loss values for backpropagation.
 
         Args:
-            epochs: Number of epochs (complete pass on data).
+            num_updates: Number of batch updates performed during one round of training. The number of updates can
+            lead to a training on more than one epoch if : batch_size * num_updates > dataset_size.
             log_interval: Frequency of logging loss values during training.
             lr: Learning rate.
             batch_maxnum: Equals number of data devided by batch_size, and taking the closest lower integer.
@@ -237,67 +238,86 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # initial aggregated model parameters
         self.init_params = deepcopy(self.state_dict())
+        self.dataloader_with_memory = DataLoaderWithMemory(self.training_data_loader)
+        _dataset_size = len(self.dataloader_with_memory)
+        _num_batches_per_epoch = len(self.training_data_loader)
+        _current_epoch = 0
+        _edge_batch_size = 0
 
-        for epoch in range(1, epochs + 1):
-            # (below) sampling data (with `training_data` method defined on
-            # researcher's notebook)
-            # training_data = self.training_data(batch_size=batch_size)
-            for batch_idx, (data, target) in enumerate(self.training_data_loader):
+        # (below) sampling data (with `training_data` method defined on
+        # researcher's notebook)
+        # training_data = self.training_data(batch_size=batch_size)
+        for batch_idx, _ in enumerate(range(num_updates)):
 
-                # Plus one since batch_idx starts from 0
-                batch_ = batch_idx + 1
+            _num_batch_seen = batch_idx + 1 # Plus one since batch_idx starts from 0
 
-                self.train()  # model training
-                data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
-                self.optimizer.zero_grad()
+            self.train()  # model training
+            data, target = self.dataloader_with_memory.get_samples()
+            data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
 
-                res = self.training_step(data, target)  # raises an exception if not provided
+            if batch_idx == 0:
+                # Initialize the batch-size using the first batch to avoid
+                # edge cases with drop_last=False
+                _batch_size = data.shape[0]
+            elif _num_batch_seen == _num_batches_per_epoch: # edge case where the last batch of the epoch has potentially fewer records than the set batch size
+                _edge_batch_size = len(data)
 
-                # If FedProx is enabled: use regularized loss function
-                if fedprox_mu is not None:
-                    try:
-                        _mu = float(fedprox_mu)
-                    except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
+            _current_epoch = batch_idx // _num_batches_per_epoch
+            _num_epoch_completed = _num_batch_seen // _num_batches_per_epoch
+            _num_records_seen = _batch_size * (_num_batch_seen-_num_epoch_completed) + _edge_batch_size*_num_epoch_completed
 
-                    res += _mu / 2 * self.__norm_l2()
+            self.optimizer.zero_grad()
 
-                res.backward()
+            res = self.training_step(data, target)  # raises an exception if not provided
 
-                self.optimizer.step()
+            # If FedProx is enabled: use regularized loss function
+            if fedprox_mu is not None:
+                try:
+                    _mu = float(fedprox_mu)
+                except ValueError:
+                    msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
+                    logger.critical(msg)
+                    raise FedbiomedTrainingPlanError(msg)
 
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
-                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    break
+                res += _mu / 2 * self.__norm_l2()
 
-                if batch_ % log_interval == 0:
-                    logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch,
-                        batch_idx * len(data),
-                        len(self.training_data_loader.dataset),
-                        100 * batch_idx / len(self.training_data_loader),
-                        res.item()))
+            res.backward()
 
-                    # Send scalar values via general/feedback topic
-                    if history_monitor is not None:
-                        history_monitor.add_scalar(metric={'Loss': res.item()},
-                                                   iteration=batch_,
-                                                   epoch=epoch,
-                                                   train=True,
-                                                   num_batches=len(self.training_data_loader),
-                                                   total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
+            self.optimizer.step()
 
-                    if dry_run:
-                        self.to(self.device_init)
-                        torch.cuda.empty_cache()
-                        return
+            # do not take into account more than batch_maxnum
+            # batches from the dataset
+            if (batch_maxnum > 0) and (_num_batch_seen >= batch_maxnum):
+                # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                break
 
+            if _num_batch_seen % log_interval == 0:
+                substrahend = batch_idx//_num_batches_per_epoch*_dataset_size
+                _num_records_seen_epoch = _num_records_seen-substrahend # number of records seen in the current epoch
+                logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    _current_epoch,
+                    _num_records_seen_epoch,
+                    _dataset_size,
+                    100 * _num_records_seen_epoch / _dataset_size,
+                    res.item()))
+
+                # Send scalar values via general/feedback topic
+                if history_monitor is not None:
+                    history_monitor.add_scalar(metric={'Loss': res.item()},
+                                                iteration=_num_batch_seen,
+                                                num_records=_num_records_seen_epoch,
+                                                epoch=_current_epoch,
+                                                train=True,
+                                                num_batches=_num_batches_per_epoch,
+                                                total_samples=_dataset_size,
+                                                batch_samples=len(data))
+
+                if dry_run:
+                    self.to(self.device_init)
+                    torch.cuda.empty_cache()
+                    return
+           
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
