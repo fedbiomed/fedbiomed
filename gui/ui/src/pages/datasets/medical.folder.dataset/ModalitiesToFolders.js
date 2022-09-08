@@ -116,7 +116,7 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(withRouter(ModalitiesToFolders));
+export default connect(mapStateToProps, mapDispatchToProps)(ModalitiesToFolders);
 
 /*
 */
