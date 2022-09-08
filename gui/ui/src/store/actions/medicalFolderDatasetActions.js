@@ -416,11 +416,16 @@ export const addMedicalFolderDataset = (navigator) => {
         }
 
         // only try to save DLP when we have customizations, and not the same as loaded customizations
-        if(medical_folder.use_custom_mod2fol && (!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp)) {
+        if(!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
             let params_add_dlp = {
-                'modalities_mapping': medical_folder.mod2fol_mapping,
                 'name': dlp.dlp_name
+            }
+            if(medical_folder.use_custom_mod2fol) {
+                params_add_dlp = {
+                    ...params_add_dlp,
+                    'modalities_mapping': medical_folder.mod2fol_mapping
+                }
             }
             dlp_function = axios.post(EP_ADD_DATA_LOADING_PLAN, params_add_dlp)
         } else {
