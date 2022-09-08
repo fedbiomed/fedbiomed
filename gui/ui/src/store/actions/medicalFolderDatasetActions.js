@@ -412,7 +412,7 @@ export const addMedicalFolderDataset = (navigator) => {
 
         let used_dlp_id = null
         // reusing an unchanged loaded DLP
-        if(dlp.use_preexisting_dlp && dlp.same_as_preexisting_dlp) {
+        if(medical_folder.use_custom_mod2fol && (dlp.use_preexisting_dlp && dlp.same_as_preexisting_dlp)) {
             used_dlp_id = dlp.preexisting_dlp.dlp_id
         }
 
