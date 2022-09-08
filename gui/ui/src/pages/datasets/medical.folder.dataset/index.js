@@ -141,20 +141,16 @@ export class Index extends React.Component {
                             </React.Fragment> : null
                         }
                     </Step>
-                    </React.Fragment>
-                 : null
-                }
-
-                {this.props.medical_folder_root &&
-                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) ?
-                    <React.Fragment>
-                    <Step key={3}
-                          step={3}
-                          desc={'Would you like to customize association of dataset folder names to imaging modality names?'}
-                    >
-                        < ModalitiesToFolders />
-                    </Step>
-                    </React.Fragment>
+                        {!this.props.use_preexisting_dlp || this.props.selected_dlp_index != null ?
+                            <Step key={3}
+                                  step={3}
+                                  desc={'Would you like to customize association of dataset folder names to imaging modality names?'}
+                            >
+                                <ModalitiesToFolders />
+                            </Step>
+                            : null
+                         }
+                     </React.Fragment>
                  : null
                 }
 

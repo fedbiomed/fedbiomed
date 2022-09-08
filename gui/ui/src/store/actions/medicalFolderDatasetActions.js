@@ -25,22 +25,27 @@ export const setFolderPath = (path) => {
             dispatch({type: 'ERROR_MODAL' , payload: "ROOT path for MedicalFolder dataset should be folder/directory"})
             return
         }
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder root folder path"}})
+        dispatch({type:'SET_LOADING', payload: {status: true, launcher: "VALIDATE_ROOT", text: "Setting/validating MedicalFolder root folder path"}})
         axios.post(EP_VALIDATE_MEDICAL_FOLDER_ROOT, {medical_folder_root : path.path})
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
-                    dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
-                    dispatch(checkSubDirectories(path.path))
+                    dispatch({type:'RESET_DLP'})
+                    setTimeout(() => {
+                        dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
+                        dispatch(checkSubDirectories(path.path))
+                        dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
+                    }, 200)
+
                 }else{
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
+                    dispatch({type:'RESET_DLP'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
+                    dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
                 }
-                dispatch({type:'RESET_DLP'})
-                dispatch({type:'SET_LOADING', payload: {status: false}})
             }).catch(error => {
-                dispatch({type:'SET_LOADING', payload: {status: false}})
+                dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
                 dispatch({type:'RESET_MEDICAL_FOLDER'})
                 dispatch({type:'RESET_DLP'})
                 dispatch(displayError(error))
