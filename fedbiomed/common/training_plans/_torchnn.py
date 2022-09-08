@@ -241,6 +241,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.dataloader_with_memory = DataLoaderWithMemory(self.training_data_loader)
         _dataset_size = len(self.dataloader_with_memory)
         _num_batches_per_epoch = len(self.training_data_loader)
+        _batch_size = self.training_data_loader.batch_size
         _current_epoch = 0
         _edge_batch_size = 0
 
@@ -255,11 +256,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             data, target = self.dataloader_with_memory.get_samples()
             data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
 
-            if batch_idx == 0:
-                # Initialize the batch-size using the first batch to avoid
-                # edge cases with drop_last=False
-                _batch_size = data.shape[0]
-            elif _num_batch_seen == _num_batches_per_epoch: # edge case where the last batch of the epoch has potentially fewer records than the set batch size
+            if _num_batch_seen == _num_batches_per_epoch: # edge case where the last batch of the epoch has potentially fewer records than the set batch size
                 _edge_batch_size = len(data)
 
             _current_epoch = batch_idx // _num_batches_per_epoch
