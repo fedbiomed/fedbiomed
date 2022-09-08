@@ -30,6 +30,7 @@ export const setFolderPath = (path) => {
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
+                    dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch(checkSubDirectories(path.path))
                 }else{
@@ -411,16 +412,21 @@ export const addMedicalFolderDataset = (navigator) => {
 
         let used_dlp_id = null
         // reusing an unchanged loaded DLP
-        if(medical_folder.use_custom_mod2fol && (dlp.use_preexisting_dlp && dlp.same_as_preexisting_dlp)) {
+        if(dlp.use_preexisting_dlp && dlp.same_as_preexisting_dlp) {
             used_dlp_id = dlp.preexisting_dlp.dlp_id
         }
 
         // only try to save DLP when we have customizations, and not the same as loaded customizations
-        if(medical_folder.use_custom_mod2fol && (!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp)) {
+        if(!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
             let params_add_dlp = {
-                'modalities_mapping': medical_folder.mod2fol_mapping,
                 'name': dlp.dlp_name
+            }
+            if(medical_folder.use_custom_mod2fol) {
+                params_add_dlp = {
+                    ...params_add_dlp,
+                    'modalities_mapping': medical_folder.mod2fol_mapping
+                }
             }
             dlp_function = axios.post(EP_ADD_DATA_LOADING_PLAN, params_add_dlp)
         } else {
