@@ -1,5 +1,5 @@
 import os
-
+import re
 from app import app
 from db import node_database
 from flask import request
@@ -57,8 +57,8 @@ def list_data_path():
         files = files if len(files) <= 1000 else files[0:1000]
 
         table = node_database.table_datasets()
+        all_datasets = table.all()
         query = node_database.query()
-        table.clear_cache()
 
         for file in files:
             if not file.startswith('.'):
@@ -67,7 +67,11 @@ def list_data_path():
                 extension = os.path.splitext(fullpath)[1]
 
                 # Get dataset registered with full path
-                dataset = table.get(query.path == fullpath)
+                # dataset = table.get(query.path == fullpath)
+                dataset = None
+
+                indexes = [i for i, d in enumerate(all_datasets) if d.get("path", None) == fullpath]
+                dataset = all_datasets[indexes[0]] if indexes else None
 
                 # Get file statistics
                 cdate, size = file_stats(fullpath, req['refresh'])
@@ -75,7 +79,8 @@ def list_data_path():
                 # Folder that includes any data file
                 includes = []
                 if not dataset and os.path.isdir(fullpath):
-                    includes = table.search(query.path.matches('^' + os.path.join(fullpath, '')))
+                    includes = [d for d in all_datasets
+                                if re.search('^' + os.path.join(fullpath, ''), d.get("path", ''))]
 
                 # This is the path that will be displayed on the GUI
                 # It is created as list to be able to use it with `os.path.join`
