@@ -290,7 +290,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 break
 
             if _num_batch_seen % log_interval == 0:
-                substrahend = batch_idx//_num_batches_per_epoch*_dataset_size
+                substrahend = _current_epoch*_dataset_size
                 _num_records_seen_epoch = _num_records_seen-substrahend # number of records seen in the current epoch
                 logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     _current_epoch,
