@@ -14,7 +14,9 @@ import {
 
 
 export class ModalitiesToFolders extends React.Component {
+
     componentDidMount(){
+        console.log('DID MOUNT CALLEDD')
         this.props.initModalityNames()
     }
 

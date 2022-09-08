@@ -13,8 +13,7 @@ export const resultReducer = ( state = resultState, action) => {
 
     switch (action.type){
         case "SET_LOADING":
-            if( state.launcher &&
-                state.loading !== action.payload &&
+            if( state.launcher && state.loading !== action.payload.status &&
                 state.launcher !== action.payload.launcher ){
                 return state
             }else{
@@ -22,7 +21,7 @@ export const resultReducer = ( state = resultState, action) => {
                     ...state,
                     loading: action.payload.status,
                     text : action.payload.text ? action.payload.text : "",
-                    launcher: action.payload.launcher ? action.payload.launcher : null
+                    launcher: action.payload.launcher && action.payload.status === false ? null : action.payload.launcher
                 }
             }
 
