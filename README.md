@@ -2,6 +2,9 @@
 
 version 3 implementation of the Fed-BioMed project
 
+## Table of Contents
+[[_TOC_]]
+
 ## Introduction
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
