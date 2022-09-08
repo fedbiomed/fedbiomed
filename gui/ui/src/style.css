@@ -101,6 +101,12 @@ hr {
   -moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 }
 
+.file-repository {
+  max-height: calc(100vh - 125px);
+  display: flex;
+  flex-flow: column;
+}
+
 .router-frame .inner .frame-header {
     flex: 0 1 auto;
     padding:10px;
@@ -120,6 +126,16 @@ hr {
   flex: 0 1 40px;
 }
 
+/* Spesific to File Browser*/
+.frame-content-file {
+    flex: 1 1 auto;
+    padding: 10px;
+    overflow: scroll;
+}
+
+.frame-footer-file {
+  flex: 0 1 40px;
+}
 
 .center {
   text-align: center;
