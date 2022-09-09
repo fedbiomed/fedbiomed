@@ -11,10 +11,11 @@ import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -61,23 +62,6 @@ class Round:
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
         """
-        testing_args_keys = ('test_ratio', 'test_on_local_updates',
-                             'test_on_global_updates', 'test_metric',
-                             'test_metric_args')
-
-        self.model_kwargs = model_kwargs
-        # Split validation and training arguments
-
-        self.testing_arguments = {}
-        for arg in testing_args_keys:
-            self.testing_arguments[arg] = training_kwargs.get(arg, None)
-            training_kwargs.pop(arg, None)
-
-        self.batch_size = training_kwargs.get('batch_size', 48)
-        training_kwargs.pop('batch_size', None)
-
-        # Set training arguments after removing validation arguments
-        self.training_kwargs = training_kwargs
 
         self.dataset = dataset
         self.model_url = model_url
@@ -93,6 +77,21 @@ class Round:
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
 
+        self.training_arguments = training_kwargs
+        self.model_arguments = model_kwargs
+        self.testing_arguments = None
+        self.loader_arguments = None
+        self.optimizer_arguments = None
+
+    def initialize_validate_training_arguments(self) -> None:
+        """Validates and separates training argument for experiment round"""
+
+        tr_args = TrainingArgs(self.training_arguments, only_required=False)
+        self.testing_arguments = tr_args.testing_arguments()
+        self.training_arguments = tr_args.pure_training_arguments()
+        self.loader_arguments = tr_args.loader_arguments()
+        self.optimizer_arguments = tr_args.optimizer_arguments()
+
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
         and finally uploads model params
@@ -101,7 +100,16 @@ class Round:
             Returns the corresponding node message, training reply instance
         """
         is_failed = False
-        error_message = ''
+
+        # Initialize and validate requested experiment/training arguments
+        try:
+            self.initialize_validate_training_arguments()
+        except FedbiomedUserInputError as e:
+            return self._send_round_reply(success=False, message=str(e))
+        except Exception as e:
+            msg = 'Unexpected error while validating training argument'
+            logger.debug(f"{msg}: {e}")
+            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
         # Download model, training routine, execute it and return model results
         try:
@@ -148,15 +156,18 @@ class Round:
 
             # instantiate model as `train_class`
             train_class = eval(import_module + '.' + self.model_class)
-            if self.model_kwargs is None or len(self.model_kwargs) == 0:
-                # case where no args have been found (default)
-                self.model = train_class()
-            else:
-                # case where args have been found  (and passed)
-                self.model = train_class(self.model_kwargs)
+            self.model = train_class()
         except Exception as e:
             error_message = f"Cannot instantiate model object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
+
+        try:
+            self.model.post_init(model_args=self.model_arguments,
+                                 training_args=self.training_arguments,
+                                 optimizer_args=self.optimizer_arguments)
+        except Exception as e:
+            error_message = f"Can't initialize training plan with the arguments: {e}"
+            return self._send_round_reply(succes=False, message=error_message)
 
         # import model params into the model instance
         try:
@@ -173,10 +184,11 @@ class Round:
         # We want to have explicit message in case of overloading attempt
         # (and continue training) though by default it fails with
         # "dict() got multiple values for keyword argument"
+        # FIXME: No need to following action TrainingArgs class raises exception as invalid property
         node_side_args = ['history_monitor', 'node_args']
         for arg in node_side_args:
-            if arg in self.training_kwargs:
-                del self.training_kwargs[arg]
+            if arg in self.training_arguments:
+                del self.training_arguments[arg]
                 logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
                                f' Maybe a malicious researcher attack.')
 
@@ -190,11 +202,6 @@ class Round:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
-
-        training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-                                            node_args=self.node_args,
-                                            **self.training_kwargs)
-        logger.info(f'training with arguments {training_kwargs_with_history}')
 
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
@@ -223,7 +230,9 @@ class Round:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.model.training_routine(**training_kwargs_with_history)
+                    self.model.training_routine(history_monitor=self.history_monitor,
+                                                node_args=self.node_args
+                                                )
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
@@ -380,7 +389,7 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.model.training_data(batch_size=self.batch_size)
+                data_manager = self.model.training_data(batch_size=self.loader_arguments['batch_size'])
             else:
                 data_manager = self.model.training_data()
         except Exception as e:

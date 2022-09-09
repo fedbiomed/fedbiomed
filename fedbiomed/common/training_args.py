@@ -4,7 +4,7 @@ Provide a way to easily to manage training arguments.
 
 
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, Dict, TypeVar, Union, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -14,7 +14,7 @@ from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
     ValidateError, RuleError, validator_decorator
 
 
-class TrainingArgs():
+class TrainingArgs(dict):
     """
     Provide a container to manage training arguments.
 
@@ -30,13 +30,13 @@ class TrainingArgs():
         Create a TrainingArgs from a Dict with input validation.
 
         Args:
-            ta:     dictionnary describing the TrainingArgs scheme.
+            ta:     dictionary describing the TrainingArgs scheme.
                     if empty dict or None, a minimal instance of TrainingArgs
                     will be initialized with default values for required keys
             extra_scheme: user provided scheme extension, which add new rules or
                     update the scheme of the default training args.
                     Warning: this is a dangerous feature, provided to
-                    developpers, to ease the test of future Fed-Biomed features
+                    developers, to ease the test of future Fed-Biomed features
             only_required: if True, the object is initialized only with required
                     values defined in the default_scheme (+ extra_scheme).
                     If False, then all default values will also be returned
@@ -67,15 +67,13 @@ class TrainingArgs():
             ta = {}
 
         try:
-            self._ta = self._sc.populate_with_defaults( ta,
-                                                        only_required = only_required)
+            self._ta = self._sc.populate_with_defaults(ta, only_required=only_required)
         except ValidatorError as e:
             # scheme has required keys without defined default value
             msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        # finally check user input
         try:
             self._sc.validate(self._ta)
         except (ValidateError) as e:
@@ -84,11 +82,51 @@ class TrainingArgs():
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
+    def testing_arguments(self) -> Dict:
+        """ Extract testing arguments from training arguments
 
+        Returns:
+            Testing arguments as dictionary
+        """
+        keys = ['test_ratio', 'test_on_local_updates', 'test_on_global_updates',
+                'test_metric', 'test_metric_args']
+        return self._extract_args(keys)
+
+    def loader_arguments(self) -> Dict:
+        """ Extracts data loader arguments
+
+        Returns:
+            Contains loader arguments for PyTorch dataloader
+        """
+        keys = ["batch_size"]
+
+        return self._extract_args(keys)
+
+    def optimizer_arguments(self) -> Dict:
+
+        return self["optimizer_args"]
+
+    def pure_training_arguments(self):
+        """ Extracts the arguments that are only necessary for training_routine
+
+        Returns:
+            Contains training argument for training routine
+        """
+
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs"]
+        return self._extract_args(keys)
+
+    def _extract_args(self, keys) -> Dict:
+        """Extract arguments by given array of keys
+
+        Returns:
+            Contains key value peer of given keys
+        """
+        return {arg: self[arg] for arg in keys}
 
     @staticmethod
     @validator_decorator
-    def _metric_validation_hook( metric: Union[MetricTypes, str, None] ) -> Union[bool, str]:
+    def _metric_validation_hook(metric: Union[MetricTypes, str, None]) -> Union[bool, str]:
         """
         Validate the metric argument of test_metric.
         """
@@ -105,6 +143,19 @@ class TrainingArgs():
 
         return False, f"Metric {metric} is not a supported Metric"
 
+    @staticmethod
+    @validator_decorator
+    def _fedprox_mu_validator(val: Union[float, None]) -> Union[Tuple[bool, str], bool]:
+        """ Validates fedprox_mu value whether it None or float
+
+        Returns:
+            Validation status  or/and error message
+        """
+        if isinstance(val, float):
+            return True
+        elif val is None:
+            return True
+        return False, f"Expected `fedprox_mu` value is float, but got {type(val)}. "
 
     @staticmethod
     @validator_decorator
@@ -119,7 +170,7 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _lr_hook( v: Any):
+    def _lr_hook(v: Any):
         """
         Test if lr is greater than 0.
         """
@@ -134,90 +185,49 @@ class TrainingArgs():
         Returns the default (base) scheme for TrainingArgs.
         """
         return {
-            # lr
-            "lr": {
-                "rules": [ float, cls._lr_hook ],
-                "required": False,
-#               "default": 0.01
+            "optimizer_args": {
+                "rules": [dict], "required": True, "default": {}
             },
-
-            # batch_size
             "batch_size": {
-                "rules": [ int ],
-                "required": False,
-#                "default": 48
+                "rules": [int], "required": True, "default": 48
             },
-
-            # epochs
             "epochs": {
-                "rules": [ int ],
-                "required": False,
-#                "default": 1
+                "rules": [int], "required": True, "default": 1
             },
-
-            # dry_run
             "dry_run": {
-                "rules": [ bool ],
-                "required": False,
-#                "default": False
+                "rules": [bool], "required": True, "default": False
             },
-
-            # batch_maxnum
             "batch_maxnum": {
-                "rules": [ int ],
-                "required": False,
-#                "default": 100
+                "rules": [int], "required": True, "default": 100
             },
-
-            # test_ratio
             "test_ratio": {
-                "rules": [ float, cls._test_ratio_hook ],
-                "required": False,
-                "default": 0.0
+                "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
             },
-
-            # test_on_local_updates
             "test_on_local_updates": {
-                "rules": [ bool ],
-                "required": False,
-                "default": False
+                "rules": [bool], "required": False, "default": False
             },
-
-            # tests_on_globals_updates
             "test_on_global_updates": {
-                "rules": [ bool ],
-                "required": False,
-                "default": False
+                "rules": [bool], "required": False, "default": False
             },
 
-            # test_metric
             "test_metric": {
-                "rules": [ cls._metric_validation_hook ],
-                "required": False,
-                "default": None
+                "rules": [cls._metric_validation_hook], "required": False, "default": None
             },
 
-            # test_metric_args (no test)
             "test_metric_args": {
-                "rules": [ dict ],
-                "required": False,
-                "default": {}
+                "rules": [dict], "required": False, "default": {}
             },
-
-            # log_interval
             "log_interval": {
-                "rules": [int],
-                "required": False,
+                "rules": [int], "required": False, "default": 10
             },
-            # fedprox_mu
             "fedprox_mu": {
-                "rules": [float],
-                'required': False,
+                "rules": [cls._fedprox_mu_validator], 'required': False, "default": None
+            },
+            "use_gpu": {
+                "rules": [bool], 'required': False, "default": False
             }
 
         }
-
-
 
     def __str__(self) -> str:
         """
@@ -228,7 +238,6 @@ class TrainingArgs():
         """
         return str(self._ta)
 
-
     def __repr__(self) -> str:
         """
         Display the Training_Args full content for debugging purpose.
@@ -237,7 +246,6 @@ class TrainingArgs():
             printable version of TrainingArgs (scheme and value)
         """
         return f"scheme:\n{self._scheme}\nvalue:\n{self._ta}"
-
 
     def __setitem__(self, key: str, value: Any) -> Any:
         """
@@ -267,7 +275,6 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
         return deepcopy(self._ta[key])
 
-
     def __getitem__(self, key: str) -> Any:
         """
         Returns a copy of the value associated to a key.
@@ -291,7 +298,6 @@ class TrainingArgs():
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-
     def update(self, values: Dict) -> TypeVar("TrainingArgs"):
         """
         Update multiple keys of the training arguments.
@@ -308,7 +314,6 @@ class TrainingArgs():
         for k in values:
             self.__setitem__(k, values[k])
         return self
-
 
     def __ixor__(self, other: Dict) -> TypeVar("TrainingArgs"):
         """

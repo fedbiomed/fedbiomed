@@ -2,6 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Union, Callable
 from copy import deepcopy
 
@@ -18,7 +19,7 @@ from fedbiomed.common.metrics import Metrics
 from ._base_training_plan import BaseTrainingPlan
 
 
-class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
+class TorchTrainingPlan(BaseTrainingPlan, ABC):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
@@ -37,7 +38,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
     """
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self):
         """ Construct training plan
 
         Args:
@@ -48,8 +49,21 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         self.__type = TrainingPlans.TorchTrainingPlan
 
-        # cannot use it here !!!! FIXED in training_routine
-        self.optimizer = None
+        self._optimizer = None
+        self._model = None
+
+        self._training_args = None
+        self._model_args = None
+        self._optimizer_args = None
+        self._use_gpu = False
+
+        self._batch_maxnum = None
+        self._fedprox_mu = None
+        self._log_interval = None
+        self._epochs = None
+        self._dry_run = None
+
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs"]
 
         # data loading // should be moved to another class
         self.batch_size = 100
@@ -64,10 +78,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # - researcher doesn't request to use gpu by default
         self.device_init = "cpu"
         self.device = self.device_init
-        if not isinstance(model_args, dict):
-            self.use_gpu = False
-        else:
-            self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
 
@@ -83,6 +93,53 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # Aggregated model parameters
         self.init_params = None
+
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict):
+        """ Sets arguments for training, model and optimizer """
+        logger.info(training_args)
+        self._model_args = model_args
+        self._optimizer_args = optimizer_args
+        self._use_gpu = training_args.get('use_gpu')
+        self._batch_maxnum = training_args.get('batch_maxnum')
+        self._fedprox_mu = training_args.get('fedprox_mu')
+        self._log_interval = training_args.get('log_interval')
+        self._epochs = training_args.get('epochs')
+        self._dry_run = training_args.get('dry_run')
+
+        self._model = self.build_model(self._model_args)
+        self._optimizer = self.build_optimizer(self._optimizer_args)
+
+    @property
+    def model(self):
+        return self._model
+
+    @model.setter
+    def model(self):
+        raise FedbiomedTrainingPlanError("Can't directly modify model. Please use `build_model` to make some "
+                                         "changes")
+
+    @property
+    def optimizer(self):
+        return self._optimizer
+
+    @optimizer.setter
+    def optimizer(self):
+        raise FedbiomedTrainingPlanError("Can't directly modify optimizer. Please use "
+                                         "`build_optimizer` to make some changes.")
+
+    @abstractmethod
+    def build_model(self, model_args: Dict):
+        """Abstract method where model should be defined """
+        pass
+
+    @abstractmethod
+    def build_optimizer(self, optimizer_args: Dict):
+        try:
+            self._optimizer = torch.optim.Adam(self._model.parameters, **optimizer_args)
+        except AttributeError:
+            raise FedbiomedTrainingPlanError('Error')
+
+        return self._optimizer
 
     def type(self):
         """ Gets training plan type"""
@@ -109,7 +166,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # - or forced by node
         cuda_available = torch.cuda.is_available()
         if use_gpu is None:
-            use_gpu = self.use_gpu
+            use_gpu = self._use_gpu
         use_cuda = cuda_available and ((use_gpu and node_args['gpu']) or node_args['gpu_only'])
 
         if node_args['gpu_only'] and not cuda_available:
@@ -130,6 +187,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     self.device = "cuda"
             else:
                 self.device = "cuda"
+
         logger.debug(f"Using device {self.device} for training "
                      f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
                      f"gpu_only={node_args['gpu_only']}, "
@@ -176,13 +234,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         raise FedbiomedTrainingPlanError(msg)
 
     def training_routine(self,
-                         epochs: int = 2,
-                         log_interval: int = 10,
-                         lr: Union[int, float] = 1e-3,
-                         batch_maxnum: int = 0,
-                         dry_run: bool = False,
-                         use_gpu: Union[bool, None] = None,
-                         fedprox_mu: float = None,
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -217,18 +268,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
-        self.train()  # pytorch switch for training
+        self._model.train()  # pytorch switch for training
 
         # set correct type for node args
-        if not isinstance(node_args, dict):
-            node_args = {}
+        node_args = {} if not isinstance(node_args, dict) else node_args
 
-        self._set_device(use_gpu, node_args)
+        self._set_device(self._use_gpu, node_args)
+
         # send all model to device, ensures having all the requested tensors
-        self.to(self.device)
-
-        if self.optimizer is None:
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        self._model.to(self.device)
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -238,9 +286,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # self.data = data_loader
 
         # initial aggregated model parameters
-        self.init_params = deepcopy(self.state_dict())
+        self.init_params = deepcopy(self._model.state_dict())
 
-        for epoch in range(1, epochs + 1):
+        for epoch in range(1, self._epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
@@ -249,30 +297,22 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
 
-                self.train()  # model training
                 data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
-                self.optimizer.zero_grad()
+                self._optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
 
                 # If FedProx is enabled: use regularized loss function
-                if fedprox_mu is not None:
-                    try:
-                        _mu = float(fedprox_mu)
-                    except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    res += _mu / 2 * self.__norm_l2()
+                if self._fedprox_mu is not None:
+                    res += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
                 res.backward()
 
-                self.optimizer.step()
+                self._optimizer.step()
 
-                if batch_ % log_interval == 0 or dry_run:
+                if batch_ % self._log_interval == 0 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
-                    num_samples_till_now = min(batch_*batch_size, len(self.training_data_loader.dataset))
+                    num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
@@ -290,22 +330,22 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                    total_samples=len(self.training_data_loader.dataset),
                                                    batch_samples=batch_size)
 
-                    if dry_run:
+                    if self._dry_run:
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
-                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
+                if (self._batch_maxnum > 0) and (batch_ >= self._batch_maxnum):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
                     break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
-        self.to(self.device_init)
+        self._model.to(self.device_init)
         torch.cuda.empty_cache()
 
     def testing_routine(self,
@@ -340,7 +380,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         metric_controller = Metrics()
         tot_samples = len(self.testing_data_loader.dataset)
 
-        self.eval()  # pytorch switch for model validation
+        self._model.eval()  # pytorch switch for model validation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
@@ -355,8 +395,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
                         msg = ErrorNumbers.FB605.value + \
-                            ": error then executing `testing_step` :" + \
-                            str(e)
+                              ": error then executing `testing_step` :" + \
+                              str(e)
 
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
@@ -364,7 +404,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     # If custom validation step returns None
                     if m_value is None:
                         msg = ErrorNumbers.FB605.value + \
-                            ": metric function returned None"
+                              ": metric function returned None"
 
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
@@ -394,8 +434,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         # Pytorch does not provide any means to catch exception (no custom Exceptions),
                         # that is why we need to trap general Exception
                         msg = ErrorNumbers.FB605.value + \
-                            ": error - " + \
-                            str(e)
+                              ": error - " + \
+                              str(e)
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
@@ -435,7 +475,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return torch.save(self.state_dict(), filename)
+            return torch.save(self._model.state_dict(), filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -450,7 +490,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
         params = torch.load(filename)
         if to_params is False:
-            self.load_state_dict(params)
+            self._model.load_state_dict(params)
         return params
 
     def after_training_params(self) -> dict:
@@ -467,13 +507,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict())  # Post process
+            return self.postprocess(self._model.state_dict())  # Post process
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
             pass
 
-        return self.state_dict()
+        return self._model.state_dict()
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
@@ -482,7 +522,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-        for key, val in self.state_dict().items():
+        for key, val in self._model.state_dict().items():
             norm += ((val - self.init_params[key]) ** 2).sum()
         return norm
 
@@ -513,7 +553,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         argspec = get_method_spec(method)
         if len(argspec) != 1:
             msg = ErrorNumbers.FB605.value + \
-                ": process for type `PreprocessType.DATA_LOADER` should have only one argument/parameter"
+                  ": process for type `PreprocessType.DATA_LOADER` should have only one argument/parameter"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -521,8 +561,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             data_loader = method(self.training_data_loader)
         except Exception as e:
             msg = ErrorNumbers.FB605.value + \
-                ": error while running process method -> `{method.__name__}` - " + \
-                str(e)
+                  ": error while running process method -> `{method.__name__}` - " + \
+                  str(e)
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -534,10 +574,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
         else:
             msg = ErrorNumbers.FB605.value + \
-                ": the input argument of the method `preprocess` is `data_loader`" + \
-                " and expected return value should be an instance of: " + \
-                type(self.training_data_loader) + \
-                " instead of " + \
-                type(data_loader)
+                  ": the input argument of the method `preprocess` is `data_loader`" + \
+                  " and expected return value should be an instance of: " + \
+                  type(self.training_data_loader) + \
+                  " instead of " + \
+                  type(data_loader)
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)

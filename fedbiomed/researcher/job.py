@@ -11,7 +11,7 @@ import tempfile
 import time
 import uuid
 from fedbiomed.common.constants import ModelApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
 
 from typing import Union, Callable, List, Dict, Type
@@ -19,6 +19,7 @@ from typing import Union, Callable, List, Dict, Type
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -43,7 +44,7 @@ class Job:
                  nodes: dict = None,
                  model: Union[Type[Callable], str] = None,
                  model_path: str = None,
-                 training_args: dict = None,
+                 training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
                  keep_files_dir: str = None):
@@ -126,14 +127,16 @@ class Job:
 
         # create/save model instance (ie TrainingPlan)
         if inspect.isclass(model):
-            # case if `model` is a class
-            if self._model_args is None or len(self._model_args) == 0:
-                self.model_instance = model()  # contains TrainingPlan
-            else:
-                self.model_instance = model(self._model_args)
+            self.model_instance = model()  # contains TrainingPlan
+            self.model_instance.post_init(
+                model_args={} if self._model_args is None else self._model_args,
+                training_args=self._training_args.pure_training_arguments(),
+                optimizer_args=self._training_args.optimizer_arguments()
+            )
         else:
-            # also handle case where model is an instance of a class
-            self.model_instance = model
+            msg = f"Training class is a class. Please provide a class which not initialized."
+            logger.critical(msg)
+            raise FedbiomedError(msg)
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -149,6 +152,7 @@ class Job:
             return
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
+
         self._repository_args['model_url'] = repo_response['file']
 
         self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
