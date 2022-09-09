@@ -24,7 +24,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
 
 from fedbiomed.common.logger import logger
@@ -62,15 +62,31 @@ class DatasetManager:
 
         return result
 
-    def list_dlp(self) -> List[dict]:
+    def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
         """Return all existing DataLoadingPlans.
+
+        Args:
+            target_dataset_type: (str or None) if specified, return only dlps matching the requested target type.
 
         Returns:
             An array of dict, each dict is a DataLoadingPlan
         """
-        dlps = self._dlp_table.search(
-            (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
-        return([dict(dlp) for dlp in dlps])
+        if target_dataset_type is not None:
+            if not isinstance(target_dataset_type, str):
+                raise FedbiomedDatasetManagerError(f"Wrong input type for target_dataset_type. "
+                                                   f"Expected str, got {type(target_dataset_type)} instead.")
+            if target_dataset_type not in [t.value for t in DatasetTypes]:
+                raise FedbiomedDatasetManagerError(f"target_dataset_type should be of the values defined in "
+                                                   "fedbiomed.common.constants.DatasetTypes")
+
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) &
+                (self._database.dlp_name.exists()) &
+                (self._database.target_dataset_type == target_dataset_type))
+        else:
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
+        return [dict(dlp) for dlp in dlps]
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.

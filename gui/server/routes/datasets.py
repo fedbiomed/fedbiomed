@@ -387,11 +387,13 @@ def get_csv_data():
     return response(data_preview), 200
 
 
-@api.route('/datasets/list-dlps', methods=['GET'])
+@api.route('/datasets/list-dlps', methods=['POST'])
 def list_data_loading_plans():
     """List all DLPs in the database
     """
-    dlps = dataset_manager.list_dlp()
+    req = request.json
+    target_dataset_type = req['target_dataset_type'] if 'target_dataset_type' in req else None
+    dlps = dataset_manager.list_dlp(target_dataset_type=target_dataset_type)
     index = list(range(len(dlps)))
     columns = ['name', 'id']
     data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
@@ -415,7 +417,7 @@ def read_data_loading_plans():
     m2f = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
     if 'loading_blocks' in dlp and m2f in dlp['loading_blocks']:
         dlb_id_m2f = dlp['loading_blocks'][m2f]
-        map = [dlb['map'] for dlb in dlbs if dlb['loading_block_serialization_id'] == dlb_id_m2f]
+        map = [dlb['map'] for dlb in dlbs if dlb['dlb_id'] == dlb_id_m2f]
         if len(map) != 1:
             return error("Could not read customizations: database coherence error"), 400
         data_dlp['map'] = map[0]
