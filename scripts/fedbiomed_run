@@ -105,7 +105,7 @@ gui       :
                                                                     If config file doesn't exist script will raise an error.
             - cert        | --cert        | -ct  [<certificate>]:   Name of the certificate to use in order to enable HTTPS.
                                                                     If cert file doesn't exist script will raise an error.
-            - key         | --primary-key | -k   [<key>]        :   Name of the private key for the SSL certificate. 
+            - key         | --primary-key | -k   [<key>]        :   Name of the private key for the SSL certificate.
                                                                     If the key file doesn't exist, the script will raise an error.
             - port        | --port        | -p   [<port>]       :   HTTP port that GUI will be served. Default is \`8484\`
             - host        | --host        | -h   [<host>]       :   HTTP host that GUI will be served, Default is \`localhost\`

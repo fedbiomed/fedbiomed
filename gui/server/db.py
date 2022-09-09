@@ -10,8 +10,12 @@ from app import app, config
 from utils import set_password_hash
 
 
-# from routes import UserRoleType
 
+# WARNING: this Database class should not exist, all accesses to TinyDB should occur
+# through the fedbiomed.node_dataset_manager.DatasetManager, this
+# breaks basic object paradigm
+# Until this is refactored (and Database class is removed), please use
+# `DatasetManager` when adding new accesses to the database
 class BaseDatabase:
 
     def __init__(self, db_path: str):
@@ -52,7 +56,7 @@ class NodeDatabase(BaseDatabase):
         """Method  for selecting TinyDB table containing the datasets.
 
         Returns:
-            A TinyDB `Table` object for this table. 
+            A TinyDB `Table` object for this table.
         """
         return self._table('Datasets')
 

@@ -19,7 +19,14 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
-from fedbiomed.node.environ import environ
+# WORKAROUND: For this test, we need to ensure a *dedicated* `environ` to avoid collisions
+# with other test files for `environ['DB_PATH']` access
+#
+# from fedbiomed.node.environ import environ
+from fedbiomed.node.environ import EnvironNode
+from fedbiomed.common.constants  import ComponentType
+environ = EnvironNode(ComponentType.NODE)
+
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
@@ -105,7 +112,17 @@ class TestDatasetManager(unittest.TestCase):
         after each test function
         """
         self.dataset_manager._db.close()
-        os.remove(environ['DB_PATH'])
+        del self.dataset_manager
+        if os.path.isdir(environ['DB_PATH']):
+            os.remove(environ['DB_PATH'])
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        after all tests
+        """
+        # WORKAROUND: delete dir as this is a dedicated environ for this test class
+        shutil.rmtree(environ['ROOT_DIR'])
 
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
@@ -465,7 +482,7 @@ class TestDatasetManager(unittest.TestCase):
         # passed as a 'csv' file)
         with self.assertRaises(AssertionError):
             dataset_id = self.dataset_manager.add_database(name='test',
-                                                        tags=['titi'],
+                                                        tags=['titi-other'],
                                                         data_type='csv',
                                                         description='description',
                                                         path=os.path.join(self.testdir,
@@ -498,7 +515,7 @@ class TestDatasetManager(unittest.TestCase):
 
         # Load data with header example
         dataset_id = self.dataset_manager.add_database(name='test',
-                                                    tags=['titi'],
+                                                    tags=['titi-tags'],
                                                     data_type='images',
                                                     description='description',
                                                     path=os.path.join(self.testdir,
@@ -511,7 +528,7 @@ class TestDatasetManager(unittest.TestCase):
         # Should raise error due to same tag
         with self.assertRaises(Exception):
             self.dataset_manager.add_database(name='test',
-                                           tags=['titi'],
+                                           tags=['titi-tags'],
                                            data_type='images',
                                            description='description',
                                            path=os.path.join(self.testdir,
@@ -523,7 +540,7 @@ class TestDatasetManager(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             self.dataset_manager.add_database(name='test',
-                                           tags=['titi'],
+                                           tags=['titi-unique'],
                                            data_type='images',
                                            description='description',
                                            path=os.path.join(self.testdir,
@@ -1001,6 +1018,7 @@ class TestDatasetManager(unittest.TestCase):
         dlb2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
+        dlp.desc = '1234'
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dlb1
         dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dlb2
 
