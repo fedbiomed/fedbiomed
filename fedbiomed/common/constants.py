@@ -211,3 +211,27 @@ class ErrorNumbers(_BaseEnum):
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
+
+
+class UserRoleType(int, _BaseEnum):
+    """Enumeration class, used to characterize the type of component of the fedbiomed architecture
+
+    Attributes:
+        ADMIN: User with Admin role
+        USER: Simple user
+    """
+
+    ADMIN: int = 1
+    USER: int = 2
+
+
+class UserRequestStatus(str, _BaseEnum):
+    """Enumeration class, used to characterize the status for user registration requests
+
+        Attributes:
+            NEW: New user registration
+            REJECTED: Rejected status
+        """
+
+    NEW: str = "NEW"
+    REJECTED: str = "REJECTED"

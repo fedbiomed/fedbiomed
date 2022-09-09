@@ -1,17 +1,11 @@
-import os
-import copy
 import re
-from importlib import reload
 
-from . import api
-from app import app, db_prefix
-from flask import request, jsonify
-from utils import get_node_id
-from utils import success, error, response
+from app import app
+from utils import response
 
 from fedbiomed.node.environ import environ
-import fedbiomed.common.environ
-import fedbiomed.node.dataset_manager
+from flask_jwt_extended import jwt_required
+from . import api
 
 
 @api.route('/config/node-id', methods=['GET'])

@@ -48,7 +48,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         # object, but the true goal of the test is to check that parameters
         # are accepted when initializing object
 
-        self.assertIsInstance(NIFTIFolderDataset(self.root), 
+        self.assertIsInstance(NIFTIFolderDataset(self.root),
                               NIFTIFolderDataset)
 
         self.assertIsInstance(
@@ -511,7 +511,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             dataset.tabular_file = '/a/non/existing/file'
 
         # check error is triggered if a folder is passed instead of a file
-        temp_dir = tempfile.mkdtemp() 
+        temp_dir = tempfile.mkdtemp()
         with self.assertRaises(FedbiomedDatasetError):
             dataset.tabular_file = temp_dir
 
@@ -596,7 +596,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             with self.assertRaises(FedbiomedDatasetError):
                 df = dataset.demographics
         finally:
-            patcher.stop()   
+            patcher.stop()
 
     def test_medical_folder_dataset_09_demographics_setter(self):
         # check that it is not possible to set demographic attribute
@@ -629,11 +629,11 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_11_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
 
-        for i, ((images, demographics), targets) in enumerate(dataset): 
+        for i, ((images, demographics), targets) in enumerate(dataset):
             # test indexation
             self.assertTrue(images['T1'].dim() == 1)
             # test iteration
-            (images_indxed, _), _ = dataset[i] 
+            (images_indxed, _), _ = dataset[i]
             self.assertTrue(images_indxed['T1'].dim() == 1)
 
     def test_medical_folder_dataset_12_target_transform(self):
@@ -696,7 +696,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         """Asserts first batches correct types and lengths
 
         Args:
-            dataset (Dataset): a Dataset object that should have 
+            dataset (Dataset): a Dataset object that should have
                 correct types (dict, dict, torch.Tensor) and correct batch size
         Raises:
             AssertionError if test fails
@@ -731,7 +731,9 @@ class TestMedicalFolderDataset(unittest.TestCase):
         dataset = medical_folder_controller.load_MedicalFolder()
         expected_subject_folders = [Path(self.root).joinpath('subj1'),
                                     Path(self.root).joinpath('subj2')]
-        self.assertEqual(dataset.subject_folders(), expected_subject_folders)
+        for p1, p2 in zip(dataset.subject_folders(), expected_subject_folders):
+            self.assertEqual(os.path.realpath(p1), os.path.realpath(p2))
+
         dataset._reader = MagicMock()
         dataset._reader.side_effect = lambda x: x
         images_dict = dataset.load_images(Path(self.root).joinpath('subj1'), ['T1', 'T2'])
@@ -772,7 +774,8 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         dataset = medical_folder_controller.load_MedicalFolder()
         self.assertTrue(isinstance(dataset, MedicalFolderDataset))
-        self.assertEqual(dataset.root, Path(self.root))
+        self.assertEqual(os.path.realpath(dataset.root),
+                         os.path.realpath(self.root))
 
         # bad call, no root defined
         medical_folder_controller = MedicalFolderController()
@@ -822,15 +825,17 @@ class TestMedicalFolderBase(unittest.TestCase):
 
         self.medical_folder_base = MedicalFolderBase(root=self.root2)
         self.assertIsInstance(self.medical_folder_base.root, PosixPath)
-        self.assertEqual(str(self.medical_folder_base.root), self.root2,
+        self.assertEqual(os.path.realpath(self.medical_folder_base.root),
+                         os.path.realpath(self.root2),
                          "MedicalFolderBase root should not in empty initialization")
 
         # Setting root to a valid value with setter
         self.medical_folder_base.root = self.root
 
         self.assertIsInstance(self.medical_folder_base.root, PosixPath)
-        self.assertEqual(str(self.medical_folder_base.root), self.root,
-                         "MedicalFolderBase root should not in empty initialization")        
+        self.assertEqual(os.path.realpath(self.medical_folder_base.root),
+                         os.path.realpath(self.root),
+                         "MedicalFolderBase root should not in empty initialization")
 
         with self.assertRaises(FedbiomedDatasetError):
             self.medical_folder_base = MedicalFolderBase(root="unknown-folder-path")
@@ -887,7 +892,7 @@ class TestMedicalFolderBase(unittest.TestCase):
             shutil.rmtree(os.path.join(self.root, subject, modality_to_remove))
 
             # action
-            logical = self.medical_folder_base.is_modalities_existing(subject, 
+            logical = self.medical_folder_base.is_modalities_existing(subject,
                                                                       ['T1', 'T2', 'label'])
             # checks
             self.assertFalse(all(logical))

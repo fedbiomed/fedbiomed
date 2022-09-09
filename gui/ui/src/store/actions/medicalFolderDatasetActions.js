@@ -25,24 +25,27 @@ export const setFolderPath = (path) => {
             dispatch({type: 'ERROR_MODAL' , payload: "ROOT path for MedicalFolder dataset should be folder/directory"})
             return
         }
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder root folder path"}})
+        dispatch({type:'SET_LOADING', payload: {status: true, launcher: "VALIDATE_ROOT", text: "Setting/validating MedicalFolder root folder path"}})
         axios.post(EP_VALIDATE_MEDICAL_FOLDER_ROOT, {medical_folder_root : path.path})
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type:'RESET_DLP'})
-                    dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
-                    dispatch({type:'SET_LOADING', payload: {status: false}})
-                    dispatch(checkSubDirectories(path.path))
+                    setTimeout(() => {
+                        dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
+                        dispatch(checkSubDirectories(path.path))
+                        dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
+                    }, 200)
+
                 }else{
-                    dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type:'RESET_DLP'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
+                    dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
                 }
             }).catch(error => {
-                dispatch({type:'SET_LOADING', payload: {status: false}})
+                dispatch({type:'SET_LOADING', payload: {status: false, launcher: "VALIDATE_ROOT"}})
                 dispatch({type:'RESET_MEDICAL_FOLDER'})
                 dispatch({type:'RESET_DLP'})
                 dispatch(displayError(error))
@@ -106,6 +109,7 @@ export const setReferenceCSV = (path) => {
         axios.post(EP_LOAD_CSV_DATA, {path : path.path}).then( response => {
             if(response.status === 200){
                 let data = response.data.result
+                dispatch({ type: "RESET_MEDICAL_FOLDER_REF"})
                 dispatch({type: "SET_REFERENCE_CSV", payload: { path: path.path, data: data}})
             }else{
                 dispatch({type: 'ERROR_MODAL', payload: response.data.result.message})
@@ -184,7 +188,7 @@ function isSameDlpContent(medical_folder, dlp) {
     let m2f_init = dlp.preexisting_dlp.mod2fol_mapping
     let dlp_is_same = true
 
-    // cant be same DLP as loaded when not using a loaded DLP
+    // can't be same DLP as loaded when not using a loaded DLP
     if(!dlp.use_preexisting_dlp) {
         return false
     }
@@ -417,18 +421,23 @@ export const addMedicalFolderDataset = (navigator) => {
         }
 
         // only try to save DLP when we have customizations, and not the same as loaded customizations
-        if(medical_folder.use_custom_mod2fol && (!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp)) {
+        if(!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
             let params_add_dlp = {
-                'modalities_mapping': medical_folder.mod2fol_mapping,
                 'name': dlp.dlp_name
+            }
+            if(medical_folder.use_custom_mod2fol) {
+                params_add_dlp = {
+                    ...params_add_dlp,
+                    'modalities_mapping': medical_folder.mod2fol_mapping
+                }
             }
             dlp_function = axios.post(EP_ADD_DATA_LOADING_PLAN, params_add_dlp)
         } else {
             dlp_function = new Promise((resolve) => { resolve('DUMMY') })
         }
 
-        // sequentialize save DLP with next actions
+        // sequentially save DLP with next actions
         dlp_function.then( response => {
             if(response === 'DUMMY' || response.status === 200) {
                 let saved_dlp_id = null

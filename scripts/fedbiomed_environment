@@ -94,7 +94,8 @@ activate_gui() {
     verbose=$1
     [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-gui environment"
     conda activate fedbiomed-gui
-    unset PYTHONPATH
+    #unset PYTHONPATH
+    export PYTHONPATH=$basedir
     [[ ! -z "$verbose" ]] && environment_info
 }
 
@@ -144,7 +145,7 @@ case $1 in
 
         # gui cleaning
         echo " * Node GUI cleaning"
-        gui_temp_paths='var/gui_build gui/ui/node_modules gui/ui/yarn.lock'
+        gui_temp_paths='var/gui-build gui/ui/node_modules gui/ui/yarn.lock'
         for p in $gui_temp_paths ; do
             if [ -e "${basedir}/$p" ] ; then
                 echo "[INFO] Removing directory ${basedir}/$p"

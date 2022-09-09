@@ -1,5 +1,4 @@
 import os
-from fedbiomed.common import data
 from flask import request, g
 from app import app
 from utils import error, response
