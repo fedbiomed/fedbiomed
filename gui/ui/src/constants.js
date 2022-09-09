@@ -11,6 +11,21 @@ export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
+// MedicalFolder Dataset Endpoints
+export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
+export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
+export const EP_VALIDATE_SUBJECTS_ALL_MODALITIES = '/api/datasets/medical-folder-dataset/validate-all-modalities'
+export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
+export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
+export const EP_DEFAULT_MODALITY_NAMES          = '/api/datasets/medical-folder-dataset/default-modalities'
+
+
+// DataLoadingPlan Endpoints
+export const EP_LIST_DATA_LOADING_PLANS         = '/api/datasets/list-dlps'
+export const EP_READ_DATA_LOADING_PLAN          = '/api/datasets/read-dlp'
+export const EP_ADD_DATA_LOADING_PLAN           = '/api/datasets/medical-folder-dataset/add-dlp'
+export const EP_DELETE_DATA_LOADING_PLAN        = '/api/datasets/medical-folder-dataset/delete-dlp'
+
 // Authentication endpoints
 export const EP_LOGIN                   = '/api/auth/token/login'
 export const EP_AUTH                    = '/api/token/auth'
@@ -37,12 +52,6 @@ export const EP_CREATE_USER             = '/api/admin/users/create'
 export const EP_RESET_USER_PASSWORD     = '/api/admin/users/reset-password'
 export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 
-
-// MedicalFolder Dataset Endpoints
-export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
-export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
-export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
-export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 
 //Models
 export const EP_LIST_MODELS     = '/api/model/list'

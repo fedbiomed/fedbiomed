@@ -1,6 +1,5 @@
 import os
 import re
-import uuid
 
 from app import app
 from cache import cached
@@ -9,11 +8,14 @@ from flask import request, g
 from middlewares import middleware, medical_folder_dataset, common
 from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
+    ValidateSubjectsHasAllModalities, \
     ValidateMedicalFolderAddRequest, \
+    ValidateDataLoadingPlanAddRequest, \
+    ValidateDataLoadingPlanDeleteRequest, \
     PreviewDatasetRequest
 from utils import error, validate_request_data, response
 
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 from . import api
@@ -49,9 +51,18 @@ def validate_root_path():
     return response(data={"valid": True, "modalities": g.modalities}), 200
 
 
+@api.route('/datasets/medical-folder-dataset/validate-all-modalities', methods=['POST'])
+@validate_request_data(schema=ValidateSubjectsHasAllModalities)
+@middleware(middlewares=[medical_folder_dataset.validate_all_modalities])
+def validate_subjects_has_all_modalities():
+    """Validates MedicalFolder Dataset has subjects with all modalities"""
+    return response(data={"valid": True, "subjects": g.subjects}), 200
+
+
 @api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,
+                         medical_folder_dataset.load_dlp,
                          medical_folder_dataset.validate_medical_folder_root,
                          medical_folder_dataset.read_medical_folder_reference,
                          medical_folder_dataset.validate_available_subjects])
@@ -63,9 +74,6 @@ def add_medical_folder_dataset():
 
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['medical_folder_root'])
 
-    # Create unique id for the dataset
-    dataset_id = 'dataset_' + str(uuid.uuid4())
-
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
     else:
@@ -73,13 +81,15 @@ def add_medical_folder_dataset():
         dataset_parameters = {"index_col": req["index_col"],
                               "tabular_file": reference_csv}
     try:
-        dataset_manager.add_database(name=req["name"],
-                                     data_type="medical-folder",
-                                     tags=req['tags'],
-                                     description=req['desc'],
-                                     path=data_path_save,
-                                     dataset_id=dataset_id,
-                                     dataset_parameters=dataset_parameters)
+        dataset_id = dataset_manager.add_database(
+            name=req["name"],
+            data_type="medical-folder",
+            tags=req['tags'],
+            description=req['desc'],
+            path=data_path_save,
+            dataset_parameters=dataset_parameters,
+            data_loading_plan=g.dlp,
+            save_dlp=False)
     except FedbiomedError as e:
         return error(str(e)), 400
     except Exception as e:
@@ -92,6 +102,37 @@ def add_medical_folder_dataset():
                      "Please try again."), 400
 
     return response(data=res), 200
+
+
+@api.route('/datasets/medical-folder-dataset/add-dlp', methods=['POST'])
+@validate_request_data(schema=ValidateDataLoadingPlanAddRequest)
+@middleware(middlewares=[medical_folder_dataset.create_dlp])
+def add_data_loading_plan():
+    """Adds DataLoadingPlan into database of NODE """
+
+    try:
+        dlp_id = dataset_manager.save_data_loading_plan(g.dlp)
+    except FedbiomedError as e:
+        return error(f"Cannot save data loading plan for customizations: {e}"), 400
+    if dlp_id is None:
+        return error("Cannot save data loading plan for customizations: no DLP id"), 400
+
+    return response(data=dlp_id), 200
+
+
+@api.route('/datasets/medical-folder-dataset/delete-dlp', methods=['POST'])
+@validate_request_data(schema=ValidateDataLoadingPlanDeleteRequest)
+def remove_data_loading_plan():
+    """Remove DataLoadingPlan from database of NODE """
+    # Request object as JSON
+    req = request.json
+
+    try:
+        dataset_manager.remove_dlp_by_id(req['dlp_id'], True)
+    except FedbiomedError as e:
+        return error(f"Cannot remove data loading plan for customizations: {e}"), 400
+
+    return response(data=True), 200
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
@@ -132,3 +173,9 @@ def medical_folder_preview():
         "modalities": modalities,
     }
     return response(data=data), 200
+
+
+@api.route('/datasets/medical-folder-dataset/default-modalities', methods=['GET'])
+def get_default_modalities():
+    formatted_modalities = [{'value': name, 'label': name} for name in MedicalFolderController.default_modality_names]
+    return response(data={'default_modalities': formatted_modalities}), 200

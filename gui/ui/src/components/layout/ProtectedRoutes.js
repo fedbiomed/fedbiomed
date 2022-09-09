@@ -50,7 +50,7 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (pro
 
     React.useEffect(() => {
         userAutoLogin(navigate)
-    }, [userAutoLogin, navigate])
+    }, [userAutoLogin])
 
 
     if(user) {
