@@ -88,7 +88,7 @@ class DatasetManager:
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
         return dlp_metadata, self._dlp_table.search(
-            self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
+            self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
         """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
@@ -104,7 +104,7 @@ class DatasetManager:
         Returns:
             A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return self._dlp_table.search(self._database.loading_block_serialization_id.one_of(dlb_ids))
+        return self._dlp_table.search(self._database.dlb_id.one_of(dlb_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -457,7 +457,7 @@ class DatasetManager:
         try:
             self._dlp_table.remove(self._database.dlp_id == dlp_id)
             for dlb in dlbs:
-                self._dlp_table.remove(self._database.loading_block_serialization_id == dlb['loading_block_serialization_id'])
+                self._dlp_table.remove(self._database.dlb_id == dlb['dlb_id'])
         except Exception as e:
             _msg = ErrorNumbers.FB316.value + f": Error during remove of DLP {dlp_id}: {e}"
             logger.error(_msg)

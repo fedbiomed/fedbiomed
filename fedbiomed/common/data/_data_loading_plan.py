@@ -469,10 +469,10 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         self.dlp_id = serialized_dlp['dlp_id']
         self.desc = serialized_dlp['dlp_name']
         self.target_dataset_type = DatasetTypes(serialized_dlp['target_dataset_type'])
-        for loading_block_key_str, loading_block_serialization_id in serialized_dlp['loading_blocks'].items():
+        for loading_block_key_str, dlb_id in serialized_dlp['loading_blocks'].items():
             key_module, key_classname = serialized_dlp['key_paths'][loading_block_key_str]
             loading_block_key = DataLoadingBlock.instantiate_key(key_module, key_classname, loading_block_key_str)
-            loading_block = next(filter(lambda x: x['dlb_id'] == loading_block_serialization_id,
+            loading_block = next(filter(lambda x: x['dlb_id'] == dlb_id,
                                         serialized_loading_blocks))
             dlb = DataLoadingBlock.instantiate_class(loading_block)
             self[loading_block_key] = dlb.deserialize(loading_block)
