@@ -66,7 +66,7 @@ class ExperimentJL(Experiment):
         # following section 6.3 [1], s_0 = 0
         jl = JLS(VEParameters.NUM_CLIENTS.value, VE=self.vector_encoder)
 
-        s_0 = mpz(0)
+        s_0 = mpz(-20)
         server_key = ServerKey(param=public_params, key=s_0)
         # configure vector_encoder (using the same conf of the nodes)
 

@@ -96,7 +96,8 @@ class JLS(object):
         public_param = PublicParam(n, lmbda // 2, fdh.H)
 
         seed = random.SystemRandom()
-        s0 = mpz(0)
+        # I already the share value
+        s0 = mpz(-20)
         # users = {}
         #
         # for i in range(self.nusers):
@@ -104,8 +105,9 @@ class JLS(object):
         #     users[i] = UserKey(public_param, s)
         #     s0 += s
         # s0 = -s0
+        s_user = mpz(10)
         server = ServerKey(public_param, s0)
-        user = UserKey(public_param, s0)
+        user = UserKey(public_param, s_user)
         return public_param, server, user
 
     def Protect(self, pp, sk_u, tau, x_u_tau):
