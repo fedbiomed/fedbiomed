@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, List, Tuple, TypeVar, Type, Union
+from typing import Any, Dict, List, Tuple, TypeVar, Type, Union, Iterable
 from abc import ABC, abstractmethod
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedLoadingBlockValueError, \
@@ -147,15 +147,16 @@ class SerializationValidation:
 
     @staticmethod
     @validator_decorator
-    def _key_paths_validator(key_paths: dict) -> Union[bool, Tuple[bool, str]]:
+    def _key_paths_validator(key_paths: Dict[DataLoadingBlockTypes, Union[tuple, list]])\
+            -> Union[bool, Tuple[bool, str]]:
         """Validate that key_paths is of the form {DataLoadingBlockTypes: (str, str)}."""
         if not isinstance(key_paths, dict):
             return False, f"Field key_paths must be of type dict, instead found {type(key_paths).__name__}"
         for key, value in key_paths.items():
             if key not in [k.value for child in DataLoadingBlockTypes.__subclasses__() for k in child]:
                 return False, f"Data loading block key {key} is not a valid key."
-            if not isinstance(value, tuple):
-                return False, f"Values for the key_paths dictionary should be tuples, " \
+            if not isinstance(value, (tuple, list)):
+                return False, f"Values for the key_paths dictionary should be tuples or list, " \
                               f"instead found {type(value).__name__}."
             if len(value) != 2:
                 return False, f"Values for the key_paths dictionary should have length 2, instead found {len(value)}."
