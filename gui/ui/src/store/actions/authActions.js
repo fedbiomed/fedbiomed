@@ -14,7 +14,6 @@ export const autoLogin = (navigate) => {
             dispatch(setUser(response.data.result))
             dispatch({type: SET_LOADING, payload: {status: false}})
         }).catch(error => {
-            console.log('HERE')
             dispatch({type: SET_LOADING, payload: {status: false}})
             navigate('/login')
             dispatch({type: 'ERROR_MODAL', payload: "Your session is expired please login"})
