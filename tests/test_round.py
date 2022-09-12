@@ -260,6 +260,8 @@ class TestRound(unittest.TestCase):
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
+            "   def post_init(self, model_args, training_args, optimizer_args):\n" + \
+            "       pass\n" + \
             "   def load(self, *args, **kwargs):\n" + \
             "       pass \n" + \
             "   def save(self, *args, **kwargs):\n" + \
@@ -285,7 +287,6 @@ class TestRound(unittest.TestCase):
 
         # action
         msg_test = self.r1.run_model_training()
-
         # checks
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
@@ -623,8 +624,8 @@ class TestRound(unittest.TestCase):
         # check if 'history_monitor' and 'node_args' entries have been removed
         #  in `training_kwargs` (for security reasons, see Round for further details)
 
-        self.assertFalse(self.r1.training_kwargs.get('history_monitor', False))
-        self.assertFalse(self.r1.training_kwargs.get('node_args', False))
+        self.assertFalse(self.r1.training_arguments.get('history_monitor', False))
+        self.assertFalse(self.r1.training_arguments.get('node_args', False))
 
     @patch('inspect.signature')
     def test_round_09_data_loading_plan(self,
