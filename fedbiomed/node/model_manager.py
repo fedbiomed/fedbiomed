@@ -524,7 +524,7 @@ class ModelManager:
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
-            # 'training_url': msg['training_url'],
+            # 'training_plan_url': msg['training_plan_url'],
             'sequence': msg['sequence'],
             'status': 0,  # HTTP status (set by default to 0, non existing HTTP status code)
             'command': 'approval'
@@ -536,7 +536,7 @@ class ModelManager:
         try:
             # model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
-            status, tmp_file = self._repo.download_file(msg['training_url'], model_name + '.py')
+            status, tmp_file = self._repo.download_file(msg['training_plan_url'], model_name + '.py')
 
             reply['status'] = status
 
@@ -625,14 +625,14 @@ class ModelManager:
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
             'job_id': msg['job_id'],
-            'training_url': msg['training_url'],
+            'training_plan_url': msg['training_plan_url'],
             'command': 'training-plan-status'
         }
 
         try:
             # Create model file with id and download
             model_name = 'my_model_' + str(uuid.uuid4().hex)
-            status, model_file = self._repo.download_file(msg['training_url'], model_name + '.py')
+            status, model_file = self._repo.download_file(msg['training_plan_url'], model_name + '.py')
             if status != 200:
                 # FIXME: should 'approval_obligation' be always false when model cannot be downloaded,
                 #  regardless of environment variable "MODEL_APPROVAL"?
@@ -640,7 +640,7 @@ class ModelManager:
                          'success': False,
                          'approval_obligation': False,
                          'status': 'Error',
-                         'msg': f'Can not download model file. {msg["training_url"]}'}
+                         'msg': f'Can not download model file. {msg["training_plan_url"]}'}
             else:
                 model = self.get_model_from_database(model_file)
                 if model is not None:
@@ -681,15 +681,15 @@ class ModelManager:
                      'success': False,
                      'approval_obligation': False,
                      'status': 'Error',
-                     'msg': ErrorNumbers.FB604.value + ': An error occured when downloading model file.'
-                                                       f' {msg["training_url"]} , {fed_err}'}
+                     'msg': ErrorNumbers.FB604.value + ': An error occurred when downloading model file.'
+                                                       f' {msg["training_plan_url"]} , {fed_err}'}
         except Exception as e:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
                      'status': 'Error',
                      'msg': ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.'
-                                                       f' {msg["training_url"]} , {e}'}
+                                                       f' {msg["training_plan_url"]} , {e}'}
         # finally:
         #     # Send check model status answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
