@@ -12,7 +12,7 @@ from tinydb import TinyDB, Query
 from typing import Any, Dict, List, Tuple, Union
 import uuid
 
-from fedbiomed.common.constants import HashingAlgorithms, ModelApprovalStatus, ModelTypes, ErrorNumbers
+from fedbiomed.common.constants import HashingAlgorithms, TrainingPlanApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
@@ -249,7 +249,7 @@ class ModelManager:
         model_object = dict(name=name, description=description,
                             hash=model_hash, model_path=path,
                             model_id=model_id, model_type=model_type,
-                            model_status=ModelApprovalStatus.APPROVED.value,
+                            model_status=TrainingPlanApprovalStatus.APPROVED.value,
                             algorithm=algorithm,
                             researcher_id=researcher_id,
                             date_created=ctime,
@@ -316,7 +316,7 @@ class ModelManager:
 
     def check_model_status(self,
                            model_path: str,
-                           state: Union[ModelApprovalStatus, ModelTypes, None]) -> Tuple[bool, Dict[str, Any]]:
+                           state: Union[TrainingPlanApprovalStatus, ModelTypes, None]) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model exists in database and has the specified status.
 
         Sends a query to database to search for hash of requested model.
@@ -352,13 +352,13 @@ class ModelManager:
 
         if state is None:
             _all_models_with_status = None
-        elif isinstance(state, ModelApprovalStatus):
+        elif isinstance(state, TrainingPlanApprovalStatus):
             _all_models_with_status = (self._database.model_status == state.value)
         elif isinstance(state, ModelTypes):
             _all_models_with_status = (self._database.model_type == state.value)
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" +
-                                             f" ModelApprovalStatus or ModelTypes, but got {type(state)}")
+                                             f" TrainingPlanApprovalStatus or ModelTypes, but got {type(state)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
 
         # TODO: more robust implementation
@@ -572,7 +572,7 @@ class ModelManager:
                                         model_path=model_path,
                                         model_id=model_name,
                                         model_type=ModelTypes.REQUESTED.value,
-                                        model_status=ModelApprovalStatus.PENDING.value,
+                                        model_status=TrainingPlanApprovalStatus.PENDING.value,
                                         algorithm=hash_algo,
                                         date_created=ctime,
                                         date_modified=ctime,
@@ -593,10 +593,10 @@ class ModelManager:
                     logger.debug(f"Model '{msg['description']}' successfully received by Node for approval")
 
         elif is_existant and downloadable_checkable:
-            if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
+            if self.check_model_status(model_to_check, TrainingPlanApprovalStatus.PENDING)[0]:
                 logger.info(f"Model '{msg['description']}' already sent for Approval (status Pending). "
                             "Please wait for Node approval.")
-            elif self.check_model_status(model_to_check, ModelApprovalStatus.APPROVED)[0]:
+            elif self.check_model_status(model_to_check, TrainingPlanApprovalStatus.APPROVED)[0]:
                 logger.info(f"Model '{msg['description']}' is already Approved. Ready to train on this model.")
             else:
                 logger.warning(f"Model '{msg['description']}' already exists in database. Aborting")
@@ -649,11 +649,11 @@ class ModelManager:
                     model_status = 'Not Registered'
 
                 if environ["MODEL_APPROVAL"]:
-                    if model_status == ModelApprovalStatus.APPROVED.value:
+                    if model_status == TrainingPlanApprovalStatus.APPROVED.value:
                         msg = "Model has been approved by the node, training can start"
-                    elif model_status == ModelApprovalStatus.PENDING.value:
+                    elif model_status == TrainingPlanApprovalStatus.PENDING.value:
                         msg = "Model is pending: waiting for a review"
-                    elif model_status == ModelApprovalStatus.REJECTED.value:
+                    elif model_status == TrainingPlanApprovalStatus.REJECTED.value:
                         msg = "Model has been rejected by the node, training is not possible"
                     else:
                         msg = f"Unknown model / model not in database (status {model_status})"
@@ -843,7 +843,7 @@ class ModelManager:
 
     def _update_model_status(self,
                              model_id: str,
-                             model_status: ModelApprovalStatus,
+                             model_status: TrainingPlanApprovalStatus,
                              notes: Union[str, None] = None) -> True:
         """Updates model entry ([`model_status`] field) for a given [`model_id`] in the database
 
@@ -864,9 +864,9 @@ class ModelManager:
             raise FedbiomedModelManagerError(
                 ErrorNumbers.FB606.value + ": parameter model_id (str) has bad "
                 f"type {type(model_id)}")       
-        if not isinstance(model_status, ModelApprovalStatus):
+        if not isinstance(model_status, TrainingPlanApprovalStatus):
             raise FedbiomedModelManagerError(
-                ErrorNumbers.FB606.value + ": parameter model_status (ModelApprovalStatus) has bad "
+                ErrorNumbers.FB606.value + ": parameter model_status (TrainingPlanApprovalStatus) has bad "
                 f"type {type(model_status)}")            
         if notes is not None and not isinstance(notes, str):
             raise FedbiomedModelManagerError(
@@ -917,7 +917,7 @@ class ModelManager:
             Currently always returns True
         """
         res = self._update_model_status(model_id,
-                                        ModelApprovalStatus.APPROVED,
+                                        TrainingPlanApprovalStatus.APPROVED,
                                         extra_notes)
         return res
 
@@ -933,7 +933,7 @@ class ModelManager:
             Currently always returns True
         """
         res = self._update_model_status(model_id,
-                                        ModelApprovalStatus.REJECTED,
+                                        TrainingPlanApprovalStatus.REJECTED,
                                         extra_notes)
         return res
 
@@ -983,7 +983,7 @@ class ModelManager:
         return True
 
     def list_models(self, sort_by: Union[str, None] = None,
-                    select_status: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
+                    select_status: Union[None, TrainingPlanApprovalStatus, List[TrainingPlanApprovalStatus]] = None,
                     verbose: bool = True,
                     search: Union[dict, None] = None) -> List[Dict[str, Any]]:
         """Lists approved model files
@@ -1013,8 +1013,8 @@ class ModelManager:
         if not isinstance(verbose, bool):
             raise FedbiomedModelManagerError(
                 ErrorNumbers.FB606.value + f": parameter verbose has bad type {type(verbose)}")  
-        # in case select_status is a list, we filter later with elements are ModelApprovalStatus
-        if select_status is not None and not isinstance(select_status, ModelApprovalStatus) and \
+        # in case select_status is a list, we filter later with elements are TrainingPlanApprovalStatus
+        if select_status is not None and not isinstance(select_status, TrainingPlanApprovalStatus) and \
                 not isinstance(select_status, list):
             raise FedbiomedModelManagerError(
                 ErrorNumbers.FB606.value + f": parameter select_status has bad type {type(select_status)}")  
@@ -1028,13 +1028,13 @@ class ModelManager:
             except ValidateError as e:
                 raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument is not valid. {e}")
 
-        if isinstance(select_status, (ModelApprovalStatus, list)):
+        if isinstance(select_status, (TrainingPlanApprovalStatus, list)):
             # filtering model based on their status
             if not isinstance(select_status, list):
                 # convert everything into a list
                 select_status = [select_status]
-            select_status = [x.value for x in select_status if isinstance(x, ModelApprovalStatus)]
-            # extract value from ModelApprovalStatus
+            select_status = [x.value for x in select_status if isinstance(x, TrainingPlanApprovalStatus)]
+            # extract value from TrainingPlanApprovalStatus
             try:
                 if search:
                     models = self._db.search(self._database.model_status.one_of(select_status) &
