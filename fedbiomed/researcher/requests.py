@@ -321,7 +321,7 @@ class Requests(metaclass=SingletonMeta):
 
 
         Args:
-            model: the model to upload and send to the nodes for approval.
+            training_plan: the training plan to upload and send to the nodes for approval.
                    It can be:
                    - a path_name (str)
                    - a model (class)
