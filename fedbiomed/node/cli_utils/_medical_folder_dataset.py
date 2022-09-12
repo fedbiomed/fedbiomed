@@ -40,7 +40,7 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
     print("\nThe following modalities were detected:\n", "\n".join([m for m in modality_folder_names]))
     # TODO: add CLI support for DLP, temporarily disactivated (not working yet)
     # 
-:w    #if interactive:
+    #if interactive:
     #    choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
     #    if choice.lower() == 'y':
     #        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
