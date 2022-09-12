@@ -1,6 +1,7 @@
 import uuid
-from typing import Any, Dict, List, Tuple, TypeVar, Type, Union, Iterable
+from typing import Any, Dict, List, Tuple, TypeVar, Type, Union
 from abc import ABC, abstractmethod
+from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedLoadingBlockValueError, \
     FedbiomedDataLoadingPlanValueError, FedbiomedLoadingBlockError, FedbiomedDataLoadingPlanError
@@ -297,8 +298,8 @@ class DataLoadingBlock(ABC):
            FedbiomedLoadingBlockError: if the instantiation process raised any exception.
         """
         try:
-            exec(f"import {loading_block['loading_block_module']}")
-            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            dlb_module = import_module(loading_block['loading_block_module'])
+            dlb = eval(f"dlb_module.{loading_block['loading_block_class']}()")
         except Exception as e:
             msg = ErrorNumbers.FB614.value + f": could not instantiate DataLoadingBlock from the following metadata: " + \
                   f"{loading_block} because of {type(e).__name__}: {e}"
@@ -309,8 +310,8 @@ class DataLoadingBlock(ABC):
     @staticmethod
     def instantiate_key(key_module: str, key_classname: str, loading_block_key_str: str) -> DataLoadingBlockTypes:
         try:
-            exec(f"import {key_module}")
-            loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
+            keys = import_module(key_module)
+            loading_block_key = eval(f"keys.{key_classname}('{loading_block_key_str}')")
         except Exception as e:
             msg = ErrorNumbers.FB615.value + f"Error deserializing loading block key " + \
                   f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
