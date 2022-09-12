@@ -18,7 +18,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-
+from fedbiomed.common.training_args import TrainingArgs
 
 class TestJob(unittest.TestCase):
 
@@ -90,7 +90,8 @@ class TestJob(unittest.TestCase):
         self.mock_request_create.side_effect = TestJob.msg_side_effect
 
         # Build Global Job that will be used in most of the tests
-        self.job = Job(model=self.model,
+        self.job = Job(training_plan_class=self.model,
+                       training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                        data=self.fds)
 
     def tearDown(self) -> None:
@@ -121,8 +122,9 @@ class TestJob(unittest.TestCase):
     def test_job_02_init_keep_files_dir(self):
         """ Testing initialization of Job with keep_files_dir """
 
-        j = Job(model=self.model,
+        j = Job(training_plan_class=self.model,
                 data=self.fds,
+                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 keep_files_dir=environ['TMP_DIR'])
 
         # Check keep files dir properly set
@@ -132,28 +134,30 @@ class TestJob(unittest.TestCase):
         """ Testing initialization of Job by providing Request object """
 
         reqs = Requests()
-        j = Job(model=self.model,
+        j = Job(training_plan_class=self.model,
+                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds,
                 reqs=reqs)
 
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
     def test_job_02_init_building_model_from_path(self):
-        """ Test model is passed as static python file with model_path """
+        """ Test model is passed as static python file with training_plan_path """
 
         # Get source of the model and save in tmp directory for just test purposes
         tmp_dir_model = TestJob.create_fake_model('fake_model.py')
         self.mock_upload_file.reset_mock()
 
-        j = Job(model_path=tmp_dir_model,
-                model='FakeModel')
+        j = Job(training_plan_path=tmp_dir_model,
+                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_plan_class='FakeModel')
 
-        self.assertEqual(j.model_instance.__class__.__name__, FakeModel.__name__,
+        self.assertEqual(j.training_plan_instance.__class__.__name__, FakeModel.__name__,
                          'Provided model and model instance of Job do not match, '
                          'while initializing Job with static model python file')
 
-        self.assertEqual(j._training_plan, 'FakeModel',
-                         'Model is not initialized properly while providing model_path')
+        self.assertEqual(j._training_plan_name, 'FakeModel',
+                         'Model is not initialized properly while providing training_plan_path')
 
         # # Upload file must be called 2 times one for model
         # # another one for initial model parameters
@@ -172,8 +176,9 @@ class TestJob(unittest.TestCase):
         tmp_dir_model = TestJob.create_fake_model('fake-model.py')
 
         with self.assertRaises(SystemExit):
-            _ = Job(model_path=tmp_dir_model,
-                    model='FakeModel')
+            _ = Job(training_plan_path=tmp_dir_model,
+                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_plan_class='FakeModel')
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.critical')
@@ -185,21 +190,11 @@ class TestJob(unittest.TestCase):
 
         mock_isclass.side_effect = NameError
         with self.assertRaises(NameError):
-            _ = Job(model='FakeModel',
+            _ = Job(training_plan_class='FakeModel',
+                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                     data=self.fds)
             mock_logger_critical.assert_called_once()
 
-    def test_job_05_initialization_with_model_arguments(self):
-        """ Test building model with model arguments during init of Job"""
-
-        model_args = {"test": "test"}
-
-        j = Job(model=FakeModel,
-                data=self.fds,
-                model_args=model_args)
-
-        self.assertDictEqual(j.model_instance.model_args, model_args,
-                             'Model arguments has not been instantiated properly')
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job_05_initialization_raising_exception_save_and_save_code(self,
@@ -211,7 +206,9 @@ class TestJob(unittest.TestCase):
 
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
-        _ = Job(model=self.model, data=self.fds)
+        _ = Job(training_plan_class=self.model,
+                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                data=self.fds)
         mock_logger_error.assert_called_once()
 
         # Reset mocks for next tests
@@ -220,19 +217,21 @@ class TestJob(unittest.TestCase):
 
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.save.side_effect = Exception
-        _ = Job(model=self.model, data=self.fds)
+        _ = Job(training_plan_class=self.model,
+                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                data=self.fds)
         mock_logger_error.assert_called_once()
 
     def test_job_06_properties_setters(self):
         """ Testing all properties and setters of Job class
             TODO: Change this part after refactoring getters and setters
         """
-        self.assertEqual(self.model, self.job.model, 'Can not get Requests attribute from Job properly')
-        self.assertEqual('MagicMock', self.job.model_class, 'Can not model class properly')
+        self.assertEqual(self.model, self.job.training_plan_instance, 'Can not get Requests attribute from Job properly')
+        self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
-        model_file = self.job.model_file
-        self.assertEqual(model_file, self.job._model_file, 'model_file attribute of job is not got correctly')
+        model_file = self.job.training_plan_file
+        self.assertEqual(model_file, self.job.training_plan_file, 'model_file attribute of job is not got correctly')
 
         nodes = {'node-1': 1, 'node-2': 2}
         self.job.nodes = nodes
@@ -247,7 +246,7 @@ class TestJob(unittest.TestCase):
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_job_07_check_model_is_approved_by_nodes(self,
+    def test_job_07_check_training_plan_is_approved_by_nodes(self,
                                                      mock_requests_get_responses,
                                                      mock_requests_send_message):
         """ Testing the method that check model approval status of the nodes"""
@@ -268,13 +267,13 @@ class TestJob(unittest.TestCase):
             ]
         )
         mock_requests_get_responses.return_value = responses
-        result = self.job.check_model_is_approved_by_nodes()
+        result = self.job.check_training_plan_is_approved_by_nodes()
         calls = mock_requests_send_message.call_args_list
         self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
         self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
 
         self.assertListEqual(responses.data(), result.data(),
-                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when model is approved by only one node
         responses = FakeResponses([
@@ -282,9 +281,9 @@ class TestJob(unittest.TestCase):
             {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': False}
         ])
         mock_requests_get_responses.return_value = responses
-        result = self.job.check_model_is_approved_by_nodes()
+        result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertListEqual(responses.data(), result.data(),
-                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when model approval obligation is False by one node
         responses = FakeResponses([
@@ -292,9 +291,9 @@ class TestJob(unittest.TestCase):
             {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
         ])
         mock_requests_get_responses.return_value = responses
-        result = self.job.check_model_is_approved_by_nodes()
+        result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertListEqual(responses.data(), result.data(),
-                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the reply success status is False
         responses = FakeResponses([
@@ -302,20 +301,20 @@ class TestJob(unittest.TestCase):
             {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
         ])
         mock_requests_get_responses.return_value = responses
-        result = self.job.check_model_is_approved_by_nodes()
+        result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertListEqual(responses.data(), result.data(),
-                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the nodes does not reply
         responses = FakeResponses([
             {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False}
         ])
         mock_requests_get_responses.return_value = responses
-        result = self.job.check_model_is_approved_by_nodes()
+        result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
         self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
         self.assertListEqual(responses.data(), result.data(),
-                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
     def test_job_08_waiting_for_nodes(self):
         """ Testing the method waiting_for_nodes method that runs during federated training """
@@ -616,7 +615,8 @@ class TestJob(unittest.TestCase):
         patch_responses_getitem.side_effect = side_responses_getitem
 
         # instantiate job
-        test_job_torch = Job(model=model_torch,
+        test_job_torch = Job(training_plan_class=model_torch,
+                             training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                              data=fds)
         # second create a `training_replies` variable
         loaded_training_replies_torch = [
@@ -681,7 +681,8 @@ class TestJob(unittest.TestCase):
         model_sklearn.save = MagicMock(return_value=None)
         func_sklearn_loadparams = MagicMock(return_value=sklearn_params)
         # instantiate job
-        test_job_sklearn = Job(model=model_sklearn,
+        test_job_sklearn = Job(training_plan_class=model_sklearn,
+                               training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                                data=fds)
 
         # action

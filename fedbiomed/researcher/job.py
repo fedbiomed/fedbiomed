@@ -113,7 +113,7 @@ class Job:
                 sys.path.insert(0, os.path.dirname(training_plan_path))
                 exec('from ' + model_module + ' import ' + self._training_plan_class)
                 sys.path.pop(0)
-                model = eval(self._training_plan_class)
+                self._training_plan_class = eval(self._training_plan_class)
             except Exception:
                 e = sys.exc_info()
                 logger.critical("Cannot import class " + self._training_plan_class + " from path " + training_plan_path + " - Error: " + str(e))
@@ -130,15 +130,15 @@ class Job:
         # create/save model instance (ie TrainingPlan)
         if inspect.isclass(self._training_plan_class):
             self._training_plan_instance = self._training_plan_class()  # contains TrainingPlan
-            self._training_plan_instance.post_init(
-                model_args={} if self._model_args is None else self._model_args,
-                training_args=self._training_args.pure_training_arguments(),
-                optimizer_args=self._training_args.optimizer_arguments()
-            )
+
         else:
-            msg = f"Training class is a class. Please provide a class which not initialized."
-            logger.critical(msg)
-            raise FedbiomedError(msg)
+            self._training_plan_instance = self._training_plan_class
+
+        self._training_plan_instance.post_init(
+            model_args={} if self._model_args is None else self._model_args,
+            training_args=self._training_args.pure_training_arguments(),
+            optimizer_args=self._training_args.optimizer_arguments()
+        )
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -229,7 +229,7 @@ class Job:
 
         """ Checks whether model is approved or not.
 
-        This method sends `model-status` request to the nodes. It should be run before running experiment.
+        This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
         So, researchers can find out if their model has been approved
 
         """
@@ -238,7 +238,7 @@ class Job:
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_plan_url': self._repository_args['training_plan_url'],
-            'command': 'model-status'
+            'command': 'training-plan-status'
         }
 
         responses = Responses([])
@@ -254,7 +254,7 @@ class Job:
                 cli)
 
         # Wait for responses
-        for resp in self._reqs.get_responses(look_for_commands=['model-status'], only_successful=False):
+        for resp in self._reqs.get_responses(look_for_commands=['training-plan-status'], only_successful=False):
             responses.append(resp)
             replied_nodes.append(resp.get('node_id'))
 
@@ -270,7 +270,7 @@ class Job:
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
         
-        # Get the nodes that haven't replied model-status request
+        # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
             logger.warning(f"Request for checking model status hasn't been replied \
@@ -375,7 +375,7 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self._training_plan.load(params_path, to_params=True)['model_params']
+                    params = self._training_plan_instance.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None
                     params = None
@@ -417,7 +417,7 @@ class Job:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan.save(filename, params)
+                self._training_plan_instance.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
@@ -641,7 +641,7 @@ class localJob:
 
     @property
     def model(self):
-        return self._training_plan.model
+        return self._training_plan_instance.model
 
     @property
     def training_args(self):
@@ -654,7 +654,7 @@ class localJob:
     def start_training(self):
         """Sends training task to nodes and waits for the responses"""
 
-        for i in self._training_plan.dependencies:
+        for i in self._training_plan_instance.dependencies:
             exec(i, globals())
 
         is_failed = False
@@ -664,12 +664,12 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self._training_plan.set_dataset_path(self.dataset_path)
-                data_manager = self._training_plan.training_data()
-                tp_type = self._training_plan.type()
+                self._training_plan_instance.set_dataset_path(self.dataset_path)
+                data_manager = self._training_plan_instance.training_data()
+                tp_type = self._training_plan_instance.type()
                 data_manager.load(tp_type=tp_type)
                 train_loader, test_loader = data_manager.split(test_ratio=0)
-                self._training_plan.training_routine(data_loader=train_loader,
+                self._training_plan_instance.training_routine(data_loader=train_loader,
                                                      **self._localjob_training_args)
             except Exception as e:
                 is_failed = True
@@ -680,7 +680,7 @@ class localJob:
                 # TODO : should test status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan.save(filename, results)
+                self._training_plan_instance.save(filename, results)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot write results: " + str(e)
