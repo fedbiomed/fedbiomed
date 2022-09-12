@@ -57,11 +57,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._optimizer_args = None
         self._use_gpu = False
 
-        self._batch_maxnum = None
+        self._batch_maxnum = 100
         self._fedprox_mu = None
-        self._log_interval = None
-        self._epochs = None
-        self._dry_run = None
+        self._log_interval = 10
+        self._epochs = 1
+        self._dry_run = False
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -101,36 +101,33 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._dry_run = training_args.get('dry_run')
 
         # Add dependencies
-        dependencies: Union[Tuple, List] = self.declare_dependencies()
+        dependencies: Union[Tuple, List] = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
                                              f"ist or tuple, but got {type(dependencies)}")
         self._add_dependency(dependencies)
 
         # Get model defined by researcher
-        self._model = self.declare_model(self._model_args)
+        self._model = self.init_model(self._model_args)
         if not isinstance(self._model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
 
         # Get optimizer defined by researcher
-        self._optimizer = self.declare_optimizer(self._optimizer_args)
+        self._optimizer = self.init_optimizer(self._optimizer_args)
         if not isinstance(self._optimizer, torch.optim.Optimizer):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
 
-    @property
     def model(self):
         return self._model
 
-    @property
     def optimizer(self):
         return self._optimizer
 
-    @abstractmethod
-    def declare_model(self, model_args: Dict):
+    def init_model(self, model_args: Dict):
         """Abstract method where model should be defined """
         pass
 
-    def declare_dependencies(self) -> List:
+    def init_dependencies(self) -> List:
         """Default method where dependencies are returned
 
         Returns:
@@ -138,7 +135,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return []
 
-    def declare_optimizer(self, optimizer_args: Dict):
+    def init_optimizer(self, optimizer_args: Dict):
         """Abstract method for declaring optimizer by default """
         try:
             self._optimizer = torch.optim.Adam(self._model.parameters(), **optimizer_args)
@@ -436,7 +433,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                     try:
                         # Pass data through network layers
-                        pred = self(data)
+                        pred = self._model(data)
                     except Exception as e:
                         # Pytorch does not provide any means to catch exception (no custom Exceptions),
                         # that is why we need to trap general Exception
