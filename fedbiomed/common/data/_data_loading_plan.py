@@ -301,7 +301,7 @@ class DataLoadingBlock(ABC):
             dlb_module = import_module(loading_block['loading_block_module'])
             dlb = eval(f"dlb_module.{loading_block['loading_block_class']}()")
         except Exception as e:
-            msg = ErrorNumbers.FB614.value + f": could not instantiate DataLoadingBlock from the following metadata: " + \
+            msg = f"{ErrorNumbers.FB614.value}: could not instantiate DataLoadingBlock from the following metadata: " +\
                   f"{loading_block} because of {type(e).__name__}: {e}"
             logger.debug(msg)
             raise FedbiomedLoadingBlockError(msg)
@@ -313,7 +313,7 @@ class DataLoadingBlock(ABC):
             keys = import_module(key_module)
             loading_block_key = eval(f"keys.{key_classname}('{loading_block_key_str}')")
         except Exception as e:
-            msg = ErrorNumbers.FB615.value + f"Error deserializing loading block key " + \
+            msg = f"{ErrorNumbers.FB615.value} Error deserializing loading block key " + \
                   f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
                   f"because of {type(e).__name__}: {e}"
             logger.debug(msg)
@@ -534,7 +534,7 @@ class DataLoadingPlanMixin:
     def set_dlp(self, dlp: DataLoadingPlan):
         """Sets the dlp if the target dataset type is appropriate"""
         if not isinstance(dlp, DataLoadingPlan):
-            msg = ErrorNumbers.FB615.value + f"Trying to set a DataLoadingPlan but the argument is of type " + \
+            msg = f"{ErrorNumbers.FB615.value} Trying to set a DataLoadingPlan but the argument is of type " + \
                   f"{type(dlp).__name__}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)

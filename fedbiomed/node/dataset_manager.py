@@ -11,7 +11,6 @@ import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
-from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -76,7 +75,7 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError(f"Wrong input type for target_dataset_type. "
                                                    f"Expected str, got {type(target_dataset_type)} instead.")
             if target_dataset_type not in [t.value for t in DatasetTypes]:
-                raise FedbiomedDatasetManagerError(f"target_dataset_type should be of the values defined in "
+                raise FedbiomedDatasetManagerError("target_dataset_type should be of the values defined in "
                                                    "fedbiomed.common.constants.DatasetTypes")
 
             dlps = self._dlp_table.search(
