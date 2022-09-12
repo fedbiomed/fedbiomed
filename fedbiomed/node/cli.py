@@ -25,7 +25,7 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import Terminal256Formatter
 
-from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
+from fedbiomed.common.constants  import TrainingPlanApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.data import MedicalFolderController
 
@@ -589,8 +589,8 @@ def approve_model(sort_by_date: bool = True):
     else:
         sort_by = None
     non_approved_models = model_manager.list_models(sort_by=sort_by,
-                                                    select_status=[ModelApprovalStatus.PENDING,
-                                                                   ModelApprovalStatus.REJECTED],
+                                                    select_status=[TrainingPlanApprovalStatus.PENDING,
+                                                                   TrainingPlanApprovalStatus.REJECTED],
                                                     verbose=False)
     if not non_approved_models:
         logger.warning("All models have been approved or no model has been registered... aborting")
@@ -621,8 +621,8 @@ def approve_model(sort_by_date: bool = True):
 def reject_model():
     """Rejects a given model that has either Pending or Approved status
     """
-    approved_models = model_manager.list_models(select_status=[ModelApprovalStatus.APPROVED,
-                                                               ModelApprovalStatus.PENDING],
+    approved_models = model_manager.list_models(select_status=[TrainingPlanApprovalStatus.APPROVED,
+                                                               TrainingPlanApprovalStatus.PENDING],
                                                 verbose=False)
 
     if not approved_models:
