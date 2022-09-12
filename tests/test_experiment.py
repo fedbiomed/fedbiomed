@@ -37,7 +37,7 @@ class TestExperiment(unittest.TestCase):
         """ Should inherit TorchTrainingPlan to pass the condition
             `issubclass` of `TorchTrainingPlan`
         """
-        def declare_model(self, args):
+        def init_model(self, args):
             pass
 
         pass
