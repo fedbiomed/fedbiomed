@@ -373,7 +373,7 @@ class MapperBlock(DataLoadingBlock):
             FedbiomedLoadingBlockError: if map is not a dict or the key does not exist.
         """
         if not isinstance(self.map, dict) or key not in self.map:
-            msg = ErrorNumbers.FB614.value + f"Mapper block error: no key '{key}' in mapping dictionary"
+            msg = f"{ErrorNumbers.FB614.value} Mapper block error: no key '{key}' in mapping dictionary"
             logger.debug(msg)
             raise FedbiomedLoadingBlockError(msg)
         return self.map[key]
@@ -422,12 +422,12 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     def __setitem__(self, key: DataLoadingBlockTypes, value: DataLoadingBlock):
         """Type-check the arguments then call dict.__setitem__."""
         if not isinstance(key, DataLoadingBlockTypes):
-            msg = ErrorNumbers.FB615.value + f"Key {key} is not of enum type DataLoadingBlockTypes in" + \
+            msg = f"{ErrorNumbers.FB615.value} Key {key} is not of enum type DataLoadingBlockTypes in" + \
                   f" DataLoadingPlan {self}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)
         if not isinstance(value, DataLoadingBlock):
-            msg = ErrorNumbers.FB615.value + f"Value {value} is not of type DataLoadingBlock in" + \
+            msg = f"{ErrorNumbers.FB615.value} Value {value} is not of type DataLoadingBlock in" + \
                   f" DataLoadingPlan {self}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)
@@ -512,7 +512,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
                 return DatasetTypes.IMAGES
         elif dataset.__class__.__name__ == 'MNIST':
             return DatasetTypes.DEFAULT
-        msg = ErrorNumbers.FB615 + f"Trying to infer dataset type of {dataset} is not supported " + \
+        msg = f"{ErrorNumbers.FB615.value} Trying to infer dataset type of {dataset} is not supported " + \
             f"for datasets of type {dataset.__class__.__qualname__}"
         logger.debug(msg)
         raise FedbiomedDataLoadingPlanValueError(msg)
