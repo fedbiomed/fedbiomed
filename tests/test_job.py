@@ -20,6 +20,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.training_args import TrainingArgs
 
+
 class TestJob(unittest.TestCase):
 
     @classmethod
@@ -195,7 +196,6 @@ class TestJob(unittest.TestCase):
                     data=self.fds)
             mock_logger_critical.assert_called_once()
 
-
     @patch('fedbiomed.common.logger.logger.error')
     def test_job_05_initialization_raising_exception_save_and_save_code(self,
                                                                         mock_logger_error):
@@ -226,7 +226,8 @@ class TestJob(unittest.TestCase):
         """ Testing all properties and setters of Job class
             TODO: Change this part after refactoring getters and setters
         """
-        self.assertEqual(self.model, self.job.training_plan_instance, 'Can not get Requests attribute from Job properly')
+        self.assertEqual(self.model, self.job.training_plan_instance,
+                         'Can not get Requests attribute from Job properly')
         self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
@@ -247,8 +248,8 @@ class TestJob(unittest.TestCase):
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_job_07_check_training_plan_is_approved_by_nodes(self,
-                                                     mock_requests_get_responses,
-                                                     mock_requests_send_message):
+                                                             mock_requests_get_responses,
+                                                             mock_requests_send_message):
         """ Testing the method that check model approval status of the nodes"""
 
         self.fds.node_ids = MagicMock(return_value=['node-1', 'node-2'])
