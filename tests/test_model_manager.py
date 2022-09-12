@@ -1047,7 +1047,7 @@ class TestModelManager(unittest.TestCase):
             'command': 'training-plan-status'
         }
 
-        download_err_msg = ErrorNumbers.FB604.value + ': An error occured when downloading model file.' + \
+        download_err_msg = ErrorNumbers.FB604.value + ': An error occurred when downloading model file.' + \
             f' {msg["training_plan_url"]} , {str(download_exception)}'
 
         # action
