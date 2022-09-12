@@ -31,13 +31,13 @@ class BaseTrainingPlan(object):
         """Construct base training plan"""
 
         super().__init__()
-        self.dependencies = []
+        self._dependencies = []
         self.dataset_path = None
         self.pre_processes = OrderedDict()
         self.training_data_loader = None
         self.testing_data_loader = None
 
-    def add_dependency(self, dep: List[str]):
+    def _add_dependency(self, dep: List[str]):
         """ Adds new dependency to the TrainingPlan class.
 
         These dependencies are used while creating a python module.
@@ -46,7 +46,7 @@ class BaseTrainingPlan(object):
            dep: Dependency to add. Dependencies should be indicated as import string. e.g. `from torch import nn`
         """
 
-        self.dependencies.extend(dep)
+        self._dependencies.extend(dep)
 
     def set_dataset_path(self, dataset_path):
         """Dataset path setter for TrainingPlan
@@ -91,7 +91,7 @@ class BaseTrainingPlan(object):
 
         # Preparing content of the module
         content = ""
-        for s in self.dependencies:
+        for s in self._dependencies:
             content += s + "\n"
 
         content += "\n"

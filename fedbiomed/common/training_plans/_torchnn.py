@@ -3,7 +3,7 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union, Callable
+from typing import Any, Dict, Union, Callable, Tuple, List
 from copy import deepcopy
 
 import torch
@@ -63,12 +63,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._epochs = None
         self._dry_run = None
 
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs"]
-
-        # data loading // should be moved to another class
-        self.batch_size = 100
-        self.shuffle = True
-
         # TODO : add random seed init
         # self.random_seed_params = None
         # self.random_seed_shuffling_data = None
@@ -76,12 +70,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # device to use: cpu/gpu
         # - all operations except training only use cpu
         # - researcher doesn't request to use gpu by default
-        self.device_init = "cpu"
-        self.device = self.device_init
+        self._device_init = "cpu"
+        self._device = self._device_init
 
         # list dependencies of the model
 
-        self.add_dependency(["import torch",
+        self._add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from fedbiomed.common.training_plans import TorchTrainingPlan",
@@ -92,7 +86,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                              ])
 
         # Aggregated model parameters
-        self.init_params = None
+        self._init_params = None
 
     def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict):
         """ Sets arguments for training, model and optimizer """
@@ -106,38 +100,51 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._epochs = training_args.get('epochs')
         self._dry_run = training_args.get('dry_run')
 
-        self._model = self.build_model(self._model_args)
-        self._optimizer = self.build_optimizer(self._optimizer_args)
+        # Add dependencies
+        dependencies: Union[Tuple, List] = self.declare_dependencies()
+        if not isinstance(dependencies, (list, tuple)):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
+                                             f"ist or tuple, but got {type(dependencies)}")
+        self._add_dependency(dependencies)
+
+        # Get model defined by researcher
+        self._model = self.declare_model(self._model_args)
+        if not isinstance(self._model, nn.Module):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
+
+        # Get optimizer defined by researcher
+        self._optimizer = self.declare_optimizer(self._optimizer_args)
+        if not isinstance(self._optimizer, torch.optim.Optimizer):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
 
     @property
     def model(self):
         return self._model
 
-    @model.setter
-    def model(self):
-        raise FedbiomedTrainingPlanError("Can't directly modify model. Please use `build_model` to make some "
-                                         "changes")
-
     @property
     def optimizer(self):
         return self._optimizer
 
-    @optimizer.setter
-    def optimizer(self):
-        raise FedbiomedTrainingPlanError("Can't directly modify optimizer. Please use "
-                                         "`build_optimizer` to make some changes.")
-
     @abstractmethod
-    def build_model(self, model_args: Dict):
+    def declare_model(self, model_args: Dict):
         """Abstract method where model should be defined """
         pass
 
-    @abstractmethod
-    def build_optimizer(self, optimizer_args: Dict):
+    def declare_dependencies(self) -> List:
+        """Default method where dependencies are returned
+
+        Returns:
+            Empty list as default
+        """
+        return []
+
+    def declare_optimizer(self, optimizer_args: Dict):
+        """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._model.parameters, **optimizer_args)
-        except AttributeError:
-            raise FedbiomedTrainingPlanError('Error')
+            self._optimizer = torch.optim.Adam(self._model.parameters(), **optimizer_args)
+        except AttributeError as e:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
+                                             f"optimizer Adam. Error: {e}")
 
         return self._optimizer
 
@@ -177,18 +184,18 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             logger.warning('Node training model on CPU, though researcher requested GPU')
 
         # Set device for training
-        self.device = "cpu"
+        self._device = "cpu"
         if use_cuda:
             if node_args['gpu_num'] is not None:
                 if node_args['gpu_num'] in range(torch.cuda.device_count()):
-                    self.device = "cuda:" + str(node_args['gpu_num'])
+                    self._device = "cuda:" + str(node_args['gpu_num'])
                 else:
                     logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU")
-                    self.device = "cuda"
+                    self._device = "cuda"
             else:
-                self.device = "cuda"
+                self._device = "cuda"
 
-        logger.debug(f"Using device {self.device} for training "
+        logger.debug(f"Using device {self._device} for training "
                      f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
@@ -276,7 +283,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._set_device(self._use_gpu, node_args)
 
         # send all model to device, ensures having all the requested tensors
-        self._model.to(self.device)
+        self._model.to(self._device)
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -286,7 +293,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self.data = data_loader
 
         # initial aggregated model parameters
-        self.init_params = deepcopy(self._model.state_dict())
+        self._init_params = deepcopy(self._model.state_dict())
 
         for epoch in range(1, self._epochs + 1):
             # (below) sampling data (with `training_data` method defined on
@@ -297,7 +304,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
 
-                data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
+                data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
                 self._optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
@@ -331,7 +338,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                    batch_samples=batch_size)
 
                     if self._dry_run:
-                        self.to(self.device_init)
+                        self._model.to(self._device_init)
                         torch.cuda.empty_cache()
                         return
 
@@ -345,7 +352,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
-        self._model.to(self.device_init)
+        self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
     def testing_routine(self,
@@ -523,7 +530,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         norm = 0
         for key, val in self._model.state_dict().items():
-            norm += ((val - self.init_params[key]) ** 2).sum()
+            norm += ((val - self._init_params[key]) ** 2).sum()
         return norm
 
     def __preprocess(self):

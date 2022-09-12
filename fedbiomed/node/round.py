@@ -32,8 +32,8 @@ class Round:
                  training_kwargs: dict = None,
                  training: bool = True,
                  dataset: dict = None,
-                 model_url: str = None,
-                 model_class: str = None,
+                 training_plan_url: str = None,
+                 training_plan_class: str = None,
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
@@ -49,8 +49,8 @@ class Round:
                 and output dimension (key: 'out_features')
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description...
-            model_url: url from which to download model
-            model_class: name of the training plan (eg 'MyTrainingPlan')
+            training_plan_url: url from which to download model
+            traiing_plan_class: name of the training plan (eg 'MyTrainingPlan')
             params_url: url from which to upload/download model params
             job_id: job id
             researcher_id: researcher id
@@ -64,8 +64,8 @@ class Round:
         """
 
         self.dataset = dataset
-        self.model_url = model_url
-        self.model_class = model_class
+        self.training_plan_url = training_plan_url
+        self.training_plan_class = training_plan_class
         self.params_url = params_url
         self.job_id = job_id
         self.researcher_id = researcher_id
@@ -115,11 +115,11 @@ class Round:
         try:
             # module name cannot contain dashes
             import_module = 'my_model_' + str(uuid.uuid4().hex)
-            status, _ = self.repository.download_file(self.model_url,
+            status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
 
             if status != 200:
-                error_message = "Cannot download model file: " + self.model_url
+                error_message = "Cannot download model file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
             else:
                 if environ["MODEL_APPROVAL"]:
@@ -155,7 +155,7 @@ class Round:
             sys.path.pop(0)
 
             # instantiate model as `train_class`
-            train_class = eval(import_module + '.' + self.model_class)
+            train_class = eval(import_module + '.' + self.training_plan_class)
             self.model = train_class()
         except Exception as e:
             error_message = f"Cannot instantiate model object: {str(e)}"

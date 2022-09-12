@@ -42,8 +42,8 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model: Union[Type[Callable], str] = None,
-                 model_path: str = None,
+                 training_plan: Union[Type[Callable], str] = None,
+                 training_plan_path: str = None,
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
@@ -55,7 +55,7 @@ class Job:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
             model: Name of the model class or model class to use for training.
-            model_path: Path to file containing model class code
+            training_plan_path: Path to file containing model class code
             training_args: Contains training parameters; lr, epochs, batch_size.
             model_args: Contains output and input feature dimension
             data: Federated datasets
@@ -97,38 +97,38 @@ class Job:
             self.check_data_quality()
 
         # Model is mandatory
-        if model is None:
+        if training_plan is None:
             mess = "Missing model class name or instance in Job arguments"
             logger.critical(mess)
             raise NameError(mess)
 
         # handle case when model is in a file
-        if model_path is not None:
+        if training_plan_path is not None:
             try:
                 # import model from python file
-                model_module = os.path.basename(model_path)
+                model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(model_path))
-                exec('from ' + model_module + ' import ' + model)
+                sys.path.insert(0, os.path.dirname(training_plan_path))
+                exec('from ' + model_module + ' import ' + training_plan)
                 sys.path.pop(0)
-                model = eval(model)
+                model = eval(training_plan)
             except Exception:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model + " from path " + model_path + " - Error: " + str(e))
+                logger.critical("Cannot import class " + training_plan + " from path " + training_plan_path + " - Error: " + str(e))
                 sys.exit(-1)
 
         # check class is defined
         try:
-            _ = inspect.isclass(model)
+            _ = inspect.isclass(training_plan)
         except NameError:
             mess = f"Cannot find training plan for Job, model class {model} is not defined"
             logger.critical(mess)
             raise NameError(mess)
 
         # create/save model instance (ie TrainingPlan)
-        if inspect.isclass(model):
-            self.model_instance = model()  # contains TrainingPlan
-            self.model_instance.post_init(
+        if inspect.isclass(training_plan):
+            self._training_plan = training_plan()  # contains TrainingPlan
+            self._training_plan.post_init(
                 model_args={} if self._model_args is None else self._model_args,
                 training_args=self._training_args.pure_training_arguments(),
                 optimizer_args=self._training_args.optimizer_arguments()
@@ -140,24 +140,24 @@ class Job:
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan.__class__)).group(1)
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
-        self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
+        self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
-            self.model_instance.save_code(self._model_file)
+            self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
         # upload my_model_xxx.py on repository server (contains model definition)
-        repo_response = self.repo.upload_file(self._model_file)
+        repo_response = self.repo.upload_file(self._training_plan_file)
 
-        self._repository_args['model_url'] = repo_response['file']
+        self._repository_args['training_plan_url'] = repo_response['file']
 
         self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
         try:
-            self.model_instance.save(self._model_params_file)
+            self._training_plan.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
@@ -167,11 +167,11 @@ class Job:
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
-        self._repository_args['model_class'] = self._model_class
+        self._repository_args['training_plan_class'] = self._training_plan_name
 
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
-                                        ['model_url', 'model_class', 'params_url'])
+                                        ['training_plan_url', 'training_plan_class', 'params_url'])
         # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
 
     @staticmethod
@@ -188,16 +188,12 @@ class Job:
                 assert validators.url(obj[f]), f'Url not valid: {f}'
 
     @property
-    def model(self):
-        return self.model_instance
+    def training_plan(self):
+        return self._training_plan
 
     @property
-    def model_class(self):
-        return self._model_class
-
-    @property
-    def model_file(self):
-        return self._model_file
+    def training_plan_file(self):
+        return self._training_plan_file
 
     @property
     def requests(self):
@@ -223,7 +219,7 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
-    def check_model_is_approved_by_nodes(self) -> List:
+    def check_training_plan_is_approved_by_nodes(self) -> List:
 
         """ Checks whether model is approved or not.
 
@@ -235,7 +231,7 @@ class Job:
         message = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'model_url': self._repository_args['model_url'],
+            'training_plan_url': self._repository_args['training_plan_url'],
             'command': 'model-status'
         }
 
@@ -373,7 +369,7 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self.model_instance.load(params_path, to_params=True)['model_params']
+                    params = self._training_plan.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None
                     params = None
@@ -415,7 +411,7 @@ class Job:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
-                self.model_instance.save(filename, params)
+                self._training_plan.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
@@ -470,7 +466,7 @@ class Job:
         self.update_parameters(filename=saved_state.get('model_params_path'))
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies'),
-            self.model_instance.load
+            self._training_plan.load
         )
         self._researcher_id = saved_state.get('researcher_id')
 
@@ -585,8 +581,8 @@ class localJob:
     """
 
     def __init__(self, dataset_path: str = None,
-                 model_class: str = 'MyTrainingPlan',
-                 model_path: str = None,
+                 training_plan: str = 'MyTrainingPlan',
+                 training_plan_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None):
 
@@ -595,8 +591,8 @@ class localJob:
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            model_class: Name of the model class to use for training or model class.
-            model_path: path to file containing model code. Defaults to None.
+            training_plan: Name of the model class to use for training or model class.
+            training_plan_path: path to file containing model code. Defaults to None.
             training_args: contains training parameters: lr, epochs, batch_size...
             model_args: contains output and input feature dimension.
         """
@@ -614,32 +610,32 @@ class localJob:
                 logger.warning("Cannot perform validation, not supported for LocalJob")
 
         # handle case when model is in a file
-        if model_path is not None:
+        if training_plan_path is not None:
             try:
-                model_module = os.path.basename(model_path)
+                model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(model_path))
-                exec('from ' + model_module + ' import ' + model_class)
+                sys.path.insert(0, os.path.dirname(training_plan_path))
+                exec('from ' + model_module + ' import ' + training_plan)
                 sys.path.pop(0)
-                model_class = eval(model_class)
+                training_plan = eval(training_plan)
             except Exception as e:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model_class + " from path " +
-                                model_path + " - Error: " + str(e))
+                logger.critical("Cannot import class " + training_plan + " from path " +
+                                training_plan_path + " - Error: " + str(e))
                 sys.exit(-1)
 
         # create/save model instance
-        if inspect.isclass(model_class):
+        if inspect.isclass(training_plan):
             if self._model_args is None or len(self._model_args) == 0:
-                self.model_instance = model_class()
+                self._training_plan = training_plan()
             else:
-                self.model_instance = model_class(self._model_args)
+                self._training_plan = training_plan(self._model_args)
         else:
-            self.model_instance = model_class
+            self._training_plan = training_plan
 
     @property
     def model(self):
-        return self.model_instance
+        return self._training_plan.model
 
     @property
     def training_args(self):
@@ -652,7 +648,7 @@ class localJob:
     def start_training(self):
         """Sends training task to nodes and waits for the responses"""
 
-        for i in self.model_instance.dependencies:
+        for i in self._training_plan.dependencies:
             exec(i, globals())
 
         is_failed = False
@@ -662,12 +658,12 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self.model_instance.set_dataset_path(self.dataset_path)
-                data_manager = self.model_instance.training_data()
-                tp_type = self.model_instance.type()
+                self._training_plan.set_dataset_path(self.dataset_path)
+                data_manager = self._training_plan.training_data()
+                tp_type = self._training_plan.type()
                 data_manager.load(tp_type=tp_type)
                 train_loader, test_loader = data_manager.split(test_ratio=0)
-                self.model_instance.training_routine(data_loader=train_loader,
+                self._training_plan.training_routine(data_loader=train_loader,
                                                      **self._localjob_training_args)
             except Exception as e:
                 is_failed = True
@@ -678,7 +674,7 @@ class localJob:
                 # TODO : should test status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
-                self.model_instance.save(filename, results)
+                self._training_plan.save(filename, results)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot write results: " + str(e)
