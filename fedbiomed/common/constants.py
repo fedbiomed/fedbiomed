@@ -51,7 +51,7 @@ class ModelTypes(_BaseEnum):
     DEFAULT: str = 'default'
 
 
-class ModelApprovalStatus(_BaseEnum):
+class TrainingPlanApprovalStatus(_BaseEnum):
     """Enumeration class for model approval status of a model on a node when model approval is active.
 
     Attributes:
@@ -64,7 +64,7 @@ class ModelApprovalStatus(_BaseEnum):
     PENDING: str = "Pending"
     
     def str2enum(name: str):
-        for e in ModelApprovalStatus:
+        for e in TrainingPlanApprovalStatus:
             if e.value == name:
                 return e
         return None
