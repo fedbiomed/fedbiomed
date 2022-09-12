@@ -167,7 +167,7 @@ class Round:
                                  optimizer_args=self.optimizer_arguments)
         except Exception as e:
             error_message = f"Can't initialize training plan with the arguments: {e}"
-            return self._send_round_reply(succes=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the model instance
         try:
