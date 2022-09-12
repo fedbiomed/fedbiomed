@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import time
 import uuid
-from fedbiomed.common.constants import ModelApprovalStatus
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
 
@@ -42,7 +42,7 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 training_plan: Union[Type[Callable], str] = None,
+                 training_plan_class: Union[Type[Callable], str] = None,
                  training_plan_path: str = None,
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
@@ -75,6 +75,8 @@ class Job:
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None  # path to local file containing model code
         self._model_params_file = None  # path to local file containing current version of aggregated params
+        self._training_plan_class = training_plan_class
+        self._training_plan_instance = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -97,7 +99,7 @@ class Job:
             self.check_data_quality()
 
         # Model is mandatory
-        if training_plan is None:
+        if self._training_plan_class is None:
             mess = "Missing model class name or instance in Job arguments"
             logger.critical(mess)
             raise NameError(mess)
@@ -109,26 +111,26 @@ class Job:
                 model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(training_plan_path))
-                exec('from ' + model_module + ' import ' + training_plan)
+                exec('from ' + model_module + ' import ' + self._training_plan_class)
                 sys.path.pop(0)
-                model = eval(training_plan)
+                model = eval(self._training_plan_class)
             except Exception:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + training_plan + " from path " + training_plan_path + " - Error: " + str(e))
+                logger.critical("Cannot import class " + self._training_plan_class + " from path " + training_plan_path + " - Error: " + str(e))
                 sys.exit(-1)
 
         # check class is defined
         try:
-            _ = inspect.isclass(training_plan)
+            _ = inspect.isclass(self._training_plan_class)
         except NameError:
             mess = f"Cannot find training plan for Job, model class {model} is not defined"
             logger.critical(mess)
             raise NameError(mess)
 
         # create/save model instance (ie TrainingPlan)
-        if inspect.isclass(training_plan):
-            self._training_plan = training_plan()  # contains TrainingPlan
-            self._training_plan.post_init(
+        if inspect.isclass(self._training_plan_class):
+            self._training_plan_instance = self._training_plan_class()  # contains TrainingPlan
+            self._training_plan_instance.post_init(
                 model_args={} if self._model_args is None else self._model_args,
                 training_args=self._training_args.pure_training_arguments(),
                 optimizer_args=self._training_args.optimizer_arguments()
@@ -140,13 +142,13 @@ class Job:
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan.__class__)).group(1)
+        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan_instance.__class__)).group(1)
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
         self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
-            self._training_plan.save_code(self._training_plan_file)
+            self._training_plan_instance.save_code(self._training_plan_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
@@ -157,7 +159,7 @@ class Job:
 
         self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
         try:
-            self._training_plan.save(self._model_params_file)
+            self._training_plan_instance.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
@@ -188,8 +190,12 @@ class Job:
                 assert validators.url(obj[f]), f'Url not valid: {f}'
 
     @property
-    def training_plan(self):
-        return self._training_plan
+    def training_plan_name(self):
+        return self._training_plan_name
+
+    @property
+    def training_plan_instance(self):
+        return self._training_plan_instance
 
     @property
     def training_plan_file(self):
@@ -254,7 +260,7 @@ class Job:
 
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
-                    if resp.get('status') == ModelApprovalStatus.APPROVED.value:
+                    if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
                         logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
                     else:
                         logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
@@ -466,7 +472,7 @@ class Job:
         self.update_parameters(filename=saved_state.get('model_params_path'))
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies'),
-            self._training_plan.load
+            self._training_plan_instance.load
         )
         self._researcher_id = saved_state.get('researcher_id')
 

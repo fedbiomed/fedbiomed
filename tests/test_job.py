@@ -152,7 +152,7 @@ class TestJob(unittest.TestCase):
                          'Provided model and model instance of Job do not match, '
                          'while initializing Job with static model python file')
 
-        self.assertEqual(j._model_class, 'FakeModel',
+        self.assertEqual(j._training_plan, 'FakeModel',
                          'Model is not initialized properly while providing model_path')
 
         # # Upload file must be called 2 times one for model
@@ -257,8 +257,8 @@ class TestJob(unittest.TestCase):
 
         message = {'researcher_id': self.job._researcher_id,
                    'job_id': self.job._id,
-                   'model_url': self.job._repository_args['model_url'],
-                   'command': 'model-status'}
+                   'training_plan_url': self.job._repository_args['training_plan_url'],
+                   'command': 'training-plan-status'}
 
         # Test when model is approved by all nodes
         responses = FakeResponses(

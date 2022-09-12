@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
-from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, ModelApprovalStatus, ModelTypes
+from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, TrainingPlanApprovalStatus, ModelTypes
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 
@@ -784,14 +784,14 @@ class TestModelManager(unittest.TestCase):
         self.model_manager.reject_model(model_to_reject['model_id'])
 
         # action: gather only rejected models
-        rejected_models = self.model_manager.list_models(select_status=ModelApprovalStatus.REJECTED)
+        rejected_models = self.model_manager.list_models(select_status=TrainingPlanApprovalStatus.REJECTED)
 
         self.assertIn('test-model-1', [x['name'] for x in rejected_models])
-        self.assertNotIn(ModelApprovalStatus.APPROVED.value,
+        self.assertNotIn(TrainingPlanApprovalStatus.APPROVED.value,
                          [x['model_status'] for x in rejected_models])
         # gather only pending models (there should be no model with pending status,
         # so request returns empty list)
-        pending_models = self.model_manager.list_models(select_status=ModelApprovalStatus.PENDING,
+        pending_models = self.model_manager.list_models(select_status=TrainingPlanApprovalStatus.PENDING,
                                                         verbose=False)
         self.assertEqual(pending_models, [])
 
@@ -799,16 +799,16 @@ class TestModelManager(unittest.TestCase):
         # plus sorting
         for sort_by in [None, 'model_id', 'NON_EXISTING_KEY']:
             rejected_and_approved_models = self.model_manager.list_models(sort_by=sort_by,
-                                                                          select_status=[ModelApprovalStatus.REJECTED,
-                                                                                         ModelApprovalStatus.APPROVED],
+                                                                          select_status=[TrainingPlanApprovalStatus.REJECTED,
+                                                                                         TrainingPlanApprovalStatus.APPROVED],
                                                                           verbose=False)
             for model in rejected_and_approved_models:
                 # Model status should be either Rejected or Approved...
                 self.assertIn(model['model_status'],
-                              [ModelApprovalStatus.REJECTED.value,
-                               ModelApprovalStatus.APPROVED.value])
+                              [TrainingPlanApprovalStatus.REJECTED.value,
+                               TrainingPlanApprovalStatus.APPROVED.value])
                 # ... but not Pending
-                self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
+                self.assertNotEqual(model['model_status'], TrainingPlanApprovalStatus.PENDING.value)
 
 
     def test_model_manager_21_list_models_errors(self):
@@ -851,9 +851,9 @@ class TestModelManager(unittest.TestCase):
 
         for status in [
                 None,
-                ModelApprovalStatus.PENDING,
+                TrainingPlanApprovalStatus.PENDING,
                 [],
-                [ModelApprovalStatus.REJECTED, ModelApprovalStatus.APPROVED]]:
+                [TrainingPlanApprovalStatus.REJECTED, TrainingPlanApprovalStatus.APPROVED]]:
             for search in [None, {}, {'by': 'model_type', 'text': 'Registered'}]:
                 for sort_by in [None, 'colonne']: # non existing entry
                     for verbose in [True, False]:
@@ -884,13 +884,13 @@ class TestModelManager(unittest.TestCase):
         messaging.send_message.return_value = None
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         mock_download.return_value = 200, None
-        mock_get_model.return_value = {'model_status': ModelApprovalStatus.APPROVED.value}
+        mock_get_model.return_value = {'model_status': TrainingPlanApprovalStatus.APPROVED.value}
 
         msg = {
             'researcher_id': 'ssss',
             'job_id': 'xxx',
-            'model_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
-            'command': 'model-status'
+            'training_plan_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'command': 'training-plan-status'
         }
         # test 1: case where status code of HTTP request equals 200 AND model
         # has been approved
@@ -902,11 +902,11 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': True,
-                                                        'status': ModelApprovalStatus.APPROVED.value,
+                                                        'status': TrainingPlanApprovalStatus.APPROVED.value,
                                                         'msg': "Model has been approved by the node," +
                                                         " training can start",
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
         with self.assertRaises(FedbiomedMessageError):
             # should trigger a FedBiomedMessageError because 'researcher_id' should be a string
@@ -919,8 +919,8 @@ class TestModelManager(unittest.TestCase):
         msg['researcher_id'] = 'dddd'
 
         for model_status, message in [
-                (ModelApprovalStatus.REJECTED.value, 'Model has been rejected by the node, training is not possible'),
-                (ModelApprovalStatus.PENDING.value, 'Model is pending: waiting for a review')]:
+                (TrainingPlanApprovalStatus.REJECTED.value, 'Model has been rejected by the node, training is not possible'),
+                (TrainingPlanApprovalStatus.PENDING.value, 'Model is pending: waiting for a review')]:
             # prepare
             mock_get_model.return_value = {'model_status': model_status}
             messaging.reset_mock()
@@ -936,12 +936,12 @@ class TestModelManager(unittest.TestCase):
                                                             'approval_obligation': True,
                                                             'status': model_status,
                                                             'msg': message,
-                                                            'model_url': msg['model_url'],
-                                                            'command': 'model-status'
+                                                            'training_plan_url': msg['training_plan_url'],
+                                                            'command': 'training-plan-status'
                                                             })
 
         # test 3: case where "MODEL_APPROVAL" has not been set 
-        mock_get_model.return_value = {'model_status': ModelApprovalStatus.REJECTED.value}
+        mock_get_model.return_value = {'model_status': TrainingPlanApprovalStatus.REJECTED.value}
         messaging.reset_mock()
 
         self.values["MODEL_APPROVAL"] = False
@@ -955,15 +955,15 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': False,
-                                                        'status': ModelApprovalStatus.REJECTED.value,
+                                                        'status': TrainingPlanApprovalStatus.REJECTED.value,
                                                         'msg': test3_msg,
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
 
         # test 4: case where status code of HTTP request equals 404 (request failed)
         mock_download.return_value = 404, None
-        mock_get_model.return_value = {'model_status': ModelApprovalStatus.PENDING.value}
+        mock_get_model.return_value = {'model_status': TrainingPlanApprovalStatus.PENDING.value}
         msg['researcher_id'] = '12345'
 
         messaging.reset_mock()
@@ -975,9 +975,9 @@ class TestModelManager(unittest.TestCase):
                                                         'success': False,
                                                         'approval_obligation': False,
                                                         'status': 'Error',
-                                                        'msg': f'Can not download model file. {msg["model_url"]}',
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'msg': f'Can not download model file. {msg["training_plan_url"]}',
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
 
         # test 5: case where model is not registered
@@ -990,8 +990,8 @@ class TestModelManager(unittest.TestCase):
             msg = {
                 'researcher_id': 'ssss',
                 'job_id': 'xxx',
-                'model_url': 'file:/' + os.path.join(self.testdir, 'test-model-1.txt'),
-                'command': 'model-status'
+                'training_plan_url': 'file:/' + os.path.join(self.testdir, 'test-model-1.txt'),
+                'command': 'training-plan-status'
             }
             self.values["MODEL_APPROVAL"] = approval
 
@@ -1011,8 +1011,8 @@ class TestModelManager(unittest.TestCase):
                 'approval_obligation': approval,
                 'status': 'Not Registered',
                 'msg': message,
-                'model_url': msg['model_url'],
-                'command': 'model-status'})
+                'training_plan_url': msg['training_plan_url'],
+                'command': 'training-plan-status'})
 
 
 
@@ -1043,12 +1043,12 @@ class TestModelManager(unittest.TestCase):
         msg = {
             'researcher_id': 'ssss',
             'job_id': 'xxx',
-            'model_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
-            'command': 'model-status'
+            'training_plan_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'command': 'training-plan-status'
         }
 
         download_err_msg = ErrorNumbers.FB604.value + ': An error occured when downloading model file.' + \
-            f' {msg["model_url"]} , {str(download_exception)}'
+            f' {msg["training_plan_url"]} , {str(download_exception)}'
 
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -1061,8 +1061,8 @@ class TestModelManager(unittest.TestCase):
                                                         'approval_obligation': False,
                                                         'status': 'Error',
                                                         'msg': download_err_msg,
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
         # test 2: test that error triggered through `check_model_status` method
         # of `ModelManager` is correctly handled
@@ -1089,8 +1089,8 @@ class TestModelManager(unittest.TestCase):
                                                         'approval_obligation': False,
                                                         'status': 'Error',
                                                         'msg': checking_model_err_msg,
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
 
         # test 3: test that any other errors (inhereting from Exception) are caught
@@ -1100,7 +1100,7 @@ class TestModelManager(unittest.TestCase):
                                                 "'check_model_status'")
 
         checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model ' +\
-            f'file. {msg["model_url"]} , {str(checking_model_exception_t3)}'
+            f'file. {msg["training_plan_url"]} , {str(checking_model_exception_t3)}'
 
         mock_get_model.side_effect = checking_model_exception_t3
         # action
@@ -1114,8 +1114,8 @@ class TestModelManager(unittest.TestCase):
                                                         'approval_obligation': False,
                                                         'status': 'Error',
                                                         'msg': checking_model_err_msg_t3,
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
+                                                        'training_plan_url': msg['training_plan_url'],
+                                                        'command': 'training-plan-status'
                                                         })
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
@@ -1210,7 +1210,7 @@ class TestModelManager(unittest.TestCase):
         self.model_manager.register_model(model_name, 'mymodel_description', model_path)
 
         # Test 1 : successful search for registered model
-        for status in [None, ModelTypes.REGISTERED, ModelApprovalStatus.APPROVED]:
+        for status in [None, ModelTypes.REGISTERED, TrainingPlanApprovalStatus.APPROVED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
             self.assertIsInstance(is_present, bool)
             self.assertTrue(is_present)
@@ -1220,7 +1220,7 @@ class TestModelManager(unittest.TestCase):
 
         # Test 2 : unsuccessful search for registered model
         for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT,
-                       ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
+                       TrainingPlanApprovalStatus.PENDING, TrainingPlanApprovalStatus.REJECTED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
             self.assertIsInstance(is_present, bool)
             self.assertFalse(is_present)
@@ -1388,7 +1388,7 @@ class TestModelManager(unittest.TestCase):
             'researcher_id': model_researcher_id,
             'description': model_description,
             'sequence': model_sequence,
-            'model_url': 'file:' + model_file,
+            'training_plan_url': 'file:' + model_file,
             'command': 'approval'
         }
 
@@ -1413,7 +1413,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(model_after['description'], model_description)
         self.assertEqual(model_after['researcher_id'], model_researcher_id)
         self.assertEqual(model_after['model_type'], ModelTypes.REQUESTED.value)
-        self.assertEqual(model_after['model_status'], ModelApprovalStatus.PENDING.value)
+        self.assertEqual(model_after['model_status'], TrainingPlanApprovalStatus.PENDING.value)
 
         # clean
         messaging.reset_mock()
@@ -1433,7 +1433,7 @@ class TestModelManager(unittest.TestCase):
             'researcher_id': model2_researcher_id,
             'description': model2_description,
             'sequence': model2_sequence,
-            'model_url': 'file:' + model2_file,
+            'training_plan_url': 'file:' + model2_file,
             'command': 'approval'
         }
 
@@ -1441,9 +1441,9 @@ class TestModelManager(unittest.TestCase):
             pass
 
         for approval_action, approval_status in [
-                (noaction_model, ModelApprovalStatus.PENDING.value),
-                (self.model_manager.approve_model, ModelApprovalStatus.APPROVED.value),
-                (self.model_manager.reject_model, ModelApprovalStatus.REJECTED.value)]:
+                (noaction_model, TrainingPlanApprovalStatus.PENDING.value),
+                (self.model_manager.approve_model, TrainingPlanApprovalStatus.APPROVED.value),
+                (self.model_manager.reject_model, TrainingPlanApprovalStatus.REJECTED.value)]:
             # also update status
             approval_action(model_id, 'dummy notes')
 
@@ -1544,10 +1544,10 @@ class TestModelManager(unittest.TestCase):
 
         # Test 1 : do correct update in existing model
         for status in [
-            ModelApprovalStatus.PENDING, 
-            ModelApprovalStatus.REJECTED,
-            ModelApprovalStatus.APPROVED, # update 2x with same status to cover this case
-            ModelApprovalStatus.APPROVED]:
+            TrainingPlanApprovalStatus.PENDING,
+            TrainingPlanApprovalStatus.REJECTED,
+            TrainingPlanApprovalStatus.APPROVED, # update 2x with same status to cover this case
+            TrainingPlanApprovalStatus.APPROVED]:
             note = str(status)
             self.model_manager._update_model_status(model_id, status, note)
             model = self.model_manager.get_model_by_id(model_id)
@@ -1558,13 +1558,13 @@ class TestModelManager(unittest.TestCase):
 
         # Test 2 : do update in non-existing model
         with self.assertRaises(FedbiomedModelManagerError):
-            self.model_manager._update_model_status('non_existing_model', ModelApprovalStatus.REJECTED, 'new_notes')
+            self.model_manager._update_model_status('non_existing_model', TrainingPlanApprovalStatus.REJECTED, 'new_notes')
 
 
         # Test 3 : bad parameters
         for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
             with self.assertRaises(FedbiomedModelManagerError):
-                self.model_manager._update_model_status(bad_id, ModelApprovalStatus.REJECTED, 'new notes')
+                self.model_manager._update_model_status(bad_id, TrainingPlanApprovalStatus.REJECTED, 'new notes')
 
         for bad_status in [None, 5, [], ['mt_status'], {}, {'model_status': 'my_status'}, 'Approved']:
             with self.assertRaises(FedbiomedModelManagerError):
@@ -1572,7 +1572,7 @@ class TestModelManager(unittest.TestCase):
 
         for bad_notes in [5, [], ['mt_status'], {}, {'model_status': 'my_status'}]:
             with self.assertRaises(FedbiomedModelManagerError):
-                self.model_manager._update_model_status(model_id, ModelApprovalStatus.REJECTED, bad_notes)
+                self.model_manager._update_model_status(model_id, TrainingPlanApprovalStatus.REJECTED, bad_notes)
 
 
         # Test 4 : database access error
@@ -1582,7 +1582,7 @@ class TestModelManager(unittest.TestCase):
             patch_start()
 
             with self.assertRaises(FedbiomedModelManagerError):
-                self.model_manager._update_model_status(model_id, ModelApprovalStatus.REJECTED, 'new_notes')
+                self.model_manager._update_model_status(model_id, TrainingPlanApprovalStatus.REJECTED, 'new_notes')
 
             patch_stop()    
 

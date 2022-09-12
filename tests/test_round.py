@@ -47,8 +47,8 @@ class TestRound(unittest.TestCase):
         # logs messages
         logger.setLevel("ERROR")
         # instanciate Round class
-        self.r1 = Round(model_url='http://somewhere/where/my/model?is_stored=True',
-                        model_class='MyTrainingPlan',
+        self.r1 = Round(training_plan_url='http://somewhere/where/my/model?is_stored=True',
+                        training_plan_class='MyTrainingPlan',
                         params_url='https://url/to/model/params?ok=True',
                         training_kwargs={},
                         training=True
@@ -61,8 +61,8 @@ class TestRound(unittest.TestCase):
         dummy_monitor = MagicMock()
         self.r1.history_monitor = dummy_monitor
 
-        self.r2 = Round(model_url='http://a/b/c/model',
-                        model_class='another_training_plan',
+        self.r2 = Round(training_plan_url='http://a/b/c/model',
+                        training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
                         training=True)
@@ -101,7 +101,7 @@ class TestRound(unittest.TestCase):
 
         # initalisation of side effect function
 
-        def repository_side_effect(model_url: str, model_name: str):
+        def repository_side_effect(training_plan_url: str, model_name: str):
             return 200, 'my_python_model'
 
         # initialisation of patchers
@@ -324,7 +324,7 @@ class TestRound(unittest.TestCase):
             for i in [200, 404]:
                 yield i
 
-        def repository_side_effect_test_1(model_url: str, model_name: str):
+        def repository_side_effect_test_1(training_plan_url: str, model_name: str):
             """Returns HTTP 404 error, mimicking an error happened during
             download process"""
             return 404, 'my_python_model'
@@ -356,7 +356,7 @@ class TestRound(unittest.TestCase):
         # test 2: case where second call to `Repository.download` generates HTTP
         # status 404 (when downloading params_file)
         # overwriting side effect function for second test:
-        def repository_side_effect_2(model_url: str, model_name: str):
+        def repository_side_effect_2(training_plan_url: str, model_name: str):
             """Returns different values when called
             First call: returns (200, 'my_python_model') mimicking a first download
                 that happened without encoutering any issues
@@ -385,7 +385,7 @@ class TestRound(unittest.TestCase):
         # test 3: check if unknown exception is raised and caught during the download
         # files process
 
-        def repository_side_effect_3(model_url: str, model_name: str):
+        def repository_side_effect_3(training_plan_url: str, model_name: str):
             raise Exception('mimicking an error during download files process')
 
         repository_download_patch.side_effect = repository_side_effect_3

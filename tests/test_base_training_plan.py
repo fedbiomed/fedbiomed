@@ -25,8 +25,8 @@ class TestBaseTrainingPlan(unittest.TestCase):
         """ Test  adding dependencies """
 
         expected = ['from torch import nn']
-        self.tp.add_dependency(expected)
-        self.assertListEqual(expected, self.tp.dependencies, 'Can not set dependency properly')
+        self.tp._add_dependency(expected)
+        self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
     def test_base_training_plan_02_set_dataset_path(self):
         """ Test setting dataset path """
@@ -52,7 +52,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
             mock_open.write.return_value = None
             mock_open.close.return_value = None
 
-            self.tp.add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
+            self.tp._add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
             expected_filepath = 'path/to/model.py'
             path, _ = self.tp.save_code(expected_filepath)
             self.assertEqual(path, expected_filepath, 'Can not save model file properly')
