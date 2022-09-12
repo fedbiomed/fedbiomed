@@ -201,8 +201,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             lead to a training on more than one epoch if : batch_size * num_updates > dataset_size.
             log_interval: Frequency of logging loss values during training.
             lr: Learning rate.
-            batch_maxnum: Equals number of data devided by batch_size, and taking the closest lower integer.
-            dry_run: Whether to stop once the first batch size of the first epoch of the first round is completed.
+            batch_maxnum: Maximum number of batches from the dataset (each containing `batch_size` samples)
+                used for training for each epoch. Remaining samples are ignored. Defaults to 0 (no batch
+                number limit).
+            dry_run: Whether to stop the training round once the first batch of the first epoch is completed.
             use_gpu: researcher requests to use GPU (or not) for training during this round (ie overload the object
                 default use_gpu value) if available on node and proposed by node Defaults to None (don't overload the
                 object default value)

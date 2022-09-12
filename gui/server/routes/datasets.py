@@ -1,23 +1,24 @@
 import os
-import uuid
 import re
-from flask import jsonify, request
+import uuid
+
+from fedbiomed.common.exceptions import FedbiomedError
 from app import app
-from db import database
-
-from . import api
-from utils import success, error, validate_json, validate_request_data, response
+from db import node_database
+from flask import request, current_app
 from middlewares import middleware, common
-
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
-    GetCsvData
-
+    GetCsvData, \
+    ReadDataLoadingPlan
+from utils import success, error, validate_request_data, response
+from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
@@ -48,16 +49,14 @@ def list_datasets():
     """
     req = request.json
     search = req.get('search', None)
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
-    table.clear_cache()
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
         try:
             res = table.all()
-            database.close()
         except Exception as e:
             return error(str(e)), 400
 
@@ -88,17 +87,15 @@ def remove_dataset():
 
     if req['dataset_id']:
 
-        table = database.db().table('_default')
-        query = database.query()
+        table = node_database.table_datasets()
+        query = node_database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
 
         if dataset:
             table.remove(doc_ids=[dataset.doc_id])
-            database.close()
             return success('Dataset has been removed successfully'), 200
 
         else:
-            database.close()
             return error('Can not find specified dataset in the database'), 400
     else:
         return error('Missing `dataset_id` attribute.'), 400
@@ -131,8 +128,8 @@ def add_dataset():
             message : The message for response
 
     """
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     data_path_rw = app.config['DATA_PATH_RW']
     req = request.json
@@ -216,8 +213,8 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     table.update({"tags": req["tags"],
                   "description": req["desc"],
@@ -251,8 +248,8 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local repository
@@ -308,8 +305,8 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = database.db().table('_default')
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.tags == req['tags'])
 
     if dataset:
@@ -339,7 +336,6 @@ def add_default_dataset():
                                                       as_dataset=False)
     except Exception as e:
         return error(str(e)), 400
-
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
@@ -389,3 +385,39 @@ def get_csv_data():
                      f"is one of csv, tsv or txt: {e}"), 400
 
     return response(data_preview), 200
+
+
+@api.route('/datasets/list-dlps', methods=['GET'])
+def list_data_loading_plans():
+    """List all DLPs in the database
+    """
+    dlps = dataset_manager.list_dlp()
+    index = list(range(len(dlps)))
+    columns = ['name', 'id']
+    data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+
+    return response({'index': index, 'columns': columns, 'data': data}), 200
+
+
+@api.route('/datasets/read-dlp', methods=['POST'])
+@validate_request_data(schema=ReadDataLoadingPlan)
+def read_data_loading_plans():
+    """Read content of a specified DLP
+    """
+    req = request.json
+    data_dlp = {}
+
+    try:
+        dlp, dlbs = dataset_manager.get_dlp_by_id(req['dlp_id'])
+    except FedbiomedError as e:
+        return error(f"Could not read customizations: {e}"), 400
+
+    m2f = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
+    if 'loading_blocks' in dlp and m2f in dlp['loading_blocks']:
+        dlb_id_m2f = dlp['loading_blocks'][m2f]
+        map = [dlb['map'] for dlb in dlbs if dlb['loading_block_serialization_id'] == dlb_id_m2f]
+        if len(map) != 1:
+            return error("Could not read customizations: database coherence error"), 400
+        data_dlp['map'] = map[0]
+
+    return response(data_dlp), 200

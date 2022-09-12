@@ -88,6 +88,38 @@ class ProcessTypes(_BaseEnum):
     PARAMS: int = 1
 
 
+class DataLoadingBlockTypes(_BaseEnum):
+    """Base class for typing purposes.
+
+    Concrete enumeration types should be defined within the scope of their
+    implementation or application. To define a concrete enumeration type,
+    one must subclass this class as follows:
+    ```python
+    class MyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
+        MY_KEY: str 'myKey'
+        MY_OTHER_KEY: str 'myOtherKey'
+    ```
+
+    Subclasses must respect the following conditions:
+    - All fields must be str;
+    - All field values must be unique.
+
+    :warning: this class must always be empty as it is not allowed to
+    contain any fields!
+    """
+    def __init__(self, *args):
+        cls = self.__class__
+        if not isinstance(self.value, str):
+            raise ValueError("all fields of DataLoadingBlockTypes subclasses"
+                             " must be of str type")
+        if any(self.value == e.value for e in cls):
+            a = self.name
+            e = cls(self.value).name
+            raise ValueError(
+                f"duplicate values not allowed in DataLoadingBlockTypes and "
+                f"its subclasses: {a} --> {e}")
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
@@ -123,7 +155,8 @@ class ErrorNumbers(_BaseEnum):
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
     FB315: str = "FB315: Error while loading the data "
-    FB316: str = "FB316: FLamby package import error"
+    FB316: str = "FB316: Data loading plan error"
+    FB317: str = "FB317: FLamby package import error"
 
     # application error on researcher
 
@@ -169,3 +202,27 @@ class ErrorNumbers(_BaseEnum):
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
+
+
+class UserRoleType(int, _BaseEnum):
+    """Enumeration class, used to characterize the type of component of the fedbiomed architecture
+
+    Attributes:
+        ADMIN: User with Admin role
+        USER: Simple user
+    """
+
+    ADMIN: int = 1
+    USER: int = 2
+
+
+class UserRequestStatus(str, _BaseEnum):
+    """Enumeration class, used to characterize the status for user registration requests
+
+        Attributes:
+            NEW: New user registration
+            REJECTED: Rejected status
+        """
+
+    NEW: str = "NEW"
+    REJECTED: str = "REJECTED"

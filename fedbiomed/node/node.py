@@ -102,9 +102,7 @@ class Node:
                 # Look for databases matching the tags
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
-                    # remove path from search to avoid privacy issues
-                    for d in databases:
-                        d.pop('path', None)
+                    databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
@@ -116,11 +114,7 @@ class Node:
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
-                remove_key = ['path', 'dataset_id']
-                for d in databases:
-                    for key in remove_key:
-                        d.pop(key, None)
-
+                databases = self.dataset_manager.obfuscate_private_information(databases)
                 self.messaging.send_message(NodeMessages.reply_create(
                     {'success': True,
                      'command': 'list',
@@ -220,6 +214,9 @@ class Node:
                          'extra_msg': "Did not found proper data in local datasets"}
                     ).get_dict())
                 else:
+                    dlp_and_loading_block_metadata = None
+                    if 'dlp_id' in data:
+                        dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
                                              training_status,
@@ -230,7 +227,8 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
-                                             self.node_args))
+                                             self.node_args,
+                                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
     def task_manager(self):
         """Manages training tasks in the queue.

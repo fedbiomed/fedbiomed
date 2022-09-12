@@ -212,9 +212,15 @@ class TrainingArgs():
 
             # train_transform_flamby
             "train_transform_flamby": {
-                "rules": [ list ],
+                "rules": [list],
                 "required": False,
             },
+
+            # fedprox_mu
+            "fedprox_mu": {
+                "rules": [float],
+                'required': False,
+            }
 
         }
 

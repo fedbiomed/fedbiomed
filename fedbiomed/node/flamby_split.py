@@ -57,7 +57,7 @@ def _split_train_and_test_data_flamby(dataset: dict, test_ratio: float = 0, tran
     try:
         module = __import__(dataset['dataset_parameters']['fed_class'], fromlist='dummy')
     except FedbiomedError as e:
-        raise FedbiomedRoundError(f"{ErrorNumbers.FB316.value}: Error while importing FLamby dataset package; {str(e)}")
+        raise FedbiomedRoundError(f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}")
     center_id = dataset['dataset_parameters']['center_id']
 
     try:

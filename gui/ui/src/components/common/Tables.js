@@ -106,7 +106,8 @@ export const TableInfo = (props) => {
                             return (
                                 <tr key={key}>
                                     <td className="title">{item}</td>
-                                    <td>{props.info[item].value.toString()}</td>
+                                    {console.log(props.info[item])}
+                                    <td>{props.mode? props.info[item].value.toString(): props.info[item]}</td>
                                 </tr>
                             )
                         }
@@ -172,23 +173,36 @@ export const TableData = (props) => {
 export const SelectiveTable = (props) => {
     const tableRef = React.createRef()
     const [hoverColIndex, setHoverColIndex] = React.useState(null)
+    const [hoverRowIndex, setHoverRowIndex] = React.useState(null)
 
     const handleTableHover = React.useCallback( event => {
-        let index  = getIndex(event)
+        let index  = getColIndex(event)
         setHoverColIndex(index)
+        index = getRowIndex(event)
+        setHoverRowIndex(index)
     }, []);
 
     const handleTableColumnClick = React.useCallback(event => {
-        let index  = getIndex(event)
-        if(index !== props.selectedColIndex){
-            if(props.onSelect){
-                props.onSelect(index)
+        if(props.hoverColumns) {
+            let index  = getColIndex(event)
+            if(index !== props.selectedColIndex){
+                if(props.onSelect){
+                    props.onSelect(index)
+                }
+            }
+        } else {
+            let index  = getRowIndex(event)
+            if(index !== props.selectedRowIndex){
+                if(props.onSelect){
+                    props.onSelect(index)
+                }
             }
         }
     }, [props]);
 
     const handleTableUnHover = React.useCallback(event => {
         setHoverColIndex(null)
+        setHoverRowIndex(null)
     }, []);
 
 
@@ -211,10 +225,16 @@ export const SelectiveTable = (props) => {
     }, [handleTableUnHover, handleTableHover, handleTableColumnClick, tableRef])
 
 
-    const getIndex = (event) => {
+    const getColIndex = (event) => {
         let target = event.target
         let index = [...target.parentElement.children].indexOf(target)
         return index
+    }
+
+    const getRowIndex = (event) => {
+        let target = event.target
+        let index = target.parentElement.rowIndex
+        return index - 1  // I think this assumes there is a header row
     }
 
     return (
@@ -223,20 +243,24 @@ export const SelectiveTable = (props) => {
                 <Table tableRef={setTableRef}>
                         <DataTableHead
                             table={props.table}
-                            hoverColumns={true}
+                            hoverColumns={props.hoverColumns}
                             hoverColIndex={hoverColIndex}
+                            hoverRowIndex={hoverRowIndex}
                             theadClassName={`${props.theadClassName} ${styles.stickyHead}`}
                             theadStyle={props.theadStyle}
                             activeColIndex={props.selectedColIndex}
+                            activeRowIndex={props.selectedRowIndex}
                             selectedLabel={props.selectedLabel}
                         />
                         <DataTableRows
                             table={props.table}
                             tbodyClassName={props.tbodyClassName}
                             tbodyStyle={props.tbodyStyle}
-                            hoverColumns={true}
+                            hoverColumns={props.hoverColumns}
                             hoverColIndex={hoverColIndex}
+                            hoverRowIndex={hoverRowIndex}
                             activeColIndex={props.selectedColIndex}
+                            activeRowIndex={props.selectedRowIndex}
                             tranformation={(data) => data.toString().substring(0,30)}
                         />
                 </Table>
@@ -248,6 +272,10 @@ export const SelectiveTable = (props) => {
        </React.Fragment>
     );
 };
+
+SelectiveTable.defaultProps= {
+  hoverColumns: true
+}
 
 
 /**
@@ -302,7 +330,7 @@ export const DataTableRows = (props) => {
         <TableBody className={props.tbodyClassName} style={props.tbodyStyle} >
             {props.table.data.map((row, key) => {
                 return(
-                    <TableRow key={'row-'+key} className={props.className}>
+                    <TableRow key={'row-'+key} className={(!props.hoverColumns) && ((props.hoverRowIndex === key) || (props.activeRowIndex === key)) ? styles.activeCol : props.className} >
                         <React.Fragment>
                             { props.table.index && props.showIndex ? (
                                 <TableCol transformation={props.transformation} >
