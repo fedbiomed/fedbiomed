@@ -16,6 +16,7 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
+
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -93,27 +94,62 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         logger.info(training_args)
         self._model_args = model_args
         self._optimizer_args = optimizer_args
-        self._use_gpu = training_args.get('use_gpu')
-        self._batch_maxnum = training_args.get('batch_maxnum')
-        self._fedprox_mu = training_args.get('fedprox_mu')
-        self._log_interval = training_args.get('log_interval')
-        self._epochs = training_args.get('epochs')
-        self._dry_run = training_args.get('dry_run')
+        self._training_args = training_args
+
+        self._use_gpu = self._training_args.get('use_gpu')
+        self._batch_maxnum = self._training_args.get('batch_maxnum')
+        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        self._log_interval = self._training_args.get('log_interval')
+        self._epochs = self._training_args.get('epochs')
+        self._dry_run = self._training_args.get('dry_run')
 
         # Add dependencies
+        init_dep_spec = get_method_spec(self.init_dependencies)
+        if len(init_dep_spec.keys()) > 0:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
+
         dependencies: Union[Tuple, List] = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
                                              f"ist or tuple, but got {type(dependencies)}")
         self.add_dependency(dependencies)
 
-        # Get model defined by researcher
-        self._model = self.init_model(self._model_args)
+        # Message to format for unexpected argument definitions in special methods
+        method_error = \
+            ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \
+                                       "can not have more than one argument/parameter (for {prefix} arguments) or " \
+                                       "method can be defined without argument and `{alternative}` can be used for " \
+                                       "accessing {prefix} arguments defined in the experiment."
+
+        # Get model defined by user -----------------------------------------------------------------------------
+        init_model_spec = get_method_spec(self.init_model)
+        if not init_model_spec:
+            self._model = self.init_model()
+        elif len(init_model_spec.keys()) == 1:
+            self._model = self.init_model(self._model_args)
+        else:
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
+                                                                 method="init_model",
+                                                                 keys=list(init_model_spec.keys()),
+                                                                 alternative="self.model_args()"))
+        # Validate model
         if not isinstance(self._model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
 
-        # Get optimizer defined by researcher
-        self._optimizer = self.init_optimizer(self._optimizer_args)
+        # Get optimizer defined by researcher ---------------------------------------------------------------------
+        init_optim_spec = get_method_spec(self.init_optimizer)
+        if not init_optim_spec:
+            self._optimizer = self.init_optimizer()
+        elif len(init_optim_spec.keys()) == 1:
+            self._optimizer = self.init_optimizer(self._optimizer_args)
+        else:
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
+                                                                 method="init_optimizer",
+                                                                 keys=list(init_optim_spec.keys()),
+                                                                 alternative="self.optimizer_args()"))
+
+        # Validate optimizer
         if not isinstance(self._optimizer, torch.optim.Optimizer):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
 
@@ -123,7 +159,31 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def optimizer(self):
         return self._optimizer
 
-    def init_model(self, model_args: Dict):
+    def model_args(self) -> Dict:
+        """Retrieves model args
+
+        Returns:
+            Model arguments arguments
+        """
+        return self._model_args
+
+    def training_args(self) -> Dict:
+        """Retrieves training args
+
+        Returns:
+            Training arguments
+        """
+        return self._training_args
+
+    def optimizer_args(self) -> Dict:
+        """Retrieves optimizer arguments
+
+        Returns:
+            Optimizer arguments
+        """
+        return self._optimizer_args
+
+    def init_model(self):
         """Abstract method where model should be defined """
         pass
 
@@ -135,10 +195,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return []
 
-    def init_optimizer(self, optimizer_args: Dict):
+    def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._model.parameters(), **optimizer_args)
+            self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}")
