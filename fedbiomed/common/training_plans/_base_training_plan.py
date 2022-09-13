@@ -37,7 +37,7 @@ class BaseTrainingPlan(object):
         self.training_data_loader = None
         self.testing_data_loader = None
 
-    def _add_dependency(self, dep: List[str]):
+    def add_dependency(self, dep: List[str]):
         """ Adds new dependency to the TrainingPlan class.
 
         These dependencies are used while creating a python module.
@@ -47,6 +47,9 @@ class BaseTrainingPlan(object):
         """
 
         self._dependencies.extend(dep)
+
+        # Be unique
+        self._dependencies = list(set(self._dependencies))
 
     def set_dataset_path(self, dataset_path):
         """Dataset path setter for TrainingPlan

@@ -357,8 +357,10 @@ class Requests(metaclass=SingletonMeta):
                 # case if `model` is a class
                 try:
                     training_plan_instance = training_plan()
+                    deps = training_plan_instance.init_dependencies()
+                    training_plan_instance.add_dependency(deps)
                 except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instanciate the given model ({e})")
+                    logger.error(f"cannot instantiate the given model ({e})")
                     return {}
             else:
                 # also handle case where model is already an instance of a class

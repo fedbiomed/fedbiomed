@@ -75,7 +75,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # list dependencies of the model
 
-        self._add_dependency(["import torch",
+        self.add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from fedbiomed.common.training_plans import TorchTrainingPlan",
@@ -105,7 +105,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
                                              f"ist or tuple, but got {type(dependencies)}")
-        self._add_dependency(dependencies)
+        self.add_dependency(dependencies)
 
         # Get model defined by researcher
         self._model = self.init_model(self._model_args)
