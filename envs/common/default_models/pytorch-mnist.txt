@@ -6,7 +6,6 @@ from fedbiomed.common.data import DataManager
 from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torchvision import datasets, transforms
 
 class MyTrainingPlan(TorchTrainingPlan):
 
