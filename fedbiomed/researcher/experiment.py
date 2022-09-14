@@ -1382,8 +1382,6 @@ class Experiment(object):
 
         return self._save_breakpoints
 
-    # Run experiment functions
-
     @exp_exceptions
     def set_tensorboard(self, tensorboard: bool) -> bool:
         """
@@ -1408,13 +1406,17 @@ class Experiment(object):
 
     @exp_exceptions
     def set_new_correction_states_dict(self, server_state) -> dict:
-        """ At round i, calling this function allows us to define each client correction state for round i+1.
-        new_correction_state = previous_correction_state + (server_state - previous_client_state) / lr*num_updates
-        Note: At round 0, we know that: previous_correction_state = 0,
-                                        server_state = previous_client_state
-        It means the correction applied during the 1st round is 0 for all the clients (init_first_correction_states in job.py handles this case)
-        so the next correction state will be set to 0 at the 1st round
-        It means that at the 2nd round, previous correction state is 0.
+        """ At round i, calling this function allows us to define each client correction state for round i+1 (with i > 0).
+        correction_state_i+1 = correction_state_i + (server_state_opt_i - client_state_opt_i) / lr*num_updates
+        client_state_opt_i stands for client model state after local optimization at round i
+        server_state_opt_i stands for server model state after optimization by clients & aggregation at round i
+        Note: At round 0, we know that: correction_state = 0
+        Indeed, correction applied during the 1st round is 0 for all the clients (init_first_correction_states in job.py internally handles this case)
+        
+        Example:
+        correction_state_1 is computed at the end of round 0:
+        correction_state_1 = correction_state_0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
+                           = 0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
 
         Args:
             server_state: dictionary containing server model state after optimization/aggregation at round i (also known as initial server state of round i+1). 
@@ -1433,15 +1435,14 @@ class Experiment(object):
 
     @exp_exceptions
     def set_new_client_states_dict(self, client_states_list) -> dict:
-        """ At round i, calling this function allows us to define each client state for round i+1,
-        with scaling of the local parameters by server_lr.
-        self._server_state represents the initial server model state before optimization/aggregation.
+        """ At round i, calling this function allows us to set each initial client state in round i+1, with scaling of the local parameters by server_lr. (i >= 0)
+        self._server_state represents the initial server model state before optimization/aggregation in round i.
         When server_lr = 1 (default value), local parameters are not impacted by the initial server state
         On the other hand, lowering this value can reduce the drift.
 
         Args:
-            client_states_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at the current round.
-                               Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
+            client_states_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at current round i.
+                                Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
         
         Returns:
             A dictionary with node_ids as keys and their corresponding value being the new client state_dict after scaling of the local parameters by server_lr.
@@ -1453,6 +1454,8 @@ class Experiment(object):
             for key in model_params[node_id]:
                 self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state[key]
         return self._client_states_dict
+
+    # Run experiment functions
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
