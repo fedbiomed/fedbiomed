@@ -51,8 +51,8 @@ class DataLoadingBlock(ABC):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingBlock.
+            a dictionary of key-value pairs sufficient for reconstructing
+            the DataLoadingBlock.
         """
         return dict(
             loading_block_class=self.__class__.__qualname__,
@@ -102,8 +102,8 @@ class MapperBlock(DataLoadingBlock):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingBlock.
+            a dictionary of key-value pairs sufficient for reconstructing
+            the DataLoadingBlock.
         """
         ret = super(MapperBlock, self).serialize()
         ret.update({'map': self.map})
@@ -157,10 +157,10 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a tuple sufficient for reconstructing the DataLoading plan. It includes:
-             - a dictionary of key-value pairs with the DataLoadingPlan parameters.
-             - a list of dict containing the data for reconstruction all the DataLoadingBlock
-               of the DataLoadingPlan 
+            a tuple sufficient for reconstructing the DataLoading plan. It includes:
+                - a dictionary of key-value pairs with the DataLoadingPlan parameters.
+                - a list of dict containing the data for reconstruction all the DataLoadingBlock
+                    of the DataLoadingPlan 
         """
         return dict(
             dlp_id=self.dlp_id,
@@ -181,9 +181,9 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
 
         Args:
             serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the
-                            serialize function
+                serialize function
             serialized_loading_blocks: a list of dictionaries of loading_block metadata, as obtained from the second output
-            of the serialize function
+                of the serialize function
         Returns:
             the self instance
         """
@@ -246,9 +246,9 @@ class DataLoadingPlanMixin:
             args: forwarded to the DataLoadingBlock's apply function
             kwargs: forwarded to the DataLoadingBlock's apply function
         Returns:
-             the output of the DataLoadingBlock's apply function, or
-             the default_ret_value when dlp is None or it does not contain
-             the requested loading block
+            the output of the DataLoadingBlock's apply function, or
+            the default_ret_value when dlp is None or it does not contain
+            the requested loading block
         """
         if self._dlp is not None and dlb_key in self._dlp:
             return self._dlp[dlb_key].apply(*args, **kwargs)
