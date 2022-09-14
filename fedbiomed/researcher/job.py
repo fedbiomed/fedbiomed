@@ -123,7 +123,7 @@ class Job:
         try:
             _ = inspect.isclass(self._training_plan_class)
         except NameError:
-            mess = f"Cannot find training plan for Job, model class {model} is not defined"
+            mess = f"Cannot find training plan for Job, model class {self._training_plan_class} is not defined"
             logger.critical(mess)
             raise NameError(mess)
 
@@ -587,7 +587,7 @@ class localJob:
     """
 
     def __init__(self, dataset_path: str = None,
-                 training_plan: str = 'MyTrainingPlan',
+                 training_plan_class: str = 'MyTrainingPlan',
                  training_plan_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None):
@@ -607,6 +607,7 @@ class localJob:
         self._repository_args = {}
         self._localjob_training_args = training_args
         self._model_args = model_args
+        self._training_args = TrainingArgs(training_args, only_required=False)
         self.dataset_path = dataset_path
 
         if training_args is not None:
@@ -621,27 +622,33 @@ class localJob:
                 model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(training_plan_path))
-                exec('from ' + model_module + ' import ' + training_plan)
+                exec('from ' + model_module + ' import ' + training_plan_class)
                 sys.path.pop(0)
-                training_plan = eval(training_plan)
+                training_plan = eval(training_plan_class)
             except Exception as e:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + training_plan + " from path " +
+                logger.critical("Cannot import class " + training_plan_class + " from path " +
                                 training_plan_path + " - Error: " + str(e))
                 sys.exit(-1)
 
+
         # create/save model instance
-        if inspect.isclass(training_plan):
-            if self._model_args is None or len(self._model_args) == 0:
-                self._training_plan = training_plan()
-            else:
-                self._training_plan = training_plan(self._model_args)
+        if inspect.isclass(training_plan_class):
+            self._training_plan = training_plan_class()
         else:
-            self._training_plan = training_plan
+            self._training_plan = training_plan_class
+
+        self._training_plan.post_init(model_args=self._model_args,
+                                      training_args=self._training_args.pure_training_arguments(),
+                                      optimizer_args=self._training_args.optimizer_arguments())
+
+    @property
+    def training_plan(self):
+        return self._training_plan
 
     @property
     def model(self):
-        return self._training_plan_instance.model
+        return self._training_plan.model()
 
     @property
     def training_args(self):
@@ -654,7 +661,7 @@ class localJob:
     def start_training(self):
         """Sends training task to nodes and waits for the responses"""
 
-        for i in self._training_plan_instance.dependencies:
+        for i in self._training_plan._dependencies:
             exec(i, globals())
 
         is_failed = False
@@ -664,13 +671,14 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self._training_plan_instance.set_dataset_path(self.dataset_path)
-                data_manager = self._training_plan_instance.training_data()
-                tp_type = self._training_plan_instance.type()
+                self._training_plan.set_dataset_path(self.dataset_path)
+                data_manager = self._training_plan.training_data()
+                tp_type = self._training_plan.type()
                 data_manager.load(tp_type=tp_type)
                 train_loader, test_loader = data_manager.split(test_ratio=0)
-                self._training_plan_instance.training_routine(data_loader=train_loader,
-                                                     **self._localjob_training_args)
+                self._training_plan.training_data_loader = train_loader
+                self._training_plan.testing_data_loader = test_loader
+                self._training_plan.training_routine()
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model in job : " + str(e)
@@ -680,7 +688,7 @@ class localJob:
                 # TODO : should test status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan_instance.save(filename, results)
+                self._training_plan.save(filename, results)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot write results: " + str(e)
