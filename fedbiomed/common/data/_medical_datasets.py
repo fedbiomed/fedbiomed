@@ -69,7 +69,8 @@ class NIFTIFolderDataset(Dataset):
             target_transform: transforms to be applied on target indexes.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: bad root path
         """
         # check parameters type
         for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
@@ -167,7 +168,9 @@ class NIFTIFolderDataset(Dataset):
             A tuple composed of the input sample (an image) and a target sample index (label index).
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: cannot get sample
+            FedbiomedDatasetError: cannot apply transform to sample
         """
         # check type and value for arguments
         if not isinstance(item, int):
@@ -294,7 +297,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             List of `bool` that represents whether modality is existing respectively for each of modality.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
         """
         if not isinstance(subject, str):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected string for subject folder/ID, but got {type(subject)}")
@@ -335,7 +338,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             were found, or if more than one matching folder was found.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: cannot access folder
         """
         if not isinstance(modality, str):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for modality. Expected str got {type(modality)}")
@@ -413,7 +417,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         """ Read demographics tabular file for Medical Folder dataset
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad file format
         """
         path = Path(path)
         if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
@@ -809,7 +813,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             A dict of transforms compatible with the provided modalities.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: sample uses unknown modality
+            FedbiomedDatasetError: transform method must be callable
+            FedbiomedDatasetError: bad type for parameters
         """
 
         # Return None if any transform is not provided

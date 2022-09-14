@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, List, Tuple, TypeVar
+from typing import Any, Dict, List, Tuple, TypeVar, Optional
 from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import DataLoadingBlockTypes
@@ -178,9 +178,9 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
 
         Args:
             serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the
-                            serialize function
+                serialize function
             serialized_loading_blocks: a list of dictionaries of loading_block metadata, as obtained from the second output
-            of the serialize function
+                of the serialize function
         Returns:
             the self instance
         """
@@ -243,7 +243,8 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlockTypes, *args, **kwargs):
+    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlockTypes,
+        *args: Optional[Any], **kwargs: Optional[Any]) -> Any:
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
@@ -259,14 +260,14 @@ class DataLoadingPlanMixin:
 
         Args:
             default_ret_value: the value to be returned in case that the dlp
-            functionality is not required
+                functionality is not required
             dlb_key: the key of the DataLoadingBlock to be applied
-            args: forwarded to the DataLoadingBlock's apply function
-            kwargs: forwarded to the DataLoadingBlock's apply function
+            *args: forwarded to the DataLoadingBlock's apply function
+            **kwargs: forwarded to the DataLoadingBlock's apply function
         Returns:
-             the output of the DataLoadingBlock's apply function, or
-             the default_ret_value when dlp is None or it does not contain
-             the requested loading block
+            the output of the DataLoadingBlock's apply function, or
+                the default_ret_value when dlp is None or it does not contain
+                the requested loading block
         """
         if self._dlp is not None and dlb_key in self._dlp:
             return self._dlp[dlb_key].apply(*args, **kwargs)
