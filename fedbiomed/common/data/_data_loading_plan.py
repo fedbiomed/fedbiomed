@@ -51,8 +51,8 @@ class DataLoadingBlock(ABC):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingBlock.
+            a dictionary of key-value pairs sufficient for reconstructing
+            the DataLoadingBlock.
         """
         return dict(
             loading_block_class=self.__class__.__qualname__,
@@ -102,8 +102,8 @@ class MapperBlock(DataLoadingBlock):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingBlock.
+            a dictionary of key-value pairs sufficient for reconstructing
+            the DataLoadingBlock.
         """
         ret = super(MapperBlock, self).serialize()
         ret.update({'map': self.map})
@@ -157,10 +157,10 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a tuple sufficient for reconstructing the DataLoading plan. It includes:
-             - a dictionary of key-value pairs with the DataLoadingPlan parameters.
-             - a list of dict containing the data for reconstruction all the DataLoadingBlock
-               of the DataLoadingPlan 
+            a tuple sufficient for reconstructing the DataLoading plan. It includes:
+                - a dictionary of key-value pairs with the DataLoadingPlan parameters.
+                - a list of dict containing the data for reconstruction all the DataLoadingBlock
+                    of the DataLoadingPlan 
         """
         return dict(
             dlp_id=self.dlp_id,
