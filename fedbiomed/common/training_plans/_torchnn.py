@@ -258,7 +258,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 res = self.training_step(data, target)  # raises an exception if not provided
 
                 if correction_state is not None:
-                    dot_product = compute_dot_product(self.state_dict(), correction_state)é
+                    dot_product = compute_dot_product(self.state_dict(), correction_state)
                     corrected_loss = res - dot_product
 
                 # If FedProx is enabled: use regularized loss function
