@@ -45,63 +45,78 @@
 
 # Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
+import torch
+import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+import torch.nn.functional as F
+from torchvision import transforms
 from torch.utils.data import Dataset
+from fedbiomed.common.data import DataManager
+import pandas as pd
+import numpy as np
+from PIL import Image
+import os
 
 
-# you can use any class name eg:
-# class AlterTrainingPlan(TorchTrainingPlan):
-
-class Net(TorchTrainingPlan):
-    def __init__(self, model_args: dict = {}):
-        super(Net, self).__init__(model_args)
-        #convolution layers
-        self.conv1 = nn.Conv2d(3, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 32, 3, 1)
-        self.conv3 = nn.Conv2d(32, 32, 3, 1)
-        self.conv4 = nn.Conv2d(32, 32, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
-        # classifier
-        self.fc1 = nn.Linear(3168, 128)
-        self.fc2 = nn.Linear(128, 2)
-        
-        # Here we define the custom dependencies that will be needed by our custom Dataloader
+class CelebaTrainingPlan(TorchTrainingPlan):
+         
+    # Defines model 
+    def init_model(self):
+        model = self.Net()
+        return model 
+    
+    # Here we define the custom dependencies that will be needed by our custom Dataloader
+    def init_dependencies(self):
         deps = ["from torch.utils.data import Dataset",
                 "from torchvision import transforms",
                 "import pandas as pd",
-               "from PIL import Image",
-               "import os",
-               "import numpy as np"]
-        self.add_dependency(deps)
+                "from PIL import Image",
+                "import os",
+                "import numpy as np"]
+        return deps
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.max_pool2d(x, 2)
-        x = F.relu(x)
+    # Torch modules class
+    class Net(nn.Module):
         
-        x = self.conv2(x)
-        x = F.max_pool2d(x, 2)
-        x = F.relu(x)
+        def __init__(self):
+            super().__init__()
+            #convolution layers
+            self.conv1 = nn.Conv2d(3, 32, 3, 1)
+            self.conv2 = nn.Conv2d(32, 32, 3, 1)
+            self.conv3 = nn.Conv2d(32, 32, 3, 1)
+            self.conv4 = nn.Conv2d(32, 32, 3, 1)
+            self.dropout1 = nn.Dropout(0.25)
+            self.dropout2 = nn.Dropout(0.5)
+            # classifier
+            self.fc1 = nn.Linear(3168, 128)
+            self.fc2 = nn.Linear(128, 2)
 
-        x = self.conv3(x)
-        x = F.max_pool2d(x, 2)
-        x = F.relu(x)
+        def forward(self, x):
+            x = self.conv1(x)
+            x = F.max_pool2d(x, 2)
+            x = F.relu(x)
 
-        x = self.conv4(x)
-        x = F.max_pool2d(x, 2)
-        x = F.relu(x)
-        
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output
+            x = self.conv2(x)
+            x = F.max_pool2d(x, 2)
+            x = F.relu(x)
+
+            x = self.conv3(x)
+            x = F.max_pool2d(x, 2)
+            x = F.relu(x)
+
+            x = self.conv4(x)
+            x = F.max_pool2d(x, 2)
+            x = F.relu(x)
+
+            x = self.dropout1(x)
+            x = torch.flatten(x, 1)
+            x = self.fc1(x)
+            x = F.relu(x)
+
+            x = self.dropout2(x)
+            x = self.fc2(x)
+            output = F.log_softmax(x, dim=1)
+            return output
 
 
     class CelebaDataset(Dataset):
@@ -129,17 +144,20 @@ class Net(TorchTrainingPlan):
         def __len__(self):
             return self.y.shape[0]
     
+    # The training_data creates the Dataloader to be used for training in the 
+    # general class Torchnn of fedbiomed
     def training_data(self,  batch_size = 48):
-    # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset, **train_kwargs)
     
+    # This function must return the loss to backward it 
     def training_step(self, data, target):
-        #this function must return the loss to backward it 
-        output = self.forward(data)
+        
+        output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
+
 
 
 # This group of arguments correspond respectively:
@@ -151,13 +169,14 @@ class Net(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 32,
-    'lr': 1e-3,
-    'epochs': 1,
-    'dry_run': False,
-    'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    'batch_size': 32, 
+    'optimizer_args': {
+        'lr': 1e-3
+    }, 
+    'epochs': 1, 
+    'dry_run': False,  
+    'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
-
 
 # # Train the federated model
 
@@ -173,15 +192,11 @@ tags =  ['#celeba']
 rounds = 3
 
 exp = Experiment(tags=tags,
-                #nodes=None,
-                model_class=Net,
-                # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
-                model_args=model_args,
-                training_args=training_args,
-                round_limit=rounds,
-                aggregator=FedAverage(),
-                node_selection_strategy=None)
+                 training_plan_class=CelebaTrainingPlan,
+                 training_args=training_args,
+                 round_limit=rounds,
+                 aggregator=FedAverage(),
+                 node_selection_strategy=None)
 
 
 # Let's start the experiment.
@@ -191,10 +206,9 @@ exp.run()
 
 # Retrieve the federated model parameters
 
-fed_model = exp.model_instance()
+fed_model = exp.training_plan_instance().model()
 fed_model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
 print(fed_model)
-
 # # Test Model
 #
 # We define a little testing routine to extract the accuracy metrics on the testing dataset

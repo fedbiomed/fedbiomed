@@ -586,7 +586,6 @@ class Experiment(object):
             logger.error('No `job` defined for experiment, cannot get `training_plan_instance`')
             return None
         else:
-            print(self._job)
             return self._job.training_plan_instance
 
     # a specific getter-like
