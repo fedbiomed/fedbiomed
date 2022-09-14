@@ -294,12 +294,9 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def get_initial_model_params(self) -> dict:
+    def get_server_model_params(self) -> dict:
         """ Retrieve the parameters of the model which will be sent to the nodes for training at each round.
-        This is what we call the server state. Considering Scaffold strategy, it will be useful to compute the
-        new correction state for each client, using the difference with the previous client state, plus the
-        previous correction state.
-        _new_correction_state = _prev_correction_state + _server_state - _previous_client_state
+        This is what we call the server state.
 
         Returns:
             A dictionary containing the state dictionary of the central model detained by the researcher.
@@ -320,7 +317,7 @@ class Job:
             A dictionary containing the client correction states initialized to 0.
             Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the correction state.
         """
-        server_state = self.get_initial_model_params()
+        server_state = self.get_server_model_params()
         correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
         client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
         return client_correction_states_dict
