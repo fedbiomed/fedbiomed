@@ -203,7 +203,7 @@ class Experiment(object):
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
-        #self._client_states_list = None
+        self._server_state = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -1407,7 +1407,7 @@ class Experiment(object):
         return self._tensorboard
 
     @exp_exceptions
-    def set_new_correction_states_dict(self) -> dict:
+    def set_new_correction_states_dict(self, server_state) -> dict:
         """ At round i, calling this function allows us to define each client correction state for round i+1.
         new_correction_state = previous_correction_state + (server_state - previous_client_state) / lr*num_updates
         Note: At round 0, we know that: previous_correction_state = 0,
@@ -1416,38 +1416,42 @@ class Experiment(object):
         so the next correction state will be set to 0 at the 1st round
         It means that at the 2nd round, previous correction state is 0.
 
+        Args:
+            server_state: dictionary containing server model state after optimization/aggregation at round i (also known as initial server state of round i+1). 
+
         Returns:
             A dictionary with keys as node_id, values as client correction state for round i+1 (i being the current round).
             The client correction state is a dictionary with the exact same size as the model state dictionary.
         """ 
-        server_state = self._job.get_initial_model_params()
         if self._round_current == 0: # init_first_new_correction_states
             init_params = {key:initialize(tensor)[1] for key, tensor in server_state.items()}
-            self._client_correction_states_dict = {node_id: init_params for node_id in self._job.nodes}
+            self._client_correction_states_dict = {node_id: deepcopy(init_params) for node_id in self._job.nodes}
         for node_id, client_state in self._client_states_dict.items(): # iterate params of each client
             for key in client_state:
-                self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs) 
+                self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs)
         return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
     @exp_exceptions
-    def set_new_client_states_dict(self, model_params_list) -> dict:
+    def set_new_client_states_dict(self, client_states_list) -> dict:
         """ At round i, calling this function allows us to define each client state for round i+1,
         with scaling of the local parameters by server_lr.
+        self._server_state represents the initial server model state before optimization/aggregation.
+        When server_lr = 1 (default value), local parameters are not impacted by the initial server state
+        On the other hand, lowering this value can reduce the drift.
 
         Args:
-            model_params_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at the current round.
+            client_states_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at the current round.
                                Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
         
         Returns:
             A dictionary with node_ids as keys and their corresponding value being the new client state_dict after scaling of the local parameters by server_lr.
         """
-        server_state = self._job.get_initial_model_params()
-        for model_params in model_params_list:
+        for model_params in client_states_list:
             node_id = list(model_params.keys())[0]
             if self._round_current == 0:
                 self._client_states_dict[node_id] = {}
             for key in model_params[node_id]:
-                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * server_state[key]
+                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state[key]
         return self._client_states_dict
 
     @exp_exceptions
@@ -1504,6 +1508,8 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # Ready to execute a training round using the job, strategy and aggregator
+        if self.strategy_info["strategy"] == "Scaffold":
+            self._server_state = self._job.get_initial_model_params() # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
@@ -1516,22 +1522,23 @@ class Experiment(object):
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
-        if self.strategy_info["strategy"] == "Scaffold":
-            # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
-            self._client_states_dict = self.set_new_client_states_dict(model_params)
-
-            # Setting the correction state for round i+1
-            self._client_correction_states_dict = self.set_new_correction_states_dict()
-            self.strategy_info["correction_states"] = self._client_correction_states_dict
-
         # aggregate model from nodes to a global model
-        model_params = [model_param[list(model_param.keys())[0]] for model_param in model_params] # list(model_param.keys())[0] -> node_id
-        weights = [weight[list(weight.keys())[0]] for weight in weights] # list(weight.keys())[0] -> node_id
-        aggregated_params = self._aggregator.aggregate(model_params, weights)
+        model_params_processed = [model_param[list(model_param.keys())[0]] for model_param in model_params] # list(model_param.keys())[0] -> node_id ; model params are contained in a dictionary with node_id as key, we just retrieve the params
+        weights_processed = [weight[list(weight.keys())[0]] for weight in weights] # list(weight.keys())[0] -> node_id ; same retrieving
+        aggregated_params = self._aggregator.aggregate(model_params_processed,
+                                                       weights_processed)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
+
+        if self.strategy_info["strategy"] == "Scaffold":
+            # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
+            self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)
+
+            # Setting the correction state for round i+1
+            self._client_correction_states_dict = self.set_new_correction_states_dict(server_state=aggregated_params)
+            self.strategy_info["correction_states"] = self._client_correction_states_dict
 
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
