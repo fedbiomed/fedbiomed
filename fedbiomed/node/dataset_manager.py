@@ -373,8 +373,7 @@ class DatasetManager:
 
             try:
                 dataset = FlambyDataset()
-                dataset.set_dlp(data_loading_plan)
-                dataset.init_flamby_fed_class()
+                dataset.set_dlp(data_loading_plan)  # calls init_fed_class as a side effect
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create FLamby dataset. {e}")
             else:

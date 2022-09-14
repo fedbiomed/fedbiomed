@@ -87,10 +87,11 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
 
 
 class FlambyDataset(DataLoadingPlanMixin):
-    def __init__(self):
+    def __init__(self, transform = None):
         self.__flamby_fed_class = None
+        self.transform = transform
 
-    def init_flamby_fed_class(self, transform=None):
+    def _init_flamby_fed_class(self):
         if self.__flamby_fed_class is not None:
             msg = f"{ErrorNumbers.FB614.value}. init_flamby_fed_class may only be called once."
             logger.critical(msg)
@@ -112,8 +113,9 @@ class FlambyDataset(DataLoadingPlanMixin):
 
         center_id = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
 
-        if transform is not None:
-            self.__flamby_fed_class = module.FedClass(transform=transform, center=center_id, train=True, pooled=False)
+        if self.transform is not None:
+            self.__flamby_fed_class = module.FedClass(transform=self.transform, center=center_id, train=True,
+                                                      pooled=False)
         else:
             self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
 
@@ -128,3 +130,7 @@ class FlambyDataset(DataLoadingPlanMixin):
 
     def shape(self) -> List[int]:
         return [len(self)] + list(self.__getitem__(0)[0].shape)
+
+    def set_dlp(self, dlp):
+        super().set_dlp(dlp)
+        self.init_flamby_fed_class()
