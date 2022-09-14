@@ -11,7 +11,6 @@ import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
-from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -22,14 +21,11 @@ from torchvision import datasets
 from torchvision import transforms
 
 from fedbiomed.node.environ import environ
-
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
-
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock, FlambyLoadingBlockTypes, \
+    FlambyDataset
 from fedbiomed.common.logger import logger
-
-from fedbiomed.node.flamby_utils import get_flamby_datasets, get_key_from_value
 
 
 class DatasetManager:
@@ -326,8 +322,8 @@ class DatasetManager:
                      data_type: str,
                      tags: Union[tuple, list],
                      description: str,
-                     path: str,
-                     dataset_id: str = None,
+                     path: Optional[str],
+                     dataset_id: Optional[str] = None,
                      dataset_parameters : Optional[dict] = None,
                      data_loading_plan: Optional[DataLoadingPlan] = None,
                      save_dlp: bool = True):
@@ -350,33 +346,39 @@ class DatasetManager:
             FedbiomedDatasetManagerError: path does not exist or dataset was not saved properly.
         """
         # Accept tilde as home folder
-        path = os.path.expanduser(path)
+        if path is not None:
+            path = os.path.expanduser(path)
 
         # Check that there are not existing databases with the same name
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        available_flamby_datasets, valid_flamby_options = get_flamby_datasets()
-        flamby_datasets = list(valid_flamby_options.values())
-        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', *flamby_datasets]
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
 
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
-        elif data_type in flamby_datasets: # data_type corresponds to one flamby dataset (e.g. IXITiny, Kits19)
-            if not os.path.isdir(path):
-                raise FedbiomedDatasetManagerError(f'Folder {path} for {data_type} FLamby dataset does not exist.')
+        elif data_type == 'flamby':
+            if data_loading_plan is None or \
+                    FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in data_loading_plan or \
+                    FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in data_loading_plan:
+                msg = f"{ErrorNumbers.FB316.value}. A DataLoadingPlan containing " \
+                      f"{FlambyLoadingBlockTypes.FLAMBY_CENTER_ID.value} and " \
+                      f"{FlambyLoadingBlockTypes.FLAMBY_DATASET.value} is required for adding a FLamby dataset " \
+                      f"to the database."
+                logger.critical(msg)
+                raise FedbiomedDatasetManagerError(msg)
+
             try:
-                flamby_dataset_index = get_key_from_value(valid_flamby_options, data_type)
-                module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
-                center_id = dataset_parameters.get('center_id')
-                dataset = module.FedClass(center=center_id, train=True, pooled=False)
+                dataset = FlambyDataset()
+                dataset.set_dlp(data_loading_plan)
+                dataset.init_flamby_fed_class()
             except FedbiomedError as e:
-                raise FedbiomedDatasetManagerError(f"Can not create {data_type} FLamby dataset. {e}")
+                raise FedbiomedDatasetManagerError(f"Can not create FLamby dataset. {e}")
             else:
-                shape = self.get_torch_dataset_shape(dataset)
+                shape = dataset.shape()
 
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'

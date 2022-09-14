@@ -10,6 +10,8 @@ from ._tabular_dataset import TabularDataset
 from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController, \
     MedicalFolderLoadingBlockTypes
 from ._data_loading_plan import DataLoadingBlock, MapperBlock, DataLoadingPlan, DataLoadingPlanMixin
+from ._flamby_dataset import FlambyCenterIDLoadingBlock, FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes, \
+    FlambyDataset
 
 __all__ = [
     "MedicalFolderBase",
@@ -24,5 +26,9 @@ __all__ = [
     "DataLoadingBlock",
     "MapperBlock",
     "DataLoadingPlan",
-    "DataLoadingPlanMixin"
+    "DataLoadingPlanMixin",
+    "FlambyCenterIDLoadingBlock",
+    "FlambyDatasetSelectorLoadingBlock",
+    "FlambyLoadingBlockTypes",
+    "FlambyDataset"
 ]

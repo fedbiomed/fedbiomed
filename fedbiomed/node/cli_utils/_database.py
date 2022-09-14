@@ -4,11 +4,11 @@ import warnings
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyCenterIDLoadingBlock, \
+    FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
 from fedbiomed.node.flamby_utils import get_flamby_datasets
-from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 
 
 dataset_manager = DatasetManager()
@@ -35,6 +35,9 @@ def add_database(interactive: bool = True,
         data_type: Keyword for the data type of the dataset.
     """
 
+    dataset_parameters = None
+    data_loading_plan = None
+
     # if all args are provided, just try to load the data
     # if not, ask the user more informations
     if interactive or \
@@ -51,8 +54,6 @@ def add_database(interactive: bool = True,
             data_type = validated_data_type_input()
         else:
             data_type = 'default'
-
-        dataset_parameters = None
 
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
@@ -107,29 +108,27 @@ def add_database(interactive: bool = True,
                 dataset_parameters['index_col'] = index_col
 
             elif data_type == 'flamby':
+                path = None
                 available_flamby_datasets, valid_flamby_options = get_flamby_datasets()
+                msg = "Please select the FLamby dataset that you're configuring:\n"
+                msg += "\n".join([f"\t{i}) {val}" for i, val in valid_flamby_options.items()])
+                msg += "\nselect: "
+                keep_asking_for_input = True
+                while keep_asking_for_input:
+                    try:
+                        flamby_dataset_index = input(msg)
+                        flamby_dataset_index = int(flamby_dataset_index)
+                        # check that the user inserted a number within the valid range
+                        if flamby_dataset_index in valid_flamby_options.keys():
+                            keep_asking_for_input = False
+                        else:
+                            warnings.warn(f"Please pick a number in the range {list(valid_flamby_options.keys())}")
+                    except ValueError:
+                        warnings.warn('Please input a numeric value (integer)')
 
-                if interactive:
-                    msg = "Please select the FLamby dataset that you're configuring:\n"
-                    msg += "\n".join([f"\t{i}) {val}" for i, val in valid_flamby_options.items()])
-                    msg += "\nselect: "
-                    keep_asking_for_input = True
-                    while keep_asking_for_input:
-                        try:
-                            flamby_dataset_index = input(msg)
-                            flamby_dataset_index = int(flamby_dataset_index)
-                            # check that the user inserted a number within the valid range
-                            if flamby_dataset_index in valid_flamby_options.keys():
-                                keep_asking_for_input = False
-                            else:
-                                warnings.warn(f"Please pick a number in the range {list(valid_flamby_options.keys())}")
-                        except ValueError:
-                            warnings.warn('Please input a numeric value (integer)')
-
-                path = '/' # no path needs to be defined in the case of FLamby, as it is already internally handled on FLamby side.
                 module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
+
                 n_centers = module.NUM_CLIENTS
-                dataset_parameters = {}
                 keep_asking_for_input = True
                 while keep_asking_for_input:
                     try:
@@ -138,11 +137,27 @@ def add_database(interactive: bool = True,
                             keep_asking_for_input = False
                     except ValueError:
                         warnings.warn(f'Please input a numeric value (integer) between 0 and {str(n_centers-1)}')
-                dataset_parameters["center_id"] = center_id
-                dataset_parameters["fed_class"] = available_flamby_datasets[flamby_dataset_index]
-                dataset_parameters["flamby"] = True
+
+                data_loading_plan = DataLoadingPlan()
+                dataset_dlb = FlambyDatasetSelectorLoadingBlock()
+                dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index].split('.')[-1]
+                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET] = dataset_dlb
+                center_id_dlb = FlambyCenterIDLoadingBlock()
+                center_id_dlb.flamby_center_id = center_id
+                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_CENTER_ID] = center_id_dlb
             else:
                 path = validated_path_input(data_type)
+
+        # if a data loading plan was specified, we now ask for the description
+        if interactive and data_loading_plan is not None:
+            keep_asking_for_input = True
+            while keep_asking_for_input:
+                desc = input('Please input a short name/description for your data loading plan:')
+                if len(desc) < 4:
+                    print('Description must be at least 4 characters long.')
+                else:
+                    keep_asking_for_input = False
+            data_loading_plan.desc = desc
 
     else:
         # all data have been provided at call
@@ -171,7 +186,8 @@ def add_database(interactive: bool = True,
                                      data_type=data_type,
                                      description=description,
                                      path=path,
-                                     dataset_parameters=dataset_parameters)
+                                     dataset_parameters=dataset_parameters,
+                                     data_loading_plan=data_loading_plan)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
