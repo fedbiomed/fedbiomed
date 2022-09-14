@@ -1509,7 +1509,7 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self.strategy_info["strategy"] == "Scaffold":
-            self._server_state = self._job.get_initial_model_params() # initial server state, before optimization/aggregation
+            self._server_state = self._job.get_server_model_params() # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
