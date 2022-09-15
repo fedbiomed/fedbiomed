@@ -356,12 +356,17 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                 // dirty hack: need to force refresh of the ModalitiesToFolders and CSV selection
                 if(dlp['use_custom_mod2fol'] === true) {
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: false})
-                    dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: true})
+                    setTimeout(() => {
+                        dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: true})
+                    }, 200)
                 }
                 if(dlp['has_all_mappings']){
                     dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
-                    dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: true})
+                    setTimeout(() => {
+                        dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: true})
+                    }, 400)
                 }
+                //end of dirty hack to refresh
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch(displayError(error, "Error while reading Data Loading Plan content."))
