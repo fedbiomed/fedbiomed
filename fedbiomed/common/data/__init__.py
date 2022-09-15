@@ -9,7 +9,12 @@ from ._sklearn_data_manager import SkLearnDataManager
 from ._tabular_dataset import TabularDataset
 from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController, \
     MedicalFolderLoadingBlockTypes
-from ._data_loading_plan import DataLoadingBlock, MapperBlock, DataLoadingPlan, DataLoadingPlanMixin
+from ._data_loading_plan import (DataLoadingBlock,
+                                 MapperBlock,
+                                 DataLoadingPlan,
+                                 DataLoadingPlanMixin,
+                                 SerializationValidation  # keep it for documentation
+                                 )
 
 __all__ = [
     "MedicalFolderBase",
@@ -25,5 +30,5 @@ __all__ = [
     "MapperBlock",
     "DataLoadingPlan",
     "DataLoadingPlanMixin",
-    "SerializationValidation"  # for API documentation only
+    "SerializationValidation"
 ]
