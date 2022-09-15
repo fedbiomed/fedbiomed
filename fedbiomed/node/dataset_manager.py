@@ -99,7 +99,7 @@ class DatasetManager:
             dlp_id: (str) the DataLoadingPlan id
 
         Returns:
-            A dictionary with the DataLoadingPlan metadata corresponding to the given id.
+            A Tuple containing a dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
         return dlp_metadata, self._dlp_table.search(
@@ -447,7 +447,7 @@ class DatasetManager:
 
         return dataset_id
 
-    def remove_dlp_by_id(self, dlp_id: str, remove_dlbs: bool = True):
+    def remove_dlp_by_id(self, dlp_id: str):
         """Removes a data loading plan (DLP) from the database.
 
         Only DLP with matching ID is removed from the database. There should be at most one.
@@ -457,7 +457,6 @@ class DatasetManager:
 
         Args:
             dlp_id: the DataLoadingPlan id
-            remove_dlbs: whether or not to remove the DLBs of the DLP
         """
         if not isinstance(dlp_id, str):
             _msg = ErrorNumbers.FB316.value + f": Bad type for dlp '{type(dlp_id)}', expecting str"
@@ -631,6 +630,7 @@ class DatasetManager:
         return data_loading_plan.dlp_id
 
     def save_data_loading_block(self, dlb: DataLoadingBlock) -> None:
+        # seems unused
         self._dlp_table.insert(dlb.serialize())
 
     @staticmethod

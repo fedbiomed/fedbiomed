@@ -1,5 +1,6 @@
 import unittest
 import logging
+from unittest.mock import MagicMock, patch
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
     TestAbstractsBlock
@@ -104,6 +105,10 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.dlb2 = LoadingBlockForTesting()
         self.assertDictEqual(self.dlb1.data, self.dlb2.data)
         self.dlb2.data = {'my': 'different-data'}
+        
+        # patchers
+        self.patcher_infer_dataset = patch('fedbiomed.common.data.DataLoadingPlan.infer_dataset_type',
+                                           lambda x: DatasetTypes.NONE)
 
     def test_data_loading_plan_01_interface(self):
         """Tests that DataLoadingPlan exposes the correct interface to the developer"""
@@ -220,6 +225,16 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertEqual(apply_1, "my default")
         apply_2 = tp.apply_dlb("other default", LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING)
         self.assertEqual(apply_2, "other default")
+        
+        # try to set an object that is not of DataLoadingPlan type
+        with self.assertRaises(FedbiomedDataLoadingPlanValueError):
+            tp.set_dlp(dict())
+        
+        tp.clear_dlp()
+        self.patcher_infer_dataset.start()
+        with self.assertRaises(FedbiomedDataLoadingPlanValueError):
+            tp.set_dlp(DataLoadingPlan().deserialize(*dlp.serialize()))
+        self.patcher_infer_dataset.stop()
 
     def test_data_loading_plan_04_apply(self):
         """Tests application of a DataLoadingPlan's DataLoadingBlock"""
@@ -247,6 +262,10 @@ class TestDataLoadingPlan(unittest.TestCase):
 
         with self.assertRaises(FedbiomedDataLoadingPlanValueError):
             tp.apply_dlb('some value', 'wrong-key-type')
+
+        # testing clearing feature
+        tp.clear_dlp()
+        self.assertEqual(tp.test_mapper(), 'orig-key')
 
 
 if __name__ == '__main__':
