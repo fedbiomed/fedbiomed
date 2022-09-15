@@ -20,11 +20,6 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
 
-from fedbiomed.common.constants import TrainingPlans
-
-from fedbiomed.node.flamby_split import _set_training_testing_data_loaders_flamby
-from fedbiomed.node.flamby_utils import get_transform_compose_flamby
-
 
 class Round:
     """
@@ -77,9 +72,13 @@ class Round:
         for arg in testing_args_keys:
             self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
+
         self.batch_size = training_kwargs.get('batch_size', 48)
         training_kwargs.pop('batch_size', None)
-        
+
+        # Set training arguments after removing validation arguments
+        self.training_kwargs = training_kwargs
+
         self.dataset = dataset
         self.model_url = model_url
         self.model_class = model_class
@@ -92,19 +91,6 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self.is_flamby_dataset = False
-        dataset_parameters = self.dataset.get("dataset_parameters", None)
-        if type(dataset_parameters) is dict and dataset_parameters.get("flamby", None) == True:
-            self.is_flamby_dataset = True
-            train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
-            self.transform_compose_flamby = None
-            if train_transform_flamby != None:
-                self.transform_compose_flamby = get_transform_compose_flamby(train_transform_flamby)
-                training_kwargs.pop('train_transform_flamby', None)
-        
-        # Set training arguments after removing validation arguments
-        self.training_kwargs = training_kwargs
-
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
 
     def run_model_training(self) -> dict[str, Any]:
@@ -196,12 +182,7 @@ class Round:
 
         # Split training and validation data
         try:
-            # Here, a verification of the nature of the dataset is required to determine which dataloader setting process will be
-            # choosed between the particular one needed by FLamby, and the standard one.
-            if self.is_flamby_dataset:
-                self.model = _set_training_testing_data_loaders_flamby(self.dataset, self.model, self.testing_arguments, self.transform_compose_flamby, self.batch_size)
-            else:
-                self._set_training_testing_data_loaders()
+            self._set_training_testing_data_loaders()
         except FedbiomedError as e:
             error_message = f"Can not create validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -355,10 +336,10 @@ class Round:
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                           ', `test_on_loc_set_training_testing_data_loadersal_updates`, or both. Splitting dataset for validation will be ignored')
-        
-        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+                           ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
 
+        # Setting validation and train subsets based on test_ratio
+        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
         # Set models validatino and training parts for model
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
