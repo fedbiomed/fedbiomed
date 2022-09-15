@@ -13,6 +13,7 @@ from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.researcher.aggregators.functional import initialize
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -260,6 +261,13 @@ class Experiment(object):
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
+
+        self._strategy_info = {"strategy":aggregator.aggregator_name}
+        if aggregator.aggregator_name in ["FedAdam", "FedAdagrad", "FedYogi"]:
+            self._beta1 = aggregator.beta1 # momentum parameter
+            self._beta2 = aggregator.beta2 # second moment parameter
+            self._server_lr = aggregator.server_lr
+            self._tau = aggregator.tau
 
     # destructor
     @exp_exceptions
@@ -1395,6 +1403,9 @@ class Experiment(object):
 
         return self._tensorboard
 
+    def ab(self):
+        pass
+
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
@@ -1463,6 +1474,20 @@ class Experiment(object):
         # aggregate model from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights)
+        
+        # In case of FedOpt, we apply a specific treatment on the aggregated & averaged parameters
+        # depending the chosen strategy. Averaged parameters will be processed the same way as Adam,
+        # Adagrad or Yogi algorithms do in a non-federated setting
+        if self.strategy_info["strategy"] in ["FedAdam","FedAdagrad","FedYogi"]:
+            if self._round_current == 0: # need to initialize momentum, second moment and adaptivity HP
+                self._m = [initialize(item[1])[1] for item in aggregated_params.items()] # item[1] to access the model parameter tensor
+            if self.strategy_info["strategy"] == "FedAdam":
+                pass
+            elif self.strategy_info["strategy"] == "FedAdagrad":
+                pass
+            elif self.strategy_info["strategy"] == "FedYogi":
+                pass
+
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
