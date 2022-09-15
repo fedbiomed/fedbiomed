@@ -233,15 +233,16 @@ class DataLoadingBlock(ABC):
 
     Subclasses of [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
     must respect the following conditions:
-        * 1. implement a default constructor
-        * 2. the implemented constructor must call `super().__init__()`
-        * 3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
-        * 4. both serialize and deserialize must call super's serialize and deserialize respectively
-        * 5. the deserialize function must always return self
-        * 6. the serialize function must update the dict returned by super's serialize
-        * 7. implement an apply function that takes arbitrary arguments and applies
+    
+    1. implement a default constructor
+    2. the implemented constructor must call `super().__init__()`
+    3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
+    4. both serialize and deserialize must call super's serialize and deserialize respectively
+    5. the deserialize function must always return self
+    6. the serialize function must update the dict returned by super's serialize
+    7. implement an apply function that takes arbitrary arguments and applies
             the logic of the loading_block
-        * 8. update the _validation_scheme to define rules for all new fields returned by the serialize function
+    8. update the _validation_scheme to define rules for all new fields returned by the serialize function
 
     Attributes:
         __serialization_id: (str) identifies *one serialized instance* of the DataLoadingBlock
