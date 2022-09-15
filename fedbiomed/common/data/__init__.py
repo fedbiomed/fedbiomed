@@ -1,5 +1,5 @@
 """
-to simplify imports from fedbiomed.common.data
+Classes that simplify imports from fedbiomed.common.data
 """
 
 
@@ -24,5 +24,6 @@ __all__ = [
     "DataLoadingBlock",
     "MapperBlock",
     "DataLoadingPlan",
-    "DataLoadingPlanMixin"
+    "DataLoadingPlanMixin",
+    "SerializationValidation"  # for API documentation only
 ]
