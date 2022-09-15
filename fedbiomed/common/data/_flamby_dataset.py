@@ -1,7 +1,8 @@
-
 from importlib import import_module
 from enum import Enum
 from typing import List
+
+from torch.utils.data import Dataset
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
@@ -86,10 +87,11 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
         return self.flamby_center_id
 
 
-class FlambyDataset(DataLoadingPlanMixin):
-    def __init__(self, transform = None):
+class FlambyDataset(DataLoadingPlanMixin, Dataset):
+    def __init__(self):
+        super().__init__()
         self.__flamby_fed_class = None
-        self.transform = transform
+        self._transform = None
 
     def _init_flamby_fed_class(self):
         if self.__flamby_fed_class is not None:
@@ -113,8 +115,8 @@ class FlambyDataset(DataLoadingPlanMixin):
 
         center_id = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
 
-        if self.transform is not None:
-            self.__flamby_fed_class = module.FedClass(transform=self.transform, center=center_id, train=True,
+        if self._transform is not None:
+            self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
                                                       pooled=False)
         else:
             self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
@@ -133,4 +135,7 @@ class FlambyDataset(DataLoadingPlanMixin):
 
     def set_dlp(self, dlp):
         super().set_dlp(dlp)
-        self.init_flamby_fed_class()
+        self._init_flamby_fed_class()
+
+    def set_transform(self, transform):
+        self._transform = transform
