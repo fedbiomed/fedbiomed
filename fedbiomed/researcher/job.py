@@ -292,6 +292,22 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
+    def get_server_model_params(self) -> dict:
+        """ Retrieve the parameters of the model which will be sent to the nodes for training at each round.
+        This is what we call the server state.
+
+        Returns:
+            A dictionary containing the state dictionary of the central model detained by the researcher.
+        """
+        logger.info(f"Downloading initial model params")
+        try:
+            _, params_path = self.repo.download_file(self._repository_args['params_url'], self._model_params_file)
+        except FedbiomedRepositoryError as err:
+            logger.error(f"Cannot download initial model parameters")
+            return
+        params = self.model_instance.load(params_path, to_params=True)
+        return params
+
     def start_nodes_training_round(self, round: int, do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
