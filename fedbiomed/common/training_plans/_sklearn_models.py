@@ -23,29 +23,16 @@ class FedPerceptron(SKLearnTrainingPlan):
         model: an instance of the sklearn class that we are wrapping (static attribute).
     """
 
-    model = Perceptron()
+    _model = Perceptron()
 
-    def __init__(self, model_args: dict = None):
+    def __init__(self):
         """Class constructor.
 
         Args:
             model_args: model arguments. Defaults to {}
         """
-        if model_args is None:
-            model_args = {}
-
-        super().__init__(model_args)
-
-        if 'verbose' not in model_args:
-            self.model_args['verbose'] = 1
-            self.params.update({'verbose': 1})
-
+        super().__init__()
         self._is_classification = True
-
-        self._verbose_capture_option = self.model_args['verbose']
-
-        # Instantiate the model
-        self.set_init_params()
         self.add_dependency([
             "from sklearn.linear_model import Perceptron "
         ])
@@ -59,27 +46,34 @@ class FedPerceptron(SKLearnTrainingPlan):
         classes = self._classes_from_concatenated_train_test()
         if classes.shape[0] < 3:
             self._is_binary_classification = True
-        self.model.partial_fit(self.data, self.target, classes=classes)
+        self._model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self) -> None:
         """Initialize the model parameters.
         """
-        self.param_list = ['intercept_', 'coef_']
+
+        if 'verbose' not in self._model_args:
+            self._model_args['verbose'] = 1
+            self._params.update({'verbose': 1})
+
+        self._verbose_capture_option = self._model_args["verbose"]
+
+        self._param_list = ['intercept_', 'coef_']
         init_params = {
-            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes']),
-            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                self.model_args['n_classes'] == 2) else np.array(
-                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                        self.model_args['n_classes'],
-                        self.model_args['n_features'])
+            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
+                [0.] * self._model_args['n_classes']),
+            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
+                self._model_args['n_classes'] == 2) else np.array(
+                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
+                        self._model_args['n_classes'],
+                        self._model_args['n_features'])
         }
 
-        for p in self.param_list:
-            setattr(self.model, p, init_params[p])
+        for p in self._param_list:
+            setattr(self._model, p, init_params[p])
 
-        for p in self.params:
-            setattr(self.model, p, self.params[p])
+        for p in self._params:
+            setattr(self._model, p, self._params[p])
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """Evaluate the loss.
@@ -110,30 +104,15 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         model: an instance of the sklearn class that we are wrapping (static attribute).
     """
 
-    model = SGDRegressor()
+    _model = SGDRegressor()
 
-    def __init__(self, model_args: dict = None):
-        """
-        Sklearn SGDRegressor model.
+    def __init__(self):
+        """ Sklearn SGDRegressor model. """
 
-        Args:
-            model_args: model arguments. Defaults to {}
-        """
-        if model_args is None:
-            model_args = {}
-        super().__init__(model_args)
-
-        if 'verbose' not in model_args:
-            self.model_args['verbose'] = 1
-            self.params.update({'verbose': 1})
+        super().__init__()
 
         # specific for SGDRegressor
         self._is_regression = True
-        self._verbose_capture_option = self.model_args['verbose']
-
-        # Instantiate the model
-        self.set_init_params()
-
         self.add_dependency([
             "from sklearn.linear_model import SGDRegressor "
         ])
@@ -143,20 +122,26 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         Training routine of SGDRegressor.
         """
         (self.data, self.target) = self.training_data_loader
-        self.model.partial_fit(self.data, self.target)
+        self._model.partial_fit(self.data, self.target)
 
     def set_init_params(self) -> None:
         """
         Initialize the model parameter.
         """
-        self.param_list = ['intercept_', 'coef_']
-        init_params = {'intercept_': np.array([0.]),
-                       'coef_': np.array([0.] * self.model_args['n_features'])}
-        for p in self.param_list:
-            setattr(self.model, p, init_params[p])
+        if 'verbose' not in self._model_args:
+            self._model_args['verbose'] = 1
+            self._params.update({'verbose': 1})
+        self._verbose_capture_option = self._model_args["verbose"]
 
-        for p in self.params:
-            setattr(self.model, p, self.params[p])
+        self._param_list = ['intercept_', 'coef_']
+        init_params = {'intercept_': np.array([0.]),
+                       'coef_': np.array([0.] * self._model_args['n_features'])}
+
+        for p in self._param_list:
+            setattr(self._model, p, init_params[p])
+
+        for p in self._params:
+            setattr(self._model, p, self._params[p])
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """
@@ -182,7 +167,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         model: an instance of the sklearn class that we are wrapping (static attribute).
     """
 
-    model = SGDClassifier()
+    _model = SGDClassifier()
 
     def __init__(self, model_args: dict = None):
         """
@@ -191,21 +176,9 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         Args:
             model_args: model arguments. Defaults to {}
         """
-        if model_args is None:
-            model_args = {}
-        super().__init__(model_args)
-
-        # if verbose is not provided in model_args set it to true and add it to self.params
-        if 'verbose' not in model_args:
-            self.model_args['verbose'] = 1
-            self.params.update({'verbose': 1})
+        super().__init__()
 
         self._is_classification = True
-        self._verbose_capture_option = self.model_args['verbose']
-
-        # Instantiate the model
-        self.set_init_params()
-
         self.add_dependency(["from sklearn.linear_model import SGDClassifier "
                              ])
 
@@ -217,27 +190,34 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         if classes.shape[0] < 3:
             self._is_binary_classification = True
 
-        self.model.partial_fit(self.data, self.target, classes=classes)
+        self._model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self) -> None:
         """Initialize the model parameter.
         """
-        self.param_list = ['intercept_', 'coef_']
+
+        if 'verbose' not in self._model_args:
+            self._model_args['verbose'] = 1
+            self._params.update({'verbose': 1})
+
+        self._verbose_capture_option = self._model_args["verbose"]
+
+        self._param_list = ['intercept_', 'coef_']
         init_params = {
-            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes']),
-            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                self.model_args['n_classes'] == 2) else np.array(
-                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                        self.model_args['n_classes'],
-                        self.model_args['n_features'])
+            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
+                [0.] * self._model_args['n_classes']),
+            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
+                self._model_args['n_classes'] == 2) else np.array(
+                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
+                        self._model_args['n_classes'],
+                        self._model_args['n_features'])
         }
 
-        for p in self.param_list:
-            setattr(self.model, p, init_params[p])
+        for p in self._param_list:
+            setattr(self._model, p, init_params[p])
 
-        for p in self.params:
-            setattr(self.model, p, self.params[p])
+        for p in self._params:
+            setattr(self._model, p, self._params[p])
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """Evaluate the loss
@@ -269,7 +249,7 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         This class has not yet been implemented.
     """
 
-    model = BernoulliNB()
+    _model = BernoulliNB()
 
     def __init__(self, model_args: dict = {}):
         """Sklearn BernoulliNB model.
@@ -286,12 +266,6 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         super().__init__(model_args)
 
         self.is_classification = True
-        if 'verbose' in model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
-                         ": it needs to be implemented")
-
-        self.set_init_params()
-
         self.add_dependency([
             "from sklearn.naive_bayes import BernoulliNB"
         ])
@@ -304,13 +278,18 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         if classes.shape[0] < 3:
             self._is_binary_classification = True
 
-        self.model.partial_fit(self.data, self.target, classes=classes)
+        self._model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self):
         """Initialize the model parameter.
         """
-        for p in self.params:
-            setattr(self.model, p, self.params[p])
+
+        if 'verbose' in self._model_args:
+            logger.error("[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
+                         ": it needs to be implemented")
+
+        for p in self._params:
+            setattr(self._model, p, self._params[p])
 
 
 class FedGaussianNB(SKLearnTrainingPlan):
@@ -320,9 +299,9 @@ class FedGaussianNB(SKLearnTrainingPlan):
         This class has not yet been implemented.
     """
 
-    model = GaussianNB()
+    _model = GaussianNB()
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self):
         """
         Sklearn GaussianNB model.
 
@@ -335,15 +314,9 @@ class FedGaussianNB(SKLearnTrainingPlan):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-        super().__init__(model_args)
+        super().__init__()
+
         self.is_classification = True
-
-        if 'verbose' in model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "
-                         ": it needs to be implemeted")
-
-        self.set_init_params()
-
         self.add_dependency([
             "from sklearn.naive_bayes  import GaussianNB"
         ])
@@ -356,27 +329,31 @@ class FedGaussianNB(SKLearnTrainingPlan):
         if classes.shape[0] < 3:
             self._is_binary_classification = True
 
-        self.model.partial_fit(self.data, self.target, classes=classes)
+        self._model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self):
         """Initialize the model parameter.
         """
 
-        self.param_list = ['intercept_', 'coef_']
+        if 'verbose' in self._model_args:
+            logger.error("[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "
+                         ": it needs to be implemented")
+
+        self._param_list = ['intercept_', 'coef_']
         init_params = {
-            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes']),
-            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                self.model_args['n_classes'] == 2) else np.array(
-                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                        self.model_args['n_classes'],
-                        self.model_args['n_features'])
+            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
+                [0.] * self._model_args['n_classes']),
+            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
+                self._model_args['n_classes'] == 2) else np.array(
+                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
+                        self._model_args['n_classes'],
+                        self._model_args['n_features'])
         }
 
-        for p in self.param_list:
-            setattr(self.model, p, init_params[p])
-        for p in self.params:
-            setattr(self.model, p, self.params[p])
+        for p in self._param_list:
+            setattr(self._model, p, init_params[p])
+        for p in self._params:
+            setattr(self._model, p, self._params[p])
 
 
 class FedMultinomialNB(SKLearnTrainingPlan):

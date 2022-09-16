@@ -312,18 +312,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         - a `training_step()` function defining how cost is computed. It should output loss values for backpropagation.
 
         Args:
-            epochs: Number of epochs (complete pass on data).
-            log_interval: Frequency of logging loss values during training.
-            lr: Learning rate.
-            batch_maxnum: Maximum number of batches from the dataset (each containing `batch_size` samples)
-                used for training for each epoch. Remaining samples are ignored. Defaults to 0 (no batch
-                number limit).
-            dry_run: Whether to stop the training round once the first batch of the first epoch is completed.
-            use_gpu: researcher requests to use GPU (or not) for training during this round (ie overload the object
-                default use_gpu value) if available on node and proposed by node Defaults to None (don't overload the
-                object default value)
-            fedprox_mu: mu parameter in case of FredProx computing. Default is None, which means that
-                FredProx is not triggered
             history_monitor: Monitor handler for real-time feed. Defined by the Node and can't be overwritten
             node_args: command line arguments for node. Can include:
                 - `gpu (bool)`: propose use a GPU device if any is available. Default False.
