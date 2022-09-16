@@ -298,15 +298,15 @@ class TestExperiment(unittest.TestCase):
         # Test when ._job is None
         self.test_exp._job = None
         self.mock_logger_error.reset_mock()
-        training_plan = self.test_exp.training_plan_instance()
+        training_plan = self.test_exp.training_plan()
         self.assertIsNone(training_plan, 'Getter for .training_plan did not return expected value None')
         self.mock_logger_error.assert_called_once()
 
         # Test when ._job is not None
         fake_training_plan = FakeModel()
-        type(self.mock_job).training_plan_instance = PropertyMock(return_value=fake_training_plan)
+        type(self.mock_job).training_plan = PropertyMock(return_value=fake_training_plan)
         self.test_exp._job = self.mock_job
-        training_plan = self.test_exp.training_plan_instance()
+        training_plan = self.test_exp.training_plan()
         self.assertEqual(training_plan, fake_training_plan, 'Getter for training_plan did not return expected Model')
 
         # Test getters for testing arguments
@@ -1515,7 +1515,7 @@ class TestExperiment(unittest.TestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test if model instance is None
-        with patch.object(fedbiomed.researcher.experiment.Experiment, 'training_plan_instance') as m_mi:
+        with patch.object(fedbiomed.researcher.experiment.Experiment, 'training_plan') as m_mi:
             m_mi.return_value = None
             with self.assertRaises(SystemExit):
                 Experiment.load_breakpoint(self.experimentation_folder_path)

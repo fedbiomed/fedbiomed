@@ -153,7 +153,7 @@ class TestJob(unittest.TestCase):
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 training_plan_class='FakeModel')
 
-        self.assertEqual(j.training_plan_instance.__class__.__name__, FakeModel.__name__,
+        self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
                          'Provided model and model instance of Job do not match, '
                          'while initializing Job with static model python file')
 
@@ -226,7 +226,7 @@ class TestJob(unittest.TestCase):
         """ Testing all properties and setters of Job class
             TODO: Change this part after refactoring getters and setters
         """
-        self.assertEqual(self.model, self.job.training_plan_instance,
+        self.assertEqual(self.model, self.job.training_plan,
                          'Can not get Requests attribute from Job properly')
         self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')

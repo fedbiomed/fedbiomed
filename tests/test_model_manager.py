@@ -889,7 +889,7 @@ class TestModelManager(unittest.TestCase):
         msg = {
             'researcher_id': 'ssss',
             'job_id': 'xxx',
-            'training_plan_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'training_plan_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[1],
             'command': 'training-plan-status'
         }
         # test 1: case where status code of HTTP request equals 200 AND model
@@ -1099,7 +1099,7 @@ class TestModelManager(unittest.TestCase):
         checking_model_exception_t3 = Exception("mimicking an exception happening when calling "
                                                 "'check_model_status'")
 
-        checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model ' +\
+        checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occurred when downloading model ' +\
             f'file. {msg["training_plan_url"]} , {str(checking_model_exception_t3)}'
 
         mock_get_model.side_effect = checking_model_exception_t3

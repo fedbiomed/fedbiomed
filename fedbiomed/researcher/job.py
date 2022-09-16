@@ -624,19 +624,19 @@ class localJob:
                 sys.path.insert(0, os.path.dirname(training_plan_path))
                 exec('from ' + model_module + ' import ' + training_plan_class)
                 sys.path.pop(0)
-                training_plan = eval(training_plan_class)
+                self._training_plan = eval(training_plan_class)()
             except Exception as e:
                 e = sys.exc_info()
                 logger.critical("Cannot import class " + training_plan_class + " from path " +
                                 training_plan_path + " - Error: " + str(e))
                 sys.exit(-1)
-
-
-        # create/save model instance
-        if inspect.isclass(training_plan_class):
-            self._training_plan = training_plan_class()
         else:
-            self._training_plan = training_plan_class
+
+            # create/save model instance
+            if inspect.isclass(training_plan_class):
+                self._training_plan = training_plan_class()
+            else:
+                self._training_plan = training_plan_class
 
         self._training_plan.post_init(model_args=self._model_args,
                                       training_args=self._training_args.pure_training_arguments(),

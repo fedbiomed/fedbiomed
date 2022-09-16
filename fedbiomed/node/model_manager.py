@@ -434,6 +434,7 @@ class ModelManager:
         if not isinstance(model_path, str):
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : no model_path specified")
         req_model_hash, _ = self._create_hash(model_path)
+
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
 
         # TODO: more robust implementation
@@ -535,13 +536,14 @@ class ModelManager:
         try:
             # model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
-            status, model_file = self._repo.download_file(msg['training_plan_url'], model_name + '.py')
+            status, tmp_file = self._repo.download_file(msg['training_plan_url'], model_name + '.py')
 
             reply['status'] = status
 
             # check if model has already been registered into database
-            model_to_check = self.create_txt_model_from_py(model_file)
+            model_to_check = self.create_txt_model_from_py(tmp_file)
             is_existant, _ = self.check_model_status(model_to_check, None)
+
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
             downloadable_checkable = False
@@ -554,7 +556,7 @@ class ModelManager:
             try:
                 logger.debug("Storing TrainingPlan into requested model directory")
                 model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
-                shutil.move(model_file, model_path)
+                shutil.move(tmp_file, model_path)
 
                 # Model file creation date
                 ctime = datetime.fromtimestamp(os.path.getctime(model_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
@@ -631,7 +633,6 @@ class ModelManager:
             # Create model file with id and download
             model_name = 'my_model_' + str(uuid.uuid4().hex)
             status, model_file = self._repo.download_file(msg['training_plan_url'], model_name + '.py')
-            model_to_check = self.create_txt_model_from_py(model_file)
             if status != 200:
                 # FIXME: should 'approval_obligation' be always false when model cannot be downloaded,
                 #  regardless of environment variable "MODEL_APPROVAL"?
@@ -641,7 +642,7 @@ class ModelManager:
                          'status': 'Error',
                          'msg': f'Can not download model file. {msg["training_plan_url"]}'}
             else:
-                model = self.get_model_from_database(model_to_check)
+                model = self.get_model_from_database(model_file)
                 if model is not None:
                     model_status = model.get('model_status', 'Not Registered')
                 else:
@@ -687,7 +688,7 @@ class ModelManager:
                      'success': False,
                      'approval_obligation': False,
                      'status': 'Error',
-                     'msg': ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.'
+                     'msg': ErrorNumbers.FB606.value + ': An unknown error occurred when downloading model file.'
                                                        f' {msg["training_plan_url"]} , {e}'}
         # finally:
         #     # Send check model status answer to researcher

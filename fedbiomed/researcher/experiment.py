@@ -575,7 +575,7 @@ class Experiment(object):
             Example:
 
             ```python
-            training_plan = epx.training_plan_instance()
+            training_plan = epx.training_plan()
             training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
             ```
         Returns:
@@ -583,7 +583,7 @@ class Experiment(object):
         """
         # at this point `job` is defined but may be None
         if self._job is None:
-            logger.error('No `job` defined for experiment, cannot get `training_plan_instance`')
+            logger.error('No `job` defined for experiment, cannot get `training_plan`')
             return None
         else:
             return self._job.training_plan
@@ -1859,7 +1859,7 @@ class Experiment(object):
         loaded_exp._set_round_current(saved_state.get('round_current'))
 
         # TODO: checks when loading parameters
-        training_plan = loaded_exp.training_plan_instance()
+        training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
                   'breakpoint file seems corrupted, `training_plan` is None'

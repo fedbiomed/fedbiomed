@@ -58,7 +58,7 @@ class TestLocalJob(unittest.TestCase):
 
         type(self.model).dependencies = PropertyMock(return_value=['from os import mkdir'])
         # Global Local Job Object
-        self.local_job = localJob(model_class=self.model)
+        self.local_job = localJob(training_plan_class=self.model)
 
     def tearDown(self) -> None:
 
@@ -73,25 +73,25 @@ class TestLocalJob(unittest.TestCase):
         model_file_path = TestLocalJob.create_fake_model('dummy_model.py')
 
         # Rebuild local jon for testing __init__
-        self.local_job = localJob(model_path=model_file_path,
-                                  model_class='FakeModel')
+        self.local_job = localJob(training_plan_path=model_file_path,
+                                  training_plan_class='FakeModel')
 
-        self.assertEqual(self.local_job.model_instance.__class__.__name__, FakeModel.__name__,
+        self.assertEqual(self.local_job.training_plan.__class__.__name__, FakeModel.__name__,
                          'Provided model and model instance of Job do not match, '
                          'while initializing Job with static model python file')
 
         # Testing model_path with unsupported python module name
         model_file_path = TestLocalJob.create_fake_model('dummy-model.py')
         with self.assertRaises(SystemExit):
-            self.local_job = localJob(model_path=model_file_path,
-                                      model_class='FakeModel')
+            self.local_job = localJob(training_plan_path=model_file_path,
+                                      training_plan_class='FakeModel')
 
     def test_local_job_02_initialization_with_model_instance(self):
-        """ Testing Local Job initialization by passing model_class as python instance -> `built class`"""
+        """ Testing Local Job initialization by passing training_plan_class as python instance -> `built class`"""
 
         # Rebuild local jon for init test
-        self.local_job = localJob(model_class=self.model)
-        self.assertEqual(self.local_job.model_instance.__class__.__name__, self.model.__class__.__name__,
+        self.local_job = localJob(training_plan_class=self.model)
+        self.assertEqual(self.local_job.training_plan.__class__.__name__, self.model.__class__.__name__,
                          'Provided model and model instance of Job do not match, '
                          'while initializing Local Job with already built model class')
 
@@ -101,17 +101,10 @@ class TestLocalJob(unittest.TestCase):
         # Testing Local Job with model arguments
         args = {'args': True}
         # Rebuild local jon for testing __init__
-        self.local_job = localJob(model_class=FakeModel, model_args=args)
+        self.local_job = localJob(training_plan_class=FakeModel, model_args=args)
         self.assertDictEqual(args, self.local_job._model_args, 'Model arguments is not set properly')
-        self.assertEqual(self.local_job.model_instance.__class__.__name__, 'FakeModel',
+        self.assertEqual(self.local_job.training_plan.__class__.__name__, 'FakeModel',
                          'Provided model and model instance of Local Job do not match, ')
-
-    def test_local_job_04_initialization_with_model_class_as_string(self):
-        """Testing Local Job by passing only model class as string"""
-
-        # FIXME: Local Job should not accept string type model class unless model_path is provided
-        self.local_job = localJob(model_class='DummyClass')
-        self.assertEqual(self.local_job.model_instance, 'DummyClass')
 
     def test_local_job_05_setters_and_getters(self):
 
@@ -132,7 +125,7 @@ class TestLocalJob(unittest.TestCase):
         self.local_job.training_args = tr_args
         # Start training
         self.local_job.start_training()
-        self.model.training_routine.assert_called_once_with(data_loader=None, args=True)
+        self.model.training_routine.assert_called_once()
 
         # Test failure during training
         self.model.training_routine.side_effect = Exception

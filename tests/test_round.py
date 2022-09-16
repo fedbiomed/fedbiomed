@@ -651,8 +651,8 @@ class TestRound(unittest.TestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
-        r3.model = MagicMock()
-        r3.model.training_data.return_value = data_manager_mock
+        r3.training_plan = MagicMock()
+        r3.training_plan.training_data.return_value = data_manager_mock
 
         training_data_loader, _ = r3._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
@@ -662,8 +662,8 @@ class TestRound(unittest.TestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
-        r4.model = MagicMock()
-        r4.model.training_data.return_value = data_manager_mock
+        r4.training_plan = MagicMock()
+        r4.training_plan.training_data.return_value = data_manager_mock
 
         training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
