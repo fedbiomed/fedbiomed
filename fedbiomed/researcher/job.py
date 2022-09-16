@@ -76,7 +76,7 @@ class Job:
         self._model_file = None  # path to local file containing model code
         self._model_params_file = None  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
-        self._training_plan_instance = None
+        self._training_plan = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -129,12 +129,12 @@ class Job:
 
         # create/save model instance (ie TrainingPlan)
         if inspect.isclass(self._training_plan_class):
-            self._training_plan_instance = self._training_plan_class()  # contains TrainingPlan
+            self._training_plan = self._training_plan_class()  # contains TrainingPlan
 
         else:
-            self._training_plan_instance = self._training_plan_class
+            self._training_plan = self._training_plan_class
 
-        self._training_plan_instance.post_init(
+        self._training_plan.post_init(
             model_args={} if self._model_args is None else self._model_args,
             training_args=self._training_args.pure_training_arguments(),
             optimizer_args=self._training_args.optimizer_arguments()
@@ -142,13 +142,13 @@ class Job:
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan_instance.__class__)).group(1)
+        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan.__class__)).group(1)
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
         self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
-            self._training_plan_instance.save_code(self._training_plan_file)
+            self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
@@ -159,7 +159,7 @@ class Job:
 
         self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
         try:
-            self._training_plan_instance.save(self._model_params_file)
+            self._training_plan.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
@@ -194,8 +194,8 @@ class Job:
         return self._training_plan_name
 
     @property
-    def training_plan_instance(self):
-        return self._training_plan_instance
+    def training_plan(self):
+        return self._training_plan
 
     @property
     def training_plan_file(self):
@@ -375,7 +375,7 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self._training_plan_instance.load(params_path, to_params=True)['model_params']
+                    params = self._training_plan.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None
                     params = None
@@ -417,7 +417,7 @@ class Job:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan_instance.save(filename, params)
+                self._training_plan.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
@@ -472,7 +472,7 @@ class Job:
         self.update_parameters(filename=saved_state.get('model_params_path'))
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies'),
-            self._training_plan_instance.load
+            self._training_plan.load
         )
         self._researcher_id = saved_state.get('researcher_id')
 

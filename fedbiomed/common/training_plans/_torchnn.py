@@ -459,7 +459,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
                         msg = ErrorNumbers.FB605.value + \
-                              ": error then executing `testing_step` :" + \
+                              ": An error occurred while executing `testing_step` :" + \
                               str(e)
 
                         logger.critical(msg)

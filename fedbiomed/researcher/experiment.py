@@ -563,7 +563,7 @@ class Experiment(object):
 
     # TODO: better checking of training plan object type in Job() to guarantee it is a TrainingPlan
 
-    def training_plan_instance(self) -> Union[TrainingPlan, None]:
+    def training_plan(self) -> Union[TrainingPlan, None]:
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
 
@@ -586,7 +586,7 @@ class Experiment(object):
             logger.error('No `job` defined for experiment, cannot get `training_plan_instance`')
             return None
         else:
-            return self._job.training_plan_instance
+            return self._job.training_plan
 
     # a specific getter-like
     @exp_exceptions
