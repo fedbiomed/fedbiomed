@@ -7,6 +7,7 @@ import sys
 import json
 import inspect
 import traceback
+import torch
 
 from copy import deepcopy
 from re import findall
@@ -264,6 +265,7 @@ class Experiment(object):
 
         self._strategy_info = {"strategy":aggregator.aggregator_name}
         if aggregator.aggregator_name in ["FedAdam", "FedAdagrad", "FedYogi"]:
+            print(aggregator.aggregator_name, "WORKING !")
             self._beta1 = aggregator.beta1 # momentum parameter
             self._beta2 = aggregator.beta2 # second moment parameter
             self._server_lr = aggregator.server_lr
@@ -1403,8 +1405,30 @@ class Experiment(object):
 
         return self._tensorboard
 
-    def ab(self):
-        pass
+    def _init_empty_params(self, params: dict):
+        """ Initialize empty tensors for each model parameter
+        """
+        return {param:initialize(tensor)[1] for param, tensor in params.items()}
+
+    def _calc_delta_aggregated_params(self, server_state: dict, aggregated_params: dict) -> dict:
+        """ Calcultate aggregated delta weights, defined as the difference between the global state dict 
+            at the beginning of the round (initial server state), and the global state dict at the end
+            of the round (after aggregation)
+        """
+        delta_aggregated_params = {}
+        for param, tensor in aggregated_params.items():
+            delta_aggregated_params[param] = tensor - server_state[param]
+        return delta_aggregated_params
+
+    def _update_params(self, server_state: dict, updates: dict) -> dict:
+        """ Update in place the weights of the pytorch model by adding the
+            new params of the same size to it.
+        """
+        #print("from update params 1: ",list(updates.values())[0])
+        #print("from update params 2: ",list(updates.values())[1])
+        for param, tensor in updates.items():
+            server_state[param] += tensor
+        return server_state
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
@@ -1460,6 +1484,8 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # Ready to execute a training round using the job, strategy and aggregator
+        if self._strategy_info["strategy"] in ["FedAdam","FedAdagrad","FedYogi"]:
+            self._server_state = self._job.get_server_model_params() # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
@@ -1478,15 +1504,83 @@ class Experiment(object):
         # In case of FedOpt, we apply a specific treatment on the aggregated & averaged parameters
         # depending the chosen strategy. Averaged parameters will be processed the same way as Adam,
         # Adagrad or Yogi algorithms do in a non-federated setting
-        if self.strategy_info["strategy"] in ["FedAdam","FedAdagrad","FedYogi"]:
+        if self._strategy_info["strategy"] in ["FedAdam","FedAdagrad","FedYogi"]:
+            _delta_aggregated_params = self._calc_delta_aggregated_params(self._server_state, aggregated_params)
+            self._updates = self._init_empty_params(aggregated_params)
             if self._round_current == 0: # need to initialize momentum, second moment and adaptivity HP
-                self._m = [initialize(item[1])[1] for item in aggregated_params.items()] # item[1] to access the model parameter tensor
-            if self.strategy_info["strategy"] == "FedAdam":
-                pass
-            elif self.strategy_info["strategy"] == "FedAdagrad":
-                pass
-            elif self.strategy_info["strategy"] == "FedYogi":
-                pass
+                self._m = self._init_empty_params(aggregated_params) # momentum
+                self._v = self._init_empty_params(aggregated_params) # second moment
+                self._tauarray = {param:torch.ones_like(tensor) * self._tau for param, tensor in aggregated_params.items()}
+            if self._strategy_info["strategy"] == "FedAdam":
+                # Update momentum and second moment, calculate parameter updates
+                for param in self._m:
+                    self._m[param] = (
+                        self._beta1 * self._m[param]
+                        + (1 - self._beta1) * _delta_aggregated_params[param]
+                    )
+                for param in self._v:
+                    self._v[param] = (
+                        self._beta2 * self._v[param]
+                        + (1 - self._beta2)
+                        * _delta_aggregated_params[param]
+                        * _delta_aggregated_params[param]
+                    )
+                for param in self._updates:
+                    self._updates[param] = (
+                        self._server_lr
+                        * self._m[param]
+                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
+                    )
+            elif self._strategy_info["strategy"] == "FedAdagrad":
+                # Update momentum and second moment, calculate parameter updates
+                for param in self._m:
+                    self._m[param] = (
+                        self._beta1 * self._m[param]
+                        + (1 - self._beta1) * _delta_aggregated_params[param]
+                    )
+
+                for param in self._v:
+                    self._v[param] = (
+                        self._v[param]
+                        + _delta_aggregated_params[param]
+                        * _delta_aggregated_params[param]
+                    )
+
+                for param in self._updates:
+                    self._updates[param] = (
+                        self._server_lr
+                        * self._m[param]
+                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
+                    )
+            elif self._strategy_info["strategy"] == "FedYogi":
+                # Update momentum and second moment, calculate parameter updates
+                for param in self._m:
+                    self._m[param] = (
+                        self._beta1 * self._m[param]
+                        + (1 - self._beta1) * _delta_aggregated_params[param]
+                    )
+
+                for param in self._v:
+                    sign = torch.sign(
+                        self._v[param]
+                        - _delta_aggregated_params[param]
+                        * _delta_aggregated_params[param]
+                    )
+                    self._v[param] = (
+                        self._v[param]
+                        - (1 - self._beta2)
+                        * _delta_aggregated_params[param]
+                        * _delta_aggregated_params[param]
+                        * sign
+                    )
+
+                for param in self._updates:
+                    self._updates[param] = (
+                        self._server_lr
+                        * self._m[param]
+                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
+                    )
+            aggregated_params = self._update_params(self._server_state, self._updates)
 
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
