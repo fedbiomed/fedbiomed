@@ -5,6 +5,7 @@ from utils import error, response
 from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, \
     DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 
 mf_controller = MedicalFolderController()
@@ -104,8 +105,9 @@ def create_dlp():
     try:
         dlp = DataLoadingPlan()
         dlp.desc = req["name"]
+        dlp.target_dataset_type = DatasetTypes.MEDICAL_FOLDER
         dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS] = dlb
-    except FedbiomedError as e:
+    except (FedbiomedError, KeyError) as e:
         return error(f"Cannot create data loading plan for customizations: {e}"), 400
 
     g.dlp = dlp
