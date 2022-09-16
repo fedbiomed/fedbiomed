@@ -1526,8 +1526,8 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current)
 
         # aggregate model from nodes to a global model
-        model_params_processed = [model_param[list(model_param.keys())[0]] for model_param in model_params] # list(model_param.keys())[0] -> node_id ; model params are contained in a dictionary with node_id as key, we just retrieve the params
-        weights_processed = [weight[list(weight.keys())[0]] for weight in weights] # list(weight.keys())[0] -> node_id ; same retrieving
+        model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
+        weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
         aggregated_params = self._aggregator.aggregate(model_params_processed,
                                                        weights_processed)
         # write results of the aggregated model in a temp file
