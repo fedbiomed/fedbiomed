@@ -73,7 +73,7 @@ class Round:
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
-        self.model = None
+        self.training_plan = None
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
 
@@ -156,13 +156,13 @@ class Round:
 
             # instantiate model as `train_class`
             train_class = eval(import_module + '.' + self.training_plan_class)
-            self.model = train_class()
+            self.training_plan = train_class()
         except Exception as e:
             error_message = f"Cannot instantiate model object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         try:
-            self.model.post_init(model_args=self.model_arguments,
+            self.training_plan.post_init(model_args=self.model_arguments,
                                  training_args=self.training_arguments,
                                  optimizer_args=self.optimizer_arguments)
         except Exception as e:
@@ -171,7 +171,7 @@ class Round:
 
         # import model params into the model instance
         try:
-            self.model.load(params_path, to_params=False)
+            self.training_plan.load(params_path, to_params=False)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -207,9 +207,9 @@ class Round:
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
             # Last control to make sure validation data loader is set.
-            if self.model.testing_data_loader is not None:
+            if self.training_plan.testing_data_loader is not None:
                 try:
-                    self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                    self.training_plan.testing_routine(metric=self.testing_arguments.get('test_metric', None),
                                                metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                history_monitor=self.history_monitor,
                                                before_train=True)
@@ -225,12 +225,12 @@ class Round:
         #
         # If training is activated.
         if self.training:
-            if self.model.training_data_loader is not None:
+            if self.training_plan.training_data_loader is not None:
                 try:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.model.training_routine(history_monitor=self.history_monitor,
+                    self.training_plan.training_routine(history_monitor=self.history_monitor,
                                                 node_args=self.node_args
                                                 )
                     rtime_after = time.perf_counter()
@@ -242,9 +242,9 @@ class Round:
             # Validation after training
             if self.testing_arguments.get('test_on_local_updates', False) is not False:
 
-                if self.model.testing_data_loader is not None:
+                if self.training_plan.testing_data_loader is not None:
                     try:
-                        self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                        self.training_plan.testing_routine(metric=self.testing_arguments.get('test_metric', None),
                                                    metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                    history_monitor=self.history_monitor,
                                                    before_train=False)
@@ -263,13 +263,13 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = self.model.after_training_params()
+            results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                self.model.save(filename, results)
+                self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
             except Exception as e:
@@ -279,7 +279,7 @@ class Round:
 
             # end : clean the namespace
             try:
-                del self.model
+                del self.training_plan
                 del import_module
             except Exception as e:
                 logger.debug(f'Exception raise while deleting model {e}')
@@ -330,7 +330,7 @@ class Round:
         """
 
         # Set requested data path for model training and validation
-        self.model.set_dataset_path(self.dataset['path'])
+        self.training_plan.set_dataset_path(self.dataset['path'])
 
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
@@ -350,7 +350,7 @@ class Round:
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
         # Set models validatino and training parts for model
-        self.model.set_data_loaders(train_data_loader=training_data_loader,
+        self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
 
     def _split_train_and_test_data(self, test_ratio: float = 0):
@@ -372,11 +372,11 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
-        training_plan_type = self.model.type()
+        training_plan_type = self.training_plan.type()
 
         # Inspect the arguments of the method `training_data`, because this
         # part is defined by user might include invalid arguments
-        parameters = inspect.signature(self.model.training_data).parameters
+        parameters = inspect.signature(self.training_plan.training_data).parameters
         args = list(parameters.keys())
 
         # Currently, training_data only accepts batch_size
@@ -389,9 +389,9 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.model.training_data(batch_size=self.loader_arguments['batch_size'])
+                data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])
             else:
-                data_manager = self.model.training_data()
+                data_manager = self.training_plan.training_data()
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
