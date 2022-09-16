@@ -1,9 +1,9 @@
 import React from 'react';
 import {connect} from "react-redux"
-import {DataTableRows, DataTableHead, TableWrapper, TableData} from "../../components/common/Tables";
-import {getMedicalFolderPreview} from "../../store/actions/medicalFolderDatasetActions";
-import {ReactComponent as TickIcon} from '../../assets/img/tick.svg'
-import {ReactComponent as XIcon} from '../../assets/img/x.svg'
+import {DataTableRows, DataTableHead, TableWrapper, TableData} from "../../../components/common/Tables";
+import {getMedicalFolderPreview} from "../../../store/actions/medicalFolderDatasetActions";
+import {ReactComponent as TickIcon} from '../../../assets/img/tick.svg'
+import {ReactComponent as XIcon} from '../../../assets/img/x.svg'
 
 const MedicalFolderDatasetPreview = (props) => {
 

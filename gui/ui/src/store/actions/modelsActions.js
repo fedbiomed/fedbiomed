@@ -12,7 +12,6 @@ export const list_models = (data = {}) => {
         axios.post(EP_LIST_MODELS, data).then(response => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             let data = response.data.result
-            //console.log(data)
             dispatch({type: LIST_MODELS, payload: data})
             dispatch({type:'SET_LOADING', payload: {status: false}})
         }).catch(error => {
