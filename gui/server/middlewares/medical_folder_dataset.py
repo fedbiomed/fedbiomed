@@ -107,7 +107,7 @@ def create_dlp():
         dlp.desc = req["name"]
         dlp.target_dataset_type = DatasetTypes.MEDICAL_FOLDER
         dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS] = dlb
-    except FedbiomedError as e:
+    except (FedbiomedError, KeyError) as e:
         return error(f"Cannot create data loading plan for customizations: {e}"), 400
 
     g.dlp = dlp
