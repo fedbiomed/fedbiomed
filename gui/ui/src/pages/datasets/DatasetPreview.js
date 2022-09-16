@@ -181,7 +181,7 @@ export const DatasetPreview = (props) => {
     return (
         <div className="data-preview">
             {!loading ?
-                    !error ? (
+                    !error ? (                        
                     <>
                         <h4>Dataset Information</h4>
                         {
@@ -191,7 +191,7 @@ export const DatasetPreview = (props) => {
 
                         }
                          <ButtonsWrapper alignment={"right"}>
-                            { edit ? (
+                            {edit ? (
                                <>
                                 <Button type={"negative"} onClick={editCanceled}>Cancel</Button>
                                 <Button onClick={updateDataset}>Update</Button>
@@ -215,9 +215,11 @@ export const DatasetPreview = (props) => {
                                         />
                                     </div>
                                 ) : preview.data_type === "medical-folder" ? (
+                                    
                                     <MedicalFolderDatasetPreview
                                         dataset_id={dataset_id}
-                                    />
+                                />
+
                                 ) : null
                             : null
                         }
@@ -226,8 +228,9 @@ export const DatasetPreview = (props) => {
                     <div className={`error-box`}>
                         {error}
                     </div>
-                  ) : (
-                    <div>Loading</div>
+
+                   ) : (
+                     <div>Loading</div>
                 )
             }
         </div>

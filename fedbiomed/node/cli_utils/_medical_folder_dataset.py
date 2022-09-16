@@ -1,15 +1,14 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import warnings
 from copy import copy
 from collections import defaultdict
-from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock, \
-    MedicalFolderLoadingBlockTypes
+from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
 def add_medical_folder_dataset_from_cli(interactive: bool,
                                         dataset_parameters: Optional[dict],
-                                        dlp: Optional[DataLoadingPlan]):
+                                        dlp: Optional[DataLoadingPlan]) -> Tuple[str, dict, DataLoadingPlan]:
     print('Please select the root folder of the Medical Folder dataset')
     path = validated_path_input(type='dir')
     controller = MedicalFolderController(path)
@@ -52,7 +51,7 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
     return path, dataset_parameters, dlp
 
 
-def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
+def get_map_modalities2folders_from_cli(modality_folder_names: List[str]) -> MapperBlock:
     modality_names = ['Manually insert new modality name', *copy(MedicalFolderBase.default_modality_names)]
     map_modalities_to_folders = defaultdict(list)
     for modality_folder in modality_folder_names:
@@ -85,4 +84,3 @@ def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
     dlb = MapperBlock()
     dlb.map = dict(map_modalities_to_folders)
     return dlb
-

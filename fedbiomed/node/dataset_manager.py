@@ -22,7 +22,7 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock, FlambyLoadingBlockTypes, \
     FlambyDataset
 from fedbiomed.common.logger import logger
@@ -60,15 +60,31 @@ class DatasetManager:
 
         return result
 
-    def list_dlp(self) -> List[dict]:
+    def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
         """Return all existing DataLoadingPlans.
+
+        Args:
+            target_dataset_type: (str or None) if specified, return only dlps matching the requested target type.
 
         Returns:
             An array of dict, each dict is a DataLoadingPlan
         """
-        dlps = self._dlp_table.search(
-            (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
-        return([dict(dlp) for dlp in dlps])
+        if target_dataset_type is not None:
+            if not isinstance(target_dataset_type, str):
+                raise FedbiomedDatasetManagerError(f"Wrong input type for target_dataset_type. "
+                                                   f"Expected str, got {type(target_dataset_type)} instead.")
+            if target_dataset_type not in [t.value for t in DatasetTypes]:
+                raise FedbiomedDatasetManagerError("target_dataset_type should be of the values defined in "
+                                                   "fedbiomed.common.constants.DatasetTypes")
+
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) &
+                (self._database.dlp_name.exists()) &
+                (self._database.target_dataset_type == target_dataset_type))
+        else:
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
+        return [dict(dlp) for dlp in dlps]
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.
@@ -82,11 +98,11 @@ class DatasetManager:
             dlp_id: (str) the DataLoadingPlan id
 
         Returns:
-            A dictionary with the DataLoadingPlan metadata corresponding to the given id.
+            A Tuple containing a dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
         return dlp_metadata, self._dlp_table.search(
-            self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
+            self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
         """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
@@ -102,7 +118,7 @@ class DatasetManager:
         Returns:
             A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return self._dlp_table.search(self._database.loading_block_serialization_id.one_of(dlb_ids))
+        return self._dlp_table.search(self._database.dlb_id.one_of(dlb_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -450,7 +466,7 @@ class DatasetManager:
 
         return dataset_id
 
-    def remove_dlp_by_id(self, dlp_id: str, remove_dlbs: bool = True):
+    def remove_dlp_by_id(self, dlp_id: str):
         """Removes a data loading plan (DLP) from the database.
 
         Only DLP with matching ID is removed from the database. There should be at most one.
@@ -460,7 +476,6 @@ class DatasetManager:
 
         Args:
             dlp_id: the DataLoadingPlan id
-            remove_dlbs: whether or not to remove the DLBs of the DLP
         """
         if not isinstance(dlp_id, str):
             _msg = ErrorNumbers.FB316.value + f": Bad type for dlp '{type(dlp_id)}', expecting str"
@@ -475,7 +490,7 @@ class DatasetManager:
         try:
             self._dlp_table.remove(self._database.dlp_id == dlp_id)
             for dlb in dlbs:
-                self._dlp_table.remove(self._database.loading_block_serialization_id == dlb['loading_block_serialization_id'])
+                self._dlp_table.remove(self._database.dlb_id == dlb['dlb_id'])
         except Exception as e:
             _msg = ErrorNumbers.FB316.value + f": Error during remove of DLP {dlp_id}: {e}"
             logger.error(_msg)
@@ -634,6 +649,7 @@ class DatasetManager:
         return data_loading_plan.dlp_id
 
     def save_data_loading_block(self, dlb: DataLoadingBlock) -> None:
+        # seems unused
         self._dlp_table.insert(dlb.serialize())
 
     @staticmethod
