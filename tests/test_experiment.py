@@ -1393,7 +1393,7 @@ class TestExperiment(unittest.TestCase):
                 self.test_exp.breakpoint()
 
 
-    @patch('fedbiomed.researcher.experiment.Experiment.training_plan_class')
+    @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
     @patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
@@ -1480,7 +1480,7 @@ class TestExperiment(unittest.TestCase):
             def load(self, aggreg, to_params):
                 return model_params
 
-        patch_training_plan.return_value = FakeModelInstance
+        patch_training_plan.return_value = FakeModelInstance()
 
         # could not have it working with a decorator or by patching the whole class
         # (we are in a special case : constructor of
@@ -1535,7 +1535,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
-        self.assertEqual(loaded_exp._training_plan, training_plan)
+        self.assertEqual(loaded_exp._training_plan_class, training_plan_class)
         self.assertEqual(loaded_exp._training_plan_path, training_plan_path)
         self.assertEqual(loaded_exp._model_args, model_args)
         self.assertDictEqual(loaded_exp._training_args.dict(), final_training_args.dict())

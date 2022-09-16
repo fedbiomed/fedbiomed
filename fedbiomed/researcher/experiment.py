@@ -563,6 +563,7 @@ class Experiment(object):
 
     # TODO: better checking of training plan object type in Job() to guarantee it is a TrainingPlan
 
+    @exp_exceptions
     def training_plan(self) -> Union[TrainingPlan, None]:
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
