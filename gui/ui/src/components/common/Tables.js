@@ -87,7 +87,10 @@ export const EntryTable = (props) => {
 }
 
 export const TableInfo = (props) => {
-
+    const ExtractValues = (data) => {
+        try{ return (data.value.toString())}
+        catch(e){ return (data)}
+    }
     return (
         <div className="table">
             <table className={styles.infoTable}>
@@ -106,8 +109,13 @@ export const TableInfo = (props) => {
                             return (
                                 <tr key={key}>
                                     <td className="title">{item}</td>
-                                    {console.log(props.info[item])}
-                                    <td>{props.mode? props.info[item].value.toString(): props.info[item]}</td>
+
+                                    <td>
+                                        {ExtractValues(props.info[item])}
+                                        
+                                    </td>
+     
+                                    {/* <td>{props.mode? props.info[item].value.toString(): props.info[item]}</td> */}
                                 </tr>
                             )
                         }
