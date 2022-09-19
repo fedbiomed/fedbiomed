@@ -81,7 +81,7 @@ class TestLocalJob(unittest.TestCase):
                          'while initializing Job with static model python file')
 
         # Testing model_path with unsupported python module name
-        model_file_path = TestLocalJob.create_fake_model('dummy-model.py')
+        model_file_path = TestLocalJob.create_fake_model('dummy.model.py')
         with self.assertRaises(SystemExit):
             self.local_job = localJob(training_plan_path=model_file_path,
                                       training_plan_class='FakeModel')

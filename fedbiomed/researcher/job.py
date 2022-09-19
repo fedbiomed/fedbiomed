@@ -116,6 +116,7 @@ class Job:
                 module = importlib.import_module(model_module)
                 tr_class = getattr(module, self._training_plan_class)
                 self._training_plan_class = tr_class
+                sys.path.pop(0)
 
             except Exception as e:
                 e = sys.exc_info()
@@ -626,9 +627,12 @@ class localJob:
                 model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(training_plan_path))
-                exec('from ' + model_module + ' import ' + training_plan_class)
+
+                module = importlib.import_module(model_module)
+                tr_class = getattr(module, training_plan_class)
+                self._training_plan = tr_class()
                 sys.path.pop(0)
-                self._training_plan = eval(training_plan_class)()
+
             except Exception as e:
                 e = sys.exc_info()
                 logger.critical("Cannot import class " + training_plan_class + " from path " +
