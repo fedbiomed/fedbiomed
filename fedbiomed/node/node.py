@@ -85,7 +85,7 @@ class Node:
             # get the request from the received message (from researcher)
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
-            if command == 'train':
+            if command in ['train', 'secagg']:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'ping':
@@ -159,15 +159,12 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
+    def parser_task_train(self, msg: Dict[str, Any]):
         """Parses a given task message to create a round instance
 
         Args:
-            msg: serialized `Message` object to parse (or that have been parsed)
+            msg: `Message` object to parse
         """
-        if isinstance(msg, str) or isinstance(msg, bytes):
-            msg = json.deserialize_msg(msg)
-        msg = NodeMessages.request_create(msg)
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
@@ -236,22 +233,13 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
+            logger.debug('[TASKS QUEUE] Item:' + str(item))
 
             try:
-                logger.debug('[TASKS QUEUE] Item:' + str(item))
-                self.parser_task(item)
-                # once task is out of queue, initiate training rounds
-                for round in self.rounds:
-                    # iterate over each dataset found
-                    # in the current round (here round refers
-                    # to a round to be done on a specific dataset).
-                    msg = round.run_model_training()
-                    self.messaging.send_message(msg)
-
-                self.tasks_queue.task_done()
+                item = NodeMessages.request_create(item)
+                command = item.get_param('command')
             except Exception as e:
-                # send an error message back to network if something
-                # wrong occured
+                # send an error message back to network if something wrong occured
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
@@ -263,6 +251,49 @@ class Node:
                         }
                     ).get_dict()
                 )
+
+            if command == 'train':
+                try:
+                    self.parser_task_train(item)
+                    # once task is out of queue, initiate training rounds
+                    for round in self.rounds:
+                        # iterate over each dataset found
+                        # in the current round (here round refers
+                        # to a round to be done on a specific dataset).
+                        msg = round.run_model_training()
+                        self.messaging.send_message(msg)
+                except Exception as e:
+                    # send an error message back to network if something
+                    # wrong occured
+                    self.messaging.send_message(
+                        NodeMessages.reply_create(
+                            {
+                                'command': 'error',
+                                'extra_msg': str(e),
+                                'node_id': environ['NODE_ID'],
+                                'researcher_id': 'NOT_SET',
+                                'errnum': ErrorNumbers.FB300
+                            }
+                        ).get_dict()
+                    )
+            elif command == 'secagg':
+                logger.info("Entering secagg setup")
+            else:
+                errmess = f'{ErrorNumbers.FB317.value}: "{command}"'
+                logger.error(errmess)
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'command': 'error',
+                            'extra_msg': errmess,
+                            'node_id': environ['NODE_ID'],
+                            'researcher_id': 'NOT_SET',
+                            'errnum': ErrorNumbers.FB317
+                        }
+                    ).get_dict()
+                )
+
+            self.tasks_queue.task_done()
 
     def start_messaging(self, block: Optional[bool] = False):
         """Calls the start method of messaging class.
