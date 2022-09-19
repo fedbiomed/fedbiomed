@@ -8,7 +8,7 @@ from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, Flam
     FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
-from fedbiomed.node.flamby_utils import get_flamby_datasets
+from fedbiomed.node.cli_utils._flamby_dataset import discover_flamby_datasets
 
 
 dataset_manager = DatasetManager()
@@ -109,9 +109,9 @@ def add_database(interactive: bool = True,
 
             elif data_type == 'flamby':
                 path = None
-                available_flamby_datasets, valid_flamby_options = get_flamby_datasets()
+                available_flamby_datasets = discover_flamby_datasets()
                 msg = "Please select the FLamby dataset that you're configuring:\n"
-                msg += "\n".join([f"\t{i}) {val}" for i, val in valid_flamby_options.items()])
+                msg += "\n".join([f"\t{i}) {val}" for i, val in available_flamby_datasets.items()])
                 msg += "\nselect: "
                 keep_asking_for_input = True
                 while keep_asking_for_input:
@@ -119,10 +119,10 @@ def add_database(interactive: bool = True,
                         flamby_dataset_index = input(msg)
                         flamby_dataset_index = int(flamby_dataset_index)
                         # check that the user inserted a number within the valid range
-                        if flamby_dataset_index in valid_flamby_options.keys():
+                        if flamby_dataset_index in available_flamby_datasets.keys():
                             keep_asking_for_input = False
                         else:
-                            warnings.warn(f"Please pick a number in the range {list(valid_flamby_options.keys())}")
+                            warnings.warn(f"Please pick a number in the range {list(available_flamby_datasets.keys())}")
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
 
@@ -140,7 +140,7 @@ def add_database(interactive: bool = True,
 
                 data_loading_plan = DataLoadingPlan()
                 dataset_dlb = FlambyDatasetSelectorLoadingBlock()
-                dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index].split('.')[-1]
+                dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index]
                 data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET] = dataset_dlb
                 center_id_dlb = FlambyCenterIDLoadingBlock()
                 center_id_dlb.flamby_center_id = center_id
