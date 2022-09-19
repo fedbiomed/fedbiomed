@@ -7,7 +7,7 @@ import functools
 from dataclasses import dataclass
 from typing import Dict, Any, Union, Callable
 
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
@@ -464,7 +464,7 @@ class SecaggRequest(Message):
     """
     researcher_id: str
     secagg_id: str
-    element: SecaggElementTypes
+    element: int
     parties: list
     command: str
 

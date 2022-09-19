@@ -139,7 +139,14 @@ class FedbiomedResponsesError(FedbiomedError):
 
 class FedbiomedRoundError(FedbiomedError):
     """
-    Exceptions specific for the class node round class.
+    Exceptions specific for the node round class.
+    """
+    pass
+
+
+class FedbiomedSecaggError(FedbiomedError):
+    """
+    Exceptions specific for the researcher secure aggregation class.
     """
     pass
 

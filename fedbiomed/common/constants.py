@@ -194,6 +194,7 @@ class ErrorNumbers(_BaseEnum):
     FB411: str = "FB411: cannot train an experiment that is not fully defined"
     FB412: str = "FB412: cannot do model checking for experiment"
     FB413: str = "FB413: cannot save or load breakpoint for experiment"
+    FB414: str = "FB414: secure aggregation handling error"
 
     # node problem detected by researcher
 
