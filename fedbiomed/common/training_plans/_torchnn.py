@@ -95,8 +95,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Args:
             model_args: Arguments defined by researcher to instantiate model/torch module
             training_args: Arguments that are used in training routine such as epoch, dry_run etc.
-                Please see [fedbiomed.common.training_args.TrainingArgs](TrainingArgs)
-            optimizer_args: Arguments for torch base [torch.optim.Optimizer](Optimizer)
+                Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            optimizer_args: Arguments for torch base [`Optimizer`][torch.optim.Optimizer]
 
         Raises:
             FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
