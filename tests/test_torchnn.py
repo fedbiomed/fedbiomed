@@ -102,6 +102,7 @@ class TestTorchnn(unittest.TestCase):
 
     def test_save_load_params(self):
         tp1 = TrainingPlan()
+        tp1._model = torch.nn.Module()
         paramfile = self.tmpdir + '/tmp_params.pt'
         try:
             os.remove(paramfile)
@@ -119,11 +120,12 @@ class TestTorchnn(unittest.TestCase):
         # save/load from/to object params
         tp1.save(paramfile)
         tp2 = TrainingPlan()
+        tp2._model = torch.nn.Module()
         tp2.load(paramfile)
         self.assertTrue(type(params2) is dict)
 
-        sd1 = tp1.state_dict()
-        sd2 = tp2.state_dict()
+        sd1 = tp1.model().state_dict()
+        sd2 = tp2.model().state_dict()
 
         # verify we have an equivalent state dict
         for key in sd1:
@@ -144,6 +146,7 @@ class TestTorchnn(unittest.TestCase):
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
         tp = TorchTrainingPlan()
+        tp._model = torch.nn.Module()
 
         # Create custom test data and set data loader for training plan
         test_dataset = TestTorchnn.CustomDataset()
@@ -204,6 +207,7 @@ class TestTorchnn(unittest.TestCase):
 
         # Testing routine with testing step ---------------------------------------------------------------------
         tp = TrainingPlanWithTestingStep()
+        tp._model = torch.nn.Module()
         tp.set_data_loaders(test_data_loader=data_loader, train_data_loader=data_loader)
         tp.testing_routine(metric=MetricTypes.ACCURACY,
                            metric_args={},
@@ -247,7 +251,9 @@ class TestTorchnn(unittest.TestCase):
         while the second iteration should report a progress of 5/5 (100%).
         """
         tp = TorchTrainingPlan()
-        tp.optimizer = MagicMock()
+        tp._optimizer = MagicMock()
+        tp._model = torch.nn.Module()
+        tp._log_interval = 1
         tp.training_data_loader = MagicMock()
 
         mocked_loss_result = MagicMock()
@@ -268,8 +274,7 @@ class TestTorchnn(unittest.TestCase):
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
-            tp.training_routine(epochs=1,
-                                log_interval=1)
+            tp.training_routine()
             training_progress_messages = [x for x in captured.output if re.search('Train Epoch: 1', x)]
             self.assertEqual(len(training_progress_messages), num_batches)  # Double-check correct number of train iters
             for i, logging_message in enumerate(training_progress_messages):
@@ -346,39 +351,42 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tensors(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp._model = torch.nn.Module()
+        tp._optimizer = MagicMock(spec=torch.optim.Adam)
         tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             (torch.Tensor([0]), torch.Tensor([1])))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
-        tp.training_routine(epochs=1)
+        tp.training_routine()
         tp.training_step.assert_called_once_with(torch.Tensor([0]), torch.Tensor([1]))
         patch_tensor_backward.assert_called_once()
 
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tuples(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp._model = torch.nn.Module()
+        tp._optimizer = MagicMock(spec=torch.optim.Adam)
         tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
-        tp.training_routine(epochs=1)
+        tp.training_routine()
         tp.training_step.assert_called_once_with((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2]))
         patch_tensor_backward.assert_called_once()
 
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_dicts(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp._model = torch.nn.Module()
+        tp._optimizer = MagicMock(spec=torch.optim.Adam)
         tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
-        tp.training_routine(epochs=1)
+        tp.training_routine()
         tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
         patch_tensor_backward.assert_called_once()
 

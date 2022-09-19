@@ -9,7 +9,7 @@ from pygments.formatters import Terminal256Formatter
 from fedbiomed.node.environ import environ
 from fedbiomed.common.logger import logger
 from fedbiomed.node.model_manager import ModelManager
-from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes
+from fedbiomed.common.constants  import TrainingPlanApprovalStatus, ModelTypes
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
@@ -106,8 +106,8 @@ def approve_model(sort_by_date: bool = True):
     else:
         sort_by = None
     non_approved_models = model_manager.list_models(sort_by=sort_by,
-                                                    select_status=[ModelApprovalStatus.PENDING,
-                                                                   ModelApprovalStatus.REJECTED],
+                                                    select_status=[TrainingPlanApprovalStatus.PENDING,
+                                                                   TrainingPlanApprovalStatus.REJECTED],
                                                     verbose=False)
     if not non_approved_models:
         logger.warning("All models have been approved or no model has been registered... aborting")
@@ -138,8 +138,8 @@ def approve_model(sort_by_date: bool = True):
 def reject_model():
     """Rejects a given model that has either Pending or Approved status
     """
-    approved_models = model_manager.list_models(select_status=[ModelApprovalStatus.APPROVED,
-                                                               ModelApprovalStatus.PENDING],
+    approved_models = model_manager.list_models(select_status=[TrainingPlanApprovalStatus.APPROVED,
+                                                               TrainingPlanApprovalStatus.PENDING],
                                                 verbose=False)
 
     if not approved_models:
@@ -258,7 +258,7 @@ def view_model():
             # second try to print via logger (default output)
             try:
                 with open(model_tmpfile) as m:
-                    model_source = highlight(''.join(m.readlines()), PythonLexer(),Terminal256Formatter())
+                    model_source = highlight(''.join(m.readlines()), PythonLexer(), Terminal256Formatter())
                     logger.info(f'\n\n{model_source}\n\n')
             except Exception as err:
                 logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
