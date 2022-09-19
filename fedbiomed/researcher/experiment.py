@@ -576,7 +576,7 @@ class Experiment(object):
             Example:
 
             ```python
-            training_plan = epx.training_plan()
+            training_plan = exp.training_plan()
             training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
             ```
         Returns:
