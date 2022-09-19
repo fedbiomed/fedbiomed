@@ -3,7 +3,7 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union, Callable, Tuple, List
+from typing import Any, Dict, Callable, List, Optional, Tuple, Union
 from copy import deepcopy
 
 import torch
@@ -89,7 +89,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict = {}) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
         """ Sets arguments for training, model and optimizer
 
         Args:
@@ -104,7 +104,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         self._model_args = model_args
-        self._optimizer_args = optimizer_args
+        self._optimizer_args = optimizer_args or {}
         self._training_args = training_args
 
         self._use_gpu = self._training_args.get('use_gpu')
