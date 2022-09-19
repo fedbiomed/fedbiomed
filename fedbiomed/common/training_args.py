@@ -14,7 +14,7 @@ from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
     ValidateError, RuleError, validator_decorator
 
 
-class TrainingArgs(dict):
+class TrainingArgs:
     """
     Provide a container to manage training arguments.
 
