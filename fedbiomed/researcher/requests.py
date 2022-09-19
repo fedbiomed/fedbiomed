@@ -225,7 +225,7 @@ class Requests(metaclass=SingletonMeta):
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
+        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
         return nodes_online
 
 
