@@ -1406,14 +1406,28 @@ class Experiment(object):
         return self._tensorboard
 
     def _init_empty_params(self, params: dict):
-        """ Initialize empty tensors for each model parameter
+        """ Initialize empty tensors for given model parameters
+
+        Args:
+            params: dictionary containing prediction model parameters and corresponding weights
+
+        Returns:
+            a dictionary with same size as the input and empty tensors (full of zeros)
         """
         return {param:initialize(tensor)[1] for param, tensor in params.items()}
 
-    def _calc_delta_aggregated_params(self, server_state: dict, aggregated_params: dict) -> dict:
-        """ Calcultate aggregated delta weights, defined as the difference between the global state dict 
-            at the beginning of the round (initial server state), and the global state dict at the end
-            of the round (after aggregation)
+    def _calc_delta_aggregated_params(self, aggregated_params: dict, server_state: dict) -> dict:
+        """ Calcultate aggregated weights delta, defined as the difference between the global state
+        dict at the end of the round (after aggregation), and the global state dict at the beginning
+        of the round (initial server state). In other words, it represents the weights updates for
+        the current round.
+
+        Args:
+            aggregated_params: dictionary containing prediction model parameters and corresponding aggregated weights
+            server_state: dictionary containing weights of the global model at the beginning of the round
+
+        Returns:
+            a dictionary containing the difference between the aggregated params and the server state
         """
         delta_aggregated_params = {}
         for param, tensor in aggregated_params.items():
@@ -1421,8 +1435,16 @@ class Experiment(object):
         return delta_aggregated_params
 
     def _update_params(self, server_state: dict, updates: dict) -> dict:
-        """ Update in place the weights of the pytorch model by adding the
-            new params of the same size to it.
+        """ Defines new weights of a pytorch model, adding the computed updates to the server state.
+        This is notably useful in the case of fedopt, where a specific treatment is applied to the aggregated
+        weights delta, and the new update has to be added to the initial server state.
+
+        Args:
+            server_state: dictionary containing weights of the global model at the beginning of the round
+            updates: dictionary containing weight updates for each parameter of a model
+
+        Returns:
+            a dictionary with updated model parameters, it will be the initial model of the next round
         """
         #print("from update params 1: ",list(updates.values())[0])
         #print("from update params 2: ",list(updates.values())[1])
@@ -1505,7 +1527,7 @@ class Experiment(object):
         # depending the chosen strategy. Averaged parameters will be processed the same way as Adam,
         # Adagrad or Yogi algorithms do in a non-federated setting
         if self._strategy_info["strategy"] in ["FedAdam","FedAdagrad","FedYogi"]:
-            _delta_aggregated_params = self._calc_delta_aggregated_params(self._server_state, aggregated_params)
+            _delta_aggregated_params = self._calc_delta_aggregated_params(aggregated_params, self._server_state)
             self._updates = self._init_empty_params(aggregated_params)
             if self._round_current == 0: # need to initialize momentum, second moment and adaptivity HP
                 self._m = self._init_empty_params(aggregated_params) # momentum
