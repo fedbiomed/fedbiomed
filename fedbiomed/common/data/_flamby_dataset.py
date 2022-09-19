@@ -34,6 +34,8 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
     def __init__(self):
         super(FlambyDatasetSelectorLoadingBlock, self).__init__()
         self.flamby_dataset_name = None
+        self._serialization_validator.validation_scheme.update(
+            FlambyDatasetSelectorLoadingBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -65,11 +67,29 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
             raise FedbiomedLoadingBlockError(msg)
         return self.flamby_dataset_name
 
+    @classmethod
+    def _validate_flamby_dataset_name(cls, name: str):
+        if name not in discover_flamby_datasets().values():
+            return False, f"Flamby dataset name should be one of {discover_flamby_datasets().values()}, " \
+                          f"instead got {name}"
+        return True
+
+    @classmethod
+    def _extra_validation_scheme(cls) -> dict:
+        return {
+            'flamby_dataset_name': {
+                'rules': [str, FlambyDatasetSelectorLoadingBlock._validate_flamby_dataset_name],
+                'required': True
+            }
+        }
+
 
 class FlambyCenterIDLoadingBlock(DataLoadingBlock):
     def __init__(self):
         super(FlambyCenterIDLoadingBlock, self).__init__()
         self.flamby_center_id = None
+        self._serialization_validator.validation_scheme.update(
+            FlambyCenterIDLoadingBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -100,6 +120,15 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
             logger.critical(msg)
             raise FedbiomedLoadingBlockError(msg)
         return self.flamby_center_id
+
+    @classmethod
+    def _extra_validation_scheme(cls) -> dict:
+        return {
+            'flamby_center_id': {
+                'rules': [int],
+                'required': True
+            }
+        }
 
 
 class FlambyDataset(DataLoadingPlanMixin, Dataset):
