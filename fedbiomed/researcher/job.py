@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import time
 import uuid
+import importlib
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
@@ -107,13 +108,16 @@ class Job:
         if training_plan_path is not None:
             try:
                 # import model from python file
+
                 model_module = os.path.basename(training_plan_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(training_plan_path))
-                exec('from ' + model_module + ' import ' + self._training_plan_class)
-                sys.path.pop(0)
-                self._training_plan_class = eval(self._training_plan_class)
-            except Exception:
+
+                module = importlib.import_module(model_module)
+                tr_class = getattr(module, self._training_plan_class)
+                self._training_plan_class = tr_class
+
+            except Exception as e:
                 e = sys.exc_info()
                 logger.critical(f"Cannot import class {self._training_plan_class} from "
                                 f"path {training_plan_path} - Error: {str(e)}")
@@ -142,7 +146,7 @@ class Job:
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._training_plan_name = re.search("([^\.]*)'>$", str(self._training_plan.__class__)).group(1)
+        self._training_plan_name = self._training_plan.__class__.__name__
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 

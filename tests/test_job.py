@@ -174,7 +174,7 @@ class TestJob(unittest.TestCase):
         mock_logger_critical.return_value = None
 
         # Save model with unsupported module name
-        tmp_dir_model = TestJob.create_fake_model('fake-model.py')
+        tmp_dir_model = TestJob.create_fake_model('fake.model.py')
 
         with self.assertRaises(SystemExit):
             _ = Job(training_plan_path=tmp_dir_model,

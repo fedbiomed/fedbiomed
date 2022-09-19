@@ -76,8 +76,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('builtins.eval')
-    @patch('builtins.exec')
+    @patch('importlib.import_module')
     @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
@@ -85,8 +84,7 @@ class TestRound(unittest.TestCase):
                                                      uuid_patch,
                                                      repository_download_patch,
                                                      model_manager_patch,
-                                                     builtin_exec_patch,
-                                                     builtin_eval_patch,
+                                                     import_module_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
@@ -105,12 +103,15 @@ class TestRound(unittest.TestCase):
         def repository_side_effect(training_plan_url: str, model_name: str):
             return 200, 'my_python_model'
 
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+            another_training_plan = FakeModel
+
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
         model_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = FakeModel
+        import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (True, True)
@@ -149,8 +150,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('builtins.eval')
-    @patch('builtins.exec')
+    @patch('importlib.import_module')
     @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
@@ -158,8 +158,7 @@ class TestRound(unittest.TestCase):
                                                              uuid_patch,
                                                              repository_download_patch,
                                                              model_manager_patch,
-                                                             builtin_exec_patch,
-                                                             builtin_eval_patch,
+                                                             import_module_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -174,15 +173,16 @@ class TestRound(unittest.TestCase):
         #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
-
         MODEL_NAME = "my_model"
         MODEL_PARAMS = [1, 2, 3, 4]
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel
 
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, MODEL_NAME)
         model_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = FakeModel
+        import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (True, True)

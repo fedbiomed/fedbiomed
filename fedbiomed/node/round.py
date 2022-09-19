@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import inspect
+import importlib
 from typing import Union, Any, Optional, Tuple, List
 import uuid
 
@@ -149,14 +150,17 @@ class Round:
         # import module, declare the model, load parameters
         try:
             sys.path.insert(0, environ['TMP_DIR'])
-
             # import TrainingPlan created by Researcher on node
-            exec('import ' + import_module, globals())
-            sys.path.pop(0)
-
-            # instantiate model as `train_class`
-            train_class = eval(import_module + '.' + self.training_plan_class)
+            # exec('import ' + import_module, globals())
+            # sys.path.pop(0)
+            #
+            # # instantiate model as `train_class`
+            # train_class = eval(import_module + '.' + self.training_plan_class)
+            print(environ['TMP_DIR'])
+            module = importlib.import_module(import_module)
+            train_class = getattr(module, self.training_plan_class)
             self.training_plan = train_class()
+            sys.path.pop(0)
         except Exception as e:
             error_message = f"Cannot instantiate model object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
