@@ -107,7 +107,8 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
         flamby_module_name = f"flamby.datasets.{self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET)}"
         try:
-            module = import_module(flamby_module_name)
+            module = import_module(f".{self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET)}",
+                                   package='flamby.datasets')
         except ModuleNotFoundError as e:
             msg = f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}"
             logger.critical(msg)

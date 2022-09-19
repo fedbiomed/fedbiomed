@@ -1,6 +1,7 @@
 import os
 import tkinter.messagebox
 import warnings
+from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
@@ -126,7 +127,7 @@ def add_database(interactive: bool = True,
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
 
-                module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
+                module = import_module(f".{available_flamby_datasets[flamby_dataset_index]}", package='flamby.datasets')
 
                 n_centers = module.NUM_CLIENTS
                 keep_asking_for_input = True
