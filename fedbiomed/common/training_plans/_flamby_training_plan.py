@@ -18,7 +18,7 @@ class FlambyTrainingPlan(TorchTrainingPlan):
         If researcher wants to set a transform, they can override the function as follows:
         def training_data(self, batch_size=2):
             data_manager = super().training_data(batch_size)
-            transform = myComposedTransform()
+            transform = Compose([Resize((48,60,48)), NormalizeIntensity()])
             data_manager.dataset.set_transform(myComposedTransform)
             return data_manager
         """

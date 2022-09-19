@@ -377,8 +377,9 @@ class DatasetManager:
                                       f'Compatible data types are: {data_types}')
 
         elif data_type == 'flamby':
+            # check that data loading plan is present and well formed
             if data_loading_plan is None or \
-                    FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in data_loading_plan or \
+                    FlambyLoadingBlockTypes.FLAMBY_DATASET not in data_loading_plan or \
                     FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in data_loading_plan:
                 msg = f"{ErrorNumbers.FB316.value}. A DataLoadingPlan containing " \
                       f"{FlambyLoadingBlockTypes.FLAMBY_CENTER_ID.value} and " \
@@ -387,9 +388,10 @@ class DatasetManager:
                 logger.critical(msg)
                 raise FedbiomedDatasetManagerError(msg)
 
+            # initialize a dataset and link to the flamby data. If all goes well, compute shape.
             try:
                 dataset = FlambyDataset()
-                dataset.set_dlp(data_loading_plan)  # calls init_fed_class as a side effect
+                dataset.set_dlp(data_loading_plan)  # initializes fed_class as a side effect
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create FLamby dataset. {e}")
             else:

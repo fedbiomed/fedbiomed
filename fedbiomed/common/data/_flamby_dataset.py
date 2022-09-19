@@ -88,24 +88,43 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
 
 
 class FlambyDataset(DataLoadingPlanMixin, Dataset):
+    """A federated Flamby dataset.
+
+    A FlambyDataset is always created in an empty state, and it **requires** a DataLoadingPlan to be finalized to a
+    correct state. The DataLoadingPlan must contain at least the two following DataLoadinBlocks key-value pairs:
+    - FlambyLoadingBlockTypes.FLAMBY_DATASET : FlambyDatasetSelectorLoadingBlock
+    - FlambyLoadingBlockTypes.FLAMBY_CENTER_ID : FlambyCenterIDLoadingBlock
+
+    Attributes:
+        _transform: a transform function of type MonaiTransform or TorchTransform that will be applied to every sample
+            when data is loaded.
+        __flamby_fed_class: a private instance of the object representing the Flamby dataset, of type FedClass
+    """
     def __init__(self):
         super().__init__()
         self.__flamby_fed_class = None
         self._transform = None
 
     def _init_flamby_fed_class(self):
+        # prevent calling init on an already-initialized dataset
         if self.__flamby_fed_class is not None:
-            msg = f"{ErrorNumbers.FB616.value}. init_flamby_fed_class may only be called once."
+            msg = f"{ErrorNumbers.FB616.value}. Calling _init_flamby_fed_class is not allowed if the " \
+                  f"__flamby_fed_class attribute is not None."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
-        if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_DATASET not in self._dlp:
-            msg = f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan containing a " \
-                  f"FLAMBY_DATASET loading block. Something went wrong while saving/loading the dataset."
+        # check that the data loading plan exists and is well-formed
+        if self._dlp is None or \
+                FlambyLoadingBlockTypes.FLAMBY_DATASET not in self._dlp or\
+                FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in self._dlp:
+            msg = f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
+                  f"both {FlambyLoadingBlockTypes.FLAMBY_DATASET.value} and " \
+                  f"{FlambyLoadingBlockTypes.FLAMBY_CENTER_ID} loading blocks. Something went wrong while " \
+                  f"saving/loading the {self._dlp} associated with the dataset."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
-        flamby_module_name = f"flamby.datasets.{self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET)}"
+        # import the Flamby module corresponding to the dataset type
         try:
             module = import_module(f".{self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET)}",
                                    package='flamby.datasets')
@@ -114,9 +133,12 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
+        # set the center id
         center_id = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
 
+        # finally instantiate FedClass
         if self._transform is not None:
+            # Since the __init__ signatures are different, we are forced to distinguish two cases
             self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
                                                       pooled=False)
         else:
