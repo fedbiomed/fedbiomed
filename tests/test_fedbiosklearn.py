@@ -67,7 +67,9 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                      (sklearn_model_type,),
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
-            self.training_plans.append(new_subclass_type(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type]))
+            m = new_subclass_type()
+            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type], {"epochs": 1}, {})
+            self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
 
@@ -77,41 +79,41 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
     def test_model_args(self):
         for training_plan in self.training_plans:
             # ensure that the models args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan.model_args,
+            self.assertDictEqual(training_plan._model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
-            for key, val in training_plan.model.get_params().items():
+            for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
                 if key in TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type]:
                     self.assertEqual(val, TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type][key])
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
-            self.assertNotIn('key_not_in_model', training_plan.model.get_params())
+            self.assertNotIn('key_not_in_model', training_plan.model().get_params())
 
             # --------- Check that param_list is correctly populated
             # check that param_list is a list
-            self.assertIsInstance(training_plan.param_list, list)
+            self.assertIsInstance(training_plan._param_list, list)
             # check that param_list is not empty
-            self.assertTrue(training_plan.param_list)
+            self.assertTrue(training_plan._param_list)
             # check that param_list is a list of str
-            for param in training_plan.param_list:
+            for param in training_plan._param_list:
                 self.assertIsInstance(param, str)
 
     def test_save_and_load(self):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
             training_plan.save(randomfile.name)
-            orig_params = deepcopy(training_plan.model.get_params())
+            orig_params = deepcopy(training_plan.model().get_params())
 
             # ensure file has been created and has size > 0
             self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
 
-            new_tp = self.subclass_types[training_plan.parent_type](
-                    model_args={'n_classes': 2, 'n_features': 1})  # empty model_args does not work, sadly
+            new_tp = self.subclass_types[training_plan.parent_type]()
+            new_tp.post_init({'n_classes': 2, 'n_features': 1}, {}, {})
 
             m = new_tp.load(randomfile.name)
             # ensure output of load is the same as original parameters
             self.assertDictEqual(m.get_params(), orig_params)
             # ensure that the newly loaded model has the same params as the original model
-            self.assertDictEqual(training_plan.model.get_params(), new_tp.model.get_params())
+            self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
     def test_exceptions_are_correctly_converted(self):
         # Dataset
@@ -120,7 +122,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         for training_plan in self.training_plans:
             training_plan.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=(test_x, test_y))
 
-            with patch.object(training_plan.model, 'predict') as patch_predict:
+            with patch.object(training_plan.model(), 'predict') as patch_predict:
                 patch_predict.side_effect = Exception
                 with self.assertRaises(FedbiomedTrainingPlanError):
                     training_plan.testing_routine(metric=MetricTypes.MEAN_SQUARE_ERROR,
@@ -202,8 +204,9 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
                                      (sklearn_model_type,),
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
-            self.training_plans.append(
-                new_subclass_type(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type]))
+            m = new_subclass_type()
+            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], {"epochs": 1}, {})
+            self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
 
@@ -280,8 +283,9 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                      (sklearn_model_type,),
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
-            self.training_plans.append(
-                new_subclass_type(TestSklearnTrainingPlansClassification.model_args[sklearn_model_type]))
+            m = new_subclass_type()
+            m.post_init(TestSklearnTrainingPlansClassification.model_args[sklearn_model_type], {}, {})
+            self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
 
@@ -334,8 +338,8 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                                                num_batches=1)
 
             # check if `classes_` attribute of classifier has been created
-            self.assertTrue(hasattr(training_plan.model, 'classes_'), msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
-            self.assertTrue(np.array_equal(training_plan.model.classes_, np.array([0, 1])))
+            self.assertTrue(hasattr(training_plan.model(), 'classes_'), msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
+            self.assertTrue(np.array_equal(training_plan.model().classes_, np.array([0, 1])))
 
             history_monitor.add_scalar.reset_mock()
 
@@ -361,8 +365,8 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                                                num_batches=1)
 
             # check if `classes_` attribute of classifier has been created
-            self.assertTrue(hasattr(training_plan.model, 'classes_'), msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
-            self.assertTrue(np.array_equal(training_plan.model.classes_, np.array([0, 1])))
+            self.assertTrue(hasattr(training_plan.model(), 'classes_'), msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
+            self.assertTrue(np.array_equal(training_plan.model().classes_, np.array([0, 1])))
 
             history_monitor.add_scalar.reset_mock()
 

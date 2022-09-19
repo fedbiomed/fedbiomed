@@ -126,7 +126,7 @@ class Node:
             elif command == 'approval':
                 # Ask for model approval
                 self.model_manager.reply_model_approval_request(request, self.messaging)
-            elif command == 'model-status':
+            elif command == 'training-plan-status':
                 # Check is model approved
                 self.model_manager.reply_model_status_request(request, self.messaging)
 
@@ -176,20 +176,20 @@ class Node:
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
         training_status = msg.get_param('training') or False
-        model_url = msg.get_param('model_url')
-        model_class = msg.get_param('model_class')
+        training_plan_url = msg.get_param('training_plan_url')
+        training_plan_class = msg.get_param('training_plan_class')
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
 
-        assert model_url is not None, 'URL for model on repository not found.'
+        assert training_plan_url is not None, 'URL for model on repository not found.'
         assert validators.url(
-            model_url), 'URL for model on repository is not valid.'
-        assert model_class is not None, 'classname for the model and training routine was not found in message.'
+            training_plan_url), 'URL for model on repository is not valid.'
+        assert training_plan_class is not None, 'classname for the model and training routine was not found in message.'
 
         assert isinstance(
-            model_class,
-            str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
+            training_plan_class,
+            str), '`training_plan_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
 
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
@@ -221,8 +221,8 @@ class Node:
                                              training_kwargs,
                                              training_status,
                                              data,
-                                             model_url,
-                                             model_class,
+                                             training_plan_url,
+                                             training_plan_class,
                                              params_url,
                                              job_id,
                                              researcher_id,

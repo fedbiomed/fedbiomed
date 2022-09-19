@@ -26,7 +26,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
         expected = ['from torch import nn']
         self.tp.add_dependency(expected)
-        self.assertListEqual(expected, self.tp.dependencies, 'Can not set dependency properly')
+        self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
     def test_base_training_plan_02_set_dataset_path(self):
         """ Test setting dataset path """
