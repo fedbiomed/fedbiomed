@@ -9,7 +9,7 @@ from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, Flam
     FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
-from fedbiomed.node.cli_utils._flamby_dataset import discover_flamby_datasets
+from fedbiomed.common.data import discover_flamby_datasets
 
 
 dataset_manager = DatasetManager()

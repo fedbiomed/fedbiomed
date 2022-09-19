@@ -1,13 +1,28 @@
 from importlib import import_module
 from enum import Enum
-from typing import List
+from typing import List, Dict
+import pkgutil
 
 from torch.utils.data import Dataset
+import flamby.datasets as flamby_datasets_module
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
+
+
+def discover_flamby_datasets() -> Dict[int, str]:
+    """Automatically discover the available Flamby datasets based on the contents of the flamby.datasets module.
+
+    Returns:
+        a dictionary {index: dataset_name} where index is an int and dataset_name is the name of a flamby module
+        corresponding to a dataset, represented as str. To import said module one must prepend with the correct
+        path: `import flamby.datasets.dataset_name`.
+
+    """
+    dataset_list = [name for _, name, ispkg in pkgutil.iter_modules(flamby_datasets_module.__path__) if ispkg]
+    return {i: name for i, name in enumerate(dataset_list)}
 
 
 class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
