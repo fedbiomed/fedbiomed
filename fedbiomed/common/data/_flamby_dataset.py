@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
+from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 
 
@@ -140,3 +140,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
     def set_transform(self, transform):
         self._transform = transform
+
+    @staticmethod
+    def get_dataset_type() -> DatasetTypes:
+        return DatasetTypes.FLAMBY

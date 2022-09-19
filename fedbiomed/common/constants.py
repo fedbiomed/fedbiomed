@@ -126,6 +126,7 @@ class DatasetTypes(_BaseEnum):
     DEFAULT: str = 'default'
     MEDNIST: str = 'mednist'
     MEDICAL_FOLDER: str = 'medical-folder'
+    FLAMBY: str = 'flamby'
     TEST: str = 'test'
     NONE: str = 'none'
 
