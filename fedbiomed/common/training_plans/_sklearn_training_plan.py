@@ -62,6 +62,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - model_args (dict, optional): model arguments. Defaults to {}.
         """
         super().__init__()
+        self._model = self._model_cls()
         self._model_args = None
         self._training_args = None
         self._params = None

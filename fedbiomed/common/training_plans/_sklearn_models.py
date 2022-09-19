@@ -16,95 +16,14 @@ from fedbiomed.common.logger import logger
 from ._sklearn_training_plan import SKLearnTrainingPlan
 
 
-class FedPerceptron(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of Perceptron class from scikit-learn.
-
-    Attributes:
-        model: an instance of the sklearn class that we are wrapping (static attribute).
-    """
-
-    _model = Perceptron()
-
-    def __init__(self):
-        """Class constructor.
-
-        Args:
-            model_args: model arguments. Defaults to {}
-        """
-        super().__init__()
-        self._is_classification = True
-        self.add_dependency([
-            "from sklearn.linear_model import Perceptron "
-        ])
-
-    def training_routine_hook(self) -> None:
-        """Training hook of Perceptron.
-
-        Initializes the data loader and calls the `partial_fit` method.
-        """
-        (self.data, self.target) = self.training_data_loader
-        classes = self._classes_from_concatenated_train_test()
-        if classes.shape[0] < 3:
-            self._is_binary_classification = True
-        self._model.partial_fit(self.data, self.target, classes=classes)
-
-    def set_init_params(self) -> None:
-        """Initialize the model parameters.
-        """
-
-        if 'verbose' not in self._model_args:
-            self._model_args['verbose'] = 1
-            self._params.update({'verbose': 1})
-
-        self._verbose_capture_option = self._model_args["verbose"]
-
-        self._param_list = ['intercept_', 'coef_']
-        init_params = {
-            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes']),
-            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
-                self._model_args['n_classes'] == 2) else np.array(
-                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
-                        self._model_args['n_classes'],
-                        self._model_args['n_features'])
-        }
-
-        for p in self._param_list:
-            setattr(self._model, p, init_params[p])
-
-        for p in self._params:
-            setattr(self._model, p, self._params[p])
-
-    def evaluate_loss(self, output: StringIO, epoch: int) -> float:
-        """Evaluate the loss.
-
-        Args:
-            output: output of the scikit-learn perceptron model during training
-            epoch: epoch number
-
-        Returns:
-            float: the value of the loss function in the case of binary classification, and the weighted average
-                of the loss values for all classes in case of multiclass classification
-        """
-        _loss_collector = self._evaluate_loss_core(output, epoch)
-        if not self._is_binary_classification:
-            support = self._compute_support(self.target)
-            loss = np.average(_loss_collector, weights=support)  # perform a weighted average
-            logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
-                           " SGD scikit learn limitations)")
-        else:
-            loss = _loss_collector[-1]
-        return loss
-
-
 class FedSGDRegressor(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of SGDRegressor class from scikit-learn.
 
     Attributes:
-        model: an instance of the sklearn class that we are wrapping (static attribute).
+        _model_cls: an instance of the sklearn class that we are wrapping (static attribute).
     """
 
-    _model = SGDRegressor()
+    _model_cls = SGDRegressor
 
     def __init__(self):
         """ Sklearn SGDRegressor model. """
@@ -164,12 +83,12 @@ class FedSGDClassifier(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of SGDClassifier class from scikit-learn.
 
     Attributes:
-        model: an instance of the sklearn class that we are wrapping (static attribute).
+        _model_cls: an instance of the sklearn class that we are wrapping (static attribute).
     """
 
-    _model = SGDClassifier()
+    _model_cls = SGDClassifier
 
-    def __init__(self, model_args: dict = None):
+    def __init__(self):
         """
         Sklearn SGDClassifier model.
 
@@ -241,6 +160,16 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         return loss
 
 
+class FedPerceptron(FedSGDClassifier):
+    """Fed-BioMed federated wrapper of Perceptron class from scikit-learn. """
+
+    def __init__(self):
+        """Class constructor.
+        """
+        super().__init__()
+        self._model = self._model_cls(loss='perceptron')
+
+
 # ############################################################################################3
 class FedBernoulliNB(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of BernoulliNB class from scikit-learn.
@@ -249,9 +178,9 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         This class has not yet been implemented.
     """
 
-    _model = BernoulliNB()
+    _model_cls = BernoulliNB
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self):
         """Sklearn BernoulliNB model.
 
         Args:
@@ -299,7 +228,7 @@ class FedGaussianNB(SKLearnTrainingPlan):
         This class has not yet been implemented.
     """
 
-    _model = GaussianNB()
+    _model_cls = GaussianNB
 
     def __init__(self):
         """
