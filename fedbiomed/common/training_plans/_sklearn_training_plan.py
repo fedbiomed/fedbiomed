@@ -6,7 +6,7 @@ This module implements the base class for all implementations of Fed-BioMed wrap
 import sys
 import numpy as np
 
-from typing import Any, Dict, Union, Callable, List, Tuple
+from typing import Any, Dict, Callable, List, Optional, Tuple, Union
 from io import StringIO
 from joblib import dump, load
 
@@ -87,15 +87,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              "from fedbiomed.common.data import DataManager",
                              ])
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict = {}) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
         """ Instantiates model, training and optimizer arguments
 
         Args:
             model_args: Model arguments
             training_args: Training arguments
-            optimizer_args: Optimizer arguments. Optimizer arguments are not make sense for SkLearn based training
-                arguments. However, it is mandatory for `post_init` class in Round class
-                because there is single round for SkLearn adn Torch.
+            optimizer_args: Optimizer arguments. Unused for SkLearn-based classes but API-mandatory.
 
         """
         dependencies: Union[Tuple, List] = self.init_dependencies()
