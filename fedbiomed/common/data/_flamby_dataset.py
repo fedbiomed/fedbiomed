@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
-from fedbiomed.common.data import DataLoadingPlanMixin, DataLoadingBlock
+from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 
 
 class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
