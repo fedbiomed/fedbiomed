@@ -95,7 +95,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
     def _init_flamby_fed_class(self):
         if self.__flamby_fed_class is not None:
-            msg = f"{ErrorNumbers.FB614.value}. init_flamby_fed_class may only be called once."
+            msg = f"{ErrorNumbers.FB616.value}. init_flamby_fed_class may only be called once."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 

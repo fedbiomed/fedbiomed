@@ -43,7 +43,7 @@ def get_key_from_value(my_dict: dict, val: str):
             return key
 
     if not key_found:
-        raise FedbiomedDatasetError(f"{ErrorNumbers.FB614.value}. Dictionary containing FLamby options should "
+        raise FedbiomedDatasetError(f"{ErrorNumbers.FB616.value}. Dictionary containing FLamby options should "
                                     f"contain the option selected through the Fed-BioMed interface. ")
 
 
@@ -59,14 +59,14 @@ def get_transform_compose_flamby(train_transform_flamby: list):
         A Compose object to input the transform parameter
     """
     if len(train_transform_flamby) != 2:
-        raise FedbiomedDatasetError(f"{ErrorNumbers.FB615.value}. The list you defined which contains the elements for the transformation should "
+        raise FedbiomedDatasetError(f"{ErrorNumbers.FB617.value}. The list you defined which contains the elements for the transformation should "
                                     f"only contain 2 string values : First, the required imports. Second, the Compose object.")
     exec(train_transform_flamby[0])
     transform_compose_flamby = eval(train_transform_flamby[1])
     compose_classes = [TorchCompose, MonaiCompose]
 
     if not any([isinstance(transform_compose_flamby, compose_class) for compose_class in compose_classes]):
-        raise FedbiomedDatasetError(f"{ErrorNumbers.FB615.value}. The list you defined which contains the elements for the transformation should "
+        raise FedbiomedDatasetError(f"{ErrorNumbers.FB617.value}. The list you defined which contains the elements for the transformation should "
                                     f"have as a second element, a Compose object from one of the following libraries: Torchvision, Monai.")
 
     return transform_compose_flamby
