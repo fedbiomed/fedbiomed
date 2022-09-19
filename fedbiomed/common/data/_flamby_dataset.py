@@ -26,11 +26,13 @@ def discover_flamby_datasets() -> Dict[int, str]:
 
 
 class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
+    """Additional DataLoadingBlockTypes specific to Flamby data"""
     FLAMBY_DATASET: str = 'flamby_dataset'
     FLAMBY_CENTER_ID: str = 'flamby_center_id'
 
 
 class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
+    """Identity of the type of flamby dataset (e.g. fed_ixi, fed_heart, etc...)"""
     def __init__(self):
         super(FlambyDatasetSelectorLoadingBlock, self).__init__()
         self.flamby_dataset_name = None
@@ -61,6 +63,12 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
         return self
 
     def apply(self) -> str:
+        """Returns the name of the selected flamby dataset.
+
+        Note that this will be the same as the module name required to instantiate the FedClass. However, it will not
+        contain the full module path, hence to properly import this module it must be prepended with
+        `flamby.datasets`, for example `import flamby.datasets.flamby_dataset_name`
+        """
         if self.flamby_dataset_name is None:
             msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset name, but it was never set to any value."
             logger.critical(msg)
@@ -85,6 +93,7 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
 
 
 class FlambyCenterIDLoadingBlock(DataLoadingBlock):
+    """The ID of the center in a flamby dataset."""
     def __init__(self):
         super(FlambyCenterIDLoadingBlock, self).__init__()
         self.flamby_center_id = None
@@ -115,6 +124,7 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
         return self
 
     def apply(self) -> int:
+        """Returns the ID of the center (int) as selected when the DataLoadingPlan was created."""
         if self.flamby_center_id is None:
             msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby center id, but it was never set to any value."
             logger.critical(msg)
@@ -134,6 +144,9 @@ class FlambyCenterIDLoadingBlock(DataLoadingBlock):
 class FlambyDataset(DataLoadingPlanMixin, Dataset):
     """A federated Flamby dataset.
 
+    A FlambyDataset is a wrapper around a flamby FedClass instance, adding functionalities and interfaces that are
+    specific to Fed-BioMed.
+
     A FlambyDataset is always created in an empty state, and it **requires** a DataLoadingPlan to be finalized to a
     correct state. The DataLoadingPlan must contain at least the two following DataLoadinBlocks key-value pairs:
     - FlambyLoadingBlockTypes.FLAMBY_DATASET : FlambyDatasetSelectorLoadingBlock
@@ -142,18 +155,34 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     Attributes:
         _transform: a transform function of type MonaiTransform or TorchTransform that will be applied to every sample
             when data is loaded.
-        __flamby_fed_class: a private instance of the object representing the Flamby dataset, of type FedClass
+        __flamby_fed_class: a private instance of the wrapped Flamby FedClass
     """
     def __init__(self):
         super().__init__()
         self.__flamby_fed_class = None
         self._transform = None
 
-    def _init_flamby_fed_class(self):
+    def _init_flamby_fed_class(self) -> None:
+        """Initializes once the __flamby_fed_class attribute with an object of type FedClass.
+
+        This function cannot be called multiple times. It sets the self.__flamby_fed_class attribute by extracting
+        the necessary information from the DataLoadingPlan. Therefore, a DataLoadingPlan is **required** to
+        correctly use the FlambyDataset class. See the
+        [FlambyDataset][fedbiomed.common.data._flamby_dataset.FlambyDataset] documentation for more details.
+
+        The correct FedClass constructor will be automatically called according to whether the transform attribute
+        was set in the class.
+
+        Raises:
+            FedbiomedDatasetError if one of the following conditions occurs:
+                - __flamby_fed_class is not None (i.e. the function was already called)
+                - the Data Loading Plan is not present or malformed
+                - the Flamby dataset module could not be loaded
+        """
         # prevent calling init on an already-initialized dataset
         if self.__flamby_fed_class is not None:
             msg = f"{ErrorNumbers.FB616.value}. Calling _init_flamby_fed_class is not allowed if the " \
-                  f"__flamby_fed_class attribute is not None."
+                  f"__flamby_fed_class attribute has already been initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
@@ -189,24 +218,35 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
 
     def get_flamby_fed_class(self):
+        """Returns the instance of the wrapped Flamby FedClass"""
         return self.__flamby_fed_class
 
     def __getitem__(self, item):
+        """Forwards call to the flamby_fed_class"""
         return self.__flamby_fed_class[item]
 
     def __len__(self):
+        """Forwards call to the flamby_fed_class"""
         return len(self.__flamby_fed_class)
 
     def shape(self) -> List[int]:
+        """Returns the shape of the flamby_fed_class"""
         return [len(self)] + list(self.__getitem__(0)[0].shape)
 
     def set_dlp(self, dlp):
+        """Sets the Data Loading Plan and ensures that the flamby_fed_class is initialized.
+
+        Overrides the set_dlp function from the DataLoadingPlanMixin to make sure that self._init_flamby_fed_class
+        is also called immediately after.
+        """
         super().set_dlp(dlp)
         self._init_flamby_fed_class()
 
     def set_transform(self, transform):
+        """Sets the transform attribute"""
         self._transform = transform
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:
+        """Returns the Flamby DatasetType"""
         return DatasetTypes.FLAMBY
