@@ -121,6 +121,7 @@ class DataLoadingBlockTypes(_BaseEnum):
 
 
 class DatasetTypes(_BaseEnum):
+    """Types of Datasets implemented in Fed-BioMed"""
     TABULAR: str = 'csv'
     IMAGES: str = 'images'
     DEFAULT: str = 'default'

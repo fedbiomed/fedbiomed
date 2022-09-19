@@ -109,7 +109,9 @@ def add_database(interactive: bool = True,
                 dataset_parameters['index_col'] = index_col
 
             elif data_type == 'flamby':
-                path = None
+                path = None  # flamby datasets are not identified by their path
+
+                # Select the type of dataset (fed_ixi, fed_heart, etc...)
                 available_flamby_datasets = discover_flamby_datasets()
                 msg = "Please select the FLamby dataset that you're configuring:\n"
                 msg += "\n".join([f"\t{i}) {val}" for i, val in available_flamby_datasets.items()])
@@ -127,8 +129,8 @@ def add_database(interactive: bool = True,
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
 
+                # Select the center id
                 module = import_module(f".{available_flamby_datasets[flamby_dataset_index]}", package='flamby.datasets')
-
                 n_centers = module.NUM_CLIENTS
                 keep_asking_for_input = True
                 while keep_asking_for_input:
@@ -139,6 +141,7 @@ def add_database(interactive: bool = True,
                     except ValueError:
                         warnings.warn(f'Please input a numeric value (integer) between 0 and {str(n_centers-1)}')
 
+                # Build the DataLoadingPlan with the selected dataset type and center id
                 data_loading_plan = DataLoadingPlan()
                 dataset_dlb = FlambyDatasetSelectorLoadingBlock()
                 dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index]

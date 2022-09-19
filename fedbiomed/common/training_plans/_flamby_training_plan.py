@@ -1,14 +1,18 @@
+from typing import Optional
 from fedbiomed.common.data import DataManager, FlambyDataset
 from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
 class FlambyTrainingPlan(TorchTrainingPlan):
-    def __init__(self, model_args: dict = {}):
+    def __init__(self, model_args: Optional[dict] = None):
         """ Construct training plan
 
         Args:
             model_args: model arguments. Items used in this class build time
         """
+        if model_args is None:
+            model_args = {}
+
         super().__init__(model_args)
         self.add_dependency(["from fedbiomed.common.training_plans import FlambyTrainingPlan"])
 
