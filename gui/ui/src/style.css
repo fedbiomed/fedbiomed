@@ -82,7 +82,6 @@ hr {
   width: 100%;
   height: calc(100vh - 10px);
   max-height: calc(100vh - 75px);
-  overflow: hidden;
   padding-top: 10px;
 }
 
@@ -100,6 +99,12 @@ hr {
   box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
   -webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
   -moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+}
+
+.file-repository {
+  max-height: calc(100vh - 125px);
+  display: flex;
+  flex-flow: column;
 }
 
 .router-frame .inner .frame-header {
@@ -121,6 +126,16 @@ hr {
   flex: 0 1 40px;
 }
 
+/* Spesific to File Browser*/
+.frame-content-file {
+    flex: 1 1 auto;
+    padding: 10px;
+    overflow: scroll;
+}
+
+.frame-footer-file {
+  flex: 0 1 40px;
+}
 
 .center {
   text-align: center;
@@ -493,7 +508,7 @@ table.repository-table tr td .name .icon{
 .modal-overlay {
   position: fixed;
   display:flex;
-  z-index: 1;
+  z-index: 5;
   justify-content: center;
   align-items: center;
   top: 0px;
@@ -540,9 +555,10 @@ table.repository-table tr td .name .icon{
   background: var(--button-color);
   color: #fff;
   border-radius: 20px;
-  width: 15px;
+  width: 35px;
   text-align: center;
-font-weight: bold;
+  font-weight: bold;
+  height: 35px;
 }
 
 .modal-overlay .modal-inner .modal-header{

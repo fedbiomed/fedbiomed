@@ -18,7 +18,7 @@ import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
-import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
+import MedicalFolderDataset from "./pages/datasets/medical.folder.dataset";
 import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
@@ -64,15 +64,15 @@ function App(props) {
                     <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                   </Route>
                   <Route
-                        path="*" 
-                        status={404} 
+                        path="*"
+                        status={404}
                         element={
                           <main style={{ padding: "1rem" }}>
                             <p>Error 404: there is nothing here</p>
                           </main>
                         }
                       />
-                    
+
                 </Route>
             </Routes>
         </Router>
@@ -94,7 +94,7 @@ function App(props) {
         </Modal>
         <Modal show={false} class="token-expired" id="msg-token-expired" onModalClose={onResultModalClose}>
             <Modal.Header>
-              { 
+              {
                   "Error"
                 }
             </Modal.Header>

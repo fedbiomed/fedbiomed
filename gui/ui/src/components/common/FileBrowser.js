@@ -3,7 +3,7 @@ import Repository from "../../pages/repository";
 import Modal from "./Modal"
 import {Label} from "./Inputs";
 import Button from "./Button";
-
+import {EuiTitle} from '@elastic/eui'
 
 const FileBrowser = (props) => {
 
@@ -49,7 +49,9 @@ const FileBrowser = (props) => {
             </div>
             <Modal show={show} width="90%" onModalClose={onModalClose}>
                     <Modal.Header>
-                        <h1>Select File or Folder</h1>
+                        <EuiTitle>
+                            <h1>Select File or Folder</h1>
+                        </EuiTitle>
                     </Modal.Header>
                     <Modal.Content>
                         <Repository

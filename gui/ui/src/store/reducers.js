@@ -5,6 +5,7 @@ const resultState = {
     message : null,
     show : false,
     loading:  false,
+    launcher: null,
     text: ""
 
 }
@@ -12,12 +13,19 @@ export const resultReducer = ( state = resultState, action) => {
 
     switch (action.type){
         case "SET_LOADING":
-            return {
-                ...state,
-                loading: action.payload.status,
-                text : action.payload.text ? action.payload.text : ""
-
+            if( state.launcher && state.loading !== action.payload.status &&
+                state.launcher !== action.payload.launcher ){
+                return state
+            }else{
+                return {
+                    ...state,
+                    loading: action.payload.status,
+                    text : action.payload.text ? action.payload.text : "",
+                    launcher: action.payload.launcher && action.payload.status === false ? null : action.payload.launcher
+                }
             }
+
+
         case "ERROR_MODAL":
             return {
                 error:true,

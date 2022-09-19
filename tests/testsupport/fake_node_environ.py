@@ -6,14 +6,16 @@ must be imported via mock_node_environ
 import os
 import inspect
 import shutil
+import uuid
 
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.singleton  import SingletonMeta
+#from fedbiomed.common.singleton  import SingletonMeta
 from fedbiomed.common.constants  import ComponentType
 from fedbiomed.common.logger     import logger
 
 #class Environ(metaclass = SingletonMeta):
-class EnvironNode(metaclass = SingletonMeta):
+#class EnvironNode(metaclass = SingletonMeta):
+class EnvironNode:
 
     def __init__(self, component = None):
 
@@ -31,17 +33,18 @@ class EnvironNode(metaclass = SingletonMeta):
 
         # TODO: use os.path.join instead of / in path
         # TODO: use os.mktemp instead of /tmp
-        self._values['ROOT_DIR']                = "/tmp/_nod_"
-        self._values['CONFIG_DIR']              = "/tmp/_nod_/etc"
-        self._values['VAR_DIR']                 = "/tmp/_nod_/var"
-        self._values['CACHE_DIR']               = "/tmp/_nod_/var/cache"
-        self._values['TMP_DIR']                 = "/tmp/_nod_/var/tmp"
+        node = f"_nod_{uuid.uuid4()}"
+        self._values['ROOT_DIR']                = f"/tmp/{node}"
+        self._values['CONFIG_DIR']              = f"/tmp/{node}/etc"
+        self._values['VAR_DIR']                 = f"/tmp/{node}/var"
+        self._values['CACHE_DIR']               = f"/tmp/{node}/var/cache"
+        self._values['TMP_DIR']                 = f"/tmp/{node}/var/tmp"
         self._values['MQTT_BROKER']             = "localhost"
         self._values['MQTT_BROKER_PORT']        = 1883
         self._values['UPLOADS_URL']             = "http://localhost:8888/upload/"
         self._values['TIMEOUT']                 = 10
-        self._values['DEFAULT_MODELS_DIR']      = '/tmp/_nod_/default_models'
-        self._values['MODEL_DIR']               = '/tmp/_nod_/registered_models'
+        self._values['DEFAULT_MODELS_DIR']      = f"/tmp/{node}/default_models"
+        self._values['MODEL_DIR']               = f"/tmp/{node}/registered_models"
 
         # TODO: create random directory paths like for test_taskqueue.py
         os.makedirs(self._values['ROOT_DIR']               , exist_ok=True)
@@ -60,9 +63,9 @@ class EnvironNode(metaclass = SingletonMeta):
             shutil.copy(os.path.join(default_models_path , f) , self._values['DEFAULT_MODELS_DIR'])
 
         # values specific to node
-        self._values['MESSAGES_QUEUE_DIR'] = "/tmp/_nod_/var/queue_messages_XXX"
+        self._values['MESSAGES_QUEUE_DIR'] = f"/tmp/{node}/var/queue_messages_XXX"
         self._values['NODE_ID']          = "mock_node_XXX"
-        self._values['DB_PATH']            = '/tmp/_nod_/var/db_node_mock_node_XXX.json'
+        self._values['DB_PATH']            = f"/tmp/{node}/var/db_node_mock_node_XXX.json"
 
 
         self._values['ALLOW_DEFAULT_MODELS'] = True
@@ -84,3 +87,4 @@ class EnvironNode(metaclass = SingletonMeta):
 
 
 environ=EnvironNode(ComponentType.NODE)
+

@@ -2,7 +2,7 @@ import os
 import re
 import uuid
 
-
+from fedbiomed.common.exceptions import FedbiomedError
 from app import app
 from db import node_database
 from flask import request, current_app
@@ -13,9 +13,10 @@ from schemas import AddDataSetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
-    GetCsvData
+    GetCsvData, \
+    ReadDataLoadingPlan
 from utils import success, error, validate_request_data, response
-from flask_jwt_extended import jwt_required, get_jwt, verify_jwt_in_request
+from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 from . import api
 
@@ -336,7 +337,6 @@ def add_default_dataset():
     except Exception as e:
         return error(str(e)), 400
 
-
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
 
@@ -385,3 +385,41 @@ def get_csv_data():
                      f"is one of csv, tsv or txt: {e}"), 400
 
     return response(data_preview), 200
+
+
+@api.route('/datasets/list-dlps', methods=['POST'])
+def list_data_loading_plans():
+    """List all DLPs in the database
+    """
+    req = request.json
+    target_dataset_type = req['target_dataset_type'] if 'target_dataset_type' in req else None
+    dlps = dataset_manager.list_dlp(target_dataset_type=target_dataset_type)
+    index = list(range(len(dlps)))
+    columns = ['name', 'id']
+    data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+
+    return response({'index': index, 'columns': columns, 'data': data}), 200
+
+
+@api.route('/datasets/read-dlp', methods=['POST'])
+@validate_request_data(schema=ReadDataLoadingPlan)
+def read_data_loading_plans():
+    """Read content of a specified DLP
+    """
+    req = request.json
+    data_dlp = {}
+
+    try:
+        dlp, dlbs = dataset_manager.get_dlp_by_id(req['dlp_id'])
+    except FedbiomedError as e:
+        return error(f"Could not read customizations: {e}"), 400
+
+    m2f = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
+    if 'loading_blocks' in dlp and m2f in dlp['loading_blocks']:
+        dlb_id_m2f = dlp['loading_blocks'][m2f]
+        map = [dlb['map'] for dlb in dlbs if dlb['dlb_id'] == dlb_id_m2f]
+        if len(map) != 1:
+            return error("Could not read customizations: database coherence error"), 400
+        data_dlp['map'] = map[0]
+
+    return response(data_dlp), 200

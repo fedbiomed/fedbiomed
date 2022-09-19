@@ -54,7 +54,6 @@ class Job:
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
-            model: Name of the model class or model class to use for training.
             training_plan_path: Path to file containing model class code
             training_args: Contains training parameters; lr, epochs, batch_size.
             model_args: Contains output and input feature dimension
@@ -100,7 +99,7 @@ class Job:
 
         # Model is mandatory
         if self._training_plan_class is None:
-            mess = "Missing model class name or instance in Job arguments"
+            mess = "Missing training plan class name or instance in Job arguments"
             logger.critical(mess)
             raise NameError(mess)
 
@@ -116,18 +115,19 @@ class Job:
                 self._training_plan_class = eval(self._training_plan_class)
             except Exception:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + self._training_plan_class + " from path " + training_plan_path + " - Error: " + str(e))
+                logger.critical(f"Cannot import class {self._training_plan_class} from "
+                                f"path {training_plan_path} - Error: {str(e)}")
                 sys.exit(-1)
 
         # check class is defined
         try:
             _ = inspect.isclass(self._training_plan_class)
         except NameError:
-            mess = f"Cannot find training plan for Job, model class {self._training_plan_class} is not defined"
+            mess = f"Cannot find training plan for Job, training plan class {self._training_plan_class} is not defined"
             logger.critical(mess)
             raise NameError(mess)
 
-        # create/save model instance (ie TrainingPlan)
+        # create/save TrainingPlan instance
         if inspect.isclass(self._training_plan_class):
             self._training_plan = self._training_plan_class()  # contains TrainingPlan
 
@@ -150,7 +150,7 @@ class Job:
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
-            logger.error("Cannot save the model to a local tmp dir : " + str(e))
+            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._training_plan_file)

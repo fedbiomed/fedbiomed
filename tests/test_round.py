@@ -16,6 +16,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.constants import DatasetTypes
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
@@ -638,6 +639,10 @@ class TestRound(unittest.TestCase):
 
             def __getitem__(self, item):
                 return self.apply_dlb('orig-value', LoadingBlockTypesForTesting.MODIFY_GETITEM)
+
+            @staticmethod
+            def get_dataset_type() -> DatasetTypes:
+                return DatasetTypes.TEST
 
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 

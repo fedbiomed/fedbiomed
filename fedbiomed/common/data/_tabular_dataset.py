@@ -11,7 +11,7 @@ from torch import from_numpy, Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
 class TabularDataset(Dataset):
@@ -87,3 +87,7 @@ class TabularDataset(Dataset):
             target: Target sample
         """
         return self.inputs[item], self.target[item]
+
+    @staticmethod
+    def get_dataset_type() -> DatasetTypes:
+        return DatasetTypes.TABULAR

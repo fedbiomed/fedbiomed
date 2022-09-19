@@ -8,10 +8,12 @@ import {EP_REPOSITORY_LIST} from '../../constants'
  * @returns null 
  */
 export  const getFilesFromRepository = (data, fresh = false) => {
-    
+
+    const loader_launcher = "LIST_REPOSITORY"
+
     return (dispatch, getState) => {
 
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing local repository..."}})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing local repository...", launcher: loader_launcher}})
         let files
         let folders
 
@@ -26,7 +28,6 @@ export  const getFilesFromRepository = (data, fresh = false) => {
 
         // Send post request to get list of files by given path array
         axios.post(EP_REPOSITORY_LIST , data).then( (response) => {
-            dispatch({type:'SET_LOADING', payload: false})
             if(response.status === 200){
                 let data = response.data.result
                 let level = data.level
@@ -64,14 +65,16 @@ export  const getFilesFromRepository = (data, fresh = false) => {
                     }
                 }
 
+                dispatch({type:'SET_LOADING', payload: {status : false, launcher: loader_launcher}})
                 dispatch({type:'LIST_REPOSITORY', payload : {files: files, folders: folders, base: data.base, level:level, message : null, current: data.path}})
             }else{
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
+                dispatch({type:'SET_LOADING', payload: {status : false, launcher: loader_launcher}})
             }
         }
 
         ).catch( (error) => {
-            dispatch({type:'SET_LOADING', payload: {status: false}})
+            dispatch({type:'SET_LOADING', payload: {status: false, launcher: loader_launcher}})
             if(error.response){
                 dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
             }else{
