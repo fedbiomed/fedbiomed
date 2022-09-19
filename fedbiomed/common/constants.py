@@ -130,6 +130,17 @@ class DatasetTypes(_BaseEnum):
     NONE: str = 'none'
 
 
+class SecaggElementTypes(_BaseEnum):
+    """Enumeration class for secure aggregation element types
+
+    Attributes:
+        SERVER_KEY: server key split between the parties
+        BIPRIME: biprime shared between the parties
+    """
+    SERVER_KEY: int = 0
+    BIPRIME: int = 1
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 

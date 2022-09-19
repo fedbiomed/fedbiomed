@@ -7,7 +7,7 @@ import functools
 from dataclasses import dataclass
 from typing import Dict, Any, Union, Callable
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
@@ -445,6 +445,54 @@ class SearchReply(Message):
     command: str
 
 
+# Secure aggregation messages
+
+@catch_dataclass_exception
+@dataclass
+class SecaggRequest(Message):
+    """Describes a secagg context element setup request message sent by the researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that requests setup
+        secagg_id: Id of secagg context element that is sent by researcher
+        element: Type of secagg context element
+        parties: List of parties participating to the secagg context element setup
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    element: SecaggElementTypes
+    parties: list
+    command: str
+
+@catch_dataclass_exception
+@dataclass
+class SecaggReply(Message):
+    """Describes a secagg context element setup reply message sent by the node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests setup
+        secagg_id: Id of secagg context element that is sent by researcher
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replies to the request
+        dataset_id: id of the dataset that is used for training
+        msg: Custom message
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    success: bool
+    node_id: str
+    msg: str
+    command: str
+
+
 # Train messages
 
 @catch_dataclass_exception
@@ -491,8 +539,8 @@ class TrainReply(Message):
         node_id: Node id that replys the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
-        tming: Timing statistics
-        msg: Custom message\
+        timing: Timing statistics
+        msg: Custom message
         command: Reply command string
 
     Raises:
@@ -523,7 +571,8 @@ class ResearcherMessages():
                                                            ListReply,
                                                            AddScalarReply,
                                                            ModelStatusReply,
-                                                           ApprovalReply]:
+                                                           ApprovalReply,
+                                                           SecaggReply]:
         """Message reception (as a mean to reply to node requests, such as a Ping request).
 
         It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
@@ -555,7 +604,8 @@ class ResearcherMessages():
                                      'list': ListReply,
                                      'add_scalar': AddScalarReply,
                                      'model-status': ModelStatusReply,
-                                     'approval': ApprovalReply
+                                     'approval': ApprovalReply,
+                                     'secagg': SecaggReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -570,7 +620,8 @@ class ResearcherMessages():
                                                              PingRequest,
                                                              ListRequest,
                                                              ModelStatusRequest,
-                                                             ApprovalRequest]:
+                                                             ApprovalRequest,
+                                                             SecaggRequest]:
 
         """Creates the adequate message/request,
 
@@ -603,7 +654,8 @@ class ResearcherMessages():
                                      'ping': PingRequest,
                                      'list': ListRequest,
                                      'model-status': ModelStatusRequest,
-                                     'approval': ApprovalRequest
+                                     'approval': ApprovalRequest,
+                                     'secagg': SecaggReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -622,7 +674,8 @@ class NodeMessages():
                                                    PingRequest,
                                                    ListRequest,
                                                    ModelStatusRequest,
-                                                   ApprovalRequest]:
+                                                   ApprovalRequest,
+                                                   SecaggRequest]:
         """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
         "command" in the input dictionary `params`) to a Message object
 
@@ -650,7 +703,8 @@ class NodeMessages():
                                      'ping': PingRequest,
                                      'list': ListRequest,
                                      'model-status': ModelStatusRequest,
-                                     'approval': ApprovalRequest
+                                     'approval': ApprovalRequest,
+                                     'secagg': SecaggRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -668,7 +722,8 @@ class NodeMessages():
                                                  AddScalarReply,
                                                  ListReply,
                                                  ModelStatusReply,
-                                                 ApprovalReply]:
+                                                 ApprovalReply,
+                                                 SecaggReply]:
         """Message reception.
 
         It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
@@ -701,7 +756,8 @@ class NodeMessages():
                                      'add_scalar': AddScalarReply,
                                      'list': ListReply,
                                      'model-status': ModelStatusReply,
-                                     'approval': ApprovalReply
+                                     'approval': ApprovalReply,
+                                     'secagg': SecaggReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
