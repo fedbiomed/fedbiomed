@@ -89,9 +89,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict):
-        """ Sets arguments for training, model and optimizer """
-        logger.info(training_args)
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict = {}) -> None:
+        """ Sets arguments for training, model and optimizer
+
+        Args:
+            model_args: Arguments defined by researcher to instantiate model/torch module
+            training_args: Arguments that are used in training routine such as epoch, dry_run etc.
+                Please see [fedbiomed.common.training_args.TrainingArgs](TrainingArgs)
+            optimizer_args: Arguments for torch base [torch.optim.Optimizer](Optimizer)
+
+        Raises:
+            FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
+                - If return values of optimizer, model  and dependencies are not satisfied
+        """
+
         self._model_args = model_args
         self._optimizer_args = optimizer_args
         self._training_args = training_args

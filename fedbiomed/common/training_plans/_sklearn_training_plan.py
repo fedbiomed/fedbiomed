@@ -87,7 +87,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              "from fedbiomed.common.data import DataManager",
                              ])
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Dict = {}) -> None:
         """ Instantiates model, training and optimizer arguments
 
         Args:
