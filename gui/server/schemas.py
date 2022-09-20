@@ -1,5 +1,5 @@
-from flask import request
 import jsonschema
+from flask import request
 from jsonschema import Draft7Validator, validators
 
 # Constant validators settings
@@ -83,7 +83,7 @@ class Validator:
 class JsonSchema(object):
 
     def __init__(self, schema, message: str = None):
-        """Schema class 
+        """Schema class
 
         Args:
             schema (dict): A dictionary represent the valid schema
@@ -115,7 +115,15 @@ class JsonSchema(object):
             # Raise custom error messages
             message = None
             if e.relative_schema_path[0] == 'required':
-                message = 'Please make sure all required fields has been filled'
+                if "requiredMessages" in self._schema:
+                    index = [i for i, val in enumerate(e.validator_value) if val in e.message][0]
+                    if e.validator_value[index] in self._schema["requiredMessages"]:
+                        message = self._schema["requiredMessages"][e.validator_value[index]]
+                    else:
+                        message = 'Please make sure all required fields have been filled'
+                else:
+                    message = 'Please make sure all required fields have been filled'
+
             elif e.relative_schema_path[0] == 'properties':
                 field = e.relative_schema_path[1]
                 reason = e.relative_schema_path[2]
@@ -159,7 +167,7 @@ class ListModelRequest(Validator):
          },
          "required": []
          },
-        )
+    )
 
 
 class ApproveRejectModelRequest(Validator):
@@ -201,11 +209,11 @@ class ModelPreviewRequest(Validator):
              "model_path": {"type": "string",
                             "minLength": 1,
                             'errorMessages': {"minLength": "model_path must have at least one character"},
-            
+
                             },
              "model_id": {"type": "string"},
          },
-         "required": []  
+         "required": []
          }
     )
 
@@ -324,6 +332,15 @@ class GetCsvData(Validator):
     })
 
 
+class ReadDataLoadingPlan(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"dlp_id": {"type": "string"}},
+        "required": ["dlp_id"]
+    })
+
+
 class ValidateMedicalFolderReferenceCSV(Validator):
     type = 'json'
     schema = JsonSchema({
@@ -367,6 +384,84 @@ class ValidateMedicalFolderRoot(Validator):
     })
 
 
+class ValidateSubjectsHasAllModalities(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "medical_folder_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            },
+            "modalities": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "Modalities should be given as an array"
+                },
+            },
+            "reference_csv_path": {
+                "type": ["array", "null"],
+                "errorMessages": {
+                    "type": "CSV path should be given as an array"
+                },
+            },
+            "index_col": {
+                "type": ["integer", "null"],
+                "errorMessage": {
+                    "type": "Index column should be an integer"
+                },
+            },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessage": {
+                    "type": "Data loading plan id should be a string"
+                },
+            },
+        },
+        "required": ["medical_folder_root", "modalities", "reference_csv_path", "index_col", "dlp_id"]
+    })
+
+
+class ValidateDataLoadingPlanDeleteRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "dlp_id": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
+        },
+        "required": ["dlp_id"]
+    })
+
+
+class ValidateDataLoadingPlanAddRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "modalities_mapping": {
+                "type": "object",
+                "errorMessages": {
+                    "type": "DLP modalities mapping should be given as an object"
+                },
+            },
+            "name": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "DLP name should be given as an array"
+                },
+            },
+        },
+        "required": ["modalities_mapping", "name"]
+    })
+
+
 class ValidateMedicalFolderAddRequest(Validator):
     type = 'json'
     schema = JsonSchema({
@@ -391,9 +486,168 @@ class ValidateMedicalFolderAddRequest(Validator):
                 "errorMessage": {
                     "type": "Index column should be declared as an integer"}
             },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
             'name': datasetName,
             'tags': datasetTags,
             'desc': datasetDesc
         },
-        "required": ["medical_folder_root", "name", "tags", "desc"]
+        "required": ["medical_folder_root", "name", "tags", "desc", "dlp_id"]
     })
+
+
+class ValidateLoginRequest(Validator):
+    type = "json"
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
+            },
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing'
+                         }},
+        },
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is required!',
+            'password': 'Password is required!'
+
+        }
+    })
+
+
+class ValidateUserFormRequest(Validator):
+    """ Json Schema for user registration and login requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
+            },
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing',
+                             'type': 'Please make sure password respects required format'
+                         }},
+            'confirm': {'type': 'string',
+                                 'minLength': 1,
+                                 'errorMessages': {
+                                     'minLength': 'Password is missing',
+                                     'type': 'Please make sure password confirmation corresponds required format'
+                                 }},
+            'name': {'type': 'string',
+                     'minLength': 1,
+                     'errorMessages': {
+                         'minLength': 'Name is missing'
+                     }
+
+                     },
+            'surname': {'type': 'string',
+                        'minLength': 1,
+                        'errorMessages': {
+                            'minLength': 'Surname is missing and it is required'
+                        }
+
+                        }
+        },
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is missing!',
+            'password': 'Password is missing!',
+            'name': 'Password is missing!',
+            'surname': 'Password is missing!',
+        }
+    })
+
+
+class ValidateUserRemoveRequest(Validator):
+    """ Json Schema for user registration and login requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for for to delete'
+                }
+            },
+        },
+        'required': ['user_id'],
+        'requiredMessages': {
+            'user_id': 'ID is required to remove user',
+        }
+    })
+
+
+class ValidateUserChangeRoleRequest(Validator):
+    """ Json Schema for changing user role"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for user'
+                }
+            },
+            'role': {
+                'type': 'integer',
+                'enum': [1, 2],
+                'errorMessages': {
+                    'enum': 'Invalid role'
+                }
+            },
+        },
+        'required': ['user_id', 'role'],
+        'requiredMessages': {
+            'user_id': 'ID is required to change role',
+            'role': 'User role is required to change user role',
+        }
+    })
+
+
+class ListUserRegistrationRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        "properties": {
+            "search": {'type': 'string'}
+        },
+        "required": []
+    })
+
+
+class ValidateAdminRequestAction(Validator):
+    """ Json Schema for administrator actions to handle registration requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'request_id': {
+                'type': 'string',
+                'description': 'id of the user request to validate',
+            }
+        },
+        'required': ['request_id'],
+    }, message=None)

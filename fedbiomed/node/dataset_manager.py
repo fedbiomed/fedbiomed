@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Union, List, Any
+from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -23,8 +23,8 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
 
 from fedbiomed.common.logger import logger
 
@@ -38,8 +38,13 @@ class DatasetManager:
     def __init__(self):
         """Constructor of the class.
         """
-        self.db = TinyDB(environ['DB_PATH'])
-        self.database = Query()
+        self._db = TinyDB(environ['DB_PATH'])
+        self._database = Query()
+
+        # don't use DB read cache to ensure coherence
+        # (eg when mixing CLI commands with a GUI session)
+        self._dataset_table = self._db.table(name='Datasets', cache_size=0)
+        self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
         """Searches for data with given dataset_id.
@@ -52,10 +57,69 @@ class DatasetManager:
                 containing all the fields describing the matching datasets
                 stored in Tiny database.
         """
-        self.db.clear_cache()
-        result = self.db.get(self.database.dataset_id == dataset_id)
+        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
 
         return result
+
+    def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
+        """Return all existing DataLoadingPlans.
+
+        Args:
+            target_dataset_type: (str or None) if specified, return only dlps matching the requested target type.
+
+        Returns:
+            An array of dict, each dict is a DataLoadingPlan
+        """
+        if target_dataset_type is not None:
+            if not isinstance(target_dataset_type, str):
+                raise FedbiomedDatasetManagerError(f"Wrong input type for target_dataset_type. "
+                                                   f"Expected str, got {type(target_dataset_type)} instead.")
+            if target_dataset_type not in [t.value for t in DatasetTypes]:
+                raise FedbiomedDatasetManagerError("target_dataset_type should be of the values defined in "
+                                                   "fedbiomed.common.constants.DatasetTypes")
+
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) &
+                (self._database.dlp_name.exists()) &
+                (self._database.target_dataset_type == target_dataset_type))
+        else:
+            dlps = self._dlp_table.search(
+                (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
+        return [dict(dlp) for dlp in dlps]
+
+    def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
+        """Search for a DataLoadingPlan with a given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataLoadingPlan IDs always start with 'dlp_' and should be unique in the database.
+
+        Args:
+            dlp_id: (str) the DataLoadingPlan id
+
+        Returns:
+            A Tuple containing a dictionary with the DataLoadingPlan metadata corresponding to the given id.
+        """
+        dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
+        return dlp_metadata, self._dlp_table.search(
+            self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))
+
+    def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
+        """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataLoadingBlock IDs always start with 'serialized_data_loading_block_' and should be unique in the database.
+
+        Args:
+            dlb_ids: (List[str]) a list of DataLoadingBlock IDs
+
+        Returns:
+            A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
+        """
+        return self._dlp_table.search(self._database.dlb_id.one_of(dlb_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -66,8 +130,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        self.db.clear_cache()
-        return self.db.search(self.database.tags.all(tags))
+        return self._dataset_table.search(self._database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -278,7 +341,9 @@ class DatasetManager:
                      description: str,
                      path: str,
                      dataset_id: str = None,
-                     dataset_parameters : Union[dict, None] = None):
+                     dataset_parameters : Optional[dict] = None,
+                     data_loading_plan: Optional[DataLoadingPlan] = None,
+                     save_dlp: bool = True):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -289,6 +354,9 @@ class DatasetManager:
             description: Human readable description of the dataset.
             path: Path to the dataset.
             dataset_id: Id of the dataset. Defaults to None.
+            dataset_parameters: a dictionary of additional (customized) parameters, or None
+            data_loading_plan: a DataLoadingPlan to be linked to this dataset, or None
+            save_dlp: if True, save the `data_loading_plan`
 
         Raises:
             NotImplementedError: `data_type` is not supported.
@@ -343,8 +411,11 @@ class DatasetManager:
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected
                 controller = MedicalFolderController(root=path)
+                if data_loading_plan is not None:
+                    controller.set_dlp(data_loading_plan)
                 dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
                                                         index_col=dataset_parameters.get('index_col', None))
+
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:
@@ -364,9 +435,47 @@ class DatasetManager:
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
-        self.db.insert(new_database)
+        if save_dlp:
+            dlp_id = self.save_data_loading_plan(data_loading_plan)
+        elif isinstance(data_loading_plan, DataLoadingPlan):
+            dlp_id = data_loading_plan.dlp_id
+        else:
+            dlp_id = None
+        if dlp_id is not None:
+            new_database['dlp_id'] = dlp_id
+        self._dataset_table.insert(new_database)
 
         return dataset_id
+
+    def remove_dlp_by_id(self, dlp_id: str):
+        """Removes a data loading plan (DLP) from the database.
+
+        Only DLP with matching ID is removed from the database. There should be at most one.
+
+        If `remove_dlbs` is True, also remove the attached DLBs. You should ensure
+        they are not used by another DLP, no verification is made.
+
+        Args:
+            dlp_id: the DataLoadingPlan id
+        """
+        if not isinstance(dlp_id, str):
+            _msg = ErrorNumbers.FB316.value + f": Bad type for dlp '{type(dlp_id)}', expecting str"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+        if not str:
+            _msg = ErrorNumbers.FB316.value + ": Bad value for dlp, expecting non empty str"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        _ , dlbs = self.get_dlp_by_id(dlp_id)
+        try:
+            self._dlp_table.remove(self._database.dlp_id == dlp_id)
+            for dlb in dlbs:
+                self._dlp_table.remove(self._database.dlb_id == dlb['dlb_id'])
+        except Exception as e:
+            _msg = ErrorNumbers.FB316.value + f": Error during remove of DLP {dlp_id}: {e}"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
 
     def remove_database(self, tags: Union[tuple, list]):
         """Removes datasets from database.
@@ -377,7 +486,7 @@ class DatasetManager:
             tags: Dataset description tags.
         """
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
-        self.db.remove(doc_ids=doc_ids)
+        self._dataset_table.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
                              tags: Union[tuple, list],
@@ -388,7 +497,7 @@ class DatasetManager:
             tags: Tags describing the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
         """
-        self.db.update(modified_dataset, self.database.tags.all(tags))
+        self._dataset_table.update(modified_dataset, self._database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
@@ -399,8 +508,7 @@ class DatasetManager:
         Returns:
             All datasets in the node's database.
         """
-        self.db.clear_cache()
-        my_data = self.db.all()
+        my_data = self._dataset_table.all()
 
         # Do not display dtypes
         for doc in my_data:
@@ -481,3 +589,73 @@ class DatasetManager:
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
+
+    def save_data_loading_plan(self,
+                               data_loading_plan: Optional[DataLoadingPlan]
+                               ) -> dict:
+        """Save a DataLoadingPlan to the database.
+
+        This function saves a DataLoadingPlan to the database, and returns its ID.
+
+        Raises:
+            FedbiomedDatasetManagerError: bad data loading plan name (size, not unique)
+
+        Args:
+            data_loading_plan: the DataLoadingPlan to be saved, or None.
+
+        Returns:
+            The `dlp_id` if a DLP was saved, or None
+        """
+        if data_loading_plan is None:
+            return None
+
+        if len(data_loading_plan.desc) < 4:
+            _msg = ErrorNumbers.FB316.value + ": Cannot save data loading plan, " + \
+                "DLP name needs to have at least 4 characters."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        _dlp_same_name = self._dlp_table.search(
+            (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()) &
+            (self._database.dlp_name == data_loading_plan.desc))
+        if _dlp_same_name:
+            _msg = ErrorNumbers.FB316.value + ": Cannot save data loading plan, " + \
+                "DLP name needs to be unique."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
+        self._dlp_table.insert(dlp_metadata)
+        self._dlp_table.insert_multiple(loading_blocks_metadata)
+        return data_loading_plan.dlp_id
+
+    def save_data_loading_block(self, dlb: DataLoadingBlock) -> None:
+        # seems unused
+        self._dlp_table.insert(dlb.serialize())
+
+    @staticmethod
+    def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
+        """Remove privacy-sensitive information, to prepare for sharing with a researcher.
+
+        Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
+        prevent sharing this information with a researcher through a reply message.
+
+        Args:
+            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
+                should be in the format af key-value pairs, such as e.g. a dict.
+        Returns:
+             the updated iterable of metadata information objects without privacy-sensitive information
+        """
+        for d in database_metadata:
+            try:
+                # common obfuscations
+                d.pop('path', None)
+                # obfuscations specific for each data type
+                if 'data_type' in d:
+                    if d['data_type'] == 'medical-folder':
+                        if 'dataset_parameters' in d:
+                            d['dataset_parameters'].pop('tabular_file', None)
+            except AttributeError:
+                raise FedbiomedDatasetManagerError(f"Object of type {type(d)} does not support pop or getitem method "
+                                                   f"in obfuscate_private_information.")
+        return database_metadata

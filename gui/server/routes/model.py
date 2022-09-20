@@ -1,15 +1,13 @@
 from datetime import datetime
-from fedbiomed.common.constants import ModelApprovalStatus
+
+from flask import request
+from utils import success, error, validate_request_data, response
+
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedModelManagerError
+from fedbiomed.node.model_manager import ModelManager
 from gui.server.schemas import DeleteModelRequest, ListModelRequest, ApproveRejectModelRequest, ModelPreviewRequest
 from . import api
-
-from flask import jsonify, request
-from app import app
-from db import database
-from utils import success, error, validate_json, validate_request_data, response
-
-from fedbiomed.node.model_manager import ModelManager
 
 MODEL_MANAGER = ModelManager()
 
@@ -44,7 +42,7 @@ def list_models():
     search = req.get('search', None)
 
     if select_status is not None:
-        select_status = ModelApprovalStatus.str2enum(select_status)
+        select_status = TrainingPlanApprovalStatus.str2enum(select_status)
 
     res = MODEL_MANAGER.list_models(sort_by=sort_by, 
                                     select_status=select_status,
@@ -180,4 +178,3 @@ def preview_model():
         return error(f"No model with provided model id {model_id} found in database"), 400
     else:
         return response(res), 200
-

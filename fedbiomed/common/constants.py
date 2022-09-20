@@ -51,7 +51,7 @@ class ModelTypes(_BaseEnum):
     DEFAULT: str = 'default'
 
 
-class ModelApprovalStatus(_BaseEnum):
+class TrainingPlanApprovalStatus(_BaseEnum):
     """Enumeration class for model approval status of a model on a node when model approval is active.
 
     Attributes:
@@ -64,7 +64,7 @@ class ModelApprovalStatus(_BaseEnum):
     PENDING: str = "Pending"
     
     def str2enum(name: str):
-        for e in ModelApprovalStatus:
+        for e in TrainingPlanApprovalStatus:
             if e.value == name:
                 return e
         return None
@@ -86,6 +86,48 @@ class ProcessTypes(_BaseEnum):
     """
     DATA_LOADER: int = 0
     PARAMS: int = 1
+
+
+class DataLoadingBlockTypes(_BaseEnum):
+    """Base class for typing purposes.
+
+    Concrete enumeration types should be defined within the scope of their
+    implementation or application. To define a concrete enumeration type,
+    one must subclass this class as follows:
+    ```python
+    class MyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
+        MY_KEY: str 'myKey'
+        MY_OTHER_KEY: str 'myOtherKey'
+    ```
+
+    Subclasses must respect the following conditions:
+    - All fields must be str;
+    - All field values must be unique.
+
+    :warning: this class must always be empty as it is not allowed to
+    contain any fields!
+    """
+    def __init__(self, *args):
+        cls = self.__class__
+        if not isinstance(self.value, str):
+            raise ValueError("all fields of DataLoadingBlockTypes subclasses"
+                             " must be of str type")
+        if any(self.value == e.value for e in cls):
+            a = self.name
+            e = cls(self.value).name
+            raise ValueError(
+                f"duplicate values not allowed in DataLoadingBlockTypes and "
+                f"its subclasses: {a} --> {e}")
+
+
+class DatasetTypes(_BaseEnum):
+    TABULAR: str = 'csv'
+    IMAGES: str = 'images'
+    DEFAULT: str = 'default'
+    MEDNIST: str = 'mednist'
+    MEDICAL_FOLDER: str = 'medical-folder'
+    TEST: str = 'test'
+    NONE: str = 'none'
 
 
 class ErrorNumbers(_BaseEnum):
@@ -122,7 +164,8 @@ class ErrorNumbers(_BaseEnum):
     FB312: str = "FB312: Node stopped in SIGTERM signal handler"
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
-    FB315: str = "FB315: Error while loading the data "
+    FB315: str = "FB315: Error while loading the data"
+    FB316: str = "FB316: Data loading plan error"
 
     # application error on researcher
 
@@ -162,7 +205,33 @@ class ErrorNumbers(_BaseEnum):
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
     FB612: str = "FB612: Torch based NIFTI dataset error"
     FB613: str = "FB613: Medical Folder dataset error"
+    FB614: str = "FB614: data loading block error"
+    FB615: str = "FB615: data loading plan error"
 
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
+
+
+class UserRoleType(int, _BaseEnum):
+    """Enumeration class, used to characterize the type of component of the fedbiomed architecture
+
+    Attributes:
+        ADMIN: User with Admin role
+        USER: Simple user
+    """
+
+    ADMIN: int = 1
+    USER: int = 2
+
+
+class UserRequestStatus(str, _BaseEnum):
+    """Enumeration class, used to characterize the status for user registration requests
+
+        Attributes:
+            NEW: New user registration
+            REJECTED: Rejected status
+        """
+
+    NEW: str = "NEW"
+    REJECTED: str = "REJECTED"

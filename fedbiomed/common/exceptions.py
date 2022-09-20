@@ -21,6 +21,20 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedDataLoadingPlanError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
+    """
+    pass
+
+
+class FedbiomedDataLoadingPlanValueError(FedbiomedError):
+    """
+    Exceptions similar to Value Error for a DataLoadingPlan.
+    """
+    pass
+
+
 class FedbiomedDatasetError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
@@ -52,6 +66,20 @@ class FedbiomedEnvironError(FedbiomedError):
 class FedbiomedExperimentError(FedbiomedError):
     """
     Exception specific to the Experiment class.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockError(FedbiomedError):
+    """
+    Exception specific to the DataLoadingBlock classes/subclasses.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockValueError(FedbiomedError):
+    """
+    Exception similar to ValueError for a DataLoadingBlock.
     """
     pass
 

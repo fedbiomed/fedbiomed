@@ -1,7 +1,7 @@
 import React from 'react';
-import Accordion from "../../components/layout/Accordion";
-import dropDownStyle from "../../components/layout/Accordion.module.css"
-import {TableData} from "../../components/common/Tables"
+import Accordion from "../../../components/layout/Accordion";
+import dropDownStyle from "../../../components/layout/Accordion.module.css"
+import {TableData} from "../../../components/common/Tables"
 
 const MedicalFolderSubjectInformation = (props) => {
     if(props.subjects.available_subjects){
