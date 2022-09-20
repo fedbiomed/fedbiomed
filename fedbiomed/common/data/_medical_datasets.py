@@ -18,11 +18,11 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
+from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from ._data_loading_plan import DataLoadingPlanMixin
 
 
-class MedicalFolderLoadingBlocks(DataLoadingBlockTypes, Enum):
+class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
 
 
@@ -69,7 +69,8 @@ class NIFTIFolderDataset(Dataset):
             target_transform: transforms to be applied on target indexes.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: bad root path
         """
         # check parameters type
         for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
@@ -167,7 +168,9 @@ class NIFTIFolderDataset(Dataset):
             A tuple composed of the input sample (an image) and a target sample index (label index).
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: cannot get sample
+            FedbiomedDatasetError: cannot apply transform to sample
         """
         # check type and value for arguments
         if not isinstance(item, int):
@@ -221,8 +224,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
     """Controller class for Medical Folder dataset.
 
     Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata
-    in formation such as modalities number of subject etc.
+    information such as modalities, number of subject etc.
     """
+
+    default_modality_names = ['T1', 'T2', 'label']
 
     def __init__(self, root: Union[str, Path, None] = None):
         """Constructs MedicalFolderBase
@@ -252,7 +257,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
-    def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
+    def modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
         """ Gets all possible modality folders under root directory
 
         Returns:
@@ -262,7 +267,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
 
         # Accept only folders that don't start with "." and "_"
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
-        return list(set(modalities)), modalities
+        return sorted(list(set(modalities))), modalities
 
     # TODO: is `modality_folders_list` useful or should it be removed ?
     # should it return encountered modalities instead of encountered modality folders ?
@@ -274,9 +279,9 @@ class MedicalFolderBase(DataLoadingPlanMixin):
              List of unique available modalities
              List of all encountered modality folders in each subject folder, appearing once per folder
         """
-        modality_candidates, modality_folders_list = self._modalities_candidates_from_subfolders()
-        if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
-            modalities = list(self._dlp[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map.keys())
+        modality_candidates, modality_folders_list = self.modalities_candidates_from_subfolders()
+        if self._dlp is not None and MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS in self._dlp:
+            modalities = list(self._dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map.keys())
             return modalities, modality_folders_list
         else:
             return modality_candidates, modality_folders_list
@@ -292,14 +297,17 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             List of `bool` that represents whether modality is existing respectively for each of modality.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
         """
         if not isinstance(subject, str):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected string for subject folder/ID, but got {type(subject)}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected string for subject folder/ID, "
+                                        f"but got {type(subject)}")
         if not isinstance(modalities, list):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list for modalities, but got {type(modalities)}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list for modalities, "
+                                        f"but got {type(modalities)}")
         if not all([type(m) is str for m in modalities]):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, but some modalities are "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, "
+                                        f"but some modalities are "
                                         f"{' '.join([ str(type(m) for m in modalities if type(m) != str)])}")
         are_modalities_existing = list()
         for modality in modalities:
@@ -333,23 +341,27 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             were found, or if more than one matching folder was found.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad argument type
+            FedbiomedDatasetError: cannot access folder
         """
         if not isinstance(modality, str):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for modality. Expected str got {type(modality)}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for modality. "
+                                        f"Expected str got {type(modality)}")
         if isinstance(subject_or_folder, str):
             subject_or_folder = self._root.joinpath(subject_or_folder)
         elif not isinstance(subject_or_folder, Path):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for subject folder argument. "
                                         f"Expected str or Path got type({type(subject_or_folder)})")
 
-        modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
+        modality_folders = set(self.apply_dlb([modality],
+                                              MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS,
+                                              modality))
         try:
             subject_subfolders = set(
                 [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
         except (FileNotFoundError, PermissionError, NotADirectoryError) as e:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot access folders for subject {subject_or_folder}. "
-                                        f"Error message is: {e}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot access folders for subject "
+                                        f"{subject_or_folder}. Error message is: {e}")
         folder = modality_folders.intersection(subject_subfolders)
 
         if len(folder) == 0 or len(folder) > 1:
@@ -411,7 +423,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         """ Read demographics tabular file for Medical Folder dataset
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: bad file format
         """
         path = Path(path)
         if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
@@ -449,7 +461,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         if not path.exists():
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Folder or file {path} not found on system")
         if not path.is_dir():
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root for Medical Folder dataset should be a directory.")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root for Medical Folder dataset "
+                                        f"should be a directory.")
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
@@ -463,6 +476,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                                         f"root/<subjects>/<modalities>")
 
         return path
+
+    @staticmethod
+    def get_dataset_type() -> DatasetTypes:
+        return DatasetTypes.MEDICAL_FOLDER
 
 
 class MedicalFolderDataset(Dataset, MedicalFolderBase):
@@ -536,7 +553,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         if not subjects:
             # case where subjects is an empty list (subject folders have not been found)
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot find subject folders")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB613.value}: Cannot find complete subject folders with all the modalities")
         # Get subject folder
         subject_folder = subjects[item]
 
@@ -715,7 +733,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             FedbiomedDatasetError: If given parameters are not of `dict` type
         """
         if not isinstance(parameters, dict):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected type for `parameters` is `dict, but got {type(parameters)}`")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected type for `parameters` is `dict, "
+                                        f"but got {type(parameters)}`")
 
         for key, value in parameters.items():
             if hasattr(self, key):
@@ -806,7 +825,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             A dict of transforms compatible with the provided modalities.
 
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: sample uses unknown modality
+            FedbiomedDatasetError: transform method must be callable
+            FedbiomedDatasetError: bad type for parameters
         """
 
         # Return None if any transform is not provided

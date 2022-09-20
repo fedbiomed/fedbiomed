@@ -2,6 +2,9 @@
 
 version 3 implementation of the Fed-BioMed project
 
+## Table of Contents
+[[_TOC_]]
+
 ## Introduction
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
@@ -541,6 +544,13 @@ provided, default will be``config_node.ini``.
 It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
 it you can modify following command.
 
+The GUI is based on HTTPS and by default, it will generate a self-signed certificate for you. Butyou can also start GUI specifying the certificate and the private key
+names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**  
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' cert '<name-of-certificate>' key '<name-of-private-key>' start
+```
+
 **IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
 ```shell
@@ -587,7 +597,7 @@ The command above will serve ``var/gui-build`` directory as well as API services
 see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
+source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
 cd ${FEDBIOMED_DIR}/gui/ui
 npm start
 ```

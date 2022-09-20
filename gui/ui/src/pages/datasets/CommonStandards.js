@@ -7,6 +7,7 @@ import Repository from "../repository"
 import {addNewDataset, addDefaultDataset} from "../../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
 import {ADD_DATASET_ERROR_MESSAGES} from "../../constants";
+import FileBrowser from "../../components/common/FileBrowser";
 
 export const CommonStandards = (props) => {
 
@@ -157,12 +158,11 @@ export const CommonStandards = (props) => {
                 <div className="row">
                    <div className={`form-control`}>
                        <Label>Please select datafile or folder you would like to add</Label>
-                        <div className={"repository-select"}>
-                            <Button onClick={openRepositoryModal}>Select Data File</Button>
-                            <div className={`path`}>
-                                { props.new_dataset.path ?  '/'+ props.new_dataset.path.join('/'): null}
-                            </div>
-                        </div>
+                       <FileBrowser
+                        folderPath = {props.new_dataset ? props.new_dataset.path : null}
+                        onSelect={onFolderFileSelect}
+                        buttonText = "Select Data File/Folder"
+                        />
                     </div>
                     <div className="form-control">
                         <Label>Please select data type</Label>

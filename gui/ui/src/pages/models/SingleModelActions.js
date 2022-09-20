@@ -21,7 +21,6 @@ const SingleModelActions = (props) => {
     const handleModalApprove = (action) => {
 
         setModal({...modal, show:false})
-        console.log(notes)
         action({model_id: single_model.model_id, notes: notes}, navigator)
     }
 
