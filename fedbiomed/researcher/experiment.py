@@ -1405,7 +1405,7 @@ class Experiment(object):
         return self._tensorboard
 
     @exp_exceptions
-    def set_new_correction_states_dict(self, server_state) -> dict:
+    def set_new_correction_states_dict(self, server_state: dict) -> dict:
         """ At round i, calling this function allows us to define each client correction state for round i+1 (with i > 0).
         correction_state_i+1 = correction_state_i + (server_state_opt_i - client_state_opt_i) / lr*num_updates
         client_state_opt_i stands for client model state after local optimization at round i
