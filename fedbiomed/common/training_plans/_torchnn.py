@@ -16,10 +16,8 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
+from fedbiomed.common.privacy import DPController
 from ._base_training_plan import BaseTrainingPlan
-
-from opacus import PrivacyEngine
-from opacus.validators import ModuleValidator
 
 
 class TorchTrainingPlan(BaseTrainingPlan):
@@ -48,6 +46,9 @@ class TorchTrainingPlan(BaseTrainingPlan):
 
         self.__type = TrainingPlans.TorchTrainingPlan
 
+        # Differential privacy support
+        self._dp_controller = None
+
         self._optimizer = None
         self._model = None
 
@@ -72,9 +73,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
         self._device_init = "cpu"
         self._device = self._device_init
 
-        # Differential Privacy support
-        self.dp_args = None
-
         # list dependencies of the model
         self.add_dependency(["import torch",
                              "import torch.nn as nn",
@@ -89,14 +87,13 @@ class TorchTrainingPlan(BaseTrainingPlan):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict) -> None:
         """ Sets arguments for training, model and optimizer
 
         Args:
             model_args: Arguments defined by researcher to instantiate model/torch module
             training_args: Arguments that are used in training routine such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
-            optimizer_args: Arguments for torch base [`Optimizer`][torch.optim.Optimizer]
 
         Raises:
             FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
@@ -104,9 +101,8 @@ class TorchTrainingPlan(BaseTrainingPlan):
         """
 
         self._model_args = model_args
-        self._optimizer_args = optimizer_args or {}
-        self._training_args = training_args
-
+        self._optimizer_args = training_args.optimizer_arguments() or {}
+        self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
         self._fedprox_mu = self._training_args.get('fedprox_mu')
@@ -115,6 +111,82 @@ class TorchTrainingPlan(BaseTrainingPlan):
         self._dry_run = self._training_args.get('dry_run')
 
         # Add dependencies
+        self._configure_dependencies()
+
+        # Configure model and optimizer
+        self._configure_model_and_optimizer()
+
+        # Initial aggregated model parameters
+        self._init_params = deepcopy(self._model.state_dict())
+        self._dp_controller = DPController(training_plan=self,
+                                           dp_args=training_args.dp_arguments() or None)
+
+    def model(self):
+        return self._model
+
+    def optimizer(self):
+        return self._optimizer
+
+    def model_args(self) -> Dict:
+        """Retrieves model args
+
+        Returns:
+            Model arguments arguments
+        """
+        return self._model_args
+
+    def training_args(self) -> Dict:
+        """Retrieves training args
+
+        Returns:
+            Training arguments
+        """
+        return self._training_args
+
+    def optimizer_args(self) -> Dict:
+        """Retrieves optimizer arguments
+
+        Returns:
+            Optimizer arguments
+        """
+        return self._optimizer_args
+
+    def initial_parameters(self) -> Dict:
+        """Returns initial parameters without DP or training applied
+
+        Returns:
+            State dictionary of torch Module
+        """
+        return self._init_params
+
+    def init_model(self):
+        """Abstract method where model should be defined """
+        pass
+
+    def init_dependencies(self) -> List:
+        """Default method where dependencies are returned
+
+        Returns:
+            Empty list as default
+        """
+        return []
+
+    def init_optimizer(self):
+        """Abstract method for declaring optimizer by default """
+        try:
+            self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
+        except AttributeError as e:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
+                                             f"optimizer Adam. Error: {e}")
+
+        return self._optimizer
+
+    def type(self) -> TrainingPlans.TorchTrainingPlan:
+        """ Gets training plan type"""
+        return self.__type
+
+    def _configure_dependencies(self):
+        """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
@@ -125,6 +197,9 @@ class TorchTrainingPlan(BaseTrainingPlan):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
                                              f"ist or tuple, but got {type(dependencies)}")
         self.add_dependency(dependencies)
+
+    def _configure_model_and_optimizer(self):
+        """Configures model and optimizers before training """
 
         # Message to format for unexpected argument definitions in special methods
         method_error = \
@@ -164,61 +239,8 @@ class TorchTrainingPlan(BaseTrainingPlan):
         if not isinstance(self._optimizer, torch.optim.Optimizer):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
 
-    def model(self):
-        return self._model
 
-    def optimizer(self):
-        return self._optimizer
 
-    def model_args(self) -> Dict:
-        """Retrieves model args
-
-        Returns:
-            Model arguments arguments
-        """
-        return self._model_args
-
-    def training_args(self) -> Dict:
-        """Retrieves training args
-
-        Returns:
-            Training arguments
-        """
-        return self._training_args
-
-    def optimizer_args(self) -> Dict:
-        """Retrieves optimizer arguments
-
-        Returns:
-            Optimizer arguments
-        """
-        return self._optimizer_args
-
-    def init_model(self):
-        """Abstract method where model should be defined """
-        pass
-
-    def init_dependencies(self) -> List:
-        """Default method where dependencies are returned
-
-        Returns:
-            Empty list as default
-        """
-        return []
-
-    def init_optimizer(self):
-        """Abstract method for declaring optimizer by default """
-        try:
-            self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
-        except AttributeError as e:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
-                                             f"optimizer Adam. Error: {e}")
-
-        return self._optimizer
-
-    def type(self) -> TrainingPlans.TorchTrainingPlan:
-        """ Gets training plan type"""
-        return self.__type
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -331,24 +353,13 @@ class TorchTrainingPlan(BaseTrainingPlan):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
-        self._model.train()  # pytorch switch for training
 
+        self._model.train()  # pytorch switch for training
 
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
         self._set_device(self._use_gpu, node_args)
-
-
-        if self.dp_args is not None:
-            self.initialize_dp(self.dp_args)
-            self.privacy_engine = PrivacyEngine()
-            self.model, self.optimizer, self.training_data_loader = \
-                self.privacy_engine.make_private(module=self.model,  # assumes researcher already defined self.model
-                                                 optimizer=self.optimizer,
-                                                 data_loader=self.training_data_loader,
-                                                 noise_multiplier=self.dp_args.get('sigma'),
-                                                 max_grad_norm=self.dp_args.get('clip'))
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -359,12 +370,8 @@ class TorchTrainingPlan(BaseTrainingPlan):
         # Run preprocess when everything is ready before the training
         self.__preprocess()
 
-        # Initialize training data that comes from Round class
-        # TODO: Decide whether it should attached to `self`
-        # self.data = data_loader
-
-        # initial aggregated model parameters
-        self._init_params = deepcopy(self._model.state_dict())
+        # DP actions
+        self._dp_controller.before_training()
 
         for epoch in range(1, self._epochs + 1):
             # (below) sampling data (with `training_data` method defined on
@@ -387,11 +394,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
                 res.backward()
 
                 self._optimizer.step()
-
-                if self.dp_args:
-                    # To be used by the nodes to assess budget locally
-                    eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.training_data_loader))
-
 
                 if batch_ % self._log_interval == 0 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
@@ -587,120 +589,19 @@ class TorchTrainingPlan(BaseTrainingPlan):
             The state_dict of the model, or modified state_dict if preprocess is present
         """
 
-        try:
-            # Check whether postprocess method exists, and use it
-            logger.debug("running model.postprocess() method")
-            post_params = self.postprocess(self._model.state_dict())  # Post process
-            if self.dp_args:
-                return self.postprocess_dp(post_params)
-            return post_params
-        except AttributeError:
-            # Method does not exist; skip
-            logger.debug("model.postprocess() method not provided")
-            if self.dp_args:
-                return self.postprocess_dp(self._model.state_dict())
-            else:
-                pass
 
-        return self._model.state_dict()
-
-    def initialize_dp(self, dp_args: dict):
-        """Initialize arguments to perform DP training, and check that the user
-        has correctly provided all requested DP parameters in the correct form
-
-        Args:
-            dp_args (dict, optional): DP parameters provided by the user
-        """
-        assert 'type' in dp_args,  "DP 'type' not provided"
-        assert 'sigma' in dp_args, "DP 'sigma' parameter not provided"
-        assert 'clip' in dp_args,  "DP 'clip' parameter not provided"
-        assert dp_args['type'] in ['central','local'], "DP strategy unknown"
-
-        if dp_args['type'] == 'local':
+        # Check whether postprocess method exists, and use it
+        logger.debug("running model.postprocess() method")
+        params = self._model.state_dict()
+        if hasattr(self, 'postprocess'):
             try:
-                float(dp_args['sigma'])
-            except ValueError:
-                msg = ErrorNumbers.FB605.value + ": 'sigma'  parameter requested is not a float"
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-        else:
-            dp_args.update(sigma_CDP=dp_args['sigma'])
-            dp_args['sigma'] = 0.
+                params = self.postprocess(self._model.state_dict())  # Post process
+            except Exception as e:
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
+                                                 f"{e}" )
 
-        try:
-            float(dp_args['clip'])
-        except ValueError:
-            msg = ErrorNumbers.FB605.value + ": 'clip'  parameter requested is not a float"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        self.dp_args = dp_args
-
-    def postprocess_dp(self, params: dict) -> dict:
-        """
-        Postprocess of model's parameters after training with DP.
-
-        Postprocess of DP parameters implies:
-        - If central DP is enabled, model's parameters are perturbed
-             according to the provided DP parameters
-        - When the Opacus `PrivacyEngine` is attached to the model,
-            parameters' names are modified by the addition of `_module.`.
-            This modification should be undone before communicating to the master
-            for aggregation. This is needed in order to correctly perform
-            download/upload of model's parameters in the following rounds
-
-        Args:
-            params (dict): optimized parameters
-
-        Returns:
-            dict containing (postprocessed) parameters
-
-        Exceptions:
-            none
-        """
-
-        if self.dp_args['type'] == 'central':
-
-            sigma_CDP = deepcopy(self.dp_args['sigma_CDP'])
-
-            delta_params = {}
-            perturbed_params = {}
-            for name, param in params.items():
-                ###
-                ### Extracting the update
-                ###
-                delta_theta = deepcopy(param)
-                delta_params[name] = delta_theta - self.init_params[name]
-
-            for key, delta_param in delta_params.items():
-                ###
-                ### Perturb update and update parameters
-                ###
-                delta_theta_tilde = deepcopy(delta_param)
-                delta_theta_tilde += sigma_CDP*self.dp_args['clip'] * torch.randn_like(delta_theta_tilde)
-                perturbed_params[key]= delta_theta_tilde + self.init_params[key]
-
-            params = deepcopy(perturbed_params )
-
-        params_keys = list(params.keys())
-        for key in params_keys:
-            if '_module' in key:
-                newkey = key.replace('_module.', '')
-                params[newkey] = params.pop(key)
-
+        params = self._dp_controller.after_training(params)
         return params
-
-    def make_optimizer(self,lr: float):
-        """
-        Method to define the desired optimizer as class attribute `self.optimizer`.
-
-        The default optimizer for torch NN models is `torch.optim.Adam`.
-        The user can overwrite this method to provide a custom optimizer.
-
-        Args:
-            lr (float): learning rate
-        """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
@@ -724,12 +625,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
             else:
                 logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
-
-    def validate_and_fix_model(self):
-        # Validate and Fix model to be DP-compliant
-        if not ModuleValidator.is_valid(self.model):
-            print('######################################## Fixing Model ########################################')
-            self.model = ModuleValidator.fix(self.model)
 
     def __process_data_loader(self, method: Callable):
         """Process handler for data loader kind processes.
