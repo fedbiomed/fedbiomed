@@ -289,14 +289,26 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
     def __getitem__(self, item):
         """Forwards call to the flamby_fed_class"""
+        if self.__flamby_fed_class is None:
+            msg = f"{ErrorNumbers.FB616.value}. Cannot get item because FedClass was not initialized."
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
         return self.__flamby_fed_class[item]
 
     def __len__(self):
         """Forwards call to the flamby_fed_class"""
+        if self.__flamby_fed_class is None:
+            msg = f"{ErrorNumbers.FB616.value}. Cannot compute len because FedClass was not initialized."
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
         return len(self.__flamby_fed_class)
 
     def shape(self) -> List[int]:
         """Returns the shape of the flamby_fed_class"""
+        if self.__flamby_fed_class is None:
+            msg = f"{ErrorNumbers.FB616.value}. Cannot compute shape because FedClass was not initialized."
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
         return [len(self)] + list(self.__getitem__(0)[0].shape)
 
     def set_dlp(self, dlp):
