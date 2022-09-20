@@ -213,12 +213,17 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         center_id = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
 
         # finally instantiate FedClass
-        if self._transform is not None:
-            # Since the __init__ signatures are different, we are forced to distinguish two cases
-            self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
-                                                      pooled=False)
-        else:
-            self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
+        try:
+            if self._transform is not None:
+                # Since the __init__ signatures are different, we are forced to distinguish two cases
+                self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
+                                                          pooled=False)
+            else:
+                self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
+        except Exception as e:
+            msg = f"{ErrorNumbers.FB616.value}. Error while instantiating FedClass from module {module}"
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg) from e
 
     def init_transform(self, transform: Union[MonaiCompose, TorchCompose]) -> Union[MonaiCompose, TorchCompose]:
         """Initializes the transform attribute. Must be called before initialization of the wrapped FedClass.
