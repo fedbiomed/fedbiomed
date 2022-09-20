@@ -1,16 +1,17 @@
 import inspect
 import numpy as np
 import pandas as pd
-from fedbiomed.common.training_plans import SGDSkLearnModel
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB
+from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.data import DataManager
 from sklearn.linear_model import Perceptron
+from fedbiomed.common.training_plans import FedPerceptron
+from sklearn.linear_model import Perceptron
 
-class SkLearnTrainingPlan(SGDSkLearnModel):
-    def __init__(self, model_args: dict = {}):
-        super(SkLearnTrainingPlan,self).__init__(model_args)
-        self.add_dependency(["from sklearn.linear_model import Perceptron"])
+class PerceptronTrainingPlan(FedPerceptron):
+
+    def init_dependencies(self):
+        return ["from fedbiomed.common.training_plans import FedPerceptron",
+                             "from sklearn.linear_model import Perceptron"]
     
     def training_data(self):
         NUMBER_COLS = 20

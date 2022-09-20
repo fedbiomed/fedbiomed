@@ -26,8 +26,8 @@ class ExperimentMock():
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 round_limit: Union[int, None] = None,
-                model_class: Union[Type_TrainingPlan, str, None] = None,
-                model_path: Union[str, None] = None,
+                training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+                training_plan_path: Union[str, None] = None,
                 model_args: dict = {},
                 training_args: dict = {},
                 save_breakpoints: bool = False,
@@ -46,13 +46,14 @@ class ExperimentMock():
         self._round_current = 0
         self._round_limit = round_limit
         self._experimentation_folder = experimentation_folder
-        self._model_class = model_class
-        self._model_path = model_path
+        self._training_plan_class = training_plan_class
+        self._training_plan_path = training_plan_path
         self._model_args = model_args
-        self._training_args = TrainingArgs( only_required = False)
+        self._training_args = TrainingArgs(only_required=False)
         class Job:
             def load_state(self, saved_state):
                 self._saved_state = saved_state
+
         self._job = Job() # minimal
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints

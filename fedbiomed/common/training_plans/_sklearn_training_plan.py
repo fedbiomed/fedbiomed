@@ -6,7 +6,7 @@ This module implements the base class for all implementations of Fed-BioMed wrap
 import sys
 import numpy as np
 
-from typing import Any, Dict, Union, Callable
+from typing import Any, Dict, Callable, List, Optional, Tuple, Union
 from io import StringIO
 from joblib import dump, load
 
@@ -54,36 +54,26 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         dataset_path: the path to the dataset on the node
     """
 
-    def __init__(self, model_args: dict = None):
+    def __init__(self):
         """
         Class initializer.
 
         Args:
         - model_args (dict, optional): model arguments. Defaults to {}.
         """
-        if model_args is None:
-            model_args = {}
         super().__init__()
+        self._model = self._model_cls()
+        self._model_args = None
+        self._training_args = None
+        self._params = None
 
-        if getattr(self, 'model') is None:
+        if getattr(self, '_model') is None:
             msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        if not isinstance(model_args, dict):
-            msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        self.params = self.model.get_params()
-        self.params.update({key: model_args[key] for key in model_args if key in self.params})
-
-        self.model_args = model_args
-
-        self.param_list = []
-
+        self._param_list = []
         self.__type = TrainingPlans.SkLearnTrainingPlan
-
         self._is_classification = False
         self._is_regression = False
         self._is_clustering = False
@@ -97,15 +87,66 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              "from fedbiomed.common.data import DataManager",
                              ])
 
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
+        """ Instantiates model, training and optimizer arguments
+
+        Args:
+            model_args: Model arguments
+            training_args: Training arguments
+            optimizer_args: Optimizer arguments. Unused for SkLearn-based classes but API-mandatory.
+
+        """
+        dependencies: Union[Tuple, List] = self.init_dependencies()
+        if not isinstance(dependencies, (list, tuple)):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
+                                             f"ist or tuple, but got {type(dependencies)}")
+        self.add_dependency(dependencies)
+
+        self._model_args = model_args
+        self._training_args = training_args
+        self._params = self._model.get_params()
+        self._params.update({key: self._model_args[key] for key in model_args if key in self._params})
+        self.set_init_params()
+
+    def model_args(self) -> Dict:
+        """Retrieves model arguments
+
+        Returns:
+            Model arguments
+        """
+        return self._model_args
+
+    def training_args(self):
+        """Retrieves training arguments
+
+        Returns:
+            Training arguments
+        """
+        return self._training_args
+
+    def model(self):
+        """ Retrieves SKLearn model
+
+        Returns:
+            SKLearn model object
+        """
+        return self._model
+
+    def init_dependencies(self) -> List:
+        """Default method where dependencies are returned
+
+         Returns:
+             Empty list as default
+         """
+        return []
+
     def training_routine(self,
-                         epochs: int = 1,
-                         history_monitor = None,
+                         history_monitor=None,
                          node_args: Union[dict, None] = None):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 
         Args:
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
         - node_args (Union[dict, None]): command line arguments for node. Can include:
             - gpu (bool): propose use a GPU device if any is available. Default False.
@@ -114,7 +155,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             - gpu_only (bool): force use of a GPU device if any available, even if researcher
               doesnt request for using a GPU. Default False.
                 """
-        if self.model is None:
+        if self._model is None:
             raise FedbiomedTrainingPlanError('model in None')
 
         # Run preprocesses
@@ -125,14 +166,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                            'does not support it. Training on CPU.')
 
         try:
-            self._training_routine_core_loop(epochs,
+            self._training_routine_core_loop(self._training_args["epochs"],
                                              history_monitor)
         except FedbiomedTrainingPlanError as e:
             raise e
 
     def _training_routine_core_loop(self,
                                     epochs: int = 1,
-                                    history_monitor = None):
+                                    history_monitor: Any = None):
         """
         Training routine core
         Args:
@@ -157,7 +198,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
                     loss = self.evaluate_loss(output, epoch)
 
-                    loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
+                    loss_function = 'Loss ' + self._model.loss if hasattr(self._model, 'loss') else 'Loss'
                     # TODO: This part should be changed after mini-batch implementation is completed
                     history_monitor.add_scalar(metric={loss_function: float(loss)},
                                                iteration=1,
@@ -169,10 +210,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 else:
                     # TODO: For clustering; passes inertia value as scalar. It should be implemented when
                     #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
-                    #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
+                    #  self._model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
-    def _evaluate_loss_core(self, output: StringIO, epoch: int) -> list[float]:
+    @staticmethod
+    def _evaluate_loss_core(output: StringIO, epoch: int) -> list[float]:
         """
         Evaluate the loss when verbose option _verbose_capture_option is set to True.
         Args:
@@ -230,9 +272,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         data, target = self.testing_data_loader
 
         # At the first round model won't have classes_ attribute
-        if self._is_classification and not hasattr(self.model, 'classes_'):
+        if self._is_classification and not hasattr(self._model, 'classes_'):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self.model, 'classes_', classes)
+            setattr(self._model, 'classes_', classes)
 
         # Build metrics object
         metric_controller = Metrics()
@@ -271,7 +313,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                     " for model validation.")
 
             try:
-                pred = self.model.predict(data)
+                pred = self._model.predict(data)
             except Exception as e:
                 msg = ErrorNumbers.FB605.value + \
                       ": error during predicting validation data set - " + \
@@ -405,12 +447,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         Returns:
             np.ndarray: support
         """
-        support = np.zeros((len(self.model.classes_),))
+        support = np.zeros((len(self._model.classes_),))
 
         # to see how multi classification is done in sklearn, please visit:
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
-        for i, aclass in enumerate(self.model.classes_):
+        for i, aclass in enumerate(self._model.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
             # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
@@ -439,15 +481,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         """
         file = open(filename, "wb")
         if params is None:
-            dump(self.model, file)
+            dump(self._model, file)
         else:
             if params.get('model_params') is not None:  # called in the Round
                 for p in params['model_params'].keys():
-                    setattr(self.model, p, params['model_params'][p])
+                    setattr(self._model, p, params['model_params'][p])
             else:
                 for p in params.keys():
-                    setattr(self.model, p, params[p])
-            dump(self.model, file)
+                    setattr(self._model, p, params[p])
+            dump(self._model, file)
         file.close()
 
     def load(self, filename: str, to_params: bool = False) -> Dict:
@@ -468,11 +510,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         di_ret = {}
         file = open(filename, "rb")
         if not to_params:
-            self.model = load(file)
-            di_ret = self.model
+            self._model = load(file)
+            di_ret = self._model
         else:
-            self.model = load(file)
-            di_ret['model_params'] = {key: getattr(self.model, key) for key in self.param_list}
+            self._model = load(file)
+            di_ret['model_params'] = {key: getattr(self._model, key) for key in self._param_list}
         file.close()
         return di_ret
 
@@ -481,7 +523,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             Returns:
                 the scikit model object (sklearn.base.BaseEstimator)
         """
-        return self.model
+        return self._model
 
     def type(self):
         """Getter for training plan type """
@@ -495,4 +537,4 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         Returns:
             the federated parameters (dictionary)
         """
-        return {key: getattr(self.model, key) for key in self.param_list}
+        return {key: getattr(self._model, key) for key in self._param_list}

@@ -1,6 +1,5 @@
 """ Module contains Base class that includes common methods that are used for all training plans"""
 
-
 import numpy as np
 import torch
 
@@ -27,11 +26,12 @@ class BaseTrainingPlan(object):
         training_data_loader: Data loader for training routine/loop
         testing_data_loader: Data loader for validation routine
     """
+
     def __init__(self):
         """Construct base training plan"""
 
         super().__init__()
-        self.dependencies = []
+        self._dependencies = []
         self.dataset_path = None
         self.pre_processes = OrderedDict()
         self.training_data_loader = None
@@ -46,7 +46,9 @@ class BaseTrainingPlan(object):
            dep: Dependency to add. Dependencies should be indicated as import string. e.g. `from torch import nn`
         """
 
-        self.dependencies.extend(dep)
+        for val in dep:
+            if val not in self._dependencies:
+                self._dependencies.append(val)
 
     def set_dataset_path(self, dataset_path):
         """Dataset path setter for TrainingPlan
@@ -84,14 +86,14 @@ class BaseTrainingPlan(object):
             class_source = get_class_source(self.__class__)
         except FedbiomedError as e:
             msg = ErrorNumbers.FB605.value + \
-                " : error while getting source of the model class - " + \
-                str(e)
+                  " : error while getting source of the model class - " + \
+                  str(e)
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         # Preparing content of the module
         content = ""
-        for s in self.dependencies:
+        for s in self._dependencies:
             content += s + "\n"
 
         content += "\n"
@@ -105,7 +107,7 @@ class BaseTrainingPlan(object):
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
-                ", can't write the model content into it"
+                   ", can't write the model content into it"
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
@@ -140,16 +142,16 @@ class BaseTrainingPlan(object):
         """
         if not isinstance(method, Callable):
             msg = ErrorNumbers.FB605.value + \
-                " : error while adding preprocess, " + \
-                "preprocess should be a callable method"
+                  " : error while adding preprocess, " + \
+                  "preprocess should be a callable method"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         if not isinstance(process_type, ProcessTypes):
             msg = ErrorNumbers.FB605.value + \
-                " : error while adding preprocess," + \
-                " process type should be an instance of" + \
-                " `fedbiomed.common.constants.ProcessType`"
+                  " : error while adding preprocess," + \
+                  " process type should be an instance of" + \
+                  " `fedbiomed.common.constants.ProcessType`"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -209,10 +211,10 @@ class BaseTrainingPlan(object):
 
         else:
             msg = ErrorNumbers.FB605.value + \
-                " : metric value should be one of type" + \
-                " int, float, np.integer, torch.Tensor," + \
-                "list of int/float/np.integer/torch.Tensor or" + \
-                "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
-                str(type(metric))
+                  " : metric value should be one of type" + \
+                  " int, float, np.integer, torch.Tensor," + \
+                  "list of int/float/np.integer/torch.Tensor or" + \
+                  "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
+                  str(type(metric))
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
