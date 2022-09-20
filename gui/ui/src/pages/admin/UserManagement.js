@@ -21,10 +21,13 @@ import UserRoleSelectBox from "./UserRoleSelectBox";
 
 const UserManagement = (props) => {
 
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(15);
-    const [sortField, setSortField] = useState('name');
-    const [sortDirection, setSortDirection] = useState('asc');
+
+    const tableRef = React.useRef();
+
+    // const [pageIndex, setPageIndex] = useState(0);
+    // const [pageSize, setPageSize] = useState(15);
+    // const [sortField, setSortField] = useState('name');
+    // const [sortDirection, setSortDirection] = useState('asc');
     const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
 
     const [items, setItems] = useState([])
@@ -53,53 +56,6 @@ const UserManagement = (props) => {
         setItems(props.user_list)
     }, [props.user_list])
 
-    /**
-     * Lifecycle method to keep track change on use table
-     */
-    React.useEffect( () => {
-        let begin = pageIndex * pageSize
-        let end = pageIndex * pageSize + pageSize
-        let display = props.user_list.slice(begin, end)
-
-        // Sort with custom function
-        display.sort( (a, b) => {
-                        if ( a[sortField] < b[sortField] ){
-                            return  sortDirection === "asc" ? -1 : 1 ;
-                        }
-
-                        if ( a[sortField] > b[sortField] ){
-                            return sortDirection === "asc" ? 1 : -1 ;
-                        }
-
-                        return 0;
-        })
-        setItems(display)
-    }, [pageIndex, pageSize, sortField, sortDirection])
-
-    /**
-     * On table value is changed
-     * @param page
-     * @param sort
-     */
-    const onTableChange = ({ page = {}, sort = {} }) => {
-        const { index: pageIndex, size: pageSize } = page;
-        const { field: sortField, direction: sortDirection } = sort;
-        setPageIndex(pageIndex);
-        setPageSize(pageSize);
-        setSortField(sortField);
-        setSortDirection(sortDirection);
-    };
-
-    /**
-     * Sorting credentials
-     * @type {{sort: {field: string, direction: string}}}
-     */
-    const sorting = {
-        sort: {
-          field: sortField,
-          direction: sortDirection,
-        },
-      };
 
     // Column contains scheme for designing grid
     const columns = [
@@ -154,15 +110,12 @@ const UserManagement = (props) => {
 
     /**
      * Pagination options
-     * @type {{pageSizeOptions: number[], pageIndex: number, pageSize: number, totalItemCount: number}}
+     * @type {{pageSizeOptions: number[], initialPageSize: number}}
      */
-    const pagination = {
-        pageIndex: pageIndex,
-        pageSize: pageSize,
-        totalItemCount: props.user_list.length,
-        pageSizeOptions: [10, 20, 30],
-    };
-
+      const pagination = {
+        initialPageSize: 20,
+        pageSizeOptions: [20, 40, 60],
+      };
 
     const deleteUserConfirmationHandler = () => {
         let user_id = userToDelete
@@ -207,9 +160,8 @@ const UserManagement = (props) => {
                         items={items}
                         columns={columns}
                         pagination={pagination}
-                        sorting={sorting}
+                        sorting={true}
                         hasActions={true}
-                        onChange={onTableChange}
                         loading={props.loading}
                         search={{box: {
                                   incremental: true,

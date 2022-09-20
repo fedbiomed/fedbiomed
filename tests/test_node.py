@@ -224,12 +224,12 @@ class TestNode(unittest.TestCase):
     def test_node_06_on_message_normal_case_scenario_model_status(self,
                                                                   node_msg_request_patch,
                                                                   ):
-        """Tests normal case scenario, if command is equals to 'model-status"""
+        """Tests normal case scenario, if command is equals to 'training-plan-status"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         # defining arguments
         model_status_msg = {
-            'command': 'model-status',
+            'command': 'training-plan-status',
             'researcher_id': 'researcher_id_1234',
         }
 
@@ -381,8 +381,8 @@ class TestNode(unittest.TestCase):
         dict_msg_1_dataset = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
-            'model_url': 'https://link.to.somewhere.where.my.model',
-            'model_class': 'my_test_training_plan',
+            'training_plan_url': 'https://link.to.somewhere.where.my.model',
+            'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
@@ -411,8 +411,8 @@ class TestNode(unittest.TestCase):
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training': True,
-            'model_url': 'https://link.to.somewhere.where.my.model',
-            'model_class': 'my_test_training_plan',
+            'training_plan_url': 'https://link.to.somewhere.where.my.model',
+            'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
@@ -437,8 +437,8 @@ class TestNode(unittest.TestCase):
                                        dict_msg_2_datasets['training_args'],
                                        True,
                                        self.database_id,
-                                       dict_msg_2_datasets['model_url'],
-                                       dict_msg_2_datasets['model_class'],
+                                       dict_msg_2_datasets['training_plan_url'],
+                                       dict_msg_2_datasets['training_plan_class'],
                                        dict_msg_2_datasets['params_url'],
                                        dict_msg_2_datasets['job_id'],
                                        dict_msg_2_datasets['researcher_id'],
@@ -479,8 +479,8 @@ class TestNode(unittest.TestCase):
         dict_msg_without_datasets = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
-            'model_url': 'https://link.to.somewhere.where.my.model',
-            'model_class': 'my_test_training_plan',
+            'training_plan_url': 'https://link.to.somewhere.where.my.model',
+            'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': resid,
@@ -519,8 +519,8 @@ class TestNode(unittest.TestCase):
         dict_msg_1_dataset = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
-            'model_url': 'https://link.to.somewhere.where.my.model',
-            'model_class': 'my_test_training_plan',
+            'training_plan_url': 'https://link.to.somewhere.where.my.model',
+            'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
@@ -544,8 +544,8 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['training_args'],
                                             True,
                                             self.database_id,
-                                            dict_msg_1_dataset['model_url'],
-                                            dict_msg_1_dataset['model_class'],
+                                            dict_msg_1_dataset['training_plan_url'],
+                                            dict_msg_1_dataset['training_plan_class'],
                                             dict_msg_1_dataset['params_url'],
                                             dict_msg_1_dataset['job_id'],
                                             dict_msg_1_dataset['researcher_id'],
@@ -567,8 +567,8 @@ class TestNode(unittest.TestCase):
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "training": True,
-            "model_url": "https://link.to.somewhere.where.my.model",
-            "model_class": "my_test_training_plan",
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
@@ -592,8 +592,8 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['training_args'],
                                             True,
                                             self.database_id,
-                                            dict_msg_1_dataset['model_url'],
-                                            dict_msg_1_dataset['model_class'],
+                                            dict_msg_1_dataset['training_plan_url'],
+                                            dict_msg_1_dataset['training_plan_class'],
                                             dict_msg_1_dataset['params_url'],
                                             dict_msg_1_dataset['job_id'],
                                             dict_msg_1_dataset['researcher_id'],
@@ -616,14 +616,14 @@ class TestNode(unittest.TestCase):
         # FIXME: should we patch `validator` too (currently not patched) ?
         # validator_patch.return_value = True
 
-        # test 1: test case where exception is raised when model_url is None
+        # test 1: test case where exception is raised when training_plan_url is None
         # defining arguments
         resid = 'researcher_id_1234'
-        dict_msg_without_model_url = {
+        dict_msg_without_training_plan_url = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
-            'model_url': None,
-            'model_class': 'my_test_training_plan',
+            'training_plan_url': None,
+            'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': resid,
@@ -632,37 +632,37 @@ class TestNode(unittest.TestCase):
 
         # action
         with self.assertRaises(AssertionError):
-            # checks if `AssertionError`` is raised when `model_url`entry is missing
-            self.n1.parser_task(dict_msg_without_model_url)
+            # checks if `AssertionError`` is raised when `training_plan_url`entry is missing
+            self.n1.parser_task(dict_msg_without_training_plan_url)
 
         # test 2: test case where url is not valid
-        dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_model_url)
-        dict_msg_without_model_url['model_url'] = 'this is not a valid url'
+        dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_training_plan_url)
+        dict_msg_without_training_plan_url['training_plan_url'] = 'this is not a valid url'
 
         # action
         with self.assertRaises(AssertionError):
-            # checks if `AssertionError` is raised when `model_url` is invalid
+            # checks if `AssertionError` is raised when `training_plan_url` is invalid
             self.n1.parser_task(dict_msg_with_unvalid_url)
 
-        # test 3: test case where model_class is None
-        dict_msg_without_model_class = copy.deepcopy(dict_msg_without_model_url)
-        dict_msg_without_model_class['model_class'] = None
+        # test 3: test case where training_plan_class is None
+        dict_msg_without_training_plan_class = copy.deepcopy(dict_msg_without_training_plan_url)
+        dict_msg_without_training_plan_class['training_plan_class'] = None
 
         # action
         with self.assertRaises(AssertionError):
-            # checks if `AssertionError` is raised when `model_class` entry is not defined
-            self.n1.parser_task(dict_msg_without_model_class)
+            # checks if `AssertionError` is raised when `training_plan_class` entry is not defined
+            self.n1.parser_task(dict_msg_without_training_plan_class)
 
-        # test 4: test case where model_class is not of type `str`
-        dict_msg_model_class_bad_type = copy.deepcopy(dict_msg_without_model_url)
+        # test 4: test case where training_plan_class is not of type `str`
+        dict_msg_training_plan_class_bad_type = copy.deepcopy(dict_msg_without_training_plan_url)
         # let's test with integer in place of strings
-        dict_msg_model_class_bad_type['model_class'] = 1234
+        dict_msg_training_plan_class_bad_type['training_plan_class'] = 1234
 
         # action
         with self.assertRaises(AssertionError):
-            # checks if `AssertionError` is raised when `model_class` entry is
+            # checks if `AssertionError` is raised when `training_plan_class` entry is
             # of type string
-            self.n1.parser_task(dict_msg_model_class_bad_type)
+            self.n1.parser_task(dict_msg_training_plan_class_bad_type)
 
     def test_node_16_task_manager_normal_case_scenario(self):
         """Tests task_manager in the normal case scenario"""

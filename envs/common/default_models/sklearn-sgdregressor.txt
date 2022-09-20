@@ -1,28 +1,29 @@
 import inspect
 import numpy as np
 import pandas as pd
-from fedbiomed.common.training_plans import SGDSkLearnModel
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB
+from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.data import DataManager
 from sklearn.linear_model import SGDRegressor
+from fedbiomed.common.training_plans import FedSGDRegressor
+from sklearn.linear_model import SGDRegressor
 
-class SGDRegressorTrainingPlan(SGDSkLearnModel):
-    def __init__(self, model_args: dict = {}):
-        super(SGDRegressorTrainingPlan, self).__init__(model_args)
-        self.add_dependency(["from sklearn.linear_model import SGDRegressor"])
-    
+class SGDRegressorTrainingPlan(FedSGDRegressor):
+
+    def init_dependencies(self):
+        return ["from fedbiomed.common.training_plans import FedSGDRegressor",
+                             "from sklearn.linear_model import SGDRegressor"]
+
     def training_data(self):
-        dataset = pd.read_csv(self.dataset_path,delimiter=',')
-        regressors_col = ['SEX', 'AGE', 'PTEDUCAT', 'WholeBrain.bl',
+        dataset = pd.read_csv(self.dataset_path,delimiter=';')
+        regressors_col = ['AGE', 'WholeBrain.bl',
                           'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl']
         target_col = ['MMSE.bl']
-        
+
         # mean and standard deviation for normalizing dataset
         # it has been computed over the whole dataset
-        scaling_mean = np.array([0.8, 72.3, 16.2, 0.7, 0.0, 0.0, 0.0, 0.0])
-        scaling_sd = np.array([3.5e-01, 7.3e+00, 2.7e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
-        
+        scaling_mean = np.array([72.3, 0.7, 0.0, 0.0, 0.0, 0.0])
+        scaling_sd = np.array([7.3e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
+
         X = (dataset[regressors_col].values-scaling_mean)/scaling_sd
         y = dataset[target_col]
         return DataManager(dataset=X, target=y.values.ravel())

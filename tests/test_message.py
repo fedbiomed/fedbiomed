@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import sys
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -44,8 +44,8 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             message.ListReply,
             message.ListRequest,
-            message.ModelStatusReply,
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusReply,
+            message.TrainingPlanStatusRequest,
             message.ApprovalRequest,
         ]
 
@@ -866,7 +866,7 @@ class TestMessage(unittest.TestCase):
     def test_message_07_modelstatusreply(self):
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=True,
 
             researcher_id='toto',
@@ -874,13 +874,13 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            status=ModelApprovalStatus.APPROVED.value,
+            status=TrainingPlanApprovalStatus.APPROVED.value,
             msg='sdrt',
-            model_url='url',
+            training_plan_url='url',
             command='do_it')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id='toto',
@@ -888,13 +888,13 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            status=ModelApprovalStatus.REJECTED.value,
+            status=TrainingPlanApprovalStatus.REJECTED.value,
             msg='sdrt',
-            model_url='url',
+            training_plan_url='url',
             command='do_it')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id=12344,
@@ -902,13 +902,13 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            status=ModelApprovalStatus.PENDING.value,
+            status=TrainingPlanApprovalStatus.PENDING.value,
             msg='sdrt',
-            model_url='url',
+            training_plan_url='url',
             command='do_it')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id='12344',
@@ -918,11 +918,11 @@ class TestMessage(unittest.TestCase):
             approval_obligation=True,
             status=True,
             msg='sdrt',
-            model_url='url',
+            training_plan_url='url',
             command='do_it')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id='12344',
@@ -932,11 +932,11 @@ class TestMessage(unittest.TestCase):
             approval_obligation='True',
             status='None',
             msg='sdrt',
-            model_url='url',
+            training_plan_url='url',
             command='do_it')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id=333,
@@ -944,13 +944,13 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            status=ModelApprovalStatus.PENDING.value,
+            status=TrainingPlanApprovalStatus.PENDING.value,
             msg='sdrt',
-            model_url=123123,
+            training_plan_url=123123,
             command=True)
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             researcher_id=333,
@@ -958,16 +958,16 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            status=ModelApprovalStatus.REJECTED.value,
+            status=TrainingPlanApprovalStatus.REJECTED.value,
             msg='sdrt')
 
         self.check_class_args(
-            message.ModelStatusReply,
+            message.TrainingPlanStatusReply,
             expected_result=False,
 
             success='not a bool',
             approval_obligation=True,
-            status=ModelApprovalStatus.APPROVED.value,
+            status=TrainingPlanApprovalStatus.APPROVED.value,
             msg='sdrt')
 
     def test_message_08_log(self):
@@ -1329,8 +1329,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=True,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         # bad param number
@@ -1374,13 +1374,13 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            model_url="http://dev.null")
+            training_plan_url="http://dev.null")
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
 
-            model_class='my_model')
+            training_plan_class='my_model')
 
         self.check_class_args(
             message.TrainRequest,
@@ -1399,8 +1399,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it',
             extra_arg='???')
 
@@ -1416,8 +1416,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1431,8 +1431,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1446,8 +1446,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1461,8 +1461,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1476,8 +1476,8 @@ class TestMessage(unittest.TestCase):
             training_data="not_a_dict",
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1491,8 +1491,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training="not a bool",
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1506,8 +1506,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args="not_a_dict",
-            model_url="http://dev.null",
-            model_class='my_model',
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1521,8 +1521,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url=False,
-            model_class='my_model',
+            training_plan_url=False,
+            training_plan_class='my_model',
             command='do_it')
 
         self.check_class_args(
@@ -1536,8 +1536,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class=False,
+            training_plan_url="http://dev.null",
+            training_plan_class=False,
             command='do_it')
 
         self.check_class_args(
@@ -1551,8 +1551,8 @@ class TestMessage(unittest.TestCase):
             training_data={"data": "MNIS"},
             training=False,
             model_args={"c": 3, "d": 4},
-            model_url="http://dev.null",
-            model_class="my_model",
+            training_plan_url="http://dev.null",
+            training_plan_class="my_model",
             command=False)
 
         pass
@@ -1605,48 +1605,48 @@ class TestMessage(unittest.TestCase):
     def test_message_14_modelstatusrequest(self):
 
         self.check_class_args(
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusRequest,
             expected_result=True,
 
             researcher_id='toto',
             job_id='sdsd',
-            model_url='do_it',
+            training_plan_url='do_it',
             command='command-dummy')
 
         self.check_class_args(
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusRequest,
             expected_result=False,
 
             researcher_id=True,
             job_id='sdsd',
-            model_url='do_it',
+            training_plan_url='do_it',
             command='command-dummy')
 
         self.check_class_args(
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusRequest,
             expected_result=False,
 
             researcher_id='toto',
             job_id=122323,
-            model_url='do_it',
+            training_plan_url='do_it',
             command='command-dummy')
 
         self.check_class_args(
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusRequest,
             expected_result=False,
 
             researcher_id='toto',
             job_id='sdsd',
-            model_url=12323,
+            training_plan_url=12323,
             command='command-dummy')
 
         self.check_class_args(
-            message.ModelStatusRequest,
+            message.TrainingPlanStatusRequest,
             expected_result=False,
 
             researcher_id='ttot',
             job_id='sdsd',
-            model_url='do_it',
+            training_plan_url='do_it',
             command=False)
 
     # test ResearcherMessage and NodeMessagess classes
@@ -1678,8 +1678,8 @@ class TestMessage(unittest.TestCase):
             "training_data": {},
             "training": True,
             "model_args": {},
-            "model_url": "https://dev.null",
-            "model_class": "my_model",
+            "training_plan_url": "https://dev.null",
+            "training_plan_class": "my_model",
             "command": 'train'}
 
         r = message.ResearcherMessages.request_create(params)
@@ -1922,30 +1922,30 @@ class TestMessage(unittest.TestCase):
             'job_id': 'titi',
             'success': True,
             'approval_obligation': True,
-            'status': ModelApprovalStatus.APPROVED.value,
+            'status': TrainingPlanApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
-            'model_url': 'url',
-            'command': 'model-status'
+            'training_plan_url': 'url',
+            'command': 'training-plan-status'
         }
 
         r = message.ResearcherMessages.reply_create(params_reply)
-        self.assertIsInstance(r, message.ModelStatusReply)
+        self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
         r = message.NodeMessages.reply_create(params_reply)
-        self.assertIsInstance(r, message.ModelStatusReply)
+        self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
         params_request = {
             'researcher_id': 'toto',
             "job_id": 'titi',
-            "model_url": 'url-dummy',
-            "command": 'model-status'
+            "training_plan_url": 'url-dummy',
+            "command": 'training-plan-status'
         }
 
         r = message.ResearcherMessages.request_create(params_request)
-        self.assertIsInstance(r, message.ModelStatusRequest)
+        self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
         r = message.NodeMessages.request_create(params_request)
-        self.assertIsInstance(r, message.ModelStatusRequest)
+        self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
 
     def test_message_25_approval_request(self):
@@ -1959,7 +1959,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command='do_it')
 
         # all these test should fail (bad number of args arguments or bad type)
@@ -1977,7 +1977,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command='do_it',
             unknown_extra_arg='whatever'
         )
@@ -1989,7 +1989,7 @@ class TestMessage(unittest.TestCase):
             researcher_id=False,
             description='this is a description string',
             sequence=1234,
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command='do_it')
 
         self.check_class_args(
@@ -1999,7 +1999,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description=False,
             sequence=1234,
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command='do_it')
 
         self.check_class_args(
@@ -2009,7 +2009,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence="not an integer",
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command='do_it')
 
         self.check_class_args(
@@ -2019,7 +2019,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            model_url=False,
+            training_plan_url=False,
             command='do_it')
 
         self.check_class_args(
@@ -2029,7 +2029,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            model_url='http://dev.null',
+            training_plan_url='http://dev.null',
             command=None)
 
 
@@ -2143,7 +2143,7 @@ class TestMessage(unittest.TestCase):
             "researcher_id": 'toto',
             "description": 'this string describes the sent object',
             "sequence": 12345,
-            "model_url": "http://dev.null",
+            "training_plan_url": "http://dev.null",
             "command": "approval"
 
         }
