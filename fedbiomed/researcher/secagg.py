@@ -8,7 +8,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
-class SecaggContext(object):
+class SecaggContext:
     """
     Handles a Secure Aggregation context element on the researcher side.
     """

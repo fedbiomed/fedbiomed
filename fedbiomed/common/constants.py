@@ -178,6 +178,7 @@ class ErrorNumbers(_BaseEnum):
     FB315: str = "FB315: Error while loading the data"
     FB316: str = "FB316: Data loading plan error"
     FB317: str = "FB317: Command not found error"
+    FB318: str = "FB318: Secure aggregation setup error"
 
     # application error on researcher
 

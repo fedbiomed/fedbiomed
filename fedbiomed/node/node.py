@@ -7,9 +7,9 @@ from json import decoder
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -159,11 +159,35 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task_train(self, msg: Dict[str, Any]):
-        """Parses a given task message to create a round instance
+    def parser_task_secagg(self, msg: SecaggRequest):
+        """Parses a given secagg setup task message to create a secagg setup instance
 
         Args:
-            msg: `Message` object to parse
+            msg: `SecaggRequest` message object to parse
+
+        Returns:
+            `SecaggSetup` object built from request
+        """
+        researcher_id = msg.get_param('researcher_id')
+        secagg_id = msg.get_param('secagg_id')
+        element = msg.get_param('element')
+        parties = msg.get_param('parties')
+
+        if element in [m.value for m in SecaggElementTypes]:
+            element = SecaggElementTypes(element)
+        else:
+            element = None
+
+        if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
+            return None
+
+        return True
+
+    def parser_task_train(self, msg: TrainRequest):
+        """Parses a given training task message to create a round instance
+
+        Args:
+            msg: `TrainRequest` message object to parse
         """
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
@@ -277,7 +301,28 @@ class Node:
                         ).get_dict()
                     )
             elif command == 'secagg':
-                logger.info("Entering secagg setup")
+                # error handled in called functions
+                secagg = self.parser_task_secagg(item)
+                if secagg:
+                    logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
+                    #secagg.setup() TODO
+                    logger.info('SECAGG PAYLOAD HERE')
+                else:
+                    # bad secagg request, cannot reply as secagg
+                    errmsg = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                        f"received by {environ['NODE_ID']}"
+                    logger.error(errmsg)
+                    self.messaging.send_message(
+                        NodeMessages.reply_create(
+                            {
+                                'command': 'error',
+                                'extra_msg': errmsg,
+                                'node_id': environ['NODE_ID'],
+                                'researcher_id': 'NOT_SET',
+                                'errnum': ErrorNumbers.FB318
+                            }
+                        ).get_dict()
+                    )
             else:
                 errmess = f'{ErrorNumbers.FB317.value}: "{command}"'
                 logger.error(errmess)
