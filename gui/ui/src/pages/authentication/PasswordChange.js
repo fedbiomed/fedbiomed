@@ -15,7 +15,7 @@ import {EP_UPDATE_PASSWORD} from "../../constants";
 import axios from "axios";
 import {useSelector} from 'react-redux'
 
-const initialPassForm = {old_password: '', password: '', confirm_password: ''}
+const initialPassForm = {old_password: '', password: '', confirm: ''}
 const initialNotif = {show : false, message : '', title: ''}
 
 
@@ -36,7 +36,7 @@ const PasswordChange = (props) => {
 
         // check if both password matches, otherwise displays error message
         if (passForm.password === passForm.confirm){
-            sendPassword(passForm.password , EP_UPDATE_PASSWORD)
+            sendPassword(passForm.old_password, passForm.password , EP_UPDATE_PASSWORD)
         } else {
             setNotif({show:true,  title: "Error", message: 'Please make sure passwords are same.'})
         }
@@ -44,11 +44,12 @@ const PasswordChange = (props) => {
 
     /**
      * API call for updating password
+     * @param old_password
      * @param new_password
      * @param url
      */
-    const sendPassword = (new_password, url) => {
-        let data = {email: user.email, password: new_password}
+    const sendPassword = (old_password, new_password, url) => {
+        let data = {email: user.email, password: new_password, old_password: old_password}
         axios.post(url, data)
              .then((response) => {
                  setNotif({show:true,  title: "Success", message: 'Password has been successfully changed.'})
