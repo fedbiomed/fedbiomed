@@ -253,6 +253,31 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         """Returns the instance of the wrapped Flamby FedClass"""
         return self.__flamby_fed_class
 
+    def get_center_id(self) -> int:
+        """Returns the center id. Requires that the DataLoadingPlan has already been set.
+
+        Returns:
+            the center id (int).
+        Raises:
+            FedbiomedDatasetError:
+                - if the data loading plan is not set or is malformed.
+                - if the wrapped FedClass is not initialized but the dlp exists
+        """
+        if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in self._dlp:
+            msg = f"{ErrorNumbers.FB616.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
+                  f"a {FlambyLoadingBlockTypes.FLAMBY_CENTER_ID} loading block in order to query its center id."
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
+
+        if self.__flamby_fed_class is None:
+            msg = f"{ErrorNumbers.FB616.value}. Flamby dataset is in an inconsistent state: a Data Loading Plan is " \
+                  f"set but the wrapped FedClass was not initialized."
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
+
+        return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
+
+
     def _clear(self):
         """Clears the wrapped FedClass and the associated transforms"""
         self.__flamby_fed_class = None
