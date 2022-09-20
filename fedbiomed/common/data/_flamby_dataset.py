@@ -277,7 +277,6 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
         return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
 
-
     def _clear(self):
         """Clears the wrapped FedClass and the associated transforms"""
         self.__flamby_fed_class = None
@@ -302,7 +301,12 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         is also called immediately after.
         """
         super().set_dlp(dlp)
-        self._init_flamby_fed_class()
+        try:
+            self._init_flamby_fed_class()
+        except FedbiomedDatasetError as e:
+            # clean up
+            super().clear_dlp()
+            raise FedbiomedDatasetError from e
 
     def clear_dlp(self):
         """Clears dlp and automatically clears the FedClass
