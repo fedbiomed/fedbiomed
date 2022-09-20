@@ -1,13 +1,16 @@
 from importlib import import_module
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Union, Optional
 import pkgutil
 
 from torch.utils.data import Dataset
 import flamby.datasets as flamby_datasets_module
+from torchvision.transforms import Compose as TorchCompose
+from monai.transforms import Compose as MonaiCompose
+
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 
@@ -174,7 +177,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         was set in the class.
 
         Raises:
-            FedbiomedDatasetError if one of the following conditions occurs:
+            FedbiomedDatasetError: if one of the following conditions occurs
                 - __flamby_fed_class is not None (i.e. the function was already called)
                 - the Data Loading Plan is not present or malformed
                 - the Flamby dataset module could not be loaded
@@ -217,9 +220,43 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         else:
             self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
 
+    def init_transform(self, transform: Union[MonaiCompose, TorchCompose]) -> Union[MonaiCompose, TorchCompose]:
+        """Initializes the transform attribute. Must be called before initialization of the wrapped FedClass.
+
+
+        Arguments:
+            transform: a composed transform of type torchvision.transforms.Compose or monai.transforms.Compose
+
+        Raises:
+            FedbiomedDatasetError: if the wrapped FedClass was already initialized.
+            FedbiomedDatasetValueError: if the input is not of the correct type.
+        """
+        if self.__flamby_fed_class is not None:
+            msg = f"{ErrorNumbers.FB617.value}. Calling init_transform is not allowed if the wrapped FedClass has " \
+                  f"already been initialized. At your own risk, you may call clear_dlp to reset the full FlambyDataset"
+            logger.critical(msg)
+            raise FedbiomedDatasetError(msg)
+
+        if not isinstance(transform, (MonaiCompose, TorchCompose)):
+            msg = f"{ErrorNumbers.FB617.value}. FlambyDataset transform must be of type " \
+                  f"torchvision.transforms.Compose or monai.transforms.Compose"
+            logger.critical(msg)
+            raise FedbiomedDatasetValueError(msg)
+        self._transform = transform
+        return self._transform
+
+    def get_transform(self):
+        """Gets the transform attribute"""
+        return self._transform
+
     def get_flamby_fed_class(self):
         """Returns the instance of the wrapped Flamby FedClass"""
         return self.__flamby_fed_class
+
+    def _clear(self):
+        """Clears the wrapped FedClass and the associated transforms"""
+        self.__flamby_fed_class = None
+        self._transform = None
 
     def __getitem__(self, item):
         """Forwards call to the flamby_fed_class"""
@@ -234,7 +271,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         return [len(self)] + list(self.__getitem__(0)[0].shape)
 
     def set_dlp(self, dlp):
-        """Sets the Data Loading Plan and ensures that the flamby_fed_class is initialized.
+        """Sets the Data Loading Plan and ensures that the flamby_fed_class is initialized
 
         Overrides the set_dlp function from the DataLoadingPlanMixin to make sure that self._init_flamby_fed_class
         is also called immediately after.
@@ -242,9 +279,14 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         super().set_dlp(dlp)
         self._init_flamby_fed_class()
 
-    def set_transform(self, transform):
-        """Sets the transform attribute"""
-        self._transform = transform
+    def clear_dlp(self):
+        """Clears dlp and automatically clears the FedClass
+
+        Tries to guarantee some semblance of integrity by also clearing the FedClass, since setting the dlp
+        initializes it.
+        """
+        super().clear_dlp()
+        self._clear()
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:
