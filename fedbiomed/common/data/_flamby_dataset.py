@@ -1,6 +1,6 @@
 from importlib import import_module
 from enum import Enum
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union
 import pkgutil
 
 from torch.utils.data import Dataset
@@ -155,6 +155,11 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     - FlambyLoadingBlockTypes.FLAMBY_DATASET : FlambyDatasetSelectorLoadingBlock
     - FlambyLoadingBlockTypes.FLAMBY_CENTER_ID : FlambyCenterIDLoadingBlock
 
+    The lifecycle of the DataLoadingPlan and the wrapped FedClass are tightly interlinked: when the DataLoadingPlan
+    is set, the wrapped FedClass is initialized and instantiated. When the DataLoadingPlan is cleared, the wrapped
+    FedClass is also cleared. Hence, an invariant of this class is that the self._dlp and self.__flamby_fed_class
+    should always be either both None, or both set to some value.
+
     Attributes:
         _transform: a transform function of type MonaiTransform or TorchTransform that will be applied to every sample
             when data is loaded.
@@ -247,6 +252,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
                   f"torchvision.transforms.Compose or monai.transforms.Compose"
             logger.critical(msg)
             raise FedbiomedDatasetValueError(msg)
+
         self._transform = transform
         return self._transform
 
