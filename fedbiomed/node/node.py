@@ -18,7 +18,7 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.round import Round
-from fedbiomed.node.secagg import SecaggSetup
+from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
 
 import validators
 
@@ -160,7 +160,7 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task_secagg(self, msg: SecaggRequest):
+    def parser_task_secagg(self, msg: SecaggRequest) -> SecaggSetup:
         """Parses a given secagg setup task message to create a secagg setup instance
 
         Args:
@@ -182,7 +182,16 @@ class Node:
         if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
             return None
 
-        return SecaggSetup(researcher_id, secagg_id, element, parties)
+        element2class = {
+            'SERVER_KEY': SecaggServkeySetup,
+            'BIPRIME': SecaggBiprimeSetup
+        }
+        if element.name in element2class.keys():
+            # instantiate a `SecaggSetup` object
+            return element2class[element.name](researcher_id, secagg_id, element, parties)
+        else:
+            # should not exist 
+            return None
 
     def parser_task_train(self, msg: TrainRequest):
         """Parses a given training task message to create a round instance

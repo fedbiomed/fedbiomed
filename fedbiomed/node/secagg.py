@@ -1,5 +1,6 @@
 """Secure Aggregation setup on the node"""
 from typing import List
+from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.message import NodeMessages, SecaggReply
@@ -7,7 +8,8 @@ from fedbiomed.common.logger import logger
 
 from fedbiomed.node.environ import environ
 
-class SecaggSetup:
+
+class SecaggSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
@@ -83,14 +85,65 @@ class SecaggSetup:
             }
         ).get_dict()
 
-    # TODO: subclass per type
+    @abstractmethod
     def setup(self) -> SecaggReply:
         """Set up a secagg context element.
 
         Returns:
             message to return to the researcher after the setup
         """
-        logger.info("PUT SECAGG PAYLOAD HERE")
+        pass
+
+
+class SecaggServkeySetup(SecaggSetup):
+    """
+    Sets up a server key Secure Aggregation context element on the node side.
+    """
+    def __init__(
+            self,
+            researcher_id: str,
+            secagg_id: str,
+            element: SecaggElementTypes,
+            parties: List[str]):
+        """Constructor of the class.
+        """
+        super().__init__(researcher_id, secagg_id, element, parties)
+        # add subclass specific init here
+
+    def setup(self) -> SecaggReply:
+        """Set up the server key secagg context element.
+
+        Returns:
+            message to return to the researcher after the setup
+        """
+        logger.info("PUT SECAGG SERVKEY PAYLOAD HERE")
+        msg = self._create_secagg_reply('', True)
+
+        return msg
+
+
+class SecaggBiprimeSetup(SecaggSetup):
+    """
+    Sets up a biprime Secure Aggregation context element on the node side.
+    """
+    def __init__(
+            self,
+            researcher_id: str,
+            secagg_id: str,
+            element: SecaggElementTypes,
+            parties: List[str]):
+        """Constructor of the class.
+        """
+        super().__init__(researcher_id, secagg_id, element, parties)
+        # add subclass specific init here
+
+    def setup(self) -> SecaggReply:
+        """Set up the biprime secagg context element.
+
+        Returns:
+            message to return to the researcher after the setup
+        """
+        logger.info("PUT SECAGG BIPRIME PAYLOAD HERE")
         msg = self._create_secagg_reply('', True)
 
         return msg
