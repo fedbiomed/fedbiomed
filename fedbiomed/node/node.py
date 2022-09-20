@@ -18,6 +18,7 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.round import Round
+from fedbiomed.node.secagg import SecaggSetup
 
 import validators
 
@@ -166,7 +167,7 @@ class Node:
             msg: `SecaggRequest` message object to parse
 
         Returns:
-            `SecaggSetup` object built from request
+            `SecaggSetup` object built from request, or `None` if could not build this object
         """
         researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
@@ -181,7 +182,7 @@ class Node:
         if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
             return None
 
-        return True
+        return SecaggSetup(researcher_id, secagg_id, element, parties)
 
     def parser_task_train(self, msg: TrainRequest):
         """Parses a given training task message to create a round instance
@@ -301,22 +302,43 @@ class Node:
                         ).get_dict()
                     )
             elif command == 'secagg':
-                # error handled in called functions
-                secagg = self.parser_task_secagg(item)
+                try:
+                    secagg = self.parser_task_secagg(item)
+                except Exception:
+                    # bad secagg request
+                    secagg = False
+
                 if secagg:
-                    logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
-                    #secagg.setup() TODO
-                    logger.info('SECAGG PAYLOAD HERE')
+                    try:
+                        logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
+                        msg = secagg.setup()
+                        self.messaging.send_message(msg)
+                    except Exception as e:
+                        errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
+                            f'{secagg.element()}: {e}'
+                        logger.error(errmess)
+                        self.messaging.send_message(
+                            NodeMessages.reply_create(
+                                {
+                                    'researcher_id': secagg.researcher_id(),
+                                    'secagg_id': secagg.secagg_id(),
+                                    'success': False,
+                                    'node_id': environ['NODE_ID'],
+                                    'msg': errmess,
+                                    'command': 'secagg'
+                                }
+                            ).get_dict()
+                        )
                 else:
                     # bad secagg request, cannot reply as secagg
-                    errmsg = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                    errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
                         f"received by {environ['NODE_ID']}"
-                    logger.error(errmsg)
+                    logger.error(errmess)
                     self.messaging.send_message(
                         NodeMessages.reply_create(
                             {
                                 'command': 'error',
-                                'extra_msg': errmsg,
+                                'extra_msg': errmess,
                                 'node_id': environ['NODE_ID'],
                                 'researcher_id': 'NOT_SET',
                                 'errnum': ErrorNumbers.FB318
