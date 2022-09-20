@@ -174,7 +174,7 @@ class Requests(metaclass=SingletonMeta):
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
-            look_for_commands: instruction that has been sent to node. Can be either ping, search or train.
+            look_for_commands: instruction that has been sent to node (see `Message` commands)
             timeout: wait for a specific duration before collecting nodes messages. Defaults to None. If set to None;
                 uses value in global variable TIMEOUT instead.
             only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
