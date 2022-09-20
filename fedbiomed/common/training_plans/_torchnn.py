@@ -22,7 +22,7 @@ from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
 
 
-class TorchTrainingPlan(BaseTrainingPlan, ABC):
+class TorchTrainingPlan(BaseTrainingPlan):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
