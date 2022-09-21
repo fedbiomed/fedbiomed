@@ -43,10 +43,9 @@ class TestDPController(unittest.TestCase):
         pass
 
     def tearDown(self) -> None:
-        """"""
-        self.privacy_engine = self.patcher_privacy_engine.stop()
-        self.module_validator = self.patcher_module_validator.stop()
-        self.module_validator_fix = self.patcher_module_validator_fix.stop()
+        self.patcher_privacy_engine.stop()
+        self.patcher_module_validator.stop()
+        self.patcher_module_validator_fix.stop()
 
         pass
 
