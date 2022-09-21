@@ -1,6 +1,7 @@
 """Secure Aggregation management on the researcher"""
 import uuid
 from typing import List, Union, Tuple
+from abc import ABC, abstractmethod
 import time
 
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
@@ -10,27 +11,25 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
-class SecaggContext:
+class SecaggContext(ABC):
     """
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, element: SecaggElementTypes, parties: List[str]):
+    def __init__(self, parties: List[str]):
         """Constructor of the class.
 
         Args:
-            element: kind of context element handled by this object
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
 
         Raises:
-            FedbiomedSecaggError: xxx
+            FedbiomedSecaggError: TODO
         """
         # TODO: check types and values
 
         self._secagg_id = 'secagg_' + str(uuid.uuid4())
-        self._element = element
         self._parties = parties
 
         self._researcher_id = environ['RESEARCHER_ID']
@@ -63,20 +62,14 @@ class SecaggContext:
         """
         return self._context
 
-    # TODO: subclass for specific
+    @abstractmethod
     def _payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for secagg context element
 
         Returns:
             a tuple of a `context` and a `status` for the context element
         """
-        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
-        time.sleep(3)
-        context = { 'msg': 'Not implemented yet' }
-        status = True
-
-        return context, status
-
+        pass
 
     def setup(self) -> bool:
         """Setup secagg context element on defined parties.
@@ -140,3 +133,70 @@ class SecaggContext:
             #    self._context = None
 
         return self._status
+
+
+class SecaggServkeyContext(SecaggContext):
+    """
+    Handles a Secure Aggregation server key context element on the researcher side.
+    """
+
+    def __init__(self, parties: List[str]):
+        """Constructor of the class.
+
+        Args:
+            parties: list of parties participating to the secagg context element setup, named
+                by their unique id (`node_id`, `researcher_id`).
+                There must be at least 3 parties, and the first party is this researcher
+        """
+        super().__init__(parties)
+
+        self._element = SecaggElementTypes.SERVER_KEY
+
+    def _payload(self) -> Tuple[Union[dict, None], bool]:
+        """Researcher payload for server key secagg context element
+
+        Returns:
+            a tuple of a `context` and a `status` for the server key context element
+        """
+        # start dummy payload
+        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
+        time.sleep(3)
+        context = { 'msg': 'Not implemented yet' }
+        status = True
+        # end dummy payload
+
+        return context, status
+
+
+class SecaggBiprimeContext(SecaggContext):
+    """
+    Handles a Secure Aggregation biprime context element on the researcher side.
+    """
+
+    def __init__(self, parties: List[str]):
+        """Constructor of the class.
+
+        Args:
+            element: kind of context element handled by this object
+            parties: list of parties participating to the secagg context element setup, named
+                by their unique id (`node_id`, `researcher_id`).
+                There must be at least 3 parties, and the first party is this researcher
+        """
+        super().__init__(parties)
+
+        self._element = SecaggElementTypes.BIPRIME
+
+    def _payload(self) -> Tuple[Union[dict, None], bool]:
+        """Researcher payload for biprime secagg context element
+
+        Returns:
+            a tuple of a `context` and a `status` for the biprime context element
+        """
+        # start dummy payload
+        logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
+        time.sleep(3)
+        context = { 'msg': 'Not implemented yet' }
+        status = False
+        # end dummy payload
+
+        return context, status
