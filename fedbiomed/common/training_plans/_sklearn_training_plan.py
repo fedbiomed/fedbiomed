@@ -166,7 +166,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                            'does not support it. Training on CPU.')
 
         try:
-            self._training_routine_core_loop(self._training_args["epochs"],
+            self._training_routine_core_loop(self._training_args["num_updates"],
                                              history_monitor)
         except FedbiomedTrainingPlanError as e:
             raise e

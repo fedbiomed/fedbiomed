@@ -24,7 +24,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_plans import FedPerceptron, FedSGDRegressor, FedSGDClassifier
 
 
-class Custom():
+class Custom:
     def testing_step(mydata, mytarget):
         return {'Metric': 42.0}
 
@@ -68,7 +68,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type], {"epochs": 1}, {})
+            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type], {"num_updates": 1}, {})
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
@@ -205,7 +205,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], {"epochs": 1}, {})
+            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], {"num_updates": 1}, {})
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
