@@ -15,7 +15,7 @@ from fedbiomed.common.constants import ErrorNumbers
 class DPController:
     """Controls DP action during training"""
 
-    def __init__(self, dp_args: Union[Dict, None]):
+    def __init__(self, dp_args: Union[Dict, None] = None):
         """Constructs DPController with given model.
 
         Args:
@@ -44,8 +44,19 @@ class DPController:
         Returns:
             Differential privacy applies model, optimizer and data loader
         """
+
+        if not isinstance(model, Module):
+            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Model must be an instance of torch.nn.Module")
+
+        if not isinstance(optimizer, Optimizer):
+            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Optimizer must be an instance of "
+                                             f"torch.optim.Optimizer")
+
+        if not isinstance(loader, DataLoader):
+            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Data loader must be an instance of "
+                                             f"torch.utils.data.DataLoader")
+
         if self._is_active:
-            print('HERE WE GO -------------------')
             model = self._validate_and_fix_model(model)
             try:
                 model, optimizer, loader = \
@@ -97,7 +108,6 @@ class DPController:
         Returns:
             Fixed or validated model
         """
-
         if not ModuleValidator.is_valid(model):
             try:
                 model = ModuleValidator.fix(model)
