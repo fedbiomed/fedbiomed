@@ -60,7 +60,18 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
     return avg_params
 
 
-def update_momentum_fedopt(strategy_info, momentum, delta_aggregated_params):
+def update_momentum_fedopt(strategy_info: Dict[str, str], momentum: Dict[str, torch.Tensor], delta_aggregated_params: Dict[str, torch.Tensor]):
+    """ Update the momentum associated to each model parameter.
+
+    Args:
+        strategy_info: contains information about the chosen strategy (name, beta1, beta2, tau, server lr)
+        momentum: momentum simply adds a fraction m of the previous weight update to the current one
+                  each parameter of the prediction model has a corresponding tensor with momentum
+        delta_aggregated_params: contains prediction model parameters and corresponding aggregated weights
+
+    Returns:
+        dictionary containing momentum
+    """
     strategy = strategy_info['strategy']
     beta1 = strategy_info['beta1']
     if strategy in ["FedAdam", "FedAdagrad", "FedYogi"]:
@@ -73,7 +84,18 @@ def update_momentum_fedopt(strategy_info, momentum, delta_aggregated_params):
     return momentum
 
 
-def update_second_moment_fedopt(strategy_info, second_moment, delta_aggregated_params):
+def update_second_moment_fedopt(strategy_info: Dict[str, str], second_moment: Dict[str, torch.Tensor], delta_aggregated_params: Dict[str, torch.Tensor]):
+    """ Update the second moment associated to each model parameter.
+
+    Args:
+        strategy_info: contains information about the chosen strategy (name, beta1, beta2, tau, server lr)
+        second_moment: term that helps to give different learning rates for different parameters
+                       second moment is uncentered variance (meaning we don’t subtract the mean during variance calculation)
+        delta_aggregated_params: contains prediction model parameters and corresponding aggregated weights
+    
+    Returns:
+        dictionary containing second moments
+    """
     strategy = strategy_info['strategy']
     beta2 = strategy_info['beta2']
     # Update second moment
@@ -109,7 +131,21 @@ def update_second_moment_fedopt(strategy_info, second_moment, delta_aggregated_p
     return second_moment
 
 
-def calculate_param_updates_fedopt(strategy_info, updates, momentum, second_moment, tau_array):
+def calculate_param_updates_fedopt(strategy_info: Dict[str, str], updates: Dict[str, torch.Tensor], momentum: Dict[str, torch.Tensor], second_moment: Dict[str, torch.Tensor], tau_array: Dict[str, torch.Tensor]):
+    """ Calculate the updates associated to each model parameter. These updates will be added to the initial server state,
+    giving us the new server state at the end of the round.
+
+    Args:
+        strategy_info: contains information about the chosen strategy (name, beta1, beta2, tau, server lr)
+        momentum: momentum simply adds a fraction m of the previous weight update to the current one
+                  each parameter of the prediction model has a corresponding tensor with momentum
+        second_moment: term that helps to give different learning rates for different parameters
+                       second moment is uncentered variance (meaning we don’t subtract the mean during variance calculation)
+        tau_array: adaptivity hyperparameter associated to each model parameter
+
+    Returns:
+        dictionary containing updates
+    """
     strategy = strategy_info['strategy']
     server_lr = strategy_info['server_lr']
     if strategy in ["FedAdam", "FedAdagrad", "FedYogi"]:
