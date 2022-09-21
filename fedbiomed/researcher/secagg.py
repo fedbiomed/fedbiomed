@@ -1,6 +1,6 @@
 """Secure Aggregation management on the researcher"""
 import uuid
-from typing import List, Any
+from typing import List, Union, Tuple
 import time
 
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
@@ -54,14 +54,29 @@ class SecaggContext:
         """
         return self._status
 
-    # TODO: subclass to be able to type returned value
-    def context(self) -> Any:
+    # alternative: define method in subclass to have specific return type
+    def context(self) -> Union[dict, None]:
         """Getter for secagg context element content
 
         Returns:
-            secagg context element
+            secagg context element, or `None` if it doesn't exist
         """
         return self._context
+
+    # TODO: subclass for specific
+    def _payload(self) -> Tuple[Union[dict, None], bool]:
+        """Researcher payload for secagg context element
+
+        Returns:
+            a tuple of a `context` and a `status` for the context element
+        """
+        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
+        time.sleep(3)
+        context = { 'msg': 'Not implemented yet' }
+        status = True
+
+        return context, status
+
 
     def setup(self) -> bool:
         """Setup secagg context element on defined parties.
@@ -70,6 +85,9 @@ class SecaggContext:
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
         """
+        # reset values in case `setup()` was already run and fails during this new execution
+        self._status = False
+        self._context = None
 
         msg = {
             'researcher_id': self._researcher_id,
@@ -83,10 +101,7 @@ class SecaggContext:
         status = {}
 
         # basic implementation: synchronous payload on researcher, then read answers from other parties
-        # TODO: payload on researcher
-        logger.info('PUT RESEARCHER SECAGG PAYLOAD HERE')
-        time.sleep(2)
-        status[self._researcher_id] = True
+        context, status[self._researcher_id] = self._payload()
 
         # TODO: subclass to have specific payload for type
 
@@ -110,14 +125,18 @@ class SecaggContext:
             status[resp['node_id']] = resp['success']
 
         if not set(status.keys()) == set(self._parties):
-            # some parties did not answer
-            self._status = False
+            # case where some parties did not answer
+            # self._status = False
+            # self._context = None
             absent = list(set(self._parties) - set(status.keys()))
             errmess = f'{ErrorNumbers.FB414.value}: some parties did not answer before timeout {absent}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         else:
             self._status = all(status.values())
+            if self._status:
+                self._context = context
+            # else:
+            #    self._context = None
 
-        # TODO: set security context here
         return self._status
