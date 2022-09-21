@@ -14,7 +14,8 @@ from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.aggregators.functional import initialize
+from fedbiomed.researcher.aggregators.functional import initialize, calculate_param_updates_fedopt, \
+    update_momentum_fedopt, update_second_moment_fedopt
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -263,13 +264,13 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
-        self._strategy_info = {"strategy":aggregator.aggregator_name}
+        self._strategy_info = {"strategy": aggregator.aggregator_name}
         if aggregator.aggregator_name in ["FedAdam", "FedAdagrad", "FedYogi"]:
-            print(aggregator.aggregator_name, "WORKING !")
-            self._beta1 = aggregator.beta1 # momentum parameter
-            self._beta2 = aggregator.beta2 # second moment parameter
-            self._server_lr = aggregator.server_lr
-            self._tau = aggregator.tau
+            self._strategy_info['beta1'] = aggregator.beta1
+            self._strategy_info['beta2'] = aggregator.beta2
+            self._strategy_info['tau'] = aggregator.tau
+            self._strategy_info['server_lr'] = aggregator.server_lr
+
 
     # destructor
     @exp_exceptions
@@ -1419,8 +1420,8 @@ class Experiment(object):
     def _calc_delta_aggregated_params(self, aggregated_params: dict, server_state: dict) -> dict:
         """ Calcultate aggregated weights delta, defined as the difference between the global state
         dict at the end of the round (after aggregation), and the global state dict at the beginning
-        of the round (initial server state). In other words, it represents the weights updates for
-        the current round.
+        of the round (initial server state). In other words, it represents the weights updates made
+        at the current round.
 
         Args:
             aggregated_params: dictionary containing prediction model parameters and corresponding aggregated weights
@@ -1446,8 +1447,6 @@ class Experiment(object):
         Returns:
             a dictionary with updated model parameters, it will be the initial model of the next round
         """
-        #print("from update params 1: ",list(updates.values())[0])
-        #print("from update params 2: ",list(updates.values())[1])
         for param, tensor in updates.items():
             server_state[param] += tensor
         return server_state
@@ -1533,75 +1532,11 @@ class Experiment(object):
                 self._m = self._init_empty_params(aggregated_params) # momentum
                 self._v = self._init_empty_params(aggregated_params) # second moment
                 self._tauarray = {param:torch.ones_like(tensor) * self._tau for param, tensor in aggregated_params.items()}
-            if self._strategy_info["strategy"] == "FedAdam":
-                # Update momentum and second moment, calculate parameter updates
-                for param in self._m:
-                    self._m[param] = (
-                        self._beta1 * self._m[param]
-                        + (1 - self._beta1) * _delta_aggregated_params[param]
-                    )
-                for param in self._v:
-                    self._v[param] = (
-                        self._beta2 * self._v[param]
-                        + (1 - self._beta2)
-                        * _delta_aggregated_params[param]
-                        * _delta_aggregated_params[param]
-                    )
-                for param in self._updates:
-                    self._updates[param] = (
-                        self._server_lr
-                        * self._m[param]
-                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
-                    )
-            elif self._strategy_info["strategy"] == "FedAdagrad":
-                # Update momentum and second moment, calculate parameter updates
-                for param in self._m:
-                    self._m[param] = (
-                        self._beta1 * self._m[param]
-                        + (1 - self._beta1) * _delta_aggregated_params[param]
-                    )
+            
+            self._m = update_momentum_fedopt(strategy_info=self._strategy_info, momentum=self._m, delta_aggregated_params=_delta_aggregated_params)
+            self._v = update_second_moment_fedopt(strategy_info=self._strategy_info, second_moment=self._v, delta_aggregated_params=_delta_aggregated_params)
+            self._updates = calculate_param_updates_fedopt(strategy_info=self._strategy_info, updates=self._updates, momentum=self._m, second_moment=self._v, tau_array=self._tauarray)
 
-                for param in self._v:
-                    self._v[param] = (
-                        self._v[param]
-                        + _delta_aggregated_params[param]
-                        * _delta_aggregated_params[param]
-                    )
-
-                for param in self._updates:
-                    self._updates[param] = (
-                        self._server_lr
-                        * self._m[param]
-                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
-                    )
-            elif self._strategy_info["strategy"] == "FedYogi":
-                # Update momentum and second moment, calculate parameter updates
-                for param in self._m:
-                    self._m[param] = (
-                        self._beta1 * self._m[param]
-                        + (1 - self._beta1) * _delta_aggregated_params[param]
-                    )
-
-                for param in self._v:
-                    sign = torch.sign(
-                        self._v[param]
-                        - _delta_aggregated_params[param]
-                        * _delta_aggregated_params[param]
-                    )
-                    self._v[param] = (
-                        self._v[param]
-                        - (1 - self._beta2)
-                        * _delta_aggregated_params[param]
-                        * _delta_aggregated_params[param]
-                        * sign
-                    )
-
-                for param in self._updates:
-                    self._updates[param] = (
-                        self._server_lr
-                        * self._m[param]
-                        / (torch.sqrt(self._v[param]) + self._tauarray[param])
-                    )
             aggregated_params = self._update_params(self._server_state, self._updates)
 
         # write results of the aggregated model in a temp file
