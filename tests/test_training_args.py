@@ -26,9 +26,9 @@ class TestTrainingArgs(unittest.TestCase):
         """
         simple initialisation tests
         """
-        t = TrainingArgs({"batch_size": 12, "epochs": 1})
+        t = TrainingArgs({"batch_size": 12, "num_updates": 1})
         self.assertEqual(t['batch_size'], 12)
-        self.assertEqual(t['epochs'], 1)
+        self.assertEqual(t['num_updates'], 1)
         with self.assertRaises(FedbiomedUserInputError):
             print(t['fedprox_mu'])
 
@@ -43,7 +43,7 @@ class TestTrainingArgs(unittest.TestCase):
 
         # init with bad given values
         with self.assertRaises(FedbiomedUserInputError):
-            t = TrainingArgs({"batch_size": 2, "epochs": "not_an_int"})
+            t = TrainingArgs({"batch_size": 2, "num_updates": "not_an_int"})
 
     def test_training_args_02_scheme(self):
         """
@@ -84,8 +84,8 @@ class TestTrainingArgs(unittest.TestCase):
         """
         t = TrainingArgs(only_required=False)
 
-        t ^= {"epochs": 3}
-        self.assertEqual(t['epochs'], 3)
+        t ^= {"num_updates": 3}
+        self.assertEqual(t['num_updates'], 3)
 
         with self.assertRaises(FedbiomedUserInputError):
             t ^= {'test_ratio': -1.0}
@@ -106,20 +106,20 @@ class TestTrainingArgs(unittest.TestCase):
 
         # dict() getter
         dico = t.dict()
-        self.assertEqual(dico['epochs'], 3)
+        self.assertEqual(dico['num_updates'], 3)
 
         # get() getter
-        self.assertEqual(t.get('epochs'), 3)
+        self.assertEqual(t.get('num_updates'), 3)
         self.assertEqual(t.get('this_one_is_stupid'), None)
         self.assertEqual(t.get('should_we_keep_the_get_method_?', False), False)
 
         # how to properly test __repr__ and __str__ ?
         t_to_string = str(t)
-        for s in ['{', '}', 'test_ratio', 'epochs']:
+        for s in ['{', '}', 'test_ratio', 'num_updates']:
             self.assertIn(s, t_to_string)
 
         t_to_string = t.__repr__()
-        for s in ['{', '}', 'test_ratio', 'epochs']:
+        for s in ['{', '}', 'test_ratio', 'num_updates']:
             self.assertIn(s, t_to_string)
 
     def test_training_args_04_metric(self):
