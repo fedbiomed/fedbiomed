@@ -7,6 +7,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetM
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyCenterIDLoadingBlock, \
     FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes
+from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
 from fedbiomed.common.data import discover_flamby_datasets
@@ -83,31 +84,9 @@ def add_database(interactive: bool = True,
             description = input('Description: ')
 
             if data_type == 'medical-folder':
-                # get medical-folder root
-                print('Please select the root folder of the Medical Folder dataset')
-                path = validated_path_input(type='dir')
-                # get tabular file
-                print('Please select the demographics file (must be CSV or TSV)')
-                tabular_file_path = validated_path_input(type='csv')
-                # get index col from user
-                column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
-                print("\nHere are all the columns contained in demographics file:\n")
-                for i, col in enumerate(column_values):
-                    print(f'{i:3} : {col}')
-                if interactive:
-                    keep_asking_for_input = True
-                    while keep_asking_for_input:
-                        try:
-                            index_col = input('\nPlease input the (numerical) index of the column containing '
-                                              'the subject ids corresponding to image folder names \n')
-                            index_col = int(index_col)
-                            keep_asking_for_input = False
-                        except ValueError:
-                            warnings.warn('Please input a numeric value (integer)')
-                dataset_parameters = {} if dataset_parameters is None else dataset_parameters
-                dataset_parameters['tabular_file'] = tabular_file_path
-                dataset_parameters['index_col'] = index_col
-
+                path, dataset_parameters, data_loading_plan = add_medical_folder_dataset_from_cli(interactive,
+                                                                                                  dataset_parameters,
+                                                                                                  data_loading_plan)
             elif data_type == 'flamby':
                 path = None  # flamby datasets are not identified by their path
 
