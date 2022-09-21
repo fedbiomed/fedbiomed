@@ -61,7 +61,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._batch_maxnum = 100
         self._fedprox_mu = None
         self._log_interval = 10
-        self._epochs = 1
+        self._num_updates = 1
         self._dry_run = False
 
         # TODO : add random seed init
@@ -111,7 +111,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._batch_maxnum = self._training_args.get('batch_maxnum')
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         self._log_interval = self._training_args.get('log_interval')
-        self._epochs = self._training_args.get('epochs')
+        self._num_updates = self._training_args.get('num_updates')
         self._dry_run = self._training_args.get('dry_run')
 
         # Add dependencies
@@ -351,11 +351,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # initial aggregated model parameters
         self._init_params = deepcopy(self._model.state_dict())
 
-        for epoch in range(1, self._epochs + 1):
+        # compute num epochs and batches from num_updates
+        num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
+        num_epochs = self._num_updates // num_batches_per_epoch + 1
+        num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+
+        for epoch in range(1, num_epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
+
+                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
+                if epoch == num_epochs and batch_idx >= num_batches_in_last_epoch:
+                    break
 
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
@@ -404,6 +413,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
                     break
+
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object

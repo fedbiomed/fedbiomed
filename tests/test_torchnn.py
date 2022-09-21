@@ -2,6 +2,7 @@ import unittest
 import os
 import logging
 import re
+import itertools
 
 import torch
 import torch.nn as nn
@@ -70,7 +71,7 @@ class TestTorchnn(unittest.TestCase):
     # TODO : add tests for checking the training payload
     #
 
-    def test_save_load_model(self):
+    def test_torchnn_01_save_load_model(self):
 
         tp1 = self.TrainingPlan()
         self.assertIsNotNone(tp1.test_method)
@@ -100,7 +101,7 @@ class TestTorchnn(unittest.TestCase):
 
         os.remove(codefile)
 
-    def test_save_load_params(self):
+    def test_torchnn_02_save_load_params(self):
         tp1 = TrainingPlan()
         tp1._model = torch.nn.Module()
         paramfile = self.tmpdir + '/tmp_params.pt'
@@ -140,7 +141,7 @@ class TestTorchnn(unittest.TestCase):
         os.remove(paramfile)
 
     @patch('torch.nn.Module.__call__')
-    def test_torch_nn_03_testing_routine(self,
+    def test_torchnn_03_testing_routine(self,
                                          patch_model_call):
 
         history_monitor = MagicMock()
@@ -239,7 +240,7 @@ class TestTorchnn(unittest.TestCase):
                                    history_monitor=history_monitor,
                                    before_train=True)
 
-    def test_torch_nn_04_logging_progress_computation(self):
+    def test_torchnn_04_logging_progress_computation(self):
         """Test logging bug #313
 
         Create a DataLoader within a TrainingPlan with the following characteristics:
@@ -272,6 +273,7 @@ class TestTorchnn(unittest.TestCase):
         tp.training_data_loader.__len__.return_value = num_batches
         tp.training_data_loader.batch_size = batch_size
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
+        tp._num_updates = num_batches
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
             tp.training_routine()
@@ -284,6 +286,68 @@ class TestTorchnn(unittest.TestCase):
                 self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
+
+    def test_torchnn_05_num_updates(self):
+        """Test that num_updates parameter is respected correctly.
+
+        In the following test, we make sure that no matter the dataset size, nor the batch size, we always perform the
+        number of updates requested by the researcher. Remember each update corresponds to one optimizer step, i.e.
+        one batch.
+        """
+        tp = TrainingPlan()
+        tp._model = MagicMock()
+        tp._set_device = MagicMock()
+        tp._batch_maxnum = 0
+        tp._optimizer = MagicMock()
+        tp._optimizer.step = MagicMock()
+        tp.training_step = MagicMock(return_value=MagicMock())
+        tp._log_interval = 1000  # essentially disable logging
+        tp._dry_run = False
+
+        def setup_tp(tp, num_samples, batch_size, num_updates):
+            """Utility function to prepare the TrainingPlan test"""
+            tp._optimizer.step.reset_mock()
+            num_batches_per_epoch = num_samples // batch_size
+            tp.training_data_loader = list(itertools.repeat(
+                (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
+            tp._num_updates = num_updates
+            return tp
+
+        # Case where we do 1 single epoch with 1 batch
+        tp = setup_tp(tp, num_samples=5, batch_size=5, num_updates=1)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 1)
+
+        # Case where researcher asks for less updates than would be needed to complete even the first epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=2)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 2)
+
+        # Case where researcher asks for a num_updates that is not a multiple of the num batches per epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=7)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 7)
+
+        # Case where researcher asks for a num_updates that is a multiple of the num batches per epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=9)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 9)
+
+        # Case where researcher also set batch_maxnum. In this case we still respect the num_updates, therefore
+        # more epochs (each one with only batch_maxnum iterations_ will be performed)
+        tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
+        tp._batch_maxnum = 1
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 3)
+
+        # Case where the batch_maxnum is the same as the num_updates
+        tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
+        tp._batch_maxnum = 3
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 3)
+
+
+
 
 
 class TestSendToDevice(unittest.TestCase):
