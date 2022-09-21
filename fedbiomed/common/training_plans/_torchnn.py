@@ -20,7 +20,7 @@ from fedbiomed.common.privacy import DPController
 from ._base_training_plan import BaseTrainingPlan
 
 
-class TorchTrainingPlan(BaseTrainingPlan):
+class TorchTrainingPlan(BaseTrainingPlan, ABC):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
@@ -120,6 +120,22 @@ class TorchTrainingPlan(BaseTrainingPlan):
         self._init_params = deepcopy(self._model.state_dict())
         self._dp_controller = DPController(training_args.dp_arguments() or None)
 
+    @abstractmethod
+    def init_model(self):
+        """Abstract method where model should be defined """
+        pass
+
+    @abstractmethod
+    def training_step(self):
+        """Abstract method, all subclasses must provide a training_step.
+        """
+        pass
+
+    @abstractmethod
+    def training_data(self):
+        """Abstract method to return training data"""
+        pass
+
     def model(self):
         return self._model
 
@@ -157,10 +173,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
             State dictionary of torch Module
         """
         return self._init_params
-
-    def init_model(self):
-        """Abstract method where model should be defined """
-        pass
 
     def init_dependencies(self) -> List:
         """Default method where dependencies are returned
@@ -237,9 +249,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
         # Validate optimizer
         if not isinstance(self._optimizer, torch.optim.Optimizer):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
-
-
-
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -318,16 +327,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
                                              f'Data must be a torch Tensor or a list, tuple or dict '
                                              f'ultimately containing Tensors.')
 
-    def training_step(self):
-        """All subclasses must provide a training_step the purpose of this actual code is to detect that it
-        has been provided
-
-        Raises:
-             FedbiomedTrainingPlanError: if called and not inherited
-        """
-        msg = ErrorNumbers.FB303.value + ": training_step must be implemented"
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
 
     def training_routine(self,
                          history_monitor: Any = None,
