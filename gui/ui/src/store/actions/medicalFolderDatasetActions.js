@@ -426,7 +426,7 @@ export const addMedicalFolderDataset = (navigator) => {
         }
 
         // only try to save DLP when we have customizations, and not the same as loaded customizations
-        if(!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp) {
+        if(medical_folder.use_custom_mod2fol && (!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp)) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
             let params_add_dlp = {
                 'name': dlp.dlp_name
