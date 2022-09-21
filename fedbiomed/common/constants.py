@@ -207,7 +207,7 @@ class ErrorNumbers(_BaseEnum):
     FB613: str = "FB613: Medical Folder dataset error"
     FB614: str = "FB614: data loading block error"
     FB615: str = "FB615: data loading plan error"
-
+    FB616: str = "FB616: differential privacy controller error"
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"

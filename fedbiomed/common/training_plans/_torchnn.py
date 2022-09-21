@@ -118,8 +118,7 @@ class TorchTrainingPlan(BaseTrainingPlan):
 
         # Initial aggregated model parameters
         self._init_params = deepcopy(self._model.state_dict())
-        self._dp_controller = DPController(training_plan=self,
-                                           dp_args=training_args.dp_arguments() or None)
+        self._dp_controller = DPController(training_args.dp_arguments() or None)
 
     def model(self):
         return self._model
@@ -370,8 +369,9 @@ class TorchTrainingPlan(BaseTrainingPlan):
         # Run preprocess when everything is ready before the training
         self.__preprocess()
 
-        # DP actions
-        self._dp_controller.before_training()
+        # DP actions --------------------------------------------------------------------------------------------
+        self._model, self._optimizer, self.training_data_loader = \
+            self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
         for epoch in range(1, self._epochs + 1):
             # (below) sampling data (with `training_data` method defined on
@@ -589,7 +589,6 @@ class TorchTrainingPlan(BaseTrainingPlan):
             The state_dict of the model, or modified state_dict if preprocess is present
         """
 
-
         # Check whether postprocess method exists, and use it
         logger.debug("running model.postprocess() method")
         params = self._model.state_dict()
@@ -600,7 +599,7 @@ class TorchTrainingPlan(BaseTrainingPlan):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
                                                  f"{e}" )
 
-        params = self._dp_controller.after_training(params)
+        params = self._dp_controller.after_training(params, self._init_params)
         return params
 
     def __norm_l2(self) -> float:
