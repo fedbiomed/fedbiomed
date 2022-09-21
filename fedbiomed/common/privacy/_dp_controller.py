@@ -1,6 +1,8 @@
-import torch
-
-from typing import Union, Dict, Any
+from torch import randn_like
+from torch.nn import Module
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
+from typing import Union, Dict, Tuple
 from copy import deepcopy
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
@@ -9,11 +11,12 @@ from fedbiomed.common.training_args import DPArgsValidator
 from fedbiomed.common.exceptions import FedbiomedDPControllerError
 from fedbiomed.common.constants import ErrorNumbers
 
+
 class DPController:
     """Controls DP action during training"""
 
     def __init__(self, dp_args: Union[Dict, None]):
-        """Constructs DPController with given model
+        """Constructs DPController with given model.
 
         Args:
             dp_args: Arguments for differential privacy
@@ -27,22 +30,42 @@ class DPController:
         if self._is_active:
             self._configure_dp_args()
 
-    def before_training(self, model, optimizer, loader) -> None:
-        """DP action before starting training"""
+    def before_training(self,
+                        model: Module,
+                        optimizer: Optimizer,
+                        loader: DataLoader) -> Tuple[Module, Optimizer, DataLoader]:
+        """DP action before starting training.
+
+        Args:
+            model: Model that will be used for training
+            optimizer: Optimizer for training
+            loader: Data loader for training
+
+        Returns:
+            Differential privacy applies model, optimizer and data loader
+        """
         if self._is_active:
             print('HERE WE GO -------------------')
             model = self._validate_and_fix_model(model)
-            return self._make_private(model, optimizer, loader)
+            try:
+                model, optimizer, loader = \
+                    self._privacy_engine.make_private(module=model,
+                                                      optimizer=optimizer,
+                                                      data_loader=loader,
+                                                      noise_multiplier=self._dp_args.get('sigma'),
+                                                      max_grad_norm=self._dp_args.get('clip'))
+            except Exception as e:
+                raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: Error while running privacy "
+                                                 f"engine: {e}")
 
         return model, optimizer, loader
 
     def after_training(self, params: Dict, initial_params: Dict) -> Dict:
-        """DP actions after the training
+        """DP actions after the training.
 
         Args:
             params: Contains model parameters after training with differential privacy
-            initial_params:
-
+            initial_params: Initial parameters before training with  differential privacy
         Returns:
             `params` fixed model parameters after applying differential privacy
         """
@@ -50,23 +73,6 @@ class DPController:
             params = self._postprocess_dp(params, initial_params)
 
         return params
-
-    def _make_private(self, model, optimizer, loader) -> None:
-        """Makes model, optimizer and training data loader private
-
-        This method directly modifies training plan attributes
-        """
-        try:
-            model, optimizer, loader = self._privacy_engine.make_private(module=model,
-                                                                         optimizer=optimizer,
-                                                                         data_loader=loader,
-                                                                         noise_multiplier=self._dp_args.get('sigma'),
-                                                                         max_grad_norm=self._dp_args.get('clip'))
-        except Exception as e:
-            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: Error while while running privacy "
-                                             f"engine: {e}")
-
-        return model, optimizer, loader
 
     def _configure_dp_args(self):
         """Initialize arguments to perform DP training. """
@@ -82,8 +88,15 @@ class DPController:
             self._dp_args['sigma'] = 0.
 
     @staticmethod
-    def _validate_and_fix_model(model: torch.nn.Module):
-        """ Validate and Fix model to be DP-compliant """
+    def _validate_and_fix_model(model: Module) -> Module:
+        """Validate and Fix model to be DP-compliant.
+
+        Args:
+            model: An instance of [`Module`][torch.nn.Module]
+
+        Returns:
+            Fixed or validated model
+        """
 
         if not ModuleValidator.is_valid(model):
             try:
@@ -94,25 +107,36 @@ class DPController:
 
         return model
 
-    def _assess_budget_locally(self, loader):
-        """Computes eps and alpha for budget privacy
+    def _assess_budget_locally(self, loader) -> Tuple[float, float]:
+        """Computes eps and alpha for budget privacy.
 
         TODO: This function is not used any where on the node side.
+
+        Args:
+            loader: Pytorch data loader that is going to be used for training
+
+        Returns:
+            eps: Calculated epsilon value for privacy budget
+            alpha: Calculated epsilon alpha for privacy budget
         """
         # To be used by the nodes to assess budget locally
         eps, alpha = self._privacy_engine.accountant.get_privacy_spent(delta=.1 / len(loader))
 
         return eps, alpha
 
-    def _postprocess_dp(self, params, initial_params) -> dict:
+    def _postprocess_dp(self, params: Dict, initial_params: Dict) -> Dict:
         """Postprocess of model's parameters after training with DP.
 
-        Postprocess of DP parameters implies:
-            - If central DP is enabled, model's parameters are perturbed  according to the provided DP parameters
-            - When the Opacus `PrivacyEngine` is attached to the model, parameters' names are modified by the
-                addition of `_module.`. This modification should be undone before communicating to the master
-                for aggregation. This is needed in order to correctly perform download/upload of model's parameters
-                in the following rounds
+        **Postprocess of DP parameters implies**
+        - If central DP is enabled, model's parameters are perturbed  according to the provided DP parameters
+        - When the Opacus `PrivacyEngine` is attached to the model, parameters' names are modified by the
+            addition of `_module.`. This modification should be undone before communicating to the master
+            for aggregation. This is needed in order to correctly perform download/upload of model's parameters
+            in the following rounds
+
+        Args:
+            params: Contains model parameters after training with differential privacy
+            initial_params: Initial parameters before training with  differential privacy
 
         Returns:
             Contains (post processed) parameters
@@ -130,7 +154,7 @@ class DPController:
             for key, delta_param in delta_params.items():
                 # Perturb update and update parameters
                 delta_theta_tilde = deepcopy(delta_param)
-                delta_theta_tilde += sigma_CDP * self._dp_args['clip'] * torch.randn_like(delta_theta_tilde)
+                delta_theta_tilde += sigma_CDP * self._dp_args['clip'] * randn_like(delta_theta_tilde)
                 perturbed_params[key] = delta_theta_tilde + initial_params[key]
             params = deepcopy(perturbed_params)
 
