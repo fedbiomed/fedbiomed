@@ -58,3 +58,65 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
             avg_params[key] = np.average(matr, weights=np.array(weights), axis=0)
 
     return avg_params
+
+
+def update_momentum_fedopt(strategy_info, momentum, delta_aggregated_params):
+    strategy = strategy_info['strategy']
+    beta1 = strategy_info['beta1']
+    if strategy in ["FedAdam", "FedAdagrad", "FedYogi"]:
+        # Update momentum
+        for param in momentum:
+            momentum[param] = (
+                beta1 * momentum[param]
+                + (1 - beta1) * delta_aggregated_params[param]
+            )
+    return momentum
+
+
+def update_second_moment_fedopt(strategy_info, second_moment, delta_aggregated_params):
+    strategy = strategy_info['strategy']
+    beta2 = strategy_info['beta2']
+    # Update second moment
+    if strategy == "FedAdam":
+        for param in second_moment:
+            second_moment[param] = (
+                beta2 * second_moment[param]
+                + (1 - beta2)
+                * delta_aggregated_params[param]
+                * delta_aggregated_params[param]
+            )
+    elif strategy == "FedAdagrad":
+        for param in second_moment:
+            second_moment[param] = (
+                second_moment[param]
+                + delta_aggregated_params[param]
+                * delta_aggregated_params[param]
+            )
+    elif strategy == "FedYogi":
+        for param in second_moment:
+            sign = torch.sign(
+                second_moment[param]
+                - delta_aggregated_params[param]
+                * delta_aggregated_params[param]
+            )
+            second_moment[param] = (
+                second_moment[param]
+                - (1 - beta2)
+                * delta_aggregated_params[param]
+                * delta_aggregated_params[param]
+                * sign
+            )
+    return second_moment
+
+
+def calculate_param_updates_fedopt(strategy_info, updates, momentum, second_moment, tau_array):
+    strategy = strategy_info['strategy']
+    server_lr = strategy_info['server_lr']
+    if strategy in ["FedAdam", "FedAdagrad", "FedYogi"]:
+        for param in updates:
+            updates[param] = (
+                server_lr
+                * momentum[param]
+                / (torch.sqrt(second_moment[param]) + tau_array[param])
+            )
+    return updates
