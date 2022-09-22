@@ -352,6 +352,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._init_params = deepcopy(self._model.state_dict())
 
         # compute num epochs and batches from num_updates
+        # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
+        # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
+        # the last epoch will have 0 iterations.
         num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
         num_epochs = self._num_updates // num_batches_per_epoch + 1
         num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
@@ -413,7 +416,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
                     break
-
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
