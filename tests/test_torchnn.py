@@ -334,7 +334,7 @@ class TestTorchnn(unittest.TestCase):
         self.assertEqual(tp._optimizer.step.call_count, 9)
 
         # Case where researcher also set batch_maxnum. In this case we still respect the num_updates, therefore
-        # more num_updates (each one with only batch_maxnum iterations_ will be performed)
+        # more epochs (each one with only batch_maxnum iterations_ will be performed)
         tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
         tp._batch_maxnum = 1
         tp.training_routine(None, None)
