@@ -172,16 +172,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             raise e
 
     def _training_routine_core_loop(self,
-                                    epochs: int = 1,
+                                    num_updates: int = 1,
                                     history_monitor: Any = None):
         """
         Training routine core
         Args:
         - model_hook: training_routine_hook of child class {FedSGDClassifier, FedSGDRegressor, FedPerceptron}
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+        - num_updates (integer, optional) : number of training num_updates for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
         """
-        for epoch in range(epochs):
+        for epoch in range(num_updates):
             with _Capturer() as output:
                 # Fit model based on model type
                 try:

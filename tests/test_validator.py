@@ -608,7 +608,7 @@ class TestSchemeValidator(unittest.TestCase):
         training_args = {
             'batch_size': 20,
             'lr': 1e-5,
-            'epochs': 1,
+            'num_updates': 1,
             'dry_run': False,
             'batch_maxnum': 250
         }
@@ -618,7 +618,7 @@ class TestSchemeValidator(unittest.TestCase):
         training_args = {
             'batch_size': 20,
             'lr': 1e-5,
-            'epochs': 1,
+            'num_updates': 1,
             'dry_run': False,
             'batch_maxnum': 250,
             'round_limit': 10
