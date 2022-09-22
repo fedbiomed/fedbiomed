@@ -220,7 +220,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
         # finally instantiate FedClass
         try:
-            if self._transform is not None:
+            if 'transform' in inspect.signature(module.FedClass).parameters.keys():
                 # Since the __init__ signatures are different, we are forced to distinguish two cases
                 self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
                                                           pooled=False)
