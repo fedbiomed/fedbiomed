@@ -47,7 +47,7 @@ def update_password():
     
     """
     req = request.json
-    email, password = req['email'], req['password']
+    email, password, old_password = req['email'], req['password'], req['old_password']
     decoded_json = get_jwt()
 
     if decoded_json['email'] != email:
@@ -60,10 +60,16 @@ def update_password():
         return error('Invalid operation: User does not belong to database'), 400
 
     try:
+
+        res = user_table.get(query.user_email == email)
+        if not check_password_hash(old_password, res['password_hash']):
+            # check that old password provided is correct
+            return error("Incorrect old password"), 400
         user_table.update({
             "password_hash": set_password_hash(password)
         }, query.user_email == decoded_json['email'])
         res = user_table.get(query.user_email == email)
+
 
         return response({
             'user_id': res['user_id'],

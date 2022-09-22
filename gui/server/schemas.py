@@ -552,6 +552,12 @@ class ValidateUserFormRequest(Validator):
                                      'minLength': 'Password is missing',
                                      'type': 'Please make sure password confirmation corresponds required format'
                                  }},
+            'old_password': {'type': 'string',
+                                 'minLength': 1,
+                                 'errorMessages': {
+                                     'minLength': 'Old Password is missing',
+                                     'type': 'Please make sure your provided old password'
+                                 }},
             'name': {'type': 'string',
                      'minLength': 1,
                      'errorMessages': {
