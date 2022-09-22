@@ -16,11 +16,8 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
-<<<<<<< HEAD
 from fedbiomed.common.utils import compute_dot_product
-=======
 
->>>>>>> 2afa4a2fce64ecbd3454d12decaf9a473c7c407a
 from ._base_training_plan import BaseTrainingPlan
 
 

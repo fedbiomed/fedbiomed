@@ -228,7 +228,7 @@ class Round:
                                                        metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                        history_monitor=self.history_monitor,
                                                        before_train=True)
-                    except FedbiomedError as e:
+                except FedbiomedError as e:
                     logger.error(f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
                                  f"{str(e)}")
                 except Exception as e:
