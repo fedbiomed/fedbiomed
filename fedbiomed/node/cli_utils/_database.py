@@ -82,48 +82,6 @@ def add_database(interactive: bool = True,
                 path, dataset_parameters, data_loading_plan = add_medical_folder_dataset_from_cli(interactive,
                                                                                                   dataset_parameters,
                                                                                                   data_loading_plan)
-            elif data_type == 'flamby':
-                path = None  # flamby datasets are not identified by their path
-
-                # Select the type of dataset (fed_ixi, fed_heart, etc...)
-                available_flamby_datasets = discover_flamby_datasets()
-                msg = "Please select the FLamby dataset that you're configuring:\n"
-                msg += "\n".join([f"\t{i}) {val}" for i, val in available_flamby_datasets.items()])
-                msg += "\nselect: "
-                keep_asking_for_input = True
-                while keep_asking_for_input:
-                    try:
-                        flamby_dataset_index = input(msg)
-                        flamby_dataset_index = int(flamby_dataset_index)
-                        # check that the user inserted a number within the valid range
-                        if flamby_dataset_index in available_flamby_datasets.keys():
-                            keep_asking_for_input = False
-                        else:
-                            warnings.warn(f"Please pick a number in the range {list(available_flamby_datasets.keys())}")
-                    except ValueError:
-                        warnings.warn('Please input a numeric value (integer)')
-
-                # Select the center id
-                module = import_module(f".{available_flamby_datasets[flamby_dataset_index]}", package='flamby.datasets')
-                n_centers = module.NUM_CLIENTS
-                keep_asking_for_input = True
-                while keep_asking_for_input:
-                    try:
-                        center_id = int(input(f"Give a center id between 0 and {str(n_centers-1)}: "))
-                        if 0 <= center_id < n_centers:
-                            keep_asking_for_input = False
-                    except ValueError:
-                        warnings.warn(f'Please input a numeric value (integer) between 0 and {str(n_centers-1)}')
-
-                # Build the DataLoadingPlan with the selected dataset type and center id
-                data_loading_plan = DataLoadingPlan()
-                dataset_dlb = FlambyDatasetSelectorLoadingBlock()
-                dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index]
-                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET] = dataset_dlb
-                center_id_dlb = FlambyCenterIDLoadingBlock()
-                center_id_dlb.flamby_center_id = center_id
-                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_CENTER_ID] = center_id_dlb
->>>>>>> 5299f217 (Fix CLI regression bug)
             else:
                 path = validated_path_input(data_type)
 
