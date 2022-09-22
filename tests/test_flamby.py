@@ -1,5 +1,7 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, create_autospec
+import os
+
 from torchvision.transforms import Compose as TorchCompose
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetValueError, \
@@ -159,9 +161,14 @@ class TestFlamby(unittest.TestCase):
         # Assert base case where everything works as expected
         dataset.init_transform(transform)
 
-        mocked_module = MagicMock()
-        mocked_module.FedClass = MagicMock()
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module):
+        def mock_init(transform, center, train, pooled):
+            pass
+
+        class mocked_module:
+            def __init__(self):
+                self.FedClass = create_autospec(mock_init)
+
+        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module()):
             dataset.set_dlp(dlp)
             mocked_module.FedClass.assert_called_once_with(transform=transform, center=0, train=True, pooled=False)
 
@@ -175,12 +182,25 @@ class TestFlamby(unittest.TestCase):
         dataset.clear_dlp()
         self.assertIsNone(dataset.get_transform())
 
-    def test_flamby_04_discover_flamby_datasets(self):
-        """Test that all discovered datasets can be instantiated"""
-        dataset_list = discover_flamby_datasets()
+    @unittest.skipUnless(bool(os.environ.get('DISCOVER_FLAMBY', False)),
+                                        'Skipped because this requires manual download of the flamby datasets')
+    def test_flamby_99_discover_flamby_datasets(self):
+        """Test that all discovered datasets can be instantiated
+
+        To run this test from command line, execute:
+        ```
+            DISCOVER_FLAMBY=True python test_flamby.py TestFlamby.test_flamby_04_discover_flamby_datasets
+        ```
+
+        We are forced to skip this test as it requires a manual download step for all datasets.
+        However, it is still useful to retain it because it can be run manually to obtain a report on which datasets
+        would work on the current Fed-BioMed and Flamby installations.
+        """
+        outcomes = {}  # {name(str) : outcome(str)}
+        datasets = discover_flamby_datasets()
 
         dataset = FlambyDataset()
-        for flamby_dataset_name in dataset_list.values():
+        for flamby_dataset_name in datasets.values():
             # define dlp
             dlb_dataset_type = FlambyDatasetSelectorLoadingBlock()
             dlb_dataset_type.flamby_dataset_name = flamby_dataset_name
@@ -191,8 +211,18 @@ class TestFlamby(unittest.TestCase):
                 FlambyLoadingBlockTypes.FLAMBY_CENTER_ID: dlb_center_id
             })
 
-            dataset.set_dlp(dlp)  # Assert that no errors are raised here
-            dataset.clear_dlp()
+            with patch("builtins.input", return_value="n"):
+                try:
+                    dataset.set_dlp(dlp)  # Assert that no errors are raised here
+                except (FedbiomedDatasetError, SystemExit) as e:
+                    print(f"{e}")
+                    outcomes[flamby_dataset_name] = "FAIL"
+                else:
+                    outcomes[flamby_dataset_name] = "SUCCESS"
+                dataset.clear_dlp()
+        # Summary
+        for name, outcome in outcomes.items():
+            print(f"{name} : {outcome}")
 
 
 if __name__ == "__main__":
