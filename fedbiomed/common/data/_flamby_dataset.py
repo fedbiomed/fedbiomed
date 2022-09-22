@@ -2,6 +2,7 @@ from importlib import import_module
 from enum import Enum
 from typing import List, Dict, Union
 import pkgutil
+import inspect
 
 from torch.utils.data import Dataset
 import flamby.datasets as flamby_datasets_module
@@ -226,7 +227,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             else:
                 self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
         except Exception as e:
-            msg = f"{ErrorNumbers.FB616.value}. Error while instantiating FedClass from module {module}"
+            msg = f"{ErrorNumbers.FB616.value}. Error while instantiating FedClass from module {module} because of {e}"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg) from e
 
