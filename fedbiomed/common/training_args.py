@@ -191,7 +191,8 @@ class TrainingArgs:
             "batch_size": {
                 "rules": [int], "required": True, "default": 48
             },
-            "num_updates": {"rules": [ int ], "required": False
+            "epochs": {
+                "rules": [int], "required": True, "default": 1
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
