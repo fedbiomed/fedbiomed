@@ -101,7 +101,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self.add_dependency(dependencies)
 
         self._model_args = model_args
-        self._training_args = training_args.pure_training_args()
+        self._training_args = training_args.pure_training_arguments()
         self._params = self._model.get_params()
         self._params.update({key: self._model_args[key] for key in model_args if key in self._params})
         self.set_init_params()

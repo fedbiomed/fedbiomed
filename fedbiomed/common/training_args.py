@@ -280,7 +280,7 @@ class TrainingArgs:
                 "rules": [bool], 'required': False, "default": False
             },
             "dp_args": {
-                "rules": [cls._validate_dp_args], "required": False, "default": None
+                "rules": [cls._validate_dp_args], "required": True, "default": None
             },
         }
 

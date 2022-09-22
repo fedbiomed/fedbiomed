@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam
 from torch.nn import Module
-
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
@@ -34,20 +34,6 @@ class TestTorchnn(unittest.TestCase):
 
     model = Module()
     optimizer = Adam([torch.zeros([2, 4])])
-
-    class BaseFakeTrainingPlan(TorchTrainingPlan):
-
-        def init_model(self):
-            pass
-
-        def init_optimizer(self):
-            pass
-
-        def training_data(self):
-            pass
-
-        def training_step(self):
-            pass
 
     class FakeTrainingArgs:
 
@@ -142,7 +128,7 @@ class TestTorchnn(unittest.TestCase):
         add_dependency.assert_called_once()
 
         # Wrong 1 -----------------------------------------------------------------
-        class FakeWrongTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeWrongTP(BaseFakeTrainingPlan):
             def init_dependencies(self, invalid):
                 pass
 
@@ -151,7 +137,7 @@ class TestTorchnn(unittest.TestCase):
             tp._configure_dependencies()
 
         # Wrong 2 -----------------------------------------------------------------
-        class FakeWrongTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeWrongTP(BaseFakeTrainingPlan):
             def init_dependencies(self):
                 return None
 
@@ -165,7 +151,7 @@ class TestTorchnn(unittest.TestCase):
         tp = TorchTrainingPlan()
 
         # Special methods without arguments ----------------------------------------------
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self):
                 return TestTorchnn.model
 
@@ -183,7 +169,7 @@ class TestTorchnn(unittest.TestCase):
     def test_torch_training_plan_05_configure_model_and_optimizer_2(self):
         """Tests method for configuring model and optimizer with arguments """
 
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args):
                 return TestTorchnn.model
 
@@ -201,7 +187,7 @@ class TestTorchnn(unittest.TestCase):
     def test_torch_training_plan_06_configure_model_and_optimizer_test_invalid_types(self):
         """Tests method for configuring model and optimizer when they return invalid types """
 
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args):
                 return None
 
@@ -216,7 +202,7 @@ class TestTorchnn(unittest.TestCase):
 
         # -----------------------------------------------------------------------------------
 
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args):
                 return TestTorchnn.model
 
@@ -232,7 +218,7 @@ class TestTorchnn(unittest.TestCase):
     def test_torch_training_plan_07_configure_model_and_optimizer_test_invalid_types(self):
         """Tests method for configuring model and optimizer with wrong number of arguments """
 
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args, x):
                 return None
 
@@ -246,7 +232,7 @@ class TestTorchnn(unittest.TestCase):
             tp._configure_model_and_optimizer()
 
         # -----------------------------------------------------------------------------------
-        class FakeTP(TestTorchnn.BaseFakeTrainingPlan):
+        class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args):
                 return TestTorchnn.model
 
@@ -396,7 +382,7 @@ class TestTorchnn(unittest.TestCase):
         patch_model_call.side_effect = None
 
         # Testing routine with testing step ---------------------------------------------------------------------
-        class TrainingPlanWithTestingStep(TestTorchnn.BaseFakeTrainingPlan):
+        class TrainingPlanWithTestingStep(BaseFakeTrainingPlan):
             def __init__(self):
                 super(TrainingPlanWithTestingStep, self).__init__()
 
