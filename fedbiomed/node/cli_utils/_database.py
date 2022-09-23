@@ -159,9 +159,6 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
-        # quick fix, but is this what we expect on the line just after ????
-        dataset_parameters = None
-
     # Add database
     try:
         dataset_manager.add_database(name=name,
