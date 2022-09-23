@@ -164,11 +164,12 @@ class TestFlamby(unittest.TestCase):
         def mock_init(transform, center, train, pooled):
             pass
 
-        class mocked_module:
+        class MockedFlambyModule:
             def __init__(self):
                 self.FedClass = create_autospec(mock_init)
+        mocked_module = MockedFlambyModule()
 
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module()):
+        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module):
             dataset.set_dlp(dlp)
             mocked_module.FedClass.assert_called_once_with(transform=transform, center=0, train=True, pooled=False)
 
