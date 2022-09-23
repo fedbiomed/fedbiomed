@@ -50,7 +50,7 @@ const RegisterForm = (props) => {
 
         axios.post(ep, data).then((response) => {
             if (response.status === 201 && !props.as) {
-              dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate you registration.'})
+              dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate your registration.'})
             }else if(props.as === "admin"){
                 dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload : response.data.message})
             }

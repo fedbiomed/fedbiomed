@@ -51,7 +51,7 @@ class Round:
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description...
             training_plan_url: url from which to download model
-            traiing_plan_class: name of the training plan (eg 'MyTrainingPlan')
+            training_plan_class: name of the training plan (eg 'MyTrainingPlan')
             params_url: url from which to upload/download model params
             job_id: job id
             researcher_id: researcher id

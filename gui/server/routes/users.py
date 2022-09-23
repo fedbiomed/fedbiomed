@@ -105,7 +105,7 @@ def create_user():
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.USER,
-            "creation_date": datetime.utcnow().ctime(),
+            "creation_date": datetime.now().isoformat(),
             "user_id": user_id,
         })
     except Exception as e:
