@@ -11,8 +11,7 @@ def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical-folder').
-        or a function which allows the user to choose from different flamby datasets.
+            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby').
     """
     valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
