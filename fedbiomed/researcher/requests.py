@@ -170,7 +170,8 @@ class Requests(metaclass=SingletonMeta):
     def get_responses(self,
                       look_for_commands: list,
                       timeout: float = None,
-                      only_successful: bool = True) -> Responses:
+                      only_successful: bool = True,
+                      while_responses: bool = True) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
@@ -179,6 +180,9 @@ class Requests(metaclass=SingletonMeta):
                 uses value in global variable TIMEOUT instead.
             only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
                 Defaults to True.
+            while_responses: if `True`, continue while we get at least one response every
+                `timeout` seconds. If False, always terminate after `timeout` even if we get some
+                response.
         """
         timeout = timeout or environ['TIMEOUT']
         responses = []
@@ -202,6 +206,9 @@ class Requests(metaclass=SingletonMeta):
                 "Timeout finished"
                 break
             responses += new_responses
+            if not while_responses:
+                break
+
         return Responses(responses)
 
     def ping_nodes(self) -> list:

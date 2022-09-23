@@ -71,8 +71,14 @@ class SecaggContext(ABC):
         """
         pass
 
-    def setup(self) -> bool:
+    def setup(self, timeout: float = 0) -> bool:
         """Setup secagg context element on defined parties.
+
+        Args:
+            timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']`
+
+        Raises:
+            FedbiomedSecaggError: TODO
 
         Returns:
             True if secagg context element could be setup for all parties, False if at least
@@ -81,6 +87,8 @@ class SecaggContext(ABC):
         # reset values in case `setup()` was already run and fails during this new execution
         self._status = False
         self._context = None
+        timeout = timeout or environ['TIMEOUT']
+        start_time = time.time()
 
         msg = {
             'researcher_id': self._researcher_id,
@@ -96,26 +104,31 @@ class SecaggContext(ABC):
         # basic implementation: synchronous payload on researcher, then read answers from other parties
         context, status[self._researcher_id] = self._payload()
 
-        # TODO: subclass to have specific payload for type
+        while True:
+            remain_time = start_time + timeout - time.time()
+            if remain_time <= 0:
+                break
+            wait_time = min(1, remain_time)
+            responses = self._requests.get_responses(
+                look_for_commands=['secagg'],
+                timeout=wait_time,
+                only_successful=False,
+                while_responses=False
+            )
 
-        # TODO: manage timeout
-        # TODO: read answers
-        responses = self._requests.get_responses(
-            look_for_commands=['secagg'],
-            # timeout=xxx
-            only_successful=False
-        )
+            for resp in responses.data():
+                # TODO check message fields
+                if resp['node_id'] not in self._parties:
+                    errmess = f'{ErrorNumbers.FB414.value}: received message from node "{resp["node_id"]}"' \
+                        'which is not a party of secagg "{self._secagg_id}"'
+                    logger.error(errmess)
+                    raise FedbiomedSecaggError(errmess)
 
-        for resp in responses.data():
-            # TODO check message fields
-            if resp['node_id'] not in self._parties:
-                errmess = f'{ErrorNumbers.FB414.value}: received message from node "{resp["node_id"]}"' \
-                    'which is not a party of secagg "{self._secagg_id}"'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
+                # this answer belongs to current secagg context setup
+                status[resp['node_id']] = resp['success']
 
-            # this answer belongs to current secagg context setup
-            status[resp['node_id']] = resp['success']
+            if set(status.keys()) == set(self._parties):
+                break
 
         if not set(status.keys()) == set(self._parties):
             # case where some parties did not answer
@@ -160,7 +173,7 @@ class SecaggServkeyContext(SecaggContext):
         """
         # start dummy payload
         logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
-        time.sleep(3)
+        time.sleep(1)
         context = { 'msg': 'Not implemented yet' }
         status = True
         # end dummy payload

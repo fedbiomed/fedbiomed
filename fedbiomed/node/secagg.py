@@ -117,6 +117,8 @@ class SecaggServkeySetup(SecaggSetup):
             message to return to the researcher after the setup
         """
         logger.info("PUT SECAGG SERVKEY PAYLOAD HERE")
+        import time
+        time.sleep(4)
         msg = self._create_secagg_reply('', True)
 
         return msg
@@ -144,6 +146,8 @@ class SecaggBiprimeSetup(SecaggSetup):
             message to return to the researcher after the setup
         """
         logger.info("PUT SECAGG BIPRIME PAYLOAD HERE")
+        import time
+        time.sleep(6)
         msg = self._create_secagg_reply('', True)
 
         return msg
