@@ -43,7 +43,7 @@ dependencies:
       - JSON-log-formatter
       - python-minifier ==2.5.0
       # FLamby
-      - -e /home/ayed/FLamby
+      - git+https://github.com/owkin/FLamby@main
       # IXI tiny
       - nibabel
       # TCGA BRCA

@@ -51,7 +51,7 @@ dependencies:
       - jupyter_contrib_nbextensions
       - pathvalidate
       # FLamby
-      - -e /home/ayed/FLamby
+      - git+https://github.com/owkin/FLamby@main
       # IXI tiny
       - nibabel
       # TCGA BRCA
