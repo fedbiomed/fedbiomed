@@ -255,7 +255,7 @@ class Job:
             logger.info('Sending request to node ' +
                         str(cli) + " to check model is approved or not")
             self._reqs.send_message(
-                ResearcherMessages.request_create(message).get_dict(),
+                message,
                 cli)
 
         # Wait for responses

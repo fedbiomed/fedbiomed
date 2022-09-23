@@ -655,7 +655,7 @@ class ResearcherMessages():
                                      'list': ListRequest,
                                      'training-plan-status': TrainingPlanStatusRequest,
                                      'approval': ApprovalRequest,
-                                     'secagg': SecaggReply
+                                     'secagg': SecaggRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:

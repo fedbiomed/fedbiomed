@@ -10,7 +10,7 @@ import uuid
 
 from python_minifier import minify
 from time import sleep
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Union
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -122,7 +122,8 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def send_message(self, msg: dict, client: str = None):
+    def send_message(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
+            Union[int, None]:
         """
         Ask the messaging class to send a new message (receivers are
         deduced from the message content)
@@ -130,9 +131,23 @@ class Requests(metaclass=SingletonMeta):
         Args:
             msg: the message to send to nodes
             client: defines the channel to which the message will be sent. Defaults to None (all nodes)
+            add_sequence: if `True`, add unique sequence number to the message
+
+        Returns:
+            If `add_sequence` is True return the sequence number added to the message.
+                If `add_sequence` is False, return None
         """
         logger.debug(str(environ['RESEARCHER_ID']))
-        self.messaging.send_message(msg, client=client)
+        sequence = None
+        if add_sequence:
+            sequence = self._sequence
+            self._sequence += 1
+            msg['sequence'] = sequence
+
+        self.messaging.send_message(
+            ResearcherMessages.request_create(msg).get_dict(), 
+            client=client)
+        return sequence
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -217,12 +232,11 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List ids of up and running nodes
         """
-        self.messaging.send_message(ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'sequence': self._sequence,
-             'command': 'ping'}).get_dict())
-        self._sequence += 1
+        self.send_message(
+            {'researcher_id': environ['RESEARCHER_ID'], 'command': 'ping'},
+            add_sequence=True)
 
+        # TODO: check sequence number in pong
         # TODO: (below, above) handle exceptions
         nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
         return nodes_online
@@ -412,22 +426,19 @@ class Requests(metaclass=SingletonMeta):
         logger.debug(f"training_plan_approve: upload_status = {upload_status}")
 
         # send message to node(s)
-        sequence = self._sequence  # store the sequence for reply filtering
-        self._sequence += 1
-        message = ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'description': str(description),
-             'sequence': sequence,
-             'training_plan_url': upload_status['file'],
-             'command': 'approval'}).get_dict()
+        message = {
+            'researcher_id': environ['RESEARCHER_ID'],
+            'description': str(description),
+            'training_plan_url': upload_status['file'],
+            'command': 'approval'}
 
         if nodes:
             # send message to each node
             for n in nodes:
-                self.messaging.send_message(message, client=n)
+                sequence = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
-            self.messaging.send_message(message)
+            sequence = self.send_message(message, add_sequence=True)
 
         # wait for answers for a certain timeout
         result = {}
