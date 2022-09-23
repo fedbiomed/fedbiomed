@@ -3,7 +3,7 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable, List, Optional, Tuple, Union
+from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
 from copy import deepcopy
 
 import torch
@@ -64,6 +64,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._log_interval = 10
         self._epochs = 1
         self._dry_run = False
+        
+        self.correction_state = OrderedDict()
+        
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -90,7 +93,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None,
+                  strategy_args: Optional[Dict] = None) -> None:
         """ Sets arguments for training, model and optimizer
 
         Args:
@@ -110,10 +114,16 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
-        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
         self._dry_run = self._training_args.get('dry_run')
+        
+        # strategy args
+        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        # TODO: put fedprox mu inside strategy_args
+        self._strategy_args = strategy_args
+        self.correction_state = strategy_args.get('correction_state')
 
         # Add dependencies
         init_dep_spec = get_method_spec(self.init_dependencies)
@@ -298,6 +308,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                              f'Data must be a torch Tensor or a list, tuple or dict '
                                              f'ultimately containing Tensors.')
 
+    
     def training_step(self):
         """All subclasses must provide a training_step the purpose of this actual code is to detect that it
         has been provided
@@ -333,6 +344,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
+        if correction_state is not None:
+            self.correction_state = correction_state
+        else:
+            for i in self._model.state_dict():
+                self.correction_state[i] = 0
+        
         self._model.train()  # pytorch switch for training
 
         # set correct type for node args
@@ -367,18 +384,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 res = self.training_step(data, target)  # raises an exception if not provided
 
-                if correction_state is not None:
-                    dot_product = compute_dot_product(self.state_dict(), correction_state)
-                    corrected_loss = res - dot_product
+                
+                # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
+                dot_product = compute_dot_product(self._model.state_dict(), self.correction_state)
+                corrected_loss = res - dot_product
 
                 # If FedProx is enabled: use regularized loss function
                 if self._fedprox_mu is not None:
                     res += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
-                if correction_state is not None:
-                    corrected_loss.backward()
-                else:
-                    res.backward()
+                
+                corrected_loss.backward()
 
                 self._optimizer.step()
 

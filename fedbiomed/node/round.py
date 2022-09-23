@@ -214,7 +214,7 @@ class Round:
         training_kwargs_with_history = dict(history_monitor=self.history_monitor,
                                             node_args=self.node_args,
                                             correction_state=self.correction_state,
-                                            **self.training_kwargs)
+                                            **self.training_arguments)
         training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'correction_state'}
         logger.info(f'training with arguments {training_kwargs_print}')
         

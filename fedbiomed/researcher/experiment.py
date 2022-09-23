@@ -1435,7 +1435,7 @@ class Experiment(object):
     def set_new_client_states_dict(self, client_states_list) -> dict:
         """ At round i, calling this function allows us to set each initial client state in round i+1, with scaling of the local parameters by server_lr. (i >= 0)
         self._server_state represents the initial server model state before optimization/aggregation in round i.
-        When server_lr = 1 (default value), local parameters are not impacted by the initial server state
+        When server_lr = 1 (default value), local parameters are not impacted by the initial server state (thus We are doing a plain fedavg)
         On the other hand, lowering this value can reduce the drift.
 
         Args:

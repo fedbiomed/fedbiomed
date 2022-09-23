@@ -50,3 +50,10 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
             avg_params[key] = np.average(matr, weights=np.array(weights), axis=0)
 
     return avg_params
+
+
+def init_correction_states(model_params: Dict, node_ids: Dict) -> Dict:
+    init_params = {key: initialize(tensor)[1] for key, tensor in model_params.items()}
+    client_correction = {node_id: copy.deepcopy(init_params) for node_id in node_ids}
+    return client_correction
+
