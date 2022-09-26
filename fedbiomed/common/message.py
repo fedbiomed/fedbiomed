@@ -455,6 +455,7 @@ class SecaggRequest(Message):
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         parties: List of parties participating to the secagg context element setup
         command: Reply command string
@@ -464,6 +465,7 @@ class SecaggRequest(Message):
     """
     researcher_id: str
     secagg_id: str
+    sequence: int
     element: int
     parties: list
     command: str
@@ -476,6 +478,7 @@ class SecaggReply(Message):
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         dataset_id: id of the dataset that is used for training
@@ -487,6 +490,7 @@ class SecaggReply(Message):
     """
     researcher_id: str
     secagg_id: str
+    sequence: int
     success: bool
     node_id: str
     msg: str

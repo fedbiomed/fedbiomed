@@ -171,6 +171,7 @@ class Node:
         """
         researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
+        sequence = msg.get_param('sequence')
         element = msg.get_param('element')
         parties = msg.get_param('parties')
 
@@ -188,7 +189,7 @@ class Node:
         }
         if element.name in element2class.keys():
             # instantiate a `SecaggSetup` object
-            return element2class[element.name](researcher_id, secagg_id, element, parties)
+            return element2class[element.name](researcher_id, secagg_id, sequence, element, parties)
         else:
             # should not exist 
             return None
@@ -331,6 +332,7 @@ class Node:
                                 {
                                     'researcher_id': secagg.researcher_id(),
                                     'secagg_id': secagg.secagg_id(),
+                                    'sequence': secagg.sequence(),
                                     'success': False,
                                     'node_id': environ['NODE_ID'],
                                     'msg': errmess,

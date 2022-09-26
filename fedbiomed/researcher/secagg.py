@@ -11,6 +11,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
+
 class SecaggContext(ABC):
     """
     Handles a Secure Aggregation context element on the researcher side.
@@ -97,14 +98,16 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         }
+        sequence = {}
         for node in self._parties[1:]:
-            self._requests.send_message(msg, node)
+            sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
         status = {}
 
         # basic implementation: synchronous payload on researcher, then read answers from other parties
         context, status[self._researcher_id] = self._payload()
 
         while True:
+            # wait at most until `timeout` by chunks <= 1 second
             remain_time = start_time + timeout - time.time()
             if remain_time <= 0:
                 break
@@ -117,12 +120,22 @@ class SecaggContext(ABC):
             )
 
             for resp in responses.data():
-                # TODO check message fields
-                if resp['node_id'] not in self._parties:
+                if resp['researcher_id'] != self._researcher_id:
+                    break
+                if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB414.value}: received message from node "{resp["node_id"]}"' \
                         'which is not a party of secagg "{self._secagg_id}"'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
+                if resp['secagg_id'] != self._secagg_id:
+                    logger.debug(
+                        f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
+                        f" and received {resp['secagg_id']}")
+                if resp['sequence'] != sequence[resp['node_id']]:
+                    logger.debug(
+                        f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
+                        f" and received {resp['sequence']}"
+                    )
 
                 # this answer belongs to current secagg context setup
                 status[resp['node_id']] = resp['success']
