@@ -43,14 +43,6 @@ dependencies:
       - python-minifier ==2.5.0
       # FLamby
       - git+https://github.com/owkin/FLamby@main
-      # IXI tiny
-      - nibabel
-      # TCGA BRCA
-      - lifelines
-      # ISIC
-      - albumentations
-      - efficientnet-pytorch
-      - wget
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7
