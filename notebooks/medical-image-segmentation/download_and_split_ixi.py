@@ -91,7 +91,7 @@ if __name__ == '__main__':
     centralized_data_folder = download_and_extract_ixi_sample(root_folder)
 
     # Federated Dataset
-    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'UniCancer-Centers')
+    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'Hospital-Centers')
     shutil.rmtree(federated_data_folder, ignore_errors=True)
 
     csv_global = os.path.join(centralized_data_folder, 'participants.csv')
