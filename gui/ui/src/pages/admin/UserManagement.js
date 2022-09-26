@@ -17,7 +17,7 @@ import {deleteUser, listUsers} from "../../store/actions/userManagementActions";
 import {connect, useDispatch} from 'react-redux'
 import {USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "../../store/actions/actions";
 import UserRoleSelectBox from "./UserRoleSelectBox";
-
+import moment from 'moment';
 
 const UserManagement = (props) => {
 
@@ -75,14 +75,14 @@ const UserManagement = (props) => {
             field: 'creation_date',
             name: 'Account Created',
             dataType: 'date',
-            render: (creation_date) => formatDate(creation_date, 'Do MMMM YYYY HH:MM'),
+            render: (creation_date) => moment(creation_date).format("DD.MM.YYYY HH:mm"),
             truncateText: false,
             sortable: true,
         },
         {
             field: 'last_login',
             name: 'Last Login Date',
-            render: (last_login) => formatDate(last_login, 'Do MMMM YYYY HH:MM'),
+            render: (last_login) => moment(last_login).format("DD.MM.YYYY HH:mm"),
             truncateText: false,
             sortable: true,
         },

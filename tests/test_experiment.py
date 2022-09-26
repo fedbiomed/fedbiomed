@@ -749,18 +749,18 @@ class TestExperiment(unittest.TestCase):
 
         # Test setting model_args properly with dict
         ma_expected = {'batch_size': 25}
-        train_args = self.test_exp.set_training_args(ma_expected).dict()
+        train_args = self.test_exp.set_training_args(ma_expected)
         self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
 
         # test update of testing_args with argument `reset` set to False
         ma_expected_2 = {'batch_size': 10}
-        train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False).dict()
+        train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False)
         ma_expected_2.update(ma_expected_2)
         self.assertSubDictInDict(ma_expected_2, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
         ma_expected_3 = {'batch_size': 1}
-        train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset=True).dict()
+        train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset=True)
         self.assertSubDictInDict(ma_expected_3, train_args_3)
         self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
         self.assertNotIn(list(ma_expected_3.keys()), list(train_args_3.keys()))
@@ -768,7 +768,7 @@ class TestExperiment(unittest.TestCase):
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
-        train_args = self.test_exp.set_training_args(ma_expected).dict()
+        train_args = self.test_exp.set_training_args(ma_expected)
         # There will be one debug call.
         self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
         #### ???? why ????
@@ -783,7 +783,7 @@ class TestExperiment(unittest.TestCase):
             'test_metric': 'ACCURACY',
             'test_metric_args': {}
         }
-        train_args = self.test_exp.set_training_args(expected_train_args, reset=True).dict()
+        train_args = self.test_exp.set_training_args(expected_train_args, reset=True)
         #self.assertDictEqual(train_args, expected_train_args)
 
         # cannot be checked ye with TrainingArgs

@@ -221,10 +221,10 @@ class Job:
 
     @property
     def training_args(self):
-        return self._training_args
+        return self._training_args.dict()
 
     @training_args.setter
-    def training_args(self, training_args: dict):
+    def training_args(self, training_args: TrainingArgs):
         self._training_args = training_args
 
     def check_training_plan_is_approved_by_nodes(self) -> List:
@@ -310,7 +310,7 @@ class Job:
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
-                   'training_args': self._training_args,
+                   'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
                    'command': 'train'}
@@ -591,7 +591,7 @@ class localJob:
     def __init__(self, dataset_path: str = None,
                  training_plan_class: str = 'MyTrainingPlan',
                  training_plan_path: str = None,
-                 training_args: dict = None,
+                 training_args: TrainingArgs = None,
                  model_args: dict = None):
 
         """
