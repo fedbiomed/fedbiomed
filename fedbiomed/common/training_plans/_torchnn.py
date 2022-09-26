@@ -110,6 +110,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._epochs = self._training_args.get('epochs')
         self._dry_run = self._training_args.get('dry_run')
 
+        self._dp_controller = DPController(training_args.dp_arguments() or None)
+
         # Add dependencies
         self._configure_dependencies()
 
@@ -118,7 +120,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Initial aggregated model parameters
         self._init_params = deepcopy(self._model.state_dict())
-        self._dp_controller = DPController(training_args.dp_arguments() or None)
 
     @abstractmethod
     def init_model(self):
@@ -230,6 +231,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                                  method="init_model",
                                                                  keys=list(init_model_spec.keys()),
                                                                  alternative="self.model_args()"))
+
+        # Validate and fix model
+        self._model = self._dp_controller.validate_and_fix_model(self._model)
+
         # Validate model
         if not isinstance(self._model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
@@ -376,6 +381,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
+            num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
 
                 # Plus one since batch_idx starts from 0
@@ -391,12 +397,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     res += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
                 res.backward()
-
                 self._optimizer.step()
 
+                num_samples_till_now += len(data)
+
                 if batch_ % self._log_interval == 0 or self._dry_run:
-                    batch_size = self.training_data_loader.batch_size
-                    num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
@@ -412,7 +417,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                    train=True,
                                                    num_batches=len(self.training_data_loader),
                                                    total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=batch_size)
+                                                   batch_samples=len(data))
 
                     if self._dry_run:
                         self._model.to(self._device_init)

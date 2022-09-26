@@ -57,14 +57,13 @@ class DPController:
                                              f"torch.utils.data.DataLoader")
 
         if self._is_active:
-            model = self._validate_and_fix_model(model)
             try:
                 model, optimizer, loader = \
                     self._privacy_engine.make_private(module=model,
                                                       optimizer=optimizer,
                                                       data_loader=loader,
-                                                      noise_multiplier=self._dp_args.get('sigma'),
-                                                      max_grad_norm=self._dp_args.get('clip'))
+                                                      noise_multiplier=float(self._dp_args.get('sigma')),
+                                                      max_grad_norm=float(self._dp_args.get('clip')))
             except Exception as e:
                 raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: Error while running privacy "
                                                  f"engine: {e}")
@@ -98,8 +97,7 @@ class DPController:
             self._dp_args.update(sigma_CDP=self._dp_args['sigma'])
             self._dp_args['sigma'] = 0.
 
-    @staticmethod
-    def _validate_and_fix_model(model: Module) -> Module:
+    def validate_and_fix_model(self, model: Module) -> Module:
         """Validate and Fix model to be DP-compliant.
 
         Args:
@@ -108,7 +106,7 @@ class DPController:
         Returns:
             Fixed or validated model
         """
-        if not ModuleValidator.is_valid(model):
+        if self._is_active and not ModuleValidator.is_valid(model):
             try:
                 model = ModuleValidator.fix(model)
             except Exception as e:
@@ -120,7 +118,7 @@ class DPController:
     def _assess_budget_locally(self, loader) -> Tuple[float, float]:
         """Computes eps and alpha for budget privacy.
 
-        TODO: This function is not used any where on the node side.
+        TODO: This function is not used any where on the node side. For future implementation
 
         Args:
             loader: Pytorch data loader that is going to be used for training
@@ -151,6 +149,11 @@ class DPController:
         Returns:
             Contains (post processed) parameters
         """
+        params_keys = list(params.keys())
+        for key in params_keys:
+            if '_module' in key:
+                newkey = key.replace('_module.', '')
+                params[newkey] = params.pop(key)
 
         if self._dp_args['type'] == 'central':
             sigma_CDP = deepcopy(self._dp_args['sigma_CDP'])
@@ -168,10 +171,5 @@ class DPController:
                 perturbed_params[key] = delta_theta_tilde + initial_params[key]
             params = deepcopy(perturbed_params)
 
-        params_keys = list(params.keys())
-        for key in params_keys:
-            if '_module' in key:
-                newkey = key.replace('_module.', '')
-                params[newkey] = params.pop(key)
 
         return params

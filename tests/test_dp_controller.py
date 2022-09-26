@@ -95,14 +95,15 @@ class TestDPController(unittest.TestCase):
 
         model = MagicMock()
         self.module_validator.return_value = True
-        self.dpl._validate_and_fix_model(model)
+        self.dpl._is_active = True
+        self.dpl.validate_and_fix_model(model)
         self.module_validator.assert_called_once_with(model)
 
         self.module_validator.return_value = False
-        self.dpl._validate_and_fix_model(model)
+        self.dpl.validate_and_fix_model(model)
         self.module_validator_fix.assert_called_once_with(model)
 
-    @patch('fedbiomed.common.privacy.DPController._validate_and_fix_model')
+    @patch('fedbiomed.common.privacy.DPController.validate_and_fix_model')
     def test_dep_controller_06_before_training(self, validate_and_fix):
         """Tests before training method with different scenarios"""
 

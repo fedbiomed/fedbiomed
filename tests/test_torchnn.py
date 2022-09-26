@@ -27,6 +27,13 @@ class TrainingPlan(TorchTrainingPlan):
         return True
 
 
+class FakeDPController:
+    def validate_and_fix_model(self, model):
+        return model
+
+    def before_training(self, model, optimizer, loader):
+        return model, optimizer, loader
+
 class TestTorchnn(unittest.TestCase):
     """
     Test the Torchnn class
@@ -161,6 +168,7 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         tp._model_args = {}
+        tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer()
         self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
         self.assertEqual(tp._model, TestTorchnn.model)
@@ -179,6 +187,7 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         tp._model_args = {}
+        tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer()
         self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
         self.assertEqual(tp._model, TestTorchnn.model)
@@ -197,6 +206,8 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp._configure_model_and_optimizer()
 
@@ -212,6 +223,7 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         tp._model_args = {}
+        tp._dp_controller = FakeDPController()
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp._configure_model_and_optimizer()
 
@@ -242,6 +254,8 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp._configure_model_and_optimizer()
 
@@ -455,12 +469,8 @@ class TestTorchnn(unittest.TestCase):
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
-        tp.training_data_loader.batch_size = batch_size
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
 
-        class FakeDPController:
-            def before_training(self, model, optimizer, loader):
-                return tp._model, tp._optimizer, tp.training_data_loader
         tp._dp_controller = FakeDPController()
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
@@ -471,7 +481,7 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
+                self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
