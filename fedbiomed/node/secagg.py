@@ -19,7 +19,6 @@ class SecaggSetup(ABC):
             researcher_id: str,
             secagg_id: str,
             sequence: int,
-            element: SecaggElementTypes,
             parties: List[str]):
         """Constructor of the class.
 
@@ -27,7 +26,6 @@ class SecaggSetup(ABC):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             sequence: unique sequence number of setup request
-            element: Type of secagg context element
             parties: List of parties participating to the secagg context element setup
         """
         # we can suppose input was properly checked before instantiating this object
@@ -35,7 +33,6 @@ class SecaggSetup(ABC):
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._sequence = sequence
-        self._element = element
         self._parties = parties
 
     def researcher_id(self) -> str:
@@ -61,13 +58,14 @@ class SecaggSetup(ABC):
             sequence number for this request
         """
 
+    @abstractmethod
     def element(self) -> str:
         """Getter for secagg context element type
 
         Returns:
             secagg context element name
         """
-        return self._element.name
+        pass
 
     def _create_secagg_reply(self, message: str = '', success: bool = False) -> SecaggReply:
         """Create reply message for researcher after secagg setup phase.
@@ -115,7 +113,6 @@ class SecaggServkeySetup(SecaggSetup):
             researcher_id: str,
             secagg_id: str,
             sequence: int,
-            element: SecaggElementTypes,
             parties: List[str]):
         """Constructor of the class.
 
@@ -123,11 +120,18 @@ class SecaggServkeySetup(SecaggSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             sequence: unique sequence number of setup request
-            element: Type of secagg context element
             parties: List of parties participating to the secagg context element setup
         """
-        super().__init__(researcher_id, secagg_id, sequence, element, parties)
+        super().__init__(researcher_id, secagg_id, sequence, parties)
         # add subclass specific init here
+
+    def element(self) -> str:
+        """Getter for secagg context element type
+
+        Returns:
+            secagg context element name
+        """
+        return SecaggElementTypes.SERVER_KEY
 
     def setup(self) -> SecaggReply:
         """Set up the server key secagg context element.
@@ -151,7 +155,6 @@ class SecaggBiprimeSetup(SecaggSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             sequence: unique sequence number of setup request
-            element: Type of secagg context element
             parties: List of parties participating to the secagg context element setup
     """
     def __init__(
@@ -159,12 +162,19 @@ class SecaggBiprimeSetup(SecaggSetup):
             researcher_id: str,
             secagg_id: str,
             sequence: int,
-            element: SecaggElementTypes,
             parties: List[str]):
         """Constructor of the class.
         """
-        super().__init__(researcher_id, secagg_id, sequence, element, parties)
+        super().__init__(researcher_id, secagg_id, sequence, parties)
         # add subclass specific init here
+
+    def element(self) -> str:
+        """Getter for secagg context element type
+
+        Returns:
+            secagg context element name
+        """
+        return SecaggElementTypes.BIPRIME
 
     def setup(self) -> SecaggReply:
         """Set up the biprime secagg context element.

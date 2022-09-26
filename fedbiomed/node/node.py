@@ -189,7 +189,7 @@ class Node:
         }
         if element.name in element2class.keys():
             # instantiate a `SecaggSetup` object
-            return element2class[element.name](researcher_id, secagg_id, sequence, element, parties)
+            return element2class[element.name](researcher_id, secagg_id, sequence, parties)
         else:
             # should not exist 
             return None
@@ -314,8 +314,10 @@ class Node:
             elif command == 'secagg':
                 try:
                     secagg = self.parser_task_secagg(item)
-                except Exception:
+                    error = ''
+                except Exception as e:
                     # bad secagg request
+                    error = e
                     secagg = False
 
                 if secagg:
@@ -343,7 +345,7 @@ class Node:
                 else:
                     # bad secagg request, cannot reply as secagg
                     errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
-                        f"received by {environ['NODE_ID']}"
+                        f"received by {environ['NODE_ID']}: {error}"
                     logger.error(errmess)
                     self.messaging.send_message(
                         NodeMessages.reply_create(
