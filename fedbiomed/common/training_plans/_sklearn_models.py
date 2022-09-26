@@ -33,7 +33,8 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         # specific for SGDRegressor
         self._is_regression = True
         self.add_dependency([
-            "from sklearn.linear_model import SGDRegressor "
+            "from sklearn.linear_model import SGDRegressor ",
+            "from fedbiomed.common.training_plans import FedSGDRegressor"
         ])
 
     def training_routine_hook(self) -> None:
@@ -98,7 +99,8 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         super().__init__()
 
         self._is_classification = True
-        self.add_dependency(["from sklearn.linear_model import SGDClassifier "
+        self.add_dependency(["from sklearn.linear_model import SGDClassifier ",
+                             "from fedbiomed.common.training_plans import FedSGDClassifier"
                              ])
 
     def training_routine_hook(self) -> None:
@@ -168,6 +170,9 @@ class FedPerceptron(FedSGDClassifier):
         """
         super().__init__()
         self._model = self._model_cls(loss='perceptron')
+        self.add_dependency(["from fedbiomed.common.training_plans import FedPerceptron"
+                             ])
+
 
 
 # ############################################################################################3
