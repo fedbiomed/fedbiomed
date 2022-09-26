@@ -594,7 +594,7 @@ class localJob:
     def __init__(self, dataset_path: str = None,
                  training_plan_class: str = 'MyTrainingPlan',
                  training_plan_path: str = None,
-                 training_args: dict = None,
+                 training_args: TrainingArgs = None,
                  model_args: dict = None):
 
         """
