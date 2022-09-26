@@ -122,8 +122,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # strategy args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         # TODO: put fedprox mu inside strategy_args
-        self._strategy_args = strategy_args
-        self.correction_state = strategy_args.get('correction_state')
+        self._strategy_args = strategy_args or {}
+        self.correction_state = self._strategy_args.get('correction_state', {})
 
         # Add dependencies
         init_dep_spec = get_method_spec(self.init_dependencies)

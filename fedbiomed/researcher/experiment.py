@@ -1450,7 +1450,8 @@ class Experiment(object):
             if self._round_current == 0:
                 self._client_states_dict[node_id] = {}
             for key in model_params[node_id]:
-                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state[key]
+
+                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state.state_dict()[key]
         return self._client_states_dict
 
     # Run experiment functions
@@ -1510,7 +1511,7 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self.strategy_info["strategy"] == "Scaffold":
-            self._server_state = self._job.get_server_model_params() # initial server state, before optimization/aggregation
+            self._server_state = self._job._training_plan.model() # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
@@ -1524,15 +1525,18 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current)
 
         # aggregate model from nodes to a global model
-        model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
-        weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
-        aggregated_params = self._aggregator.aggregate(model_params_processed,
-                                                       weights_processed)
+        #model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
+        #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
+        aggregated_params = self._aggregator.aggregate(model_params,
+                                                       weights,
+                                                       self._server_state,
+                                                       lr=self._training_args.get('lr'),
+                                                       node_ids=self._job.nodes)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
-
+        
         if self.strategy_info["strategy"] == "Scaffold":
             # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
             self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)

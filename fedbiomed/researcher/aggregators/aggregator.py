@@ -52,6 +52,10 @@ class Aggregator:
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
 
+    def scaling(self, model_param: dict, *args, **kwargs) -> dict:
+        """Should be overwritten by child if a scaling operation is involved in aggregator"""
+        return model_param
+
     def save_state(self) -> Dict[str, Any]:
         """
         use for breakpoints. save the aggregator state
