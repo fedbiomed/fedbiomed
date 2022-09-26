@@ -328,7 +328,9 @@ class Job:
             A dictionary containing the client correction states initialized to 0.
             Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the correction state.
         """
-        server_state = self.get_server_model_params()
+        server_state = self._training_plan.model().state_dict()
+        
+        print("MODEL", server_state)
         correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
         client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
         return client_correction_states_dict

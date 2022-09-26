@@ -33,7 +33,8 @@ class Scaffold(Aggregator):
         self.aggr_correction = .0
         self.scaffold_option = scaffold_option
 
-    def aggregate(self, model_params: list, weights: list, global_model: OrderedDict, lr: float, n_updates: int=1, *args, **kwargs) -> Dict:
+    def aggregate(self, model_params: list, weights: list, global_model: OrderedDict, lr: float, node_ids: Iterator,
+                  n_updates: int=1, *args, **kwargs) -> Dict:
         """ Aggregates local models sent by participating nodes into a global model, using Federated Averaging
         also present in Scaffold for the aggregation step.
 
@@ -55,7 +56,7 @@ class Scaffold(Aggregator):
         weights_processed = self.normalize_weights(weights_processed)
         aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
         
-        self.update_correction_states(model_params_processed, global_model, lr, n_updates)
+        self.update_correction_states(aggregated_parameters, global_model, lr, n_updates)
         return aggregated_parameters
     def init_correction_states(self, global_model: OrderedDict, node_ids: Iterator):
         # initialize nodes states
@@ -72,7 +73,10 @@ class Scaffold(Aggregator):
                 model_params[idx][node_id][layer] = model_param[node_id][layer] * self.server_lr + (1 - self.server_lr) * global_model.state_dict()[layer]
         return model_params
         
-    def update_correction_states(self, model_params: list, global_model: OrderedDict, lr: float, n_updates: int=0):
+    def update_correction_states(self, model_params: list, global_model: OrderedDict, lr: float,  node_ids: Iterator, n_updates: int=0,):
+        
+        if n_updates == 0:
+            self.init_correction_states(global_model, node_ids)
         for node_id, client_state in model_params.items(): # iterate params of each client
             for key in client_state:
                 self.nodes_correction_states[node_id][key] += (global_model[key] - client_state[key]) / (self.server_lr * lr * n_updates)
