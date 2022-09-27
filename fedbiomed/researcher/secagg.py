@@ -68,17 +68,26 @@ class SecaggContext(ABC):
         """Researcher payload for secagg context element
 
         Returns:
-            a tuple of a `context` and a `status` for the context element
+            a tuple of a `context`, and a boolean `status` for the context element.
         """
         pass
 
+    def _delete_payload(self) ->  Tuple[Union[dict, None], bool]:
+        """Researcher payload for secagg context element deletion
 
-    def _secagg_round(self, msg: dict, command: str, payload: Callable, timeout: float = 0) -> bool:
+        Returns:
+            a tuple of None (no context after deletion) and True (payload succeeded for this element)
+        """
+        return None, True
+
+
+    def _secagg_round(self, msg: dict, command: str, can_set_status: bool, payload: Callable, timeout: float = 0) -> bool:
         """Negotiate secagg context element action with defined parties.
 
         Args:
             msg: message sent to the parties during the round
             command: reply command expected from the parties
+            can_set_status: `True` if this action can result in a valid secagg context
             payload: function that holds researcher side payload for this round. Needs to return
                 a tuple of `context` and `status` for this action
             timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
@@ -94,6 +103,7 @@ class SecaggContext(ABC):
         """
         # reset values in case `setup()` was already run (and fails during this new execution,
         # or this is a deletion)
+        return_value = False
         self._status = False
         self._context = None
         timeout = timeout or environ['TIMEOUT']
@@ -139,6 +149,7 @@ class SecaggContext(ABC):
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
                         f" and received {resp['sequence']}"
                     )
+                    break
 
                 # this answer belongs to current secagg context setup
                 status[resp['node_id']] = resp['success']
@@ -155,13 +166,15 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         else:
-            self._status = all(status.values())
-            if self._status:
+            return_value = all(status.values())
+            if can_set_status and return_value:
+                self._status = True
                 self._context = context
             # else:
+            #    self._status = False
             #    self._context = None
 
-        return self._status
+        return return_value
 
     def setup(self, timeout: float = 0) -> bool:
         """Setup secagg context element on defined parties.
@@ -181,7 +194,29 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         }
-        return self._secagg_round(msg, 'secagg', self._payload, timeout)
+        return self._secagg_round(msg, 'secagg', True, self._payload, timeout)
+
+    def delete(self, timeout: float = 0) -> bool:
+        """Delete secagg context element on defined parties.
+
+        Args:
+            timeout: maximum duration for the deletion phase. Defaults to `environ['TIMEOUT']` if unset
+                or equals 0.
+
+        Returns:
+            True if secagg context element could be deleted for all parties, False if at least
+                one of the parties could not delete context element.
+        """
+        if self._status:
+            msg = {
+                'researcher_id': self._researcher_id,
+                'secagg_id': self._secagg_id,
+                'command': 'secagg-delete',
+            }
+            return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
+        else:
+            self._context = None   # should already be the case
+            return True
 
 
 class SecaggServkeyContext(SecaggContext):
@@ -208,8 +243,8 @@ class SecaggServkeyContext(SecaggContext):
             a tuple of a `context` and a `status` for the server key context element
         """
         # start dummy payload
-        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
         time.sleep(1)
+        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
         context = { 'msg': 'Not implemented yet' }
         status = True
         # end dummy payload
@@ -241,8 +276,8 @@ class SecaggBiprimeContext(SecaggContext):
             a tuple of a `context` and a `status` for the biprime context element
         """
         # start dummy payload
-        logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
         time.sleep(3)
+        logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
         context = { 'msg': 'Not implemented yet' }
         status = False
         # end dummy payload

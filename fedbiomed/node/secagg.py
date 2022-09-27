@@ -139,9 +139,9 @@ class SecaggServkeySetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        logger.info("PUT SECAGG SERVKEY PAYLOAD HERE")
         import time
         time.sleep(4)
+        logger.info("Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE")
         msg = self._create_secagg_reply('', True)
 
         return msg
@@ -182,9 +182,9 @@ class SecaggBiprimeSetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        logger.info("PUT SECAGG BIPRIME PAYLOAD HERE")
         import time
         time.sleep(6)
+        logger.info("Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE")
         msg = self._create_secagg_reply('', True)
 
         return msg

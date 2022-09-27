@@ -89,6 +89,19 @@ class Node:
             if command in ['train', 'secagg']:
                 # add training task to queue
                 self.add_task(request)
+            elif command == 'secagg-delete':
+                logger.info('Not implemented yet, PUT SECAGG DELETE PAYLOAD HERE')
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'secagg_id': msg['secagg_id'],
+                            'sequence': msg['sequence'],
+                            'success': True,
+                            'node_id': environ['NODE_ID'],
+                            'msg': '',
+                            'command': 'secagg-delete'
+                        }).get_dict())
             elif command == 'ping':
                 self.messaging.send_message(
                     NodeMessages.reply_create(
