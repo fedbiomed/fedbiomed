@@ -1,6 +1,6 @@
 """Secure Aggregation management on the researcher"""
 import uuid
-from typing import List, Union, Tuple
+from typing import Callable, List, Union, Tuple
 from abc import ABC, abstractmethod
 import time
 
@@ -72,40 +72,40 @@ class SecaggContext(ABC):
         """
         pass
 
-    def setup(self, timeout: float = 0) -> bool:
-        """Setup secagg context element on defined parties.
+
+    def _secagg_round(self, msg: dict, command: str, payload: Callable, timeout: float = 0) -> bool:
+        """Negotiate secagg context element action with defined parties.
 
         Args:
-            timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']`
+            msg: message sent to the parties during the round
+            command: reply command expected from the parties
+            payload: function that holds researcher side payload for this round. Needs to return
+                a tuple of `context` and `status` for this action
+            timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
+                or equals 0.
 
         Raises:
             FedbiomedSecaggError: some parties did not answer before timeout
             FedbiomedSecaggError: received a reply for a non-party to the negotiation
 
         Returns:
-            True if secagg context element could be setup for all parties, False if at least
-                one of the parties could not setup context element.
+            True if secagg context element action could be done for all parties, False if at least
+                one of the parties could not do the context element action.
         """
-        # reset values in case `setup()` was already run and fails during this new execution
+        # reset values in case `setup()` was already run (and fails during this new execution,
+        # or this is a deletion)
         self._status = False
         self._context = None
         timeout = timeout or environ['TIMEOUT']
         start_time = time.time()
 
-        msg = {
-            'researcher_id': self._researcher_id,
-            'secagg_id': self._secagg_id,
-            'element': self._element.value,
-            'parties': self._parties,
-            'command': 'secagg',
-        }
         sequence = {}
         for node in self._parties[1:]:
             sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
         status = {}
 
         # basic implementation: synchronous payload on researcher, then read answers from other parties
-        context, status[self._researcher_id] = self._payload()
+        context, status[self._researcher_id] = payload()
 
         while True:
             # wait at most until `timeout` by chunks <= 1 second
@@ -114,7 +114,7 @@ class SecaggContext(ABC):
                 break
             wait_time = min(1, remain_time)
             responses = self._requests.get_responses(
-                look_for_commands=['secagg'],
+                look_for_commands=[command],
                 timeout=wait_time,
                 only_successful=False,
                 while_responses=False
@@ -162,6 +162,26 @@ class SecaggContext(ABC):
             #    self._context = None
 
         return self._status
+
+    def setup(self, timeout: float = 0) -> bool:
+        """Setup secagg context element on defined parties.
+
+        Args:
+            timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']` if unset
+                or equals 0.
+
+        Returns:
+            True if secagg context element could be setup for all parties, False if at least
+                one of the parties could not setup context element.
+        """
+        msg = {
+            'researcher_id': self._researcher_id,
+            'secagg_id': self._secagg_id,
+            'element': self._element.value,
+            'parties': self._parties,
+            'command': 'secagg',
+        }
+        return self._secagg_round(msg, 'secagg', self._payload, timeout)
 
 
 class SecaggServkeyContext(SecaggContext):
