@@ -11,6 +11,7 @@ from copy import deepcopy
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
+from fedbiomed import node
 from fedbiomed.common.metrics import MetricTypes
 from pathvalidate import sanitize_filename, sanitize_filepath
 
@@ -33,6 +34,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
+from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext
 
 _E = TypeVar("Experiment")  # only for typing
 
@@ -197,6 +199,10 @@ class Experiment(object):
         self._tags = None
         self._monitor = None
         self._experimentation_folder = None
+
+        self._use_secagg = False
+        self._secagg_servkey = None
+        self._secagg_biprime = None
 
         #        training_data: Union[FederatedDataSet, dict, None] = None,
         #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -588,6 +594,30 @@ class Experiment(object):
             return None
         else:
             return self._job.training_plan
+
+    @exp_exceptions
+    def use_secagg(self) -> bool:
+        """Retrieves the status of whether secure aggregation will be used for next rounds.
+
+        Please see also[`set_use_secagg`]
+        [fedbiomed.researcher.experiment.Experiment.set_use_secagg]
+
+        Returns:
+            True if secure aggregation will be used for next rounds.
+        """
+
+        return self._use_secagg
+
+    @exp_exceptions
+    def secagg_context(self) -> Tuple[Union[SecaggServkeyContext, None], Union[SecaggBiprimeContext, None]]:
+        """Retrieves the secure aggregation context of the experiment.
+
+        Returns:
+            a tuple of the server key secagg component (or None if it doesn't exist), and the
+                biprime secagg component (or None if it doesn't exist).
+        """
+
+        return self._secagg_servkey, self._secagg_biprime
 
     # a specific getter-like
     @exp_exceptions
@@ -1391,6 +1421,61 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         return self._tensorboard
+
+    # TODO: add setters for secagg context elements
+
+    @exp_exceptions
+    def set_use_secagg(self, use_secagg: bool = False, timeout: float = 0) -> bool:
+        """Sets use of secure aggregation and create secure aggregation context if it doesn't exist.
+
+        Args:
+            use_secagg: if `True` sets secure aggregation to be used for next rounds and
+                establish secagg context if it doesn't exist
+            timeout: maximum duration for the setup phase of each secagg context element.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
+
+        Returns:
+            `True` if secure aggregation context could be established
+
+        Raises:
+            FedbiomedExperimentError : Bad argument type
+        """
+        if not isinstance(use_secagg, bool):
+            msg = ErrorNumbers.FB410.value + f' `use_secagg` : {type(use_secagg)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        if isinstance(timeout, int):
+            timeout = float(timeout)    # accept int (and bool...)
+        if not isinstance(timeout, float):
+            errmess = f'{ErrorNumbers.FB410.value}: `timeout` : {type(timeout)}'
+            logger.error(errmess)
+            raise FedbiomedExperimentError(errmess)
+
+        # at this point _fds variable exist
+        if use_secagg:
+            # TODO: extend to support non-default strategy with a changing set of selected nodes
+            # using self._node_selection_strategy.sample_nodes(self._round_current)
+            if self._fds:
+                node_parties = self._fds.node_ids()
+            else:
+                node_parties = []
+            parties = [environ['RESEARCHER_ID']] + node_parties
+
+            if not self._secagg_servkey:
+                self._secagg_servkey = SecaggServkeyContext(parties)
+            if not self._secagg_servkey.status():
+                self._secagg_servkey.setup(timeout)
+            if not self._secagg_biprime:
+                self._secagg_biprime = SecaggBiprimeContext(parties)
+            if not self._secagg_biprime.status():
+                self._secagg_biprime.setup(timeout)            
+            if self._secagg_servkey.status() and self._secagg_biprime.status():
+                self._use_secagg = True
+        else:
+            self._use_secagg = use_secagg
+
+        logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
+        return self._use_secagg
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:

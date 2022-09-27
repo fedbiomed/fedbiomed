@@ -38,6 +38,11 @@ class SecaggContext(ABC):
             errmess = f'{ErrorNumbers.FB414.value}: bad parameter `parties` should be a list of strings: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+        if len(parties) < 3:
+            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `parties` : {parties} : need  ' \
+                'at least 3 parties for secure aggregation'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
         self._secagg_id = 'secagg_' + str(uuid.uuid4())
         self._parties = parties
@@ -305,7 +310,7 @@ class SecaggBiprimeContext(SecaggContext):
         time.sleep(3)
         logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
         context = { 'msg': 'Not implemented yet' }
-        status = False
+        status = True
         # end dummy payload
 
         return context, status
