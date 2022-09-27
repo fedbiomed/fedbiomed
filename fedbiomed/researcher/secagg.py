@@ -7,6 +7,7 @@ import time
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
@@ -26,13 +27,20 @@ class SecaggContext(ABC):
                 There must be at least 3 parties, and the first party is this researcher
 
         Raises:
-            FedbiomedSecaggError: TODO
+            FedbiomedSecaggError: bad parameter type
         """
-        # TODO: check types and values
+        self._v = Validator()
+        try:
+            self._v.validate(parties, list)
+            for p in parties:
+                self._v.validate(p, str)
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `parties` should be a list of strings: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
         self._secagg_id = 'secagg_' + str(uuid.uuid4())
         self._parties = parties
-
         self._researcher_id = environ['RESEARCHER_ID']
         self._requests = Requests()
         self._status = False
@@ -187,6 +195,15 @@ class SecaggContext(ABC):
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
         """
+        if isinstance(timeout, int):
+            timeout = float(timeout)    # accept int (and bool...)
+        try:
+            self._v.validate(timeout, float)
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `timeout`: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
         msg = {
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
@@ -207,6 +224,15 @@ class SecaggContext(ABC):
             True if secagg context element could be deleted for all parties, False if at least
                 one of the parties could not delete context element.
         """
+        if isinstance(timeout, int):
+            timeout = float(timeout)    # accept int (and bool...)
+        try:
+            self._v.validate(timeout, float)
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `timeout`: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
         if self._status:
             msg = {
                 'researcher_id': self._researcher_id,
