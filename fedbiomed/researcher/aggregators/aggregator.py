@@ -19,13 +19,14 @@ class Aggregator:
         self._aggregator_params = None
 
     @staticmethod
-    def normalize_weights(weights) -> list:
+    def normalize_weights(weights: list) -> list:
         """
         Load list of weights assigned to each node and
         normalize these weights so they sum up to 1
 
         assuming that all values are >= 0.0
         """
+        print("WEIGTHS", weights)
         _l = len(weights)
         if _l == 0:
             return []
@@ -36,7 +37,7 @@ class Aggregator:
             norm = [_w / _s for _w in weights]
         return norm
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
+    def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
         """
         Strategy to aggregate models
 

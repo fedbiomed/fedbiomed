@@ -3,10 +3,14 @@
 
 from copy import deepcopy
 from typing import Dict, Iterator, OrderedDict
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.aggregators.functional import initialize
+
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
 
 class Scaffold(Aggregator):
     """
@@ -28,13 +32,21 @@ class Scaffold(Aggregator):
         """
         super(Scaffold, self).__init__()
         self.aggregator_name = "Scaffold"
+        if server_lr == 0.:
+            raise FedbiomedAggregatorError("Server learning rate cannot be equal to 0")
         self.server_lr = server_lr
         self.nodes_correction_states = {}
         self.aggr_correction = .0
         self.scaffold_option = scaffold_option
 
-    def aggregate(self, model_params: list, weights: list, global_model: OrderedDict, lr: float, node_ids: Iterator,
-                  n_updates: int=1, *args, **kwargs) -> Dict:
+    def aggregate(self, model_params: list,
+                  weights: list,
+                  global_model: OrderedDict,
+                  training_args: TrainingArgs,
+                  node_ids: Iterator,
+                  n_updates: int = 1,
+                  n_round: int = 0,
+                  *args, **kwargs) -> Dict:
         """ Aggregates local models sent by participating nodes into a global model, using Federated Averaging
         also present in Scaffold for the aggregation step.
 
@@ -56,27 +68,44 @@ class Scaffold(Aggregator):
         weights_processed = self.normalize_weights(weights_processed)
         aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
         
-        self.update_correction_states(aggregated_parameters, global_model, lr, n_updates)
+        lr = self.extract_learning_rate(training_args)
+        if n_round == 0:
+            self.init_correction_states(global_model, node_ids)
+        self.update_correction_states(aggregated_parameters, global_model, lr, node_ids, n_updates)
         return aggregated_parameters
+
+    def check_values(self, lr: float):
+        pass
+
+    def extract_learning_rate(self, training_args: TrainingArgs) -> float:
+        # to be implemented in a utils module
+        try:
+            lr = training_args['optimizer_args']['lr']
+        except KeyError:
+            raise  FedbiomedAggregatorError("Missing learning rate in the training argument. Cannot perform SCAFFOLD")
+        return lr
+
     def init_correction_states(self, global_model: OrderedDict, node_ids: Iterator):
         # initialize nodes states
         init_params = {key:initialize(tensor)[1] for key, tensor in global_model.items()}
         self.nodes_correction_states = {node_id: deepcopy(init_params) for node_id in node_ids}
 
-
     
-    def scaling(self, model_params: list, global_model: OrderedDict, *args, **kwargs) -> list:
+    def scaling(self, model_params: list, global_model: OrderedDict) -> list:
         # should scale regading option
         for idx, model_param in enumerate(model_params):
             node_id = list(model_param.keys())[0]
             for layer in model_param[node_id]:
-                model_params[idx][node_id][layer] = model_param[node_id][layer] * self.server_lr + (1 - self.server_lr) * global_model.state_dict()[layer]
+                model_params[idx][node_id][layer] = model_param[node_id][layer] * self.server_lr + (1 - self.server_lr) * global_model[layer]
         return model_params
         
-    def update_correction_states(self, model_params: list, global_model: OrderedDict, lr: float,  node_ids: Iterator, n_updates: int=0,):
+    def update_correction_states(self, updated_model_params: dict, global_model: OrderedDict, lr: float,  node_ids: Iterator, n_updates: int=1,):
         
-        if n_updates == 0:
-            self.init_correction_states(global_model, node_ids)
-        for node_id, client_state in model_params.items(): # iterate params of each client
-            for key in client_state:
-                self.nodes_correction_states[node_id][key] += (global_model[key] - client_state[key]) / (self.server_lr * lr * n_updates)
+        
+        for layer_name, layer in updated_model_params.items(): # iterate params of each client
+            #print(node_model, global_model)
+            
+            for node_id in node_ids:
+                self.nodes_correction_states[node_id][layer_name] += (global_model[layer_name] - layer) / (self.server_lr * lr * n_updates)
+            print("CORRECTION VALUES", self.nodes_correction_states)
+                

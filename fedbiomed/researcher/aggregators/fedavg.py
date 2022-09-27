@@ -19,7 +19,7 @@ class FedAverage(Aggregator):
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
+    def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 

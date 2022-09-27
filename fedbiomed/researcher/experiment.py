@@ -1429,6 +1429,9 @@ class Experiment(object):
         for node_id, client_state in self._client_states_dict.items(): # iterate params of each client
             for key in client_state:
                 self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs)
+                
+        print("KEYS", self._client_correction_states_dict.keys(), self._aggregator.nodes_correction_states.keys())
+        print("SAMY correctin state", [[a - b for (a,b) in zip(x.values(), y.values())]  for ((k, x), (_, y)) in zip(self._client_correction_states_dict.items(), self._aggregator.nodes_correction_states.items())])
         return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
     @exp_exceptions
@@ -1510,8 +1513,8 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # Ready to execute a training round using the job, strategy and aggregator
-        if self.strategy_info["strategy"] == "Scaffold":
-            self._server_state = self._job._training_plan.model() # initial server state, before optimization/aggregation
+        #if self.strategy_info["strategy"] == "Scaffold":
+        self._server_state = self._job._training_plan.model() # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
@@ -1527,11 +1530,13 @@ class Experiment(object):
         # aggregate model from nodes to a global model
         #model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
         #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
+        print("TRAINING ARGS", self._training_args)
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
-                                                       self._server_state,
-                                                       lr=self._training_args.get('lr'),
-                                                       node_ids=self._job.nodes)
+                                                       global_model = self._server_state.state_dict(),
+                                                       training_args=self._training_args,
+                                                       node_ids=self._job.nodes,
+                                                       n_round=self._round_current)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
