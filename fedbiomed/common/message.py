@@ -618,7 +618,8 @@ class ResearcherMessages():
                                                            AddScalarReply,
                                                            TrainingPlanStatusReply,
                                                            ApprovalReply,
-                                                           SecaggReply]:
+                                                           SecaggReply,
+                                                           SecaggDeleteReply]:
         """Message reception (as a mean to reply to node requests, such as a Ping request).
 
         It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
@@ -651,7 +652,8 @@ class ResearcherMessages():
                                      'add_scalar': AddScalarReply,
                                      'training-plan-status': TrainingPlanStatusReply,
                                      'approval': ApprovalReply,
-                                     'secagg': SecaggReply
+                                     'secagg': SecaggReply,
+                                     'secagg-delete': SecaggDeleteReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -667,7 +669,8 @@ class ResearcherMessages():
                                                              ListRequest,
                                                              TrainingPlanStatusRequest,
                                                              ApprovalRequest,
-                                                             SecaggRequest]:
+                                                             SecaggRequest,
+                                                             SecaggDeleteRequest]:
 
         """Creates the adequate message/request,
 
@@ -701,7 +704,8 @@ class ResearcherMessages():
                                      'list': ListRequest,
                                      'training-plan-status': TrainingPlanStatusRequest,
                                      'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest
+                                     'secagg': SecaggRequest,
+                                     'secagg-delete': SecaggDeleteRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -721,7 +725,8 @@ class NodeMessages():
                                                    ListRequest,
                                                    TrainingPlanStatusRequest,
                                                    ApprovalRequest,
-                                                   SecaggRequest]:
+                                                   SecaggRequest,
+                                                   SecaggDeleteRequest]:
         """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
         "command" in the input dictionary `params`) to a Message object
 
@@ -750,7 +755,8 @@ class NodeMessages():
                                      'list': ListRequest,
                                      'training-plan-status': TrainingPlanStatusRequest,
                                      'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest
+                                     'secagg': SecaggRequest,
+                                     'secagg-delete': SecaggDeleteRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -769,7 +775,8 @@ class NodeMessages():
                                                  ListReply,
                                                  TrainingPlanStatusReply,
                                                  ApprovalReply,
-                                                 SecaggReply]:
+                                                 SecaggReply,
+                                                 SecaggDeleteReply]:
         """Message reception.
 
         It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
@@ -803,7 +810,8 @@ class NodeMessages():
                                      'list': ListReply,
                                      'training-plan-status': TrainingPlanStatusReply,
                                      'approval': ApprovalReply,
-                                     'secagg': SecaggReply
+                                     'secagg': SecaggReply,
+                                     'secagg-delete': SecaggDeleteReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
