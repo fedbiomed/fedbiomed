@@ -131,6 +131,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             SKLearn model object
         """
         return self._model
+    
+    def get_model_params(self) -> Dict:
+        return self._params
 
     def init_dependencies(self) -> List:
         """Default method where dependencies are returned

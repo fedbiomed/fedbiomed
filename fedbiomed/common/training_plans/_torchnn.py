@@ -188,6 +188,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             Model arguments arguments
         """
         return self._model_args
+    
+    def get_model_params(self) -> OrderedDict:
+        return self._model.state_dict()
 
     def training_args(self) -> Dict:
         """Retrieves training args

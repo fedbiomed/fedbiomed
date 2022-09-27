@@ -265,7 +265,7 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
-        self.strategy_info = {"strategy":aggregator.aggregator_name}
+        self.aggregator_args = {"strategy":aggregator.aggregator_name}
         if aggregator.aggregator_name == "Scaffold":
             self.server_lr = aggregator.server_lr
             self.client_lr = self._training_args.get('lr', 1e-3)
@@ -1430,8 +1430,8 @@ class Experiment(object):
             for key in client_state:
                 self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs)
                 
-        print("KEYS", self._client_correction_states_dict.keys(), self._aggregator.nodes_correction_states.keys())
-        print("SAMY correctin state", [[a - b for (a,b) in zip(x.values(), y.values())]  for ((k, x), (_, y)) in zip(self._client_correction_states_dict.items(), self._aggregator.nodes_correction_states.items())])
+        # print("KEYS", self._client_correction_states_dict.keys(), self._aggregator.nodes_correction_states.keys())
+        # print("SAMY correctin state", [[a - b for (a,b) in zip(x.values(), y.values())]  for ((k, x), (_, y)) in zip(self._client_correction_states_dict.items(), self._aggregator.nodes_correction_states.items())])
         return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
     @exp_exceptions
@@ -1514,26 +1514,28 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         #if self.strategy_info["strategy"] == "Scaffold":
-        self._server_state = self._job._training_plan.model() # initial server state, before optimization/aggregation
+        self._global_model = self._job._training_plan.get_model_params()  # initial server state, before optimization/aggregation
 
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         # Trigger training round on sampled nodes    
-        _ = self._job.start_nodes_training_round(round=self._round_current, strategy_info=self.strategy_info, do_training=True)
+        _ = self._job.start_nodes_training_round(round=self._round_current,
+                                                 aggregator_args=self._aggregator.get_aggregator_args(self._global_model, self._job._nodes), do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
         # aggregate model from nodes to a global model
-        #model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
-        #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
-        print("TRAINING ARGS", self._training_args)
+        # --------------------------------------------
+        # here, we are passing all arguments that the aggregator may need, using named arguments
+        # if your aggregator requieres additional arguments, you can add those in the `aggregate` call. There
+        # will be ignored in the strategies already implemented in Fedbiomed.
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
-                                                       global_model = self._server_state.state_dict(),
+                                                       global_model = self._global_model,
                                                        training_args=self._training_args,
                                                        node_ids=self._job.nodes,
                                                        n_round=self._round_current)
@@ -1542,14 +1544,14 @@ class Experiment(object):
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
         
-        if self.strategy_info["strategy"] == "Scaffold":
-            # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
-            self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)
+        # if self.strategy_info["strategy"] == "Scaffold":
+        #     # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
+        #     self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)
 
-            # Setting the correction state for round i+1
-            self._client_correction_states_dict = self.set_new_correction_states_dict(server_state=aggregated_params)
-            self.strategy_info["correction_states"] = self._client_correction_states_dict
-
+        #     # Setting the correction state for round i+1
+        #     self._client_correction_states_dict = self.set_new_correction_states_dict(server_state=aggregated_params)
+        #     self.strategy_info["correction_states"] = self._client_correction_states_dict
+        #self.strategy_info["correction_states"] = self._aggregator.nodes_correction_states 
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
 

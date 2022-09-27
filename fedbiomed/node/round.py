@@ -40,7 +40,7 @@ class Round:
                  job_id: str = None,
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
-                 correction_state: dict = None,
+                 aggregator_args: dict = None,
                  node_args: Union[dict, None] = None,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
@@ -74,7 +74,7 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
-        self.correction_state = correction_state
+        self.aggregator_args = aggregator_args
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
@@ -213,9 +213,9 @@ class Round:
 
         training_kwargs_with_history = dict(history_monitor=self.history_monitor,
                                             node_args=self.node_args,
-                                            correction_state=self.correction_state,
+                                            aggregator_args=self.aggregator_args,
                                             **self.training_arguments)
-        training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'correction_state'}
+        training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
         logger.info(f'training with arguments {training_kwargs_print}')
         
         # Validation Before Training

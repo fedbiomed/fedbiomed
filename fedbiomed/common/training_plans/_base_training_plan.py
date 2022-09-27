@@ -133,6 +133,20 @@ class BaseTrainingPlan(object):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
+    def get_model_params(self) -> Union[OrderedDict, Dict]:
+        """
+        Retrieves parameters from a model defined in a training plan. 
+        Output format depends on the nature of the training plan (OrderedDict for 
+        a PyTorch training plan, np.ndarray for a sklearn training plan)
+
+        Returns:
+            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on 
+            the nature of the TrainingPlan
+        """
+        msg = ErrorNumbers.FB303.value + ": get_model_parans method must be implemented in the TrainingPlan"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
+
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
         """Adds preprocesses
 

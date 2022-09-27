@@ -335,7 +335,7 @@ class Job:
         client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
         return client_correction_states_dict
 
-    def start_nodes_training_round(self, round: int, strategy_info: dict, do_training: bool = True):
+    def start_nodes_training_round(self, round: int, aggregator_args: dict, do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -351,27 +351,28 @@ class Job:
                    'training': do_training,
                    'model_args': self._model_args,
                    'command': 'train',
-                   'correction_state': {}}
+                   'aggregator_args': {}}
         msg = {**headers, **self._repository_args}
         time_start = {}
 
-        if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
-            client_correction_states_dict = self.init_first_correction_states()
+        # if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
+        #     client_correction_states_dict = self.init_first_correction_states()
 
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
-            if strategy_info.get('strategy') == 'Scaffold':
-                if round == 0:
-                    msg['correction_state'] = client_correction_states_dict[cli]
-                else:
-                    msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
+            #if strategy_info.get('strategy') == 'Scaffold':
+                #if round == 0:
+            print("AGGREGATOR ARGS", aggregator_args)
+            msg['aggregator_args'] = aggregator_args[cli]
+                # else:
+                #     msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
-                msg_print = {key:value for key, value in msg.items() if key != 'correction_state'}
+                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '

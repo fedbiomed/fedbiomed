@@ -52,6 +52,9 @@ class Aggregator:
             ": aggreate method should be overloaded by the choosen strategy"
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
+    
+    def get_aggregator_args(self, *args, **kwargs) -> dict:
+        return {}
 
     def scaling(self, model_param: dict, *args, **kwargs) -> dict:
         """Should be overwritten by child if a scaling operation is involved in aggregator"""

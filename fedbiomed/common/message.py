@@ -477,7 +477,7 @@ class TrainRequest(Message):
     training_plan_url: str
     training_plan_class: str
     command: str
-    correction_state: dict
+    aggregator_args: dict
 
 
 @catch_dataclass_exception

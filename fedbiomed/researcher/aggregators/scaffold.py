@@ -12,6 +12,7 @@ from fedbiomed.researcher.aggregators.functional import initialize
 
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 
+
 class Scaffold(Aggregator):
     """
     Defines the Scaffold strategy
@@ -35,9 +36,10 @@ class Scaffold(Aggregator):
         if server_lr == 0.:
             raise FedbiomedAggregatorError("Server learning rate cannot be equal to 0")
         self.server_lr = server_lr
-        self.nodes_correction_states = {}
+        self.nodes_correction_states = None
         self.aggr_correction = .0
         self.scaffold_option = scaffold_option
+        self.total_nb_nodes = None
 
     def aggregate(self, model_params: list,
                   weights: list,
@@ -74,7 +76,19 @@ class Scaffold(Aggregator):
         self.update_correction_states(aggregated_parameters, global_model, lr, node_ids, n_updates)
         return aggregated_parameters
 
+    def get_aggregator_args(self, global_model, node_ids: Iterator) -> Dict:
+        
+        if self.nodes_correction_states is None:
+            self.init_correction_states(global_model, node_ids)
+        aggregator_args = {}
+        for node_id in node_ids:
+            aggregator_args.update({node_id: {'aggregator_name': self.aggregator_name,
+                                      'aggregator_correction': self.nodes_correction_states}})
+        
+        return aggregator_args
+
     def check_values(self, lr: float):
+        # check if values are non zero
         pass
 
     def extract_learning_rate(self, training_args: TrainingArgs) -> float:
@@ -85,13 +99,34 @@ class Scaffold(Aggregator):
             raise  FedbiomedAggregatorError("Missing learning rate in the training argument. Cannot perform SCAFFOLD")
         return lr
 
-    def init_correction_states(self, global_model: OrderedDict, node_ids: Iterator):
+    def init_correction_states(self, global_model: OrderedDict, node_ids: Iterator, to_list: bool = False):
         # initialize nodes states
-        init_params = {key:initialize(tensor)[1] for key, tensor in global_model.items()}
+        if to_list:
+            # TODO: remove that part
+            init_params = {key:initialize(tensor)[1].tolist() for key, tensor in global_model.items()}
+        else:
+            init_params = {key:initialize(tensor)[1]for key, tensor in global_model.items()}
         self.nodes_correction_states = {node_id: deepcopy(init_params) for node_id in node_ids}
 
     
     def scaling(self, model_params: list, global_model: OrderedDict) -> list:
+        """
+        
+        Proof: 
+            x <- x + eta_g * grad(x)
+            x <- x + eta_g / S * sum_i(y_i - x)
+            x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
+            x <- sum_i(x (1 - eta_g) + eta_g * y_i) / S
+            x <- avg(x (1 - eta_g) + eta_g * y_i)
+
+        Args:
+            model_params (list): _description_
+            global_model (OrderedDict): _description_
+
+        Returns:
+            list: _description_
+        """
+        # refers as line 13 and 17 in pseudo code
         # should scale regading option
         for idx, model_param in enumerate(model_params):
             node_id = list(model_param.keys())[0]
@@ -100,12 +135,28 @@ class Scaffold(Aggregator):
         return model_params
         
     def update_correction_states(self, updated_model_params: dict, global_model: OrderedDict, lr: float,  node_ids: Iterator, n_updates: int=1,):
+        """_summary_
         
+        Proof:
         
-        for layer_name, layer in updated_model_params.items(): # iterate params of each client
+        c <- c + S/N grad(c)
+        c <- c + 1/N sum_i(c_i(+) - c_i)
+        c <- c + 1/N * sum_i( 1/ (K * eta_l)(x - y_i) - c)
+        c <- c (N - S) / N + 1/N * sum_i( 1/ (K * eta_l)(x - y_i))
+
+        Args:
+            updated_model_params (dict): _description_
+            global_model (OrderedDict): _description_
+            lr (float): _description_
+            node_ids (Iterator): _description_
+            n_updates (int, optional): _description_. Defaults to 1.
+        """
+        # refers as line 12, 13 and 17 in pseudo code
+        
+        for layer_name, node_layer in updated_model_params.items(): # iterate params of each client
             #print(node_model, global_model)
             
             for node_id in node_ids:
-                self.nodes_correction_states[node_id][layer_name] += (global_model[layer_name] - layer) / (self.server_lr * lr * n_updates)
+                self.nodes_correction_states[node_id][layer_name] += (global_model[layer_name] - node_layer) / (self.server_lr * lr * n_updates)
             print("CORRECTION VALUES", self.nodes_correction_states)
                 

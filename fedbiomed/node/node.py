@@ -182,7 +182,7 @@ class Node:
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
-        correction_state = msg.get_param('correction_state') or None
+        aggregator_args = msg.get_param('aggregator_args') or None
 
         assert training_plan_url is not None, 'URL for model on repository not found.'
         assert validators.url(
@@ -229,7 +229,7 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
-                                             correction_state,
+                                             aggregator_args,
                                              self.node_args,
                                              dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
