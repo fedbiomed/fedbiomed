@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """RDP analysis of the Sampled Gaussian Mechanism.
+
 Functionality for computing Renyi differential privacy (RDP) of an additive
 Sampled Gaussian Mechanism (SGM). Its public interface consists of two methods:
   compute_rdp(q, noise_multiplier, T, orders) computes RDP for SGM iterated
@@ -20,7 +22,8 @@ Sampled Gaussian Mechanism (SGM). Its public interface consists of two methods:
   get_privacy_spent(orders, rdp, target_eps, target_delta) computes delta
                                    (or eps) given RDP at multiple orders and
                                    a target value for eps (or delta).
-Example use:
+Example use
+
 Suppose that we have run an SGM applied to a function with l2-sensitivity 1.
 Its parameters are given as a list of tuples (q1, sigma1, T1), ...,
 (qk, sigma_k, Tk), and we wish to compute eps for a given delta.
@@ -180,14 +183,16 @@ def _log_erfc(x):
 
 def _compute_delta(orders, rdp, eps):
     """Compute delta given a list of RDP values and target epsilon.
-  Args:
-    orders: An array (or a scalar) of orders.
-    rdp: A list (or a scalar) of RDP guarantees.
-    eps: The target epsilon.
-  Returns:
-    Pair of (delta, optimal_order).
-  Raises:
-    ValueError: If input is malformed.
+
+    Args:
+        orders: An array (or a scalar) of orders.
+        rdp: A list (or a scalar) of RDP guarantees.
+        eps: The target epsilon.
+
+    Returns:
+        Pair of (delta, optimal_order).
+    Raises:
+        ValueError: If input is malformed.
   """
     orders_vec = np.atleast_1d(orders)
     rdp_vec = np.atleast_1d(rdp)
@@ -226,14 +231,17 @@ def _compute_delta(orders, rdp, eps):
 
 def _compute_eps(orders, rdp, delta):
     """Compute epsilon given a list of RDP values and target delta.
-  Args:
-    orders: An array (or a scalar) of orders.
-    rdp: A list (or a scalar) of RDP guarantees.
-    delta: The target delta.
-  Returns:
-    Pair of (eps, optimal_order).
-  Raises:
-    ValueError: If input is malformed.
+
+    Args:
+        orders: An array (or a scalar) of orders.
+        rdp: A list (or a scalar) of RDP guarantees.
+        delta: The target delta.
+
+    Returns:
+        Pair of (eps, optimal_order).
+
+    Raises:
+        ValueError: If input is malformed.
   """
     orders_vec = np.atleast_1d(orders)
     rdp_vec = np.atleast_1d(rdp)
@@ -275,18 +283,21 @@ def _compute_eps(orders, rdp, delta):
 
 def _stable_inplace_diff_in_log(vec, signs, n=-1):
     """Replaces the first n-1 dims of vec with the log of abs difference operator.
-  Args:
-    vec: numpy array of floats with size larger than 'n'
-    signs: Optional numpy array of bools with the same size as vec in case one
-      needs to compute partial differences vec and signs jointly describe a
-      vector of real numbers' sign and abs in log scale.
-    n: Optonal upper bound on number of differences to compute. If negative, all
-      differences are computed.
-  Returns:
-    The first n-1 dimension of vec and signs will store the log-abs and sign of
-    the difference.
-  Raises:
-    ValueError: If input is malformed.
+
+    Args:
+        vec: numpy array of floats with size larger than 'n'
+        signs: Optional numpy array of bools with the same size as vec in case one
+          needs to compute partial differences vec and signs jointly describe a
+          vector of real numbers' sign and abs in log scale.
+        n: Optonal upper bound on number of differences to compute. If negative, all
+          differences are computed.
+
+    Returns:
+        The first n-1 dimension of vec and signs will store the log-abs and sign of
+        the difference.
+
+    Raises:
+        ValueError: If input is malformed.
   """
 
     assert vec.shape == signs.shape
@@ -307,13 +318,14 @@ def _stable_inplace_diff_in_log(vec, signs, n=-1):
 
 
 def _get_forward_diffs(fun, n):
-    """Computes up to nth order forward difference evaluated at 0.
-  See Theorem 27 of https://arxiv.org/pdf/1808.00087.pdf
-  Args:
-    fun: Function to compute forward differences of.
-    n: Number of differences to compute.
-  Returns:
-    Pair (deltas, signs_deltas) of the log deltas and their signs.
+    """Computes up to nth order forward difference evaluated at 0. See Theorem 27 of
+    https://arxiv.org/pdf/1808.00087.pdf
+
+    Args:
+        fun: Function to compute forward differences of.
+        n: Number of differences to compute.
+    Returns:
+        Pair (deltas, signs_deltas) of the log deltas and their signs.
   """
     func_vec = np.zeros(n + 3)
     signs_func_vec = np.ones(n + 3, dtype=bool)
@@ -333,12 +345,14 @@ def _get_forward_diffs(fun, n):
 
 def _compute_rdp(q, sigma, alpha):
     """Compute RDP of the Sampled Gaussian mechanism at order alpha.
-  Args:
-    q: The sampling rate.
-    sigma: The std of the additive Gaussian noise.
-    alpha: The order at which RDP is computed.
-  Returns:
-    RDP at alpha, can be np.inf.
+
+    Args:
+        q: The sampling rate.
+        sigma: The std of the additive Gaussian noise.
+        alpha: The order at which RDP is computed.
+
+    Returns:
+        RDP at alpha, can be np.inf.
   """
     if q == 0:
         return 0
@@ -354,14 +368,16 @@ def _compute_rdp(q, sigma, alpha):
 
 def compute_rdp(q, noise_multiplier, steps, orders):
     """Computes RDP of the Sampled Gaussian Mechanism.
-  Args:
-    q: The sampling rate.
-    noise_multiplier: The ratio of the standard deviation of the Gaussian noise
-      to the l2-sensitivity of the function to which it is added.
-    steps: The number of steps.
-    orders: An array (or a scalar) of RDP orders.
-  Returns:
-    The RDPs at all orders. Can be `np.inf`.
+
+    Args:
+        q: The sampling rate.
+        noise_multiplier: The ratio of the standard deviation of the Gaussian noise
+            to the l2-sensitivity of the function to which it is added.
+        steps: The number of steps.
+        orders: An array (or a scalar) of RDP orders.
+
+    Returns:
+        The RDPs at all orders. Can be `np.inf`.
   """
     if np.isscalar(orders):
         rdp = _compute_rdp(q, noise_multiplier, orders)
@@ -374,22 +390,24 @@ def compute_rdp(q, noise_multiplier, steps, orders):
 
 def compute_rdp_sample_without_replacement(q, noise_multiplier, steps, orders):
     """Compute RDP of Gaussian Mechanism using sampling without replacement.
-  This function applies to the following schemes:
-  1. Sampling w/o replacement: Sample a uniformly random subset of size m = q*n.
-  2. ``Replace one data point'' version of differential privacy, i.e., n is
-     considered public information.
-  Reference: Theorem 27 of https://arxiv.org/pdf/1808.00087.pdf (A strengthened
-  version applies subsampled-Gaussian mechanism)
-  - Wang, Balle, Kasiviswanathan. "Subsampled Renyi Differential Privacy and
-  Analytical Moments Accountant." AISTATS'2019.
-  Args:
-    q: The sampling proportion =  m / n.  Assume m is an integer <= n.
-    noise_multiplier: The ratio of the standard deviation of the Gaussian noise
-      to the l2-sensitivity of the function to which it is added.
-    steps: The number of steps.
-    orders: An array (or a scalar) of RDP orders.
-  Returns:
-    The RDPs at all orders, can be np.inf.
+
+    This function applies to the following schemes:
+    1. Sampling w/o replacement: Sample a uniformly random subset of size m = q*n.
+    2. ``Replace one data point'' version of differential privacy, i.e., n is considered public information.
+
+    Reference:
+        Theorem 27 of https://arxiv.org/pdf/1808.00087.pdf (A strengthened version applies subsampled-Gaussian mechanism)
+            Wang, Balle, Kasiviswanathan. "Subsampled Renyi Differential Privacy and Analytical Moments Accountant."
+            AISTATS'2019.
+    Args:
+        q: The sampling proportion =  m / n.  Assume m is an integer <= n.
+        noise_multiplier: The ratio of the standard deviation of the Gaussian noise to the l2-sensitivity of the
+            function to which it is added.
+        steps: The number of steps.
+        orders: An array (or a scalar) of RDP orders.
+
+    Returns:
+        The RDPs at all orders, can be np.inf.
   """
     if np.isscalar(orders):
         rdp = _compute_rdp_sample_without_replacement_scalar(
@@ -406,12 +424,14 @@ def compute_rdp_sample_without_replacement(q, noise_multiplier, steps, orders):
 
 def _compute_rdp_sample_without_replacement_scalar(q, sigma, alpha):
     """Compute RDP of the Sampled Gaussian mechanism at order alpha.
-  Args:
-    q: The sampling proportion =  m / n.  Assume m is an integer <= n.
-    sigma: The std of the additive Gaussian noise.
-    alpha: The order at which RDP is computed.
-  Returns:
-    RDP at alpha, can be np.inf.
+
+    Args:
+        q: The sampling proportion =  m / n.  Assume m is an integer <= n.
+        sigma: The std of the additive Gaussian noise.
+        alpha: The order at which RDP is computed.
+
+    Returns:
+        RDP at alpha, can be np.inf.
   """
 
     assert (q <= 1) and (q >= 0) and (alpha >= 1)
@@ -442,14 +462,15 @@ def _compute_rdp_sample_without_replacement_scalar(q, sigma, alpha):
 
 def _compute_rdp_sample_without_replacement_int(q, sigma, alpha):
     """Compute log(A_alpha) for integer alpha, subsampling without replacement.
-  When alpha is smaller than max_alpha, compute the bound Theorem 27 exactly,
+    When alpha is smaller than max_alpha, compute the bound Theorem 27 exactly,
     otherwise compute the bound with Stirling approximation.
-  Args:
-    q: The sampling proportion = m / n.  Assume m is an integer <= n.
-    sigma: The std of the additive Gaussian noise.
-    alpha: The order at which RDP is computed.
-  Returns:
-    RDP at alpha, can be np.inf.
+
+    Args:
+        q: The sampling proportion = m / n.  Assume m is an integer <= n.
+        sigma: The std of the additive Gaussian noise.
+        alpha: The order at which RDP is computed.
+    Returns:
+        RDP at alpha, can be np.inf.
   """
 
     max_alpha = 256
@@ -508,17 +529,16 @@ def _compute_rdp_sample_without_replacement_int(q, sigma, alpha):
 
 def compute_heterogeneous_rdp(sampling_probabilities, noise_multipliers,
                               steps_list, orders):
-    """Computes RDP of Heteregoneous Applications of Sampled Gaussian Mechanisms.
-  Args:
-    sampling_probabilities: A list containing the sampling rates.
-    noise_multipliers: A list containing the noise multipliers: the ratio of the
-      standard deviation of the Gaussian noise to the l2-sensitivity of the
-      function to which it is added.
-    steps_list: A list containing the number of steps at each
-      `sampling_probability` and `noise_multiplier`.
-    orders: An array (or a scalar) of RDP orders.
-  Returns:
-    The RDPs at all orders. Can be `np.inf`.
+    """Computes RDP of Heterogeneous Applications of Sampled Gaussian Mechanisms.
+
+    Args:
+        sampling_probabilities: A list containing the sampling rates.
+        noise_multipliers: A list containing the noise multipliers: the ratio of the standard deviation of the Gaussian
+            noise to the l2-sensitivity of the function to which it is added.
+        steps_list: A list containing the number of steps at each `sampling_probability` and `noise_multiplier`.
+        orders: An array (or a scalar) of RDP orders.
+    Returns:
+        The RDPs at all orders. Can be `np.inf`.
   """
     assert len(sampling_probabilities) == len(noise_multipliers)
 
@@ -532,18 +552,17 @@ def compute_heterogeneous_rdp(sampling_probabilities, noise_multipliers,
 
 def get_privacy_spent(orders, rdp, target_eps=None, target_delta=None):
     """Computes delta (or eps) for given eps (or delta) from RDP values.
-  Args:
-    orders: An array (or a scalar) of RDP orders.
-    rdp: An array of RDP values. Must be of the same length as the orders list.
-    target_eps: If not `None`, the epsilon for which we compute the
-      corresponding delta.
-    target_delta: If not `None`, the delta for which we compute the
-      corresponding epsilon. Exactly one of `target_eps` and `target_delta` must
-      be `None`.
-  Returns:
-    A tuple of epsilon, delta, and the optimal order.
-  Raises:
-    ValueError: If target_eps and target_delta are messed up.
+
+    Args:
+        orders: An array (or a scalar) of RDP orders.
+        rdp: An array of RDP values. Must be of the same length as the orders list.
+        target_eps: If not `None`, the epsilon for which we compute the corresponding delta.
+        target_delta: If not `None`, the delta for which we compute the corresponding epsilon. Exactly one of
+            `target_eps` and `target_delta` must be `None`.
+    Returns:
+        A tuple of epsilon, delta, and the optimal order.
+    Raises:
+        ValueError: If target_eps and target_delta are messed up.
   """
     if target_eps is None and target_delta is None:
         raise ValueError(
@@ -562,19 +581,19 @@ def get_privacy_spent(orders, rdp, target_eps=None, target_delta=None):
 
 
 def get_iterations(target_delta, sigma, q, max_epsilon, max_N):
-    """Compputes max number of iterations given budget parameters
+    """Computes max number of iterations given budget parameters
+
     Args:
-      target_delta: If not `None`, the delta for which we compute the
-         corresponding epsilon.
-      sigma: sigma to be used in Gaussian DP mechanism
-      q: training sample ratio
-      max_epsilon: Maximum budget allowed
-      max_N: Maximum number of iterations 
+        target_delta: If not `None`, the delta for which we compute the corresponding epsilon.
+        sigma: sigma to be used in Gaussian DP mechanism
+        q: training sample ratio
+        max_epsilon: Maximum budget allowed
+         max_N: Maximum number of iterations
       
     Returns:
-      An integer number of iterations, and the evolution of the budget
+        An integer number of iterations, and the evolution of the budget
     Raises:
-      ValueError: If target_eps and target_delta are messed up.
+        ValueError: If target_eps and target_delta are messed up.
     """
 
     orders = [1 + x / 10. for x in range(1, 100)] + list(range(12, 64))
