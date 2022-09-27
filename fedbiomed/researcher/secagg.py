@@ -79,7 +79,8 @@ class SecaggContext(ABC):
             timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']`
 
         Raises:
-            FedbiomedSecaggError: TODO
+            FedbiomedSecaggError: some parties did not answer before timeout
+            FedbiomedSecaggError: received a reply for a non-party to the negotiation
 
         Returns:
             True if secagg context element could be setup for all parties, False if at least
@@ -120,17 +121,19 @@ class SecaggContext(ABC):
             )
 
             for resp in responses.data():
+                # order of test matters !
                 if resp['researcher_id'] != self._researcher_id:
+                    break
+                if resp['secagg_id'] != self._secagg_id:
+                    logger.debug(
+                        f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
+                        f" and received {resp['secagg_id']}")
                     break
                 if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB414.value}: received message from node "{resp["node_id"]}"' \
                         'which is not a party of secagg "{self._secagg_id}"'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
-                if resp['secagg_id'] != self._secagg_id:
-                    logger.debug(
-                        f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
-                        f" and received {resp['secagg_id']}")
                 if resp['sequence'] != sequence[resp['node_id']]:
                     logger.debug(
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
@@ -203,7 +206,6 @@ class SecaggBiprimeContext(SecaggContext):
         """Constructor of the class.
 
         Args:
-            element: kind of context element handled by this object
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
