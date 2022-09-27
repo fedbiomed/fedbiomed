@@ -449,6 +449,50 @@ class SearchReply(Message):
 
 @catch_dataclass_exception
 @dataclass
+class SecaggDeleteRequest(Message):
+    """Describes a secagg context element delete request message sent by the researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that requests deletion
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    command: str
+
+@catch_dataclass_exception
+@dataclass
+class SecaggDeleteReply(Message):
+    """Describes a secagg context element delete reply message sent by the node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests deletion
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replies to the request
+        msg: Custom message
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    success: bool
+    node_id: str
+    msg: str
+    command: str
+
+@catch_dataclass_exception
+@dataclass
 class SecaggRequest(Message):
     """Describes a secagg context element setup request message sent by the researcher
 
@@ -458,7 +502,7 @@ class SecaggRequest(Message):
         sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         parties: List of parties participating to the secagg context element setup
-        command: Reply command string
+        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -481,7 +525,6 @@ class SecaggReply(Message):
         sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
-        dataset_id: id of the dataset that is used for training
         msg: Custom message
         command: Reply command string
 
@@ -495,7 +538,6 @@ class SecaggReply(Message):
     node_id: str
     msg: str
     command: str
-
 
 # Train messages
 
