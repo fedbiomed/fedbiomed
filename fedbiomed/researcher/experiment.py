@@ -1515,7 +1515,8 @@ class Experiment(object):
         # Ready to execute a training round using the job, strategy and aggregator
         #if self.strategy_info["strategy"] == "Scaffold":
         self._global_model = self._job._training_plan.get_model_params()  # initial server state, before optimization/aggregation
-
+        print("GLOBAL MODEL", self._global_model)
+        self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
@@ -1537,7 +1538,7 @@ class Experiment(object):
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
                                                        global_model = self._global_model,
-                                                       training_args=self._training_args,
+                                                       training_plan=self._job._training_plan,
                                                        node_ids=self._job.nodes,
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file

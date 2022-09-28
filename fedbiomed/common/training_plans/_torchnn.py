@@ -189,6 +189,19 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._model_args
     
+    def get_learning_rate(self) -> List[float]:
+        learning_rates = []
+        
+        lr_optimizer_args = self._optimizer_args.get('lr')
+        if lr_optimizer_args is not None:
+            return [lr_optimizer_args]
+        else:
+            params = self._optimizer.param_groups
+            
+            for param in params:
+                learning_rates.append(param['lr'])
+            return learning_rates
+
     def get_model_params(self) -> OrderedDict:
         return self._model.state_dict()
 

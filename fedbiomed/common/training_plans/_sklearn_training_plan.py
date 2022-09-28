@@ -124,6 +124,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         """
         return self._training_args
 
+    def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
+        lr = self._model_args.get(lr_key)
+        if lr is None:
+            # get the default value
+            lr = self._model.__dict__.get(lr_key)
+        if lr is None:
+            raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
+        return [lr]
+
     def model(self):
         """ Retrieves SKLearn model
 
@@ -133,7 +142,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         return self._model
     
     def get_model_params(self) -> Dict:
-        return self._params
+        return self.after_training_params()
 
     def init_dependencies(self) -> List:
         """Default method where dependencies are returned
@@ -159,7 +168,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
               doesnt request for using a GPU. Default False.
                 """
         if self._model is None:
-            raise FedbiomedTrainingPlanError('model in None')
+            raise FedbiomedTrainingPlanError('model is None')
 
         # Run preprocesses
         self.__preprocess()

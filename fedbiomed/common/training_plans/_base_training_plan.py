@@ -147,6 +147,9 @@ class BaseTrainingPlan(object):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
+    def get_learning_rate(self) -> List[float]:
+        raise FedbiomedTrainingPlanError("method not implemented")
+
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
         """Adds preprocesses
 

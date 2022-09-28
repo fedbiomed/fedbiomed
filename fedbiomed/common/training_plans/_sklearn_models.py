@@ -3,6 +3,7 @@ Fed-BioMed encapsulation of SKLearn base classes.
 """
 
 
+from typing import List
 import numpy as np
 from io import StringIO
 
@@ -62,6 +63,10 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 
         for p in self._params:
             setattr(self._model, p, self._params[p])
+            
+    def get_learning_rate(self) -> List[float]:
+        _lr_key = 'eta0'
+        return super().get_learning_rate(_lr_key)
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """
@@ -139,6 +144,10 @@ class FedSGDClassifier(SKLearnTrainingPlan):
 
         for p in self._params:
             setattr(self._model, p, self._params[p])
+
+    def get_learning_rate(self) -> List[float]:
+        _lr_key = 'eta0'
+        return super().get_learning_rate(_lr_key)
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """Evaluate the loss
