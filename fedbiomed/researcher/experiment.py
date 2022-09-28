@@ -443,7 +443,7 @@ class Experiment(object):
                 [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
         """
 
-        return self._training_args
+        return self._training_args.dict()
 
     @exp_exceptions
     def test_ratio(self) -> float:
@@ -1202,7 +1202,7 @@ class Experiment(object):
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
 
-        return self._training_args
+        return self._training_args.dict()
 
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:

@@ -113,7 +113,7 @@ class TrainingArgs:
             Contains training argument for training routine
         """
 
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs"]
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "use_gpu"]
         return self._extract_args(keys)
 
     def _extract_args(self, keys) -> Dict:

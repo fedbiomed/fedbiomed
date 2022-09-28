@@ -241,9 +241,9 @@ class TestJob(unittest.TestCase):
         tr = self.job.training_replies
         self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        self.job.training_args = {'test': 'test'}
+        self.job.training_args = TrainingArgs({'batch_size': 33})
         targs = self.job.training_args
-        self.assertDictEqual({'test': 'test'}, targs, 'Can not get or set training_args correctly')
+        self.assertEqual(33, targs['batch_size'], 'Can not get or set training_args correctly')
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
