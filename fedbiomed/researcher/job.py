@@ -363,7 +363,9 @@ class Job:
             #if strategy_info.get('strategy') == 'Scaffold':
                 #if round == 0:
             print("AGGREGATOR ARGS", aggregator_args)
-            msg['aggregator_args'] = aggregator_args[cli]
+            if aggregator_args:
+                # add aggregator parameters to message header
+                msg['aggregator_args'] = aggregator_args[cli]
                 # else:
                 #     msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
             if not do_training:

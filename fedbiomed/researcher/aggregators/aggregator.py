@@ -8,6 +8,7 @@ from typing import Dict, Any
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger     import logger
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 
 class Aggregator:
@@ -53,6 +54,10 @@ class Aggregator:
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
     
+    def set_fds(self, fds: FederatedDataSet):
+        self._fds = fds
+
+
     def get_aggregator_args(self, *args, **kwargs) -> dict:
         return {}
 

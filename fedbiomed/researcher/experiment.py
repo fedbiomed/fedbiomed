@@ -1528,11 +1528,12 @@ class Experiment(object):
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
+        self._aggregator.set_fds(self._fds)
         # aggregate model from nodes to a global model
         # --------------------------------------------
         # here, we are passing all arguments that the aggregator may need, using named arguments
-        # if your aggregator requieres additional arguments, you can add those in the `aggregate` call. There
-        # will be ignored in the strategies already implemented in Fedbiomed.
+        # if your aggregator requieres additional arguments, you can add those in the `aggregate` call, using named
+        # arguments. They will be ignored in the strategies already implemented in Fedbiomed.
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
                                                        global_model = self._global_model,
