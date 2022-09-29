@@ -129,7 +129,9 @@ class Experiment(object):
                  training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
                  save_breakpoints: bool = False,
                  tensorboard: bool = False,
-                 experimentation_folder: Union[str, None] = None
+                 experimentation_folder: Union[str, None] = None,
+                 use_secagg: bool = False,
+                 secagg_timeout: float = 0
                  ):
 
         """Constructor of the class.
@@ -184,6 +186,11 @@ class Experiment(object):
                 experimentation by `load_breakpoint`
                 - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
+            use_secagg: whether to setup a secure aggregation context for this experiment, and use it
+                to send encrypted updates from nodes to researcher. Defaults to `False`
+            secagg_timeout: when `use_secagg` is `True`, maximum duration for the setup phase of each
+                secagg context element (server key and biprime), thus total secagg setup is twice the `timeout`.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
         # predefine all class variables, so no need to write try/except
@@ -212,7 +219,9 @@ class Experiment(object):
         #        training_args: dict = {},
         #        save_breakpoints: bool = False,
         #        tensorboard: bool = False,
-        #        experimentation_folder: Union[str, None] = None
+        #        experimentation_folder: Union[str, None] = None,
+        #        use_secagg: bool = False,
+        #        secagg_timeout: fload = 0
 
         # set self._tags and self._nodes
         self.set_tags(tags)
@@ -264,6 +273,8 @@ class Experiment(object):
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
+
+        self.set_use_secagg(use_secagg, secagg_timeout)
 
     # destructor
     @exp_exceptions
@@ -834,6 +845,8 @@ class Experiment(object):
                          'you may need to update `node_selection_strategy`')
         if self._job is not None:
             logger.debug('Training data changed, you may need to update `job`')
+        if self._secagg_servkey is not None or self._secagg_biprime is not None:
+            logger.debug('Training data changed, you may need to update `use_secagg`')
 
         return self._fds
 
@@ -1431,7 +1444,8 @@ class Experiment(object):
         Args:
             use_secagg: if `True` sets secure aggregation to be used for next rounds and
                 establish secagg context if it doesn't exist
-            timeout: maximum duration for the setup phase of each secagg context element.
+            timeout: maximum duration for the setup phase of each secagg context element
+                (server key and biprime), thus total secagg setup is twice the `timeout`.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
@@ -1468,13 +1482,15 @@ class Experiment(object):
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
             if not self._secagg_biprime.status():
-                self._secagg_biprime.setup(timeout)            
+                self._secagg_biprime.setup(timeout)
             if self._secagg_servkey.status() and self._secagg_biprime.status():
                 self._use_secagg = True
+                logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
+            else:
+                logger.debug('Experiment not fully configured yet: no secure aggregation')
         else:
             self._use_secagg = use_secagg
 
-        logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
         return self._use_secagg
 
     @exp_exceptions
