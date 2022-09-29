@@ -15,7 +15,7 @@ from ._data_loading_plan import (DataLoadingBlock,
                                  DataLoadingPlanMixin,
                                  SerializationValidation  # keep it for documentation
                                  )
-
+from ._np_data_loader import NPDataLoader
 __all__ = [
     "MedicalFolderBase",
     "MedicalFolderController",
@@ -26,9 +26,10 @@ __all__ = [
     "SkLearnDataManager",
     "TabularDataset",
     "NIFTIFolderDataset",
+    "NPDataLoader",
     "DataLoadingBlock",
     "MapperBlock",
     "DataLoadingPlan",
     "DataLoadingPlanMixin",
-    "SerializationValidation"
+    "SerializationValidation",
 ]
