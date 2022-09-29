@@ -658,28 +658,31 @@ class Experiment(object):
                 'Rounds total',
                 'Experiment folder',
                 'Experiment Path',
-                'Breakpoint State'
+                'Breakpoint State',
+                'Secure Aggregation'
             ],
             # max 60 characters per column for values - can we do that with tabulate() ?
             'Values': ['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                           self._tags,
-                           self._nodes,
-                           self._fds,
-                           self._aggregator.aggregator_name if self._aggregator is not None else None,
-                           self._node_selection_strategy,
-                           self._job,
-                           self._training_plan_path,
-                           self._training_plan_class,
-                           self._model_args,
-                           self._training_args,
-                           self._round_current,
-                           self._round_limit,
-                           self._experimentation_folder,
-                           self.experimentation_path(),
-                           self._save_breakpoints
-                       ]
-                       ]
+                self._tags,
+                self._nodes,
+                self._fds,
+                self._aggregator.aggregator_name if self._aggregator is not None else None,
+                self._node_selection_strategy,
+                self._job,
+                self._training_plan_path,
+                self._training_plan_class,
+                self._model_args,
+                self._training_args,
+                self._round_current,
+                self._round_limit,
+                self._experimentation_folder,
+                self.experimentation_path(),
+                self._save_breakpoints,
+                f'- Using: {self._use_secagg}\n- Server key context: {self._secagg_servkey}\n' \
+                f'- Biprime context: {self._secagg_biprime}'
+            ]
+            ]
         }
         print(tabulate(info, headers='keys'))
 
