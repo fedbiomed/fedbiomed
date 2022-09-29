@@ -1,11 +1,14 @@
+"""Diffenrential Privacy controller."""
+
+from typing import Dict, Tuple, Union
+
+from opacus import PrivacyEngine
+from opacus.validators import ModuleValidator
 from torch import randn_like
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
-from typing import Union, Dict, Tuple
-from copy import deepcopy
-from opacus import PrivacyEngine
-from opacus.validators import ModuleValidator
+
 from fedbiomed.common.validator import ValidateError
 from fedbiomed.common.training_args import DPArgsValidator
 from fedbiomed.common.exceptions import FedbiomedDPControllerError
@@ -13,19 +16,17 @@ from fedbiomed.common.constants import ErrorNumbers
 
 
 class DPController:
-    """Controls DP action during training"""
+    """Controls DP action during training."""
 
-    def __init__(self, dp_args: Union[Dict, None] = None):
+    def __init__(self, dp_args: Union[Dict, None] = None) -> None:
         """Constructs DPController with given model.
 
         Args:
             dp_args: Arguments for differential privacy
         """
-
         self._privacy_engine = PrivacyEngine()
-        self._dp_args = dp_args
-        self._is_active = True if dp_args is not None else False
-
+        self._dp_args = dp_args or {}
+        self._is_active = dp_args is not None
         # Configure/validate dp arguments
         if self._is_active:
             self._configure_dp_args()
@@ -44,57 +45,62 @@ class DPController:
         Returns:
             Differential privacy applies model, optimizer and data loader
         """
-
         if not isinstance(model, Module):
-            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Model must be an instance of torch.nn.Module")
-
+            raise FedbiomedDPControllerError(
+                f"{ErrorNumbers.FB616}: "
+                "Model must be an instance of torch.nn.Module"
+            )
         if not isinstance(optimizer, Optimizer):
-            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Optimizer must be an instance of "
-                                             f"torch.optim.Optimizer")
-
+            raise FedbiomedDPControllerError(
+                f"{ErrorNumbers.FB616}: "
+                "Optimizer must be an instance of torch.optim.Optimizer"
+            )
         if not isinstance(loader, DataLoader):
-            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616}: Data loader must be an instance of "
-                                             f"torch.utils.data.DataLoader")
-
+            raise FedbiomedDPControllerError(
+                f"{ErrorNumbers.FB616}: "
+                "Data loader must be an instance of torch.utils.data.DataLoader"
+            )
         if self._is_active:
             try:
-                model, optimizer, loader = \
-                    self._privacy_engine.make_private(module=model,
-                                                      optimizer=optimizer,
-                                                      data_loader=loader,
-                                                      noise_multiplier=float(self._dp_args.get('sigma')),
-                                                      max_grad_norm=float(self._dp_args.get('clip')))
+                model, optimizer, loader = self._privacy_engine.make_private(
+                    module=model,
+                    optimizer=optimizer,
+                    data_loader=loader,
+                    noise_multiplier=float(self._dp_args['sigma']),
+                    max_grad_norm=float(self._dp_args['clip'])
+                )
             except Exception as e:
-                raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: Error while running privacy "
-                                                 f"engine: {e}")
-
+                raise FedbiomedDPControllerError(
+                    f"{ErrorNumbers.FB616.value}: "
+                    f"Error while running privacy engine: {e}"
+                )
         return model, optimizer, loader
 
-    def after_training(self, params: Dict, initial_params: Dict) -> Dict:
+    def after_training(self, params: Dict) -> Dict:
         """DP actions after the training.
 
         Args:
-            params: Contains model parameters after training with differential privacy
-            initial_params: Initial parameters before training with  differential privacy
+            params: Contains model parameters after training with DP
         Returns:
             `params` fixed model parameters after applying differential privacy
         """
         if self._is_active:
-            params = self._postprocess_dp(params, initial_params)
-
+            params = self._postprocess_dp(params)
         return params
 
-    def _configure_dp_args(self):
+    def _configure_dp_args(self) -> None:
         """Initialize arguments to perform DP training. """
-
-        self._dp_args = DPArgsValidator.populate_with_defaults(self._dp_args, only_required=False)
+        self._dp_args = DPArgsValidator.populate_with_defaults(
+            self._dp_args, only_required=False
+        )
         try:
             DPArgsValidator.validate(self._dp_args)
         except ValidateError as e:
-            raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: DP arguments are not valid: {e}")
-
+            raise FedbiomedDPControllerError(
+                f"{ErrorNumbers.FB616.value}: DP arguments are not valid: {e}"
+            )
         if self._dp_args['type'] == 'central':
-            self._dp_args.update(sigma_CDP=self._dp_args['sigma'])
+            self._dp_args['sigma_CDP'] = self._dp_args['sigma']
             self._dp_args['sigma'] = 0.
 
     def validate_and_fix_model(self, model: Module) -> Module:
@@ -110,12 +116,13 @@ class DPController:
             try:
                 model = ModuleValidator.fix(model)
             except Exception as e:
-                raise FedbiomedDPControllerError(f"{ErrorNumbers.FB616.value}: Error while making model DP-compliant"
-                                                 f"{e}")
-
+                raise FedbiomedDPControllerError(
+                    f"{ErrorNumbers.FB616.value}: "
+                    f"Error while making model DP-compliant: {e}"
+                )
         return model
 
-    def _assess_budget_locally(self, loader) -> Tuple[float, float]:
+    def _assess_budget_locally(self, loader: DataLoader) -> Tuple[float, float]:
         """Computes eps and alpha for budget privacy.
 
         TODO: This function is not used any where on the node side. For future implementation
@@ -129,7 +136,6 @@ class DPController:
         """
         # To be used by the nodes to assess budget locally
         eps, alpha = self._privacy_engine.accountant.get_privacy_spent(delta=.1 / len(loader))
-
         return eps, alpha
 
     def _postprocess_dp(self, params: Dict) -> Dict:
