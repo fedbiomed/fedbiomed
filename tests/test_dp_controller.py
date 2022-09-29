@@ -51,7 +51,7 @@ class TestDPController(unittest.TestCase):
 
     def test_dep_controller_01_init_1(self):
         dp_controller = DPController()
-        self.assertIsNone(dp_controller._dp_args, "_dp_args is not none")
+        self.assertEqual(dp_controller._dp_args, {}, "_dp_args is not none")
         self.assertFalse(dp_controller._is_active, "DPController is active where it should be inactive")
 
     def test_dep_controller_02_init_2(self):
@@ -142,15 +142,14 @@ class TestDPController(unittest.TestCase):
         """Tests before training method with different scenarios"""
 
         params = {"a_module.": torch.zeros([2, 4]), "b_module.": torch.zeros([2, 4])}
-        initial_params = {"a": torch.zeros([2, 4]), "b": torch.zeros([2, 4])}
 
         # Post processes with DPL
-        p = self.dpl._postprocess_dp(params, initial_params)
+        p = self.dpl._postprocess_dp(params)
         self.assertTrue('module' not in list(p.keys())[0], "`module tag is not properly removed from private "
                                                            "end-model`")
 
         # Post processes with DPC
-        p = self.dpc._postprocess_dp(params, initial_params)
+        p = self.dpc._postprocess_dp(params)
         self.assertTrue('module' not in list(p.keys())[0], "`module tag is not properly removed from private "
                                                            "end-model`")
 
@@ -161,12 +160,11 @@ class TestDPController(unittest.TestCase):
         postprocess.return_value = "POSTPROCESS"
 
         params = {"a_module.": torch.zeros([2, 4]), "b_module.": torch.zeros([2, 4])}
-        initial_params = {"a": torch.zeros([2, 4]), "b": torch.zeros([2, 4])}
 
         # Post processes with DPL
-        p = self.dpl.after_training(params, initial_params)
+        p = self.dpl.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
 
         # Post processes with DPC
-        p = self.dpc.after_training(params, initial_params)
+        p = self.dpc.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
