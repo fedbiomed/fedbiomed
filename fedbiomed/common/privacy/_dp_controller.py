@@ -132,44 +132,32 @@ class DPController:
 
         return eps, alpha
 
-    def _postprocess_dp(self, params: Dict, initial_params: Dict) -> Dict:
+    def _postprocess_dp(self, params: Dict) -> Dict:
         """Postprocess of model's parameters after training with DP.
 
         **Postprocess of DP parameters implies**
-        - If central DP is enabled, model's parameters are perturbed  according to the provided DP parameters
-        - When the Opacus `PrivacyEngine` is attached to the model, parameters' names are modified by the
-            addition of `_module.`. This modification should be undone before communicating to the master
-            for aggregation. This is needed in order to correctly perform download/upload of model's parameters
-            in the following rounds
+        - If central DP is enabled, model's parameters are perturbed according
+          to the provided DP parameters.
+        - When the Opacus `PrivacyEngine` is attached to the model, parameters'
+          names are modified by the addition of `_module.`. This modification
+          should be undone before communicating to the server for aggregation.
+          This is needed in order to correctly perform download/upload of
+          model's parameters in the following rounds
 
         Args:
-            params: Contains model parameters after training with differential privacy
-            initial_params: Initial parameters before training with  differential privacy
-
+            params: Contains model parameters after training with DP
         Returns:
             Contains (post processed) parameters
         """
-        params_keys = list(params.keys())
-        for key in params_keys:
-            if '_module' in key:
-                newkey = key.replace('_module.', '')
-                params[newkey] = params.pop(key)
-
+        # Rename parameters when needed.
+        params = {
+            key.replace('_module.', ''): param
+            for key, param in params.items()
+        }
+        # When using central DP, postprocess the parameters.
         if self._dp_args['type'] == 'central':
-            sigma_CDP = deepcopy(self._dp_args['sigma_CDP'])
-            delta_params = {}
-            perturbed_params = {}
-            for name, param in params.items():
-                # Extracting the update
-                delta_theta = deepcopy(param)
-                delta_params[name] = delta_theta - initial_params[name]
-
-            for key, delta_param in delta_params.items():
-                # Perturb update and update parameters
-                delta_theta_tilde = deepcopy(delta_param)
-                delta_theta_tilde += sigma_CDP * self._dp_args['clip'] * randn_like(delta_theta_tilde)
-                perturbed_params[key] = delta_theta_tilde + initial_params[key]
-            params = deepcopy(perturbed_params)
-
-
+            sigma = self._dp_args['sigma_CDP']
+            for key, param in params.items():
+                noise = sigma * self._dp_args['clip'] * randn_like(param)
+                param += noise
         return params

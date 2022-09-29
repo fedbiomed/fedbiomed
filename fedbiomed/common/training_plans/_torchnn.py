@@ -603,7 +603,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
                                                  f"{e}" )
 
-        params = self._dp_controller.after_training(params, self._init_params)
+        params = self._dp_controller.after_training(params)
         return params
 
     def __norm_l2(self) -> float:
