@@ -165,5 +165,5 @@ class DPController:
             sigma = self._dp_args['sigma_CDP']
             for key, param in params.items():
                 noise = sigma * self._dp_args['clip'] * randn_like(param)
-                param += noise
+                params[key] = param + noise
         return params
