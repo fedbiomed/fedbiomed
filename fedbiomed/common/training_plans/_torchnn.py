@@ -17,6 +17,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
 from fedbiomed.common.privacy import DPController
+from fedbiomed.common.training_args import TrainingArgs
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -87,7 +88,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict) -> None:
+    def post_init(self, model_args: Dict, training_args: TrainingArgs) -> None:
         """ Sets arguments for training, model and optimizer
 
         Args:
