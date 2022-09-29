@@ -18,7 +18,7 @@ class TestFedaverage(unittest.TestCase):
     # before the tests
     def setUp(self):
         self.model = Linear(10, 3)
-        self.models = [copy.deepcopy(self.model).state_dict() for _ in range(4)]
+        self.models = [{f'node_{i}': copy.deepcopy(self.model).state_dict()} for i in range(4)]
         self.weights = [random() for _ in self.models]
         self.aggregator = FedAverage()
 
@@ -28,7 +28,7 @@ class TestFedaverage(unittest.TestCase):
 
     def test_fed_average_01_torch(self):
         """ Testing aggregation for torch model """
-
+        print("MODELS", self.models)
         aggregated_params = self.aggregator.aggregate(self.models, self.weights)
         # ===============================================================
         # Assert Federated Average
@@ -39,9 +39,9 @@ class TestFedaverage(unittest.TestCase):
     def test_fed_average_02_sklearn_sgd_t1(self):
         """ Testing aggregation for sklearn sgd test 1"""
 
-        model_params = [{'coef_': np.array([3, 8, 8, 3, 1]), 'intercept_': np.array([4])},
-                        {'coef_': np.array([0.4, 1.6, 2, 1, 0.1]), 'intercept_': np.array([1])},
-                        {'coef_': np.array([2, 5, 5, 3, 1]), 'intercept_': np.array([6])}]
+        model_params = [{'node_1':{'coef_': np.array([3, 8, 8, 3, 1]), 'intercept_': np.array([4])}},
+                        {'node_2': {'coef_': np.array([0.4, 1.6, 2, 1, 0.1]), 'intercept_': np.array([1])}},
+                        {'mode_3': {'coef_': np.array([2, 5, 5, 3, 1]), 'intercept_': np.array([6])}}]
         weights = [0.2, 0.2, 0.6]
 
         aggregated_params = self.aggregator.aggregate(model_params, weights)
@@ -53,10 +53,10 @@ class TestFedaverage(unittest.TestCase):
 
         weights = [0.27941176470588236, 0.7205882352941176]
 
-        model_params = [{'coef_': np.array([-0.02629813, 0.04612957, -0.00321454, 0.08003535, 0.30818439]),
-                         'intercept_': np.array([0.161345])},
-                        {'coef_': np.array([-0.02782622, 0.0145883, -0.01471519, -0.03673147, 0.45426254]),
-                         'intercept_': np.array([-0.00457364])}]
+        model_params = [{'node_1': {'coef_': np.array([-0.02629813, 0.04612957, -0.00321454, 0.08003535, 0.30818439]),
+                         'intercept_': np.array([0.161345])}},
+                        {'node_2': {'coef_': np.array([-0.02782622, 0.0145883, -0.01471519, -0.03673147, 0.45426254]),
+                         'intercept_': np.array([-0.00457364])}}]
 
         aggregated_params = self.aggregator.aggregate(model_params, weights)
         self.assertTrue(np.allclose(aggregated_params['coef_'],

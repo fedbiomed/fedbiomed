@@ -18,7 +18,9 @@ class Aggregator:
     (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
     def __init__(self):
-        self._aggregator_params = None
+        self._aggregator_params: str = None
+        self._fds: FederatedDataSet = None
+        self._training_plan_type: TrainingPlans = None
 
     @staticmethod
     def normalize_weights(weights: list) -> list:

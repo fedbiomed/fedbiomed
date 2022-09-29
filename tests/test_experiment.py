@@ -7,6 +7,8 @@ import json
 import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
+from fedbiomed.common import training_plans
+from fedbiomed.common.constants import TrainingPlans
 
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
@@ -22,7 +24,7 @@ from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.experiment import Experiment, TrainingPlan
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -979,6 +981,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
@@ -988,14 +991,17 @@ class TestExperiment(unittest.TestCase):
                                     mock_job_updates_params,
                                     mock_job_training,
                                     mock_job_training_replies,
+                                    mock_job_training_plan_type,
                                     mock_strategy_refine,
                                     mock_fedavg_aggregate,
                                     mock_experiment_breakpoint):
         """ Testing run_once method of Experiment class """
-
+        training_plan = MagicMock()
+        training_plan.type = MagicMock()
         mock_job_init.return_value = None
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2])
         mock_fedavg_aggregate.return_value = None
         mock_job_updates_params.return_value = None

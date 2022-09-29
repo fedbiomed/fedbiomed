@@ -31,6 +31,6 @@ class FedAverage(Aggregator):
             Aggregated parameters
         """
         model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
-        weights_processed = [list(weight.values())[0] for weight in weights]
+        weights_processed = [weight if isinstance(weight, float) else list(weight.values())[0] for weight in weights]
         weights_processed = self.normalize_weights(weights_processed)
         return federated_averaging(model_params_processed, weights_processed)

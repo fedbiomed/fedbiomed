@@ -1,22 +1,21 @@
 import copy
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import torch
 import numpy as np
 
 
-def initialize(val):
+def initialize(val: Union[torch.Tensor, np.ndarray]):
     """Initialize tensor or array vector. """
-
     if isinstance(val, torch.Tensor):
         return ('tensor' , torch.zeros_like(val).float())
     elif isinstance(val, np.ndarray) or isinstance(val, list):
-        print("VAL", val)
+        
         return ('array' , np.zeros(val.shape, dtype = float))
 
 
-def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
-                        weights: List[float]) -> Dict[str, torch.Tensor]:
+def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
+                        weights: List[float]) -> Dict[str, Union[torch.Tensor, np.ndarray]]:
     """Defines Federated Averaging (FedAvg) strategy for model aggregation.
 
     Args:
@@ -37,7 +36,7 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
 
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
-
+    print("AVG PARAMS", avg_params)
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
     if t == 'tensor':
