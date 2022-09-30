@@ -3,6 +3,7 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 from abc import ABC, abstractmethod
+from cgitb import reset
 from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
 from copy import deepcopy
 
@@ -64,9 +65,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._log_interval = 10
         self._epochs = 1
         self._dry_run = False
+        self._num_updates = None
         
         self.correction_state = OrderedDict()
-        
+        self.aggregator_name = None
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -94,7 +96,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._init_params = None
 
     def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None,
-                  strategy_args: Optional[Dict] = None) -> None:
+                  aggregator_args: Optional[Dict] = None) -> None:
         """ Sets arguments for training, model and optimizer
 
         Args:
@@ -117,13 +119,15 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
+        self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
         
-        # strategy args
+        # aggregator args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         # TODO: put fedprox mu inside strategy_args
-        self._strategy_args = strategy_args or {}
-        self.correction_state = self._strategy_args.get('correction_state', {})
+        self._aggregator_args = aggregator_args or {}
+        self.aggregator_name = self._aggregator_args.get('aggregator_name')
+        self.correction_state = self._aggregator_args.get('correction_state', {})
 
         # Add dependencies
         init_dep_spec = get_method_spec(self.init_dependencies)
@@ -190,6 +194,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         return self._model_args
     
     def get_learning_rate(self) -> List[float]:
+        """
+        Gets learning rate from 1. the `optimizer_args`, 
+        or 2.  value set in optimizer (could be the default)
+
+        Returns:
+            List[float]: list of single learning rate or multiple learning rates
+                (as many as the number of the layers contained in the model)
+        """
         learning_rates = []
         
         lr_optimizer_args = self._optimizer_args.get('lr')
@@ -339,7 +351,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def training_routine(self,
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None,
-                         correction_state: dict = None,):
+                         ):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for validation specified in the
         # training routine
@@ -360,11 +372,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
-        if correction_state is not None:
-            self.correction_state = correction_state
-        else:
-            for i in self._model.state_dict():
-                self.correction_state[i] = 0
+        
         
         self._model.train()  # pytorch switch for training
 
@@ -385,12 +393,26 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # initial aggregated model parameters
         self._init_params = deepcopy(self._model.state_dict())
+        
+        if self._num_updates is not None:
+            # compute num epochs and batches from num_updates
+            # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
+            # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
+            # the last epoch will have 0 iterations.
+            num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
+            num_epochs = self._num_updates // num_batches_per_epoch + 1
+            num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+        else:
+            num_epochs = self._epochs
 
-        for epoch in range(1, self._epochs + 1):
+        for epoch in range(1, num_epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
+                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
+                if epoch == num_epochs and self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
+                    break
 
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
@@ -401,20 +423,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 res = self.training_step(data, target)  # raises an exception if not provided
 
                 
-                # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
-                dot_product = compute_dot_product(self._model.state_dict(), self.correction_state)
-                corrected_loss = res - dot_product
-
-                # If FedProx is enabled: use regularized loss function
-                if self._fedprox_mu is not None:
-                    res += float(self._fedprox_mu) / 2 * self.__norm_l2()
-
-                
+                corrected_loss = self.compute_corrected_loss(res)
                 corrected_loss.backward()
 
                 self._optimizer.step()
 
-                if batch_ % self._log_interval == 0 or self._dry_run:
+                if batch_  % self._log_interval == 0 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -618,6 +632,27 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             pass
 
         return self._model.state_dict()
+
+    def compute_corrected_loss(self, res):
+        
+        # write here specific loss computation
+        if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+            if self.correction_state is None:
+            
+                for i in self._model.state_dict():
+                    self.correction_state[i] = 0  
+            # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
+            dot_product = compute_dot_product(self._model.state_dict(), self.correction_state, self._device)
+            corrected_loss = res - dot_product
+        else:
+            # case where no correction is done (eg: fedavg)
+            corrected_loss = res
+
+        # If FedProx is enabled: use regularized loss function
+        if self._fedprox_mu is not None:
+            corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+
+        return corrected_loss
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization

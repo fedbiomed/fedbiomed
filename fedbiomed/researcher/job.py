@@ -16,7 +16,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
 
-from typing import Union, Callable, List, Dict, Type
+from typing import Optional, Union, Callable, List, Dict, Type
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -334,7 +334,22 @@ class Job:
         correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
         client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
         return client_correction_states_dict
-
+    
+    def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
+        
+        if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
+            # compute number of updates from number of samples and batch_size (if not provided)
+            if nodes is None:
+                node_present: List[str] = list(fds.data().values())
+            else:
+                node_present: List[str] = nodes
+            max_n_samples = min([info_node[0].get('shape')[0] for info_node in node_present])
+            batch_size = self._training_args['batch_size']
+            num_updates = max_n_samples // batch_size 
+            if max_n_samples % batch_size:
+                num_updates += 1
+            self._training_args['num_updates'] = num_updates
+        
     def start_nodes_training_round(self, round: int, aggregator_args: dict, do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 

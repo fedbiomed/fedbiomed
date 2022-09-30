@@ -10,7 +10,7 @@ import traceback
 from copy import deepcopy
 from re import findall
 from tabulate import tabulate
-from typing import Callable, OrderedDict, Tuple, Union, Dict, Any, TypeVar, Type, List
+from typing import Callable, Optional, OrderedDict, Tuple, Union, Dict, Any, TypeVar, Type, List
 from fedbiomed.common.metrics import MetricTypes
 from pathvalidate import sanitize_filename, sanitize_filepath
 
@@ -1197,12 +1197,12 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad training_args type
         """
-
+        
         if isinstance(training_args, TrainingArgs):
             self._training_args = deepcopy(training_args)
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
-
+        
         return self._training_args.dict()
 
     @exp_exceptions
@@ -1520,6 +1520,8 @@ class Experiment(object):
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
+        self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
+        
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         # Trigger training round on sampled nodes    
@@ -1531,17 +1533,21 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
+        
+        
         # aggregate model from nodes to a global model
         # --------------------------------------------
         # here, we are passing all arguments that the aggregator may need, using named arguments
         # if your aggregator requieres additional arguments, you can add those in the `aggregate` call, using named
-        # arguments. They will be ignored in the strategies already implemented in Fedbiomed.
+        # arguments. They will be ignored in the strategies already implemented in Fedbiomed (ie will be
+        # passed in the *args and **kwargs arguments).
+                
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
                                                        global_model = self._global_model,
                                                        training_plan=self._job._training_plan,
                                                        node_ids=self._job.nodes,
-                                                       n_updates=self._training_args.get('epochs'),
+                                                       n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)

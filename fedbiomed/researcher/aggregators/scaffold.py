@@ -237,7 +237,7 @@ class Scaffold(Aggregator):
 
         
 
-        print("LEN_", len(_tmp_correction_update))
+        print("LEN_", len(_tmp_correction_update), len(updated_model_params), total_nb_nodes, node_ids)
         _aggregated_tmp_correction_update = federated_averaging(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`

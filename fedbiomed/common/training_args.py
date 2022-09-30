@@ -45,6 +45,8 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
+        
+        self._num_updates_unset = True
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -74,6 +76,8 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
+        if self._ta.get('num_updates') is not None:
+            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except (ValidateError) as e:
@@ -192,6 +196,9 @@ class TrainingArgs:
                 "rules": [int], "required": True, "default": 48
             },
             "epochs": {
+                "rules": [int], "required": True, "default": 1
+            },
+            "num_updates": {
                 "rules": [int], "required": True, "default": 1
             },
             "dry_run": {

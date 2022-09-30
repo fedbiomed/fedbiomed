@@ -80,7 +80,7 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        msg_print = {key:value for key, value in msg.items() if key != 'correction_state'}
+        msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
         logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
@@ -239,7 +239,7 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
-            item_print = {key:value for key, value in item.items() if key != 'correction_state'}
+            item_print = {key:value for key, value in item.items() if key != 'aggregator_args'}
             try:
                 logger.debug('[TASKS QUEUE] Item:' + str(item_print))
                 self.parser_task(item)

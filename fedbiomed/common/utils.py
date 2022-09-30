@@ -1,7 +1,7 @@
 import sys
 import inspect
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Union
+from typing import Callable, Iterator, List, Optional, Union
 from IPython.core.magics.code import extract_symbols
 
 import torch
@@ -153,7 +153,7 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
     return list_of_floats
 
 
-def compute_dot_product(model: dict, params: dict) -> torch.tensor:
+def compute_dot_product(model: dict, params: dict, device: Optional[str] = None) -> torch.tensor:
     """Compute the dot product between model and input parameters.
 
     Args:
@@ -165,6 +165,11 @@ def compute_dot_product(model: dict, params: dict) -> torch.tensor:
     """
     model_p = model.values()
     correction_state = params.values()
-    device = list(model_p)[0].device
+    if device is None:
+        if model_p:
+            device = list(model_p)[0].device
+        else:
+            # if device is not found, set it to `cpu`
+            device = 'cpu'
     dot_prod = sum([torch.sum(m * torch.tensor(p).float().to(device)) for m, p in zip(model_p, correction_state)])
     return dot_prod
