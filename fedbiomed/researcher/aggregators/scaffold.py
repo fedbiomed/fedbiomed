@@ -117,7 +117,6 @@ class Scaffold(Aggregator):
 
     def set_nodes_learning_rate_from_training_plan(self, training_plan: BaseTrainingPlan) -> Iterable[float]:
         # to be implemented in a utils module
-        _key_lr = ""
         # try:
         #     if self._training_plan_type == TrainingPlans.TorchTrainingPlan:
         #         _key_lr = "lr"
@@ -155,10 +154,6 @@ class Scaffold(Aggregator):
 
         init_params = {key:initialize(tensor)[1]for key, tensor in global_model.items()}
         self.nodes_correction_states = {node_id: deepcopy(init_params) for node_id in node_ids}
-
-        print("INIT PARAMS", init_params)
-        
-
     
     def scaling(self,
                 model_params: List[Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]],
@@ -237,14 +232,12 @@ class Scaffold(Aggregator):
 
         
 
-        print("LEN_", len(_tmp_correction_update), len(updated_model_params), total_nb_nodes, node_ids)
         _aggregated_tmp_correction_update = federated_averaging(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`
         for node_id in self._fds.node_ids():
             for layer_name, node_layer in updated_model_params.items(): 
-                print(1, _aggregated_tmp_correction_update[layer_name])
-                print(2, self.nodes_correction_states[node_id][layer_name])
+
                 self.nodes_correction_states[node_id][layer_name] += _aggregated_tmp_correction_update[layer_name]
 
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:

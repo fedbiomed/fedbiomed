@@ -36,7 +36,7 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
 
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
-    print("AVG PARAMS", avg_params)
+
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
     if t == 'tensor':

@@ -405,13 +405,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         else:
             num_epochs = self._epochs
 
+
         for epoch in range(1, num_epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
                 # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if epoch == num_epochs and self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
+                if epoch == num_epochs + 1 and self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
                     break
 
                 # Plus one since batch_idx starts from 0
@@ -436,7 +437,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         num_samples_till_now,
                         len(self.training_data_loader.dataset),
                         100 * batch_ / len(self.training_data_loader),
-                        res.item()))
+                        corrected_loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:

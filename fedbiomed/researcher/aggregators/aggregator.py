@@ -30,7 +30,6 @@ class Aggregator:
 
         assuming that all values are >= 0.0
         """
-        print("WEIGTHS", weights)
         _l = len(weights)
         if _l == 0:
             return []
