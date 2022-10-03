@@ -122,9 +122,8 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     specific to Fed-BioMed.
 
     A FlambyDataset is always created in an empty state, and it **requires** a DataLoadingPlan to be finalized to a
-    correct state. The DataLoadingPlan must contain at least the two following DataLoadinBlocks key-value pairs:
-    - FlambyLoadingBlockTypes.FLAMBY_DATASET : FlambyDatasetSelectorLoadingBlock
-    - FlambyLoadingBlockTypes.FLAMBY_CENTER_ID : FlambyCenterIDLoadingBlock
+    correct state. The DataLoadingPlan must contain at least the following DataLoadinBlock key-value pair:
+    - FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA : FlambyDatasetMetadata
 
     The lifecycle of the DataLoadingPlan and the wrapped FedClass are tightly interlinked: when the DataLoadingPlan
     is set, the wrapped FedClass is initialized and instantiated. When the DataLoadingPlan is cleared, the wrapped
@@ -142,7 +141,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         self._transform = None
 
     def _check_fed_class_initialization_status(require_initialized, require_uninitialized, message=None):
-        """Raises FedbiomedDatasetError if the FedClass was not initialized.
+        """Decorator that raises FedbiomedDatasetError if the FedClass was not initialized.
 
         This decorator can be used as a shorthand for testing whether the self.__flamby_fed_class was correctly
         initialized before using a method of the FlambyDataset class. Note that the arguments require_initialized
@@ -173,7 +172,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         return decorator
 
     def _requires_dlp(method):
-        """Raises FedbiomedDatasetError if the Data Loading Plan was not set."""
+        """Decorator that raises FedbiomedDatasetError if the Data Loading Plan was not set."""
         def wrapper(self, *args, **kwargs):
             if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in self._dlp:
                 msg = f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan " \
