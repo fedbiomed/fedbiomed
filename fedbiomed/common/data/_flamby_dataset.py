@@ -2,7 +2,6 @@ from importlib import import_module
 from enum import Enum
 from typing import List, Dict, Union
 import pkgutil
-import inspect
 
 from torch.utils.data import Dataset
 import flamby.datasets as flamby_datasets_module
@@ -13,6 +12,7 @@ from monai.transforms import Compose as MonaiCompose
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
+from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 
 
@@ -220,7 +220,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
         # finally instantiate FedClass
         try:
-            if 'transform' in inspect.signature(module.FedClass).parameters.keys():
+            if 'transform' in get_method_spec(module.FedClass):
                 # Since the __init__ signatures are different, we are forced to distinguish two cases
                 self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
                                                           pooled=False)
