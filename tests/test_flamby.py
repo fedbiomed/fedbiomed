@@ -6,8 +6,8 @@ from torchvision.transforms import Compose as TorchCompose
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetValueError, \
     FedbiomedLoadingBlockValueError, FedbiomedLoadingBlockError
-from fedbiomed.common.data import FlambyDataset, FlambyLoadingBlockTypes, FlambyCenterIDLoadingBlock, \
-    FlambyDatasetSelectorLoadingBlock, DataLoadingPlan, discover_flamby_datasets
+from fedbiomed.common.data import FlambyDataset, FlambyLoadingBlockTypes, FlambyDatasetMetadata, \
+    DataLoadingPlan, discover_flamby_datasets
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
 
 
@@ -21,50 +21,40 @@ class TestFlamby(unittest.TestCase):
     def test_flamby_01_loading_blocks(self, patched_discover):
         """Test that the custom DataLoadingBlocks for FlambyDataset work as expected."""
         # Base case for FlambyDatasetSelectorLoadingBlock when there are no errors
-        dlb_dataset_type = FlambyDatasetSelectorLoadingBlock()
-        dlb_dataset_type.flamby_dataset_name = 'fed_flamby_test'
+        dlb = FlambyDatasetMetadata()
+        dlb.metadata['flamby_dataset_name'] = 'fed_flamby_test'
+        dlb.metadata['flamby_center_id'] = 42
 
-        serialized_dataset_type = dlb_dataset_type.serialize()
+        serialized_dataset_type = dlb.serialize()
         self.assertIn('flamby_dataset_name', serialized_dataset_type)
+        self.assertIn('flamby_center_id', serialized_dataset_type)
         self.assertEqual(serialized_dataset_type['flamby_dataset_name'], 'fed_flamby_test')
+        self.assertEqual(serialized_dataset_type['flamby_center_id'], 42)
         self.assertIn('loading_block_class', serialized_dataset_type)
         self.assertIn('loading_block_module', serialized_dataset_type)
         self.assertIn('dlb_id', serialized_dataset_type)
-        _ = FlambyDatasetSelectorLoadingBlock().deserialize(serialized_dataset_type)  # assert no errors raised
+        _ = FlambyDatasetMetadata().deserialize(serialized_dataset_type)  # assert no errors raised
 
         # Assert raises when dataset name is of wrong type
         serialized_dataset_type['flamby_dataset_name'] = 0
         with self.assertRaises(FedbiomedLoadingBlockValueError):
-            _ = FlambyDatasetSelectorLoadingBlock().deserialize(serialized_dataset_type)
+            _ = FlambyDatasetMetadata().deserialize(serialized_dataset_type)
+        # Assert raises when center id is of wrong type
+        serialized_dataset_type['flamby_center_id'] = 'a string'
+        with self.assertRaises(FedbiomedLoadingBlockValueError):
+            _ = FlambyDatasetMetadata().deserialize(serialized_dataset_type)
         # Assert raises when dataset name is not one of the flamby datasets
         serialized_dataset_type['flamby_dataset_name'] = 'non-existing name'
         with self.assertRaises(FedbiomedLoadingBlockValueError):
-            _ = FlambyDatasetSelectorLoadingBlock().deserialize(serialized_dataset_type)
-
-        self.assertEqual(dlb_dataset_type.apply(), 'fed_flamby_test')
+            _ = FlambyDatasetMetadata().deserialize(serialized_dataset_type)
+        # Assert calling apply gives correct result
+        self.assertDictEqual(dlb.apply(),
+                             {'flamby_dataset_name': 'fed_flamby_test',
+                              'flamby_center_id': 42
+                              })
+        # Assert exception raised when calling apply on uninitialized loading block
         with self.assertRaises(FedbiomedLoadingBlockError):
-            FlambyDatasetSelectorLoadingBlock().apply()
-
-        # Base case for FlambyCenterIDLoadingBlock when there are no errors
-        dlb_center_id = FlambyCenterIDLoadingBlock()
-        dlb_center_id.flamby_center_id = 42
-
-        serialized_center_id = dlb_center_id.serialize()
-        self.assertIn('flamby_center_id', serialized_center_id)
-        self.assertEqual(serialized_center_id['flamby_center_id'], 42)
-        self.assertIn('loading_block_class', serialized_center_id)
-        self.assertIn('loading_block_module', serialized_center_id)
-        self.assertIn('dlb_id', serialized_center_id)
-        _ = FlambyCenterIDLoadingBlock().deserialize(serialized_center_id)  # assert no errors raised
-
-        # Assert raises when center id is of wrong type
-        serialized_center_id['flamby_center_id'] = 'a string'
-        with self.assertRaises(FedbiomedLoadingBlockValueError):
-            _ = FlambyCenterIDLoadingBlock().deserialize(serialized_center_id)
-
-        self.assertEqual(dlb_center_id.apply(), 42)
-        with self.assertRaises(FedbiomedLoadingBlockError):
-            FlambyCenterIDLoadingBlock().apply()
+            FlambyDatasetMetadata().apply()
 
     def test_flamby_02_fed_class_initialization(self):
         """Test that initialization of the FedClass happens correctly.
@@ -80,14 +70,10 @@ class TestFlamby(unittest.TestCase):
             dataset.get_center_id()
 
         # define dlp
-        dlb_dataset_type = FlambyDatasetSelectorLoadingBlock()
-        dlb_dataset_type.flamby_dataset_name = 'fed_flamby_test'
-        dlb_center_id = FlambyCenterIDLoadingBlock()
-        dlb_center_id.flamby_center_id = 0
-        dlp = DataLoadingPlan({
-            FlambyLoadingBlockTypes.FLAMBY_DATASET: dlb_dataset_type,
-            FlambyLoadingBlockTypes.FLAMBY_CENTER_ID: dlb_center_id
-        })
+        dlb = FlambyDatasetMetadata()
+        dlb.metadata = {'flamby_dataset_name': 'fed_flamby_test',
+                        'flamby_center_id': 0}
+        dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
 
         # Assert base case where everything works as expected
         mocked_module = MagicMock()
@@ -96,11 +82,13 @@ class TestFlamby(unittest.TestCase):
             dataset.set_dlp(dlp)
             mocked_module.FedClass.assert_called_once_with(center=0, train=True, pooled=False)
 
-        self.assertEqual(dataset.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET), 'fed_flamby_test')
-        self.assertEqual(dataset.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID), 0)
+        metadata = dataset.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)  # assert no errors
+        # Assert the returned metadata are correct
+        self.assertEqual(metadata['flamby_dataset_name'], 'fed_flamby_test')
+        self.assertEqual(metadata['flamby_center_id'], 0)
         self.assertEqual(dataset.get_center_id(), 0)
 
-        # Assert raises when called twice
+        # Assert raises when init is called twice
         with self.assertRaises(FedbiomedDatasetError):
             dataset._init_flamby_fed_class()
 
@@ -148,14 +136,10 @@ class TestFlamby(unittest.TestCase):
                 dataset.init_transform('Wrong type')
 
         # define dlp
-        dlb_dataset_type = FlambyDatasetSelectorLoadingBlock()
-        dlb_dataset_type.flamby_dataset_name = 'fed_flamby_test'
-        dlb_center_id = FlambyCenterIDLoadingBlock()
-        dlb_center_id.flamby_center_id = 0
-        dlp = DataLoadingPlan({
-            FlambyLoadingBlockTypes.FLAMBY_DATASET: dlb_dataset_type,
-            FlambyLoadingBlockTypes.FLAMBY_CENTER_ID: dlb_center_id
-        })
+        dlb = FlambyDatasetMetadata()
+        dlb.metadata = {'flamby_dataset_name': 'fed_flamby_test',
+                        'flamby_center_id': 0}
+        dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
 
         transform = MagicMock(spec=TorchCompose)
         # Assert base case where everything works as expected
@@ -203,14 +187,10 @@ class TestFlamby(unittest.TestCase):
         dataset = FlambyDataset()
         for flamby_dataset_name in datasets.values():
             # define dlp
-            dlb_dataset_type = FlambyDatasetSelectorLoadingBlock()
-            dlb_dataset_type.flamby_dataset_name = flamby_dataset_name
-            dlb_center_id = FlambyCenterIDLoadingBlock()
-            dlb_center_id.flamby_center_id = 0
-            dlp = DataLoadingPlan({
-                FlambyLoadingBlockTypes.FLAMBY_DATASET: dlb_dataset_type,
-                FlambyLoadingBlockTypes.FLAMBY_CENTER_ID: dlb_center_id
-            })
+            dlb = FlambyDatasetMetadata()
+            dlb.metadata = {'flamby_dataset_name': flamby_dataset_name,
+                            'flamby_center_id': 0}
+            dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
 
             with patch("builtins.input", return_value="n"):
                 try:

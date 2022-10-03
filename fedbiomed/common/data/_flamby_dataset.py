@@ -31,17 +31,24 @@ def discover_flamby_datasets() -> Dict[int, str]:
 
 class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     """Additional DataLoadingBlockTypes specific to Flamby data"""
-    FLAMBY_DATASET: str = 'flamby_dataset'
-    FLAMBY_CENTER_ID: str = 'flamby_center_id'
+    FLAMBY_DATASET_METADATA: str = 'flamby_dataset_metadata'
 
 
-class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
-    """Identity of the type of flamby dataset (e.g. fed_ixi, fed_heart, etc...)"""
+class FlambyDatasetMetadata(DataLoadingBlock):
+    """Metadata about a Flamby Dataset.
+
+    Includes information on:
+    - identity of the type of flamby dataset (e.g. fed_ixi, fed_heart, etc...)
+    - the ID of the center of the flamby dataset
+    """
     def __init__(self):
-        super(FlambyDatasetSelectorLoadingBlock, self).__init__()
-        self.flamby_dataset_name = None
+        super().__init__()
+        self.metadata = {
+            "flamby_dataset_name": None,
+            "flamby_center_id": None
+        }
         self._serialization_validator.validation_scheme.update(
-            FlambyDatasetSelectorLoadingBlock._extra_validation_scheme())
+            FlambyDatasetMetadata._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -50,8 +57,10 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
              a dictionary of key-value pairs sufficient for reconstructing
              the DataLoadingBlock.
         """
-        ret = super(FlambyDatasetSelectorLoadingBlock, self).serialize()
-        ret.update({'flamby_dataset_name': self.flamby_dataset_name})
+        ret = super().serialize()
+        ret.update({'flamby_dataset_name': self.metadata['flamby_dataset_name'],
+                    'flamby_center_id': self.metadata['flamby_center_id']
+                    })
         return ret
 
     def deserialize(self, load_from: dict) -> DataLoadingBlock:
@@ -62,22 +71,28 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
         Returns:
             the self instance
         """
-        super(FlambyDatasetSelectorLoadingBlock, self).deserialize(load_from)
-        self.flamby_dataset_name = load_from['flamby_dataset_name']
+        super().deserialize(load_from)
+        self.metadata['flamby_dataset_name'] = load_from['flamby_dataset_name']
+        self.metadata['flamby_center_id'] = load_from['flamby_center_id']
         return self
 
-    def apply(self) -> str:
-        """Returns the name of the selected flamby dataset.
+    def apply(self) -> dict:
+        """Returns a dictionary of dataset metadata.
 
-        Note that this will be the same as the module name required to instantiate the FedClass. However, it will not
-        contain the full module path, hence to properly import this module it must be prepended with
-        `flamby.datasets`, for example `import flamby.datasets.flamby_dataset_name`
+        The metadata dictionary contains:
+        - flamby_dataset_name: (str) the name of the selected flamby dataset.
+        - flamby_center_id: (int) the center id selected at dataset add time.
+
+        Note that the flamby_dataset_name will be the same as the module name required to instantiate the FedClass.
+        However, it will not contain the full module path, hence to properly import this module it must be
+        prepended with `flamby.datasets`, for example `import flamby.datasets.flamby_dataset_name`
         """
-        if self.flamby_dataset_name is None:
-            msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset name, but it was never set to any value."
+        if any([v is None for v in self.metadata.values()]):
+            msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset metadata, but " \
+                  f"the {[k for k,v in self.metadata.items() if v is None]} keys were not previously set."
             logger.critical(msg)
             raise FedbiomedLoadingBlockError(msg)
-        return self.flamby_dataset_name
+        return self.metadata
 
     @classmethod
     def _validate_flamby_dataset_name(cls, name: str):
@@ -90,54 +105,9 @@ class FlambyDatasetSelectorLoadingBlock(DataLoadingBlock):
     def _extra_validation_scheme(cls) -> dict:
         return {
             'flamby_dataset_name': {
-                'rules': [str, FlambyDatasetSelectorLoadingBlock._validate_flamby_dataset_name],
+                'rules': [str, FlambyDatasetMetadata._validate_flamby_dataset_name],
                 'required': True
-            }
-        }
-
-
-class FlambyCenterIDLoadingBlock(DataLoadingBlock):
-    """The ID of the center in a flamby dataset."""
-    def __init__(self):
-        super(FlambyCenterIDLoadingBlock, self).__init__()
-        self.flamby_center_id = None
-        self._serialization_validator.validation_scheme.update(
-            FlambyCenterIDLoadingBlock._extra_validation_scheme())
-
-    def serialize(self) -> dict:
-        """Serializes the class in a format similar to json.
-
-        Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingBlock.
-        """
-        ret = super(FlambyCenterIDLoadingBlock, self).serialize()
-        ret.update({'flamby_center_id': self.flamby_center_id})
-        return ret
-
-    def deserialize(self, load_from: dict) -> DataLoadingBlock:
-        """Reconstruct the DataLoadingBlock from a serialized version.
-
-        Args:
-            load_from: a dictionary as obtained by the serialize function.
-        Returns:
-            the self instance
-        """
-        super(FlambyCenterIDLoadingBlock, self).deserialize(load_from)
-        self.flamby_center_id = load_from['flamby_center_id']
-        return self
-
-    def apply(self) -> int:
-        """Returns the ID of the center (int) as selected when the DataLoadingPlan was created."""
-        if self.flamby_center_id is None:
-            msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby center id, but it was never set to any value."
-            logger.critical(msg)
-            raise FedbiomedLoadingBlockError(msg)
-        return self.flamby_center_id
-
-    @classmethod
-    def _extra_validation_scheme(cls) -> dict:
-        return {
+            },
             'flamby_center_id': {
                 'rules': [int],
                 'required': True
@@ -213,18 +183,17 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
         # check that the data loading plan exists and is well-formed
         if self._dlp is None or \
-                FlambyLoadingBlockTypes.FLAMBY_DATASET not in self._dlp or\
-                FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in self._dlp:
+                FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in self._dlp:
             msg = f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
-                  f"both {FlambyLoadingBlockTypes.FLAMBY_DATASET.value} and " \
-                  f"{FlambyLoadingBlockTypes.FLAMBY_CENTER_ID} loading blocks. Something went wrong while " \
+                  f"the {FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA} loading block. Something went wrong while " \
                   f"saving/loading the {self._dlp} associated with the dataset."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
         # import the Flamby module corresponding to the dataset type
+        metadata = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)
         try:
-            module = import_module(f".{self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET)}",
+            module = import_module(f".{metadata['flamby_dataset_name']}",
                                    package='flamby.datasets')
         except ModuleNotFoundError as e:
             msg = f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}"
@@ -232,7 +201,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             raise FedbiomedDatasetError(msg)
 
         # set the center id
-        center_id = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
+        center_id = metadata['flamby_center_id']
 
         # finally instantiate FedClass
         try:
@@ -293,13 +262,13 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
                 - if the data loading plan is not set or is malformed.
                 - if the wrapped FedClass is not initialized but the dlp exists
         """
-        if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in self._dlp:
+        if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in self._dlp:
             msg = f"{ErrorNumbers.FB617.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
-                  f"a {FlambyLoadingBlockTypes.FLAMBY_CENTER_ID} loading block in order to query its center id."
+                  f"a {FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA} loading block in order to query its center id."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
-        return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_CENTER_ID)
+        return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)['flamby_center_id']
 
     def _clear(self):
         """Clears the wrapped FedClass and the associated transforms"""
