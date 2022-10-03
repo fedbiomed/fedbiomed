@@ -19,6 +19,8 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
 from fedbiomed.common.utils import compute_dot_product
 
+from fedbiomed.common.privacy import DPController
+from fedbiomed.common.training_args import TrainingArgs
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -26,7 +28,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
-    will be
+    will be:
 
     1. saved  on a '*.py' (resp. '*.pt') files,
     2. uploaded on a HTTP server (network layer),
@@ -42,15 +44,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     """
 
     def __init__(self):
-        """ Construct training plan
-
-        Args:
-            model_args: model arguments. Items used in this class build time
-        """
+        """ Construct training plan """
 
         super().__init__()
 
         self.__type = TrainingPlans.TorchTrainingPlan
+
+        # Differential privacy support
+        self._dp_controller = None
 
         self._optimizer = None
         self._model = None
@@ -81,7 +82,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._device = self._device_init
 
         # list dependencies of the model
-
         self.add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -103,7 +103,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             model_args: Arguments defined by researcher to instantiate model/torch module
             training_args: Arguments that are used in training routine such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
-            optimizer_args: Arguments for torch base [`Optimizer`][torch.optim.Optimizer]
 
         Raises:
             FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
@@ -111,9 +110,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         self._model_args = model_args
-        self._optimizer_args = optimizer_args or {}
-        self._training_args = training_args
-
+        self._optimizer_args = training_args.optimizer_arguments() or {}
+        self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
         
@@ -129,55 +127,32 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self.aggregator_name = self._aggregator_args.get('aggregator_name')
         self.correction_state = self._aggregator_args.get('correction_state', {})
 
+        self._dp_controller = DPController(training_args.dp_arguments() or None)
+
         # Add dependencies
-        init_dep_spec = get_method_spec(self.init_dependencies)
-        if len(init_dep_spec.keys()) > 0:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
-                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
+        self._configure_dependencies()
 
-        dependencies: Union[Tuple, List] = self.init_dependencies()
-        if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
-        self.add_dependency(dependencies)
+        # Configure model and optimizer
+        self._configure_model_and_optimizer()
 
-        # Message to format for unexpected argument definitions in special methods
-        method_error = \
-            ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \
-                                       "can not have more than one argument/parameter (for {prefix} arguments) or " \
-                                       "method can be defined without argument and `{alternative}` can be used for " \
-                                       "accessing {prefix} arguments defined in the experiment."
+        # Initial aggregated model parameters
+        self._init_params = deepcopy(self._model.state_dict())
 
-        # Get model defined by user -----------------------------------------------------------------------------
-        init_model_spec = get_method_spec(self.init_model)
-        if not init_model_spec:
-            self._model = self.init_model()
-        elif len(init_model_spec.keys()) == 1:
-            self._model = self.init_model(self._model_args)
-        else:
-            raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
-                                                                 method="init_model",
-                                                                 keys=list(init_model_spec.keys()),
-                                                                 alternative="self.model_args()"))
-        # Validate model
-        if not isinstance(self._model, nn.Module):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
+    @abstractmethod
+    def init_model(self):
+        """Abstract method where model should be defined """
+        pass
 
-        # Get optimizer defined by researcher ---------------------------------------------------------------------
-        init_optim_spec = get_method_spec(self.init_optimizer)
-        if not init_optim_spec:
-            self._optimizer = self.init_optimizer()
-        elif len(init_optim_spec.keys()) == 1:
-            self._optimizer = self.init_optimizer(self._optimizer_args)
-        else:
-            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
-                                                                 method="init_optimizer",
-                                                                 keys=list(init_optim_spec.keys()),
-                                                                 alternative="self.optimizer_args()"))
+    @abstractmethod
+    def training_step(self):
+        """Abstract method, all subclasses must provide a training_step.
+        """
+        pass
 
-        # Validate optimizer
-        if not isinstance(self._optimizer, torch.optim.Optimizer):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
+    @abstractmethod
+    def training_data(self):
+        """Abstract method to return training data"""
+        pass
 
     def model(self):
         return self._model
@@ -204,15 +179,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         learning_rates = []
         
-        lr_optimizer_args = self._optimizer_args.get('lr')
-        if lr_optimizer_args is not None:
-            return [lr_optimizer_args]
-        else:
-            params = self._optimizer.param_groups
-            
-            for param in params:
-                learning_rates.append(param['lr'])
-            return learning_rates
+        # lr_optimizer_args = self._optimizer_args.get('lr')
+        # if lr_optimizer_args is not None:
+        #     return [lr_optimizer_args]
+        # else:
+        
+        # extract learning rate directly from optimizer
+        params = self._optimizer.param_groups
+        
+        for param in params:
+            learning_rates.append(param['lr'])
+        return learning_rates
 
     def get_model_params(self) -> OrderedDict:
         return self._model.state_dict()
@@ -233,9 +210,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._optimizer_args
 
-    def init_model(self):
-        """Abstract method where model should be defined """
-        pass
+    def initial_parameters(self) -> Dict:
+        """Returns initial parameters without DP or training applied
+
+        Returns:
+            State dictionary of torch Module
+        """
+        return self._init_params
 
     def init_dependencies(self) -> List:
         """Default method where dependencies are returned
@@ -255,9 +236,67 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         return self._optimizer
 
-    def type(self):
+    def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
+
+    def _configure_dependencies(self):
+        """ Configures dependencies """
+        init_dep_spec = get_method_spec(self.init_dependencies)
+        if len(init_dep_spec.keys()) > 0:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
+
+        dependencies: Union[Tuple, List] = self.init_dependencies()
+        if not isinstance(dependencies, (list, tuple)):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
+                                             f"ist or tuple, but got {type(dependencies)}")
+        self.add_dependency(dependencies)
+
+    def _configure_model_and_optimizer(self):
+        """Configures model and optimizers before training """
+
+        # Message to format for unexpected argument definitions in special methods
+        method_error = \
+            ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \
+                                       "can not have more than one argument/parameter (for {prefix} arguments) or " \
+                                       "method can be defined without argument and `{alternative}` can be used for " \
+                                       "accessing {prefix} arguments defined in the experiment."
+
+        # Get model defined by user -----------------------------------------------------------------------------
+        init_model_spec = get_method_spec(self.init_model)
+        if not init_model_spec:
+            self._model = self.init_model()
+        elif len(init_model_spec.keys()) == 1:
+            self._model = self.init_model(self._model_args)
+        else:
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
+                                                                 method="init_model",
+                                                                 keys=list(init_model_spec.keys()),
+                                                                 alternative="self.model_args()"))
+
+        # Validate and fix model
+        self._model = self._dp_controller.validate_and_fix_model(self._model)
+
+        # Validate model
+        if not isinstance(self._model, nn.Module):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
+
+        # Get optimizer defined by researcher ---------------------------------------------------------------------
+        init_optim_spec = get_method_spec(self.init_optimizer)
+        if not init_optim_spec:
+            self._optimizer = self.init_optimizer()
+        elif len(init_optim_spec.keys()) == 1:
+            self._optimizer = self.init_optimizer(self._optimizer_args)
+        else:
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
+                                                                 method="init_optimizer",
+                                                                 keys=list(init_optim_spec.keys()),
+                                                                 alternative="self.optimizer_args()"))
+
+        # Validate optimizer
+        if not isinstance(self._optimizer, torch.optim.Optimizer):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -372,14 +411,16 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
-        
-        
+
         self._model.train()  # pytorch switch for training
 
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
         self._set_device(self._use_gpu, node_args)
+
+        # Run preprocess when everything is ready before the training
+        self.__preprocess()
 
         # send all model to device, ensures having all the requested tensors
         self._model.to(self._device)
@@ -404,15 +445,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
         else:
             num_epochs = self._epochs
+        # DP actions --------------------------------------------------------------------------------------------
+        self._model, self._optimizer, self.training_data_loader = \
+            self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
-
+        
         for epoch in range(1, num_epochs + 1):
+            
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
+            num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
                 # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if epoch == num_epochs + 1 and self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
+                if  self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
                     break
 
                 # Plus one since batch_idx starts from 0
@@ -428,8 +474,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 corrected_loss.backward()
 
                 self._optimizer.step()
-
-                if batch_  % self._log_interval == 0 or self._dry_run:
+                print("EPOCH", epoch, self._epochs, "UPDATES", self._num_updates, batch_idx, num_batches_in_last_epoch)
+                print("NUM UPDTAED: ", batch_ *self.training_data_loader.batch_size)
+                if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -447,7 +494,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                    train=True,
                                                    num_batches=len(self.training_data_loader),
                                                    total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=batch_size)
+                                                   batch_samples=len(data))
 
                     if self._dry_run:
                         self._model.to(self._device_init)
@@ -623,16 +670,18 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             The state_dict of the model, or modified state_dict if preprocess is present
         """
 
-        try:
-            # Check whether postprocess method exists, and use it
-            logger.debug("running model.postprocess() method")
-            return self.postprocess(self._model.state_dict())  # Post process
-        except AttributeError:
-            # Method does not exist; skip
-            logger.debug("model.postprocess() method not provided")
-            pass
+        # Check whether postprocess method exists, and use it
+        logger.debug("running model.postprocess() method")
+        params = self._model.state_dict()
+        if hasattr(self, 'postprocess'):
+            try:
+                params = self.postprocess(self._model.state_dict())  # Post process
+            except Exception as e:
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
+                                                 f"{e}" )
 
-        return self._model.state_dict()
+        params = self._dp_controller.after_training(params)
+        return params
 
     def compute_corrected_loss(self, res):
         

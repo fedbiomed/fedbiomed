@@ -82,20 +82,18 @@ class Round:
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
 
-        self.training_arguments = training_kwargs
+        self.training_kwargs = training_kwargs
         self.model_arguments = model_kwargs
         self.testing_arguments = None
         self.loader_arguments = None
-        self.optimizer_arguments = None
+        self.training_arguments = None
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
 
-        tr_args = TrainingArgs(self.training_arguments, only_required=False)
-        self.testing_arguments = tr_args.testing_arguments()
-        self.training_arguments = tr_args.pure_training_arguments()
-        self.loader_arguments = tr_args.loader_arguments()
-        self.optimizer_arguments = tr_args.optimizer_arguments()
+        self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
+        self.testing_arguments = self.training_arguments.testing_arguments()
+        self.loader_arguments = self.training_arguments.loader_arguments()
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -129,7 +127,7 @@ class Round:
             else:
                 if environ["MODEL_APPROVAL"]:
                     approved, model = self.model_manager.check_model_status(os.path.join(environ["TMP_DIR"],
-                                                                            import_module + '.py'),
+                                                                                         import_module + '.py'),
                                                                             TrainingPlanApprovalStatus.APPROVED)
                     if not approved:
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
@@ -154,13 +152,6 @@ class Round:
         # import module, declare the model, load parameters
         try:
             sys.path.insert(0, environ['TMP_DIR'])
-            # import TrainingPlan created by Researcher on node
-            # exec('import ' + import_module, globals())
-            # sys.path.pop(0)
-            #
-            # # instantiate model as `train_class`
-            # train_class = eval(import_module + '.' + self.training_plan_class)
-            print(environ['TMP_DIR'])
             module = importlib.import_module(import_module)
             train_class = getattr(module, self.training_plan_class)
             self.training_plan = train_class()
@@ -171,8 +162,7 @@ class Round:
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
-                                 training_args=self.training_arguments,
-                                 optimizer_args=self.optimizer_arguments)
+                                         training_args=self.training_arguments)
         except Exception as e:
             error_message = f"Can't initialize training plan with the arguments: {e}"
             return self._send_round_reply(success=False, message=error_message)
@@ -183,22 +173,6 @@ class Round:
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
             return self._send_round_reply(success=False, message=error_message)
-
-        # Run the training routine
-        # Caution: always provide values for node-side arguments
-        # (history_monitor, node_args) especially if they are security
-        # related, to avoid overloading by malicious researcher.
-        #
-        # We want to have explicit message in case of overloading attempt
-        # (and continue training) though by default it fails with
-        # "dict() got multiple values for keyword argument"
-        # FIXME: No need to following action TrainingArgs class raises exception as invalid property
-        node_side_args = ['history_monitor', 'node_args']
-        for arg in node_side_args:
-            if arg in self.training_arguments:
-                del self.training_arguments[arg]
-                logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
-                               f' Maybe a malicious researcher attack.')
 
         # Split training and validation data
         try:
@@ -211,12 +185,11 @@ class Round:
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-                                            node_args=self.node_args,
-                                            aggregator_args=self.aggregator_args,
-                                            **self.training_arguments)
-        training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
-        logger.info(f'training with arguments {training_kwargs_print}')
+        # training_kwargs_with_history = dict(history_monitor=self.history_monitor,
+        #                                     node_args=self.node_args,
+        #                                     aggregator_args=self.aggregator_args)
+        # training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
+        # logger.info(f'training with arguments {training_kwargs_print}')
         
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
@@ -246,8 +219,8 @@ class Round:
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
                     self.training_plan.training_routine(history_monitor=self.history_monitor,
-                                                node_args=self.node_args
-                                                )
+                                                        node_args=self.node_args
+                                                        )
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
@@ -260,9 +233,10 @@ class Round:
                 if self.training_plan.testing_data_loader is not None:
                     try:
                         self.training_plan.testing_routine(metric=self.testing_arguments.get('test_metric', None),
-                                                   metric_args=self.testing_arguments.get('test_metric_args', {}),
-                                                   history_monitor=self.history_monitor,
-                                                   before_train=False)
+                                                           metric_args=self.testing_arguments.get('test_metric_args',
+                                                                                                  {}),
+                                                           history_monitor=self.history_monitor,
+                                                           before_train=False)
                     except FedbiomedError as e:
                         logger.error(
                             f"{ErrorNumbers.FB314.value}: During the validation phase on local parameter updates; "
@@ -359,14 +333,15 @@ class Round:
                            "experiment.")
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
-            logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                           ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
+            logger.warning(
+                'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
+                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
         # Set models validatino and training parts for model
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
-                                    test_data_loader=testing_data_loader)
+                                            test_data_loader=testing_data_loader)
 
     def _split_train_and_test_data(self, test_ratio: float = 0):
         """
