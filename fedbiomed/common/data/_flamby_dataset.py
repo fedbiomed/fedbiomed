@@ -190,7 +190,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         """
         # prevent calling init on an already-initialized dataset
         if self.__flamby_fed_class is not None:
-            msg = f"{ErrorNumbers.FB616.value}. Calling _init_flamby_fed_class is not allowed if the " \
+            msg = f"{ErrorNumbers.FB617.value}. Calling _init_flamby_fed_class is not allowed if the " \
                   f"__flamby_fed_class attribute has already been initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
@@ -227,7 +227,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             else:
                 self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
         except Exception as e:
-            msg = f"{ErrorNumbers.FB616.value}. Error while instantiating FedClass from module {module} because of {e}"
+            msg = f"{ErrorNumbers.FB617.value}. Error while instantiating FedClass from module {module} because of {e}"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg) from e
 
@@ -243,13 +243,13 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             FedbiomedDatasetValueError: if the input is not of the correct type.
         """
         if self.__flamby_fed_class is not None:
-            msg = f"{ErrorNumbers.FB617.value}. Calling init_transform is not allowed if the wrapped FedClass has " \
+            msg = f"{ErrorNumbers.FB618.value}. Calling init_transform is not allowed if the wrapped FedClass has " \
                   f"already been initialized. At your own risk, you may call clear_dlp to reset the full FlambyDataset"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
         if not isinstance(transform, (MonaiCompose, TorchCompose)):
-            msg = f"{ErrorNumbers.FB617.value}. FlambyDataset transform must be of type " \
+            msg = f"{ErrorNumbers.FB618.value}. FlambyDataset transform must be of type " \
                   f"torchvision.transforms.Compose or monai.transforms.Compose"
             logger.critical(msg)
             raise FedbiomedDatasetValueError(msg)
@@ -276,13 +276,13 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
                 - if the wrapped FedClass is not initialized but the dlp exists
         """
         if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in self._dlp:
-            msg = f"{ErrorNumbers.FB616.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
+            msg = f"{ErrorNumbers.FB617.value}. Flamby datasets must have an associated DataLoadingPlan containing " \
                   f"a {FlambyLoadingBlockTypes.FLAMBY_CENTER_ID} loading block in order to query its center id."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
         if self.__flamby_fed_class is None:
-            msg = f"{ErrorNumbers.FB616.value}. Flamby dataset is in an inconsistent state: a Data Loading Plan is " \
+            msg = f"{ErrorNumbers.FB617.value}. Flamby dataset is in an inconsistent state: a Data Loading Plan is " \
                   f"set but the wrapped FedClass was not initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
@@ -297,7 +297,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     def __getitem__(self, item):
         """Forwards call to the flamby_fed_class"""
         if self.__flamby_fed_class is None:
-            msg = f"{ErrorNumbers.FB616.value}. Cannot get item because FedClass was not initialized."
+            msg = f"{ErrorNumbers.FB617.value}. Cannot get item because FedClass was not initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
         return self.__flamby_fed_class[item]
@@ -305,7 +305,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     def __len__(self):
         """Forwards call to the flamby_fed_class"""
         if self.__flamby_fed_class is None:
-            msg = f"{ErrorNumbers.FB616.value}. Cannot compute len because FedClass was not initialized."
+            msg = f"{ErrorNumbers.FB617.value}. Cannot compute len because FedClass was not initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
         return len(self.__flamby_fed_class)
@@ -313,7 +313,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
     def shape(self) -> List[int]:
         """Returns the shape of the flamby_fed_class"""
         if self.__flamby_fed_class is None:
-            msg = f"{ErrorNumbers.FB616.value}. Cannot compute shape because FedClass was not initialized."
+            msg = f"{ErrorNumbers.FB617.value}. Cannot compute shape because FedClass was not initialized."
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
         return [len(self)] + list(self.__getitem__(0)[0].shape)

@@ -186,7 +186,7 @@ class ErrorNumbers(_BaseEnum):
     FB411: str = "FB411: cannot train an experiment that is not fully defined"
     FB412: str = "FB412: cannot do model checking for experiment"
     FB413: str = "FB413: cannot save or load breakpoint for experiment"
-
+    FB414: str = "FB414: bad type or value for training arguments"
     # node problem detected by researcher
 
     FB500: str = "FB500: undetermined node error, detected by server"
@@ -210,8 +210,9 @@ class ErrorNumbers(_BaseEnum):
     FB613: str = "FB613: Medical Folder dataset error"
     FB614: str = "FB614: data loading block error"
     FB615: str = "FB615: data loading plan error"
-    FB616: str = "FB616: FLamby dataset error"
-    FB617: str = "FB617: FLamby data transformation error"
+    FB616: str = "FB616: differential privacy controller error"
+    FB617: str = "FB617: FLamby dataset error"
+    FB618: str = "FB618: FLamby data transformation error"
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"

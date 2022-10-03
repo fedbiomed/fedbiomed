@@ -22,7 +22,7 @@ class FakeModel:
         self.__type = 'DummyTrainingPlan'
         pass
 
-    def post_init(self, model_args, training_args, optimizer_args):
+    def post_init(self, model_args, training_args):
         pass
 
     def type(self):
