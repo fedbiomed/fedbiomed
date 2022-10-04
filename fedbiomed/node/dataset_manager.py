@@ -21,11 +21,10 @@ from torchvision import datasets
 from torchvision import transforms
 
 from fedbiomed.node.environ import environ
-
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
-
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock, FlambyLoadingBlockTypes, \
+    FlambyDataset
 from fedbiomed.common.logger import logger
 
 
@@ -339,8 +338,8 @@ class DatasetManager:
                      data_type: str,
                      tags: Union[tuple, list],
                      description: str,
-                     path: str,
-                     dataset_id: str = None,
+                     path: Optional[str] = None,
+                     dataset_id: Optional[str] = None,
                      dataset_parameters : Optional[dict] = None,
                      data_loading_plan: Optional[DataLoadingPlan] = None,
                      save_dlp: bool = True):
@@ -352,7 +351,7 @@ class DatasetManager:
                 dataset (*.csv, images, ...)
             tags: Tags of the dataset.
             description: Human readable description of the dataset.
-            path: Path to the dataset.
+            path: Path to the dataset. Defaults to None.
             dataset_id: Id of the dataset. Defaults to None.
             dataset_parameters: a dictionary of additional (customized) parameters, or None
             data_loading_plan: a DataLoadingPlan to be linked to this dataset, or None
@@ -363,18 +362,38 @@ class DatasetManager:
             FedbiomedDatasetManagerError: path does not exist or dataset was not saved properly.
         """
         # Accept tilde as home folder
-        path = os.path.expanduser(path)
+        if path is not None:
+            path = os.path.expanduser(path)
 
         # Check that there are not existing databases with the same name
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder']
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
+
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
+        elif data_type == 'flamby':
+            # check that data loading plan is present and well formed
+            if data_loading_plan is None or \
+                    FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in data_loading_plan:
+                msg = f"{ErrorNumbers.FB316.value}. A DataLoadingPlan containing " \
+                      f"{FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA.value} is required for adding a FLamby dataset " \
+                      f"to the database."
+                logger.critical(msg)
+                raise FedbiomedDatasetManagerError(msg)
+
+            # initialize a dataset and link to the flamby data. If all goes well, compute shape.
+            try:
+                dataset = FlambyDataset()
+                dataset.set_dlp(data_loading_plan)  # initializes fed_class as a side effect
+            except FedbiomedError as e:
+                raise FedbiomedDatasetManagerError(f"Can not create FLamby dataset. {e}")
+            else:
+                shape = dataset.shape()
 
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
