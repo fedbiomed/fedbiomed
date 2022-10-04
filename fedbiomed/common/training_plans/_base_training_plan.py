@@ -58,7 +58,7 @@ class BaseTrainingPlan(object):
                 who will execute the training.
         """
         self.dataset_path = dataset_path
-        logger.debug('Dataset path has been set as' + self.dataset_path)
+        logger.debug(f"Dataset path has been set as {self.dataset_path}")
 
     def set_data_loaders(self,
                          train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
