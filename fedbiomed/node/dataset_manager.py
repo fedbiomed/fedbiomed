@@ -338,7 +338,7 @@ class DatasetManager:
                      data_type: str,
                      tags: Union[tuple, list],
                      description: str,
-                     path: Optional[str],
+                     path: Optional[str] = None,
                      dataset_id: Optional[str] = None,
                      dataset_parameters : Optional[dict] = None,
                      data_loading_plan: Optional[DataLoadingPlan] = None,
@@ -351,7 +351,7 @@ class DatasetManager:
                 dataset (*.csv, images, ...)
             tags: Tags of the dataset.
             description: Human readable description of the dataset.
-            path: Path to the dataset.
+            path: Path to the dataset. Defaults to None.
             dataset_id: Id of the dataset. Defaults to None.
             dataset_parameters: a dictionary of additional (customized) parameters, or None
             data_loading_plan: a DataLoadingPlan to be linked to this dataset, or None
