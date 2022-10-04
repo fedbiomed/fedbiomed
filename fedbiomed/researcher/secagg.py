@@ -35,11 +35,11 @@ class SecaggContext(ABC):
             for p in parties:
                 self._v.validate(p, str)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `parties` should be a list of strings: {e}'
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` should be a list of strings: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         if len(parties) < 3:
-            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `parties` : {parties} : need  ' \
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` : {parties} : need  ' \
                 'at least 3 parties for secure aggregation'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
@@ -153,7 +153,7 @@ class SecaggContext(ABC):
                         f" and received {resp['secagg_id']}")
                     break
                 if resp['node_id'] not in self._parties[1:]:
-                    errmess = f'{ErrorNumbers.FB414.value}: received message from node "{resp["node_id"]}"' \
+                    errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
                         'which is not a party of secagg "{self._secagg_id}"'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
@@ -175,7 +175,7 @@ class SecaggContext(ABC):
             # self._status = False
             # self._context = None
             absent = list(set(self._parties) - set(status.keys()))
-            errmess = f'{ErrorNumbers.FB414.value}: some parties did not answer before timeout {absent}'
+            errmess = f'{ErrorNumbers.FB415.value}: some parties did not answer before timeout {absent}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         else:
@@ -205,7 +205,7 @@ class SecaggContext(ABC):
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `timeout`: {e}'
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `timeout`: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -234,7 +234,7 @@ class SecaggContext(ABC):
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB414.value}: bad parameter `timeout`: {e}'
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `timeout`: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 

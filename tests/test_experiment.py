@@ -12,6 +12,7 @@ import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -33,7 +34,7 @@ class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
 
     # For testing training_plan setter of Experiment
-    class FakeModelTorch(TorchTrainingPlan):
+    class FakeModelTorch(BaseFakeTrainingPlan):
         """ Should inherit TorchTrainingPlan to pass the condition
             `issubclass` of `TorchTrainingPlan`
         """

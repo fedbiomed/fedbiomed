@@ -37,10 +37,15 @@ class FedbiomedDataLoadingPlanValueError(FedbiomedError):
 
 class FedbiomedDatasetError(FedbiomedError):
     """
-    Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
+    Generic exception for a Dataset class.
     """
     pass
 
+class FedbiomedDatasetValueError(FedbiomedError):
+    """
+    ValueErrors raised by any Dataset class.
+    """
+    pass
 
 class FedbiomedDataManagerError(FedbiomedError):
     """
@@ -52,6 +57,13 @@ class FedbiomedDataManagerError(FedbiomedError):
 class FedbiomedDatasetManagerError(FedbiomedError):
     """
     Exceptions specific for the class DatasetManager.
+    """
+    pass
+
+
+class FedbiomedDPControllerError(FedbiomedError):
+    """
+    Exceptions specific for the class DPController
     """
     pass
 

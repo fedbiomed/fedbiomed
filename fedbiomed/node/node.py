@@ -372,7 +372,7 @@ class Node:
                         ).get_dict()
                     )
             else:
-                errmess = f'{ErrorNumbers.FB317.value}: "{command}"'
+                errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                 logger.error(errmess)
                 self.messaging.send_message(
                     NodeMessages.reply_create(
@@ -381,7 +381,7 @@ class Node:
                             'extra_msg': errmess,
                             'node_id': environ['NODE_ID'],
                             'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB317
+                            'errnum': ErrorNumbers.FB319
                         }
                     ).get_dict()
                 )

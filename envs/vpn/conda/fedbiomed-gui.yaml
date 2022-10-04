@@ -12,6 +12,7 @@ dependencies:
   # common
   - python >=3.9,<3.10
   - nodejs == 16.13.1
+  - yarn >=1.22.19,<=1.22.99
   - pip
   - ipython
   - flask >= 2.0.0,<2.0.2
@@ -30,4 +31,5 @@ dependencies:
       - cachelib == 0.7.0
       - python-minifier ==2.5.0
       - scikit-learn <= 0.24.2
-  
+      - PyJWT == 2.4.0
+      - Flask-JWT-Extended == 4.4.2

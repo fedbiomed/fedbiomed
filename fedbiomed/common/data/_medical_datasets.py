@@ -19,7 +19,7 @@ from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
-from ._data_loading_plan import DataLoadingPlanMixin
+from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin
 
 
 class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):

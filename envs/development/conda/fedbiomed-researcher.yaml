@@ -50,6 +50,8 @@ dependencies:
       # for nbconvert
       - jupyter_contrib_nbextensions
       - pathvalidate
+      # FLamby
+      - git+https://github.com/owkin/FLamby@main
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7
