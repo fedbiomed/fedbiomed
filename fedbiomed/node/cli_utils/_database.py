@@ -2,11 +2,12 @@ import os
 import tkinter.messagebox
 import warnings
 from importlib import import_module
+from fedbiomed.common import data
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyCenterIDLoadingBlock, \
-    FlambyDatasetSelectorLoadingBlock, FlambyLoadingBlockTypes
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyDatasetMetadata, \
+    FlambyLoadingBlockTypes
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
@@ -122,12 +123,12 @@ def add_database(interactive: bool = True,
 
                 # Build the DataLoadingPlan with the selected dataset type and center id
                 data_loading_plan = DataLoadingPlan()
-                dataset_dlb = FlambyDatasetSelectorLoadingBlock()
-                dataset_dlb.flamby_dataset_name = available_flamby_datasets[flamby_dataset_index]
-                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET] = dataset_dlb
-                center_id_dlb = FlambyCenterIDLoadingBlock()
-                center_id_dlb.flamby_center_id = center_id
-                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_CENTER_ID] = center_id_dlb
+                metadata_dlb = FlambyDatasetMetadata()
+                metadata_dlb.metadata = {
+                    'flamby_dataset_name': available_flamby_datasets[flamby_dataset_index],
+                    'flamby_center_id': center_id
+                }
+                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA] = metadata_dlb
             else:
                 path = validated_path_input(data_type)
 
@@ -159,6 +160,7 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
+    logger.info(f"PATH VALUE {path}")
     # Add database
     try:
         dataset_manager.add_database(name=name,

@@ -379,11 +379,9 @@ class DatasetManager:
         elif data_type == 'flamby':
             # check that data loading plan is present and well formed
             if data_loading_plan is None or \
-                    FlambyLoadingBlockTypes.FLAMBY_DATASET not in data_loading_plan or \
-                    FlambyLoadingBlockTypes.FLAMBY_CENTER_ID not in data_loading_plan:
+                    FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in data_loading_plan:
                 msg = f"{ErrorNumbers.FB316.value}. A DataLoadingPlan containing " \
-                      f"{FlambyLoadingBlockTypes.FLAMBY_CENTER_ID.value} and " \
-                      f"{FlambyLoadingBlockTypes.FLAMBY_DATASET.value} is required for adding a FLamby dataset " \
+                      f"{FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA.value} is required for adding a FLamby dataset " \
                       f"to the database."
                 logger.critical(msg)
                 raise FedbiomedDatasetManagerError(msg)
