@@ -34,7 +34,7 @@ class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     FLAMBY_DATASET_METADATA: str = 'flamby_dataset_metadata'
 
 
-class FlambyDatasetMetadata(DataLoadingBlock):
+class FlambyDatasetMetadataBlock(DataLoadingBlock):
     """Metadata about a Flamby Dataset.
 
     Includes information on:
@@ -48,7 +48,7 @@ class FlambyDatasetMetadata(DataLoadingBlock):
             "flamby_center_id": None
         }
         self._serialization_validator.validation_scheme.update(
-            FlambyDatasetMetadata._extra_validation_scheme())
+            FlambyDatasetMetadataBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -86,6 +86,9 @@ class FlambyDatasetMetadata(DataLoadingBlock):
         Note that the flamby_dataset_name will be the same as the module name required to instantiate the FedClass.
         However, it will not contain the full module path, hence to properly import this module it must be
         prepended with `flamby.datasets`, for example `import flamby.datasets.flamby_dataset_name`
+
+        Returns:
+            this data loading block's metadata
         """
         if any([v is None for v in self.metadata.values()]):
             msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset metadata, but " \
@@ -105,7 +108,7 @@ class FlambyDatasetMetadata(DataLoadingBlock):
     def _extra_validation_scheme(cls) -> dict:
         return {
             'flamby_dataset_name': {
-                'rules': [str, FlambyDatasetMetadata._validate_flamby_dataset_name],
+                'rules': [str, FlambyDatasetMetadataBlock._validate_flamby_dataset_name],
                 'required': True
             },
             'flamby_center_id': {
@@ -123,7 +126,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
 
     A FlambyDataset is always created in an empty state, and it **requires** a DataLoadingPlan to be finalized to a
     correct state. The DataLoadingPlan must contain at least the following DataLoadinBlock key-value pair:
-    - FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA : FlambyDatasetMetadata
+    - FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA : FlambyDatasetMetadataBlock
 
     The lifecycle of the DataLoadingPlan and the wrapped FedClass are tightly interlinked: when the DataLoadingPlan
     is set, the wrapped FedClass is initialized and instantiated. When the DataLoadingPlan is cleared, the wrapped

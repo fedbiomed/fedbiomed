@@ -6,7 +6,7 @@ from fedbiomed.common import data
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyDatasetMetadata, \
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyDatasetMetadataBlock, \
     FlambyLoadingBlockTypes
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -123,7 +123,7 @@ def add_database(interactive: bool = True,
 
                 # Build the DataLoadingPlan with the selected dataset type and center id
                 data_loading_plan = DataLoadingPlan()
-                metadata_dlb = FlambyDatasetMetadata()
+                metadata_dlb = FlambyDatasetMetadataBlock()
                 metadata_dlb.metadata = {
                     'flamby_dataset_name': available_flamby_datasets[flamby_dataset_index],
                     'flamby_center_id': center_id
