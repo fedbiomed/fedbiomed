@@ -150,6 +150,16 @@ class BaseTrainingPlan(object):
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
 
+    def optimizer_args(self) -> Dict:
+        """Retrieves optimizer arguments (to be overrided
+        by children classes)
+
+        Returns:
+            Empty dictionary: (to be overrided in children classes)
+        """
+        logger.warning("`optimizer_args` method not defined in training_plan!")
+        return {}
+
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
         """Adds preprocesses
 

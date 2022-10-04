@@ -2,8 +2,9 @@
 """
 
 from copy import deepcopy
-from typing import Dict, Iterable, Iterator, List, Mapping, OrderedDict, Union
+from typing import Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Union
 
+from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 
@@ -15,6 +16,7 @@ from fedbiomed.researcher.aggregators.functional import initialize
 
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.responses import Responses
 
 import torch
 import numpy as np
@@ -56,7 +58,7 @@ class Scaffold(Aggregator):
         self.server_lr: float = server_lr
         self.nodes_correction_states: Dict[str, Mapping[str, Union[torch.tensor, np.ndarray]]] = None
 
-        self.nodes_lr: Iterable[float] = None
+        self.nodes_lr: Dict[str, List[float]] = {}
 
     def aggregate(self, model_params: list,
                   weights: list,
@@ -64,6 +66,7 @@ class Scaffold(Aggregator):
                   training_plan: BaseTrainingPlan,
                   node_ids: Iterable[str],
                   n_updates: int = 1,
+                  training_replies: Optional[Responses] = None,
                   n_round: int = 0,
                   *args, **kwargs) -> Dict:
         """
@@ -99,13 +102,13 @@ class Scaffold(Aggregator):
         weights_processed = self.normalize_weights(weights_processed)
         aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
         
-        self.set_nodes_learning_rate_from_training_plan(training_plan)
+        self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
         self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
         return aggregated_parameters
 
-    def get_aggregator_args(self, global_model: Mapping[str, Union[torch.tensor, np.ndarray]], node_ids: Iterator[str]) -> Dict:
+    def create_aggregator_args(self, global_model: Mapping[str, Union[torch.tensor, np.ndarray]], node_ids: Iterator[str]) -> Dict:
         """Sends additional arguments for aggregator. For scaffold, it is mainly correction
 
         Args:
@@ -147,27 +150,31 @@ class Scaffold(Aggregator):
         if self._fds is None:
             raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold")
 
-    def set_nodes_learning_rate_from_training_plan(self, training_plan: BaseTrainingPlan) -> Iterable[float]:
+    def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan, training_replies: List[Responses], n_round: int) -> Dict[str, List[float]]:
         # to be implemented in a utils module
-        
-        lrs: List[float] = training_plan.get_learning_rate()
+        print('training_replies', training_replies)
         n_model_layers = len(training_plan.get_model_params())
-        
-        if len(lrs) == 1:
-            # case where there is one learning rate
-            lr = lrs * n_model_layers
+        for node_id in self._fds.node_ids():
+            lrs: List[float] = []
+            if training_replies[n_round].get_index_from_node_id(node_id) is not None:
+                # get updated learning rate if provided...
+                node_idx: int = training_replies[n_round].get_from_node_id(node_id)
+                lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
+            else:
+                # ...otherwise retrieve default learning rate 
+                lrs += training_plan.get_learning_rate()
+            if len(lrs) == 1:
+                # case where there is one learning rate
+                lr = lrs * n_model_layers
+                
+            elif len(lrs) == n_model_layers:
+                # case where there are several learning rates value
+                lr = lrs
+            else:
+
+                raise FedbiomedAggregatorError(f"Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate.")
             
-        elif len(lrs) == n_model_layers:
-            # case where there are several learning rates value
-            lr = lrs
-        else:
-            _arg_name = ''
-            if self._training_plan_type == TrainingPlans.SkLearnTrainingPlan:
-                _arg_name = 'model_args'
-            elif self._training_plan_type == TrainingPlans.TorchTrainingPlan:
-                _arg_name = 'training_args'
-            raise FedbiomedAggregatorError(f"Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate. As a quick fix, please specify learning rate value in the {_arg_name}")
-        self.nodes_lr = lr
+            self.nodes_lr[node_id] = lr
         return self.nodes_lr
 
     def init_correction_states(self,
@@ -245,7 +252,7 @@ class Scaffold(Aggregator):
             
             _tmp_correction_update.append({})
             #_tmp_correction_update[idx][node_id] = {}
-            lrs = self.nodes_lr
+            lrs: List[float] = self.nodes_lr[node_id]
             for idx_layer, (layer_name, node_layer) in enumerate(updated_model_params.items()): # iterate params of each client
                 
                 # `_tmp_correction_update`` is an intermediate variable equals to 1/ (K * eta_l)(x - y_i) - c

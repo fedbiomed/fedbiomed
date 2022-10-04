@@ -92,6 +92,20 @@ class TestResponses(unittest.TestCase):
             data1 = {"titi": "toto"}
             r1 = Responses([])
             r1.set_data(data1)
+            
+    def test_response_06_get_index_from_node_id(self):
+        r = Responses([])
+        node_1_resp = {'node_id': 'node_1', 'params': [1, 2, 4]}
+        r.append(node_1_resp)
+        
+        self.assertEqual(r.get_index_from_node_id('node_1'), 0)
+
+        node_2_resp = {'node_id': 'node_2', 'value': 3}
+        r.append(node_2_resp)
+        r.append(['foo'])
+        self.assertEqual(r.get_index_from_node_id('node_1'), 0)
+        self.assertEqual(r.get_index_from_node_id('node_2'), 1)
+        self.assertIsNone(r.get_index_from_node_id('node_x'))
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -64,7 +64,7 @@ class Aggregator:
         self._training_plan_type = training_plan_type
         return self._training_plan_type
 
-    def get_aggregator_args(self, *args, **kwargs) -> dict:
+    def create_aggregator_args(self, *args, **kwargs) -> dict:
         return {}
 
     def scaling(self, model_param: dict, *args, **kwargs) -> dict:

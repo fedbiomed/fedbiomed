@@ -1526,7 +1526,7 @@ class Experiment(object):
 
         # Trigger training round on sampled nodes    
         _ = self._job.start_nodes_training_round(round=self._round_current,
-                                                 aggregator_args=self._aggregator.get_aggregator_args(self._global_model, self._job._nodes), do_training=True)
+                                                 aggregator_args=self._aggregator.create_aggregator_args(self._global_model, self._job._nodes), do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1548,6 +1548,7 @@ class Experiment(object):
                                                        training_plan=self._job._training_plan,
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
+                                                       training_replies=self._job.training_replies,
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)

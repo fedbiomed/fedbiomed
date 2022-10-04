@@ -191,6 +191,23 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             learning_rates.append(param['lr'])
         return learning_rates
 
+    def update_optimizer_args(self) -> Dict:
+        """
+        Updates `_optimizer_args` variable. Can prove useful
+        to retrieve optimizer parameters after having trained a 
+        model, parameters which may have changed during training (eg learning rate).
+        
+        Updated arguments:
+         - learning_rate
+
+        Returns:
+            Dict: updated `_optimizer_args`
+        """
+        if self._optimizer_args is None:
+            self._optimizer_args = {}
+        self._optimizer_args['lr'] = self.get_learning_rate()
+        return self._optimizer_args
+        
     def get_model_params(self) -> OrderedDict:
         return self._model.state_dict()
 
@@ -208,6 +225,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Optimizer arguments
         """
+        self.update_optimizer_args()  # update `optimizer_args` (eg after training)
         return self._optimizer_args
 
     def initial_parameters(self) -> Dict:
@@ -375,18 +393,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                              f'Data must be a torch Tensor or a list, tuple or dict '
                                              f'ultimately containing Tensors.')
 
-    
-    def training_step(self):
-        """All subclasses must provide a training_step the purpose of this actual code is to detect that it
-        has been provided
-
-        Raises:
-             FedbiomedTrainingPlanError: if called and not inherited
-        """
-        msg = ErrorNumbers.FB303.value + ": training_step must be implemented"
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
     def training_routine(self,
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None,
@@ -458,7 +464,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
                 # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if  self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
+                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
                     break
 
                 # Plus one since batch_idx starts from 0
@@ -474,8 +480,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 corrected_loss.backward()
 
                 self._optimizer.step()
-                print("EPOCH", epoch, self._epochs, "UPDATES", self._num_updates, batch_idx, num_batches_in_last_epoch)
-                print("NUM UPDTAED: ", batch_ *self.training_data_loader.batch_size)
+
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
@@ -683,7 +688,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         params = self._dp_controller.after_training(params)
         return params
 
-    def compute_corrected_loss(self, res):
+    def compute_corrected_loss(self, res: torch.Tensor) -> torch.Tensor:
         
         # write here specific loss computation
         if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":

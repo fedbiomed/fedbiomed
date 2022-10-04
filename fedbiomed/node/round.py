@@ -254,6 +254,7 @@ class Round:
             results['job_id'] = self.job_id
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
+            results['optimizer_args'] = self.training_plan.optimizer_args()
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file

@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Union, List, Dict
+from typing import Any, Union, List, Dict
 from fedbiomed.common.exceptions import FedbiomedResponsesError
 
 
@@ -14,6 +14,7 @@ class Responses:
         Args:
             data: input response
         """
+        self._map_node: Dict[str, int] = {}
         if isinstance(data, dict):
             self._data = [data]
         elif isinstance(data, list):
@@ -110,4 +111,29 @@ class Responses:
             raise FedbiomedResponsesError(f'`The argument must be instance of List, '
                                           f'Dict or Responses` not {type(response)}')
 
+        if isinstance(response, (dict)):
+            _tmp_node_id = response.get('node_id')
+            if _tmp_node_id is not None:
+                self._map_node[_tmp_node_id] = len(self._data) - 1
+        if isinstance(response, self.__class__):
+            self._map_node.update(response._map_node)
         return self._data
+    
+    # def get(self, key: Any, default: Any):
+    #     try:
+    #         return self[key]
+    #     except (KeyError, IndexError):
+    #         return 
+    def get_index_from_node_id(self, node_id: str) -> Union[int, None]:
+        """
+        Helper that allows to retrieve the index of a given node_id,
+        assuming that all content of the object Responses are nodes' answers
+
+        Args:
+            node_id (str): id of the node
+
+        Returns:
+            Union[int, None]: returns the index of the corresponding
+            node_id. If not found, returns None
+        """
+        return self._map_node.get(node_id)

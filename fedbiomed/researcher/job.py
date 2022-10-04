@@ -374,7 +374,7 @@ class Job:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
             #if strategy_info.get('strategy') == 'Scaffold':
                 #if round == 0:
-            print("AGGREGATOR ARGS", aggregator_args)
+            
             if aggregator_args:
                 # add aggregator parameters to message header
                 msg['aggregator_args'] = aggregator_args[cli]
@@ -440,6 +440,7 @@ class Job:
                                      f" stops working (details: {err})")
                         return
                     params = self._training_plan.load(params_path, to_params=True)['model_params']
+                    optimizer_args = self._training_plan.load(params_path, to_params=True)['optimizer_args']
                 else:
                     params_path = None
                     params = None
@@ -454,6 +455,7 @@ class Job:
                                'node_id': m['node_id'],
                                'params_path': params_path,
                                'params': params,
+                               'optimizer_args': optimizer_args,
                                'timing': timing})
 
                 self._training_replies[round].append(r)
