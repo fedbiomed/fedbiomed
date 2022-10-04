@@ -139,11 +139,8 @@ class Job:
         else:
             self._training_plan = self._training_plan_class
 
-        self._training_plan.post_init(
-            model_args={} if self._model_args is None else self._model_args,
-            training_args=self._training_args.pure_training_arguments(),
-            optimizer_args=self._training_args.optimizer_arguments()
-        )
+        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+                                      training_args=self._training_args)
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -274,7 +271,7 @@ class Job:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
-        
+
         # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
@@ -647,8 +644,7 @@ class localJob:
                 self._training_plan = training_plan_class
 
         self._training_plan.post_init(model_args=self._model_args,
-                                      training_args=self._training_args.pure_training_arguments(),
-                                      optimizer_args=self._training_args.optimizer_arguments())
+                                      training_args=self._training_args)
 
     @property
     def training_plan(self):

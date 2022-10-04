@@ -56,6 +56,13 @@ class FedbiomedDatasetManagerError(FedbiomedError):
     pass
 
 
+class FedbiomedDPControllerError(FedbiomedError):
+    """
+    Exceptions specific for the class DPController
+    """
+    pass
+
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class.

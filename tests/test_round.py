@@ -261,7 +261,7 @@ class TestRound(unittest.TestCase):
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def post_init(self, model_args, training_args, optimizer_args):\n" + \
+            "   def post_init(self, model_args, training_args):\n" + \
             "       pass\n" + \
             "   def load(self, *args, **kwargs):\n" + \
             "       pass \n" + \
@@ -614,19 +614,6 @@ class TestRound(unittest.TestCase):
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
-
-        # adding into `training_kwargs` node_side arguments
-        self.r1.training_kwargs = {'param': 1234,
-                                   'history_monitor': MagicMock(),
-                                   'node_args': [1, 2, 3, 4]}
-        # action!
-        _ = self.r1.run_model_training()
-
-        # check if 'history_monitor' and 'node_args' entries have been removed
-        #  in `training_kwargs` (for security reasons, see Round for further details)
-
-        self.assertFalse(self.r1.training_arguments.get('history_monitor', False))
-        self.assertFalse(self.r1.training_arguments.get('node_args', False))
 
     @patch('inspect.signature')
     def test_round_09_data_loading_plan(self,

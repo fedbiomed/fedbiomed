@@ -20,10 +20,11 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 
 # for test_request_13_model_approve
-class TrainingPlanGood(TorchTrainingPlan):
+class TrainingPlanGood(BaseFakeTrainingPlan):
     pass
 
 
@@ -31,7 +32,7 @@ class TrainingPlanBad():
     pass
 
 
-class TrainingPlanCannotInstanciate(TorchTrainingPlan):
+class TrainingPlanCannotInstanciate(BaseFakeTrainingPlan):
     def __init__(self):
         x = unknown_method()
 
@@ -58,12 +59,16 @@ class TestRequests(unittest.TestCase):
     def setUp(self):
         """Setup Requests and patches for testing"""
 
+        self.tp_abstract_patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
+
         self.req_patcher1 = patch('fedbiomed.common.messaging.Messaging.__init__')
         self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
         self.req_patcher3 = patch('fedbiomed.common.messaging.Messaging.send_message')
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
         self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
         self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.reply_create')
+
+        self.tp_abstract_patcher.start()
 
         self.message_init = self.req_patcher1.start()
         self.message_start = self.req_patcher2.start()
@@ -94,6 +99,7 @@ class TestRequests(unittest.TestCase):
 
     def tearDown(self):
 
+        self.tp_abstract_patcher.stop()
         self.req_patcher1.stop()
         self.req_patcher2.stop()
         self.req_patcher3.stop()
@@ -509,31 +515,31 @@ class TestRequests(unittest.TestCase):
         filename = os.path.join(self.cwd,
                                 "README.md")
         result = self.requests.training_plan_approve(filename,
-                                             "this is not a python file !!",
-                                             timeout=2
-                                             )
+                                                     "this is not a python file !!",
+                                                     timeout=2
+                                                     )
         self.assertDictEqual(result, {})
 
         # bad argument
         result = self.requests.training_plan_approve(filename,
-                                             "this is not a python file !!",
-                                             timeout=2,
-                                             nodes="and not a list of UUIDs"
-                                             )
+                                                     "this is not a python file !!",
+                                                     timeout=2,
+                                                     nodes="and not a list of UUIDs"
+                                                     )
         self.assertDictEqual(result, {})
 
         # model is not a TrainingPlan
         result = self.requests.training_plan_approve(TrainingPlanBad,
-                                             "not a training plan !!",
-                                             timeout=2
-                                             )
+                                                     "not a training plan !!",
+                                                     timeout=2
+                                                     )
         self.assertDictEqual(result, {})
 
         # another wrong model
         result = self.requests.training_plan_approve(TrainingPlanCannotInstanciate,
-                                             "cannot instanciate",
-                                             timeout=2
-                                             )
+                                                     "cannot instanciate",
+                                                     timeout=2
+                                                     )
         self.assertDictEqual(result, {})
 
         # provide a real python file but do not get an answer before timeout
@@ -547,9 +553,9 @@ class TestRequests(unittest.TestCase):
                                 "test-model",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                             "test-model-1",
-                                             timeout=2
-                                             )
+                                                     "test-model-1",
+                                                     timeout=2
+                                                     )
         self.assertDictEqual(result, {})
 
         # same, but with a node list -> different answer
@@ -563,10 +569,10 @@ class TestRequests(unittest.TestCase):
                                 "test-model",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                             "test-model-1",
-                                             timeout=2,
-                                             nodes=["dummy-id-1"]
-                                             )
+                                                     "test-model-1",
+                                                     timeout=2,
+                                                     nodes=["dummy-id-1"]
+                                                     )
         keys = list(result.keys())
         self.assertTrue(len(keys), 1)
         self.assertFalse(result[keys[0]])
@@ -588,9 +594,9 @@ class TestRequests(unittest.TestCase):
                                 "test-model",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                             "test-model-1",
-                                             timeout=2
-                                             )
+                                                     "test-model-1",
+                                                     timeout=2
+                                                     )
         self.assertDictEqual(result, {})
 
         # sequence is OK, but simulated node did not download the file correctly
@@ -611,9 +617,9 @@ class TestRequests(unittest.TestCase):
                                 "test-model",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                             "test-model-1",
-                                             timeout=2
-                                             )
+                                                     "test-model-1",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
         self.assertTrue(len(keys), 1)
         self.assertFalse(result[keys[0]])
@@ -636,9 +642,9 @@ class TestRequests(unittest.TestCase):
                                 "test-model",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                             "test-model-1",
-                                             timeout=2
-                                             )
+                                                     "test-model-1",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
         self.assertTrue(result[keys[0]])
 
@@ -658,11 +664,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         result = self.requests.training_plan_approve(model,
-                                             "model is a TrainingPlan subclass",
-                                             timeout=1
-                                             )
+                                                     "model is a TrainingPlan subclass",
+                                                     timeout=1
+                                                     )
         keys = list(result.keys())
-        print(result)
         self.assertTrue(result[keys[0]])
 
         # send an instance of TrainingPlan
@@ -681,9 +686,9 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         result = self.requests.training_plan_approve(model,
-                                             "model is a TrainingPlan instance",
-                                             timeout=2
-                                             )
+                                                     "model is a TrainingPlan instance",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
         self.assertTrue(result[keys[0]])
 
