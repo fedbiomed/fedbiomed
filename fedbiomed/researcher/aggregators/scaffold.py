@@ -32,7 +32,7 @@ class Scaffold(Aggregator):
      parameters obtained for each client
     """
 
-    def __init__(self, server_lr: float):
+    def __init__(self, server_lr: float, fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
         
@@ -49,6 +49,7 @@ class Scaffold(Aggregator):
         
         Args:
             server_lr (float): server's (or Researcher's) learning rate
+            fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
             
         """
         super(Scaffold, self).__init__()
@@ -59,6 +60,8 @@ class Scaffold(Aggregator):
         self.nodes_correction_states: Dict[str, Mapping[str, Union[torch.tensor, np.ndarray]]] = None
 
         self.nodes_lr: Dict[str, List[float]] = {}
+        if fds is not None:
+            self.set_fds(fds)
 
     def aggregate(self, model_params: list,
                   weights: list,
@@ -148,7 +151,7 @@ class Scaffold(Aggregator):
         if n_updates == 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(f"n_updates should be a non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
         if self._fds is None:
-            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold")
+            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()")
 
     def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan, training_replies: List[Responses], n_round: int) -> Dict[str, List[float]]:
         # to be implemented in a utils module
@@ -196,7 +199,7 @@ class Scaffold(Aggregator):
             x <- x + eta_g / S * sum_i(y_i - x)
             x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
             x <- sum_i(x (1 - eta_g) + eta_g * y_i) / S
-            x <- avg(x (1 - eta_g) + eta_g * y_i) ... averaging is done afterwards
+            x <- avg(x (1 - eta_g) + eta_g * y_i) ... averaging is done afterwards, in aggregate method
 
         Args:
             model_params (list): _description_
@@ -215,7 +218,7 @@ class Scaffold(Aggregator):
         
     def update_correction_states(self, updated_model_params: Mapping[str, Union[torch.tensor, np.ndarray]],
                                  global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
-                                 node_ids: Iterable[str], n_updates: int=1,):
+                                 node_ids: Iterable[str], n_updates: int = 1,):
         """_summary_
         
         Proof:
@@ -236,7 +239,7 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError("Cannot run SCAFFOLD aggregator: No Federated Dataset set")
         total_nb_nodes = len(self._fds.node_ids())  # get the total number of nodes
         
-        weights = [1/total_nb_nodes] * len(node_ids)
+        weights = [1/len(node_ids)] * total_nb_nodes
 
         present_nodes_idx = list(range(len(self._fds.node_ids())))
         
@@ -258,12 +261,13 @@ class Scaffold(Aggregator):
                 # `_tmp_correction_update`` is an intermediate variable equals to 1/ (K * eta_l)(x - y_i) - c
 
                 _tmp_correction_update[idx][layer_name] = (global_model[layer_name] - node_layer) / (self.server_lr * lrs[idx_layer] * n_updates)
-                # FIXME: check why we need node learning_rate(s) in above formulae
+                # FIXME: check why we need server learning_rate in above formulae
                 _tmp_correction_update[idx][layer_name] = _tmp_correction_update[idx][layer_name] - self.nodes_correction_states[node_id][layer_name]
-
+                #_tmp_correction_update[idx][layer_name] /= total_nb_nodes
         
-
+        print("AGG 1", _tmp_correction_update, weights)
         _aggregated_tmp_correction_update = federated_averaging(_tmp_correction_update, weights)
+        print("AGG 2", _aggregated_tmp_correction_update)
         
         # finally, perform `c <- c + S/N \Delta{c}`
         for node_id in self._fds.node_ids():
@@ -275,7 +279,7 @@ class Scaffold(Aggregator):
         """
         Overrides `set_training_plan_type` from parent class. 
         Checks if trainning plan type, and if it is SKlearnTrainingPlan,
-        raises an error.
+        raises an error. Otherwise, calls parent method.
 
         Args:
             training_plan_type (TrainingPlans): _description_
@@ -286,7 +290,7 @@ class Scaffold(Aggregator):
         Returns:
             TrainingPlans: _description_
         """
-        training_plan_type = super().set_training_plan_type(training_plan_type)
         if training_plan_type == TrainingPlans.SkLearnTrainingPlan:
             raise FedbiomedAggregatorError("Aggregator SCAFFOLD not implemented for SKlearn")
+        training_plan_type = super().set_training_plan_type(training_plan_type)
         return training_plan_type

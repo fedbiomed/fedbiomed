@@ -170,8 +170,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     
     def get_learning_rate(self) -> List[float]:
         """
-        Gets learning rate from 1. the `optimizer_args`, 
-        or 2.  value set in optimizer (could be the default)
+        Gets learning rate from  value set in optimizer (could be the default value,
+        or the )
 
         Returns:
             List[float]: list of single learning rate or multiple learning rates
@@ -690,7 +690,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
     def compute_corrected_loss(self, res: torch.Tensor) -> torch.Tensor:
         
-        # write here specific loss computation
+        # write here specific loss computation for aggregators
         if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
             if self.correction_state is None:
             

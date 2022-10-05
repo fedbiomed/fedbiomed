@@ -3,7 +3,7 @@ from curses import update_lines_cols
 from platform import node
 from re import U
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 import torch
@@ -37,7 +37,7 @@ class TestScaffold(unittest.TestCase):
         # setting all coefficients of `zero_model` to 0
         for p in self.zero_model.parameters():
             p.data.fill_(0)
-
+        print("ZERO MODEL", self.zero_model.state_dict())
 
     # after the tests
     def tearDown(self):
@@ -66,11 +66,11 @@ class TestScaffold(unittest.TestCase):
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')        
     def test_2_update_correction_state(self, mock_federated_dataset):
         mock_federated_dataset.return_value = self.node_ids
-        
+        mock_fds = MagicMock()
         # case where N = S (all nodes are involved in Aggregator)
         agg = Scaffold(server_lr=1.)
         agg.init_correction_states(self.model.state_dict(), self.node_ids)  # settig correction parameters to 0
-        agg.nodes_lr = [1] * self.n_nodes
+        agg.nodes_lr = { k :[1] * self.n_nodes for k in self.node_ids}
         
         fds = FederatedDataSet({})
         agg.set_fds(fds)
@@ -96,15 +96,26 @@ class TestScaffold(unittest.TestCase):
             for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):
 
                 self.assertTrue(torch.isclose(v , v_i).all())
+
+    @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')      
+    def test_3_update_correction_state(self, mock_federated_dataset):
+        mock_federated_dataset.return_value = self.node_ids
         # case where S = 2 (only 2 nodes are selected during the round) and there are no updates
         # then, new correction terms equals 1/2 * former correction terms
         S = 2
         ## resetting
-        # agg = Scaffold(server_lr=1.)
+        agg = Scaffold(server_lr=.2)
+        fds = FederatedDataSet({})
+        agg.set_fds(fds)
+        agg.init_correction_states(self.model.state_dict(), self.node_ids)
         current_round_nodes = sample(self.node_ids, k=S)
-        
-        agg.update_correction_states(self.model.state_dict(), self.zero_model.state_dict(),self.node_ids)  # making correction terms non zeros
+        agg.nodes_lr = { k :[.1] * self.n_nodes for k in self.node_ids}
+        print(self.model.state_dict(), self.zero_model.state_dict())
+        print("NODE_ID", self.node_ids)
+        agg.update_correction_states(Linear(10, 3).state_dict(), self.zero_model.state_dict(),self.node_ids)  # making correction terms non zeros
         correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
+        print(agg.nodes_correction_states)
+        print("ZERO", self.zero_model.state_dict())
         agg.update_correction_states(self.model.state_dict(), self.model.state_dict(), current_round_nodes, n_updates=1)
         for node_id in self.node_ids:
             for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):

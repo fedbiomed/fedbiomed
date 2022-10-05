@@ -106,6 +106,10 @@ class TestResponses(unittest.TestCase):
         self.assertEqual(r.get_index_from_node_id('node_1'), 0)
         self.assertEqual(r.get_index_from_node_id('node_2'), 1)
         self.assertIsNone(r.get_index_from_node_id('node_x'))
+        
+        r.append(r)
+        self.assertEqual(r.get_index_from_node_id('node_1'), 0)
+        self.assertEqual(r.get_index_from_node_id('node_2'), 1)
 
 
 if __name__ == '__main__':  # pragma: no cover

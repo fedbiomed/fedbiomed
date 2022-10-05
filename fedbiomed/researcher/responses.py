@@ -1,6 +1,8 @@
 import pandas as pd
-from typing import Any, Union, List, Dict
+from typing import Any, TypeVar, Union, List, Dict
 from fedbiomed.common.exceptions import FedbiomedResponsesError
+
+_R = TypeVar('Responses')
 
 
 class Responses:
@@ -76,7 +78,8 @@ class Responses:
             raise FedbiomedResponsesError(f'`data` argument should instance of list not {type(data)}')
 
         self._data = data
-
+        for datum in data:
+            self._update_map_node(datum)
         return self._data
 
     def dataframe(self) -> pd.DataFrame:
@@ -89,7 +92,7 @@ class Responses:
 
         return pd.DataFrame(self._data)
 
-    def append(self, response: Union[List, Dict]) -> list:
+    def append(self, response: Union[List, Dict, _R]) -> list:
         """ Appends new responses to existing responses
 
         Args:
@@ -111,19 +114,26 @@ class Responses:
             raise FedbiomedResponsesError(f'`The argument must be instance of List, '
                                           f'Dict or Responses` not {type(response)}')
 
+        self._update_map_node(response)
+        return self._data
+
+    def _update_map_node(self, response: Union[Dict, _R]):
+        """
+        Updates an internal mapping, so one can get a specific node response index
+        of a list of nodes responses. 
+
+        Args:
+            response (Union[Dict, _R]): a response from a node,
+            that should contain a `'node_id'`argument
+
+        """
         if isinstance(response, (dict)):
             _tmp_node_id = response.get('node_id')
             if _tmp_node_id is not None:
                 self._map_node[_tmp_node_id] = len(self._data) - 1
         if isinstance(response, self.__class__):
             self._map_node.update(response._map_node)
-        return self._data
-    
-    # def get(self, key: Any, default: Any):
-    #     try:
-    #         return self[key]
-    #     except (KeyError, IndexError):
-    #         return 
+
     def get_index_from_node_id(self, node_id: str) -> Union[int, None]:
         """
         Helper that allows to retrieve the index of a given node_id,
