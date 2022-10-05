@@ -1,20 +1,31 @@
+from typing import Optional
 import numpy as np
+import sklearn.utils
+from sklearn.utils import gen_batches
 
 
 class NPDataLoader:
+    """DataLoader for Numpy dataset.
+
+    This data loader encapsulates a numpy array, and presents an interface for iterating over the dataset, potentially
+    more than once, with or without shuffling. Each iteration consists of a number of samples equal to the batch
+    size.
+    """
 
     def __init__(self,
                  dataset: np.ndarray,
                  batch_size: int,
                  shuffle: bool = False,
+                 random_seed: int = 0,
                  drop_last: bool = False):
-
         """Construct numpy data loader
 
         Args:
-            dataset: 2D Numpy array
-            batch_size: Batch size for each iteration
-            shuffle: Shuffle before iteration
+            dataset: (np.ndarray) 2D Numpy array
+            batch_size: (int) Batch size for each iteration
+            shuffle: (bool) Shuffle before iteration
+            random_seed: (int or None) an optional integer to set the numpy random seed for shuffling
+            drop_last: (bool) whether to drop the last batch in case it does not fill the whole batch size
         """
 
         if not isinstance(dataset, np.ndarray):
@@ -32,37 +43,57 @@ class NPDataLoader:
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.random_seed = random_seed
 
-        self.size = len(dataset)
-        self.num_batches = int(self.size / self.batch_size)
-        self.last = self.size % self.batch_size
-
-        if not drop_last:
-            self.num_batches += 1
-
-    def get_batch(self, index):
-        return self.dataset[index: index+self.batch_size]
+    def __len__(self):
+        return len(self.dataset)
 
     def __iter__(self):
         return _BatchIterator(self)
 
+    def num_batches(self):
+        n = len(self) // self.batch_size
+        if not self.drop_last and len(self) % self.batch_size != 0:
+            n += 1
+        return n
+
 
 class _BatchIterator:
     """ Iterator class for batch iteration"""
-    def __init__(self, loader):
+    def __init__(self, loader: NPDataLoader):
         self._loader = loader
-        self._index = 0
+        self._index = None
+        self._num_yielded = 0
+        self._reset()
+        # Set random seed. This may clash if we set the seed somewhere else as well,
+        # but we will improve it when we decide to start using a newer version of scikit-learn
+        np.random.seed(self._loader.random_seed)
+
+    def _reset(self):
+        self._num_yielded = 0
+        dlen = len(self._loader)
+
+        self._index = np.arange(dlen)
+
+        # Perform the optional shuffling.
+        if self._loader.shuffle:
+            np.random.shuffle(self._index)
+
+        # Optionally drop the last samples if they make for a smaller batch.
+        num_remainder_samples = dlen % self._loader.batch_size
+        if self._loader.drop_last and num_remainder_samples != 0:
+            self._index = self._index[:-num_remainder_samples]
 
     def __next__(self):
         """Returns the next value from the NPDataLoader"""
-
-        if self._index <= self._loader.num_batches:
-            batch = self._loader.get_batch(self._index)
-            result = self._index, batch
-            self._index += 1
-
-            return result
+        if self._num_yielded < self._loader.num_batches():
+            start = self._num_yielded*self._loader.batch_size
+            stop = (self._num_yielded+1)*self._loader.batch_size
+            indices = self._index[start:stop]
+            self._num_yielded += 1
+            return self._loader.dataset[indices, :]
 
         # Set index to zero for next epochs
-        self._index = 0
+        self._reset()
         raise StopIteration
