@@ -15,7 +15,7 @@ class NPDataLoader:
                  target: Optional[np.ndarray] = None,
                  batch_size: int = 1,
                  shuffle: bool = False,
-                 random_seed: int = 0,
+                 random_seed: Optional[int] = None,
                  drop_last: bool = False):
         """Construct numpy data loader
 
@@ -36,9 +36,20 @@ class NPDataLoader:
                 raise ValueError()
             if len(dataset) != len(target):
                 raise ValueError()
+
+            # Check target dimensions, we try to be very nice to the researcher
+            # First, if they provided an array with too many dimensions, we try to squeeze it
+            if len(target.shape) > 2:
+                target = target.squeeze()
+            # Second, if target was squeezed to 1 dimension or if the researcher gave a 1d target, we expand it
             if len(target.shape) == 1:
                 target = target[:, np.newaxis]
-        # TODO check dimensions of dataset and target
+            # Finally, if none of the above helped, we raise a ValueError
+            if len(target.shape) > 2:
+                raise ValueError()
+
+        if len(dataset.shape) > 2:
+            raise ValueError
 
         if not isinstance(batch_size, int) or batch_size <= 0:
             raise ValueError()
@@ -47,6 +58,9 @@ class NPDataLoader:
             raise ValueError()
 
         if not isinstance(drop_last, bool):
+            raise ValueError()
+
+        if random_seed is not None and not isinstance(random_seed, int):
             raise ValueError()
 
         self.dataset = dataset
@@ -76,9 +90,11 @@ class _BatchIterator:
         self._index = None
         self._num_yielded = 0
         self._reset()
-        # Set random seed. This may clash if we set the seed somewhere else as well,
-        # but we will improve it when we decide to start using a newer version of scikit-learn
-        np.random.seed(self._loader.random_seed)
+
+        if self._loader.random_seed is not None:
+            # Set random seed. This may clash if we set the seed somewhere else as well,
+            # but we will improve it when we decide to start using a newer version of scikit-learn
+            np.random.seed(self._loader.random_seed)
 
     def _reset(self):
         self._num_yielded = 0
