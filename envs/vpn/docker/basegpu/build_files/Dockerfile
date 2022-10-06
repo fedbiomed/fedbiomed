@@ -7,9 +7,8 @@ RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
 # 
-# match versions of debian & boringtun
-# bullseye KO with boringtun 0.4.0 from cargo, bookworm doesnt exist for python:3.9-slim
-RUN cargo install --bin boringtun --version ~0.3.0 boringtun
+# match versions of ubuntu & boringtun
+RUN cargo install --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes

@@ -1,17 +1,17 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
-# - may need update for properly compiling boringtun (eg: cargo build of `clap` package failing on `buster-slim`)
+# - may need update for properly compiling boringtun (eg: cargo build package failing on `buster-slim`)
 FROM debian:bullseye-slim as builder
 
-RUN apt-get update && apt-get install -y git build-essential wget
+RUN apt-get update && apt-get install -y git build-essential curl
 
-RUN wget -qO - https://sh.rustup.rs | RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust sh -s -- --no-modify-path -y && \
-    . /opt/rust/env && rustup default stable
 # install boringtun userspace implementation of wireguard
 # 
-# match versions of debian & boringtun
-# bullseye KO with boringtun 0.4.0 from cargo, bookworm doesnt exist for python:3.9-slim
-RUN . /opt/rust/env && cargo install --bin boringtun --version ~0.3.0 boringtun
+# - match versions of debian & boringtun : 0.4.0 is now supported by bullseye with current system/cargo packages
+# - glitch: bullseye's apt-get cargo is too old vs boringtun's cargo packages dependencies, need to install
+#   up to date rust/cargo
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
+    cargo install --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes
