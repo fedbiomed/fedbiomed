@@ -12,7 +12,7 @@ RUN apk update && apk add git alpine-sdk linux-headers
 # - glitch: alpine's apk cargo is too old vs boringtun's cargo packages dependencies, need to install
 #   up to date rust/cargo
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
-    cargo install --bin boringtun --version ~0.4.0 boringtun
+    cargo install --locked --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes
