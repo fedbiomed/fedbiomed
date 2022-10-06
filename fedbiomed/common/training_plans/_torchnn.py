@@ -1,23 +1,19 @@
-'''
-TrainingPlan definition for torchnn ML framework
-'''
+"""TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 from copy import deepcopy
 
 import torch
-import torch.nn as nn
+from torch import nn
 
-from fedbiomed.common.constants import TrainingPlans, ProcessTypes
-from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.metrics import Metrics
+from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.privacy import DPController
-from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.utils import get_method_spec
+
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -88,8 +84,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: TrainingArgs) -> None:
-        """ Sets arguments for training, model and optimizer
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any]
+        ) -> None:
+        """Set arguments for the model, training and the optimizer.
 
         Args:
             model_args: Arguments defined by researcher to instantiate model/torch module
@@ -365,14 +365,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._set_device(self._use_gpu, node_args)
 
-        # Run preprocess when everything is ready before the training
-        self.__preprocess()
-
         # send all model to device, ensures having all the requested tensors
         self._model.to(self._device)
 
         # Run preprocess when everything is ready before the training
-        self.__preprocess()
+        self._preprocess()
 
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
@@ -617,59 +614,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for key, val in self._model.state_dict().items():
             norm += ((val - self._init_params[key]) ** 2).sum()
         return norm
-
-    def __preprocess(self):
-        """Executes registered preprocess that are defined by user."""
-        for (name, process) in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
-
-            if process_type == ProcessTypes.DATA_LOADER:
-                self.__process_data_loader(method=method)
-            else:
-                logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
-                             f"be ignored")
-
-    def __process_data_loader(self, method: Callable):
-        """Process handler for data loader kind processes.
-
-        Args:
-            method: Process method that is going to be executed
-
-        Raises:
-             FedbiomedTrainingPlanError: Raised if number of arguments of method is different than 1.
-                    - triggered if execution of method fails
-                    - triggered if type of the output of the method is not an instance of
-                        `self.training_data_loader`
-        """
-        argspec = get_method_spec(method)
-        if len(argspec) != 1:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process for type `PreprocessType.DATA_LOADER` should have only one argument/parameter"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        try:
-            data_loader = method(self.training_data_loader)
-        except Exception as e:
-            msg = ErrorNumbers.FB605.value + \
-                  ": error while running process method -> `{method.__name__}` - " + \
-                  str(e)
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        # Debug after running preprocess
-        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
-
-        if isinstance(data_loader, type(self.training_data_loader)):
-            self.training_data_loader = data_loader
-            logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
-        else:
-            msg = ErrorNumbers.FB605.value + \
-                  ": the input argument of the method `preprocess` is `data_loader`" + \
-                  " and expected return value should be an instance of: " + \
-                  type(self.training_data_loader) + \
-                  " instead of " + \
-                  type(data_loader)
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
