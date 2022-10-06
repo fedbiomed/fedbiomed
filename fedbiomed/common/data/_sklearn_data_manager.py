@@ -3,15 +3,12 @@ Sklearn data manager
 """
 
 
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import numpy as np
 import pandas as pd
-
-from numpy import ndarray
-from pandas import DataFrame, Series
-
 from sklearn.model_selection import train_test_split
+
 from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
 from ._np_data_loader import NPDataLoader
@@ -28,7 +25,11 @@ class SkLearnDataManager(object):
                  target: Union[np.ndarray, pd.DataFrame, pd.Series],
                  **kwargs: dict):
 
-        """ Constructor of the class
+        """ Construct a SkLearnDataManager from an array of inputs and an array of targets.
+
+        The loader arguments will be passed to the [fedbiomed.common.data.NPDataLoader] classes instantiated
+        when split is called. They may include batch_size, shuffle, drop_last, and others. Please see the
+        [fedbiomed.common.data.NPDataLoader] class for more details.
 
         Args:
             inputs: Independent variables (inputs, features) for model training
@@ -55,7 +56,7 @@ class SkLearnDataManager(object):
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
 
-    def dataset(self) -> Tuple[ndarray, ndarray]:
+    def dataset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Gets the entire registered dataset.
 
         This method returns whole dataset as it is without any split.
@@ -86,7 +87,7 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
+    def split(self, test_ratio: float) -> Tuple[Optional[NPDataLoader], Optional[NPDataLoader]]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:
@@ -96,8 +97,8 @@ class SkLearnDataManager(object):
             FedbiomedSkLearnDataManagerError: If the `test_ratio` is not between 0 and 1
 
         Returns:
-             train_loader: Loader of input variables for model training
-             test_loader: Loader of target variable for model training
+             train_loader: NPDataLoader of input variables for model training
+             test_loader: NPDataLoader of target variable for model training
         """
 
         # Check the argument `ratio` is of type `float`
@@ -127,15 +128,14 @@ class SkLearnDataManager(object):
             self._subset_loader(self._subset_test, **self._loader_arguments)
 
     @staticmethod
-    def _subset_loader(subset: Tuple[np.ndarray, np.ndarray], **loader_arguments) -> Tuple[np.ndarray, np.ndarray]:
+    def _subset_loader(subset: Tuple[np.ndarray, np.ndarray], **loader_arguments) -> Optional[NPDataLoader]:
         """Loads subset partition for SkLearn based training plans.
 
         Raises:
             FedbiomedSkLearnDataManagerError: If subset is not well formatted
 
         Returns:
-            inputs: Loader for input variables
-            target: Loader for target variables
+            A NPDataLoader encapsulating the subset
         """
         if not isinstance(subset, Tuple) \
                 or len(subset) != 2 \
