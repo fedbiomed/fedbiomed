@@ -24,7 +24,7 @@ class TestNPDataLoader(unittest.TestCase):
         if not drop_last and self.len % batch_size > 0:
             num_batches_per_epoch += 1
 
-        self.assertEqual(num_batches_per_epoch, dataloader.num_batches())
+        self.assertEqual(num_batches_per_epoch, dataloader.get_num_batches())
 
         outcome = list()
         for epoch in range(n_epochs):

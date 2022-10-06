@@ -63,24 +63,42 @@ class NPDataLoader:
         if random_seed is not None and not isinstance(random_seed, int):
             raise ValueError()
 
-        self.dataset = dataset
-        self.target = target
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.drop_last = drop_last
-        self.random_seed = random_seed
+        self._dataset = dataset
+        self._target = target
+        self._batch_size = batch_size
+        self._shuffle = shuffle
+        self._drop_last = drop_last
+        self._rng = np.random.default_rng(random_seed)
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self._dataset)
 
     def __iter__(self):
         return _BatchIterator(self)
 
-    def num_batches(self):
-        n = len(self) // self.batch_size
-        if not self.drop_last and len(self) % self.batch_size != 0:
+    def get_num_batches(self):
+        n = len(self) // self._batch_size
+        if not self._drop_last and len(self) % self._batch_size != 0:
             n += 1
         return n
+
+    def get_dataset(self):
+        return self._dataset
+
+    def get_target(self):
+        return self._target
+
+    def get_batch_size(self):
+        return self._batch_size
+
+    def get_rng(self):
+        return self._rng
+
+    def get_shuffle(self):
+        return self._shuffle
+
+    def get_drop_last(self):
+        return self._drop_last
 
 
 class _BatchIterator:
@@ -91,11 +109,6 @@ class _BatchIterator:
         self._num_yielded = 0
         self._reset()
 
-        if self._loader.random_seed is not None:
-            # Set random seed. This may clash if we set the seed somewhere else as well,
-            # but we will improve it when we decide to start using a newer version of scikit-learn
-            np.random.seed(self._loader.random_seed)
-
     def _reset(self):
         self._num_yielded = 0
         dlen = len(self._loader)
@@ -103,25 +116,25 @@ class _BatchIterator:
         self._index = np.arange(dlen)
 
         # Perform the optional shuffling.
-        if self._loader.shuffle:
-            np.random.shuffle(self._index)
+        if self._loader.get_shuffle():
+            self._loader.get_rng().shuffle(self._index)
 
         # Optionally drop the last samples if they make for a smaller batch.
-        num_remainder_samples = dlen % self._loader.batch_size
-        if self._loader.drop_last and num_remainder_samples != 0:
+        num_remainder_samples = dlen % self._loader.get_batch_size()
+        if self._loader.get_drop_last() and num_remainder_samples != 0:
             self._index = self._index[:-num_remainder_samples]
 
     def __next__(self):
         """Returns the next value from the NPDataLoader"""
-        if self._num_yielded < self._loader.num_batches():
-            start = self._num_yielded*self._loader.batch_size
-            stop = (self._num_yielded+1)*self._loader.batch_size
+        if self._num_yielded < self._loader.get_num_batches():
+            start = self._num_yielded*self._loader.get_batch_size()
+            stop = (self._num_yielded+1)*self._loader.get_batch_size()
             indices = self._index[start:stop]
             self._num_yielded += 1
-            if self._loader.target is None:
-                return self._loader.dataset[indices, :], None
+            if self._loader.get_target() is None:
+                return self._loader.get_dataset()[indices, :], None
             else:
-                return self._loader.dataset[indices, :], self._loader.target[indices, :]
+                return self._loader.get_dataset()[indices, :], self._loader.get_target()[indices, :]
 
         # Set index to zero for next epochs
         self._reset()
