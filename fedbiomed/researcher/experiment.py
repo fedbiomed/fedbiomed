@@ -221,7 +221,7 @@ class Experiment(object):
         #        tensorboard: bool = False,
         #        experimentation_folder: Union[str, None] = None,
         #        use_secagg: bool = False,
-        #        secagg_timeout: fload = 0
+        #        secagg_timeout: float = 0
 
         # set self._tags and self._nodes
         self.set_tags(tags)
@@ -1800,6 +1800,9 @@ class Experiment(object):
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
+          - use_secagg
+          - secagg_servkey
+          - secagg_biprime
 
         Raises:
             FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
@@ -1852,7 +1855,8 @@ class Experiment(object):
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'job': self._job.save_state(breakpoint_path)  # job state
+            'job': self._job.save_state(breakpoint_path),  # job state
+            'use_secagg': self._use_secagg
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1979,6 +1983,11 @@ class Experiment(object):
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
         # nota: exceptions should be handled in Job, when refactoring it
+
+        # changing secagg attributes
+        loaded_exp.set_use_secagg(saved_state.get('use_secagg'), timeout=10)
+        # TODO: replace with
+        # loaded_exp.set_use_secagg(saved_state.get('use_secagg'))
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
