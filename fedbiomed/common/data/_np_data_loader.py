@@ -28,7 +28,7 @@ class NPDataLoader:
 
         Args:
             dataset: (np.ndarray) 2D Numpy array
-            target: (Optional[np.ndarray]) 2D Numpy array of target values
+            target: (Optional[np.ndarray]) Numpy array of target values
             batch_size: (int) batch size for each iteration
             shuffle: (bool) shuffle before iteration
             random_seed: (int or None) an optional integer to set the numpy random seed for shuffling
@@ -44,16 +44,9 @@ class NPDataLoader:
             if len(dataset) != len(target):
                 raise ValueError()
 
-            # Check target dimensions, we try to be very nice to the researcher
-            # First, if they provided an array with too many dimensions, we try to squeeze it
-            if len(target.shape) > 2:
-                target = target.squeeze()
-            # Second, if target was squeezed to 1 dimension or if the researcher gave a 1d target, we expand it
+            # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
             if len(target.shape) == 1:
                 target = target[:, np.newaxis]
-            # Finally, if none of the above helped, we raise a ValueError
-            if len(target.shape) > 2:
-                raise ValueError()
 
         if len(dataset.shape) > 2:
             raise ValueError
