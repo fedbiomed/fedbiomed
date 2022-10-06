@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y git build-essential cargo
 # install boringtun userspace implementation of wireguard
 # 
 # match versions of ubuntu & boringtun
+#   0.5.2 not yet supported
 RUN cargo install --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
