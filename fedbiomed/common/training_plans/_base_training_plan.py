@@ -43,8 +43,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
-            optimizer_args: Optional[Dict[str, Any]] = None
+            training_args: Dict[str, Any]
         ) -> None:
         """Set arguments for the model, training and the optimizer.
 
@@ -53,9 +52,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             training_args: Arguments that are used in training routines
                 such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
-            optimizer_args: Arguments for the optimizer.
         """
-        return NotImplemented
+        return None
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.

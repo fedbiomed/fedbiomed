@@ -94,16 +94,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
-            optimizer_args: Optional[Dict[str, Any]] = None
+            training_args: Dict[str, Any]
         ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
             model_args: Model arguments.
             training_args: Training arguments.
-            optimizer_args: Optimizer arguments.
-                Unused for SkLearn-based classes but API-mandatory.
         """
         self._model_args = model_args
         self._model_args.setdefault("verbose", 1)
@@ -220,7 +217,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     @abstractmethod
     def parse_training_loss(
             self,
-            output: StringIO,
+            output: List[str],
             epoch: int
         ) -> float:
         """Model-specific loss-parsing from model training outputs.
@@ -233,7 +230,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     @staticmethod
     def _parse_training_losses(
-            output: StringIO,
+            output: List[str],
             epoch: int
         ) -> List[float]:
         """Evaluate the wrapped model's loss on the training dataset.

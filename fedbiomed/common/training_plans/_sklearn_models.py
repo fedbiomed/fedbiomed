@@ -157,11 +157,10 @@ class FedPerceptron(FedSGDClassifier):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
-            optimizer_args: Optional[Dict[str, Any]] = None
+            training_args: Dict[str, Any]
         ) -> None:
         model_args["loss"] = "perceptron"
-        super().post_init(model_args, training_args, optimizer_args)
+        super().post_init(model_args, training_args)
 
 
 
