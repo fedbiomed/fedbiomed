@@ -1,7 +1,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 from copy import deepcopy
 
 import torch
@@ -614,59 +614,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for key, val in self._model.state_dict().items():
             norm += ((val - self._init_params[key]) ** 2).sum()
         return norm
-
-    def _process_data_loader(
-            self,
-            method: Callable[..., Any]
-        ) -> None:
-        """Handle a data-loader pre-processing action.
-
-        Args:
-            method (Callable) : Process method that is to be executed.
-
-        Raises:
-            FedbiomedTrainingPlanError:
-              - if the method does not have 1 positional argument (dataloader)
-              - if running the method fails
-              - if the method does not return a dataloader of the same type as
-               its input
-        """
-        # Check that the preprocessing method has a proper signature.
-        argspec = get_method_spec(method)
-        if len(argspec) != 1:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: preprocess method of type "
-                "`PreprocessType.DATA_LOADER` sould expect one argument: "
-                "the data loader wrapping the training dataset."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-        # Try running the preprocessor.
-        try:
-            data_loader = method(self.training_data_loader)
-        except Exception as exc:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: error while running "
-                f"preprocess method `{method.__name__}` -> {exc}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-        logger.debug(
-            f"The process `{method.__name__}` has been successfully executed."
-        )
-        # Verify that the output is of proper type and assign it.
-        if isinstance(data_loader, type(self.training_data_loader)):
-            self.training_data_loader = data_loader
-            logger.debug(
-                "Data loader for training routine has been updated "
-                f"by the process `{method.__name__}`."
-            )
-        else:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: the return type of the "
-                f"`{method.__name__}` preprocess method was expected "
-                f"to be {type(self.training_data_loader)}, but was "
-                f"{type(data_loader)}."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)

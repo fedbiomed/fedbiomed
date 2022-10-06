@@ -46,8 +46,8 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         # Gather start weights of the model and initialize zero gradients.
         param = {k: getattr(self._model, k) for k in self._param_list}
         grads = {k: np.zeros_like(v) for k, v in param.items()}
-        # Iterate over data batches. FIXME: for now we have a single batch.
-        for inputs, target in (self.training_data_loader,):
+        # Iterate over data batches.
+        for inputs, target in self.training_data_loader:
             # Iteratively accumulate sample-wise gradients, resetting weights.
             b_len = len(inputs.shape[0])
             for idx in range(b_len):
@@ -127,7 +127,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         if self._model_args["n_classes"] == 2:
             loss = losses[-1]
         else:
-            support = self._compute_support(self.training_data_loader[1])
+            support = self._compute_support(self.training_data_loader.get_target())
             loss = np.average(losses, weights=support)
             logger.warning(
                 "Loss plot displayed on Tensorboard may be inaccurate "

@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
 import torch
@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
+from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
@@ -36,10 +37,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies = []  # type: List[str]
-        self.dataset_path = None
+        self.dataset_path = None  # type: Union[str, None]
         self.pre_processes = OrderedDict()
-        self.training_data_loader = None
-        self.testing_data_loader = None
+        self.training_data_loader = None  # type: Union[DataLoader, NPDataLoader, None]
+        self.testing_data_loader = None  # type: Union[DataLoader, NPDataLoader, None]
 
     @abstractmethod
     def post_init(
@@ -80,9 +81,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.dataset_path = dataset_path
         logger.debug('Dataset path has been set as' + self.dataset_path)
 
-    def set_data_loaders(self,
-                         train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
-                         test_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None]):
+    def set_data_loaders(
+            self,
+            train_data_loader: Union[DataLoader, NPDataLoader, None],
+            test_data_loader: Union[DataLoader, NPDataLoader, None]
+        ) -> None:
         """Sets data loaders
 
         Args:
@@ -200,27 +203,61 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"Preprocessor '{name}' will therefore be ignored."
                 )
 
-    @abstractmethod
     def _process_data_loader(
             self,
             method: Callable[..., Any]
         ) -> None:
         """Handle a data-loader pre-processing action.
 
-        This method needs to be implemented at the level of subclasses.
-        NOTE: it won't be once a DataLoader equivalent is designed for
-              scikit-learn training plans.
-
         Args:
             method (Callable) : Process method that is to be executed.
 
         Raises:
             FedbiomedTrainingPlanError:
-              - if the method does not have the proper input signature
+              - if the method does not have 1 positional argument (dataloader)
               - if running the method fails
-              - if the methods' returns differ in type from its inputs
+              - if the method does not return a dataloader of the same type as
+               its input
         """
-        return None
+        # Check that the preprocessing method has a proper signature.
+        argspec = utils.get_method_spec(method)
+        if len(argspec) != 1:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: preprocess method of type "
+                "`PreprocessType.DATA_LOADER` sould expect one argument: "
+                "the data loader wrapping the training dataset."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        # Try running the preprocessor.
+        try:
+            data_loader = method(self.training_data_loader)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: error while running "
+                f"preprocess method `{method.__name__}` -> {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        logger.debug(
+            f"The process `{method.__name__}` has been successfully executed."
+        )
+        # Verify that the output is of proper type and assign it.
+        if isinstance(data_loader, type(self.training_data_loader)):
+            self.training_data_loader = data_loader
+            logger.debug(
+                "Data loader for training routine has been updated "
+                f"by the process `{method.__name__}`."
+            )
+        else:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: the return type of the "
+                f"`{method.__name__}` preprocess method was expected "
+                f"to be {type(self.training_data_loader)}, but was "
+                f"{type(data_loader)}."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
     @staticmethod
     def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]],

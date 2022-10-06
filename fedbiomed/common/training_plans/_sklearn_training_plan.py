@@ -7,17 +7,18 @@ Fed-BioMed training plans wrapping scikit-learn models.
 from abc import ABCMeta, abstractmethod
 from io import StringIO
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import joblib
 import numpy as np
 from sklearn.base import BaseEstimator
+from torch.data.utils import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
-from fedbiomed.common.utils import get_method_spec
 from fedbiomed.node.history_monitor import HistoryMonitor
 
 from ._base_training_plan import BaseTrainingPlan
@@ -119,6 +120,30 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Initialize the model's trainable parameters."""
         return None
 
+    def set_data_loaders(
+            self,
+            train_data_loader: Union[DataLoader, NPDataLoader, None],
+            test_data_loader: Union[DataLoader, NPDataLoader, None]
+        ) -> None:
+        """Sets data loaders
+
+        Args:
+            train_data_loader: Data loader for training routine/loop
+            test_data_loader: Data loader for validation routine
+        """
+        args = (train_data_loader, test_data_loader)
+        if not all(isinstance(data, NPDataLoader) for data in args):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
+                "NPDataLoader instances as training and testing data "
+                f"loaders, but received {type(train_data_loader)} "
+                f"and {type(train_data_loader)} respectively."
+            )
+            logger.error(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        self.training_data_loader = train_data_loader
+        self.testing_data_loader = test_data_loader
+
     def model_args(self) -> Dict[str, Any]:
         """Retrieve model arguments.
 
@@ -158,7 +183,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
               supported for scikit-learn models and thus will be ignored.
         """
         if self._model is None:
-            raise FedbiomedTrainingPlanError('Wrapped model is None.')
+            raise FedbiomedTrainingPlanError("Wrapped model is None.")
+        if not isinstance(self.training_data_loader, NPDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
+                "be trained without a NPDataLoader as `training_data_loader`."
+            )
+            logger.error(msg)
+            raise FedbiomedTrainingPlanError(msg)
         # Run preprocessing operations.
         self._preprocess()
         # Warn if GPU-use was expected (as it is not supported).
@@ -190,12 +222,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 name = "Loss" + (f" {name}" if name else "")
                 history_monitor.add_scalar(
                     metric={name: float(loss)},
-                    iteration=1,
+                    iteration=1,  # todo: correct this
                     epoch=epoch,
                     train=True,
-                    num_batches=1,
-                    total_samples=len(self.training_data_loader[0]),  # FIXME
-                    batch_samples=len(self.training_data_loader[0])   # FIXME
+                    num_batches=self.training_data_loader.get_num_batches(),
+                    total_samples=len(self.training_data_loader.get_dataset),
+                    batch_samples=self.training_data_loader.get_batch_size()
                 )
                 # TODO: For clustering; passes inertia value as scalar.
                 # It should be implemented when KMeans implementation is ready.
@@ -379,62 +411,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         target_test_train = np.concatenate((target_test, target_train))
 
         return np.unique(target_test_train)
-
-    def _process_data_loader(
-            self,
-            method: Callable[..., Any]
-        ) -> None:
-        """Handle a data-loader pre-processing action.
-
-        Args:
-            method (Callable) : Process method that is to be executed.
-
-        Raises:
-            FedbiomedTrainingPlanError:
-              - if the method does not have 1 positional argument (dataloader)
-              - if running the method fails
-              - if the method does not return a dataloader of the same type as
-               its input
-        """
-        # Check that the preprocessing method has a proper signature.
-        argspec = get_method_spec(method)
-        if len(argspec) != 2:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: preprocess method of type "
-                "`PreprocessType.DATA_LOADER` should expect two arguments: "
-                "the inputs and targets composing the training dataset."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-        # Try running the preprocessor.
-        try:
-            inputs, target = self.training_data_loader
-            outputs = method(inputs, target)
-        except Exception as exc:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: error while running "
-                f"preprocess method `{method.__name__}` -> {exc}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-        logger.debug(
-            f"The process `{method.__name__}` has been successfully executed."
-        )
-        # Verify that the output is of proper type and assign it.
-        if (len(outputs) == 2) and all(isinstance(x, np.ndarray) for x in outputs):
-            self.training_data_loader = outputs
-            logger.debug(
-                "Data loader for training routine has been updated "
-                f"by the process `{method.__name__}`."
-            )
-        else:
-            msg = (
-                f"{ErrorNumbers.FB605.value}: the return type of the "
-                f"`{method.__name__}` preprocess method was expected "
-                f"to be a pair of numpy arrays, but was {type(outputs)}."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
 
     def _compute_support(self, targets: np.ndarray) -> np.ndarray:
         """
