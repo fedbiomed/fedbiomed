@@ -19,12 +19,14 @@ class Responses:
         self._map_node: Dict[str, int] = {}
         if isinstance(data, dict):
             self._data = [data]
+            self._update_map_node(data)
         elif isinstance(data, list):
             self._data = []
             # create a list containing unique fields
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
+                    self._update_map_node(data)
 
     def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index
@@ -92,7 +94,7 @@ class Responses:
 
         return pd.DataFrame(self._data)
 
-    def append(self, response: Union[List, Dict, _R]) -> list:
+    def append(self, response: Union[List[Dict], Dict, _R]) -> list:
         """ Appends new responses to existing responses
 
         Args:
@@ -104,8 +106,14 @@ class Responses:
         Raises:
             FedbiomedResponsesError: When `response` argument is not in valid type
         """
+
         if isinstance(response, List):
-            self._data = self._data + response
+            #self._data = self._data + response
+            for resp in response:
+                if isinstance(resp, (dict, self.__class__)):
+                    self.append(resp)
+                else:
+                    self._data = self._data + response
         elif isinstance(response, Dict):
             self._data = self._data + [response]
         elif isinstance(response, self.__class__):
@@ -127,7 +135,7 @@ class Responses:
             that should contain a `'node_id'`argument
 
         """
-        if isinstance(response, (dict)):
+        if isinstance(response, dict):
             _tmp_node_id = response.get('node_id')
             if _tmp_node_id is not None:
                 self._map_node[_tmp_node_id] = len(self._data) - 1

@@ -11,7 +11,7 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import federated_averaging
+from fedbiomed.researcher.aggregators.functional import federated_averaging, weitghted_sum
 from fedbiomed.researcher.aggregators.functional import initialize
 
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -64,12 +64,12 @@ class Scaffold(Aggregator):
             self.set_fds(fds)
 
     def aggregate(self, model_params: list,
-                  weights: list,
+                  weights: List[Dict[str, float]],
                   global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
+                  training_replies: Responses,
                   node_ids: Iterable[str],
                   n_updates: int = 1,
-                  training_replies: Optional[Responses] = None,
                   n_round: int = 0,
                   *args, **kwargs) -> Dict:
         """
@@ -78,8 +78,10 @@ class Scaffold(Aggregator):
         Performed computations:
         -----------------------
         
-        c_i(+) <- c_i - c + 1/(K*eta_l)(x - y_i)
+        c_i(+) <- c_i - c + 1/(K*eta_l*eta_g)(x - y_i)
+        c <- c + 1/N * avg_S(c_i(+) - c_i)
         
+        x <- x + eta_g/S * avg_S(y_i - x)
 
         Args:
             model_params (list): _description_
@@ -98,16 +100,20 @@ class Scaffold(Aggregator):
         weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
         
         model_params_processed = self.scaling(model_params, global_model)
-        model_params_processed = [list(model_param.values())[0] for model_param in model_params] # model params are contained in a dictionary with node_id as key, we just retrieve the params
-
+        model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed] # model params are contained in a dictionary with node_id as key, we just retrieve the params
+        print("TETS", [(m.values(), m_i.values()) for m, m_i in zip(model_params_processed, model_params)])
         #model_params_processed = list(model_params_processed.values())
 
         weights_processed = self.normalize_weights(weights_processed)
-        aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
         
+        print("LEARNING RATE", self.server_lr)
+        print("FEDAVG 1", model_params_processed, )
+        aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
+        print("FEDAVG2", aggregated_parameters)
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
+
         self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
         return aggregated_parameters
 
@@ -155,17 +161,21 @@ class Scaffold(Aggregator):
 
     def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan, training_replies: List[Responses], n_round: int) -> Dict[str, List[float]]:
         # to be implemented in a utils module
-        print('training_replies', training_replies)
+
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
             lrs: List[float] = []
+            print("TRAINING_REPLIES", training_replies[n_round]._map_node)
             if training_replies[n_round].get_index_from_node_id(node_id) is not None:
                 # get updated learning rate if provided...
-                node_idx: int = training_replies[n_round].get_from_node_id(node_id)
+                node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
                 lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
+                print("RETRIEVE LEARNING RATE")
             else:
                 # ...otherwise retrieve default learning rate 
+                print("DEFAUlT LEARNING RATE")
                 lrs += training_plan.get_learning_rate()
+            print("N_MODEL_LAYER", n_model_layers)
             if len(lrs) == 1:
                 # case where there is one learning rate
                 lr = lrs * n_model_layers
@@ -175,7 +185,7 @@ class Scaffold(Aggregator):
                 lr = lrs
             else:
 
-                raise FedbiomedAggregatorError(f"Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate.")
+                raise FedbiomedAggregatorError("Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate.")
             
             self.nodes_lr[node_id] = lr
         return self.nodes_lr
@@ -213,7 +223,9 @@ class Scaffold(Aggregator):
         for idx, model_param in enumerate(model_params):
             node_id = list(model_param.keys())[0] # retrieve node_id
             for layer in model_param[node_id]:
+                print("SCALING1", model_params[idx][node_id][layer] )
                 model_params[idx][node_id][layer] = model_param[node_id][layer] * self.server_lr + (1 - self.server_lr) * global_model[layer]
+                print("SCALING2", model_params[idx][node_id][layer] )
         return model_params
         
     def update_correction_states(self, updated_model_params: Mapping[str, Union[torch.tensor, np.ndarray]],
@@ -239,7 +251,7 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError("Cannot run SCAFFOLD aggregator: No Federated Dataset set")
         total_nb_nodes = len(self._fds.node_ids())  # get the total number of nodes
         
-        weights = [1/len(node_ids)] * total_nb_nodes
+        weights = [1/total_nb_nodes] * len(node_ids)
 
         present_nodes_idx = list(range(len(self._fds.node_ids())))
         
@@ -257,17 +269,16 @@ class Scaffold(Aggregator):
             #_tmp_correction_update[idx][node_id] = {}
             lrs: List[float] = self.nodes_lr[node_id]
             for idx_layer, (layer_name, node_layer) in enumerate(updated_model_params.items()): # iterate params of each client
-                
+
                 # `_tmp_correction_update`` is an intermediate variable equals to 1/ (K * eta_l)(x - y_i) - c
 
                 _tmp_correction_update[idx][layer_name] = (global_model[layer_name] - node_layer) / (self.server_lr * lrs[idx_layer] * n_updates)
                 # FIXME: check why we need server learning_rate in above formulae
                 _tmp_correction_update[idx][layer_name] = _tmp_correction_update[idx][layer_name] - self.nodes_correction_states[node_id][layer_name]
                 #_tmp_correction_update[idx][layer_name] /= total_nb_nodes
-        
-        print("AGG 1", _tmp_correction_update, weights)
-        _aggregated_tmp_correction_update = federated_averaging(_tmp_correction_update, weights)
-        print("AGG 2", _aggregated_tmp_correction_update)
+
+        print("AGG", _tmp_correction_update)
+        _aggregated_tmp_correction_update = weitghted_sum(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`
         for node_id in self._fds.node_ids():

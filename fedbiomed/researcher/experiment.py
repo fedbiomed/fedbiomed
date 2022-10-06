@@ -199,6 +199,7 @@ class Experiment(object):
         self._monitor = None
         self._experimentation_folder = None
         self.aggregator_args = {}
+        self._aggregator = None
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
@@ -816,6 +817,8 @@ class Experiment(object):
                          'you may need to update `node_selection_strategy`')
         if self._job is not None:
             logger.debug('Training data changed, you may need to update `job`')
+        if self._aggregator is not None:
+            logger.debug('Training data changed, you may need to update `aggregator`')
 
         return self._fds
 
@@ -855,9 +858,11 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
-        self.aggregator_args["strategy"] = self._aggregator.aggregator_name
         # at this point self._aggregator is (non-None) aggregator object
+        self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
+        if self._fds is not None:
+            self._aggregator.set_fds(self._fds)
+        
         return self._aggregator
 
     @exp_exceptions
@@ -1546,9 +1551,10 @@ class Experiment(object):
                                                        weights,
                                                        global_model = self._global_model,
                                                        training_plan=self._job._training_plan,
+                                                       training_replies=self._job.training_replies,
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
-                                                       training_replies=self._job.training_replies,
+                                                       
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)

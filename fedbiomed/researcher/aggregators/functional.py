@@ -1,11 +1,11 @@
 import copy
-from typing import Dict, List, Union
+from typing import Dict, List, Mapping, Tuple, Union
 
 import torch
 import numpy as np
 
 
-def initialize(val: Union[torch.Tensor, np.ndarray]):
+def initialize(val: Union[torch.Tensor, np.ndarray]) -> Tuple[str, Union[torch.Tensor, np.ndarray]]:
     """Initialize tensor or array vector. """
     if isinstance(val, torch.Tensor):
         return ('tensor' , torch.zeros_like(val).float())
@@ -15,7 +15,7 @@ def initialize(val: Union[torch.Tensor, np.ndarray]):
 
 
 def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
-                        weights: List[float]) -> Dict[str, Union[torch.Tensor, np.ndarray]]:
+                        weights: List[float]) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
     """Defines Federated Averaging (FedAvg) strategy for model aggregation.
 
     Args:
@@ -33,7 +33,11 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
 
     # Compute proportions
     proportions = [n_k / sum(weights) for n_k in weights]
+    return weitghted_sum(model_params, proportions)
 
+
+def weitghted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
+                  proportions: List[float]):
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
 
@@ -47,7 +51,7 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
     if t == 'array':
         for key in avg_params.keys():
             matr = np.array([ d[key] for d in model_params ])
-            avg_params[key] = np.average(matr, weights=np.array(weights), axis=0)
+            avg_params[key] = np.average(matr, weights=np.array(proportions), axis=0)
 
     return avg_params
 
