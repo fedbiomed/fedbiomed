@@ -69,39 +69,19 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         dataset_path: the path to the dataset on the node
     """
 
-    def __init__(self):
-        """
-        Class initializer.
+    _model_cls: Type[BaseEstimator]        # wrapped model class
+    _model_dep: Tuple[str, ...] = tuple()  # model-specific dependencies
 
-        Args:
-        - model_args (dict, optional): model arguments. Defaults to {}.
-        """
+    def __init__(self) -> None:
+        """Initialize the SKLearnTrainingPlan."""
         super().__init__()
         self._model = self._model_cls()
-        self._model_args = None
-        self._training_args = None
-        self._params = None
-
-        if getattr(self, '_model') is None:
-            msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        self._param_list = []
+        self._model_args = {}  # type: Dict[str, Any]
+        self._training_args = {}  # type: Dict[str, Any]
+        self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._is_classification = False
-        self._is_regression = False
-        self._is_clustering = False
-        self._is_binary_classification = False
-        self._verbose_capture_option = False
         self.dataset_path = None
-        self.add_dependency(["import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
-                             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-                             "from fedbiomed.common.data import DataManager",
-                             ])
-
         self.add_dependency([
             "import inspect",
             "import numpy as np",
@@ -120,150 +100,168 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Process model, training and optimizer arguments.
 
         Args:
-            model_args: Model arguments
-            training_args: Training arguments
-            optimizer_args: Optimizer arguments. Unused for SkLearn-based classes but API-mandatory.
-
+            model_args: Model arguments.
+            training_args: Training arguments.
+            optimizer_args: Optimizer arguments.
+                Unused for SkLearn-based classes but API-mandatory.
         """
-        dependencies: Union[Tuple, List] = self.init_dependencies()
-        if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
-        self.add_dependency(dependencies)
-
         self._model_args = model_args
+        self._model_args.setdefault("verbose", 1)
         self._training_args = training_args
-        self._params = self._model.get_params()
-        self._params.update({key: self._model_args[key] for key in model_args if key in self._params})
+        # Override default model parameters based on `self._model_args`.
+        params = {
+            key: self._model_args.get(key, val)
+            for key, val in self._model.get_params()
+        }
+        self._model.set_params(**params)
+        # Set up additional parameters (normally created by `self._model.fit`).
         self.set_init_params()
 
-    def model_args(self) -> Dict:
-        """Retrieves model arguments
+    @abstractmethod
+    def set_init_params(self) -> None:
+        """Initialize the model's trainable parameters."""
+        return None
+
+    def model_args(self) -> Dict[str, Any]:
+        """Retrieve model arguments.
 
         Returns:
             Model arguments
         """
         return self._model_args
 
-    def training_args(self):
-        """Retrieves training arguments
+    def training_args(self) -> Dict[str, Any]:
+        """Retrieve training arguments.
 
         Returns:
             Training arguments
         """
         return self._training_args
 
-    def model(self):
-        """ Retrieves SKLearn model
+    def model(self) -> BaseEstimator:
+        """Retrieve the wrapped scikit-learn model instance.
 
         Returns:
-            SKLearn model object
+            Scikit-learn model instance
         """
         return self._model
 
-    def init_dependencies(self) -> List:
-        """Default method where dependencies are returned
-
-         Returns:
-             Empty list as default
-         """
-        return []
-
-    def training_routine(self,
-                         history_monitor=None,
-                         node_args: Union[dict, None] = None):
-        """
-        Method training_routine called in Round, to change only if you know what you are doing.
+    def training_routine(
+            self,
+            history_monitor: Optional[HistoryMonitor] = None,
+            node_args: Optional[Dict[str, Any]] = None
+        ) -> None:
+        """Training routine, to be called once per round.
 
         Args:
-        - history_monitor ([type], optional): [description]. Defaults to None.
-        - node_args (Union[dict, None]): command line arguments for node. Can include:
-            - gpu (bool): propose use a GPU device if any is available. Default False.
-            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-              GPU device if this GPU device is available. Default None.
-            - gpu_only (bool): force use of a GPU device if any available, even if researcher
-              doesnt request for using a GPU. Default False.
-                """
+            history_monitor (HistoryMonitor or None): optional HistoryMonitor
+              instance, recording training metadata.
+            node_args (dict or None): Command line arguments for node.
+              These arguments can specify GPU use; however, this is not
+              supported for scikit-learn models and thus will be ignored.
+        """
         if self._model is None:
             raise FedbiomedTrainingPlanError('Wrapped model is None.')
         # Run preprocessing operations.
         self._preprocess()
+        # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):
-            logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
-                           'does not support it. Training on CPU.')
-
-        try:
-            self._training_routine_core_loop(self._training_args["epochs"],
-                                             history_monitor)
-        except FedbiomedTrainingPlanError as e:
-            raise e
-
-    def _training_routine_core_loop(self,
-                                    epochs: int = 1,
-                                    history_monitor: Any = None):
-        """
-        Training routine core
-        Args:
-        - model_hook: training_routine_hook of child class {FedSGDClassifier, FedSGDRegressor, FedPerceptron}
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-        - history_monitor ([type], optional): [description]. Defaults to None.
-        """
+            logger.warning(
+                'Node would like to force GPU usage, but sklearn training '
+                'plan does not support it. Training on CPU.'
+            )
+        # Run the training loop.
+        epochs = self._training_args.get("epochs", 1)
         for epoch in range(epochs):
+            # Run the model-specific training routine.
             with _Capturer() as output:
-                # Fit model based on model type
                 try:
                     self.training_routine_hook()
-                except Exception as e:
-                    msg = ErrorNumbers.FB605.value + \
-                          ": error while fitting the model - " + \
-                          str(e)
+                except Exception as exc:
+                    msg = (
+                        f"{ErrorNumbers.FB605.value}: error while fitting "
+                        f"the model: {exc}"
+                    )
                     logger.critical(msg)
                     raise FedbiomedTrainingPlanError(msg)
-            # Logging training training outputs
-            if history_monitor is not None:
-                if self._verbose_capture_option:
+            # Optionally log training outputs.
+            # TODO: This part should be changed after mini-batch
+            #       implementation is completed.
+            if (history_monitor is not None) and self._model_args["verbose"]:
+                loss = self.parse_training_loss(output, epoch)
+                name = getattr(self._model, "loss", "")
+                name = "Loss" + (f" {name}" if name else "")
+                history_monitor.add_scalar(
+                    metric={name: float(loss)},
+                    iteration=1,
+                    epoch=epoch,
+                    train=True,
+                    num_batches=1,
+                    total_samples=len(self.training_data_loader[0]),  # FIXME
+                    batch_samples=len(self.training_data_loader[0])   # FIXME
+                )
+                # TODO: For clustering; passes inertia value as scalar.
+                # It should be implemented when KMeans implementation is ready.
+                # history_monitor.add_scalar(
+                #     'Inertia', self._model.inertia_, -1 , epoch
+                # )
+                # Need to find a way for Bayesian approaches.
 
-                    loss = self.evaluate_loss(output, epoch)
+    @abstractmethod
+    def training_routine_hook(self) -> None:
+        """Model-specific training routine for an epoch.
 
-                    loss_function = 'Loss ' + self._model.loss if hasattr(self._model, 'loss') else 'Loss'
-                    # TODO: This part should be changed after mini-batch implementation is completed
-                    history_monitor.add_scalar(metric={loss_function: float(loss)},
-                                               iteration=1,
-                                               epoch=epoch,
-                                               train=True,
-                                               num_batches=1,
-                                               total_samples=len(self.data),
-                                               batch_samples=len(self.data))
-                else:
-                    # TODO: For clustering; passes inertia value as scalar. It should be implemented when
-                    #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
-                    #  self._model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
-                    pass
+        This method needs to be implemented by SKLearnTrainingPlan
+        child classes, and is called as part of `training_routine`
+        (that notably enforces exception catching).
+        """
+        return None
+
+    @abstractmethod
+    def parse_training_loss(
+            self,
+            output: StringIO,
+            epoch: int
+        ) -> float:
+        """Model-specific loss-parsing from model training outputs.
+
+        This method needs to be implemented by SKLearnTrainingPlan
+        child classes, and is called as part of `training_routine`.
+        It may use the `_parse_training_losses` staticmethod.
+        """
+        return NotImplemented
 
     @staticmethod
-    def _evaluate_loss_core(output: StringIO, epoch: int) -> list[float]:
-        """
-        Evaluate the loss when verbose option _verbose_capture_option is set to True.
+    def _parse_training_losses(
+            output: StringIO,
+            epoch: int
+        ) -> List[float]:
+        """Evaluate the wrapped model's loss on the training dataset.
+
         Args:
-        - output: output of the scikit-learn models during training
-        - epoch: epoch number
-        Returns: list[float]: list of loss captured in the output
+            output (StringIO): Capture text output of the model's training.
+            epoch (int): Epoch number (as part of the current round).
+
+        Returns:
+            list[float]: List of loss values parsed from `output`.
         """
-        _loss_collector = []
+        losses = []
         for line in output:
-            if len(line.split("loss: ")) == 1:
+            # Try parsing the loss value (or go on to the next line).
+            split = line.split("loss: ")
+            if len(split) == 1:
                 continue
             try:
-                loss = line.split("loss: ")[-1]
-                _loss_collector.append(float(loss))
-
-                # Logging loss values with global logger
-                logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch, float(loss)))
-            except ValueError as e:
-                logger.error("Value error during monitoring:" + str(e))
-            except Exception as e:
-                logger.error("Error during monitoring:" + str(e))
-        return _loss_collector
+                loss = float(split[-1])
+            except ValueError as exc:
+                logger.error(f"Value error during monitoring: {exc}")
+            # Record and log (at debug level) the loss value.
+            losses.append(loss)
+            logger.debug(
+                f"Train Epoch: {epoch} [Batch All Samples]"
+                f"\tLoss: {loss:.6f}"
+            )
+        return losses
 
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
@@ -470,78 +468,107 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         return support
 
-    def save(self, filename: str, params: dict = None) -> None:
-        """
-        Save method for parameter communication, internally is used
-        dump and load joblib library methods.
+    def save(
+            self,
+            filename: str,
+            params: Union[None, Dict[str, np.ndarray], Dict[str, Any]] = None
+        ) -> None:
+        """Save the wrapped model and its trainable parameters.
+
+        This method is designed for parameter communication. It
+        uses the joblib.dump function, which in turn uses pickle
+        to serialize the model. Note that unpickling objects can
+        lead to arbitrary code execution; hence use with care.
 
         Args:
-            filename: (string) name of the output file
-            params: (dictionary) model parameters to save
+            filename (str): Path to the output file.
+            params (dict or None): Model parameters to enforce and save.
+              This may either be a {name: array} parameters dict, or a
+              nested dict that stores such a parameters dict under the
+              'model_params' key (in the context of the Round class).
 
-        Save can be called from Job or Round.
-        From round is always called with params.
-        From job is called with no params in constructor and with params in update_parameters.
-
-        Torch state_dict has a model_params object. model_params tag is used in the code. This is why this tag is
-        used in sklearn case.
+        Notes:
+            Save can be called from Job or Round.
+              From Round it is called with params (as a complex dict).
+              From Job it is called with no params in constructor, and
+              with params in update_parameters.
         """
-        file = open(filename, "wb")
-        if params is None:
-            dump(self._model, file)
-        else:
-            if params.get('model_params') is not None:  # called in the Round
-                for p in params['model_params'].keys():
-                    setattr(self._model, p, params['model_params'][p])
-            else:
-                for p in params.keys():
-                    setattr(self._model, p, params[p])
-            dump(self._model, file)
-        file.close()
+        # Optionally overwrite the wrapped model's weights.
+        if params:
+            if isinstance(params.get('model_params'), dict):  # in a Round
+                params = params["model_params"]
+            for key, val in params.items():
+                setattr(self._model, key, val)
+        # Save the wrapped model (using joblib, hence pickle).
+        with open(filename, "wb") as file:
+            joblib.dump(self._model, file)
 
-    def load(self, filename: str, to_params: bool = False) -> Dict:
-        """Method to load the parameters of a scikit model
+    def load(
+            self,
+            filename: str,
+            to_params: bool = False
+        ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
+        """Load a scikit-learn model dump, overwriting the wrapped model.
 
-        This function updates the `model` attribute with the loaded parameters.
-        Load can be called from Job or Round.
-        From round is called with no params
-        From job is called with  params
+        This method uses the joblib.load function, which in turn uses
+        pickle to deserialize the model. Note that unpickling objects
+        can lead to arbitrary code execution; hence use with care.
+
+        This function updates the `_model` private attribute with the
+        loaded instance, and returns either that same model or a dict
+        wrapping its trainable parameters.
 
         Args:
-            filename (string) the name of the file to load
-            to_params (boolean) to differentiate a pytorch from a sklearn
+            filename (str): The path to the pickle file to load.
+            to_params (bool): Whether to return the model's parameters
+              wrapped as a dict rather than the model instance.
+
+        Notes:
+            Load can be called from a Job or Round:
+              From Round it is called to return the model.
+              From Job it is called with to return its parameters dict.
 
         Returns:
             dictionary with the loaded parameters
         """
-        di_ret = {}
-        file = open(filename, "rb")
-        if not to_params:
-            self._model = load(file)
-            di_ret = self._model
-        else:
-            self._model = load(file)
-            di_ret['model_params'] = {key: getattr(self._model, key) for key in self._param_list}
-        file.close()
-        return di_ret
+        # Deserialize the dump, type-check the instance and assign it.
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+        if not isinstance(model, self._model_cls):
+            msg = (
+                f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
+                f"to expectations: should be of type {self._model_cls}, not "
+                f"{type(model)}."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        self._model = model
+        # Optionally return the model's pseudo state dict instead of it.
+        if to_params:
+            params = {k: getattr(self._model, k) for k in self._param_list}
+            return {"model_params": params}
+        return self._model
 
-    def get_model(self):
-        """Get the wrapped scikit-learn model
-            Returns:
-                the scikit model object (sklearn.base.BaseEstimator)
+    def get_model(self) -> BaseEstimator:
+        """Get the wrapped scikit-learn model.
+
+        Returns:
+            sklearn.base.BaseEstimator: the scikit-learn model instance.
         """
         return self._model
 
-    def type(self):
+    def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
 
-    def after_training_params(self) -> Dict:
-        """
-        Provide a dictionary with the federated parameters you need to aggregate, refer to
-        scikit documentation for a detail of parameters
+    def after_training_params(self) -> Dict[str, np.ndarray]:
+        """Return the wrapped model's trainable parameters' current values.
+
+        This method returns a dict containing parameters that need
+        to be reported back and aggregated in a federated learning
+        setting.
 
         Returns:
-            the federated parameters (dictionary)
+            dict[str, np.ndarray]: the trained parameters to aggregate.
         """
         return {key: getattr(self._model, key) for key in self._param_list}

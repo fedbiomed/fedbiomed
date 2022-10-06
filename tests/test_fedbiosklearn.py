@@ -215,9 +215,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
 
     def test_regression_parameters(self):
         for training_plan in self.training_plans:
-            self.assertTrue(training_plan._is_regression)
             self.assertFalse(training_plan._is_classification)
-            self.assertFalse(training_plan._is_clustering)
 
     def test_regression_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
@@ -294,9 +292,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
 
     def test_classification_parameters(self):
         for training_plan in self.training_plans:
-            self.assertFalse(training_plan._is_regression)
             self.assertTrue(training_plan._is_classification)
-            self.assertFalse(training_plan._is_clustering)
 
     def test_classification_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
