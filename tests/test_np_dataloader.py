@@ -28,8 +28,8 @@ class TestNPDataLoader(unittest.TestCase):
 
         outcome = list()
         for epoch in range(n_epochs):
-            for d in dataloader:
-                outcome.append(d)
+            for data, target in dataloader:
+                outcome.append(data)
 
         self.assertEqual(len(outcome), num_batches_per_epoch*n_epochs)
 
@@ -75,9 +75,52 @@ class TestNPDataLoader(unittest.TestCase):
     def test_npdataloader_NN_shuffle(self):
         dataloader = NPDataLoader(dataset=self.X, batch_size=1, shuffle=True, random_seed=42)
         outcome = list()
-        for d in dataloader:
-            outcome.append(d)
+        for data, target in dataloader:
+            outcome.append(data)
         self.assertTrue(any([x != y for x, y in zip(outcome, self.X)]))
+
+        # Assert that iterating a second time yields another shuffling
+        second_epoch = list()
+        for data, target in dataloader:
+            second_epoch.append(data)
+        self.assertTrue(any([x != y for x, y in zip(outcome, second_epoch)]))
+
+
+    def test_npdataloader_NN_target(self):
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=1,
+                                  random_seed=42)
+        for epoch in range(2):
+            for data, target in dataloader:
+                self.assertEqual(data, target)
+
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=3,
+                                  random_seed=42)
+        for epoch in range(2):
+            for data, target in dataloader:
+                self.assertNPArrayEqual(data, target)
+
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=3,
+                                  drop_last=True,
+                                  random_seed=42)
+        for epoch in range(2):
+            for data, target in dataloader:
+                self.assertNPArrayEqual(data, target)
+
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=3,
+                                  drop_last=True,
+                                  shuffle=True,
+                                  random_seed=42)
+        for epoch in range(2):
+            for data, target in dataloader:
+                self.assertNPArrayEqual(data, target)
 
 
 if __name__ == '__main__':  # pragma: no cover

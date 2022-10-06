@@ -1,7 +1,5 @@
 from typing import Optional
 import numpy as np
-import sklearn.utils
-from sklearn.utils import gen_batches
 
 
 class NPDataLoader:
@@ -14,7 +12,8 @@ class NPDataLoader:
 
     def __init__(self,
                  dataset: np.ndarray,
-                 batch_size: int,
+                 target: Optional[np.ndarray] = None,
+                 batch_size: int = 1,
                  shuffle: bool = False,
                  random_seed: int = 0,
                  drop_last: bool = False):
@@ -22,6 +21,7 @@ class NPDataLoader:
 
         Args:
             dataset: (np.ndarray) 2D Numpy array
+            target: (Optional[np.ndarray]) 2D Numpy array of target values
             batch_size: (int) Batch size for each iteration
             shuffle: (bool) Shuffle before iteration
             random_seed: (int or None) an optional integer to set the numpy random seed for shuffling
@@ -30,6 +30,15 @@ class NPDataLoader:
 
         if not isinstance(dataset, np.ndarray):
             raise ValueError()
+
+        if target is not None:
+            if not isinstance(target, np.ndarray):
+                raise ValueError()
+            if len(dataset) != len(target):
+                raise ValueError()
+            if len(target.shape) == 1:
+                target = target[:, np.newaxis]
+        # TODO check dimensions of dataset and target
 
         if not isinstance(batch_size, int) or batch_size <= 0:
             raise ValueError()
@@ -41,6 +50,7 @@ class NPDataLoader:
             raise ValueError()
 
         self.dataset = dataset
+        self.target = target
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
@@ -92,7 +102,10 @@ class _BatchIterator:
             stop = (self._num_yielded+1)*self._loader.batch_size
             indices = self._index[start:stop]
             self._num_yielded += 1
-            return self._loader.dataset[indices, :]
+            if self._loader.target is None:
+                return self._loader.dataset[indices, :], None
+            else:
+                return self._loader.dataset[indices, :], self._loader.target[indices, :]
 
         # Set index to zero for next epochs
         self._reset()
