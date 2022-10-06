@@ -1,51 +1,66 @@
-"""TrainingPlan definitions for sklearn ML framework
+"""TrainingPlan definitions for the scikit-learn ML framework.
 
-This module implements the base class for all implementations of Fed-BioMed wrappers around scikit-learn models.
+This module implements the base class for all implementations of
+Fed-BioMed training plans wrapping scikit-learn models.
 """
 
-import sys
-import numpy as np
-
-from typing import Any, Dict, Callable, List, Optional, Tuple, Union
+from abc import ABCMeta, abstractmethod
 from io import StringIO
-from joblib import dump, load
+import sys
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from ._base_training_plan import BaseTrainingPlan
+import joblib
+import numpy as np
+from sklearn.base import BaseEstimator
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.node.history_monitor import HistoryMonitor
+
+from ._base_training_plan import BaseTrainingPlan
 
 
 class _Capturer(list):
-    """Capturing class for the console output of the scikit-learn models during training
-    when verbose is set to true.
+    """Capturing class for console outputs.
+
+    This class is meant to be used as a context manager, to capture
+    console outputs of scikit-learn models during their training in
+    verbose mode.
     """
 
-    def __enter__(self):
+    def __enter__(self) -> '_Capturer':
         sys.stdout.flush()
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *_: Any) -> None:
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # Remove it from memory
         sys.stdout = self._stdout
 
 
-class SKLearnTrainingPlan(BaseTrainingPlan):
+class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     """Base class for Fed-BioMed wrappers of sklearn classes.
 
     Classes that inherit from this must meet the following conditions:
-    - have a `model` attribute with an instance of the scikit-learn class being wrapped
-    - populate a `params_list` attribute during initialization with the model parameters to be used for aggregation
-    - implement a `training_routine_hook` method that:
-        1. sets `data` and `target` attributes as outputs of a data loader
-        2. calls `partial_fit` or a similar method of the wrapped scikit-learn model
-    - implement a `evaluate_loss` method that calls the `_evaluate_loss_core` method of this class (i.e. the base)
+    - Specify a `_model_cls` class attribute that defines the type
+      of scikit-learn model being wrapped for training.
+    - Have a `model` attribute with an instance of that class.
+    - Populate a `params_list` attribute during initialization with
+      the names of `model`'s attributes that store weights which are
+      to be trained locally and shared for aggregation.
+    - Implement a `set_init_params` method that creates the model's initial
+      trainable weights attributes.
+    - Implement a `training_routine_hook` method that:
+        1. Sets `data` and `target` attributes as outputs of a data loader.
+        2. Calls `partial_fit` or a similar method of the wrapped model, so
+           as to train it based on the input data.
+    - Implement an `evaluate_loss` method, that calls the `_evaluate_loss_core`
+      method of this base class.
 
     Attributes:
         params: parameters of the model, both learnable and non-learnable
@@ -87,8 +102,22 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              "from fedbiomed.common.data import DataManager",
                              ])
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None) -> None:
-        """ Instantiates model, training and optimizer arguments
+        self.add_dependency([
+            "import inspect",
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
+            "from fedbiomed.common.data import DataManager",
+        ])
+        self.add_dependency(list(self._model_dep))
+
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any],
+            optimizer_args: Optional[Dict[str, Any]] = None
+        ) -> None:
+        """Process model, training and optimizer arguments.
 
         Args:
             model_args: Model arguments
@@ -156,11 +185,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
               doesnt request for using a GPU. Default False.
                 """
         if self._model is None:
-            raise FedbiomedTrainingPlanError('model in None')
-
-        # Run preprocesses
-        self.__preprocess()
-
+            raise FedbiomedTrainingPlanError('Wrapped model is None.')
+        # Run preprocessing operations.
+        self._preprocess()
         if node_args is not None and node_args.get('gpu_only', False):
             logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
                            'does not support it. Training on CPU.')
@@ -358,79 +385,59 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         return np.unique(target_test_train)
 
-    def __preprocess(self) -> None:
-        """
-        Method for executing registered preprocess that are defined by user.
-        """
-
-        for (name, process) in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
-
-            if process_type == ProcessTypes.DATA_LOADER:
-                self.__process_data_loader(method=method)
-            else:
-                logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
-                             f"Preprocess will be ignored")
-
-    def __process_data_loader(self, method: Callable) -> None:
-        """Process handler for data loader kind processes.
+    def _process_data_loader(
+            self,
+            method: Callable[..., Any]
+        ) -> None:
+        """Handle a data-loader pre-processing action.
 
         Args:
-          method (Callable) : Process method that is going to be executed
+            method (Callable) : Process method that is to be executed.
 
-        Raises FedbiomedTrainingPlanError:
-          - raised when method doesn't have 2 positional arguments
-          - Raised if running method fails
-          - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
-          - if dataloaders contained in method output don't contain the same number of samples
-       """
-
+        Raises:
+            FedbiomedTrainingPlanError:
+              - if the method does not have 1 positional argument (dataloader)
+              - if running the method fails
+              - if the method does not return a dataloader of the same type as
+               its input
+        """
+        # Check that the preprocessing method has a proper signature.
         argspec = get_method_spec(method)
         if len(argspec) != 2:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process for type `PreprocessType.DATA_LOADER`" + \
-                  " should have two argument/parameter as inputs/data" + \
-                  " and target sets that will be used for training. "
+            msg = (
+                f"{ErrorNumbers.FB605.value}: preprocess method of type "
+                "`PreprocessType.DATA_LOADER` should expect two arguments: "
+                "the inputs and targets composing the training dataset."
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-
+        # Try running the preprocessor.
         try:
-            data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
-        except Exception as e:
-            msg = ErrorNumbers.FB605.value + \
-                  ": error while running process method -> " + \
-                  method.__name__ + \
-                  str(e)
+            inputs, target = self.training_data_loader
+            outputs = method(inputs, target)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: error while running "
+                f"preprocess method `{method.__name__}` -> {exc}"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-
-        # Debug after running preprocess
-        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
-
-        if isinstance(data_loader, tuple) \
-                and len(data_loader) == 2 \
-                and isinstance(data_loader[0], np.ndarray) \
-                and isinstance(data_loader[1], np.ndarray):
-
-            if len(data_loader[0]) == len(data_loader[1]):
-                self.training_data_loader = data_loader
-                logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
-                             f"`{method.__name__}` ")
-            else:
-                msg = ErrorNumbers.FB605.value + \
-                      ": process error " + \
-                      method.__name__ + \
-                      " : number of samples of inputs and target sets should be equal "
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
+        logger.debug(
+            f"The process `{method.__name__}` has been successfully executed."
+        )
+        # Verify that the output is of proper type and assign it.
+        if (len(outputs) == 2) and all(isinstance(x, np.ndarray) for x in outputs):
+            self.training_data_loader = outputs
+            logger.debug(
+                "Data loader for training routine has been updated "
+                f"by the process `{method.__name__}`."
+            )
         else:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process method " + \
-                  method.__name__ + \
-                  " should return tuple length of two as dataset and" + \
-                  " target and both should be and instance of np.ndarray."
+            msg = (
+                f"{ErrorNumbers.FB605.value}: the return type of the "
+                f"`{method.__name__}` preprocess method was expected "
+                f"to be a pair of numpy arrays, but was {type(outputs)}."
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
