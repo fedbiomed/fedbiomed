@@ -67,13 +67,6 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.assertEqual(len(loader_train[0]), n_train, 'Number of samples of train loader is not as expected')
         self.assertEqual(len(loader_train[1]), n_train, 'Number of samples of train loader is not as expected')
 
-        loader_all = self.sklearn_data_manager.load_all_samples()
-        self.assertEqual(len(loader_all[0]), n_samples, 'Number of samples of the loader that is returned by '
-                                                        '`load_all_samples` is not as expected')
-        self.assertEqual(len(loader_all[1]), n_samples, 'Number of samples of the loader that is returned by '
-                                                        '`load_all_samples` is not as expected')
-
-
         # Test if test ratio is 1
         ratio = 1
         n_test = math.floor(n_samples * ratio)

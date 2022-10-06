@@ -91,16 +91,6 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def load_all_samples(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Loads all samples as Numpy ndarray without splitting
-
-        Returns:
-             inputs: Loader of input variables for model training
-             targets: Loader of target variable for model training
-        """
-        # TODO: Return batch iterator
-        return self._inputs, self._target
-
     def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
         """Splits `np.ndarray` dataset into train and validation.
 
