@@ -136,11 +136,13 @@ class TestSkLearnDataManager(unittest.TestCase):
         loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
         self.assertIsNone(loader_test)
 
+        count_iter = 0
         for i, (data, target) in enumerate(loader_train):
             self.assertNPArrayEqual(data, self.inputs[:batch_size, :])
             self.assertNPArrayEqual(target, self.target[:batch_size])
+            count_iter += 1
 
-        self.assertEqual(i, 1)  # assert that only one iteration was made because of drop_last=True
+        self.assertEqual(count_iter, 1)  # assert that only one iteration was made because of drop_last=True
 
 
 
