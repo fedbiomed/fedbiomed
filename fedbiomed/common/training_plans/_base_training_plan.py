@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -12,7 +12,8 @@ from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import get_class_source, get_method_spec
+from fedbiomed.common.utils import get_class_source
+
 
 class BaseTrainingPlan(metaclass=ABCMeta):
     """Base class for training plan
@@ -23,12 +24,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     Attrs:
         dependencies: All the dependencies that need to be imported
-            to create the TrainingPlan on nodes' side. Dependencies
-            are import statements strings, e.g. `"import numpy as np"`.
+          to create the TrainingPlan on nodes' side. Dependencies
+          are import statements strings, e.g. `"import numpy as np"`.
         dataset_path: The path that indicates where dataset has been stored
-        pre_process: Preprocess method that will be applied before training loop
-        training_data_loader: Data loader for training routine/loop
-        testing_data_loader: Data loader for validation routine
+        pre_process: Preprocess functions that will be applied to the training
+          data at the beginning of the training routine.
+        training_data_loader: Data loader used in the training routine.
+        testing_data_loader: Data loader used in the validation routine.
     """
 
     def __init__(self) -> None:
