@@ -1,20 +1,194 @@
-"""TrainingPlan classes wrapping some types of scikit-learn models."""
+# coding: utf-8
 
+"""SKLearnTrainingPlan subclasses for models implementing `partial_fit`."""
+
+import functools
+import sys
+from abc import ABCMeta
+from contextlib import contextmanager
 from io import StringIO
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
-from sklearn.linear_model import SGDRegressor, SGDClassifier
-from sklearn.naive_bayes import BernoulliNB, GaussianNB
+from sklearn.linear_model import SGDClassifier, SGDRegressor
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.training_plans import SKLearnTrainingPlan
+from fedbiomed.node.history_monitor import HistoryMonitor
 
-from ._sklearn_training_plan import SKLearnTrainingPlan
+
+__all__ = [
+    "FedPerceptron",
+    "FedSGDClassifier",
+    "FedSGDRegressor",
+]
 
 
-class FedSGDRegressor(SKLearnTrainingPlan):
+@contextmanager
+def capture_stdout() -> Iterator[List[str]]:
+    """Context manager to capture console outputs (stdout).
+
+    Returns:
+        list[str]: A list, empty at first, that will be populated
+          with the line-wise strings composing the captured stdout
+          upon exiting the context.
+    """
+    output = []  # type: List[str]
+    stdout = sys.stdout
+    str_io = StringIO()
+    # Capture stdout outputs into the StringIO. Return yet-empty list.
+    try:
+        sys.stdout = str_io
+        yield output
+    # Restore sys.stdout, then parse captured outputs for loss values.
+    finally:
+        sys.stdout = stdout
+        output.extend(str_io.getvalue().splitlines())
+
+
+class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
+    """Base SKLearnTrainingPlan for models implementing `partial_fit`."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        if not hasattr(self._model_cls, 'partial_fit'):
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB302.value}: SKLearnTrainingPlanPartialFit"
+                "requires the target scikit-learn model class to expose a"
+                "`partial_fit` method."
+            )
+
+    def _training_routine(
+            self,
+            history_monitor: Optional[HistoryMonitor] = None
+        ) -> None:
+        """Backend training routine for scikit-learn models with `partial_fit`.
+
+        Args:
+            history_monitor (HistoryMonitor or None): optional HistoryMonitor
+              instance, recording the loss value during training.
+        """
+        # REVISE: make model verbose when history_monitor is provided?
+        # Gather reporting parameters.
+        report = self._model_args["verbose"] and (history_monitor is not None)
+        if report:
+            log_interval = self._training_args.get("log_interval", 10)
+            loss_name = getattr(self._model, "loss", "")
+            loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
+            record_loss = functools.partial(
+                history_monitor.add_scalar,
+                train=True,
+                num_batches=self.training_data_loader.get_num_batches(),
+                total_samples=len(self.training_data_loader)
+            )
+        # Iterate over epochs.
+        for epoch in range(self._training_args.get("epochs", 1)):
+            # Iterate over data batches.
+            for idx, batch in enumerate(self.training_data_loader, start=1):
+                inputs, target = batch
+                loss = self._train_over_batch(inputs, target, report)
+                # Optionally report on the batch training loss.
+                if report and (idx % log_interval == 0):
+                    record_loss(
+                        metric={loss_name: loss},
+                        iteration=idx,
+                        epoch=epoch,
+                        batch_samples=len(inputs)
+                    )
+                    logger.debug(
+                        f"Train Epoch: {epoch} "
+                        f"Batch: {idx}/{record_loss.keywords['num_batches']}"
+                        f"\tLoss: {loss:.6f}"
+                    )
+
+    def _train_over_batch(
+            self,
+            inputs: np.ndarray,
+            target: np.ndarray,
+            report: bool
+        ) -> float:
+        """Perform gradient descent over a single data batch.
+
+        Args:
+            inputs (np.ndarray): 2D-array of batched input features.
+            target (np.ndarray): 2D-array of batched target labels.
+            report (bool): Whether to capture and parse the training
+              loss printed out to the console by the scikit-learn
+              model. If False, or if parsing fails, return a nan.
+        """
+        b_len = inputs.shape[0]
+        # Gather start weights of the model and initialize zero gradients.
+        param = {k: getattr(self._model, k) for k in self._param_list}
+        grads = {k: np.zeros_like(v) for k, v in param.items()}
+        # Iterate over the batch; accumulate sample-wise gradients (and loss).
+        stdout = []  # type: List[List[str]]
+        for idx in range(b_len):
+            # Compute updated weights based on the sample. Capture loss prints.
+            with capture_stdout() as console:
+                self._model.partial_fit(inputs[idx:idx+1], target[idx])
+            stdout.append(console)
+            # Reset the model's weights and iteration counter.
+            for key in self._param_list:
+                grads[key] += getattr(self._model, key)
+                setattr(self._model, key, param[key])
+                self._model.n_iter_ -= 1
+        # Compute the batch-averaged gradients and apply them.
+        # Update the `param` values, and reset gradients to zero.
+        for key in self._param_list:
+            setattr(self._model, key, grads[key] / b_len)
+            self._model.n_iter_ += 1
+        # Optionally report the training loss over this batch.
+        if report:
+            try:
+                return self._parse_batch_loss(stdout, inputs, target)
+            except Exception as exc:
+                msg = (
+                    f"{ErrorNumbers.FB605.value}: error while parsing "
+                    f"training losses from stdout: {exc}"
+                )
+                logger.error(msg)
+                # REVISE: should the error be raised?
+        # Otherwise, return nan as a fill-in value.
+        return float('nan')
+
+    def _parse_batch_loss(
+            self,
+            stdout: List[List[str]],
+            inputs: np.ndarray,
+            target: np.ndarray
+        ) -> float:
+        """Parse logged loss values from captured stdout lines.
+
+        Args:
+            stdout (list[list[str]]): Captured stdout outputs from calling
+              the model's partial fit, with one list per batched sample.
+            inputs (np.ndarray): Batched input features.
+            target (np.ndarray): Batched target labels.
+        """
+        values = [self._parse_sample_losses(sample) for sample in stdout]
+        losses = np.ndarray(values)
+        return float(np.mean(losses))
+
+    @staticmethod
+    def _parse_sample_losses(
+            stdout: List[str]
+        ) -> List[float]:
+        """Parse logged loss values from captured stdout lines."""
+        losses = []  # type: List[float]
+        for row in stdout:
+            split = row.rsplit("loss: ", 1)
+            if len(split) == 1:  # no "loss: " in the line
+                continue
+            try:
+                losses.append(float(split[1]))
+            except ValueError as exc:
+                logger.error(f"Value error during monitoring: {exc}")
+        return losses
+
+
+class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDRegressor models."""
 
     _model_cls = SGDRegressor
@@ -38,50 +212,8 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         for key, val in init_params.items():
             setattr(self._model, key, val)
 
-    def training_routine_hook(self) -> None:
-        """Training routine of SGDRegressor for an epoch."""
-        # TODO:
-        # * mutualize with SGDClassifier
-        # * take `num_updates` into account
-        # Gather start weights of the model and initialize zero gradients.
-        param = {k: getattr(self._model, k) for k in self._param_list}
-        grads = {k: np.zeros_like(v) for k, v in param.items()}
-        # Iterate over data batches.
-        for inputs, target in self.training_data_loader:
-            # Iteratively accumulate sample-wise gradients, resetting weights.
-            b_len = len(inputs.shape[0])
-            for idx in range(b_len):
-                self._model.partial_fit(inputs[idx:idx+1], target[idx])
-                for key in self._param_list:
-                    grads[key] += getattr(self._model, key)
-                    setattr(self._model, key, param[key])
-                    self._model.n_iter_ -= 1  # for non-constant learning rates
-            # Compute the batch-averaged gradients and apply them.
-            # Update the `param` values, and reset gradients to zero.
-            for key in self._param_list:
-                param[key] = grads[key] / b_len
-                grads[key] = np.zeros_like(grads[key])
-                setattr(self._model, key, param[key])
-                self._model.n_iter_ += 1
 
-    def parse_training_loss(
-            self,
-            output: StringIO,
-            epoch: int
-        ) -> float:
-        """Parse the training loss from model training outputs."""
-        losses = self._parse_training_losses(output, epoch)
-        try:
-            loss = losses[-1]
-        except IndexError:
-            logger.error(
-                "Failed to parse any loss from captured outputs."
-            )
-            loss = float('nan')
-        return loss
-
-
-class FedSGDClassifier(SKLearnTrainingPlan):
+class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDClassifier models."""
 
     _model_cls = SGDClassifier
@@ -113,27 +245,31 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         self._param_list = list(init_params.keys())
         for key, val in init_params.items():
             setattr(self._model, key, val)
+        # Also initialize the "classes_" slot with unique predictable labels.
+        # FIXME: this assumes target values are integers in range(n_classes).
+        setattr(self._model, "classes_", np.arange(n_classes))
 
-    training_routine_hook = FedSGDRegressor.training_routine_hook
-
-    def parse_training_loss(
+    def _parse_batch_loss(
             self,
-            output: StringIO,
-            epoch: int
+            stdout: List[List[str]],
+            inputs: np.ndarray,
+            target: np.ndarray
         ) -> float:
-        """Parse the training loss from model training outputs."""
-        # TODO: raise or catch-and-log possible exceptions
-        losses = self._parse_training_losses(output, epoch)
+        """Parse logged loss values from captured stdout lines."""
+        # Delegate binary classification case to parent class.
         if self._model_args["n_classes"] == 2:
-            loss = losses[-1]
-        else:
-            support = self._compute_support(self.training_data_loader.get_target())
-            loss = np.average(losses, weights=support)
-            logger.warning(
-                "Loss plot displayed on Tensorboard may be inaccurate "
-                "(due to some scikit-learn SGDClassifier limitations)."
-            )
-        return loss
+            return super()._parse_batch_loss(stdout, inputs, target)
+        # Handle multilabel classification case.
+        # Compute and batch-average sample-wise label-wise losses.
+        values = [self._parse_sample_losses(sample) for sample in stdout]
+        losses = np.ndarray(values).mean(axis=0)
+        # Compute the support-weighted average of label-wise losses.
+        # FIXME: this assumes target values are integers in range(n_classes).
+        support = np.bincount(target)
+        missing = len(self._model_args["n_classes"]) - len(support)
+        if missing:
+            support = np.pad(support, [[0, missing]], mode='constant')
+        return float(np.average(losses, support))
 
 
 class FedPerceptron(FedSGDClassifier):
@@ -161,197 +297,3 @@ class FedPerceptron(FedSGDClassifier):
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
-
-
-
-# ############################################################################################3
-class FedBernoulliNB(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of BernoulliNB class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    _model_cls = BernoulliNB
-
-    def __init__(self):
-        """Sklearn BernoulliNB model.
-
-        Args:
-            model_args: model arguments. Defaults to {}
-        """
-
-        msg = ErrorNumbers.FB605.value + \
-            " FedBernoulliNB not implemented."
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-        super().__init__()
-
-        self.is_classification = True
-        self.add_dependency([
-            "from sklearn.naive_bayes import BernoulliNB"
-        ])
-
-    def training_routine_hook(self):
-        """Training routine of BernoulliNB.
-        """
-        data, target = self.training_data_loader
-        classes = self._classes_from_concatenated_train_test()
-        if classes.shape[0] < 3:
-            self._is_binary_classification = True
-
-        self._model.partial_fit(data, target, classes=classes)
-
-    def set_init_params(self):
-        """Initialize the model parameter.
-        """
-        if 'verbose' in self._model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
-                         ": it needs to be implemented")
-
-
-class FedGaussianNB(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of FedGaussianNB class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    _model_cls = GaussianNB
-
-    def __init__(self):
-        """
-        Sklearn GaussianNB model.
-
-        Args:
-            model_args: model arguments. Defaults to {}
-        """
-
-        msg = ErrorNumbers.FB605.value + \
-            " FedGaussianNB not implemented."
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-        super().__init__()
-
-        self.is_classification = True
-        self.add_dependency([
-            "from sklearn.naive_bayes  import GaussianNB"
-        ])
-
-    def training_routine_hook(self):
-        """Training routine of GaussianNB.
-        """
-        data, target = self.training_data_loader
-        classes = self._classes_from_concatenated_train_test()
-        if classes.shape[0] < 3:
-            self._is_binary_classification = True
-
-        self._model.partial_fit(data, target, classes=classes)
-
-    def set_init_params(self):
-        """Initialize the model parameter.
-        """
-
-        if 'verbose' in self._model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "
-                         ": it needs to be implemented")
-
-        self._param_list = ['intercept_', 'coef_']
-        init_params = {
-            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes']),
-            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
-                self._model_args['n_classes'] == 2) else np.array(
-                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
-                        self._model_args['n_classes'],
-                        self._model_args['n_features'])
-        }
-
-        for p in self._param_list:
-            setattr(self._model, p, init_params[p])
-
-
-class FedMultinomialNB(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of FedMultinomialNB class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            " FedMultinomialNB not implemented."
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-    def training_routine_hook(self):
-        pass
-
-
-class FedPassiveAggressiveClassifier(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of PassiveAggressiveClassifier class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedPassiveAggressiveClassifier not implemented yet "
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-    def training_routine_hook(self):
-        pass
-
-
-class FedPassiveAggressiveRegressor(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of class PassiveAggressiveRegressor from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedPassiveAggressiveRegressor not implemented yet "
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-    def training_routine_hook(self):
-        pass
-
-
-class FedMiniBatchKMeans(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of MiniBatchKMeans class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedMiniBatchKMeans not implemented yet "
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-    def training_routine_hook(self):
-        pass
-
-
-class FedMiniBatchDictionaryLearning(SKLearnTrainingPlan):
-    """Fed-BioMed federated wrapper of MiniBatchDictionaryLearning class from scikit-learn.
-
-    !!! info "Not implemented yet!"
-        This class has not yet been implemented.
-    """
-
-    def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedMiniBatchDictionaryLearning not implemented yet "
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
-
-    def training_routine_hook(self):
-        pass

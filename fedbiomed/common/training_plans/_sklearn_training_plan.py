@@ -5,14 +5,12 @@ Fed-BioMed training plans wrapping scikit-learn models.
 """
 
 from abc import ABCMeta, abstractmethod
-from io import StringIO
-import sys
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import joblib
 import numpy as np
 from sklearn.base import BaseEstimator
-from torch.data.utils import DataLoader
+from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.data import NPDataLoader
@@ -24,44 +22,17 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 from ._base_training_plan import BaseTrainingPlan
 
 
-class _Capturer(list):
-    """Capturing class for console outputs.
-
-    This class is meant to be used as a context manager, to capture
-    console outputs of scikit-learn models during their training in
-    verbose mode.
-    """
-
-    def __enter__(self) -> '_Capturer':
-        sys.stdout.flush()
-        self._stdout = sys.stdout
-        sys.stdout = self._stringio = StringIO()
-        return self
-
-    def __exit__(self, *_: Any) -> None:
-        self.extend(self._stringio.getvalue().splitlines())
-        del self._stringio  # Remove it from memory
-        sys.stdout = self._stdout
-
-
 class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     """Base class for Fed-BioMed wrappers of sklearn classes.
 
-    Classes that inherit from this must meet the following conditions:
+    Classes that inherit from this abstract class must:
     - Specify a `_model_cls` class attribute that defines the type
       of scikit-learn model being wrapped for training.
-    - Have a `model` attribute with an instance of that class.
-    - Populate a `params_list` attribute during initialization with
-      the names of `model`'s attributes that store weights which are
-      to be trained locally and shared for aggregation.
-    - Implement a `set_init_params` method that creates the model's initial
-      trainable weights attributes.
-    - Implement a `training_routine_hook` method that:
-        1. Sets `data` and `target` attributes as outputs of a data loader.
-        2. Calls `partial_fit` or a similar method of the wrapped model, so
-           as to train it based on the input data.
-    - Implement an `evaluate_loss` method, that calls the `_evaluate_loss_core`
-      method of this base class.
+    - Implement a `set_init_params` method that:
+      - sets and assigns the model's initial trainable weights attributes.
+      - populates the `_param_list` attribute with names of these attributes.
+    - Implement a `_training_routine` method that performs a training round
+      based on `self.train_data_loader` (which is a `NPDataLoader`).
 
     Attributes:
         params: parameters of the model, both learnable and non-learnable
@@ -199,98 +170,33 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 'Node would like to force GPU usage, but sklearn training '
                 'plan does not support it. Training on CPU.'
             )
-        # Run the training loop.
-        epochs = self._training_args.get("epochs", 1)
-        for epoch in range(epochs):
-            # Run the model-specific training routine.
-            with _Capturer() as output:
-                try:
-                    self.training_routine_hook()
-                except Exception as exc:
-                    msg = (
-                        f"{ErrorNumbers.FB605.value}: error while fitting "
-                        f"the model: {exc}"
-                    )
-                    logger.critical(msg)
-                    raise FedbiomedTrainingPlanError(msg)
-            # Optionally log training outputs.
-            # TODO: This part should be changed after mini-batch
-            #       implementation is completed.
-            if (history_monitor is not None) and self._model_args["verbose"]:
-                loss = self.parse_training_loss(output, epoch)
-                name = getattr(self._model, "loss", "")
-                name = "Loss" + (f" {name}" if name else "")
-                history_monitor.add_scalar(
-                    metric={name: float(loss)},
-                    iteration=1,  # todo: correct this
-                    epoch=epoch,
-                    train=True,
-                    num_batches=self.training_data_loader.get_num_batches(),
-                    total_samples=len(self.training_data_loader.get_dataset),
-                    batch_samples=self.training_data_loader.get_batch_size()
-                )
-                # TODO: For clustering; passes inertia value as scalar.
-                # It should be implemented when KMeans implementation is ready.
-                # history_monitor.add_scalar(
-                #     'Inertia', self._model.inertia_, -1 , epoch
-                # )
-                # Need to find a way for Bayesian approaches.
+        # Run the model-specific training routine.
+        try:
+            self._training_routine(history_monitor)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: error while fitting "
+                f"the model: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
     @abstractmethod
-    def training_routine_hook(self) -> None:
-        """Model-specific training routine for an epoch.
+    def _training_routine(
+            self,
+            history_monitor: Optional[HistoryMonitor] = None
+        ) -> None:
+        """Model-specific training routine backend.
+
+        Args:
+            history_monitor (HistoryMonitor or None): optional HistoryMonitor
+              instance, recording the loss value during training.
 
         This method needs to be implemented by SKLearnTrainingPlan
         child classes, and is called as part of `training_routine`
-        (that notably enforces exception catching).
+        (that notably enforces preprocessing and exception catching).
         """
         return None
-
-    @abstractmethod
-    def parse_training_loss(
-            self,
-            output: List[str],
-            epoch: int
-        ) -> float:
-        """Model-specific loss-parsing from model training outputs.
-
-        This method needs to be implemented by SKLearnTrainingPlan
-        child classes, and is called as part of `training_routine`.
-        It may use the `_parse_training_losses` staticmethod.
-        """
-        return NotImplemented
-
-    @staticmethod
-    def _parse_training_losses(
-            output: List[str],
-            epoch: int
-        ) -> List[float]:
-        """Evaluate the wrapped model's loss on the training dataset.
-
-        Args:
-            output (StringIO): Capture text output of the model's training.
-            epoch (int): Epoch number (as part of the current round).
-
-        Returns:
-            list[float]: List of loss values parsed from `output`.
-        """
-        losses = []
-        for line in output:
-            # Try parsing the loss value (or go on to the next line).
-            split = line.split("loss: ")
-            if len(split) == 1:
-                continue
-            try:
-                loss = float(split[-1])
-            except ValueError as exc:
-                logger.error(f"Value error during monitoring: {exc}")
-            # Record and log (at debug level) the loss value.
-            losses.append(loss)
-            logger.debug(
-                f"Train Epoch: {epoch} [Batch All Samples]"
-                f"\tLoss: {loss:.6f}"
-            )
-        return losses
 
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
@@ -411,35 +317,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         target_test_train = np.concatenate((target_test, target_train))
 
         return np.unique(target_test_train)
-
-    def _compute_support(self, targets: np.ndarray) -> np.ndarray:
-        """
-        Computes support, i.e. the number of items per
-        classes. It is designed from the way scikit learn linear model
-        `fit_binary` and `_prepare_fit_binary` have been implemented.
-
-        Args:
-            targets (np.ndarray): targets that contain labels
-            used for training models
-
-        Returns:
-            np.ndarray: support
-        """
-        support = np.zeros((len(self._model.classes_),))
-
-        # to see how multi classification is done in sklearn, please visit:
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
-        for i, aclass in enumerate(self._model.classes_):
-            # in sklearn code, in `fit_binary1`, `i`` seems to be
-            # iterated over model.classes_
-            # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
-            # We cannot directly know for each loss that has been logged from scikit learn
-            #  which labels it corresponds to. This is our best guest
-            idx = targets == aclass
-            support[i] = np.sum(targets[targets.astype(int)[idx]])
-
-        return support
 
     def save(
             self,
