@@ -337,10 +337,10 @@ class Job:
         if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
             # compute number of updates from number of samples and batch_size (if not provided)
             if nodes is None:
-                node_present: List[str] = list(fds.data().values())
+                node_present: List[str] = fds.node_ids()
             else:
                 node_present: List[str] = nodes
-            max_n_samples = min([info_node[0].get('shape')[0] for info_node in node_present])
+            max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
             batch_size = self._training_args['batch_size']
             num_updates = max_n_samples // batch_size 
             if max_n_samples % batch_size:

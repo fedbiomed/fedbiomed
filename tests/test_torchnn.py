@@ -453,10 +453,13 @@ class TestTorchnn(unittest.TestCase):
 
 
         tp = TorchTrainingPlan()
-        tp._optimizer = MagicMock()
+        tp._optimizer = MagicMock(sepc=torch.optim.SGD)
         tp._model = torch.nn.Module()
         tp._log_interval = 1
-        tp.training_data_loader = MagicMock()
+        num_batches = 3
+        batch_size = 5
+        mock_dataset = MagicMock(pec=Dataset)
+        tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
 
         mocked_loss_result = MagicMock()
         mocked_loss_result.item.return_value = 0.
@@ -465,13 +468,13 @@ class TestTorchnn(unittest.TestCase):
         custom_dataset = self.CustomDataset()
         x_train = torch.Tensor(custom_dataset.X_train)
         y_train = torch.Tensor(custom_dataset.Y_train)
-        num_batches = 3
-        batch_size = 5
+        
         dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
+        #tp.training_data_loader.dataset = MagicMock()
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
 
@@ -724,10 +727,12 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
 
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset, batch_size=2)
+        tp.training_data_loader = MagicMock(spec=DataLoader, batch_size=2, dataset=[1, 2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             (torch.Tensor([0]), torch.Tensor([1])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.dataset = MagicMock(spec=Dataset)
+        tp.training_data_loader.dataset.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -744,10 +749,11 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset, batch_size=3)
+        tp.training_data_loader = MagicMock(spec=DataLoader, batch_size=3)
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.dataset = MagicMock(spec=Dataset)
+        tp.training_data_loader.dataset.__getitem__.return_value = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -764,15 +770,17 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock( spec=torch.utils.data.Dataset, batch_size=1,
-                                            dataset=[1,2]
+        mock_dataset = MagicMock(spec=Dataset())
+        tp.training_data_loader = MagicMock( spec=DataLoader(mock_dataset), 
+                                             batch_size=1,
+                                             dataset=[1,2]
                                             )
+        tp.training_data_loader.dataset = MagicMock(spec=Dataset())
         #tp.training_data_loader.dataset = MagicMock(return_value=[1,2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
-        tp.training_data_loader.len = lambda x: 10
-        #tp.training_data_loader.dataset = [1,2]
+        mock_dataset.__getitem__.return_value = lambda _, idx: next(gen_load_data_as_tuples)
+
 
         class FakeDPController:
             def before_training(self, model, optimizer, loader):

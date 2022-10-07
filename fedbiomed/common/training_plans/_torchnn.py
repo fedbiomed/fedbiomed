@@ -494,17 +494,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
                         history_monitor.add_scalar(metric={'Loss': res.item()},
-                                                   iteration=batch_,
-                                                   epoch=epoch,
-                                                   train=True,
-                                                   num_batches=len(self.training_data_loader),
-                                                   total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
+                                                    iteration=batch_,
+                                                    epoch=epoch,
+                                                    train=True,
+                                                    num_batches=len(self.training_data_loader),
+                                                    total_samples=len(self.training_data_loader.dataset),
+                                                    batch_samples=len(data))
 
-                    if self._dry_run:
-                        self._model.to(self._device_init)
-                        torch.cuda.empty_cache()
-                        return
+                if self._dry_run:
+                    self._model.to(self._device_init)
+                    torch.cuda.empty_cache()
+                    return
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
