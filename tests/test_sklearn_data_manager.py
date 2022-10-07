@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from fedbiomed.common.data import SkLearnDataManager
-from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError, FedbiomedValueError, FedbiomedTypeError
+from fedbiomed.common.exceptions import FedbiomedTypeError
 
 
 class TestSkLearnDataManager(unittest.TestCase):
