@@ -33,7 +33,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext
+from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
 _E = TypeVar("Experiment")  # only for typing
 
@@ -1846,6 +1846,16 @@ class Experiment(object):
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
+        # prepare secagg contexts for saving
+        if isinstance(self._secagg_servkey, SecaggContext):
+            secagg_servkey = self._secagg_servkey.save_state()
+        else:
+            secagg_servkey = None
+        if isinstance(self._secagg_biprime, SecaggContext):
+            secagg_biprime = self._secagg_biprime.save_state()
+        else:
+            secagg_biprime = None
+
         state = {
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
@@ -1864,7 +1874,9 @@ class Experiment(object):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path),  # job state
-            'use_secagg': self._use_secagg
+            'use_secagg': self._use_secagg,
+            'secagg_servkey': secagg_servkey,
+            'secagg_biprime': secagg_biprime
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1993,9 +2005,21 @@ class Experiment(object):
         # nota: exceptions should be handled in Job, when refactoring it
 
         # changing secagg attributes
-        loaded_exp.set_use_secagg(saved_state.get('use_secagg'), timeout=10)
-        # TODO: replace with
-        # loaded_exp.set_use_secagg(saved_state.get('use_secagg'))
+        bkpt_secagg_servkey_args = saved_state.get("secagg_servkey")
+        if bkpt_secagg_servkey_args:
+            loaded_exp._secagg_servkey = cls._create_object(
+                bkpt_secagg_servkey_args,
+                parties = bkpt_secagg_servkey_args['parties']
+            )
+
+        bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")
+        if bkpt_secagg_biprime_args:
+            loaded_exp._secagg_biprime = cls._create_object(
+                bkpt_secagg_biprime_args,
+                parties = bkpt_secagg_biprime_args['parties']
+            )
+
+        loaded_exp._use_secagg = saved_state.get('use_secagg')
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp

@@ -1,6 +1,6 @@
 """Secure Aggregation management on the researcher"""
 import uuid
-from typing import Callable, List, Union, Tuple
+from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 
@@ -248,6 +248,37 @@ class SecaggContext(ABC):
         else:
             self._context = None   # should already be the case
             return True
+
+    def save_state(self) -> Dict[str, Any]:
+        """Method for saving secagg state for saving breakpoints
+
+        Returns:
+            The state of the secagg
+        """
+        # `_v` and `_requests` dont need to be savec (properly initiated in constructor)
+        state = {
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "secagg_id": self._secagg_id,
+            "parties": self._parties,
+            "researcher_id": self._researcher_id,
+            "status": self._status,
+            "context": self._context
+        }
+        return state
+
+    def load_state(self, state: Dict[str, Any] = None):
+        """
+        Method for loading secagg state from breakpoint state
+
+        Args:
+            state: The state that will be leaded
+        """
+        self._secagg_id = state['secagg_id']
+        self._parties = state['parties']
+        self._researcher_id = state['researcher_id']
+        self._status = state['status']
+        self._context = state['context']
 
 
 class SecaggServkeyContext(SecaggContext):
