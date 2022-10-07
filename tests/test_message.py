@@ -1680,6 +1680,7 @@ class TestMessage(unittest.TestCase):
             "model_args": {},
             "training_plan_url": "https://dev.null",
             "training_plan_class": "my_model",
+            "aggregator_args": {},
             "command": 'train'}
 
         r = message.ResearcherMessages.request_create(params)

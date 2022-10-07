@@ -5,15 +5,18 @@ from re import U
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.responses import Responses
 import torch
 from torch.nn import Linear
 import numpy as np
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 import copy
-from random import random, randint, sample
-#import random
+import random
+
 
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
@@ -31,13 +34,16 @@ class TestScaffold(unittest.TestCase):
         self.node_ids = [f'node_{i}'for i in range(self.n_nodes)] 
         self.models = [{node_id: Linear(10, 3).state_dict()} for i, node_id in enumerate(self.node_ids)]
         self.zero_model = copy.deepcopy(self.model)  # model where all parameters are equals to 0
+        self.responses = Responses([])
+        for node_id in self.node_ids:
+            self.responses.append({'node_id': node_id, 'optimizer_args': {'lr' : [.1]}})
+        self.responses = Responses([self.responses])
         
-        self.weights = [random() for _ in self.models]
+        self.weights = [{node_id: random.random()} for (node_id, _) in zip(self.node_ids, self.models)]
         
         # setting all coefficients of `zero_model` to 0
         for p in self.zero_model.parameters():
             p.data.fill_(0)
-        print("ZERO MODEL", self.zero_model.state_dict())
 
     # after the tests
     def tearDown(self):
@@ -66,7 +72,7 @@ class TestScaffold(unittest.TestCase):
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')        
     def test_2_update_correction_state(self, mock_federated_dataset):
         mock_federated_dataset.return_value = self.node_ids
-        mock_fds = MagicMock()
+
         # case where N = S (all nodes are involved in Aggregator)
         agg = Scaffold(server_lr=1.)
         agg.init_correction_states(self.model.state_dict(), self.node_ids)  # settig correction parameters to 0
@@ -87,45 +93,83 @@ class TestScaffold(unittest.TestCase):
             for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), self.model.state_dict().items()):
                 self.assertTrue(torch.isclose(v, v_i).all())
                 
-        # case where model has not been updated: it implies correction are set to 0
+        # case where model has not been updated: it implies correction are set to 0 (if N==S)
         agg.init_correction_states(self.model.state_dict(), self.node_ids)
         correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
 
-        agg.update_correction_states(self.model.state_dict(), self.model.state_dict(), self.node_ids, n_updates=randint(1, 10))
+        agg.update_correction_states(self.model.state_dict(), self.model.state_dict(), self.node_ids, n_updates=random.randint(1, 10))
         for node_id in self.node_ids:
             for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):
 
                 self.assertTrue(torch.isclose(v , v_i).all())
+                
+                
+        # case where there is more than one update (4 updates): correction terms should be devided by 4 (ie by n_updates)
+        n_updates = 4
+        agg.init_correction_states(self.model.state_dict(), self.node_ids)
+        correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
+        agg.update_correction_states(  self.zero_model.state_dict(), self.model.state_dict(), self.node_ids, n_updates=n_updates)
+        for node_id in self.node_ids:
+            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), self.model.state_dict().items()):
+
+                self.assertTrue(torch.isclose(v , v_i / n_updates).all())
 
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')      
-    def test_3_update_correction_state(self, mock_federated_dataset):
+    def test_3_update_correction_state_2(self, mock_federated_dataset):
         mock_federated_dataset.return_value = self.node_ids
         # case where S = 2 (only 2 nodes are selected during the round) and there are no updates
         # then, new correction terms equals 1/2 * former correction terms
         S = 2
-        ## resetting
+
         agg = Scaffold(server_lr=.2)
         fds = FederatedDataSet({})
         agg.set_fds(fds)
         agg.init_correction_states(self.model.state_dict(), self.node_ids)
-        current_round_nodes = sample(self.node_ids, k=S)
+        current_round_nodes = random.sample(self.node_ids, k=S)
         agg.nodes_lr = { k :[.1] * self.n_nodes for k in self.node_ids}
-        print(self.model.state_dict(), self.zero_model.state_dict())
-        print("NODE_ID", self.node_ids)
+
         agg.update_correction_states(Linear(10, 3).state_dict(), self.zero_model.state_dict(),self.node_ids)  # making correction terms non zeros
         correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
-        print(agg.nodes_correction_states)
-        print("ZERO", self.zero_model.state_dict())
+
         agg.update_correction_states(self.model.state_dict(), self.model.state_dict(), current_round_nodes, n_updates=1)
         for node_id in self.node_ids:
             for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):
-                print(v, "VALUE", v_i)
-                self.assertTrue(torch.isclose(v, .5 * v_i ).all())
-        
-        
-    def test_3_aggregate(self):
-        pass
 
+                self.assertTrue(torch.isclose(v, .5 * v_i ).all())
+
+
+    @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')  
+    def test_4_aggregate(self, mock_federated_dataset):
+        
+        mock_federated_dataset.return_value = self.node_ids
+        mock_training_plan_get_model_params_len = len(self.node_ids)
+        training_plan = MagicMock()
+        training_plan.get_model_params = MagicMock(return_value = self.node_ids)
+        
+
+        # settig all learning rate to 1
+        researcher_lr, node_lr = 1, 1
+        
+        agg = Scaffold(server_lr=.2)
+        fds = FederatedDataSet({})
+        agg.set_fds(fds)
+        n_round = 0
+        
+        # assuming that global model has all its coefficients to 0
+        aggregated_model_params = agg.aggregate(copy.deepcopy(self.models),
+                                                self.weights,
+                                                self.zero_model.state_dict(),
+                                                training_plan,
+                                                self.responses, self.node_ids, n_round=n_round)
+        # processed_weights = [w[node_id] for w,node_id in zip(self.weights, self.node_ids)]
+        # processed_models = [ list(model.values())[0] for model in self.models]
+        print("FEDAVG MODEL", self.models[-1]['node_3'])
+        fedavg = FedAverage().aggregate(copy.deepcopy(self.models), self.weights)
+        
+        for (k,v), (k_i, v_i) in zip(aggregated_model_params.items(), fedavg.items()):
+            print(v, "VALUE", v_i)
+            self.assertTrue(torch.isclose(v, v_i * .2).all())
+        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

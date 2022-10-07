@@ -764,10 +764,15 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset, batch_size=1)
+        tp.training_data_loader = MagicMock( spec=torch.utils.data.Dataset, batch_size=1,
+                                            dataset=[1,2]
+                                            )
+        #tp.training_data_loader.dataset = MagicMock(return_value=[1,2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.len = lambda x: 10
+        #tp.training_data_loader.dataset = [1,2]
 
         class FakeDPController:
             def before_training(self, model, optimizer, loader):

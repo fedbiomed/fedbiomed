@@ -2,6 +2,7 @@
 """
 
 from copy import deepcopy
+import copy
 from typing import Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Union
 
 from fedbiomed.common.logger import logger
@@ -28,6 +29,7 @@ class Scaffold(Aggregator):
     
     Attributes:
      - aggregator_name(str): name of the aggregator 
+     - server_lr (float): value of the server learning rate
      - nodes_correction_states(Dict[str, Mapping[str, Union[torch.tensor, np.ndarray]]]): corrections
      parameters obtained for each client
     """
@@ -46,7 +48,9 @@ class Scaffold(Aggregator):
         
         References:
         [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
-        
+        [TCT: Convexifying Federated Learning using Bootstrapped Neural
+        Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
+
         Args:
             server_lr (float): server's (or Researcher's) learning rate
             fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
@@ -74,6 +78,7 @@ class Scaffold(Aggregator):
                   *args, **kwargs) -> Dict:
         """
         Aggregates local models coming from nodes into a global model, using SCAFFOLD algorithm (2nd option)
+        [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
         
         Performed computations:
         -----------------------
@@ -98,18 +103,17 @@ class Scaffold(Aggregator):
 
     
         weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
+
         
         model_params_processed = self.scaling(model_params, global_model)
         model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed] # model params are contained in a dictionary with node_id as key, we just retrieve the params
-        print("TETS", [(m.values(), m_i.values()) for m, m_i in zip(model_params_processed, model_params)])
+ 
         #model_params_processed = list(model_params_processed.values())
 
         weights_processed = self.normalize_weights(weights_processed)
-        
-        print("LEARNING RATE", self.server_lr)
-        print("FEDAVG 1", model_params_processed, )
+
         aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
-        print("FEDAVG2", aggregated_parameters)
+
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
@@ -165,17 +169,16 @@ class Scaffold(Aggregator):
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
             lrs: List[float] = []
-            print("TRAINING_REPLIES", training_replies[n_round]._map_node)
+
             if training_replies[n_round].get_index_from_node_id(node_id) is not None:
                 # get updated learning rate if provided...
                 node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
                 lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
-                print("RETRIEVE LEARNING RATE")
+
             else:
                 # ...otherwise retrieve default learning rate 
-                print("DEFAUlT LEARNING RATE")
                 lrs += training_plan.get_learning_rate()
-            print("N_MODEL_LAYER", n_model_layers)
+
             if len(lrs) == 1:
                 # case where there is one learning rate
                 lr = lrs * n_model_layers
@@ -223,10 +226,9 @@ class Scaffold(Aggregator):
         for idx, model_param in enumerate(model_params):
             node_id = list(model_param.keys())[0] # retrieve node_id
             for layer in model_param[node_id]:
-                print("SCALING1", model_params[idx][node_id][layer] )
                 model_params[idx][node_id][layer] = model_param[node_id][layer] * self.server_lr + (1 - self.server_lr) * global_model[layer]
-                print("SCALING2", model_params[idx][node_id][layer] )
-        return model_params
+
+        return copy.deepcopy(model_params)
         
     def update_correction_states(self, updated_model_params: Mapping[str, Union[torch.tensor, np.ndarray]],
                                  global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
