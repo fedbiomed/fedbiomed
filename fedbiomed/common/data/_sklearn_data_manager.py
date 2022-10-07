@@ -15,6 +15,7 @@ from sklearn.model_selection import train_test_split
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import get_method_spec
 
 
 class NPDataLoader:
@@ -57,6 +58,12 @@ class NPDataLoader:
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
+        if dataset.ndim != 2:
+            msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` in NPDataLoader. Expected 2-dimensional " \
+                  f"array, instead got a {dataset.ndim}-dimensional array."
+            logger.critical(msg)
+            raise FedbiomedValueError(msg)
+
         if target is not None:
             if not isinstance(target, np.ndarray):
                 msg = f"{ErrorNumbers.FB609.value}. Wrong type for `target` in NPDataLoader. Expected type " \
@@ -70,15 +77,9 @@ class NPDataLoader:
                 raise FedbiomedValueError(msg)
 
             # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
-            if len(target.shape) == 1:
+            if target.ndim == 1:
                 logger.warning(f"NPDataLoader :: Expanding 1-dimensional target to become 2-dimensional.")
                 target = target[:, np.newaxis]
-
-        if len(dataset.shape) > 2:
-            msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` in NPDataLoader. Expected 2-dimensional " \
-                  f"array, instead got a {len(dataset.shape)}-dimensional array."
-            logger.critical(msg)
-            raise FedbiomedValueError(msg)
 
         if not isinstance(batch_size, int) or batch_size <= 0:
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `batch_size` parameter of NPDataLoader. Expected a " \
@@ -354,11 +355,22 @@ class SkLearnDataManager(object):
                 or not isinstance(subset[1], np.ndarray):
 
             raise FedbiomedTypeError(f'{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple of size 2 '
-                                      f'that contains inputs/data and target as np.ndarray.')
+                                     f'that contains inputs/data and target as np.ndarray.')
 
         # Empty validation set
         if len(subset[0]) == 0 or len(subset[1]) == 0:
             return None
 
-        return NPDataLoader(dataset=subset[0], target=subset[1], **loader_arguments)
+        try:
+            loader = NPDataLoader(dataset=subset[0], target=subset[1], **loader_arguments)
+        except TypeError:
+            valid_loader_arguments = get_method_spec(NPDataLoader)
+            valid_loader_arguments.pop('dataset')
+            valid_loader_arguments.pop('target')
+            msg = f"{ErrorNumbers.FB609.value}. Wrong keyword loader arguments for NPDataLoader. Valid arguments " \
+                  f"are: {[k for k in valid_loader_arguments.keys()]}, instead got {[k for k in loader_arguments]}."
+            logger.critical(msg)
+            raise FedbiomedTypeError(msg)
+
+        return loader
 
