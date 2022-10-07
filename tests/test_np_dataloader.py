@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 
+from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
 from fedbiomed.common.data import NPDataLoader
 
 
@@ -49,6 +50,51 @@ class TestNPDataLoader(unittest.TestCase):
             else:
                 self.assertNPArrayEqual(outcome[-1], self.X[-batch_size-remainder:-remainder])
 
+    def test_npdataloader_NN_creation(self):
+        _ = NPDataLoader(dataset=self.X)  # Base case that should not raise errors
+        _ = NPDataLoader(dataset=self.X, target=self.X)  # Base case that should not raise errors
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset='wrong-type')
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, target='wrong-type')
+
+        # test that inconsistent lengths raise ValueError
+        with self.assertRaises(FedbiomedValueError):
+            _ = NPDataLoader(dataset=self.X, target=self.X[:2, :])
+
+        # test that 1-d targets are handled correctly
+        loader = NPDataLoader(dataset=self.X, target=np.squeeze(self.X))
+        self.assertIterableEqual(loader.get_dataset().shape, loader.get_target().shape)
+
+        # test that wrong dataset shape raises ValueError
+        with self.assertRaises(FedbiomedValueError):
+            _ = NPDataLoader(dataset=self.X[:, np.newaxis])
+
+        # test that wrong dataset shape raises ValueError
+        with self.assertRaises(FedbiomedValueError):
+            _ = NPDataLoader(dataset=np.squeeze(self.X))
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, batch_size='wrong-type')
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, batch_size=-1)
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, drop_last='wrong-type')
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, shuffle='wrong-type')
+
+        with self.assertRaises(FedbiomedTypeError):
+            _ = NPDataLoader(dataset=self.X, random_seed='wrong-type')
+
+        # ensure that an unknown argument raises TypeError (this is used in SKLearnDataManager.split)
+        with self.assertRaises(TypeError):
+            _ = NPDataLoader(dataset=self.X, unknown_argument='unknown')
+
     def test_npdataloader_NN_iteration(self):
         # scenario: batch_size=1 and 1 epoch
         self.iterate_and_assert(1, 1, drop_last=False)
@@ -71,6 +117,26 @@ class TestNPDataLoader(unittest.TestCase):
         self.iterate_and_assert(1, 3, drop_last=True)
         self.iterate_and_assert(self.len, 3, drop_last=True)
         self.iterate_and_assert(3, 3, drop_last=True)
+
+        # test iteration with targets
+        batch_size = 2
+        dataloader = NPDataLoader(dataset=self.X, target=3.*self.X + 1., batch_size=batch_size)
+        num_batches_per_epoch = self.len // batch_size + 1  # drop_last is False
+        n_epochs = 2
+        outcome = list()
+        for epoch in range(n_epochs):
+            for data, target in dataloader:
+                outcome.append((data, target))
+
+        self.assertEqual(len(outcome), num_batches_per_epoch*n_epochs)
+
+        expected_data_sum = self.X.sum()
+        data_sum = functools.reduce(lambda x, y: x + y[0].sum(), outcome, 0)
+        self.assertEqual(data_sum, expected_data_sum * n_epochs)
+
+        expected_target_sum = (3.*self.X + 1).sum()
+        target_sum = functools.reduce(lambda x, y: x + y[1].sum(), outcome, 0)
+        self.assertEqual(target_sum, expected_target_sum * n_epochs)
 
     def test_npdataloader_NN_shuffle(self):
         dataloader = NPDataLoader(dataset=self.X, batch_size=1, shuffle=True, random_seed=42)

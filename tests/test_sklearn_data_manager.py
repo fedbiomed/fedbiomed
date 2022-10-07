@@ -4,8 +4,8 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 import numpy as np
 import pandas as pd
 
-from fedbiomed.common.data._sklearn_data_manager import SkLearnDataManager
-from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
+from fedbiomed.common.data import SkLearnDataManager
+from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError, FedbiomedValueError, FedbiomedTypeError
 
 
 class TestSkLearnDataManager(unittest.TestCase):
@@ -51,14 +51,14 @@ class TestSkLearnDataManager(unittest.TestCase):
         Testing split method of SkLearnDataManager
          - Test _subset_loader
         """
-        with self.assertRaises(FedbiomedSkLearnDataManagerError):
-            self.sklearn_data_manager.split(test_ratio=-1)
+        with self.assertRaises(FedbiomedTypeError):
+            self.sklearn_data_manager.split(test_ratio=-1.)
 
-        with self.assertRaises(FedbiomedSkLearnDataManagerError):
-            self.sklearn_data_manager.split(test_ratio=2)
+        with self.assertRaises(FedbiomedTypeError):
+            self.sklearn_data_manager.split(test_ratio=2.)
 
-        with self.assertRaises(FedbiomedSkLearnDataManagerError):
-            self.sklearn_data_manager.split(test_ratio='not-int-or-float')
+        with self.assertRaises(FedbiomedTypeError):
+            self.sklearn_data_manager.split(test_ratio='not-float')
 
         # Get number of samples
         n_samples = len(self.sklearn_data_manager.dataset()[0])
@@ -72,13 +72,13 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.assertEqual(len(loader_train), n_train, 'Number of samples of train loader is not as expected')
 
         # Test if test ratio is 1
-        ratio = 1
+        ratio = 1.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
         self.assertEqual(len(loader_test), n_samples, 'Number of samples of test loader is not as expected')
         self.assertIsNone(loader_train, 'Expected train set is None')
 
         # Test if test ratio is 0
-        ratio = 0
+        ratio = 0.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
         self.assertIsNone(loader_test)
         self.assertEqual(len(loader_train), n_samples, 'Number of samples of train loader is not as expected')
@@ -101,11 +101,11 @@ class TestSkLearnDataManager(unittest.TestCase):
 
     def test_sklearn_data_manager_04_subset_loader(self):
         # Invalid subset
-        with self.assertRaises(FedbiomedSkLearnDataManagerError):
+        with self.assertRaises(FedbiomedTypeError):
             self.sklearn_data_manager._subset_loader(subset=np.array([1, 2, 3]))
 
         # Invalid nested subset
-        with self.assertRaises(FedbiomedSkLearnDataManagerError):
+        with self.assertRaises(FedbiomedTypeError):
             self.sklearn_data_manager._subset_loader(subset=([1, 2, 3], [1, 2, 3]))
 
     def test_sklearn_data_manager_05_integration_with_npdataloader(self):
