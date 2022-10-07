@@ -17,17 +17,19 @@ TDataLoadingBlock = TypeVar("TDataLoadingBlock", bound="DataLoadingBlock")
 class SerializationValidation:
     """Provide Validation capabilities for serializing/deserializing a [DataLoadingBlock] or [DataLoadingPlan].
 
-    When a developer inherits from [DataLoadingBlock] to define a custom loading block, they are required to update
-    the `_validation_scheme_` dictionary to include all the additional fields that will be used in the serialization
-    of their loading block. These rules must follow the syntax explained in the
-    [SchemeValidator][fedbiomed.common.validator.SchemeValidator] class.
+    When a developer inherits from [DataLoadingBlock] to define a custom loading block, they are required to call
+    the `_serialization_validator.update_validation_scheme` function with a dictionary argument containing the
+    rules to validate all the additional fields that will be used in the serialization of their loading block.
+
+    These rules must follow the syntax explained in the [SchemeValidator][fedbiomed.common.validator.SchemeValidator]
+    class.
 
     For example
     ```python
         class MyLoadingBlock(DataLoadingBlock):
             def __init__(self):
                 self.my_custom_data = {}
-                self._validation_scheme.update({
+                self._serialization_validator.update_validation_scheme({
                     'custom_data': {
                         'rules': [dict, ...any other rules],
                         'required': True
@@ -37,14 +39,14 @@ class SerializationValidation:
                 serialized = super().serialize()
                 serialized.update({'custom_data': self.my_custom_data})
                 return serialized
-
+    ```
 
     Attributes:
-       validation_scheme: an extensible set of rules to validate the DataLoadingBlock metadata.
+       _validation_scheme: (dict) an extensible set of rules to validate the DataLoadingBlock metadata.
     """
 
     def __init__(self):
-        self.validation_scheme = None
+        self._validation_scheme = {}
 
     def validate(self,
                  dlb_metadata: Dict,
@@ -61,7 +63,7 @@ class SerializationValidation:
             exception_type: if the validation fails.
         """
         try:
-            sc = SchemeValidator(self.validation_scheme)
+            sc = SchemeValidator(self._validation_scheme)
         except RuleError as e:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
@@ -81,6 +83,14 @@ class SerializationValidation:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
             raise exception_type(msg)
+
+    def update_validation_scheme(self, new_scheme: dict) -> None:
+        """Updates the validation scheme.
+
+        Args:
+            new_scheme: (dict) new dict of rules
+        """
+        self._validation_scheme.update(new_scheme)
 
     @staticmethod
     @validator_decorator
@@ -251,7 +261,7 @@ class DataLoadingBlock(ABC):
     def __init__(self):
         self.__serialization_id = 'serialized_dlb_' + str(uuid.uuid4())
         self._serialization_validator = SerializationValidation()
-        self._serialization_validator.validation_scheme = SerializationValidation.dlb_default_scheme()
+        self._serialization_validator.update_validation_scheme(SerializationValidation.dlb_default_scheme())
 
     def get_serialization_id(self):
         """Expose serialization id as read-only"""
@@ -367,7 +377,7 @@ class MapperBlock(DataLoadingBlock):
     def __init__(self):
         super(MapperBlock, self).__init__()
         self.map = {}
-        self._serialization_validator.validation_scheme.update(MapperBlock._extra_validation_scheme())
+        self._serialization_validator.update_validation_scheme(MapperBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -444,7 +454,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         self.desc = ""
         self.target_dataset_type = DatasetTypes.NONE
         self._serialization_validation = SerializationValidation()
-        self._serialization_validation.validation_scheme = SerializationValidation.dlp_default_scheme()
+        self._serialization_validation.update_validation_scheme(SerializationValidation.dlp_default_scheme())
 
     def __setitem__(self, key: DataLoadingBlockTypes, value: DataLoadingBlock):
         """Type-check the arguments then call dict.__setitem__."""
