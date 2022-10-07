@@ -55,25 +55,25 @@ class NPDataLoader:
         if not isinstance(dataset, np.ndarray):
             msg = f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` in NPDataLoader. Expected type " \
                   f"np.ndarray, instead got {type(dataset)}"
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         if dataset.ndim != 2:
             msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` in NPDataLoader. Expected 2-dimensional " \
                   f"array, instead got a {dataset.ndim}-dimensional array."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedValueError(msg)
 
         if target is not None:
             if not isinstance(target, np.ndarray):
                 msg = f"{ErrorNumbers.FB609.value}. Wrong type for `target` in NPDataLoader. Expected type " \
                       f"np.ndarray, instead got {type(target)}"
-                logger.critical(msg)
+                logger.error(msg)
                 raise FedbiomedTypeError(msg)
             if len(dataset) != len(target):
                 msg = f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` in NPDataLoader. " \
                       f"Expected same length, instead got len(dataset)={len(dataset)}, len(target)={len(target)}"
-                logger.critical(msg)
+                logger.error(msg)
                 raise FedbiomedValueError(msg)
 
             # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
@@ -84,25 +84,25 @@ class NPDataLoader:
         if not isinstance(batch_size, int) or batch_size <= 0:
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `batch_size` parameter of NPDataLoader. Expected a " \
                   f"non-zero positive integer, instead got type {type(batch_size)} with value {batch_size}."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         if not isinstance(shuffle, bool):
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `shuffle` parameter of NPDataLoader. Expected `bool`, " \
                   f"instead got {type(shuffle)}."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         if not isinstance(drop_last, bool):
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `drop_last` parameter of NPDataLoader. " \
                   f"Expected `bool`, instead got {type(drop_last)}."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         if random_seed is not None and not isinstance(random_seed, int):
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `random_seed` parameter of NPDataLoader. " \
                   f"Expected int or None, instead got {type(random_seed)}."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         self._dataset = dataset
@@ -246,7 +246,7 @@ class SkLearnDataManager(object):
                 not isinstance(target, (np.ndarray, pd.DataFrame, pd.Series)):
             msg = f"{ErrorNumbers.FB609.value}. Parameters `inputs` and `target` for " \
                   f"initialization of {self.__class__.__name__} should be one of np.ndarray, pd.DataFrame, pd.Series"
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
@@ -314,13 +314,13 @@ class SkLearnDataManager(object):
         """
         if not isinstance(test_ratio, float):
             msg = f'{ErrorNumbers.FB609.value}: The argument `ratio` should be type `float` not {type(test_ratio)}'
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         if test_ratio < 0. or test_ratio > 1.:
             msg = f'{ErrorNumbers.FB609.value}: The argument `ratio` should be equal or between 0 and 1, ' \
                  f'not {test_ratio}'
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         empty_subset = (np.array([]), np.array([]))
@@ -369,7 +369,7 @@ class SkLearnDataManager(object):
             valid_loader_arguments.pop('target')
             msg = f"{ErrorNumbers.FB609.value}. Wrong keyword loader arguments for NPDataLoader. Valid arguments " \
                   f"are: {[k for k in valid_loader_arguments.keys()]}, instead got {[k for k in loader_arguments]}."
-            logger.critical(msg)
+            logger.error(msg)
             raise FedbiomedTypeError(msg)
 
         return loader
