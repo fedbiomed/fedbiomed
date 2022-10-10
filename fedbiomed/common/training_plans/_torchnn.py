@@ -478,8 +478,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def predict(
             self,
             data: Any,
-            target: Any,
-        ) -> Tuple[np.ndarray, np.ndarray]:
+        ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -491,18 +490,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Args:
             data: Array-like (or tensor) structure containing batched
               input features.
-            target: Array-like (or tensor) structure containing batched
-              target values (not to be used for prediction, but to be
-              processed into a returned numpy array).
 
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
               (as per the `fedbiomed.common.metrics.Metrics` specs).
-            np.ndarray: Target output values, converted from `target`.
         """
         with torch.no_grad():
             pred = self._model(data)
-        return pred.detach().numpy(), target.detach().numpy()
+        return pred.detach().numpy()
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:

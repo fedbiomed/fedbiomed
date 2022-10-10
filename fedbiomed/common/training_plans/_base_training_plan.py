@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -391,7 +391,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output, target = self.predict(data, target)
+                output = self.predict(data)
+                if isinstance(target, torch.Tensor):
+                    target = target.detach().numpy()
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
@@ -432,8 +434,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def predict(
             self,
             data: Any,
-            target: Any,
-        ) -> Tuple[np.ndarray, np.ndarray]:
+        ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -445,13 +446,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             data: Array-like (or tensor) structure containing batched
               input features.
-            target: Array-like (or tensor) structure containing batched
-              target values (not to be used for prediction, but to be
-              processed into a returned numpy array).
-
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
               (as per the `fedbiomed.common.metrics.Metrics` specs).
-            np.ndarray: Target output values, converted from `target`.
         """
         return NotImplemented

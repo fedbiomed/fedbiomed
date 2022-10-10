@@ -253,8 +253,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def predict(
             self,
             data: Any,
-            target: Any,
-        ) -> Tuple[np.ndarray, np.ndarray]:
+        ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -266,16 +265,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Args:
             data: Array-like (or tensor) structure containing batched
               input features.
-            target: Array-like (or tensor) structure containing batched
-              target values (not to be used for prediction, but to be
-              processed into a returned numpy array).
 
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
               (as per the `fedbiomed.common.metrics.Metrics` specs).
-            np.ndarray: Target output values, converted from `target`.
         """
-        return self._model.predict(data), target
+        return self._model.predict(data)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """Return unique target labels from the training and testing datasets.
