@@ -148,7 +148,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                                   before_train=True)
 
                 # Ensure FedbiomedTrainingPlanError is raised when metric returns None
-                patch_testing_step.side_effect = None
+                patch_testing_step.return_value = None
                 with self.assertRaises(FedbiomedTrainingPlanError):
                     training_plan.testing_routine(metric=MetricTypes.ACCURACY,
                                                   metric_args={},
