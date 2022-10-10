@@ -153,14 +153,19 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
               These arguments can specify GPU use; however, this is not
               supported for scikit-learn models and thus will be ignored.
         """
-        if self._model is None:
-            raise FedbiomedTrainingPlanError("Wrapped model is None.")
+        if not isinstance(self._model, BaseEstimator):
+            msg = (
+                f"{ErrorNumbers.FB317.value}: model should be a scikit-learn "
+                f"estimator, but is of type {type(self._model)}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
                 "be trained without a NPDataLoader as `training_data_loader`."
             )
-            logger.error(msg)
+            logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         # Run preprocessing operations.
         self._preprocess()

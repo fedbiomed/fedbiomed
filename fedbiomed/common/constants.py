@@ -62,7 +62,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     APPROVED: str = "Approved"
     REJECTED: str = "Rejected"
     PENDING: str = "Pending"
-    
+
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
@@ -166,6 +166,7 @@ class ErrorNumbers(_BaseEnum):
     FB314: str = "FB314: Node round error"
     FB315: str = "FB315: Error while loading the data"
     FB316: str = "FB316: Data loading plan error"
+    FB317: str = "FB317: bad model type"
 
     # application error on researcher
 
