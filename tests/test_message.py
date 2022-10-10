@@ -1331,7 +1331,8 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
-            command='do_it')
+            command='do_it',
+            aggregator_args={'aggregator_name': 'fedavg'})
 
         # bad param number
         self.check_class_args(

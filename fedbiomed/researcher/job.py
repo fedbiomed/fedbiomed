@@ -16,7 +16,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
 
-from typing import Optional, Union, Callable, List, Dict, Type
+from typing import Any, Optional, Union, Callable, List, Dict, Type
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -347,15 +347,15 @@ class Job:
                 num_updates += 1
             self._training_args['num_updates'] = num_updates
         
-    def start_nodes_training_round(self, round: int, aggregator_args: dict, do_training: bool = True):
+    def start_nodes_training_round(self, round: int, aggregator_args: Dict[str, Dict[str, Any]], do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
-            round: current number of round the algorithm is performing (a round is considered to be all the
+            round (int): current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            strategy_info: dictionary containing some metadata about the aggregation strategy, useful to transfer
-                some data when it's required by a strategy (e.g. correction state in scaffold)
-            do_training: if False, skip training in this round (do only validation). Defaults to True.
+            aggregator_args (dict): dictionary containing some metadata about the aggregation strategy, useful to transfer
+                some data when it's required by am aggregator (e.g. correction state in scaffold)
+            do_training (bool): if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
@@ -439,8 +439,9 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self._training_plan.load(params_path, to_params=True)['model_params']
-                    optimizer_args = self._training_plan.load(params_path, to_params=True)['optimizer_args']
+                    loaded_model = self._training_plan.load(params_path, to_params=True)
+                    params = loaded_model['model_params']
+                    optimizer_args = loaded_model['optimizer_args']
                 else:
                     params_path = None
                     params = None

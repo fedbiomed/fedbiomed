@@ -472,7 +472,7 @@ class TestExperiment(unittest.TestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 2, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
 
 
     def test_experiment_05_set_aggregator(self):

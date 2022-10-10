@@ -84,7 +84,8 @@ class TestJob(unittest.TestCase):
         self.model = MagicMock(return_value=None)
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
-        self.model.load = MagicMock(return_value={'model_params': True})
+        self.model.load = MagicMock(return_value={'model_params': True,
+                                                  'optimizer_args': True})
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
@@ -403,9 +404,9 @@ class TestJob(unittest.TestCase):
         responses = FakeResponses([response_1, response_2])
 
         mock_requests_get_responses.return_value = responses
-
+        aggregator_args = {node_id : {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
         # Test - 1
-        nodes = self.job.start_nodes_training_round(1)
+        nodes = self.job.start_nodes_training_round(1, aggregator_args=aggregator_args)
         _ = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1', 'node-2'])
@@ -414,7 +415,7 @@ class TestJob(unittest.TestCase):
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_3])
         mock_requests_get_responses.return_value = responses
-        nodes = self.job.start_nodes_training_round(2)
+        nodes = self.job.start_nodes_training_round(2, aggregator_args)
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
 
@@ -423,7 +424,7 @@ class TestJob(unittest.TestCase):
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
-        nodes = self.job.start_nodes_training_round(3)
+        nodes = self.job.start_nodes_training_round(3, aggregator_args)
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 

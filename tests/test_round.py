@@ -197,7 +197,8 @@ class TestRound(unittest.TestCase):
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
-            'node_id': environ['NODE_ID']
+            'node_id': environ['NODE_ID'],
+            'optimizer_args': {}
         }
 
         # define context managers for each model method
@@ -275,6 +276,8 @@ class TestRound(unittest.TestCase):
             "       pass\n" + \
             "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \
+            "   def optimizer_args(self):\n" + \
+            "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
 
@@ -288,6 +291,7 @@ class TestRound(unittest.TestCase):
 
         # action
         msg_test = self.r1.run_model_training()
+        print("MESSAGE", msg_test)
         # checks
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))

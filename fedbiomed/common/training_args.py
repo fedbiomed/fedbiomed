@@ -171,12 +171,14 @@ class TrainingArgs:
     @staticmethod
     @validator_decorator
     def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
-        if val is None or int(val) == float(val):
-            if val is not None and val < 0:
-                return False, f"num_updates and epochs should be postive value, but got {val}"
-            else:
-                # maybe we should not validate case val == 0
-                return True
+        if val is None or isinstance(val, (float, int)):
+            if val is not None:
+                if int(val) != float(val) or val < 0:
+                    return False, f"num_updates and epochs should be postive integer, but got {val}"
+
+                    # maybe we should not validate case val == 0
+
+            return True
         else:
             return False, f"num_updates and epochs should be integer or None, but got {val}"
 

@@ -501,7 +501,7 @@ class TestTorchnn(unittest.TestCase):
         number of updates requested by the researcher. Remember each update corresponds to one optimizer step, i.e.
         one batch.
         """
-        tp = TrainingPlan()
+        tp = TorchTrainingPlan()
         tp._model = MagicMock()
         tp._set_device = MagicMock()
         tp._batch_maxnum = 0
@@ -510,6 +510,7 @@ class TestTorchnn(unittest.TestCase):
         tp.training_step = MagicMock(return_value=MagicMock())
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
+        tp._dp_controller = FakeDPController()
 
         def setup_tp(tp, num_samples, batch_size, num_updates):
             """Utility function to prepare the TrainingPlan test"""
@@ -631,7 +632,7 @@ class TestTorchnn(unittest.TestCase):
         """test_torch_nn_07_compute_corrected_loss_2: 
         Tests consistancy of loss values returned by method
         """
-        tp = TrainingPlan()
+        tp = TorchTrainingPlan()
         n_layer = 10
         dim = 3
         model = torch.nn.Linear(n_layer, dim)
