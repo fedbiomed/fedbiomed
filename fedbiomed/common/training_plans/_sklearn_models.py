@@ -90,7 +90,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 inputs, target = batch
                 loss = self._train_over_batch(inputs, target, report)
                 # Optionally report on the batch training loss.
-                if report and (idx % log_interval == 0):
+                if report and (idx % log_interval == 0) and not np.isnan(loss):
                     record_loss(
                         metric={loss_name: loss},
                         iteration=idx,
@@ -149,7 +149,6 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                     f"training losses from stdout: {exc}"
                 )
                 logger.error(msg)
-                # REVISE: should the error be raised?
         # Otherwise, return nan as a fill-in value.
         return float('nan')
 
