@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import FedPerceptron, FedSGDRegressor, FedSGDClassifier
 
 
@@ -125,8 +126,9 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1,1]])
         test_y = np.array([1, 0, 1, 0])
+        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
         for training_plan in self.training_plans:
-            training_plan.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=(test_x, test_y))
+            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
 
             with patch.object(training_plan.model(), 'predict') as patch_predict:
                 patch_predict.side_effect = Exception
@@ -158,13 +160,14 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1,1]])
+        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
+        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
 
         for training_plan in self.training_plans:
             # case where the researcher defines a custom testing step
             training_plan.testing_step = Custom.testing_step
-            training_plan.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=(test_x, test_y))
+            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
 
             # call testing routine again
             training_plan.testing_routine(metric=None,  # ignored when custom testing_step is defined
@@ -229,8 +232,9 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1,1]])
+        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
+        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
 
         for training_plan in self.training_plans:
             # Test testing routine without setting testing_data_loader
@@ -241,7 +245,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
                                               before_train=True)
 
             # set data loader and call testing routine
-            training_plan.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=(test_x, test_y))
+            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
             training_plan.testing_routine(metric=MetricTypes.MEAN_SQUARE_ERROR,
                                           metric_args={},
                                           history_monitor=history_monitor,
@@ -308,6 +312,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
+        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
 
         for training_plan in self.training_plans:
             # Test testing routine without setting testing_data_loader
@@ -317,7 +322,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                               history_monitor=history_monitor,
                                               before_train=True)
 
-            training_plan.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=(test_x, test_y))
+            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
 
             training_plan.testing_routine(metric=MetricTypes.ACCURACY,
                                           metric_args={},
