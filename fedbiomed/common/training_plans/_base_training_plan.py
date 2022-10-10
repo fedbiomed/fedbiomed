@@ -368,13 +368,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             msg = f"{ErrorNumbers.FB605.value}: no validation dataset was set."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        # REVISE: harmonize NPDataLoader and DataLoader APIs.
-        if isinstance(self.testing_data_loader, NPDataLoader):
-            n_batches = self.testing_data_loader.get_num_batches()
-            n_samples = len(self.testing_data_loader)
-        else:  # torch.utils.data.DataLoader
-            n_batches = len(self.testing_data_loader)
-            n_samples = len(self.testing_data_loader.dataset)
+
+        n_batches = len(self.testing_data_loader)
+        n_samples = len(self.testing_data_loader.dataset)
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):

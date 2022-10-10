@@ -80,7 +80,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
-                num_batches=self.training_data_loader.get_num_batches(),
+                num_batches=len(self.training_data_loader),
                 total_samples=len(self.training_data_loader)
             )
             verbose = self._model.get_params("verbose")

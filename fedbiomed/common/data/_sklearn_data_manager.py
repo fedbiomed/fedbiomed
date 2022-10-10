@@ -114,18 +114,14 @@ class NPDataLoader:
 
     def __len__(self) -> int:
         """Returns the length of the encapsulated dataset"""
-        return len(self._dataset)
+        n = len(self._dataset) // self._batch_size
+        if not self._drop_last and self.get_n_remainder_samples() != 0:
+            n += 1
+        return n
 
     def __iter__(self) -> '_BatchIterator':
         """Returns an iterator over batches of data"""
         return _BatchIterator(self)
-
-    def get_num_batches(self) -> int:
-        """Returns the number of batches in one epoch"""
-        n = len(self) // self._batch_size
-        if not self._drop_last and self.get_n_remainder_samples() != 0:
-            n += 1
-        return n
 
     def get_dataset(self) -> np.ndarray:
         """Returns the encapsulated dataset"""
@@ -153,7 +149,16 @@ class NPDataLoader:
 
     def get_n_remainder_samples(self) -> int:
         """Returns the remainder of the division between dataset length and batch size."""
-        return len(self) % self._batch_size
+        return len(self._dataset) % self._batch_size
+
+    @property
+    def dataset(self):
+        """The encapsulated dataset.
+
+        This property is here for convenience to harmonize the API with torch.DataLoader, enabling us to write
+        generic code for both DataLoaders.
+        """
+        return self.get_dataset()
 
 
 class _BatchIterator:
@@ -181,7 +186,7 @@ class _BatchIterator:
         restore num_yielded to 0, reshuffles the indices if shuffle is True, and applies drop_last
         """
         self._num_yielded = 0
-        dlen = len(self._loader)
+        dlen = len(self._loader.get_dataset())
 
         self._index = np.arange(dlen)
 
@@ -204,7 +209,7 @@ class _BatchIterator:
         Raises:
             StopIteration when an epoch of data has been exhausted.
         """
-        if self._num_yielded < self._loader.get_num_batches():
+        if self._num_yielded < len(self._loader):
             start = self._num_yielded*self._loader.get_batch_size()
             stop = (self._num_yielded+1)*self._loader.get_batch_size()
             indices = self._index[start:stop]
