@@ -80,7 +80,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Override default model parameters based on `self._model_args`.
         params = {
             key: self._model_args.get(key, val)
-            for key, val in self._model.get_params()
+            for key, val in self._model.get_params().items()
         }
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
