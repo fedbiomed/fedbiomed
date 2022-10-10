@@ -16,7 +16,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.node.history_monitor import HistoryMonitor
 
 from ._base_training_plan import BaseTrainingPlan
@@ -203,125 +203,93 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return None
 
-    def testing_routine(self,
-                        metric: Union[MetricTypes, None],
-                        metric_args: Dict[str, Any],
-                        history_monitor,
-                        before_train: bool):
-        """
-        Validation routine for SGDSkLearnModel. This method is called by the Round class if validation
-        is activated for the Federated training round
+    def testing_routine(
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional[HistoryMonitor],
+            before_train: bool
+        ) -> None:
+        """Evaluation routine, to be called once per round.
+
+        Note: if the training plan implements a `testing_step` method
+              (the signature of which is func(data, target) -> metrics)
+              then it will be used rather than the input metric.
 
         Args:
-            metric (MetricType, None): The metric that is going to be used for validation. Should be
-                an instance of MetricTypes. If it is None and there is no `testing_step` is defined
-                by researcher method will raise an Exception. Defaults to ACCURACY.
-
-            history_monitor (HistoryMonitor): History monitor class of node side to send validation results
-                to researcher.
-
-            before_train (bool): If True, this means validation is going to be performed after loading model parameters
-              without training. Otherwise, after training.
-
+            metric (MetricType, None): The metric used for validation.
+              If None, use MetricTypes.ACCURACY.
+            history_monitor (HistoryMonitor): HistoryMonitor instance,
+              used to record computed metrics and communicate them to
+              the researcher (server).
+            before_train (bool): Whether the evaluation is being performed
+              before local training occurs, of afterwards. This is merely
+              reported back through `history_monitor`.
         """
-        # Use accuracy as default metric
-        if metric is None:
-            metric = MetricTypes.ACCURACY
-
-        if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
-            logger.critical(msg)
+        # Check that the testing data loader is of proper type.
+        if not isinstance(self.testing_data_loader, NPDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot be "
+                "evaluated without a NPDataLoader as `testing_data_loader`."
+            )
+            logger.error(msg)
             raise FedbiomedTrainingPlanError(msg)
-
-        # Check validation data loader is exists
-        data, target = self.testing_data_loader
-
-        # At the first round model won't have classes_ attribute
+        # If required, make up for the lack of specifications regarding target
+        # classification labels.
         if self._is_classification and not hasattr(self._model, 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self._model, 'classes_', classes)
-
-        # Build metrics object
-        metric_controller = Metrics()
-        tot_samples = len(data)
-
-        # Use validation method defined by user
-        if hasattr(self, 'testing_step') and callable(self.testing_step):
-            try:
-                m_value = self.testing_step(data, target)
-            except Exception as err:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error - " + \
-                      str(err)
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
-            # If custom validation step returns None
-            if m_value is None:
-                msg = ErrorNumbers.FB605.value + \
-                      ": metric function has returned None"
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
-            metric_name = 'Custom'
-
-        # If metric is defined use pre-defined validation for Fed-BioMed
-        else:
-            if metric is None:
+        # If required, select the default metric (accuracy or mse).
+        if metric is None:
+            if self._is_classification:
                 metric = MetricTypes.ACCURACY
-                logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
-                            f"in the training arguments `: using default metric {metric.name}"
-                            " for model validation")
             else:
-                logger.info(
-                    f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                    " for model validation.")
+                metric = MetricTypes.MEAN_SQUARE_ERROR
+        # Delegate the actual evalation routine to the parent class.
+        super().testing_routine(
+            metric, metric_args, history_monitor, before_train
+        )
 
-            try:
-                pred = self._model.predict(data)
-            except Exception as e:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error during predicting validation data set - " + \
-                      str(e)
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+    def predict(
+            self,
+            data: Any,
+            target: Any,
+        ) -> Tuple[np.ndarray, np.ndarray]:
+        """Return model predictions for a given batch of input features.
 
-            m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
-            metric_name = metric.name
+        This method is called as part of `testing_routine`, to compute
+        predictions based on which evaluation metrics are computed. It
+        will however be skipped if a `testing_step` method is attached
+        to the training plan, than wraps together a custom routine to
+        compute an output metric directly from a (data, target) batch.
 
-        metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
-
-        # For logging in node console
-        logger.debug('Validation: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
-                                                                metric.name, m_value))
-
-        # Send scalar values via general/feedback topic
-        if history_monitor is not None:
-            history_monitor.add_scalar(metric=metric_dict,
-                                       iteration=1,  # since there is only one
-                                       epoch=None,  # no epoch
-                                       test=True,  # means that for sending validation metric
-                                       test_on_local_updates=False if before_train else True,
-                                       test_on_global_updates=before_train,
-                                       total_samples=tot_samples,
-                                       batch_samples=len(target),
-                                       num_batches=1)
-
-    def _classes_from_concatenated_train_test(self) -> np.ndarray:
-        """
-        Method for getting all classes from validatino and target dataset. This action is required
-        in case of some class only exist in training subset or validation subset
+        Args:
+            data: Array-like (or tensor) structure containing batched
+              input features.
+            target: Array-like (or tensor) structure containing batched
+              target values (not to be used for prediction, but to be
+              processed into a returned numpy array).
 
         Returns:
-            np.ndarray: numpy array containing unique values from the whole dataset (training + validation dataset)
+            np.ndarray: Output predictions, converted to a numpy array
+              (as per the `fedbiomed.common.metrics.Metrics` specs).
+            np.ndarray: Target output values, converted from `target`.
         """
+        return self._model.predict(data), target
 
-        target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
-        target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+    def _classes_from_concatenated_train_test(self) -> np.ndarray:
+        """Return unique target labels from the training and testing datasets.
 
-        target_test_train = np.concatenate((target_test, target_train))
-
-        return np.unique(target_test_train)
+        Returns:
+            np.ndarray: numpy array containing the unique values from the
+              targets wrapped in the training and testing NPDataLoader
+              instances.
+        """
+        target = np.array([])
+        for loader in (self.training_data_loader, self.testing_data_loader):
+            if isinstance(loader, NPDataLoader):
+                target = np.concatenate(target, loader.get_target())
+        return np.unique(target)
 
     def save(
             self,

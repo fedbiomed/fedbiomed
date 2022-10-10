@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -13,15 +13,21 @@ from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_class_source
+from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class BaseTrainingPlan(metaclass=ABCMeta):
     """Base class for training plan
 
     All concrete, framework- and/or model-specific trainning plans should
-    inherit from this class, implement its `post_init` abstract method,
-    and more generally extend (or overwrite) its API-defining methods.
+    inherit from this class, and implement:
+      * the `post_init` method, to process model and training hyper-parameters
+      * the `training_routine` method, to train the model for one round
+      * the `predict` method, to compute predictions over a given batch
+      * (opt.) the `testing_step` method, to override the evaluation behavior
+        and compute a batch-wise (set of) metric(s)
 
     Attrs:
         dependencies: All the dependencies that need to be imported
@@ -102,8 +108,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filepath (string): path to the destination file
 
         Raises:
-            FedBioMedTrainingPlanError: raised when source of the model class cannot be assessed
-            FedBioMedTrainingPlanError: raised when model file cannot be created/opened/edited
+            FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
+            FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
         """
         try:
             class_source = get_class_source(self.__class__)
@@ -260,60 +266,192 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
 
     @staticmethod
-    def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]],
-                                   metric_name: str = 'Custom') -> Dict[str, float]:
-        """Create metric result dictionary.
+    def _create_metric_result_dict(
+            metric: Union[Dict[str, float], List[float], float, np.ndarray, torch.Tensor, List[torch.Tensor]],
+            metric_name: str = 'Custom'
+        ) -> Dict[str, float]:
+        """Create a metrics result dictionary, feedable to a HistoryMonitor.
 
         Args:
-            metric: Array-like metric values or dictionary
-            metric_name: Name of the metric. If `metric` is of type list, metric names will be in format of
-                (`metric_name_1`, ..., `metric_name_n`), where `n` is the size of the list.
-                If the `metric` argument is  provided as dict the argument `metric_name` will be ignored and
-                metric names will be keys of the dict.
+            metric (dict, list, float, array, tensor): Array-like or scalar
+              metric value(s), or dictionary wrapping such values.
+            metric_name (str): Name of the metric.
+              If `metric` is a list, metric names will be set to
+              (`metric_name_1`, ..., `metric_name_n`).
+              If `metric` is a dict, `metric_name` will be ignored
+              and the dict's keys will be used instead.
 
         Returns:
-            Dictionary mapping <metric_name>:<metric values>, where <metric values> are floats provided by `metric`
-                argument. If `metric` argument is a dict, then returns <keys of metric>: <metric values>
+            Dictionary mapping <metric_name>:<metric values>, where
+              <metric values> are floats taken or converted from `metric`.
 
         Raises:
-            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.Tensor,
-                or np.ndarray.
+            FedbiomedTrainingPlanError: if `metric` input is of unproper type.
         """
+        # If `metric` is an array-like structure, convert it.
         if isinstance(metric, torch.Tensor):
             metric = metric.numpy()
+        if isinstance(metric, np.ndarray):
             metric = list(metric) if metric.shape else float(metric)
-        elif isinstance(metric, np.ndarray):
-            metric = list(metric)
-
-        # If it is single int/float metric value
-        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
+        # If `metric` is a single value, return a {name: value} dict.
+        if isinstance(metric, (float, np.integer, np.floating)):
             return {metric_name: float(metric)}
-
-        # If metric function returns multiple values
-        elif isinstance(metric, list) or isinstance(metric, dict):
-
+        # If `metric` is a collection.
+        if isinstance(metric, (dict, list)):
             if isinstance(metric, list):
-                metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
-            else:
-                metric_names = metric.keys()
-
+                metric_names = [
+                    f"{metric_name}_{i + 1}" for i in range(len(metric))
+                ]
+            elif isinstance(metric, dict):
+                metric_names = list(metric)
             try:
-                metric = utils.convert_iterator_to_list_of_python_floats(metric)
-            except FedbiomedError as e:
-                msg = ErrorNumbers.FB605.value + \
-                      " : wrong typed metric value - " + \
-                      str(e)
+                values = utils.convert_iterator_to_list_of_python_floats(metric)
+            except FedbiomedError as exc:
+                msg = (
+                    f"{ErrorNumbers.FB605.value}: error when converting "
+                    f"metric values to float - {exc}"
+                )
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
+            return dict(zip(metric_names, values))
+        # Raise if `metric` is of unproper input type.
+        msg = (
+            f"{ErrorNumbers.FB605.value}: metric value should be one of type "
+            "int, float, numpy scalar, numpy.ndarray, torch.Tensor, or list "
+            f"or dict wrapping such values; but received {type(metric)}"
+        )
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
-            return dict(zip(metric_names, metric))
+    @abstractmethod
+    def training_routine(
+            self,
+            history_monitor: Optional[HistoryMonitor] = None,
+            node_args: Optional[Dict[str, Any]] = None
+        ) -> None:
+        """Training routine, to be called once per round.
 
-        else:
-            msg = ErrorNumbers.FB605.value + \
-                  " : metric value should be one of type" + \
-                  " int, float, np.integer, torch.Tensor," + \
-                  "list of int/float/np.integer/torch.Tensor or" + \
-                  "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
-                  str(type(metric))
+        Args:
+            history_monitor (HistoryMonitor or None): optional HistoryMonitor
+              instance, recording training metadata.
+            node_args (dict or None): Command line arguments for node.
+              These arguments can specify GPU use; however, this is not
+              supported for scikit-learn models and thus will be ignored.
+        """
+        return None
+
+    def testing_routine(
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional[HistoryMonitor],
+            before_train: bool
+        ) -> None:
+        """Evaluation routine, to be called once per round.
+
+        Note: if the training plan implements a `testing_step` method
+              (the signature of which is func(data, target) -> metrics)
+              then it will be used rather than the input metric.
+
+        Args:
+            metric (MetricType, None): The metric used for validation.
+              If None, use MetricTypes.ACCURACY.
+            history_monitor (HistoryMonitor): HistoryMonitor instance,
+              used to record computed metrics and communicate them to
+              the researcher (server).
+            before_train (bool): Whether the evaluation is being performed
+              before local training occurs, of afterwards. This is merely
+              reported back through `history_monitor`.
+        """
+        # TODO: Add preprocess option for testing_data_loader.
+        if self.testing_data_loader is None:
+            msg = f"{ErrorNumbers.FB605.value}: no validation dataset was set."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
+        # REVISE: harmonize NPDataLoader and DataLoader APIs.
+        if isinstance(self.testing_data_loader, NPDataLoader):
+            n_batches = self.testing_data_loader.get_num_batches()
+            n_samples = len(self.testing_data_loader)
+        else:  # torch.utils.data.DataLoader
+            n_batches = len(self.testing_data_loader)
+            n_samples = len(self.testing_data_loader.dataset)
+        # Set up a batch-wise metrics-computation function.
+        # Either use an optionally-implemented custom training routine.
+        if hasattr(self, "testing_step"):
+            evaluate = getattr(self, "testing_step")
+            metric_name = "Custom"
+        # Or use the provided `metric` (or its default value).
+        else:
+            if metric is None:
+                # REVISE: accuracy is not defined for all tasks (no metric is)
+                # should there be a class attribute (or post_init argument) to
+                # define the default metric for a given training plan (class or
+                # instance)?
+                metric = MetricTypes.ACCURACY
+            metric_controller = Metrics()
+            def evaluate(data, target):
+                nonlocal metric, metric_args, metric_controller
+                output, target = self.predict(data, target)
+                return metric_controller.evaluate(
+                    target, output, metric=metric, **metric_args
+                )
+            metric_name = metric.name
+        # Iterate over the validation dataset and run the defined routine.
+        for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            # Run the evaluation step; catch and raise exceptions.
+            try:
+                m_value = evaluate(data, target)
+            except Exception as exc:
+                msg = (
+                    f"{ErrorNumbers.FB605.value}: An error occurred "
+                    f"while computing the {metric_name} metric: {exc}"
+                )
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+            # Log the computed value.
+            logger.debug(
+                f"Validation: Batch {idx}/{n_batches} "
+                f"| Metric[{metric_name}]: {m_value}"
+            )
+            # Further parse, and report it (provided a monitor is set).
+            if history_monitor is not None:
+                m_dict = self._create_metric_result_dict(m_value, metric_name)
+                history_monitor.add_scalar(
+                    metric=m_dict,
+                    iteration=idx,
+                    epoch=None,
+                    test=True,
+                    test_on_local_updates=(not before_train),
+                    test_on_global_updates=before_train,
+                    total_samples=n_samples,
+                    batch_samples=len(target),
+                    num_batches=n_batches
+                )
+
+    @abstractmethod
+    def predict(
+            self,
+            data: Any,
+            target: Any,
+        ) -> Tuple[np.ndarray, np.ndarray]:
+        """Return model predictions for a given batch of input features.
+
+        This method is called as part of `testing_routine`, to compute
+        predictions based on which evaluation metrics are computed. It
+        will however be skipped if a `testing_step` method is attached
+        to the training plan, than wraps together a custom routine to
+        compute an output metric directly from a (data, target) batch.
+
+        Args:
+            data: Array-like (or tensor) structure containing batched
+              input features.
+            target: Array-like (or tensor) structure containing batched
+              target values (not to be used for prediction, but to be
+              processed into a returned numpy array).
+
+        Returns:
+            np.ndarray: Output predictions, converted to a numpy array
+              (as per the `fedbiomed.common.metrics.Metrics` specs).
+            np.ndarray: Target output values, converted from `target`.
+        """
+        return NotImplemented

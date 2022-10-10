@@ -1,18 +1,20 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from copy import deepcopy
 
+import numpy as np
 import torch
 from torch import nn
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.node.history_monitor import HistoryMonitor
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -435,120 +437,72 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
-    def testing_routine(self,
-                        metric: Union[MetricTypes, None],
-                        metric_args: Dict[str, Any],
-                        history_monitor: Any,
-                        before_train: Union[bool, None] = None):
-        """Performs validation routine on validation partition of the dataset
+    def testing_routine(
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional[HistoryMonitor],
+            before_train: bool
+        ) -> None:
+        """Evaluation routine, to be called once per round.
 
-        Validation routine can be run any time after train and validation split is done. Method sends validation result
-        back to researcher component as real-time.
+        Note: if the training plan implements a `testing_step` method
+              (the signature of which is func(data, target) -> metrics)
+              then it will be used rather than the input metric.
 
         Args:
-            metric: Metric that will be used for validation
-            metric_args: The arguments for corresponding metric function.
-                Please see [`sklearn.metrics`][sklearn.metrics]
-            history_monitor: Real-time feed-back handler for validation results
-            before_train: Declares whether is performed before training model or not.
-
-        Raises:
-            FedbiomedTrainingPlanError: if the training is failed by any reason
-
+            metric (MetricType, None): The metric used for validation.
+              If None, use MetricTypes.ACCURACY.
+            history_monitor (HistoryMonitor): HistoryMonitor instance,
+              used to record computed metrics and communicate them to
+              the researcher (server).
+            before_train (bool): Whether the evaluation is being performed
+              before local training occurs, of afterwards. This is merely
+              reported back through `history_monitor`.
         """
-        # TODO: Add preprocess option for testing_data_loader
-
-        if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
+        if not isinstance(self._model, torch.nn.Module):
+            msg = (
+                f"{ErrorNumbers.FB317.value}: model should be a torch "
+                f"nn.Module, but is of type {type(self._model)}"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
+        try:
+            self._model.eval()  # pytorch switch for model inference-mode
+            super().testing_routine(
+                metric, metric_args, history_monitor, before_train
+            )
+        finally:
+            self._model.train()  # restore training behaviors
 
-        # Build metrics object
-        metric_controller = Metrics()
-        tot_samples = len(self.testing_data_loader.dataset)
+    def predict(
+            self,
+            data: Any,
+            target: Any,
+        ) -> Tuple[np.ndarray, np.ndarray]:
+        """Return model predictions for a given batch of input features.
 
-        self._model.eval()  # pytorch switch for model validation
-        # Complete prediction over batches
+        This method is called as part of `testing_routine`, to compute
+        predictions based on which evaluation metrics are computed. It
+        will however be skipped if a `testing_step` method is attached
+        to the training plan, than wraps together a custom routine to
+        compute an output metric directly from a (data, target) batch.
+
+        Args:
+            data: Array-like (or tensor) structure containing batched
+              input features.
+            target: Array-like (or tensor) structure containing batched
+              target values (not to be used for prediction, but to be
+              processed into a returned numpy array).
+
+        Returns:
+            np.ndarray: Output predictions, converted to a numpy array
+              (as per the `fedbiomed.common.metrics.Metrics` specs).
+            np.ndarray: Target output values, converted from `target`.
+        """
         with torch.no_grad():
-            # Data Loader for testing partition includes entire dataset in the first batch
-            for batch_ndx, (data, target) in enumerate(self.testing_data_loader):
-                batch_ = batch_ndx + 1
-
-                # If `testing_step` is defined in the TrainingPlan
-                if hasattr(self, 'testing_step'):
-                    try:
-                        m_value = self.testing_step(data, target)
-                    except Exception as e:
-                        # catch exception because we are letting the user design this
-                        # `evaluation_step` method of the training plan
-                        msg = ErrorNumbers.FB605.value + \
-                              ": An error occurred while executing `testing_step` :" + \
-                              str(e)
-
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    # If custom validation step returns None
-                    if m_value is None:
-                        msg = ErrorNumbers.FB605.value + \
-                              ": metric function returned None"
-
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    metric_name = 'Custom'
-
-                # Otherwise, check a default metric is defined
-                # Use accuracy as default metric
-                else:
-
-                    if metric is None:
-                        metric = MetricTypes.ACCURACY
-                        logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
-                                    f"in the training arguments `: using default metric {metric.name}"
-                                    " for model validation")
-                    else:
-                        logger.info(
-                            f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                            " for model validation.")
-
-                    metric_name = metric.name
-
-                    try:
-                        # Pass data through network layers
-                        pred = self._model(data)
-                    except Exception as e:
-                        # Pytorch does not provide any means to catch exception (no custom Exceptions),
-                        # that is why we need to trap general Exception
-                        msg = ErrorNumbers.FB605.value + \
-                              ": error - " + \
-                              str(e)
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    # Convert prediction and actual values to numpy array
-                    y_true = target.detach().numpy()
-                    predicted = pred.detach().numpy()
-                    m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric, **metric_args)
-
-                metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
-
-                logger.debug('Validation: Batch {} [{}/{}] | Metric[{}]: {}'.format(
-                    str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
-
-                # Send scalar values via general/feedback topic
-                if history_monitor is not None:
-                    history_monitor.add_scalar(metric=metric_dict,
-                                               iteration=batch_,
-                                               epoch=None,  # no epoch
-                                               test=True,
-                                               test_on_local_updates=False if before_train else True,
-                                               test_on_global_updates=before_train,
-                                               total_samples=tot_samples,
-                                               batch_samples=len(target),
-                                               num_batches=len(self.testing_data_loader))
-
-        del metric_controller
+            pred = self._model(data)
+        return pred.detach().numpy(), target.detach().numpy()
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
