@@ -555,10 +555,19 @@ class TestTorchnn(unittest.TestCase):
 
 
     def test_torch_nn_06_compute_corrected_loss(self):
-        
+        """test_torch_nn_06_compute_corrected_loss: 
+        checks:
+            that fedavg and scaffold are equivalent if correction states are set to 0
+        """
         def set_training_plan(model, aggregator_name:str, loss_value: float = .0):
+            """Configure a TorchTrainingPlan with a given model.
             
-            tp = TrainingPlan()
+            Args:
+                model: a torch model
+                aggregator_name: name of the aggregator method
+                loss_value: value that is returned by mocked `training_Step` method
+            """
+            tp = TorchTrainingPlan()
             tp._set_device = MagicMock()
             tp._batch_maxnum = 0
             
@@ -571,8 +580,8 @@ class TestTorchnn(unittest.TestCase):
             tp.aggregator_name = aggregator_name
             # mocked_loss_result = MagicMock()
             # mocked_loss_result.item.return_value = loss_value
-            tp.training_step = lambda x, y: Variable(torch.sum(torch.Tensor([torch.dot(y_i, torch.zeros(y_i.shape)) for y_i in y])), requires_grad=True)
-
+            tp.training_step = lambda x, y: Variable(loss_value + torch.sum(torch.Tensor([torch.dot(y_i, torch.zeros(y_i.shape)) for y_i in y])), requires_grad=True)
+            #tp.init_model = lambda x: 
             custom_dataset = self.CustomDataset()
             x_train = torch.Tensor(custom_dataset.X_train)
             y_train = torch.Tensor(custom_dataset.Y_train)
@@ -589,6 +598,7 @@ class TestTorchnn(unittest.TestCase):
             
             tp._optimizer_args = {"lr" : 1e-3}
             tp._optimizer = torch.optim.Adam(tp._model.parameters(), **tp._optimizer_args)
+            tp._dp_controller = FakeDPController()
             return tp
         
         model = torch.nn.Linear(10, 3)
@@ -603,9 +613,7 @@ class TestTorchnn(unittest.TestCase):
         for (name, layer_fedavg), (name, layer_scaffold) in zip(tp_fedavg._model.state_dict().items(),
                                                                 tp_scaffold._model.state_dict().items()):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
-        # for (name, layer_fedavg), (name, layer_scaffold) in zip(model.state_dict().items(),
-        #                                                         tp_scaffold._model.state_dict().items()):
-        #     self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
+
         correction_state = copy.deepcopy(model)
         
         for p in correction_state.parameters():
@@ -620,6 +628,9 @@ class TestTorchnn(unittest.TestCase):
         #     self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
         
     def test_torch_nn_07_compute_corrected_loss_2(self):
+        """test_torch_nn_07_compute_corrected_loss_2: 
+        Tests consistancy of loss values returned by method
+        """
         tp = TrainingPlan()
         n_layer = 10
         dim = 3
