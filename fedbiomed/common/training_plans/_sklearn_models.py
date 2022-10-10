@@ -70,10 +70,10 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             history_monitor (HistoryMonitor or None): optional HistoryMonitor
               instance, recording the loss value during training.
         """
-        # REVISE: make model verbose when history_monitor is provided?
         # Gather reporting parameters.
-        report = self._model_args["verbose"] and (history_monitor is not None)
-        if report:
+        report = False
+        if (history_monitor is not None) and hasattr(self._model, "verbose"):
+            report = True
             log_interval = self._training_args.get("log_interval", 10)
             loss_name = getattr(self._model, "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
@@ -83,6 +83,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 num_batches=self.training_data_loader.get_num_batches(),
                 total_samples=len(self.training_data_loader)
             )
+            verbose = self._model.get_params("verbose")
+            self._model.set_params(verbose=1)
         # Iterate over epochs.
         for epoch in range(self._training_args.get("epochs", 1)):
             # Iterate over data batches.
@@ -102,6 +104,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                         f"Batch: {idx}/{record_loss.keywords['num_batches']}"
                         f"\tLoss: {loss:.6f}"
                     )
+        # Reset model verbosity to its initial value.
+        if report:
+            self._model.set_params(verbose=verbose)
 
     def _train_over_batch(
             self,
