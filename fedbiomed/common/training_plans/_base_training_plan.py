@@ -383,10 +383,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # Or use the provided `metric` (or its default value).
         else:
             if metric is None:
-                # REVISE: accuracy is not defined for all tasks (no metric is)
-                # should there be a class attribute (or post_init argument) to
-                # define the default metric for a given training plan (class or
-                # instance)?
                 metric = MetricTypes.ACCURACY
             metric_controller = Metrics()
             def evaluate(data, target):
