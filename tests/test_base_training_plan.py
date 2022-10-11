@@ -1,13 +1,15 @@
-from typing import Any, Dict, Optional
 import unittest
+from unittest.mock import patch, MagicMock
+from typing import Any, Dict, Optional
+import logging
 import torch
 import numpy as np
-import fedbiomed.common.training_plans._base_training_plan # noqa
 
-from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+# Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
+import fedbiomed.common.training_plans._base_training_plan  # noqa
 
 
 class SimpleTrainingPlan(BaseTrainingPlan):
@@ -37,10 +39,11 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
     def setUp(self):
         self.tp = SimpleTrainingPlan()
+        logging.disable('CRITICAL')
         pass
 
     def tearDown(self) -> None:
-        pass
+        logging.disable(logging.NOTSET)
 
     def test_base_training_plan_01_add_dependency(self):
         """ Test  adding dependencies """
