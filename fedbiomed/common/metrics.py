@@ -361,13 +361,9 @@ class Metrics(object):
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
 
-        if y_pred.ndim != y_true.ndim:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
-                                       f"the same number of dimensions, instead got y_true.ndim = {y_true.ndim}, "
-                                       f"y_pred.ndim = {y_pred.ndim}")
-
         if y_pred.ndim == 0:
             y_pred = y_pred.reshape((1,))
+        if y_true.ndim == 0:
             y_true = y_true.reshape((1,))
 
         if len(y_pred) != len(y_true):
