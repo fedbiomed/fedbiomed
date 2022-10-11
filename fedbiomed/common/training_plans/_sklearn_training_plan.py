@@ -77,6 +77,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model_args = model_args
         self._model_args.setdefault("verbose", 1)
         self._training_args = training_args
+        # Add dependencies
+        self._configure_dependencies()
         # Override default model parameters based on `self._model_args`.
         params = {
             key: self._model_args.get(key, val)

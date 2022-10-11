@@ -178,14 +178,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._init_params
 
-    def init_dependencies(self) -> List:
-        """Default method where dependencies are returned
-
-        Returns:
-            Empty list as default
-        """
-        return []
-
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
@@ -199,19 +191,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
-
-    def _configure_dependencies(self):
-        """ Configures dependencies """
-        init_dep_spec = get_method_spec(self.init_dependencies)
-        if len(init_dep_spec.keys()) > 0:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
-                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
-
-        dependencies: Union[Tuple, List] = self.init_dependencies()
-        if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
-        self.add_dependency(dependencies)
 
     def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """

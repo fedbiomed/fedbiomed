@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -15,13 +15,14 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanErr
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_class_source
+from fedbiomed.common.utils import get_method_spec
 from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class BaseTrainingPlan(metaclass=ABCMeta):
     """Base class for training plan
 
-    All concrete, framework- and/or model-specific trainning plans should
+    All concrete, framework- and/or model-specific training plans should
     inherit from this class, and implement:
       * the `post_init` method, to process model and training hyper-parameters
       * the `training_routine` method, to train the model for one round
@@ -100,6 +101,27 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
+
+    def init_dependencies(self) -> List:
+        """Default method where dependencies are returned
+
+        Returns:
+            Empty list as default
+        """
+        return []
+
+    def _configure_dependencies(self):
+        """ Configures dependencies """
+        init_dep_spec = get_method_spec(self.init_dependencies)
+        if len(init_dep_spec.keys()) > 0:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
+
+        dependencies: Union[Tuple, List] = self.init_dependencies()
+        if not isinstance(dependencies, (list, tuple)):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
+                                             f"ist or tuple, but got {type(dependencies)}")
+        self.add_dependency(dependencies)
 
     def save_code(self, filepath: str):
         """Saves the class source/codes of the training plan class that is created byuser.
