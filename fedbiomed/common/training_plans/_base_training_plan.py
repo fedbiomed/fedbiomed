@@ -294,7 +294,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if isinstance(metric, np.ndarray):
             metric = list(metric) if metric.shape else float(metric)
         # If `metric` is a single value, return a {name: value} dict.
-        if isinstance(metric, (float, np.integer, np.floating)):
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
             return {metric_name: float(metric)}
         # If `metric` is a collection.
         if isinstance(metric, (dict, list)):
