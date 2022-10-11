@@ -13,6 +13,7 @@ from testsupport.fake_message import FakeMessages
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -363,13 +364,13 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_11_parser_task_create_round(self,
+    def test_node_11_parser_task_train_create_round(self,
                                               node_msg_request_patch,
                                               history_monitor_patch,
                                               round_patch
                                               ):
         """Tests if rounds are created accordingly - running normal case scenario
-        (in `parser_task` method)"""
+        (in `parser_task_train` method)"""
 
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -378,7 +379,7 @@ class TestNode(unittest.TestCase):
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
         # test 1: case where 1 dataset has been found
-        dict_msg_1_dataset = {
+        msg_1_dataset = NodeMessages.request_create({
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan_url': 'https://link.to.somewhere.where.my.model',
@@ -387,10 +388,10 @@ class TestNode(unittest.TestCase):
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
             'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
-        }
+        })
 
         # action
-        self.n1.parser_task(dict_msg_1_dataset)
+        self.n1.parser_task_train(msg_1_dataset)
 
         # checks
         # check that `Round` has been called once
@@ -419,10 +420,11 @@ class TestNode(unittest.TestCase):
             'training_data': {environ['NODE_ID']: ['dataset_id_1234',
                                                    'dataset_id_6789']}
         }
+        msg_2_datasets = NodeMessages.request_create(dict_msg_2_datasets)
 
         # action
 
-        self.n2.parser_task(dict_msg_2_datasets)
+        self.n2.parser_task_train(msg_2_datasets)
 
         # checks
 
@@ -462,13 +464,13 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_12_parser_task_no_dataset_found(self,
+    def test_node_12_parser_task_train_no_dataset_found(self,
                                                   node_msg_request_patch,
                                                   history_monitor_patch,
                                                   node_msg_reply_patch,
                                                   messaging_patch,
                                                   ):
-        """Tests parser_task method, case where no dataset has been found """
+        """Tests parser_task_train method, case where no dataset has been found """
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -476,7 +478,7 @@ class TestNode(unittest.TestCase):
 
         # defining arguments
         resid = 'researcher_id_1234'
-        dict_msg_without_datasets = {
+        msg_without_datasets = NodeMessages.request_create({
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan_url': 'https://link.to.somewhere.where.my.model',
@@ -485,7 +487,7 @@ class TestNode(unittest.TestCase):
             'job_id': 'job_id_1234',
             'researcher_id': resid,
             'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
-        }
+        })
         # create tested object
 
         mock_dataset_manager = MagicMock()
@@ -496,7 +498,7 @@ class TestNode(unittest.TestCase):
 
         # action
 
-        self.n1.parser_task(dict_msg_without_datasets)
+        self.n1.parser_task_train(msg_without_datasets)
 
         # checks
         messaging_patch.assert_called_once_with({
@@ -509,7 +511,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    def test_node_13_parser_task_create_round_deserializer_str_msg(self,
+    def test_node_13_parser_task_train_create_round_deserializer_str_msg(self,
                                                                    history_monitor_patch,
                                                                    round_patch
                                                                    ):
@@ -529,7 +531,7 @@ class TestNode(unittest.TestCase):
             'training': True
         }
         # we convert this dataset into a string
-        incoming_msg = json.dumps(dict_msg_1_dataset)
+        msg1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
 
         # defining patchers
         round_patch.return_value = None
@@ -537,7 +539,7 @@ class TestNode(unittest.TestCase):
         history_monitor_patch.return_value = None
 
         # action
-        self.n1.parser_task(incoming_msg)
+        self.n1.parser_task_train(msg1_dataset)
 
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
@@ -556,7 +558,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    def test_node_14_parser_task_create_round_deserializer_bytes_msg(self,
+    def test_node_14_parser_task_train_create_round_deserializer_bytes_msg(self,
                                                                      history_monitor_patch,
                                                                      round_patch
                                                                      ):
@@ -577,7 +579,7 @@ class TestNode(unittest.TestCase):
         }
 
         #
-        incoming_msg = bytes( json.dumps(dict_msg_1_dataset) , 'utf-8')
+        msg_1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
 
         # defining patchers
         round_patch.return_value = None
@@ -585,7 +587,7 @@ class TestNode(unittest.TestCase):
         history_monitor_patch.return_value = None
 
         # action
-        self.n1.parser_task(incoming_msg)
+        self.n1.parser_task_train(msg_1_dataset)
 
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
@@ -603,7 +605,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_15_parser_task_error_found(self,
+    def test_node_15_parser_task_train_error_found(self,
                                              node_msg_request_patch,
                                              history_monitor_patch,
                                              ):
@@ -629,40 +631,45 @@ class TestNode(unittest.TestCase):
             'researcher_id': resid,
             'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
         }
+        msg_without_training_plan_url = NodeMessages.request_create(dict_msg_without_training_plan_url)
 
         # action
         with self.assertRaises(AssertionError):
             # checks if `AssertionError`` is raised when `training_plan_url`entry is missing
-            self.n1.parser_task(dict_msg_without_training_plan_url)
+            self.n1.parser_task_train(msg_without_training_plan_url)
 
         # test 2: test case where url is not valid
         dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_training_plan_url)
+        msg_with_unvalid_url = NodeMessages.request_create(dict_msg_with_unvalid_url)
+
         dict_msg_without_training_plan_url['training_plan_url'] = 'this is not a valid url'
 
         # action
         with self.assertRaises(AssertionError):
             # checks if `AssertionError` is raised when `training_plan_url` is invalid
-            self.n1.parser_task(dict_msg_with_unvalid_url)
+            self.n1.parser_task_train(msg_with_unvalid_url)
 
         # test 3: test case where training_plan_class is None
         dict_msg_without_training_plan_class = copy.deepcopy(dict_msg_without_training_plan_url)
         dict_msg_without_training_plan_class['training_plan_class'] = None
+        msg_without_training_plan_class = NodeMessages.request_create(dict_msg_without_training_plan_class)
 
         # action
         with self.assertRaises(AssertionError):
             # checks if `AssertionError` is raised when `training_plan_class` entry is not defined
-            self.n1.parser_task(dict_msg_without_training_plan_class)
+            self.n1.parser_task_train(msg_without_training_plan_class)
 
         # test 4: test case where training_plan_class is not of type `str`
         dict_msg_training_plan_class_bad_type = copy.deepcopy(dict_msg_without_training_plan_url)
         # let's test with integer in place of strings
         dict_msg_training_plan_class_bad_type['training_plan_class'] = 1234
+        msg_training_plan_class_bad_type = NodeMessages.request_create(dict_msg_training_plan_class_bad_type)
 
         # action
         with self.assertRaises(AssertionError):
             # checks if `AssertionError` is raised when `training_plan_class` entry is
             # of type string
-            self.n1.parser_task(dict_msg_training_plan_class_bad_type)
+            self.n1.parser_task_train(msg_training_plan_class_bad_type)
 
     def test_node_16_task_manager_normal_case_scenario(self):
         """Tests task_manager in the normal case scenario"""
@@ -690,36 +697,58 @@ class TestNode(unittest.TestCase):
     # `except Exception as e:`). When a more graceful way of exiting infinite loop
     # will be created, those tests should be updated
 
-    @patch('fedbiomed.node.node.Node.parser_task')
+    @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_node_18_task_manager_exception_raised_parser_task(self,
+    def test_node_18_task_manager_exception_raised_parser_task_train(self,
                                                                tasks_queue_get_patch,
-                                                               node_parser_task_patch):
-        """Tests case where `tasks_queue.get` method raises an exception (SystemExit).
+                                                               node_parser_task_train_patch):
+        """Tests case where `Node.parser_task_train` method raises an exception (SystemExit).
         """
         # defining patchers
-        tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task")  # noqa
+        tasks_queue_get_patch.return_value = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "training": True,
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "command": "train",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        node_parser_task_train_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task_train")  # noqa
 
         # action
         with self.assertRaises(SystemExit):
             # checks if `SystemExit` is caught
-            # (should be triggered by `tasks_queue.get` method)
+            # (should be triggered by `Node.parser_task_train` method)
             self.n1.task_manager()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.node.node.Node.parser_task')
+    @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_19_task_manager_exception_raised_send_message(self,
                                                                 tasks_queue_get_patch,
-                                                                node_parser_task_patch,
+                                                                node_parser_task_train_patch,
                                                                 mssging_send_msg_patch):
         """Tests case where `messaging.send_message` method
         raises an exception (SystemExit).
         """
         # defining patchers
-        tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.return_value = None
+        tasks_queue_get_patch.return_value = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "training": True,
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "command": "train",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
         # defining arguments and attributes
         Round = MagicMock()
@@ -734,18 +763,29 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.node.node.Node.parser_task')
+    @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_20_task_manager_exception_raised_task_done(self,
                                                              tasks_queue_get_patch,
-                                                             node_parser_task_patch,
+                                                             node_parser_task_train_patch,
                                                              mssging_send_msg_patch,
                                                              tasks_queue_task_done_patch):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method"""
         # defining patchers
-        tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.return_value = None
+        tasks_queue_get_patch.return_value = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "training": True,
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "command": "train",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.return_value = None
 
         tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
@@ -766,11 +806,11 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.node.node.Node.parser_task')
+    @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_21_task_manager_exception_raised_twice_in_send_msg(self,
                                                                      tasks_queue_get_patch,
-                                                                     node_parser_task_patch,
+                                                                     node_parser_task_train_patch,
                                                                      mssging_send_msg_patch,
                                                                      tasks_queue_task_done_patch,
                                                                      node_msg_reply_create_patch):
@@ -787,8 +827,19 @@ class TestNode(unittest.TestCase):
         # of `task_manager`
 
         # defining patchers
-        tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.return_value = None
+        tasks_queue_get_patch.return_value = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "training": True,
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "command": "train",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        node_parser_task_train_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None
         node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
         mssging_send_msg_patch.side_effect = [Exception('mimicking exceptions'), SystemExit]
