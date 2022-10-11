@@ -488,6 +488,7 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
+                print("LOGGED", logged_num_processed_samples, (i+1)*len(fake_data), dataset_size)
                 self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
