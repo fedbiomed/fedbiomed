@@ -443,12 +443,13 @@ class TestTorchnn(unittest.TestCase):
         """Test logging bug #313
 
         Create a DataLoader within a TrainingPlan with the following characteristics:
-        - batch size = 3
-        - total num samples = 5
-        - therefore, 2 batches will be processed
+        - batch size = 5
+        - total num samples = 15 (5*3 = batch_size * num_batches)
+        - therefore, 3 batches will be processed
 
-        The expected behaviour is that the first iteration should report a progress of 3/5 (60%),
-        while the second iteration should report a progress of 5/5 (100%).
+        The expected behaviour is that the first iteration should report a progress of 5/15 (33%),
+        while the second iteration should report a progress of 10/15 (66%). Last iteration should report
+        15/15 (100%). Only one epoch should be completed.
         """
 
 
@@ -488,8 +489,7 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                print("LOGGED", logged_num_processed_samples, (i+1)*len(fake_data), dataset_size)
-                self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
+                self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
@@ -788,13 +788,19 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
                                              batch_size=1,
                                              dataset=[1,2]
                                             )
+        tp.training_data_loader.__len__.return_value = 2  # otherwise mocked training_data_loader equals 0
+        
+        
+        tp._num_updates = 1
         tp.training_data_loader.dataset = MagicMock(spec=Dataset())
         #tp.training_data_loader.dataset = MagicMock(return_value=[1,2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
-        mock_dataset.__getitem__.return_value = lambda _, idx: next(gen_load_data_as_tuples)
-
-
+        def test(*args):
+            return {'key': torch.Tensor([0])} 
+        tp.training_data_loader.return_value = [{'key': torch.Tensor([0])}]
+        print("HERE")
+        print("TEST MOCK", [(i, u) for i,u in enumerate(tp.training_data_loader())])
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader
