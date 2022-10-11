@@ -517,14 +517,14 @@ class TestTorchnn(unittest.TestCase):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
             num_batches_per_epoch = num_samples // batch_size
+            num_epochs = num_updates // num_batches_per_epoch
             tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)),
                                                 dataset=[1,2],
                                                 batch_size=batch_size)
         
             tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
-            tp.training_data_loader.__len__.return_value = 2
-            print("CHECK", len(tp.training_data_loader.dataset))
+            tp.training_data_loader.__len__.return_value =  num_batches_per_epoch
             tp._num_updates = num_updates
             return tp
 
