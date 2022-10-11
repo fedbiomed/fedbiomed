@@ -980,6 +980,7 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
+    @patch('fedbiomed.researcher.job.Job.update_training_args')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
@@ -995,6 +996,7 @@ class TestExperiment(unittest.TestCase):
                                     mock_job_training_plan_type,
                                     mock_strategy_refine,
                                     mock_fedavg_aggregate,
+                                    mock_job_update_training_args,
                                     mock_experiment_breakpoint):
         """ Testing run_once method of Experiment class """
         training_plan = MagicMock()
@@ -1006,6 +1008,7 @@ class TestExperiment(unittest.TestCase):
         mock_strategy_refine.return_value = ({'param': 1}, [12.2])
         mock_fedavg_aggregate.return_value = None
         mock_job_updates_params.return_value = None
+        mock_job_update_training_args.return_value = {'num_updates': 1}
         mock_experiment_breakpoint.return_value = None
 
         # Test invalid `increase` arguments

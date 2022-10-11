@@ -12,8 +12,9 @@ from torch.autograd import Variable
 from abc import ABC
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from torch.nn import Module
+from torch.optim.lr_scheduler import LambdaLR
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
@@ -517,14 +518,13 @@ class TestTorchnn(unittest.TestCase):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
             num_batches_per_epoch = num_samples // batch_size
-            num_epochs = num_updates // num_batches_per_epoch
             tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)),
                                                 dataset=[1,2],
                                                 batch_size=batch_size)
         
             tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
-            tp.training_data_loader.__len__.return_value =  num_batches_per_epoch
+            tp.training_data_loader.__len__.return_value = num_batches_per_epoch
             tp._num_updates = num_updates
             return tp
 
@@ -664,7 +664,37 @@ class TestTorchnn(unittest.TestCase):
         self.assertEqual(loss, val)
         
         # TODO: test fedprox
-
+        
+    def test_torch_nn_08_get_learning_rate(self):
+        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate 
+        learning rate
+        """
+        # first test wih basic optimizer (eg without learning rate scheduler)
+        tp = TorchTrainingPlan()
+        tp._model = torch.nn.Linear(2, 3)
+        lr = .1
+        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
+        target = torch.Tensor([1, 2, 2])
+        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
+        
+        lr_extracted = tp.get_learning_rate()
+        self.assertListEqual(lr_extracted, [lr])
+        
+        # last test using a pytorch scheduler
+        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
+        # this pytorch scheduler increase earning rate by twice its previous value
+        for e, (x,y) in enumerate(zip(dataset, target)):
+            # training a simple model in pytorch fashion
+            out = tp._model.forward(x)
+            tp._optimizer.zero_grad()
+            loss = torch.mean(out) - y
+            loss.backward()
+    
+            scheduler.step()
+            
+            # checks
+            lr_extracted = tp.get_learning_rate()
+            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
 
 class TestSendToDevice(unittest.TestCase):
 

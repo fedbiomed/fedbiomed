@@ -317,20 +317,6 @@ class Job:
             return
         params = self.model_instance.load(params_path, to_params=True)
         return params
-
-    def init_first_correction_states(self) -> dict:
-        """ Initializes the client correction states for all clients to 0 at the 1st round.
-
-        Returns:
-            A dictionary containing the client correction states initialized to 0.
-            Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the correction state.
-        """
-        server_state = self._training_plan.model().state_dict()
-        
-        print("MODEL", server_state)
-        correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
-        client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
-        return client_correction_states_dict
     
     def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
         
@@ -340,6 +326,8 @@ class Job:
                 node_present: List[str] = fds.node_ids()
             else:
                 node_present: List[str] = nodes
+            if not node_present:
+                raise FedbiomedError("No node have answered")
             max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
             batch_size = self._training_args['batch_size']
             num_updates = max_n_samples // batch_size 
