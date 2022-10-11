@@ -1,5 +1,4 @@
-import os
-import sys
+from typing import Any, Dict, Optional
 import unittest
 import torch
 import numpy as np
@@ -11,11 +10,33 @@ from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 
 
+class SimpleTrainingPlan(BaseTrainingPlan):
+    def training_routine(
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None,
+            node_args: Optional[Dict[str, Any]] = None
+    ) -> None:
+        pass
+
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any]
+    ) -> None:
+        pass
+
+    def predict(
+            self,
+            data: Any,
+    ) -> np.ndarray:
+        pass
+
+
 class TestBaseTrainingPlan(unittest.TestCase):
     """ Test Class for Base Training Plan """
 
     def setUp(self):
-        self.tp = BaseTrainingPlan()
+        self.tp = SimpleTrainingPlan()
         pass
 
     def tearDown(self) -> None:
