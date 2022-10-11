@@ -447,15 +447,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
             # the last epoch will have 0 iterations.
             num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
-            num_epochs = self._num_updates // num_batches_per_epoch + 1
+            num_epochs = self._num_updates // num_batches_per_epoch #+ 1
+            if self._num_updates % num_batches_per_epoch:
+                # increment self._num_updates // num_batches_per_epoch
+                num_epochs += 1
             num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
         else:
             num_epochs = self._epochs
+            num_batches_in_last_epoch = None
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
-
-        
         for epoch in range(1, num_epochs + 1):
             
             # (below) sampling data (with `training_data` method defined on
@@ -463,8 +465,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # training_data = self.training_data(batch_size=batch_size)
             num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
+               
                 # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch:
+                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch and epoch == num_epochs:
                     break
 
                 # Plus one since batch_idx starts from 0
@@ -483,6 +486,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
+
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
