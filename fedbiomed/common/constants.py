@@ -121,11 +121,13 @@ class DataLoadingBlockTypes(_BaseEnum):
 
 
 class DatasetTypes(_BaseEnum):
+    """Types of Datasets implemented in Fed-BioMed"""
     TABULAR: str = 'csv'
     IMAGES: str = 'images'
     DEFAULT: str = 'default'
     MEDNIST: str = 'mednist'
     MEDICAL_FOLDER: str = 'medical-folder'
+    FLAMBY: str = 'flamby'
     TEST: str = 'test'
     NONE: str = 'none'
 
@@ -164,9 +166,10 @@ class ErrorNumbers(_BaseEnum):
     FB312: str = "FB312: Node stopped in SIGTERM signal handler"
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
-    FB315: str = "FB315: Error while loading the data"
+    FB315: str = "FB315: Error while loading the data "
     FB316: str = "FB316: Data loading plan error"
     FB317: str = "FB317: bad model type"
+    FB318: str = "FB318: FLamby package import error"
 
     # application error on researcher
 
@@ -209,6 +212,8 @@ class ErrorNumbers(_BaseEnum):
     FB614: str = "FB614: data loading block error"
     FB615: str = "FB615: data loading plan error"
     FB616: str = "FB616: differential privacy controller error"
+    FB617: str = "FB617: FLamby dataset error"
+    FB618: str = "FB618: FLamby data transformation error"
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
