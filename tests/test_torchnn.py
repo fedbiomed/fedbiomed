@@ -783,10 +783,11 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        mock_dataset = MagicMock(spec=Dataset())
+        mock_dataset = MagicMock(spec=Dataset)
+        print("LEN TEST",)
         tp.training_data_loader = MagicMock( spec=DataLoader(mock_dataset), 
                                              batch_size=1,
-                                             dataset=[1,2]
+                                             #dataset=[1,2]
                                             )
         tp.training_data_loader.__len__.return_value = 2  # otherwise mocked training_data_loader equals 0
         
@@ -798,9 +799,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
         def test(*args):
             return {'key': torch.Tensor([0])} 
-        tp.training_data_loader.return_value = [{'key': torch.Tensor([0])}]
-        print("HERE")
-        print("TEST MOCK", [(i, u) for i,u in enumerate(tp.training_data_loader())])
+        tp.training_data_loader.__iter__.return_value = [({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})]
+        print("HERE", tp.training_data_loader.dataset)
+        print("TEST MOCK", [(i, u) for i,u in enumerate(tp.training_data_loader)])
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader
