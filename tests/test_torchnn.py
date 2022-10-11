@@ -508,7 +508,7 @@ class TestTorchnn(unittest.TestCase):
         tp._batch_maxnum = 0
         tp._optimizer = MagicMock()
         tp._optimizer.step = MagicMock()
-        tp.training_step = MagicMock(return_value=MagicMock())
+        tp.training_step = MagicMock(return_value=Variable(torch.Tensor([0]), requires_grad=True))
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
         tp._dp_controller = FakeDPController()
@@ -517,8 +517,14 @@ class TestTorchnn(unittest.TestCase):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
             num_batches_per_epoch = num_samples // batch_size
-            tp.training_data_loader = list(itertools.repeat(
+            tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)),
+                                                dataset=[1,2],
+                                                batch_size=batch_size)
+        
+            tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
+            tp.training_data_loader.__len__.return_value = 2
+            print("CHECK", len(tp.training_data_loader.dataset))
             tp._num_updates = num_updates
             return tp
 
@@ -582,7 +588,8 @@ class TestTorchnn(unittest.TestCase):
             tp.aggregator_name = aggregator_name
             # mocked_loss_result = MagicMock()
             # mocked_loss_result.item.return_value = loss_value
-            tp.training_step = lambda x, y: Variable(loss_value + torch.sum(torch.Tensor([torch.dot(y_i, torch.zeros(y_i.shape)) for y_i in y])), requires_grad=True)
+            tp.training_step = lambda x, y: Variable(loss_value + torch.sum(torch.Tensor([torch.dot(y_i, torch.zeros(y_i.shape)) for y_i in y])),
+                                                     requires_grad=True)
             #tp.init_model = lambda x: 
             custom_dataset = self.CustomDataset()
             x_train = torch.Tensor(custom_dataset.X_train)
