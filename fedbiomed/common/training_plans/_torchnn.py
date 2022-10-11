@@ -14,7 +14,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.node.history_monitor import HistoryMonitor
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -420,7 +419,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self,
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
-            history_monitor: Optional[HistoryMonitor],
+            history_monitor: Optional['HistoryMonitor'],
             before_train: bool
         ) -> None:
         """Evaluation routine, to be called once per round.

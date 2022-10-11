@@ -16,7 +16,6 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import SKLearnTrainingPlan
-from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 __all__ = [
@@ -62,7 +61,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
     def _training_routine(
             self,
-            history_monitor: Optional[HistoryMonitor] = None
+            history_monitor: Optional['HistoryMonitor'] = None
         ) -> None:
         """Backend training routine for scikit-learn models with `partial_fit`.
 

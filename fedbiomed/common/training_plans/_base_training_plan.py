@@ -16,7 +16,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class BaseTrainingPlan(metaclass=ABCMeta):
@@ -348,7 +347,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def training_routine(
             self,
-            history_monitor: Optional[HistoryMonitor] = None,
+            history_monitor: Optional['HistoryMonitor'] = None,
             node_args: Optional[Dict[str, Any]] = None
         ) -> None:
         """Training routine, to be called once per round.
@@ -366,7 +365,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             self,
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
-            history_monitor: Optional[HistoryMonitor],
+            history_monitor: Optional['HistoryMonitor'],
             before_train: bool
         ) -> None:
         """Evaluation routine, to be called once per round.
