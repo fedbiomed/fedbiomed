@@ -305,7 +305,7 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def split(self, test_ratio: float) -> Tuple[Optional[NPDataLoader], Optional[NPDataLoader]]:
+    def split(self, test_ratio: float) -> Tuple[NPDataLoader, NPDataLoader]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:

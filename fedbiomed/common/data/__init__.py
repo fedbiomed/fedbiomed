@@ -34,7 +34,6 @@ __all__ = [
     "DataLoadingPlan",
     "DataLoadingPlanMixin",
     "SerializationValidation",
-    "NPDataLoader"
     "FlambyDatasetMetadataBlock",
     "FlambyLoadingBlockTypes",
     "FlambyDataset",
