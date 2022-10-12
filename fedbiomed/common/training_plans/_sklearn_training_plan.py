@@ -109,7 +109,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
                 "NPDataLoader instances as training and testing data "
                 f"loaders, but received {type(train_data_loader)} "
-                f"and {type(train_data_loader)} respectively."
+                f"and {type(test_data_loader)} respectively."
             )
             logger.error(msg)
             raise FedbiomedTrainingPlanError(msg)
