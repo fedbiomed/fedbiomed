@@ -80,7 +80,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 history_monitor.add_scalar,
                 train=True,
                 num_batches=len(self.training_data_loader),
-                total_samples=len(self.training_data_loader)
+                total_samples=len(self.training_data_loader.dataset)
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
