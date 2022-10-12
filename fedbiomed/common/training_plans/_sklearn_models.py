@@ -268,11 +268,11 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         losses = np.array(values).mean(axis=0)
         # Compute the support-weighted average of label-wise losses.
         # FIXME: this assumes target values are integers in range(n_classes).
-        support = np.bincount(target)
-        missing = len(self._model_args["n_classes"]) - len(support)
-        if missing:
-            support = np.pad(support, [[0, missing]], mode='constant')
-        return float(np.average(losses, support))
+        support = np.bincount(target.reshape(target.shape[0],))  # bincount expects a 1D array
+        num_missing = self._model_args["n_classes"] - len(support)
+        if num_missing:
+            support = np.pad(support, [[0, num_missing]], mode='constant')
+        return float(np.average(losses, weights=support))
 
 
 class FedPerceptron(FedSGDClassifier):
