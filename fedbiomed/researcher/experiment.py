@@ -1554,7 +1554,6 @@ class Experiment(object):
                                                        training_replies=self._job.training_replies,
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
-                                                       
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
@@ -1991,6 +1990,7 @@ class Experiment(object):
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
+            aggregated_params_init (dict): ???
             breakpoint_path: path to the directory where breakpoints files and links will be saved
 
         Returns:
@@ -2033,7 +2033,7 @@ class Experiment(object):
 
         Aggregated parameters structure from a breakpoint. It is identical to a classical `_aggregated_params`.
 
-        Args
+        Args:
             aggregated_params: JSON formatted aggregated_params extract from a breakpoint
             func_load_params: function for loading parameters from file to aggregated params data structure
 

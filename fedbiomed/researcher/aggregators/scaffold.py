@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 import copy
-from typing import Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Union
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
@@ -34,7 +34,7 @@ class Scaffold(Aggregator):
      parameters obtained for each client
     """
 
-    def __init__(self, server_lr: float, fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = .01, fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
         
@@ -52,7 +52,7 @@ class Scaffold(Aggregator):
         Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
 
         Args:
-            server_lr (float): server's (or Researcher's) learning rate
+            server_lr (float): server's (or Researcher's) learning rate. Defaults to .01.
             fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
             
         """
@@ -66,6 +66,9 @@ class Scaffold(Aggregator):
         self.nodes_lr: Dict[str, List[float]] = {}
         if fds is not None:
             self.set_fds(fds)
+        if self._aggregator_params is None:
+            self._aggregator_params = {}
+        #self.update_aggregator_params()
 
     def aggregate(self, model_params: list,
                   weights: List[Dict[str, float]],
@@ -87,9 +90,20 @@ class Scaffold(Aggregator):
         c <- c + 1/N * avg_S(c_i(+) - c_i)
         
         x <- x + eta_g/S * avg_S(y_i - x)
+        
+        where, accroding to paper notations
+            c_i: correction state for node `i`;
+            c: correction state at the beginning of round
+            eta_g: server's learning rate
+            eta_l: nodes learning rate (may be different from one node to another)
+            N: total number of node participating to federated learning
+            S: number of nodes considered during current round (S<=N)
+            K: number of updates done during the round (ie number of data batches).
+            x: global model parameters
+            y_i: node i 's local model parameters  
 
         Args:
-            model_params (list): _description_
+            model_params (list): list of models parameters recieved from nodes
             weights (list): _description_
             global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): _description_
             training_plan (BaseTrainingPlan): _description_
@@ -119,10 +133,12 @@ class Scaffold(Aggregator):
             self.init_correction_states(global_model, node_ids)
 
         self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
+        
+        self.update_aggregator_params(global_model)  # update aggregator_params (for breakpoints)
         return aggregated_parameters
 
     def create_aggregator_args(self, global_model: Mapping[str, Union[torch.tensor, np.ndarray]], node_ids: Iterator[str]) -> Dict:
-        """Sends additional arguments for aggregator. For scaffold, it is mainly correction
+        """Sends additional arguments for aggregator. For scaffold, it is mainly correction states
 
         Args:
             global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): _description_
@@ -136,7 +152,9 @@ class Scaffold(Aggregator):
         aggregator_args = {}
         for node_id in node_ids:
             # serializing correction parameters
-            
+            # logger.critical("CORRECTION", self.nodes_correction_states)
+            import remote_pdb; remote_pdb.set_trace()
+            # print(self.nodes_correction_states)
             serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
             aggregator_args.update({node_id: {'aggregator_name': self.aggregator_name,
                                               'aggregator_correction': serialized_aggregator_correction}})
@@ -206,7 +224,7 @@ class Scaffold(Aggregator):
                 model_params: List[Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]],
                 global_model: Mapping[str, Union[torch.tensor, np.ndarray]]) -> List[Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]]:
         """
-        Computes `x (1 - eta_g) + eta_g * y_i`
+        Computes quantity `x (1 - eta_g) + eta_g * y_i`
         Proof: 
             x <- x + eta_g * grad(x)
             x <- x + eta_g / S * sum_i(y_i - x)
@@ -277,9 +295,7 @@ class Scaffold(Aggregator):
                 _tmp_correction_update[idx][layer_name] = (global_model[layer_name] - node_layer) / (self.server_lr * lrs[idx_layer] * n_updates)
                 # FIXME: check why we need server learning_rate in above formulae
                 _tmp_correction_update[idx][layer_name] = _tmp_correction_update[idx][layer_name] - self.nodes_correction_states[node_id][layer_name]
-                #_tmp_correction_update[idx][layer_name] /= total_nb_nodes
 
-        print("AGG", _tmp_correction_update)
         _aggregated_tmp_correction_update = weitghted_sum(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`
@@ -287,6 +303,7 @@ class Scaffold(Aggregator):
             for layer_name, node_layer in updated_model_params.items(): 
 
                 self.nodes_correction_states[node_id][layer_name] += _aggregated_tmp_correction_update[layer_name]
+
 
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
         """
@@ -306,4 +323,28 @@ class Scaffold(Aggregator):
         if training_plan_type == TrainingPlans.SkLearnTrainingPlan:
             raise FedbiomedAggregatorError("Aggregator SCAFFOLD not implemented for SKlearn")
         training_plan_type = super().set_training_plan_type(training_plan_type)
+        
+        # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
+
+    def update_aggregator_params(self,
+                                 global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
+                                 ):
+        json_parsable_aggregator_args = self.create_aggregator_args(global_model, self._fds.node_ids())
+        self._aggregator_params.update({'name': self.aggregator_name,
+                                        'server_lr': self.server_lr,
+                                        'aggregator_args': json_parsable_aggregator_args})
+    
+    def save_state(self) -> Dict[str, Any]:
+        #self.update_aggregator_params()
+        return super().save_state()       
+        
+    def load_state(self, state: Dict[str, Any] = None):
+        super().load_state(state)
+        self.server_lr = self._aggregator_params['server_lr']
+        
+        self.nodes_correction_states = {}
+        for node_id in self._aggregator_params['aggregator_args'].keys():
+            self.nodes_correction_states[node_id] = self._aggregator_params['aggregator_args'][node_id]['aggregator_correction']
+            #self.nodes_correction_states[node_id].pop('aggregator_name')
+            
