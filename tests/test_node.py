@@ -236,7 +236,7 @@ class TestNode(unittest.TestCase):
         self.n1.on_message(model_status_msg)
 
         # checks
-        self.model_manager_mock.reply_model_status_request.assert_called_once_with(model_status_msg,
+        self.model_manager_mock.reply_training_plan_status_request.assert_called_once_with(model_status_msg,
                                                                                    self.n1.messaging)
 
     @patch('fedbiomed.node.node.Node.send_error')

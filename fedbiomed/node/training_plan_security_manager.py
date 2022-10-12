@@ -182,11 +182,11 @@ class TrainingPlanSecurityManager:
         if hash is not None or algorithm is not None:
             try:
                 if algorithm is None:
-                    training_plans_hash_get = self._db.get(self._database.hash == hash)
-                elif hash is None:
+                    training_plans_hash_get = self._db.get(self._database.hash == hash_)
+                elif hash_ is None:
                     training_plans_hash_get = self._db.get(self._database.algorithm == algorithm)
                 else:
-                    training_plans_hash_get = self._db.get((self._database.hash == hash) &
+                    training_plans_hash_get = self._db.get((self._database.hash == hash_) &
                                                            (self._database.algorithm == algorithm))
             except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
@@ -567,67 +567,69 @@ class TrainingPlanSecurityManager:
 
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download training plan from server due to error: {fed_err}")
+            downloadable_checkable = False
         except FedbiomedTrainingPlanSecurityManagerError as fed_err:
+            downloadable_checkable = False
             logger.error(
                 f"Can not check whether training plan has already be registered or not due to error: {fed_err}")
-        else:
-            if not is_existant and downloadable_checkable:
-                # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLAN_DIR)
-                try:
-                    logger.debug("Storing TrainingPlan into requested training plan directory")
-                    training_plan_path = os.path.join(environ['TRAINING_PLAN_DIR'], training_plan_name + '.py')
-                    shutil.move(tmp_file, training_plan_path)
 
-                    # Training plan file creation date
-                    ctime = datetime.fromtimestamp(os.path.getctime(training_plan_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
-                except (PermissionError, FileNotFoundError, OSError) as err:
-                    reply['success'] = False
-                    logger.error(f"Cannot save training plan '{msg['description']} 'into directory due to error : {err}")
-                else:
-                    try:
-                        training_plan_hash, hash_algo = self._create_hash(training_plan_to_check)
-                        training_plan_object = dict(name=training_plan_name,
-                                                    description=msg['description'],
-                                                    hash=training_plan_hash,
-                                                    training_plan_path=training_plan_path,
-                                                    training_plan_id=training_plan_name,
-                                                    training_plan_type=TrainingPlanStatus.REQUESTED.value,
-                                                    training_plan_status=TrainingPlanApprovalStatus.PENDING.value,
-                                                    algorithm=hash_algo,
-                                                    date_created=ctime,
-                                                    date_modified=ctime,
-                                                    date_registered=ctime,
-                                                    date_last_action=None,
-                                                    researcher_id=msg['researcher_id'],
-                                                    notes=None
-                                                    )
+        if not is_existant and downloadable_checkable:
+            # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLAN_DIR)
+            try:
+                logger.debug("Storing TrainingPlan into requested training plan directory")
+                training_plan_path = os.path.join(environ['TRAINING_PLAN_DIR'], training_plan_name + '.py')
+                shutil.move(tmp_file, training_plan_path)
 
-                        self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
-                        # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
-                        # if same training plan is sent twice to Node for approval
-                    except Exception as err:
-                        reply['success'] = False
-                        logger.error(f"Cannot add training plan '{msg['description']} 'into database due to error : {err}")
-                    else:
-                        reply['success'] = True
-                        logger.debug(f"Training plan '{msg['description']}' successfully received by Node for approval")
-
-            elif is_existant and downloadable_checkable:
-                if self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.PENDING)[0]:
-                    logger.info(f"Training plan '{msg['description']}' already sent for Approval (status Pending). "
-                                "Please wait for Node approval.")
-                elif self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.APPROVED)[0]:
-                    logger.info(
-                        f"Training plan '{msg['description']}' is already Approved. Ready to train on this training plan.")
-                else:
-                    logger.warning(f"Training plan '{msg['description']}' already exists in database. Aborting")
-                reply['success'] = True
-            else:
-                # case where training plan is non-downloadable or non-checkable
+                # Training plan file creation date
+                ctime = datetime.fromtimestamp(os.path.getctime(training_plan_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
+            except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
+                logger.error(f"Cannot save training plan '{msg['description']} 'into directory due to error : {err}")
+            else:
+                try:
+                    training_plan_hash, hash_algo = self._create_hash(training_plan_to_check)
+                    training_plan_object = dict(name=training_plan_name,
+                                                description=msg['description'],
+                                                hash=training_plan_hash,
+                                                training_plan_path=training_plan_path,
+                                                training_plan_id=training_plan_name,
+                                                training_plan_type=TrainingPlanStatus.REQUESTED.value,
+                                                training_plan_status=TrainingPlanApprovalStatus.PENDING.value,
+                                                algorithm=hash_algo,
+                                                date_created=ctime,
+                                                date_modified=ctime,
+                                                date_registered=ctime,
+                                                date_last_action=None,
+                                                researcher_id=msg['researcher_id'],
+                                                notes=None
+                                                )
 
-            # Send training plan approval acknowledge answer to researcher
-            messaging.send_message(NodeMessages.reply_create(reply).get_dict())
+                    self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
+                    # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
+                    # if same training plan is sent twice to Node for approval
+                except Exception as err:
+                    reply['success'] = False
+                    logger.error(f"Cannot add training plan '{msg['description']} 'into database due to error : {err}")
+                else:
+                    reply['success'] = True
+                    logger.debug(f"Training plan '{msg['description']}' successfully received by Node for approval")
+
+        elif is_existant and downloadable_checkable:
+            if self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.PENDING)[0]:
+                logger.info(f"Training plan '{msg['description']}' already sent for Approval (status Pending). "
+                            "Please wait for Node approval.")
+            elif self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.APPROVED)[0]:
+                logger.info(
+                    f"Training plan '{msg['description']}' is already Approved. Ready to train on this training plan.")
+            else:
+                logger.warning(f"Training plan '{msg['description']}' already exists in database. Aborting")
+            reply['success'] = True
+        else:
+            # case where training plan is non-downloadable or non-checkable
+            reply['success'] = False
+
+        # Send training plan approval acknowledge answer to researcher
+        messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
     def reply_training_plan_status_request(self, msg: dict, messaging: Messaging):
         """Returns requested training plan file status {approved, rejected, pending}
@@ -689,7 +691,7 @@ class TrainingPlanSecurityManager:
                              'success': True,
                              'approval_obligation': False,
                              'status': training_plan_status,
-                             'msg': 'This node does not require training plan approval (maybe for debuging purposes).'}
+                             'msg': 'This node does not require training plan approval (maybe for debugging purposes).'}
         except FedbiomedTrainingPlanSecurityManagerError as fed_err:
             reply = {**header,
                      'success': False,

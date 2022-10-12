@@ -550,7 +550,7 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
+                                "test-training-plan",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
                                                      "test-model-1",
@@ -566,7 +566,7 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
+                                "test-training-plan",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
                                                      "test-model-1",
@@ -591,7 +591,7 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
+                                "test-training-plan",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
                                                      "test-model-1",
@@ -614,7 +614,7 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
+                                "test-training-plan",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
                                                      "test-model-1",
@@ -639,7 +639,7 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
+                                "test-training-plan",
                                 "test-model-1.txt")
         result = self.requests.training_plan_approve(filename,
                                                      "test-model-1",

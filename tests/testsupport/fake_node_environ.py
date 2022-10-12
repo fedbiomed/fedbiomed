@@ -41,7 +41,7 @@ class EnvironNode:
         self._values['VAR_DIR'] = f"/tmp/{node}/var"
         self._values['CACHE_DIR'] = f"/tmp/{node}/var/cache"
         self._values['TMP_DIR'] = f"/tmp/{node}/var/tmp"
-        self._values['MQTT_BROK'] = "localhost"
+        self._values['MQTT_BROKER'] = "localhost"
         self._values['MQTT_BROKER_PORT'] = 1883
         self._values['UPLOADS_URL'] = "http://localhost:8888/upload/"
         self._values['TIMEOUT'] = 10
