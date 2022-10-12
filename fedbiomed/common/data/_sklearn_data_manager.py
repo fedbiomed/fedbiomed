@@ -35,7 +35,7 @@ class NPDataLoader:
 
     def __init__(self,
                  dataset: np.ndarray,
-                 target: Optional[np.ndarray] = None,
+                 target: np.ndarray,
                  batch_size: int = 1,
                  shuffle: bool = False,
                  random_seed: Optional[int] = None,
@@ -44,7 +44,7 @@ class NPDataLoader:
 
         Args:
             dataset: (np.ndarray) 2D Numpy array
-            target: (Optional[np.ndarray]) Numpy array of target values
+            target: (np.ndarray) Numpy array of target values
             batch_size: (int) batch size for each iteration
             shuffle: (bool) shuffle before iteration
             random_seed: (int or None) an optional integer to set the numpy random seed for shuffling. If it equals
@@ -52,34 +52,35 @@ class NPDataLoader:
             drop_last: (bool) whether to drop the last batch in case it does not fill the whole batch size
         """
 
-        if not isinstance(dataset, np.ndarray):
-            msg = f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` in NPDataLoader. Expected type " \
-                  f"np.ndarray, instead got {type(dataset)}"
+        if not isinstance(dataset, np.ndarray) or not isinstance(target, np.ndarray):
+            msg = f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` or `target` in NPDataLoader. " \
+                  f"Expected type np.ndarray for both, instead got {type(dataset)} and" \
+                  f"{type(target)} respectively."
             logger.error(msg)
             raise FedbiomedTypeError(msg)
 
-        if dataset.ndim != 2:
-            msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` in NPDataLoader. Expected 2-dimensional " \
-                  f"array, instead got a {dataset.ndim}-dimensional array."
+        # If the researcher gave a 1-dimensional dataset, we expand it to 2 dimensions
+        if dataset.ndim == 1:
+            logger.warning(f"NPDataLoader expanding 1-dimensional dataset to become 2-dimensional.")
+            dataset = dataset[:, np.newaxis]
+
+        # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
+        if target.ndim == 1:
+            logger.warning(f"NPDataLoader expanding 1-dimensional target to become 2-dimensional.")
+            target = target[:, np.newaxis]
+
+        if dataset.ndim != 2 or target.ndim != 2:
+            msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` or `target` in NPDataLoader. " \
+                  f"Expected 2-dimensional arrays, instead got {dataset.ndim}-dimensional " \
+                  f"and {target.ndim}-dimensional arrays respectively."
             logger.error(msg)
             raise FedbiomedValueError(msg)
 
-        if target is not None:
-            if not isinstance(target, np.ndarray):
-                msg = f"{ErrorNumbers.FB609.value}. Wrong type for `target` in NPDataLoader. Expected type " \
-                      f"np.ndarray, instead got {type(target)}"
-                logger.error(msg)
-                raise FedbiomedTypeError(msg)
-            if len(dataset) != len(target):
-                msg = f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` in NPDataLoader. " \
-                      f"Expected same length, instead got len(dataset)={len(dataset)}, len(target)={len(target)}"
-                logger.error(msg)
-                raise FedbiomedValueError(msg)
-
-            # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
-            if target.ndim == 1:
-                logger.warning(f"NPDataLoader :: Expanding 1-dimensional target to become 2-dimensional.")
-                target = target[:, np.newaxis]
+        if len(dataset) != len(target):
+            msg = f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` in NPDataLoader. " \
+                  f"Expected same length, instead got len(dataset)={len(dataset)}, len(target)={len(target)}"
+            logger.error(msg)
+            raise FedbiomedValueError(msg)
 
         if not isinstance(batch_size, int) or batch_size <= 0:
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `batch_size` parameter of NPDataLoader. Expected a " \
