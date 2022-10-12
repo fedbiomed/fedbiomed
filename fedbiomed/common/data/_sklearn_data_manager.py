@@ -363,10 +363,6 @@ class SkLearnDataManager(object):
             raise FedbiomedTypeError(f'{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple of size 2 '
                                      f'that contains inputs/data and target as np.ndarray.')
 
-        # Empty validation set
-        if len(subset[0]) == 0 or len(subset[1]) == 0:
-            return None
-
         try:
             loader = NPDataLoader(dataset=subset[0], target=subset[1], **loader_arguments)
         except TypeError:
