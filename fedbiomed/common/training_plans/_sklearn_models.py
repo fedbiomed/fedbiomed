@@ -175,7 +175,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             target (np.ndarray): Batched target labels.
         """
         values = [self._parse_sample_losses(sample) for sample in stdout]
-        losses = np.ndarray(values)
+        losses = np.array(values)
         return float(np.mean(losses))
 
     @staticmethod
