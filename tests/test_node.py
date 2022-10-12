@@ -19,7 +19,6 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.dataset_manager import DatasetManager
 
 
-
 class TestNode(unittest.TestCase):
 
     @classmethod
@@ -54,12 +53,12 @@ class TestNode(unittest.TestCase):
                             'name': 'test_dataset1'
                             }
 
-
         # patchers
         self.task_queue_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
                                       autospec=True,
                                       return_value=None)
         self.task_patcher = self.task_queue_patch.start()
+
         self.messaging_patch = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__',
                                      autospec=True,
                                      return_value=None)
@@ -70,7 +69,7 @@ class TestNode(unittest.TestCase):
         mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
         mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
         mock_model_manager = MagicMock()
-        mock_dataset_manager.reply_model_status_request = MagicMock(return_value=None)
+        mock_dataset_manager.reply_training_plan_status_request = MagicMock(return_value=None)
         mock_dataset_manager.get_by_id = MagicMock(return_value=self.database_id)
 
         self.model_manager_mock = mock_model_manager
