@@ -265,7 +265,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.
         values = [self._parse_sample_losses(sample) for sample in stdout]
-        losses = np.ndarray(values).mean(axis=0)
+        losses = np.array(values).mean(axis=0)
         # Compute the support-weighted average of label-wise losses.
         # FIXME: this assumes target values are integers in range(n_classes).
         support = np.bincount(target)
