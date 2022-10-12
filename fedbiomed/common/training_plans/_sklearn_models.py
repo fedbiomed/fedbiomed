@@ -137,12 +137,13 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             with capture_stdout() as console:
                 self._model.partial_fit(inputs[idx:idx+1], target[idx])
             stdout.append(console)
+            # Accumulate updated weights (weights + sum of gradients).
             # Reset the model's weights and iteration counter.
             for key in self._param_list:
                 grads[key] += getattr(self._model, key)
                 setattr(self._model, key, param[key])
-                self._model.n_iter_ -= 1
-        # Compute the batch-averaged gradients and apply them.
+            self._model.n_iter_ -= 1
+        # Compute the batch-averaged updated weights and apply them.
         # Update the `param` values, and reset gradients to zero.
         for key in self._param_list:
             setattr(self._model, key, grads[key] / b_len)
