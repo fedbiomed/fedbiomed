@@ -103,6 +103,10 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                         f"Batch: {idx}/{record_loss.keywords['num_batches']}"
                         f"\tLoss: {loss:.6f}"
                     )
+
+                if 0 < self._batch_maxnum <= idx:
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
+                    break
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)

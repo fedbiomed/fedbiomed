@@ -52,6 +52,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._is_classification = False
+        self._batch_maxnum = 0
         self.dataset_path = None
         self.add_dependency([
             "import inspect",
@@ -76,6 +77,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model_args = model_args
         self._model_args.setdefault("verbose", 1)
         self._training_args = training_args
+        self._batch_maxnum = training_args.get('batch_maxnum', self._batch_maxnum)
         # Add dependencies
         self._configure_dependencies()
         # Override default model parameters based on `self._model_args`.
