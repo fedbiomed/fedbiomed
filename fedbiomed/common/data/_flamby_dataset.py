@@ -47,7 +47,7 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
             "flamby_dataset_name": None,
             "flamby_center_id": None
         }
-        self._serialization_validator.validation_scheme.update(
+        self._serialization_validator.update_validation_scheme(
             FlambyDatasetMetadataBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
