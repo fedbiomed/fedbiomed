@@ -34,10 +34,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
       based on `self.train_data_loader` (which is a `NPDataLoader`).
 
     Attributes:
-        params: parameters of the model, both learnable and non-learnable
-        model_args: model arguments provided by researcher
-        param_list: names of the parameters that will be used for aggregation
-        dataset_path: the path to the dataset on the node
+        dataset_path: The path that indicates where dataset has been stored
+        pre_processes: Preprocess functions that will be applied to the
+            training data at the beginning of the training routine.
+        training_data_loader: Data loader used in the training routine.
+        testing_data_loader: Data loader used in the validation routine.
     """
 
     _model_cls: Type[BaseEstimator]        # wrapped model class
@@ -53,7 +54,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._is_classification = False
         self._batch_maxnum = 0
-        self.dataset_path = None
+        self.dataset_path: Optional[str] = None
         self.add_dependency([
             "import inspect",
             "import numpy as np",
@@ -150,9 +151,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Training routine, to be called once per round.
 
         Args:
-            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+            history_monitor: optional HistoryMonitor
                 instance, recording training metadata.
-            node_args (dict, None): Command line arguments for node.
+            node_args: Command line arguments for node.
                 These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
         """
@@ -197,7 +198,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Model-specific training routine backend.
 
         Args:
-            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+            history_monitor: optional HistoryMonitor
                 instance, recording the loss value during training.
 
         This method needs to be implemented by SKLearnTrainingPlan
@@ -221,12 +222,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             then it will be used rather than the input metric.
 
         Args:
-            metric (MetricType, None): The metric used for validation.
+            metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
-            history_monitor (HistoryMonitor): HistoryMonitor instance,
+            history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
-            before_train (bool): Whether the evaluation is being performed
+            before_train: Whether the evaluation is being performed
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
@@ -271,8 +272,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 input features.
 
         Returns:
-            np.ndarray: Output predictions, converted to a numpy array
-                (as per the `fedbiomed.common.metrics.Metrics` specs).
+            Output predictions, converted to a numpy array (as per the
+                `fedbiomed.common.metrics.Metrics` specs).
         """
         return self._model.predict(data)
 
@@ -280,9 +281,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Return unique target labels from the training and testing datasets.
 
         Returns:
-            np.ndarray: numpy array containing the unique values from the
-                targets wrapped in the training and testing NPDataLoader
-                instances.
+            Numpy array containing the unique values from the targets wrapped
+            in the training and testing NPDataLoader instances.
         """
         target = np.array([])
         for loader in (self.training_data_loader, self.testing_data_loader):
@@ -303,8 +303,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         lead to arbitrary code execution; hence use with care.
 
         Args:
-            filename (str): Path to the output file.
-            params (dict, None): Model parameters to enforce and save.
+            filename: Path to the output file.
+            params: Model parameters to enforce and save.
                 This may either be a {name: array} parameters dict, or a
                 nested dict that stores such a parameters dict under the
                 'model_params' key (in the context of the Round class).
@@ -341,8 +341,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         wrapping its trainable parameters.
 
         Args:
-            filename (str): The path to the pickle file to load.
-            to_params (bool): Whether to return the model's parameters
+            filename: The path to the pickle file to load.
+            to_params: Whether to return the model's parameters
                 wrapped as a dict rather than the model instance.
 
         Notes:
@@ -351,7 +351,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             * From Job it is called with to return its parameters dict.
 
         Returns:
-            dictionary with the loaded parameters
+            Dictionary with the loaded parameters.
         """
         # Deserialize the dump, type-check the instance and assign it.
         with open(filename, "rb") as file:

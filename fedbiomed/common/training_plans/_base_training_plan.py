@@ -33,24 +33,23 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             to override the evaluation behavior and compute
             a batch-wise (set of) metric(s)
 
-    Attrs:
-        dependencies: All the dependencies that need to be imported
-            to create the TrainingPlan on nodes' side. Dependencies
-            are import statements strings, e.g. `"import numpy as np"`.
+    Attributes:
         dataset_path: The path that indicates where dataset has been stored
-        pre_process: Preprocess functions that will be applied to the training
-            data at the beginning of the training routine.
+        pre_processes: Preprocess functions that will be applied to the
+            training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
     """
 
     def __init__(self) -> None:
         """Construct the base training plan."""
-        self._dependencies = []  # type: List[str]
-        self.dataset_path = None  # type: Union[str, None]
-        self.pre_processes = OrderedDict()
-        self.training_data_loader = None  # type: Union[DataLoader, NPDataLoader, None]
-        self.testing_data_loader = None  # type: Union[DataLoader, NPDataLoader, None]
+        self._dependencies: List[str] = []
+        self.dataset_path: Union[str, None] = None
+        self.pre_processes: Dict[
+            str, Dict[str, Union[str, Callable[..., Any]]]
+        ] = OrderedDict()
+        self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
 
     @abstractmethod
     def post_init(
@@ -85,7 +84,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Dataset path setter for TrainingPlan
 
         Args:
-            dataset_path (str): The path where data is saved on the node.
+            dataset_path: The path where data is saved on the node.
                 This method is called by the node that executes the training.
         """
         self.dataset_path = dataset_path
@@ -113,7 +112,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return []
 
-    def _configure_dependencies(self):
+    def _configure_dependencies(self) -> None:
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
@@ -126,11 +125,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                                              f"ist or tuple, but got {type(dependencies)}")
         self.add_dependency(dependencies)
 
-    def save_code(self, filepath: str):
+    def save_code(self, filepath: str) -> None:
         """Saves the class source/codes of the training plan class that is created byuser.
 
         Args:
-            filepath (string): path to the destination file
+            filepath: path to the destination file
 
         Raises:
             FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
@@ -241,7 +240,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Handle a data-loader pre-processing action.
 
         Args:
-            method (function) : Process method that is to be executed.
+            method: Process method that is to be executed.
 
         Raises:
             FedbiomedTrainingPlanError: If one of the following happens:
@@ -298,9 +297,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Create a metrics result dictionary, feedable to a HistoryMonitor.
 
         Args:
-            metric (dict, list, float, array, tensor): Array-like or scalar
+            metric: Array-like or scalar
                 metric value(s), or dictionary wrapping such values.
-            metric_name (str): Name of the metric.
+            metric_name: Name of the metric.
                 If `metric` is a list, metric names will be set to
                 (`metric_name_1`, ..., `metric_name_n`).
                 If `metric` is a dict, `metric_name` will be ignored
@@ -357,9 +356,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Training routine, to be called once per round.
 
         Args:
-            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+            history_monitor: optional HistoryMonitor
                 instance, recording training metadata.
-            node_args (dict, None): Command line arguments for node.
+            node_args: Command line arguments for node.
                 These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
         """
@@ -380,12 +379,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             then it will be used rather than the input metric.
 
         Args:
-            metric (MetricType, None): The metric used for validation.
+            metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
-            history_monitor (HistoryMonitor): HistoryMonitor instance,
+            history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
-            before_train (bool): Whether the evaluation is being performed
+            before_train: Whether the evaluation is being performed
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
@@ -465,7 +464,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             data: Array-like (or tensor) structure containing batched
                 input features.
         Returns:
-            np.ndarray: Output predictions, converted to a numpy array
-                (as per the `fedbiomed.common.metrics.Metrics` specs).
+            Output predictions, converted to a numpy array (as per the
+                `fedbiomed.common.metrics.Metrics` specs).
         """
         return NotImplemented
