@@ -151,11 +151,11 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         and require_uninitialized cannot both the same value.
 
         Arguments:
-            require_initialized: (bool) whether the wrapped method should only work if the FedClass has already
+            require_initialized (bool): whether the wrapped method should only work if the FedClass has already
                 been initialized
-            require_uninitialized: (bool) whether the wrapped method should only work if the FedClass has not yet
+            require_uninitialized (bool): whether the wrapped method should only work if the FedClass has not yet
                 been initialized
-            message: (str) the error message to display
+            message (str): the error message to display
         """
         if require_initialized == require_uninitialized:
             msg = f"{ErrorNumbers.FB617.value}. Inconsistent arguments for _check_fed_class_initialization_status " \
@@ -277,7 +277,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         Returns:
             the center id (int).
         Raises:
-            FedbiomedDatasetError:
+            FedbiomedDatasetError: in one of the two scenarios below
                 - if the data loading plan is not set or is malformed.
                 - if the wrapped FedClass is not initialized but the dlp exists
         """
