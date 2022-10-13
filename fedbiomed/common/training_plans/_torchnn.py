@@ -430,13 +430,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         Args:
             metric (MetricType, None): The metric used for validation.
-              If None, use MetricTypes.ACCURACY.
+                If None, use MetricTypes.ACCURACY.
             history_monitor (HistoryMonitor): HistoryMonitor instance,
-              used to record computed metrics and communicate them to
-              the researcher (server).
+                used to record computed metrics and communicate them to
+                the researcher (server).
             before_train (bool): Whether the evaluation is being performed
-              before local training occurs, of afterwards. This is merely
-              reported back through `history_monitor`.
+                before local training occurs, of afterwards. This is merely
+                reported back through `history_monitor`.
         """
         if not isinstance(self._model, torch.nn.Module):
             msg = (
@@ -467,11 +467,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         Args:
             data: Array-like (or tensor) structure containing batched
-              input features.
+                input features.
 
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
-              (as per the `fedbiomed.common.metrics.Metrics` specs).
+                (as per the `fedbiomed.common.metrics.Metrics` specs).
         """
         with torch.no_grad():
             pred = self._model(data)
