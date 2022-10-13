@@ -31,8 +31,8 @@ def capture_stdout() -> Iterator[List[str]]:
 
     Returns:
         list[str]: A list, empty at first, that will be populated
-          with the line-wise strings composing the captured stdout
-          upon exiting the context.
+            with the line-wise strings composing the captured stdout
+            upon exiting the context.
     """
     output = []  # type: List[str]
     stdout = sys.stdout
@@ -66,8 +66,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         """Backend training routine for scikit-learn models with `partial_fit`.
 
         Args:
-            history_monitor (HistoryMonitor or None): optional HistoryMonitor
-              instance, recording the loss value during training.
+            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+                instance, recording the loss value during training.
         """
         # Gather reporting parameters.
         report = False
@@ -123,8 +123,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             inputs (np.ndarray): 2D-array of batched input features.
             target (np.ndarray): 2D-array of batched target labels.
             report (bool): Whether to capture and parse the training
-              loss printed out to the console by the scikit-learn
-              model. If False, or if parsing fails, return a nan.
+                loss printed out to the console by the scikit-learn
+                model. If False, or if parsing fails, return a nan.
         """
         b_len = inputs.shape[0]
         # Gather start weights of the model and initialize zero gradients.
@@ -171,7 +171,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         Args:
             stdout (list[list[str]]): Captured stdout outputs from calling
-              the model's partial fit, with one list per batched sample.
+                the model's partial fit, with one list per batched sample.
             inputs (np.ndarray): Batched input features.
             target (np.ndarray): Batched target labels.
         """

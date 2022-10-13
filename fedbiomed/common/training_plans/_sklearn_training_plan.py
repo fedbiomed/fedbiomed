@@ -150,11 +150,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Training routine, to be called once per round.
 
         Args:
-            history_monitor (HistoryMonitor or None): optional HistoryMonitor
-              instance, recording training metadata.
-            node_args (dict or None): Command line arguments for node.
-              These arguments can specify GPU use; however, this is not
-              supported for scikit-learn models and thus will be ignored.
+            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+                instance, recording training metadata.
+            node_args (dict, None): Command line arguments for node.
+                These arguments can specify GPU use; however, this is not
+                supported for scikit-learn models and thus will be ignored.
         """
         if not isinstance(self._model, BaseEstimator):
             msg = (
@@ -197,8 +197,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Model-specific training routine backend.
 
         Args:
-            history_monitor (HistoryMonitor or None): optional HistoryMonitor
-              instance, recording the loss value during training.
+            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+                instance, recording the loss value during training.
 
         This method needs to be implemented by SKLearnTrainingPlan
         child classes, and is called as part of `training_routine`
@@ -221,13 +221,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Args:
             metric (MetricType, None): The metric used for validation.
-              If None, use MetricTypes.ACCURACY.
+                If None, use MetricTypes.ACCURACY.
             history_monitor (HistoryMonitor): HistoryMonitor instance,
-              used to record computed metrics and communicate them to
-              the researcher (server).
+                used to record computed metrics and communicate them to
+                the researcher (server).
             before_train (bool): Whether the evaluation is being performed
-              before local training occurs, of afterwards. This is merely
-              reported back through `history_monitor`.
+                before local training occurs, of afterwards. This is merely
+                reported back through `history_monitor`.
         """
         # Check that the testing data loader is of proper type.
         if not isinstance(self.testing_data_loader, NPDataLoader):
@@ -267,11 +267,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Args:
             data: Array-like (or tensor) structure containing batched
-              input features.
+                input features.
 
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
-              (as per the `fedbiomed.common.metrics.Metrics` specs).
+                (as per the `fedbiomed.common.metrics.Metrics` specs).
         """
         return self._model.predict(data)
 
@@ -280,8 +280,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Returns:
             np.ndarray: numpy array containing the unique values from the
-              targets wrapped in the training and testing NPDataLoader
-              instances.
+                targets wrapped in the training and testing NPDataLoader
+                instances.
         """
         target = np.array([])
         for loader in (self.training_data_loader, self.testing_data_loader):
@@ -303,16 +303,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Args:
             filename (str): Path to the output file.
-            params (dict or None): Model parameters to enforce and save.
-              This may either be a {name: array} parameters dict, or a
-              nested dict that stores such a parameters dict under the
-              'model_params' key (in the context of the Round class).
+            params (dict, None): Model parameters to enforce and save.
+                This may either be a {name: array} parameters dict, or a
+                nested dict that stores such a parameters dict under the
+                'model_params' key (in the context of the Round class).
 
         Notes:
             Save can be called from Job or Round.
-              From Round it is called with params (as a complex dict).
-              From Job it is called with no params in constructor, and
-              with params in update_parameters.
+            * From Round it is called with params (as a complex dict).
+            * From Job it is called with no params in constructor, and
+                with params in update_parameters.
         """
         # Optionally overwrite the wrapped model's weights.
         if params:
@@ -342,12 +342,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Args:
             filename (str): The path to the pickle file to load.
             to_params (bool): Whether to return the model's parameters
-              wrapped as a dict rather than the model instance.
+                wrapped as a dict rather than the model instance.
 
         Notes:
             Load can be called from a Job or Round:
-              From Round it is called to return the model.
-              From Job it is called with to return its parameters dict.
+            * From Round it is called to return the model.
+            * From Job it is called with to return its parameters dict.
 
         Returns:
             dictionary with the loaded parameters

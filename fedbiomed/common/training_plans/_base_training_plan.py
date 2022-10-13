@@ -21,21 +21,25 @@ from fedbiomed.common.utils import get_method_spec
 class BaseTrainingPlan(metaclass=ABCMeta):
     """Base class for training plan
 
-    All concrete, framework- and/or model-specific training plans should
-    inherit from this class, and implement:
-      * the `post_init` method, to process model and training hyper-parameters
-      * the `training_routine` method, to train the model for one round
-      * the `predict` method, to compute predictions over a given batch
-      * (opt.) the `testing_step` method, to override the evaluation behavior
-        and compute a batch-wise (set of) metric(s)
+    All concrete, framework- and/or model-specific training plans
+    should inherit from this class, and implement:
+        * the `post_init` method:
+            to process model and training hyper-parameters
+        * the `training_routine` method:
+            to train the model for one round
+        * the `predict` method:
+            to compute predictions over a given batch
+        * (opt.) the `testing_step` method:
+            to override the evaluation behavior and compute
+            a batch-wise (set of) metric(s)
 
     Attrs:
         dependencies: All the dependencies that need to be imported
-          to create the TrainingPlan on nodes' side. Dependencies
-          are import statements strings, e.g. `"import numpy as np"`.
+            to create the TrainingPlan on nodes' side. Dependencies
+            are import statements strings, e.g. `"import numpy as np"`.
         dataset_path: The path that indicates where dataset has been stored
         pre_process: Preprocess functions that will be applied to the training
-          data at the beginning of the training routine.
+            data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
     """
@@ -81,8 +85,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Dataset path setter for TrainingPlan
 
         Args:
-            dataset_path (str): The path where data is saved on the node. This method is called by the node
-                who will execute the training.
+            dataset_path (str): The path where data is saved on the node.
+                This method is called by the node that executes the training.
         """
         self.dataset_path = dataset_path
         logger.debug(f"Dataset path has been set as {self.dataset_path}")
@@ -193,8 +197,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             method: Pre-processing method to be run before training.
             process_type: Type of pre-processing that will be run.
-              The expected signature of `method` and the arguments
-              passed to it depend on this parameter.
+                The expected signature of `method` and the arguments
+                passed to it depend on this parameter.
         """
         if not callable(method):
             msg = (
@@ -237,14 +241,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Handle a data-loader pre-processing action.
 
         Args:
-            method (Callable) : Process method that is to be executed.
+            method (function) : Process method that is to be executed.
 
         Raises:
-            FedbiomedTrainingPlanError:
-              - if the method does not have 1 positional argument (dataloader)
-              - if running the method fails
-              - if the method does not return a dataloader of the same type as
-               its input
+            FedbiomedTrainingPlanError: If one of the following happens:
+                - the method does not have 1 positional argument (dataloader)
+                - running the method fails
+                - the method does not return a dataloader of the same type as
+                its input
         """
         # Check that the preprocessing method has a proper signature.
         argspec = utils.get_method_spec(method)
@@ -295,16 +299,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             metric (dict, list, float, array, tensor): Array-like or scalar
-              metric value(s), or dictionary wrapping such values.
+                metric value(s), or dictionary wrapping such values.
             metric_name (str): Name of the metric.
-              If `metric` is a list, metric names will be set to
-              (`metric_name_1`, ..., `metric_name_n`).
-              If `metric` is a dict, `metric_name` will be ignored
-              and the dict's keys will be used instead.
+                If `metric` is a list, metric names will be set to
+                (`metric_name_1`, ..., `metric_name_n`).
+                If `metric` is a dict, `metric_name` will be ignored
+                and the dict's keys will be used instead.
 
         Returns:
             Dictionary mapping <metric_name>:<metric values>, where
-              <metric values> are floats taken or converted from `metric`.
+                <metric values> are floats taken or converted from `metric`.
 
         Raises:
             FedbiomedTrainingPlanError: if `metric` input is of unproper type.
@@ -353,11 +357,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Training routine, to be called once per round.
 
         Args:
-            history_monitor (HistoryMonitor or None): optional HistoryMonitor
-              instance, recording training metadata.
-            node_args (dict or None): Command line arguments for node.
-              These arguments can specify GPU use; however, this is not
-              supported for scikit-learn models and thus will be ignored.
+            history_monitor (HistoryMonitor, None): optional HistoryMonitor
+                instance, recording training metadata.
+            node_args (dict, None): Command line arguments for node.
+                These arguments can specify GPU use; however, this is not
+                supported for scikit-learn models and thus will be ignored.
         """
         return None
 
@@ -370,19 +374,20 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ) -> None:
         """Evaluation routine, to be called once per round.
 
-        Note: if the training plan implements a `testing_step` method
-              (the signature of which is func(data, target) -> metrics)
-              then it will be used rather than the input metric.
+        Note:
+            If the training plan implements a `testing_step` method
+            (the signature of which is func(data, target) -> metrics)
+            then it will be used rather than the input metric.
 
         Args:
             metric (MetricType, None): The metric used for validation.
-              If None, use MetricTypes.ACCURACY.
+                If None, use MetricTypes.ACCURACY.
             history_monitor (HistoryMonitor): HistoryMonitor instance,
-              used to record computed metrics and communicate them to
-              the researcher (server).
+                used to record computed metrics and communicate them to
+                the researcher (server).
             before_train (bool): Whether the evaluation is being performed
-              before local training occurs, of afterwards. This is merely
-              reported back through `history_monitor`.
+                before local training occurs, of afterwards. This is merely
+                reported back through `history_monitor`.
         """
         # TODO: Add preprocess option for testing_data_loader.
         if self.testing_data_loader is None:
@@ -458,9 +463,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             data: Array-like (or tensor) structure containing batched
-              input features.
+                input features.
         Returns:
             np.ndarray: Output predictions, converted to a numpy array
-              (as per the `fedbiomed.common.metrics.Metrics` specs).
+                (as per the `fedbiomed.common.metrics.Metrics` specs).
         """
         return NotImplemented
