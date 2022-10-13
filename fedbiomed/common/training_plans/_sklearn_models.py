@@ -30,9 +30,8 @@ def capture_stdout() -> Iterator[List[str]]:
     """Context manager to capture console outputs (stdout).
 
     Returns:
-        list[str]: A list, empty at first, that will be populated
-            with the line-wise strings composing the captured stdout
-            upon exiting the context.
+        A list, empty at first, that will be populated with the line-wise
+        strings composing the captured stdout upon exiting the context.
     """
     output = []  # type: List[str]
     stdout = sys.stdout
@@ -120,9 +119,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         """Perform gradient descent over a single data batch.
 
         Args:
-            inputs (np.ndarray): 2D-array of batched input features.
-            target (np.ndarray): 2D-array of batched target labels.
-            report (bool): Whether to capture and parse the training
+            inputs: 2D-array of batched input features.
+            target: 2D-array of batched target labels.
+            report: Whether to capture and parse the training
                 loss printed out to the console by the scikit-learn
                 model. If False, or if parsing fails, return a nan.
         """
@@ -170,10 +169,10 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         """Parse logged loss values from captured stdout lines.
 
         Args:
-            stdout (list[list[str]]): Captured stdout outputs from calling
+            stdout: Captured stdout outputs from calling
                 the model's partial fit, with one list per batched sample.
-            inputs (np.ndarray): Batched input features.
-            target (np.ndarray): Batched target labels.
+            inputs: Batched input features.
+            target: Batched target labels.
         """
         values = [self._parse_sample_losses(sample) for sample in stdout]
         losses = np.array(values)

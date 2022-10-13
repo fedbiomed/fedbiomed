@@ -35,6 +35,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     - a `training_step()` function
 
     Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
+
+    Attributes:
+        dataset_path: The path that indicates where dataset has been stored
+        pre_processes: Preprocess functions that will be applied to the
+            training data at the beginning of the training routine.
+        training_data_loader: Data loader used in the training routine.
+        testing_data_loader: Data loader used in the validation routine.
     """
 
     def __init__(self):
@@ -430,12 +437,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             then it will be used rather than the input metric.
 
         Args:
-            metric (MetricType, None): The metric used for validation.
+            metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
-            history_monitor (HistoryMonitor): HistoryMonitor instance,
+            history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
-            before_train (bool): Whether the evaluation is being performed
+            before_train: Whether the evaluation is being performed
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
