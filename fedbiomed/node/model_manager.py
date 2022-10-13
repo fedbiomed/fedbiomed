@@ -418,9 +418,10 @@ class ModelManager:
                                 ) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
 
+        !!! info "model file MUST be a *.txt file."
+
         Args:
-            model_path: model path where the file is saved, in order to compute its hash. 
-            !!! info "model file MUST be a *.txt file."
+            model_path: model path where the file is saved, in order to compute its hash.
 
         Returns:
             model: model entry found in the dataset if query in database succeed. Otherwise, returns 
@@ -910,8 +911,7 @@ class ModelManager:
 
         Args:
             model_id: id of the model.
-            extra_notes: notes detailing why model has been approved.
-            Defaults to None.
+            extra_notes: notes detailing why model has been approved. Defaults to None.
 
         Returns:
             Currently always returns True
@@ -926,8 +926,7 @@ class ModelManager:
 
         Args:
             model_id: id of the model.
-            extra_notes: notes detailing why model has been rejected.
-            Defaults to None.
+            extra_notes: notes detailing why model has been rejected. Defaults to None.
 
         Returns:
             Currently always returns True
