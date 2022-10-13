@@ -374,7 +374,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ) -> None:
         """Evaluation routine, to be called once per round.
 
-        Note:
+        !!! info "Note"
             If the training plan implements a `testing_step` method
             (the signature of which is func(data, target) -> metrics)
             then it will be used rather than the input metric.
