@@ -303,30 +303,67 @@ class Job:
         return not nodes_done == set(self._nodes)
     
     def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
+        """Updates training_args before sending it to nodes (all nodes or selected nodes).
         
+        Updates the following parameters:
+        - num_updates (provided only if number of epochs has been passed by user: nb of epochs needed 
+        computation will be based considering minimum number of samples available accross all nodes)
+
+        Args:
+            fds (FederatedDataSet): _description_
+            nodes (Optional[List[str]], optional): Node to be considered before sending values. Defaults to None.
+
+        Raises:
+            FedbiomedError: _description_
+        """
         if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
             # compute number of updates from number of samples and batch_size (if not provided)
             if nodes is None:
                 node_present: List[str] = fds.node_ids()
             else:
                 node_present: List[str] = nodes
+                
+            assert len(node_present)>0, "subset of nodes should be greater than 0"
             if not node_present:
                 raise FedbiomedError("No node have answered")
+            # updating `num_updates` parameter:
             max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
             batch_size = self._training_args['batch_size']
             num_updates = max_n_samples // batch_size 
             if max_n_samples % batch_size:
                 num_updates += 1
             self._training_args['num_updates'] = num_updates
+    
+    def upload_training_params(self, training_args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
+                             aggregator_args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
+        #upload training_args through file messaging system, if their size is too big to be transfered through
+        # MQTT (eg correction parameters in Scaffold aggregator)
+        # write the url down into training_args_thr_msg
         
-    def start_nodes_training_round(self, round: int, aggregator_args: Dict[str, Dict[str, Any]], do_training: bool = True):
+        for node_id, aggr_params in aggregator_args_thr_files.items():
+            for aggr_param in aggr_params:
+                arg_name = aggr_param['arg_name']
+                training_args_thr_msg[node_id][arg_name] = {}
+                training_args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
+                
+                filename = self.update_parameters(aggr_param['value'], aggr_param.get('filename'),
+                                                  variable_name=arg_name)
+                training_args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
+                
+        
+        return training_args_thr_msg
+        
+    def start_nodes_training_round(self, round: int, aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
+                                   aggregator_args_thr_files: Dict[str, Dict[str, Any]],
+                                   do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
             round (int): current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            aggregator_args (dict): dictionary containing some metadata about the aggregation strategy, useful to transfer
-                some data when it's required by am aggregator (e.g. correction state in scaffold)
+            aggregator_args_thr_msg (Dict[str, Dict[str, Any]]): dictionary containing some metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator. First key should be the node_id
+                , and sub-dictionary sould be parameters to be sent through MQTT messaging system 
             do_training (bool): if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
@@ -336,20 +373,23 @@ class Job:
                    'model_args': self._model_args,
                    'command': 'train',
                    'aggregator_args': {}}
+        
         msg = {**headers, **self._repository_args}
         time_start = {}
 
         # if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
         #     client_correction_states_dict = self.init_first_correction_states()
-
+        self.upload_training_params(aggregator_args_thr_msg, aggregator_args_thr_files)  # passes heavy aggregator params
+        #through file exchange system
+        
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
             #if strategy_info.get('strategy') == 'Scaffold':
                 #if round == 0:
             
-            if aggregator_args:
+            if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
-                msg['aggregator_args'] = aggregator_args[cli]
+                msg['aggregator_args'] = aggregator_args_thr_msg[cli]
                 # else:
                 #     msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
             if not do_training:
@@ -436,7 +476,8 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
-    def update_parameters(self, params: dict = {}, filename: str = None) -> str:
+    def update_parameters(self, params: dict = {}, filename: str = None, is_model_params: bool = True,
+                          variable_name: str = 'aggregated_params') -> str:
         """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
         already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
         next training round. If a `filename` is given (file exists) it has precedence over `params`.
@@ -444,7 +485,7 @@ class Job:
         Args:
             params: data structure containing the new version of the aggregated parameters for this job,
             filename: path to the file containing the new version of the aggregated parameters for this job,
-
+            variable_name (str, optional):  name the filename with variable_name. Defaults to 'aggregated_prams'
         Returns:
             Name of the parameter file
 
@@ -455,17 +496,19 @@ class Job:
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
+                filename = self._keep_files_dir + '/' + variable_name + str(uuid.uuid4()) + '.pt'
                 self._training_plan.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
-            self._model_params_file = filename
+            if is_model_params:
+                # case where we are designing model parameter file
+                self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
-        return self._model_params_file
+        return filename
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint. Includes creating links to files included

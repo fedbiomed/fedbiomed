@@ -7,7 +7,7 @@ import sys
 import time
 import inspect
 import importlib
-from typing import Union, Any, Optional, Tuple, List
+from typing import Dict, Iterable, Union, Any, Optional, Tuple, List
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
@@ -74,7 +74,7 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
-        self.aggregator_args = aggregator_args
+        self.aggregator_args: Optional[Dict[str, Any]] = aggregator_args
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
@@ -94,6 +94,38 @@ class Round:
         self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
+
+    def download_aggregator_args(self) -> Tuple[bool, str]:
+        # download heavy aggregator args (if any)
+
+        if self.aggregator_args is not None:
+            for arg_name, aggregator_arg in self.aggregator_args.items():
+                url = aggregator_arg.get('filename', False)
+                arg_name = aggregator_arg.get('arg_name', False)
+                if isinstance(aggregator_arg, dict) and any((url, arg_name)):
+                    # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                    # exchanged system
+                    success, param_path, error_msg = self.download_file(url, arg_name)
+                    
+                    if not success:
+                        return success, error_msg
+                    else:
+                        self.aggregator_args[arg_name] = {'param_path': param_path}
+
+        return True, "no file downloads required for aggregator args"
+
+    def download_file(self, url: str, file_path: str) -> Tuple[bool, str, str]:
+
+        status, params_path = self.repository.download_file(
+                                                            url,
+                                                            file_path + str(uuid.uuid4()) + '.pt')
+        
+        if (status != 200) or params_path is None:
+
+            error_message = f"Cannot download param file: {url}"
+            return False, '', error_message
+        else:
+            return True, params_path, ''
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -136,12 +168,16 @@ class Round:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 
             if not is_failed:
-                status, params_path = self.repository.download_file(
-                    self.params_url,
-                    'my_model_' + str(uuid.uuid4()) + '.pt')
-                if (status != 200) or params_path is None:
-                    error_message = f"Cannot download param file: {self.params_url}"
-                    return self._send_round_reply(success=False, message=error_message)
+                # status, params_path = self.repository.download_file(
+                #     self.params_url,
+                #     'my_model_' + str(uuid.uuid4()) + '.pt')
+                # if (status != 200) or params_path is None:
+                #     error_message = f"Cannot download param file: {self.params_url}"
+                success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
+                if success:
+                    success, error_msg = self.download_aggregator_args()
+                if not success:
+                    return self._send_round_reply(success=False, message=error_msg)
 
         except Exception as e:
             is_failed = True
@@ -287,7 +323,7 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
-                          timing: dict = {}):
+                          timing: dict = {}) -> NodeMessages:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.

@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 import copy
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Tuple, Union
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
@@ -137,7 +137,9 @@ class Scaffold(Aggregator):
         self.update_aggregator_params(global_model)  # update aggregator_params (for breakpoints)
         return aggregated_parameters
 
-    def create_aggregator_args(self, global_model: Mapping[str, Union[torch.tensor, np.ndarray]], node_ids: Iterator[str]) -> Dict:
+    def create_aggregator_args(self,
+                               global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
+                               node_ids: Iterator[str]) -> Tuple[Dict, Dict]:
         """Sends additional arguments for aggregator. For scaffold, it is mainly correction states
 
         Args:
@@ -149,17 +151,18 @@ class Scaffold(Aggregator):
         """
         if self.nodes_correction_states is None:
             self.init_correction_states(global_model, node_ids) # making parameters JSON serializable
-        aggregator_args = {}
+        aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
             # serializing correction parameters
             # logger.critical("CORRECTION", self.nodes_correction_states)
             import remote_pdb; remote_pdb.set_trace()
             # print(self.nodes_correction_states)
-            serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
-            aggregator_args.update({node_id: {'aggregator_name': self.aggregator_name,
-                                              'aggregator_correction': serialized_aggregator_correction}})
-        
-        return aggregator_args
+            #serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
+            aggregator_args_thr_file.update({node_id: {'aggregator_name': self.aggregator_name,
+                                                       'aggregator_correction': self.nodes_correction_states[node_id]}})
+            aggregator_args_thr_msg.update({node_id: {'aggregator_name': self.aggregator_name,
+                                                      }})
+        return aggregator_args_thr_msg, aggregator_args_thr_file
 
     def check_values(self, node_lrs: List[float], n_updates: int):
         """
@@ -182,7 +185,7 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()")
 
     def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan, training_replies: List[Responses], n_round: int) -> Dict[str, List[float]]:
-        # to be implemented in a utils module
+        # to be implemented in a utils module (for pytorch optimizers)
 
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
@@ -263,8 +266,9 @@ class Scaffold(Aggregator):
             updated_model_params (dict): _description_
             global_model (OrderedDict): _description_
             lr (float): _description_
-            node_ids (Iterator[str]): Iterable of all nodes taking part in the round
-            n_updates (int, optional): _description_. Defaults to 1.
+            node_ids (Iterator[str]): Iterable of all node ids taking part in the round
+            n_updates (int, optional): number of batches (or updates) performed during one round. Refers to `K` in
+            Scaffold paper. Defaults to 1.
         """
         # refers as line 12, 13 and 17 in pseudo code
         if self._fds is None:

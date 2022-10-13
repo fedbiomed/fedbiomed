@@ -3,7 +3,7 @@ top class for all aggregators
 """
 
 
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from fedbiomed.common.constants  import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -64,8 +64,8 @@ class Aggregator:
         self._training_plan_type = training_plan_type
         return self._training_plan_type
 
-    def create_aggregator_args(self, *args, **kwargs) -> dict:
-        return {}
+    def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
+        return {}, {}
 
     def scaling(self, model_param: dict, *args, **kwargs) -> dict:
         """Should be overwritten by child if a scaling operation is involved in aggregator"""
