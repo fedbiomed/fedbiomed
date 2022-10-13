@@ -19,7 +19,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.node import Node
 from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
-    model_manager, register_model, update_model, approve_model, reject_model, delete_model, view_model    
+    tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
+    delete_training_plan, view_training_plan
 
 
 #
@@ -86,20 +87,20 @@ def manage_node(node_args: Union[dict, None] = None):
 
         logger.info('Launching node...')
 
-        # Register default models and update hashes
+        # Register default training plans and update hashes
         if environ["MODEL_APPROVAL"]:
             # This methods updates hashes if hashing algorithm has changed
-            model_manager.check_hashes_for_registered_models()
+            tp_security_manager.check_hashes_for_registered_training_plans()
             if environ["ALLOW_DEFAULT_MODELS"]:
-                logger.info('Loading default models')
-                model_manager.register_update_default_models()
+                logger.info('Loading default training plans')
+                tp_security_manager.register_update_default_training_plans()
         else:
             logger.warning('Model approval for train request is not activated. ' +
-                           'This might cause security problems. Please, consider to enable model approval.')
+                           'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')
         node = Node(dataset_manager=dataset_manager,
-                    model_manager=model_manager,
+                    tp_security_manager=tp_security_manager,
                     node_args=node_args)
         node.start_messaging(block=False)
 
@@ -196,26 +197,26 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
-    parser.add_argument('-rml', '--register-model',
-                        help='Register and approve a model from a local file.',
+    parser.add_argument('-rtp', '--register-training-plan',
+                        help='Register and approve a training plan from a local file.',
                         action='store_true')
-    parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model (requested, default or registered)',
+    parser.add_argument('-atp', '--approve-training-plan',
+                        help='Approve a training plan (requested, default or registered)',
                         action='store_true')
-    parser.add_argument('-rjml', '--reject-model',
-                        help='Reject a model (requested, default or registered)',
+    parser.add_argument('-rjtp', '--reject-training-plan',
+                        help='Reject a training plan (requested, default or registered)',
                         action='store_true')
-    parser.add_argument('-uml', '--update-model',
-                        help='Update model file (for a model registered from a local file)',
+    parser.add_argument('-utp', '--update-training-plan',
+                        help='Update training plan file (for a training plan registered from a local file)',
                         action='store_true')
-    parser.add_argument('-dml', '--delete-model',
-                        help='Delete a model from database (not for default models)',
+    parser.add_argument('-dtp', '--delete-training-plan',
+                        help='Delete a training plan from database (not for default training plans)',
                         action='store_true')
-    parser.add_argument('-lms', '--list-models',
-                        help='List all models (requested, default or registered)',
+    parser.add_argument('-ltps', '--list-training-plans',
+                        help='List all training plans (requested, default or registered)',
                         action='store_true')
-    parser.add_argument('-vml', '--view-model',
-                        help='View a model source code (requested, default or registered)',
+    parser.add_argument('-vtp', '--view-training-plan',
+                        help='View a training plan source code (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
@@ -298,20 +299,20 @@ def launch_cli():
         delete_all_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
-    elif args.register_model:
-        register_model()
-    elif args.approve_model:
-        approve_model()
-    elif args.reject_model:
-        reject_model()
-    elif args.update_model:
-        update_model()
-    elif args.delete_model:
-        delete_model()
-    elif args.list_models:
-        model_manager.list_models(verbose=True)
-    elif args.view_model:
-        view_model()
+    elif args.register_training_plan:
+        register_training_plan()
+    elif args.approve_training_plan:
+        approve_training_plan()
+    elif args.reject_training_plan:
+        reject_training_plan()
+    elif args.update_training_plan:
+        update_training_plan()
+    elif args.delete_training_plan:
+        delete_training_plan()
+    elif args.list_training_plans:
+        tp_security_manager.list_training_plans(verbose=True)
+    elif args.view_training_plan:
+        view_training_plan()
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
