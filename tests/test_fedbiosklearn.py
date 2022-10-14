@@ -33,7 +33,8 @@ class Custom():
 class FakeTrainingArgs:
 
     def pure_training_arguments(self):
-        return {"epochs": 1}
+        return {"epochs": 1,
+                "batch_maxnum": 2}
 
 
 class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
