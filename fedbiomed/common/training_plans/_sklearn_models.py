@@ -240,7 +240,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         n_classes = self._model_args["n_classes"]
         if n_classes == 2:
             init_params = {
-                "intercept_": np.array((1,)),
+                "intercept_": np.zeros((1,)),
                 "coef_": np.zeros((1, self._model_args["n_features"]))
             }
         else:
