@@ -43,13 +43,13 @@ class NPDataLoader:
         """Construct numpy data loader
 
         Args:
-            dataset: (np.ndarray) 2D Numpy array
-            target: (np.ndarray) Numpy array of target values
-            batch_size: (int) batch size for each iteration
-            shuffle: (bool) shuffle before iteration
-            random_seed: (int or None) an optional integer to set the numpy random seed for shuffling. If it equals
+            dataset: 2D Numpy array
+            target: Numpy array of target values
+            batch_size: batch size for each iteration
+            shuffle: shuffle before iteration
+            random_seed: an optional integer to set the numpy random seed for shuffling. If it equals
                 None, then no attempt will be made to set the random seed.
-            drop_last: (bool) whether to drop the last batch in case it does not fill the whole batch size
+            drop_last: whether to drop the last batch in case it does not fill the whole batch size
         """
 
         if not isinstance(dataset, np.ndarray) or not isinstance(target, np.ndarray):
@@ -133,8 +133,12 @@ class NPDataLoader:
         """
         return self._dataset
 
+    @property
     def target(self) -> np.ndarray:
-        """Returns the array of target values"""
+        """Returns the array of target values
+
+        This has been made a property to have a homogeneous interface with the dataset property above.
+        """
         return self._target
 
     def batch_size(self) -> int:
@@ -183,7 +187,7 @@ class _BatchIterator:
         restore num_yielded to 0, reshuffles the indices if shuffle is True, and applies drop_last
         """
         self._num_yielded = 0
-        dlen = len(self._loader.dataset())
+        dlen = len(self._loader.dataset)
 
         self._index = np.arange(dlen)
 
@@ -211,10 +215,10 @@ class _BatchIterator:
             stop = (self._num_yielded+1)*self._loader.batch_size()
             indices = self._index[start:stop]
             self._num_yielded += 1
-            if self._loader.target() is None:
-                return self._loader.dataset()[indices, :], None
+            if self._loader.target is None:
+                return self._loader.dataset[indices, :], None
             else:
-                return self._loader.dataset()[indices, :], self._loader.target()[indices, :]
+                return self._loader.dataset[indices, :], self._loader.target[indices, :]
 
         # Set index to zero for next epochs
         self._reset()

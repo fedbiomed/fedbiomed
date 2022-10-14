@@ -75,12 +75,12 @@ class TestSkLearnDataManager(unittest.TestCase):
         ratio = 1.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
         self.assertEqual(len(loader_test), n_samples, 'Number of samples of test loader is not as expected')
-        self.assertIsNone(loader_train, 'Expected train set is None')
+        self.assertEqual(len(loader_train), 0)
 
         # Test if test ratio is 0
         ratio = 0.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
-        self.assertIsNone(loader_test)
+        self.assertEqual(len(loader_test), 0)
         self.assertEqual(len(loader_train), n_samples, 'Number of samples of train loader is not as expected')
 
     def test_sklearn_data_manager_03_getter_subsets(self):
@@ -120,7 +120,7 @@ class TestSkLearnDataManager(unittest.TestCase):
                              sklearn_data_manager._loader_arguments)
 
         loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
-        self.assertIsNone(loader_test)
+        self.assertEqual(len(loader_test), 0)
 
         for i, (data, target) in enumerate(loader_train):
             self.assertNPArrayEqual(data, self.inputs[i, :])
@@ -134,7 +134,7 @@ class TestSkLearnDataManager(unittest.TestCase):
                                                   drop_last=True)
 
         loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
-        self.assertIsNone(loader_test)
+        self.assertEqual(len(loader_test), 0)
 
         count_iter = 0
         for i, (data, target) in enumerate(loader_train):
