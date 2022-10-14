@@ -77,8 +77,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         self._model_args = model_args
         self._model_args.setdefault("verbose", 1)
-        self._training_args = training_args
-        self._batch_maxnum = training_args.get('batch_maxnum', self._batch_maxnum)
+        self._training_args = training_args.pure_training_arguments()
+        self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
         # Add dependencies
         self._configure_dependencies()
         # Override default model parameters based on `self._model_args`.
