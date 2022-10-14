@@ -287,7 +287,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         target = np.array([])
         for loader in (self.training_data_loader, self.testing_data_loader):
             if isinstance(loader, NPDataLoader):
-                target = np.concatenate(target, loader.get_target())
+                target = np.concatenate(target, loader.target())
         return np.unique(target)
 
     def save(
