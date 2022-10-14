@@ -116,7 +116,7 @@ class NPDataLoader:
     def __len__(self) -> int:
         """Returns the length of the encapsulated dataset"""
         n = len(self._dataset) // self._batch_size
-        if not self._drop_last and self.get_n_remainder_samples() != 0:
+        if not self._drop_last and self.n_remainder_samples() != 0:
             n += 1
         return n
 
@@ -124,42 +124,38 @@ class NPDataLoader:
         """Returns an iterator over batches of data"""
         return _BatchIterator(self)
 
-    def get_dataset(self) -> np.ndarray:
-        """Returns the encapsulated dataset"""
+    @property
+    def dataset(self) -> np.ndarray:
+        """Returns the encapsulated dataset
+
+        This needs to be a property to harmonize the API with torch.DataLoader, enabling us to write
+        generic code for both DataLoaders.
+        """
         return self._dataset
 
-    def get_target(self) -> np.ndarray:
+    def target(self) -> np.ndarray:
         """Returns the array of target values"""
         return self._target
 
-    def get_batch_size(self) -> int:
+    def batch_size(self) -> int:
         """Returns the batch size"""
         return self._batch_size
 
-    def get_rng(self) -> np.random.Generator:
+    def rng(self) -> np.random.Generator:
         """Returns the random number generator"""
         return self._rng
 
-    def get_shuffle(self) -> bool:
+    def shuffle(self) -> bool:
         """Returns the boolean shuffle attribute"""
         return self._shuffle
 
-    def get_drop_last(self) -> bool:
+    def drop_last(self) -> bool:
         """Returns the boolean drop_last attribute"""
         return self._drop_last
 
-    def get_n_remainder_samples(self) -> int:
+    def n_remainder_samples(self) -> int:
         """Returns the remainder of the division between dataset length and batch size."""
         return len(self._dataset) % self._batch_size
-
-    @property
-    def dataset(self):
-        """The encapsulated dataset.
-
-        This property is here for convenience to harmonize the API with torch.DataLoader, enabling us to write
-        generic code for both DataLoaders.
-        """
-        return self.get_dataset()
 
 
 class _BatchIterator:
@@ -187,17 +183,17 @@ class _BatchIterator:
         restore num_yielded to 0, reshuffles the indices if shuffle is True, and applies drop_last
         """
         self._num_yielded = 0
-        dlen = len(self._loader.get_dataset())
+        dlen = len(self._loader.dataset())
 
         self._index = np.arange(dlen)
 
         # Perform the optional shuffling.
-        if self._loader.get_shuffle():
-            self._loader.get_rng().shuffle(self._index)
+        if self._loader.shuffle():
+            self._loader.rng().shuffle(self._index)
 
         # Optionally drop the last samples if they make for a smaller batch.
-        if self._loader.get_drop_last() and self._loader.get_n_remainder_samples() != 0:
-            self._index = self._index[:-self._loader.get_n_remainder_samples()]
+        if self._loader.drop_last() and self._loader.n_remainder_samples() != 0:
+            self._index = self._index[:-self._loader.n_remainder_samples()]
 
     def __next__(self) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """Returns the next batch.
@@ -211,14 +207,14 @@ class _BatchIterator:
             StopIteration: when an epoch of data has been exhausted.
         """
         if self._num_yielded < len(self._loader):
-            start = self._num_yielded*self._loader.get_batch_size()
-            stop = (self._num_yielded+1)*self._loader.get_batch_size()
+            start = self._num_yielded*self._loader.batch_size()
+            stop = (self._num_yielded+1)*self._loader.batch_size()
             indices = self._index[start:stop]
             self._num_yielded += 1
-            if self._loader.get_target() is None:
-                return self._loader.get_dataset()[indices, :], None
+            if self._loader.target() is None:
+                return self._loader.dataset()[indices, :], None
             else:
-                return self._loader.get_dataset()[indices, :], self._loader.get_target()[indices, :]
+                return self._loader.dataset()[indices, :], self._loader.target()[indices, :]
 
         # Set index to zero for next epochs
         self._reset()
