@@ -78,7 +78,7 @@ class TestNPDataLoader(unittest.TestCase):
         # test that 1-d targets are handled correctly
         loader = NPDataLoader(dataset=np.squeeze(self.X),
                               target=np.squeeze(self.X))
-        self.assertIterableEqual(loader.dataset().shape, loader.target().shape)
+        self.assertIterableEqual(loader.dataset.shape, loader.target.shape)
 
         # test that wrong dataset shape raises ValueError
         with self.assertRaises(FedbiomedValueError):
