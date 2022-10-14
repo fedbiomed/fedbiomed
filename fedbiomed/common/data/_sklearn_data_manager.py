@@ -343,7 +343,7 @@ class SkLearnDataManager(object):
             self._subset_train = (x_train, y_train)
 
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
-            self._subset_loader(self._subset_test, **self._loader_arguments)
+            self._subset_loader(self._subset_test, batch_size=len(self._subset_test[0]))
 
     @staticmethod
     def _subset_loader(subset: Tuple[np.ndarray, np.ndarray], **loader_arguments) -> Optional[NPDataLoader]:
