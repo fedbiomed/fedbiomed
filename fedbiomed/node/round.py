@@ -99,18 +99,22 @@ class Round:
         # download heavy aggregator args (if any)
 
         if self.aggregator_args is not None:
+            
             for arg_name, aggregator_arg in self.aggregator_args.items():
-                url = aggregator_arg.get('filename', False)
-                arg_name = aggregator_arg.get('arg_name', False)
-                if isinstance(aggregator_arg, dict) and any((url, arg_name)):
-                    # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
-                    # exchanged system
-                    success, param_path, error_msg = self.download_file(url, arg_name)
+                if isinstance(aggregator_arg, dict):
+                    url = aggregator_arg.get('url', False)
                     
-                    if not success:
-                        return success, error_msg
-                    else:
-                        self.aggregator_args[arg_name] = {'param_path': param_path}
+                    arg_name
+                    if any((url, arg_name)):
+                        # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                        # exchanged system
+                        success, param_path, error_msg = self.download_file(url, arg_name)
+                        
+                        if not success:
+                            return success, error_msg
+                        else:
+                            self.aggregator_args[arg_name] = {'param_path': param_path}
+                
 
         return True, "no file downloads required for aggregator args"
 
@@ -175,6 +179,7 @@ class Round:
                 #     error_message = f"Cannot download param file: {self.params_url}"
                 success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
                 if success:
+                    # retrieving arggegator args
                     success, error_msg = self.download_aggregator_args()
                 if not success:
                     return self._send_round_reply(success=False, message=error_msg)
@@ -198,7 +203,8 @@ class Round:
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
-                                         training_args=self.training_arguments)
+                                         training_args=self.training_arguments,
+                                         aggregator_args=self.aggregator_args)
         except Exception as e:
             error_message = f"Can't initialize training plan with the arguments: {e}"
             return self._send_round_reply(success=False, message=error_message)

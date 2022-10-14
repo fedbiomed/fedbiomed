@@ -104,15 +104,17 @@ class Scaffold(Aggregator):
 
         Args:
             model_params (list): list of models parameters recieved from nodes
-            weights (list): _description_
-            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): _description_
+            weights (List[Dict[str, float]]): weitghs depciting sample proportions available
+                on each node
+            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): global model,
+                ie aggregated model
             training_plan (BaseTrainingPlan): _description_
-            node_ids (Iterable[str]): _description_
-            n_updates (int, optional): _description_. Defaults to 1.
-            n_round (int, optional): _description_. Defaults to 0.
+            node_ids (Iterable[str]): iterable containing node_id participating to the current round
+            n_updates (int, optional): number of updates (number of batch performed). Defaults to 1.
+            n_round (int, optional): current round. Defaults to 0.
 
         Returns:
-            Dict: _description_
+            Dict: aggregated parameters
         """
 
     
@@ -155,7 +157,7 @@ class Scaffold(Aggregator):
         for node_id in node_ids:
             # serializing correction parameters
             # logger.critical("CORRECTION", self.nodes_correction_states)
-            import remote_pdb; remote_pdb.set_trace()
+
             # print(self.nodes_correction_states)
             #serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
             aggregator_args_thr_file.update({node_id: {'aggregator_name': self.aggregator_name,

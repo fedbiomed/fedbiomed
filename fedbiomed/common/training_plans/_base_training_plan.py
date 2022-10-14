@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from collections import OrderedDict
-from typing import Tuple, Dict, List, Callable, Union
+from typing import Any, Tuple, Dict, List, Callable, Union
 
 from torch.utils.data import DataLoader
 
@@ -149,6 +149,9 @@ class BaseTrainingPlan(object):
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
+    
+    def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
+        raise FedbiomedTrainingPlanError("method not implemented and needed")
 
     def optimizer_args(self) -> Dict:
         """Retrieves optimizer arguments (to be overrided

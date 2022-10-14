@@ -1408,60 +1408,60 @@ class Experiment(object):
 
         return self._tensorboard
 
-    @exp_exceptions
-    def set_new_correction_states_dict(self, server_state: dict) -> dict:
-        """ At round i, calling this function allows us to define each client correction state for round i+1 (with i > 0).
-        correction_state_i+1 = correction_state_i + (server_state_opt_i - client_state_opt_i) / lr*num_updates
-        client_state_opt_i stands for client model state after local optimization at round i
-        server_state_opt_i stands for server model state after optimization by clients & aggregation at round i
-        Note: At round 0, we know that: correction_state = 0
-        Indeed, correction applied during the 1st round is 0 for all the clients (init_first_correction_states in job.py internally handles this case)
+    # @exp_exceptions
+    # def set_new_correction_states_dict(self, server_state: dict) -> dict:
+    #     """ At round i, calling this function allows us to define each client correction state for round i+1 (with i > 0).
+    #     correction_state_i+1 = correction_state_i + (server_state_opt_i - client_state_opt_i) / lr*num_updates
+    #     client_state_opt_i stands for client model state after local optimization at round i
+    #     server_state_opt_i stands for server model state after optimization by clients & aggregation at round i
+    #     Note: At round 0, we know that: correction_state = 0
+    #     Indeed, correction applied during the 1st round is 0 for all the clients (init_first_correction_states in job.py internally handles this case)
         
-        Example:
-        correction_state_1 is computed at the end of round 0:
-        correction_state_1 = correction_state_0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
-                           = 0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
+    #     Example:
+    #     correction_state_1 is computed at the end of round 0:
+    #     correction_state_1 = correction_state_0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
+    #                        = 0 + (server_state_opt_0 - client_state_opt_0) / lr*num_updates
 
-        Args:
-            server_state: dictionary containing server model state after optimization/aggregation at round i (also known as initial server state of round i+1). 
+    #     Args:
+    #         server_state: dictionary containing server model state after optimization/aggregation at round i (also known as initial server state of round i+1). 
 
-        Returns:
-            A dictionary with keys as node_id, values as client correction state for round i+1 (i being the current round).
-            The client correction state is a dictionary with the exact same size as the model state dictionary.
-        """ 
-        if self._round_current == 0: # init_first_new_correction_states
-            init_params = {key:initialize(tensor)[1] for key, tensor in server_state.items()}
-            self._client_correction_states_dict = {node_id: deepcopy(init_params) for node_id in self._job.nodes}
-        for node_id, client_state in self._client_states_dict.items(): # iterate params of each client
-            for key in client_state:
-                self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs)
+    #     Returns:
+    #         A dictionary with keys as node_id, values as client correction state for round i+1 (i being the current round).
+    #         The client correction state is a dictionary with the exact same size as the model state dictionary.
+    #     """ 
+    #     if self._round_current == 0: # init_first_new_correction_states
+    #         init_params = {key:initialize(tensor)[1] for key, tensor in server_state.items()}
+    #         self._client_correction_states_dict = {node_id: deepcopy(init_params) for node_id in self._job.nodes}
+    #     for node_id, client_state in self._client_states_dict.items(): # iterate params of each client
+    #         for key in client_state:
+    #             self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs)
                 
-        # print("KEYS", self._client_correction_states_dict.keys(), self._aggregator.nodes_correction_states.keys())
-        # print("SAMY correctin state", [[a - b for (a,b) in zip(x.values(), y.values())]  for ((k, x), (_, y)) in zip(self._client_correction_states_dict.items(), self._aggregator.nodes_correction_states.items())])
-        return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
+    #     # print("KEYS", self._client_correction_states_dict.keys(), self._aggregator.nodes_correction_states.keys())
+    #     # print("SAMY correctin state", [[a - b for (a,b) in zip(x.values(), y.values())]  for ((k, x), (_, y)) in zip(self._client_correction_states_dict.items(), self._aggregator.nodes_correction_states.items())])
+    #     return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
-    @exp_exceptions
-    def set_new_client_states_dict(self, client_states_list) -> dict:
-        """ At round i, calling this function allows us to set each initial client state in round i+1, with scaling of the local parameters by server_lr. (i >= 0)
-        self._server_state represents the initial server model state before optimization/aggregation in round i.
-        When server_lr = 1 (default value), local parameters are not impacted by the initial server state (thus We are doing a plain fedavg)
-        On the other hand, lowering this value can reduce the drift.
+    # @exp_exceptions
+    # def set_new_client_states_dict(self, client_states_list) -> dict:
+    #     """ At round i, calling this function allows us to set each initial client state in round i+1, with scaling of the local parameters by server_lr. (i >= 0)
+    #     self._server_state represents the initial server model state before optimization/aggregation in round i.
+    #     When server_lr = 1 (default value), local parameters are not impacted by the initial server state (thus We are doing a plain fedavg)
+    #     On the other hand, lowering this value can reduce the drift.
 
-        Args:
-            client_states_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at current round i.
-                                Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
+    #     Args:
+    #         client_states_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at current round i.
+    #                             Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
         
-        Returns:
-            A dictionary with node_ids as keys and their corresponding value being the new client state_dict after scaling of the local parameters by server_lr.
-        """
-        for model_params in client_states_list:
-            node_id = list(model_params.keys())[0]
-            if self._round_current == 0:
-                self._client_states_dict[node_id] = {}
-            for key in model_params[node_id]:
+    #     Returns:
+    #         A dictionary with node_ids as keys and their corresponding value being the new client state_dict after scaling of the local parameters by server_lr.
+    #     """
+    #     for model_params in client_states_list:
+    #         node_id = list(model_params.keys())[0]
+    #         if self._round_current == 0:
+    #             self._client_states_dict[node_id] = {}
+    #         for key in model_params[node_id]:
 
-                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state.state_dict()[key]
-        return self._client_states_dict
+    #             self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * self._server_state.state_dict()[key]
+    #     return self._client_states_dict
 
     # Run experiment functions
 
@@ -1529,9 +1529,13 @@ class Experiment(object):
         
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
-        # Trigger training round on sampled nodes    
+        # Trigger training round on sampled nodes
+        aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
+                                                                                        self._job._nodes)    
         _ = self._job.start_nodes_training_round(round=self._round_current,
-                                                 aggregator_args=self._aggregator.create_aggregator_args(self._global_model, self._job._nodes), do_training=True)
+                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
+                                                 aggregator_args_thr_files=aggr_args_thr_file,
+                                                 do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(

@@ -16,7 +16,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 import validators
 
-from typing import Any, Optional, Union, Callable, List, Dict, Type
+from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -341,15 +341,17 @@ class Job:
         # write the url down into training_args_thr_msg
         
         for node_id, aggr_params in aggregator_args_thr_files.items():
-            for aggr_param in aggr_params:
-                arg_name = aggr_param['arg_name']
+            for arg_name, aggr_param in aggr_params.items():
+                #arg_name = aggr_param['arg_name']
+                if arg_name == 'aggregator_name':
+                    continue
                 training_args_thr_msg[node_id][arg_name] = {}
                 training_args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
                 
-                filename = self.update_parameters(aggr_param['value'], aggr_param.get('filename'),
+                filename, url = self.update_parameters(aggr_param, aggr_param.get('filename'),
                                                   variable_name=arg_name)
                 training_args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
-                
+                training_args_thr_msg[node_id][arg_name]['url'] = url
         
         return training_args_thr_msg
         
@@ -477,7 +479,7 @@ class Job:
         return self._nodes
 
     def update_parameters(self, params: dict = {}, filename: str = None, is_model_params: bool = True,
-                          variable_name: str = 'aggregated_params') -> str:
+                          variable_name: str = 'aggregated_params') -> Tuple[str, str]:
         """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
         already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
         next training round. If a `filename` is given (file exists) it has precedence over `params`.
@@ -496,19 +498,21 @@ class Job:
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = self._keep_files_dir + '/' + variable_name + str(uuid.uuid4()) + '.pt'
+                filename = os.path.join(self._keep_files_dir,variable_name + str(uuid.uuid4()) + '.pt')
                 self._training_plan.save(filename, params)
+            
 
             repo_response = self.repo.upload_file(filename)
-            self._repository_args['params_url'] = repo_response['file']
+            
             if is_model_params:
                 # case where we are designing model parameter file
+                self._repository_args['params_url'] = repo_response['file']
                 self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
-        return filename
+        return filename, repo_response['file']
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint. Includes creating links to files included

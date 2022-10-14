@@ -124,8 +124,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         # TODO: put fedprox mu inside strategy_args
         self._aggregator_args = aggregator_args or {}
-        self.aggregator_name = self._aggregator_args.get('aggregator_name')
-        self.correction_state = self._aggregator_args.get('correction_state', {})
+        
+        self.set_aggrgator_args(self._aggregator_args)
+        #self.aggregator_name = self._aggregator_args.get('aggregator_name')
+        # FIXME: we should have a AggregatorHandler that handles aggregator args
+        
+        #self.correction_state = self._aggregator_args.get('correction_state', {})
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
 
@@ -446,8 +450,15 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
             # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
             # the last epoch will have 0 iterations.
-            num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
-            num_epochs = self._num_updates // num_batches_per_epoch #+ 1
+            
+            if self._batch_maxnum <= 0:
+                num_batches_per_epoch = len(self.training_data_loader)
+                num_epochs = self._num_updates // num_batches_per_epoch #+ 1
+            else:
+                num_batches_per_epoch = self._batch_maxnum
+                self._num_updates = min(self._num_updates, self._batch_maxnum)
+                num_epochs = self._num_updates // num_batches_per_epoch
+            
             if self._num_updates % num_batches_per_epoch:
                 # increment self._num_updates // num_batches_per_epoch
                 num_epochs += 1
@@ -458,6 +469,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
+        print("UPDATE", self._num_updates, num_batches_per_epoch)
         for epoch in range(1, num_epochs + 1):
             
             # (below) sampling data (with `training_data` method defined on
@@ -667,6 +679,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if to_params is False:
             self._model.load_state_dict(params)
         return params
+
+    def set_aggrgator_args(self, aggregator_args: Dict[str, Any]):
+        
+        self.aggregator_name = aggregator_args.get('aggregator_name')
+        
+        for arg_name, aggregator_arg in aggregator_args.items():
+            if arg_name == 'aggregator_correction' and aggregator_arg.get('param_path', False):
+                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled 
+                # by an aggregator handler that contains all keys for all strategies implemented 
+                # in fedbiomed
+                
+                #setattr(self, arg_name, aggregator_arg)
+                # here we ae loading all args that have been sent from file exchange system
+                self.correction_state = self.load(aggregator_arg.get('param_path'), True)
 
     def after_training_params(self) -> dict:
         """Retrieve parameters after training is done
