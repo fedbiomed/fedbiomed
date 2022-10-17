@@ -574,10 +574,10 @@ class TrainingPlanSecurityManager:
                 f"Can not check whether training plan has already be registered or not due to error: {fed_err}")
 
         if not is_existant and downloadable_checkable:
-            # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLAN_DIR)
+            # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLANS_DIR)
             try:
                 logger.debug("Storing TrainingPlan into requested training plan directory")
-                training_plan_path = os.path.join(environ['TRAINING_PLAN_DIR'], training_plan_name + '.py')
+                training_plan_path = os.path.join(environ['TRAINING_PLANS_DIR'], training_plan_name + '.py')
                 shutil.move(tmp_file, training_plan_path)
 
                 # Training plan file creation date
@@ -910,8 +910,9 @@ class TrainingPlanSecurityManager:
                 f"{ErrorNumbers.FB606.value}: get request on database failed. Details: {err}")
 
         if training_plan is None:
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
-                                                            f": no training plan matches provided training_plan_id {training_plan_id}")
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                f"{ErrorNumbers.FB606.value}: no training plan matches provided training_plan_id {training_plan_id}"
+            )
         if training_plan.get('training_plan_status') == training_plan_status.value:
             logger.warning(f" training plan {training_plan_id} has already the following training plan status "
                            f"{training_plan_status.value}")
@@ -1019,11 +1020,14 @@ class TrainingPlanSecurityManager:
 
         return True
 
-    def list_training_plans(self, sort_by: Union[str, None] = None,
-                            select_status: Union[
-                                None, TrainingPlanApprovalStatus, List[TrainingPlanApprovalStatus]] = None,
-                            verbose: bool = True,
-                            search: Union[dict, None] = None) -> List[Dict[str, Any]]:
+    def list_training_plans(
+            self,
+            sort_by: Union[str, None] = None,
+            select_status: Union[None, TrainingPlanApprovalStatus, List[TrainingPlanApprovalStatus]] = None,
+            verbose: bool = True,
+            search: Union[dict, None] = None
+    ) -> List[Dict[str, Any]]:
+
         """Lists approved training plan files
 
         Args:
@@ -1083,9 +1087,10 @@ class TrainingPlanSecurityManager:
                 else:
                     training_plans = self._db.search(self._database.training_plan_status.one_of(select_status))
             except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
-                                                                ": request failed when looking for a training plan into database with" +
-                                                                f" error: {err}")
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
+                    f"error: {err}"
+                )
 
         else:
             try:
@@ -1096,7 +1101,8 @@ class TrainingPlanSecurityManager:
                     training_plans = self._db.all()
             except Exception as e:
                 raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value + f"database full read operation failed, with following error: {str(e)}")
+                    f"{ErrorNumbers.FB606.value} database full read operation failed, with following error: {str(e)}"
+                )
 
         # Drop some keys for security reasons
         for doc in training_plans:

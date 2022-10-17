@@ -21,7 +21,7 @@ Nodes Global Variables:
 - MESSAGES_QUEUE_DIR                : Path for queues
 - DB_PATH                           : TinyDB database path where datasets/training_plans/loading plans are saved
 - DEFAULT_TRAINING_PLANS_DIR        : Path of directory for storing default training plans
-- TRAINING_PLAN_DIR                 : Path of directory for storing registered training plans
+- TRAINING_PLANS_DIR                 : Path of directory for storing registered training plans
 - TRAINING_PLAN_APPROVAL            : True if the node enables training plan approval
 - ALLOW_DEFAULT_TRAINING_PLANS      : True if the node enables default training plans for training plan approval
 
@@ -259,12 +259,12 @@ class Environ(metaclass=SingletonMeta):
                                                           'envs', 'common', 'default_training_plans')
 
         # default directory for saving training plans that are approved / waiting for approval / rejected
-        self._values['TRAINING_PLAN_DIR'] = os.path.join(VAR_DIR, f'training_plan_{NODE_ID}')
+        self._values['TRAINING_PLANS_DIR'] = os.path.join(VAR_DIR, f'training_plans_{NODE_ID}')
         # FIXME: we may want to change that
         # Catch exceptions
-        if not os.path.isdir(self._values['TRAINING_PLAN_DIR'] ):
+        if not os.path.isdir(self._values['TRAINING_PLANS_DIR'] ):
             # create training plan directory
-            os.mkdir(self._values['TRAINING_PLAN_DIR'])
+            os.mkdir(self._values['TRAINING_PLANS_DIR'])
         try:
             _cfg_value = cfg.get('security', 'allow_default_training_plans')
         except configparser.Error:

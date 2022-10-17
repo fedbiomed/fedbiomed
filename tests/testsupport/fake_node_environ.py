@@ -46,7 +46,7 @@ class EnvironNode:
         self._values['UPLOADS_URL'] = "http://localhost:8888/upload/"
         self._values['TIMEOUT'] = 10
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f"/tmp/{node}/default_training_plans"
-        self._values['TRAINING_PLAN_DIR'] = f"/tmp/{node}/registered_models"
+        self._values['TRAINING_PLANS_DIR'] = f"/tmp/{node}/registered_training_plans"
 
         # TODO: create random directory paths like  for test_taskqueue.py
         os.makedirs(self._values['ROOT_DIR'], exist_ok=True)
@@ -55,7 +55,7 @@ class EnvironNode:
         os.makedirs(self._values['CACHE_DIR'], exist_ok=True)
         os.makedirs(self._values['TMP_DIR'], exist_ok=True)
         os.makedirs(self._values['DEFAULT_TRAINING_PLANS_DIR'], exist_ok=True)
-        os.makedirs(self._values['TRAINING_PLAN_DIR'], exist_ok=True)
+        os.makedirs(self._values['TRAINING_PLANS_DIR'], exist_ok=True)
 
         #  Copy default model files to tmp directory for test
         default_models_path = os.path.join(self.envdir, 'common', 'default_training_plans')
