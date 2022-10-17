@@ -17,7 +17,7 @@ const SideNav= (props) => {
         return [
             { key: '1', label: 'Home', path: '/', icon: HomeIcon, action: null},
             { key: '2', label: 'List Data Files', path: '/repository/', icon: FolderIcon, action: null},
-            { key: '3', label: 'TrainingPlans/Models', path: '/models/', icon: FileIcon, action: null},
+            { key: '3', label: 'TrainingPlans/Models', path: '/training-plans/', icon: FileIcon, action: null},
             { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
             { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
             { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },

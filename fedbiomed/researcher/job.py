@@ -263,21 +263,21 @@ class Job:
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
                     if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
-                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Model status : {resp.get("status")}')
+                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Training plan status : {resp.get("status")}')
                 else:
-                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
 
         # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
-            logger.warning(f"Request for checking model status hasn't been replied \
+            logger.warning(f"Request for checking training plan status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
-                                 while runing your experiment. ")
+                                 while running your experiment. ")
 
         return responses
 

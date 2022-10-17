@@ -476,12 +476,12 @@ For starting node with disabled model approval and default models;
 ./scripts/fedbiomed_run node config config-n1.ini --disable-model-approval --disable-default-models start
 ```
 
-#### Default Models
+#### Default TrainingPlans
 
 Default models are located in the `envs/common/default_models/` directory as `txt` files. Each time  the node starts with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algorithm of the model is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/common/default_models` directory. After the copy/save operation node should be restarted.
 
 
-#### Registering New Models
+#### Registering New TrainingPlans
 
 New models can be registered using `fedbiomed_run` scripts with `register-model` option.
 
@@ -491,7 +491,7 @@ New models can be registered using `fedbiomed_run` scripts with `register-model`
 
 The CLI asks for the name of the model, description and the path where model file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
 
-#### Deleting Registered Models
+#### Deleting Registered TrainingPlans
 
 Following command is used for deleting registered models.
 
@@ -507,7 +507,7 @@ Select the model to delete:
 Select:
 ```
 
-Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_models` directory. After restarting the node, deleted model files will be also removed from the `Models` table of the node DB.
+Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_models` directory. After restarting the node, deleted model files will be also removed from the `TrainingPlans` table of the node DB.
 
 
 #### Updating Registered model
