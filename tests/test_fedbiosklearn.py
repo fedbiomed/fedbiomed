@@ -16,16 +16,17 @@ import tempfile
 import unittest
 import logging
 import numpy as np
+from typing import Optional
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.training_plans import FedPerceptron, FedSGDRegressor, FedSGDClassifier
+from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 
 
-class Custom():
+class Custom:
     def testing_step(mydata, mytarget):
         return {'Metric': 42.0}
 
@@ -35,6 +36,51 @@ class FakeTrainingArgs:
     def pure_training_arguments(self):
         return {"epochs": 1,
                 "batch_maxnum": 2}
+
+
+class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
+    class ChildSKLearnTrainingPlan(SKLearnTrainingPlan):
+        _model_cls = FedPerceptron._model_cls
+
+        def __init__(self):
+            super().__init__()
+        def set_init_params(self) -> None:
+            return None
+
+        def _training_routine(
+                self,
+                history_monitor: Optional['HistoryMonitor'] = None
+        ) -> None:
+            return None
+
+    def test_sklearntrainingplanbasicinheritance_01_dataloaders(self):
+        X = np.array([])
+        loader = NPDataLoader(dataset=X, target=X)
+
+        training_plan = TestSklearnTrainingPlanBasicInheritance.ChildSKLearnTrainingPlan()
+        training_plan.set_data_loaders(loader, loader)
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            training_plan.set_data_loaders('wrong-type', 'wrong-type')
+
+    def test_sklearntrainingplanbasicinheritance_02_training_routine(self):
+        training_plan = TestSklearnTrainingPlanBasicInheritance.ChildSKLearnTrainingPlan()
+        with patch.object(training_plan, '_model_cls'):
+            with self.assertRaises(FedbiomedTrainingPlanError):
+                training_plan.training_routine()
+
+        X = np.array([])
+        loader = NPDataLoader(dataset=X, target=X)
+        training_plan.set_data_loaders(loader, loader)
+        training_plan.training_routine()
+
+        with patch.object(training_plan, 'training_data_loader'):
+            with self.assertRaises(FedbiomedTrainingPlanError):
+                training_plan.training_routine()
+
+        with patch.object(training_plan, '_training_routine', side_effect=ValueError):
+            with self.assertRaises(FedbiomedTrainingPlanError):
+                training_plan.training_routine()
 
 
 class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
