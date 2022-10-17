@@ -1,9 +1,8 @@
 import unittest
-from typing import Union
 from unittest.mock import patch
 
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
-from testsupport.fake_responses import FakeResponses
+from testsupport.fake_requests import FakeRequests
 
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.researcher.environ import environ
@@ -94,71 +93,42 @@ class TestSecaggResearcher(unittest.TestCase):
     @patch('time.sleep')
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_secagg_03_setup_ok(
+    def test_secagg_03_setup__delete_ok(
             self,
             patch_requests_get_responses,
             patch_requests_send_message,
             patch_time_sleep):
-        """Correctly setup a secagg class"""
+        """Correctly setup then delete a secagg class"""
 
         # prepare
         parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
 
         # time.sleep: just need a dummy patch to avoid waiting
 
-        class FakeRequests():
-            def __init__(self):
-                self.messages = []
-                self.sequence = 0
-
-            def send_message_side_effect(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
-                    Union[int, None]:
-                # always add sequence, whatever the `add_sequence`
-                self.sequence += 1
-                if msg['command'] == 'secagg':
-                    message = {
-                        'researcher_id': msg['researcher_id'],
-                        'secagg_id': msg['secagg_id'],
-                        'sequence': self.sequence,
-                        'success': True,
-                        'node_id': client,
-                        'msg': 'Fake request',
-                        'command': msg['command'],
-                    }
-                else:
-                    message = {}
-                self.messages.append(message)
-                return self.sequence
-
-            def get_responses_side_effect(
-                    self,
-                    look_for_commands: list,
-                    timeout: float = None,
-                    only_successful: bool = True,
-                    while_responses: bool = True) -> FakeResponses:
-                # return existing responses without delay, whatever the arguments
-                messages = self.messages
-                self.messages = []
-                print(len(messages))
-                print(messages)
-                return FakeResponses(messages)
 
         fake_requests = FakeRequests()
         patch_requests_send_message.side_effect = fake_requests.send_message_side_effect
         patch_requests_get_responses.side_effect = fake_requests.get_responses_side_effect
 
-        # test
+        # test setup
         secagg = SecaggServkeyContext(parties)
         secagg.setup(timeout=5)
         biprime = SecaggBiprimeContext(parties)
         biprime.setup(timeout=5)
 
-        # check
+        # check setup
         self.assertTrue(secagg.status())
         self.assertEqual(secagg.context()['msg'], 'Not implemented yet')
         self.assertTrue(biprime.status())
         self.assertEqual(biprime.context()['msg'], 'Not implemented yet')
 
+        # test delete
+        secagg.delete(timeout=0.1)
+        biprime.delete(timeout=0.1)
+        self.assertFalse(secagg.status())
+        self.assertEqual(secagg.context(), None)
+        self.assertFalse(biprime.status())
+        self.assertEqual(biprime.context(), None)
 
 
 if __name__ == '__main__':  # pragma: no cover
