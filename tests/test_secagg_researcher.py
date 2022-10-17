@@ -91,16 +91,20 @@ class TestSecaggResearcher(unittest.TestCase):
 
         # no check, just for coverage
 
+    @patch('time.sleep')
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_secagg_03_setup_ok(
             self,
             patch_requests_get_responses,
-            patch_requests_send_message):
+            patch_requests_send_message,
+            patch_time_sleep):
         """Correctly setup a secagg class"""
 
         # prepare
-        parties = ['party1', 'party2', 'party3']
+        parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
+
+        # time.sleep: just need a dummy patch to avoid waiting
 
         class FakeRequests():
             def __init__(self):
@@ -109,8 +113,22 @@ class TestSecaggResearcher(unittest.TestCase):
 
             def send_message_side_effect(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
                     Union[int, None]:
-                self.messages.append([client, self.sequence, msg])
+                # always add sequence, whatever the `add_sequence`
                 self.sequence += 1
+                if msg['command'] == 'secagg':
+                    message = {
+                        'researcher_id': msg['researcher_id'],
+                        'secagg_id': msg['secagg_id'],
+                        'sequence': self.sequence,
+                        'success': True,
+                        'node_id': client,
+                        'msg': 'Fake request',
+                        'command': msg['command'],
+                    }
+                else:
+                    message = {}
+                self.messages.append(message)
+                return self.sequence
 
             def get_responses_side_effect(
                     self,
@@ -118,19 +136,28 @@ class TestSecaggResearcher(unittest.TestCase):
                     timeout: float = None,
                     only_successful: bool = True,
                     while_responses: bool = True) -> FakeResponses:
-                import time ; time.sleep(1)
-                print(len(self.messages))
-                print(self.messages)
-                return FakeResponses([])
+                # return existing responses without delay, whatever the arguments
+                messages = self.messages
+                self.messages = []
+                print(len(messages))
+                print(messages)
+                return FakeResponses(messages)
 
         fake_requests = FakeRequests()
         patch_requests_send_message.side_effect = fake_requests.send_message_side_effect
         patch_requests_get_responses.side_effect = fake_requests.get_responses_side_effect
 
-        context = SecaggServkeyContext(parties)
-        context.setup()
+        # test
+        secagg = SecaggServkeyContext(parties)
+        secagg.setup(timeout=5)
+        biprime = SecaggBiprimeContext(parties)
+        biprime.setup(timeout=5)
 
-
+        # check
+        self.assertTrue(secagg.status())
+        self.assertEqual(secagg.context()['msg'], 'Not implemented yet')
+        self.assertTrue(biprime.status())
+        self.assertEqual(biprime.context()['msg'], 'Not implemented yet')
 
 
 
