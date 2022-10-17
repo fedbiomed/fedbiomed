@@ -13,9 +13,10 @@ from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+from testsupport.fake_researcher_secagg import FakeSecaggContext, FakeSecaggServkeyContext, \
+    FakeSecaggBiprimeContext
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -102,7 +103,10 @@ class TestExperiment(unittest.TestCase):
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
-                  return_value=None)
+                  return_value=None),
+            patch('fedbiomed.researcher.secagg.SecaggContext', FakeSecaggContext),
+            patch('fedbiomed.researcher.secagg.SecaggServkeyContext', FakeSecaggServkeyContext),
+            patch('fedbiomed.researcher.secagg.SecaggBiprimeContext', FakeSecaggBiprimeContext),
         ]
 
         self.monitor_mock = MagicMock(return_value=None)
@@ -330,6 +334,13 @@ class TestExperiment(unittest.TestCase):
         # Should be false
         self.assertEqual(test, False, 'Getter for test on local updates has returned unexpected value')
 
+        test = self.test_exp.use_secagg()
+        # Should be false
+        self.assertEqual(test, False, 'Getter for secagg usage has returned unexpected value')
+
+        test1, test2 = self.test_exp.secagg_context()
+        self.assertEqual(test1, None, 'Getter for test on secagg context has returned unexpected value')
+        self.assertEqual(test2, None, 'Getter for test on secagg context has returned unexpected value')
 
     def test_experiment_02_info(self):
         """Testing the method .info() of experiment class """
@@ -472,6 +483,14 @@ class TestExperiment(unittest.TestCase):
                                                             'FederatedDataset object')
         self.assertEqual(self.mock_logger_debug.call_count, 2, "Logger debug is called unexpected times")
 
+        # Test when secagg is not None
+        self.mock_logger_debug.reset_mock()
+        td_expected = {'node-1': [{'dataset_id': 'ids', 'test_ratio': .0}]}
+        self.test_exp._secagg_servkey = MagicMock()
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
+                                                            'FederatedDataset object')
+        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
 
     def test_experiment_05_set_aggregator(self):
         """Testing setter for aggregator attribute of Experiment class"""
@@ -961,7 +980,23 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_21_set_tensorboard(self):
+    def test_experiment_21_set_use_secagg(self):
+        """ Test setter for use_secagg attr of experiment class """
+
+        # Test invalid type of arguments
+        use_secaggs = [ None, 3, 'toto', [True], {False} ]
+        timeouts = [ None, 'titi', [2.4], {3.5}]
+        for u in use_secaggs:
+            for t in timeouts:
+                with self.assertRaises(SystemExit):
+                    self.test_exp.set_use_secagg(use_secagg=u)
+                with self.assertRaises(SystemExit):
+                    self.test_exp.set_use_secagg(timeout=t)
+
+        # Test valid arguments
+        self.test_exp.set_use_secagg(True)
+
+    def test_experiment_22_set_tensorboard(self):
         """ Test setter for tensorboard """
 
         # Test invalid type of argument
@@ -984,7 +1019,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_22_run_once(self,
+    def test_experiment_23_run_once(self,
                                     mock_job_init,
                                     mock_job_updates_params,
                                     mock_job_training,
@@ -1075,7 +1110,7 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
-    def test_experiment_23_run(self, mock_exp_run_once):
+    def test_experiment_24_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
         def run_once_side_effect(increase, test_after=False):
@@ -1164,7 +1199,7 @@ class TestExperiment(unittest.TestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
-    def test_experiment_22_training_plan_file(self,
+    def test_experiment_25_training_plan_file(self,
                                       mock_training_plan_file,
                                       mock_open):
         """ Testing getter training_plan_file of the experiment class """
@@ -1205,7 +1240,7 @@ class TestExperiment(unittest.TestCase):
 
     @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.check_training_plan_is_approved_by_nodes')
-    def test_experiment_23_check_training_plan_status(self,
+    def test_experiment_26_check_training_plan_status(self,
                                               mock_job_model_is_approved,
                                               mock_job):
         """Testing method that checks model status """
@@ -1222,7 +1257,7 @@ class TestExperiment(unittest.TestCase):
         result = self.test_exp.check_training_plan_status()
         self.assertDictEqual(result, expected_approved_result, 'check_training_plan_status did not return expected value')
 
-    def test_experiment_24_breakpoint_raises(self):
+    def test_experiment_27_breakpoint_raises(self):
         """ Testing the scenarios where the method breakpoint() raises error """
 
         # Test if self._round_current is less than 1
@@ -1256,7 +1291,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_25_save_breakpoint(
+    def test_experiment_28_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_create_ul,
@@ -1400,7 +1435,7 @@ class TestExperiment(unittest.TestCase):
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_26_static_load_breakpoint(self,
+    def test_experiment_29_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
                                                   patch_create_object,
                                                   patch_training_plan
@@ -1547,7 +1582,7 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
-    def test_experiment_27_static_save_aggregated_params(self,
+    def test_experiment_30_static_save_aggregated_params(self,
                                                          mock_create_unique_file_link):
         """Testing static private method of experiment for saving aggregated params"""
 
@@ -1578,7 +1613,7 @@ class TestExperiment(unittest.TestCase):
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
 
-    def test_experiment_28_static_load_aggregated_params(self):
+    def test_experiment_31_static_load_aggregated_params(self):
         """ Testing static method for loading aggregated params of Experiment"""
 
         def load_func(x, to_params):
@@ -1611,7 +1646,7 @@ class TestExperiment(unittest.TestCase):
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
 
-    def test_experiment_29_private_create_object(self):
+    def test_experiment_32_private_create_object(self):
         """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
