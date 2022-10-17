@@ -68,20 +68,22 @@ class TestSkLearnDataManager(unittest.TestCase):
         n_train = n_samples - n_test
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
 
-        self.assertEqual(len(loader_test), n_test, 'Number of samples of test loader is not as expected')
-        self.assertEqual(len(loader_train), n_train, 'Number of samples of train loader is not as expected')
+        msg_test = 'Number of samples of test loader is not as expected'
+        msg_train = 'Number of samples of train loader is not as expected'
+        self.assertEqual(len(loader_test.dataset), n_test, msg_test)
+        self.assertEqual(len(loader_train.dataset), n_train, msg_train)
 
         # Test if test ratio is 1
         ratio = 1.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
-        self.assertEqual(len(loader_test), n_samples, 'Number of samples of test loader is not as expected')
-        self.assertEqual(len(loader_train), 0)
+        self.assertEqual(len(loader_test.dataset), n_samples, msg_test)
+        self.assertEqual(len(loader_train.dataset), 0)
 
         # Test if test ratio is 0
         ratio = 0.
         loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
-        self.assertEqual(len(loader_test), 0)
-        self.assertEqual(len(loader_train), n_samples, 'Number of samples of train loader is not as expected')
+        self.assertEqual(len(loader_test.dataset), 0, msg_test)
+        self.assertEqual(len(loader_train.dataset), n_samples, msg_train)
 
     def test_sklearn_data_manager_03_getter_subsets(self):
         """ Test getter for subset train and subset test"""
