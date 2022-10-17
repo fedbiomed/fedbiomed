@@ -49,7 +49,7 @@ import fedbiomed.node.cli_utils._training_plan_management
 import fedbiomed.node.dataset_manager
 import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
-import fedbiomed.node.model_manager
+import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
 import fedbiomed.node.round
 import fedbiomed.researcher.__init__

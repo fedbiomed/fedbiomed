@@ -88,10 +88,10 @@ def manage_node(node_args: Union[dict, None] = None):
         logger.info('Launching node...')
 
         # Register default training plans and update hashes
-        if environ["MODEL_APPROVAL"]:
+        if environ["TRAINING_PLAN_APPROVAL"]:
             # This methods updates hashes if hashing algorithm has changed
             tp_security_manager.check_hashes_for_registered_training_plans()
-            if environ["ALLOW_DEFAULT_MODELS"]:
+            if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
                 logger.info('Loading default training plans')
                 tp_security_manager.register_update_default_training_plans()
         else:
