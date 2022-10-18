@@ -90,7 +90,7 @@ class TestNPDataLoader(unittest.TestCase):
                              target=self.X,
                              batch_size='wrong-type')
 
-        with self.assertRaises(FedbiomedTypeError):
+        with self.assertRaises(FedbiomedValueError):
             _ = NPDataLoader(dataset=self.X,
                              target=self.X,
                              batch_size=-1)
