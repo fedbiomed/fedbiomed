@@ -13,7 +13,7 @@ from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_researcher_secagg import FakeSecaggContext, FakeSecaggServkeyContext, \
+from testsupport.fake_researcher_secagg import FAKE_CONTEXT_VALUE, FakeSecaggServkeyContext, \
     FakeSecaggBiprimeContext
 
 from fedbiomed.common.training_args import TrainingArgs
@@ -104,9 +104,6 @@ class TestExperiment(unittest.TestCase):
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None),
-            patch('fedbiomed.researcher.secagg.SecaggContext', FakeSecaggContext),
-            patch('fedbiomed.researcher.secagg.SecaggServkeyContext', FakeSecaggServkeyContext),
-            patch('fedbiomed.researcher.secagg.SecaggBiprimeContext', FakeSecaggBiprimeContext),
         ]
 
         self.monitor_mock = MagicMock(return_value=None)
@@ -980,7 +977,13 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_21_set_use_secagg(self):
+    @patch('fedbiomed.researcher.experiment.SecaggServkeyContext')
+    @patch('fedbiomed.researcher.experiment.SecaggBiprimeContext')
+    def test_experiment_21_set_use_secagg(
+        self,
+        mock_secaggbiprimecontext,
+        mock_secaggservkeycontext,
+    ):
         """ Test setter for use_secagg attr of experiment class """
 
         # Test invalid type of arguments
@@ -994,7 +997,20 @@ class TestExperiment(unittest.TestCase):
                     self.test_exp.set_use_secagg(timeout=t)
 
         # Test valid arguments
-        self.test_exp.set_use_secagg(True)
+        mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(['un', 'deux', 'trois'])
+        mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(['un', 'deux', 'trois'])
+
+        use_false = self.test_exp.set_use_secagg(False)
+        context_false_servkey, context_false_biprime = self.test_exp.secagg_context()
+        use_true = self.test_exp.set_use_secagg(True)
+        context_true_servkey, context_true_biprime = self.test_exp.secagg_context()
+
+        self.assertFalse(use_false)
+        self.assertEqual(context_false_servkey, None)
+        self.assertEqual(context_false_biprime, None)
+        self.assertTrue(use_true)
+        self.assertEqual(context_true_servkey.cont, FAKE_CONTEXT_VALUE)
+        self.assertEqual(context_true_biprime.cont, FAKE_CONTEXT_VALUE)
 
     def test_experiment_22_set_tensorboard(self):
         """ Test setter for tensorboard """
