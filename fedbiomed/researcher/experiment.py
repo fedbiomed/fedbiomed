@@ -16,6 +16,7 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
@@ -1560,7 +1561,7 @@ class Experiment(object):
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
-        aggregated_params_path = self._job.update_parameters(aggregated_params)
+        aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
         
@@ -1587,7 +1588,12 @@ class Experiment(object):
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
-            self._job.start_nodes_training_round(round=self._round_current, do_training=False)
+            aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
+                                                                                            self._job._nodes) 
+            self._job.start_nodes_training_round(round=self._round_current,
+                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
+                                                 aggregator_args_thr_files=aggr_args_thr_file,
+                                                 do_training=False)
 
         return 1
 
@@ -1849,7 +1855,7 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(),  # aggregator state
+            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1869,6 +1875,7 @@ class Experiment(object):
         )
 
         # save state into a json file.
+        print("STATE", state)
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
             with open(breakpoint_file_path, 'w') as bkpt:
@@ -1943,16 +1950,13 @@ class Experiment(object):
 
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
-        # retrieve federator
-        bkpt_aggregator_args = saved_state.get("aggregator")
-        bkpt_aggregator = cls._create_object(bkpt_aggregator_args)
 
         # initializing experiment
 
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                         aggregator=bkpt_aggregator,
+                        # aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -1978,9 +1982,16 @@ class Experiment(object):
                 saved_state.get('aggregated_params'),
                 training_plan.load
             )
-
+        
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
+        
+        # retrieve federator
+        bkpt_aggregator_args = saved_state.get("aggregator")
+        
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= loaded_exp._job.training_plan)
+        loaded_exp.set_aggregator(bkpt_aggregator)
+        
         # nota: exceptions should be handled in Job, when refactoring it
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
@@ -2023,6 +2034,7 @@ class Experiment(object):
                       f'should be `dict` not {type(value)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
+            print("BREAKPINT", breakpoint_path, value.get('params_path'), aggregated_params_init)
             params_path = create_unique_file_link(breakpoint_path,
                                                   value.get('params_path'))
             aggregated_params[key] = {'params_path': params_path}
@@ -2081,7 +2093,8 @@ class Experiment(object):
     # TODO: factorize code with Job and node
     @staticmethod
     @exp_exceptions
-    def _create_object(args: Dict[str, Any], **object_kwargs: dict) -> Any:
+    def _create_object(args: Dict[str, Any], training_plan: Optional[BaseTrainingPlan] = None,
+                       **object_kwargs: dict) -> Any:
         """
         Instantiate a class object from breakpoint arguments.
 
@@ -2153,7 +2166,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        object_instance.load_state(args)
+        object_instance.load_state(args, training_plan)
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance

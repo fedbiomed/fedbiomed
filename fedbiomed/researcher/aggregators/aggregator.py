@@ -3,13 +3,16 @@ top class for all aggregators
 """
 
 
-from typing import Dict, Any, Tuple
+import copy
+import os
+from typing import Dict, Any, List, Optional, Tuple
 
 from fedbiomed.common.constants  import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger     import logger
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.researcher.filetools import copy_file
 
 
 class Aggregator:
@@ -18,7 +21,7 @@ class Aggregator:
     (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
     def __init__(self):
-        self._aggregator_params: str = None
+        self._aggregator_args: dict = None
         self._fds: FederatedDataSet = None
         self._training_plan_type: TrainingPlans = None
 
@@ -71,19 +74,35 @@ class Aggregator:
         """Should be overwritten by child if a scaling operation is involved in aggregator"""
         return model_param
 
-    def save_state(self) -> Dict[str, Any]:
+    def save_state(self,
+                   training_plan: BaseTrainingPlan,
+                   breakpoint_path: Optional[str] = None,
+                   args_to_save_to_file: Optional[List[str]] = None, *args) -> Dict[str, Any]:
         """
         use for breakpoints. save the aggregator state
         """
+        if args_to_save_to_file is None:
+            args_to_save_to_file = []
+        aggregator_args = copy.deepcopy(self._aggregator_args)
+        if breakpoint_path is not None and aggregator_args is not None:
+            for arg_name, aggregator_arg in aggregator_args.items():
+                if arg_name in args_to_save_to_file and isinstance(aggregator_arg, dict):
+                    
+                
+                    for node_id, node_arg in aggregator_arg.items():
+                        filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
+                        training_plan.save(filename, node_arg)
+                        aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
+            
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": self._aggregator_params
+            "parameters": aggregator_args
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, *args):
         """
         use for breakpoints. load the aggregator state
         """
-        self._aggregator_params = state['parameters']
+        self._aggregator_args = state['parameters']

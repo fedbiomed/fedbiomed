@@ -79,6 +79,7 @@ class Job:
         self._model_params_file = None  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
         self._training_plan = None
+        self._aggregator_args = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -208,6 +209,10 @@ class Job:
     @property
     def requests(self):
         return self._reqs
+
+    @property
+    def aggregator_args(self):
+        return self._aggregator_args
 
     @property
     def nodes(self):
@@ -400,7 +405,7 @@ class Job:
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
-                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
+                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args' and logger.level != "DEBUG" }
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '

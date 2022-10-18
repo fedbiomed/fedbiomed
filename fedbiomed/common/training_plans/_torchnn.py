@@ -681,7 +681,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         return params
 
     def set_aggrgator_args(self, aggregator_args: Dict[str, Any]):
-        
+        """Handles and loads aggregators arguments sent through MQTT and
+        file exchanged system.
+
+        Args:
+            aggregator_args (Dict[str, Any]): _description_
+        """
         self.aggregator_name = aggregator_args.get('aggregator_name')
         
         for arg_name, aggregator_arg in aggregator_args.items():
@@ -725,6 +730,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             if self.correction_state is None:
             
                 for i in self._model.state_dict():
+
                     self.correction_state[i] = 0  
             # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
             dot_product = compute_dot_product(self._model.state_dict(), self.correction_state, self._device)

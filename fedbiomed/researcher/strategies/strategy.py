@@ -81,7 +81,7 @@ class Strategy:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, *args):
         """
         Method for loading strategy state from breakpoint state
 

@@ -66,8 +66,8 @@ class Scaffold(Aggregator):
         self.nodes_lr: Dict[str, List[float]] = {}
         if fds is not None:
             self.set_fds(fds)
-        if self._aggregator_params is None:
-            self._aggregator_params = {}
+        if self._aggregator_args is None:
+            self._aggregator_args = {}
         #self.update_aggregator_params()
 
     def aggregate(self, model_params: list,
@@ -136,7 +136,7 @@ class Scaffold(Aggregator):
 
         self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
         
-        self.update_aggregator_params(global_model)  # update aggregator_params (for breakpoints)
+        self.update_aggregator_args(global_model)  # update aggregator_params (for breakpoints)
         return aggregated_parameters
 
     def create_aggregator_args(self,
@@ -152,7 +152,7 @@ class Scaffold(Aggregator):
             Dict: _description_
         """
         if self.nodes_correction_states is None:
-            self.init_correction_states(global_model, node_ids) # making parameters JSON serializable
+            self.init_correction_states(global_model, node_ids) 
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
             # serializing correction parameters
@@ -164,6 +164,9 @@ class Scaffold(Aggregator):
                                                        'aggregator_correction': self.nodes_correction_states[node_id]}})
             aggregator_args_thr_msg.update({node_id: {'aggregator_name': self.aggregator_name,
                                                       }})
+            # if self._aggregator_args.get(node_id) is None:
+            #     self._aggregator_args[node_id] = {}
+        self._aggregator_args['aggregator_correction']= self.nodes_correction_states
         return aggregator_args_thr_msg, aggregator_args_thr_file
 
     def check_values(self, node_lrs: List[float], n_updates: int):
@@ -333,24 +336,26 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def update_aggregator_params(self,
+    def update_aggregator_args(self,
                                  global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
                                  ):
-        json_parsable_aggregator_args = self.create_aggregator_args(global_model, self._fds.node_ids())
-        self._aggregator_params.update({'name': self.aggregator_name,
-                                        'server_lr': self.server_lr,
-                                        'aggregator_args': json_parsable_aggregator_args})
+        aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
+        self._aggregator_args.update({'name': self.aggregator_name,
+                                        'server_lr': self.server_lr})
     
-    def save_state(self) -> Dict[str, Any]:
-        #self.update_aggregator_params()
-        return super().save_state()       
+    def save_state(self, training_plan: BaseTrainingPlan, breakpoint_path: str, global_model: Mapping[str, Union[torch.tensor, np.ndarray]]) -> Dict[str, Any]:
+        self.update_aggregator_args(global_model)
         
-    def load_state(self, state: Dict[str, Any] = None):
+        return super().save_state(training_plan, breakpoint_path, ['aggregator_correction'])       
+        
+    def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
         super().load_state(state)
-        self.server_lr = self._aggregator_params['server_lr']
+        self.server_lr = self._aggregator_args['server_lr']
         
         self.nodes_correction_states = {}
-        for node_id in self._aggregator_params['aggregator_args'].keys():
-            self.nodes_correction_states[node_id] = self._aggregator_params['aggregator_args'][node_id]['aggregator_correction']
+        for node_id in self._aggregator_args['aggregator_correction'].keys():
+            arg_filename = self._aggregator_args['aggregator_correction'][node_id]
+             
+            self.nodes_correction_states[node_id] = training_plan.load(arg_filename)
             #self.nodes_correction_states[node_id].pop('aggregator_name')
             
