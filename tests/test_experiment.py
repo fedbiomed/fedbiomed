@@ -1564,6 +1564,9 @@ class TestExperiment(unittest.TestCase):
             2: {'params_path': '/path/to/my/params_path_2.pt'}
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+        use_secagg = True
+        secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two']}
+        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
 
         # breakpoint structure
         state = {
@@ -1579,7 +1582,10 @@ class TestExperiment(unittest.TestCase):
             'node_selection_strategy': strategy,
             'tags': self.tags,
             'aggregated_params': aggregated_params,
-            'job': job
+            'job': job,
+            'use_secagg': use_secagg,
+            'secagg_servkey': secagg_servkey,
+            'secagg_biprime': secagg_biprime,
         }
         # create breakpoint file
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "w") as f:
@@ -1608,6 +1614,9 @@ class TestExperiment(unittest.TestCase):
         final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+        final_use_secagg = True
+        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two']}
+        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
 
         def side_create_object(args, **kwargs):
             return args
@@ -1681,7 +1690,9 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._aggregated_params, final_aggregated_params)
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
-
+        self.assertEqual(loaded_exp._use_secagg, final_use_secagg)
+        self.assertEqual(loaded_exp._secagg_servkey, final_secagg_servkey)
+        self.assertEqual(loaded_exp._secagg_biprime, final_secagg_biprime)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     def test_experiment_30_static_save_aggregated_params(self,
