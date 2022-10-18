@@ -10,7 +10,10 @@ class FakeRequests():
         self.custom = {}
 
     def set_replies_custom_fields(self, custom: dict):
-        """Custom value for a field of messages. Useful for testing some error cases."""
+        """Custom value for a field of messages. Useful for testing some error cases.
+        
+        This does not exist in original `Requests` and is added for test purposes.
+        """
         self.custom = custom
 
     def send_message(self, msg: dict, client: str = None, add_sequence: bool = False) -> \

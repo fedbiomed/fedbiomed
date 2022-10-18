@@ -996,21 +996,62 @@ class TestExperiment(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     self.test_exp.set_use_secagg(timeout=t)
 
-        # Test valid arguments
-        mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(['un', 'deux', 'trois'])
-        mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(['un', 'deux', 'trois'])
+        # Test valid arguments + succeeds setting secagg context
+        tags_cases = [
+            None,
+            ['tag1', 'tag2'],
+        ]
+        parties = ['party1', 'party2', 'party3', 'party4']
 
-        use_false = self.test_exp.set_use_secagg(False)
-        context_false_servkey, context_false_biprime = self.test_exp.secagg_context()
-        use_true = self.test_exp.set_use_secagg(True)
-        context_true_servkey, context_true_biprime = self.test_exp.secagg_context()
+        for tags in tags_cases:
+            exp = Experiment(tags=tags)
+            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+            mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
 
-        self.assertFalse(use_false)
-        self.assertEqual(context_false_servkey, None)
-        self.assertEqual(context_false_biprime, None)
-        self.assertTrue(use_true)
-        self.assertEqual(context_true_servkey.cont, FAKE_CONTEXT_VALUE)
-        self.assertEqual(context_true_biprime.cont, FAKE_CONTEXT_VALUE)
+            use_false = exp.set_use_secagg(False)
+            context_false_servkey, context_false_biprime = exp.secagg_context()
+            use_true = exp.set_use_secagg(True)
+            context_true_servkey, context_true_biprime = exp.secagg_context()
+
+            self.assertFalse(use_false)
+            self.assertEqual(context_false_servkey, None)
+            self.assertEqual(context_false_biprime, None)
+            self.assertTrue(use_true)
+            self.assertEqual(context_true_servkey.cont, FAKE_CONTEXT_VALUE)
+            self.assertEqual(context_true_biprime.cont, FAKE_CONTEXT_VALUE)
+
+        # Test valid arguments + fails setting secagg context
+        tags_cases = [
+            None,
+            ['tag1', 'tag2'],
+        ]
+        parties = ['party1', 'party2', 'party3', 'party4']
+        setup_results = [
+            [True, False],
+            [False, True],
+            [False, False]
+        ]
+
+        for tags in tags_cases:
+            for result in setup_results:
+                exp = Experiment(tags=tags)
+                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+                mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
+                mock_secaggservkeycontext.return_value.set_setup_success(result[0])
+                mock_secaggbiprimecontext.return_value.set_setup_success(result[1])
+
+                use_false = exp.set_use_secagg(False)
+                context_false_servkey, context_false_biprime = exp.secagg_context()
+                use_true = exp.set_use_secagg(True)
+                context_true_servkey, context_true_biprime = exp.secagg_context()
+
+                self.assertFalse(use_false)
+                self.assertEqual(context_false_servkey, None)
+                self.assertEqual(context_false_biprime, None)
+                self.assertFalse(use_true)
+                self.assertTrue(context_true_servkey.cont is None or context_true_biprime.cont is None)
+
+
 
     def test_experiment_22_set_tensorboard(self):
         """ Test setter for tensorboard """
