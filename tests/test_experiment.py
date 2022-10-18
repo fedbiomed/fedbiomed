@@ -1375,6 +1375,18 @@ class TestExperiment(unittest.TestCase):
         aggregator_state = {'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True}
         strategy_state = {'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45}
         job_state = {'jobparam1': {'sub1': 1, 'sub2': 'two'}, 'jobparam2': 'myjob_value'}
+        use_secagg = [
+            False,
+            True
+        ]
+        secagg_servkey_context = [
+            None,
+            {'param1': 'val1', 'param2': 34}
+        ]
+        secagg_biprime_context = [
+            None,
+            {'biprime1': False, 'biprime2': 'myval'}
+        ]
 
         # aggregated_params
         agg_params = {
@@ -1417,6 +1429,27 @@ class TestExperiment(unittest.TestCase):
 
         self.test_exp._node_selection_strategy = Strategy()
 
+        class SecaggContext():
+            pass
+
+        class SecaggServkeyContext(SecaggContext):
+            def save_state(self):
+                return secagg_servkey_context[1]
+
+        secagg_servkey = [
+            None,
+            SecaggServkeyContext()
+        ]
+
+        class SecaggBiprimeContext(SecaggContext):
+            def save_state(self):
+                return secagg_biprime_context[1]
+
+        secagg_biprime = [
+            None,
+            SecaggBiprimeContext()
+        ]
+
         # use the mocked FederatedDataSet
         self.test_exp._fds = FederatedDataSet(training_data)
 
@@ -1433,38 +1466,50 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._job.training_plan_file = training_plan_file
         self.test_exp._job.training_plan_name = training_plan_class
 
-        # action
-        self.test_exp.breakpoint()
 
-        # verification
-        final_training_plan_path = os.path.join(
-            self.experimentation_folder_path,
-            'model_' + str("{:04d}".format(round_current - 1)) + '.py')
-        final_agg_params = {
-            'entry1': {
-                'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
-            },
-            'entry2': {
-                'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
+        for secagg_i in range(2):
+            self.test_exp._use_secagg = use_secagg[secagg_i]
+            self.test_exp._secagg_servkey = secagg_servkey[secagg_i]
+            self.test_exp._secagg_biprime = secagg_biprime[secagg_i]
+
+            # action
+            patcher_secagg_context = patch('fedbiomed.researcher.experiment.SecaggContext', SecaggContext)
+            patcher_secagg_context.start()
+            self.test_exp.breakpoint()
+            patcher_secagg_context.start()
+
+            # verification
+            final_training_plan_path = os.path.join(
+                self.experimentation_folder_path,
+                'model_' + str("{:04d}".format(round_current - 1)) + '.py')
+            final_agg_params = {
+                'entry1': {
+                    'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
+                },
+                'entry2': {
+                    'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
+                }
             }
-        }
-        # better : catch exception if cannot read file or not json
-        with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
-            final_state = json.load(f)
+            # better : catch exception if cannot read file or not json
+            with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
+                final_state = json.load(f)
 
-        self.assertEqual(final_state['training_data'], training_data)
-        self.assertEqual(final_state['training_args'], training_args.dict())
-        self.assertEqual(final_state['model_args'], model_args)
-        self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
-        self.assertEqual(final_state['training_plan_class'], training_plan_class)
-        self.assertEqual(final_state['round_current'], round_current)
-        self.assertEqual(final_state['round_limit'], self.round_limit)
-        self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
-        self.assertEqual(final_state['aggregator'], aggregator_state)
-        self.assertEqual(final_state['node_selection_strategy'], strategy_state)
-        self.assertEqual(final_state['tags'], self.tags)
-        self.assertEqual(final_state['aggregated_params'], final_agg_params)
-        self.assertEqual(final_state['job'], job_state)
+            self.assertEqual(final_state['training_data'], training_data)
+            self.assertEqual(final_state['training_args'], training_args.dict())
+            self.assertEqual(final_state['model_args'], model_args)
+            self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
+            self.assertEqual(final_state['training_plan_class'], training_plan_class)
+            self.assertEqual(final_state['round_current'], round_current)
+            self.assertEqual(final_state['round_limit'], self.round_limit)
+            self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
+            self.assertEqual(final_state['aggregator'], aggregator_state)
+            self.assertEqual(final_state['node_selection_strategy'], strategy_state)
+            self.assertEqual(final_state['tags'], self.tags)
+            self.assertEqual(final_state['aggregated_params'], final_agg_params)
+            self.assertEqual(final_state['job'], job_state)
+            self.assertEqual(final_state['use_secagg'], use_secagg[secagg_i])
+            self.assertEqual(final_state['secagg_servkey'], secagg_servkey_context[secagg_i])
+            self.assertEqual(final_state['secagg_biprime'], secagg_biprime_context[secagg_i])
 
         # Test errors while writing brkp json file
         with patch.object(fedbiomed.researcher.experiment, 'open') as m:
