@@ -95,7 +95,7 @@ def manage_node(node_args: Union[dict, None] = None):
                 logger.info('Loading default training plans')
                 tp_security_manager.register_update_default_training_plans()
         else:
-            logger.warning('Model approval for train request is not activated. ' +
+            logger.warning('Training plan approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')

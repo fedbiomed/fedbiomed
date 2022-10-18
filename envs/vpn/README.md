@@ -335,11 +335,11 @@ Run this for all launches of the container :
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
 # example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] ENABLE_MODEL_APPROVAL=True ALLOW_DEFAULT_MODELS=True python -m fedbiomed.node.cli -am /data
+[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli -am /data
 # start the node
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
-# - start with model approval enabled and default models allowed
-[user@node-container $] ENABLE_MODEL_APPROVAL=True ALLOW_DEFAULT_MODELS=True python -m fedbiomed.node.cli --start --gpu
+# - start with training plan approval enabled and default training plans allowed
+[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli --start --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
@@ -358,21 +358,21 @@ MNIST
 MNIST
 ```
 
-To register approved models in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To register approved training plans in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
 ```bash
 [user@node $] ls ./node/run_mounts/data
-my_model.txt
+my_training_plan.txt
 ```
 - in the node container command line, this directory maps to `/data` directory :
 ```bash
 [user@node-container $] ls ./data
-my_model.txt
+my_training_plan.txt
 ```
-- register a new model with :
+- register a new training plan with :
 ```bash
-[user@node-container $] ./scripts/fedbiomed_run node --register-model
+[user@node-container $] ./scripts/fedbiomed_run node --register-training-plan
 ```
-- when prompted for the path of the model, indicate the `.txt` export of the model file (`/data/my_model.txt` in our example)
+- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
 
 
 ### initializing node gui (optional)
@@ -571,7 +571,7 @@ You can access the host machine GPU accelerator from a node container to speed u
 Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet the requirements for the host machine:
 
 * a **Nvidia GPU** recent enough (**`Kepler` or newer** generation) to support `450.x` Nvidia drivers that are needed for CUDA 11.x
-  Recommended GPU memory is **>= 4GB or more** depending on your models size.
+  Recommended GPU memory is **>= 4GB or more** depending on your training plans size.
 * a **supported operating system**
   - tested on **Fedora 35**, should work for recent RedHat based Linux
   - partly tested on **Ubuntu 20.04**, should work for recent Debian based Linux

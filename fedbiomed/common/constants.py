@@ -39,12 +39,12 @@ class HashingAlgorithms(_BaseEnum):
 
 
 class TrainingPlanStatus(_BaseEnum):
-    """Constant values for model type that will be saved into db
+    """Constant values for training plan type that will be saved into db
 
     Attributes:
-        REQUESTED: means model submitted in-application by the researcher
-        REGISTERED: means model added by a hospital/node
-        DEFAULT: means model is default model provided by Fed-BioMed
+        REQUESTED: means training plan submitted in-application by the researcher
+        REGISTERED: means training plan added by a hospital/node
+        DEFAULT: means training plan is default training plan provided by Fed-BioMed
     """
     REQUESTED = 'requested'
     REGISTERED = 'registered'
@@ -52,12 +52,13 @@ class TrainingPlanStatus(_BaseEnum):
 
 
 class TrainingPlanApprovalStatus(_BaseEnum):
-    """Enumeration class for model approval status of a model on a node when model approval is active.
+    """Enumeration class for training plan approval status of a training plan on a node when training plan approval
+    is active.
 
     Attributes:
-        APPROVED: model was accepted for this node, can be executed now
-        REJECTED: model was disapproved for this node, cannot be executed
-        PENDING: model is waiting for review and approval, cannot be executed yet
+        APPROVED: training plan was accepted for this node, can be executed now
+        REJECTED: training plan was disapproved for this node, cannot be executed
+        PENDING: training plan is waiting for review and approval, cannot be executed yet
     """
     APPROVED = "Approved"
     REJECTED = "Rejected"
