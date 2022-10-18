@@ -82,11 +82,17 @@ class NPDataLoader:
             logger.error(msg)
             raise FedbiomedValueError(msg)
 
-        if not isinstance(batch_size, int) or batch_size <= 0:
+        if not isinstance(batch_size, int):
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `batch_size` parameter of NPDataLoader. Expected a " \
-                  f"non-zero positive integer, instead got type {type(batch_size)} with value {batch_size}."
+                  f"non-zero positive integer, instead got type {type(batch_size)}."
             logger.error(msg)
             raise FedbiomedTypeError(msg)
+
+        if batch_size <= 0:
+            msg = f"{ErrorNumbers.FB609.value}. Wrong value for `batch_size` parameter of NPDataLoader. Expected a " \
+                  f"non-zero positive integer, instead got value {batch_size}."
+            logger.error(msg)
+            raise FedbiomedValueError(msg)
 
         if not isinstance(shuffle, bool):
             msg = f"{ErrorNumbers.FB609.value}. Wrong type for `shuffle` parameter of NPDataLoader. Expected `bool`, " \
@@ -366,14 +372,21 @@ class SkLearnDataManager(object):
 
         try:
             loader = NPDataLoader(dataset=subset[0], target=subset[1], **loader_arguments)
-        except TypeError:
+        except TypeError as e:
             valid_loader_arguments = get_method_spec(NPDataLoader)
             valid_loader_arguments.pop('dataset')
             valid_loader_arguments.pop('target')
-            msg = f"{ErrorNumbers.FB609.value}. Wrong keyword loader arguments for NPDataLoader. Valid arguments " \
-                  f"are: {[k for k in valid_loader_arguments.keys()]}, instead got {[k for k in loader_arguments]}."
+            msg = f"{ErrorNumbers.FB609.value}. Wrong keyword loader arguments for NPDataLoader. " \
+                  f"Full error message was: {e}" \
+                  f"Valid arguments are: {[k for k in valid_loader_arguments.keys()]}, " \
+                  f"instead got {[k for k in loader_arguments]}. "
             logger.error(msg)
             raise FedbiomedTypeError(msg)
+        except ValueError as e:
+            msg = f"{ErrorNumbers.FB609.value}. Wrong value of loader arguments for NPDataLoader. " \
+                  f"Full error message was: {e}"
+            logger.error(msg)
+            raise FedbiomedValueError(msg)
 
         return loader
 
