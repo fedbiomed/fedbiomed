@@ -46,7 +46,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[
-            str, Dict[str, Union[str, Callable[..., Any]]]
+            str, Dict[ProcessTypes, Union[str, Callable[..., Any]]]
         ] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
@@ -206,7 +206,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             msg = (
                 f"{ErrorNumbers.FB605.value}: error while adding "
                 "preprocess, `process_type` should be an instance "
-                "of `fedbiomed.common.constants.ProcessType`."
+                "of `fedbiomed.common.constants.ProcessTypes`."
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
