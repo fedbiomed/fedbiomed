@@ -12,7 +12,7 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import federated_averaging, weitghted_sum
+from fedbiomed.researcher.aggregators.functional import federated_averaging, weighted_sum
 from fedbiomed.researcher.aggregators.functional import initialize
 
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -118,7 +118,7 @@ class Scaffold(Aggregator):
         """
 
     
-        weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
+        #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
 
         
         model_params_processed = self.scaling(model_params, global_model)
@@ -126,9 +126,9 @@ class Scaffold(Aggregator):
  
         #model_params_processed = list(model_params_processed.values())
 
-        weights_processed = self.normalize_weights(weights_processed)
+        #weights_processed = self.normalize_weights(weights_processed)
 
-        aggregated_parameters = federated_averaging(model_params_processed, weights_processed)
+        aggregated_parameters = federated_averaging(model_params_processed, [1 / len(node_ids)] * len(node_ids))
 
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
@@ -160,13 +160,15 @@ class Scaffold(Aggregator):
 
             # print(self.nodes_correction_states)
             #serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
+            print("CORRECTION", self.nodes_correction_states)
             aggregator_args_thr_file.update({node_id: {'aggregator_name': self.aggregator_name,
                                                        'aggregator_correction': self.nodes_correction_states[node_id]}})
+            
             aggregator_args_thr_msg.update({node_id: {'aggregator_name': self.aggregator_name,
                                                       }})
             # if self._aggregator_args.get(node_id) is None:
             #     self._aggregator_args[node_id] = {}
-        self._aggregator_args['aggregator_correction']= self.nodes_correction_states
+        #self._aggregator_args['aggregator_correction']= self.nodes_correction_states
         return aggregator_args_thr_msg, aggregator_args_thr_file
 
     def check_values(self, node_lrs: List[float], n_updates: int):
@@ -305,7 +307,7 @@ class Scaffold(Aggregator):
                 # FIXME: check why we need server learning_rate in above formulae
                 _tmp_correction_update[idx][layer_name] = _tmp_correction_update[idx][layer_name] - self.nodes_correction_states[node_id][layer_name]
 
-        _aggregated_tmp_correction_update = weitghted_sum(_tmp_correction_update, weights)
+        _aggregated_tmp_correction_update = weighted_sum(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`
         for node_id in self._fds.node_ids():
@@ -344,9 +346,9 @@ class Scaffold(Aggregator):
                                         'server_lr': self.server_lr})
     
     def save_state(self, training_plan: BaseTrainingPlan, breakpoint_path: str, global_model: Mapping[str, Union[torch.tensor, np.ndarray]]) -> Dict[str, Any]:
-        self.update_aggregator_args(global_model)
+        #aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
         
-        return super().save_state(training_plan, breakpoint_path, ['aggregator_correction'])       
+        return super().save_state(training_plan, breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids())       
         
     def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
         super().load_state(state)

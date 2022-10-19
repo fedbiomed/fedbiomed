@@ -3,7 +3,6 @@ top class for all aggregators
 """
 
 
-import copy
 import os
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -12,7 +11,7 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger     import logger
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.filetools import copy_file
+
 
 
 class Aggregator:
@@ -68,7 +67,12 @@ class Aggregator:
         return self._training_plan_type
 
     def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
-        return {}, {}
+        """Returns aggregator arguments that are expecting by the nodes
+        
+        Returns:
+
+        """
+        return self._aggregator_args or {}, {}
 
     def scaling(self, model_param: dict, *args, **kwargs) -> dict:
         """Should be overwritten by child if a scaling operation is involved in aggregator"""
@@ -77,29 +81,42 @@ class Aggregator:
     def save_state(self,
                    training_plan: BaseTrainingPlan,
                    breakpoint_path: Optional[str] = None,
-                   args_to_save_to_file: Optional[List[str]] = None, *args) -> Dict[str, Any]:
+                   **aggregator_args_create) -> Dict[str, Any]:
         """
         use for breakpoints. save the aggregator state
         """
-        if args_to_save_to_file is None:
-            args_to_save_to_file = []
-        aggregator_args = copy.deepcopy(self._aggregator_args)
-        if breakpoint_path is not None and aggregator_args is not None:
-            for arg_name, aggregator_arg in aggregator_args.items():
-                if arg_name in args_to_save_to_file and isinstance(aggregator_arg, dict):
-                    
-                
-                    for node_id, node_arg in aggregator_arg.items():
-                        filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
-                        training_plan.save(filename, node_arg)
-                        aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
-            
+        aggregator_args_thr_msg, aggregator_args_thr_files = self.create_aggregator_args(**aggregator_args_create)
+        if aggregator_args_thr_msg:
+            if self._aggregator_args is None:
+                self._aggregator_args = {}
+            self._aggregator_args.update(aggregator_args_thr_msg)
+            #aggregator_args = copy.deepcopy(self._aggregator_args)
+            if breakpoint_path is not None and aggregator_args_thr_files:
+                for node_id, node_arg in aggregator_args_thr_files.items():
+                    if isinstance(node_arg, dict):
+
+                        for arg_name, aggregator_arg in node_arg.items():
+                            filename = self._save_arg_to_file(training_plan, breakpoint_path,
+                                                              arg_name, node_id, aggregator_arg)
+                            if not self._aggregator_args.get(arg_name, False):
+                                
+                                self._aggregator_args[arg_name] = {}
+                            self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
+                    else:
+                        filename = self._save_arg_to_file(training_plan, breakpoint_path, arg_name, node_id, node_arg)
+                        self._aggregator_args[arg_name] = filename
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": aggregator_args
+            "parameters": self._aggregator_args
         }
         return state
+
+    def _save_arg_to_file(self, training_plan: BaseTrainingPlan, breakpoint_path: str, arg_name: str,
+                          node_id: str, arg: Any) -> str:
+        filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
+        training_plan.save(filename, arg)
+        return filename
 
     def load_state(self, state: Dict[str, Any] = None, *args):
         """

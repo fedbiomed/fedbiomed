@@ -1140,7 +1140,7 @@ class Experiment(object):
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + ' `training_plan_path` : type(training_plan_path)'
+            msg = ErrorNumbers.FB410.value + f' `training_plan_path` must be string, but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1855,7 +1855,7 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1967,6 +1967,9 @@ class Experiment(object):
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
+        # nota: we are initializing experiment with no aggregator: hence, by default, 
+        # `loaded_exp` will be loaded with FedAverage.
+
         # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
 
@@ -1983,14 +1986,15 @@ class Experiment(object):
                 training_plan.load
             )
         
-        # changing `Job` attributes
-        loaded_exp._job.load_state(saved_state.get('job'))
-        
         # retrieve federator
         bkpt_aggregator_args = saved_state.get("aggregator")
         
-        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= loaded_exp._job.training_plan)
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
+
+        # changing `Job` attributes
+        loaded_exp._job.load_state(saved_state.get('job'))
+        
         
         # nota: exceptions should be handled in Job, when refactoring it
 

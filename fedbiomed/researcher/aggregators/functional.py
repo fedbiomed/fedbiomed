@@ -33,10 +33,10 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
 
     # Compute proportions
     proportions = [n_k / sum(weights) for n_k in weights]
-    return weitghted_sum(model_params, proportions)
+    return weighted_sum(model_params, proportions)
 
 
-def weitghted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
+def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
                   proportions: List[float]):
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
