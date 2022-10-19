@@ -154,9 +154,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         try:
             # should we write it in binary (for the sake of space optimization)?
-            file = open(filepath, "w")
-            file.write(content)
-            file.close()
+            with open(filepath, "w") as file:
+                file.write(content)
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
@@ -171,9 +170,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
-
-        # Return filepath and content
-        return filepath, content
 
     def training_data(self):
         """All subclasses must provide a training_data routine the purpose of this actual code is to detect
