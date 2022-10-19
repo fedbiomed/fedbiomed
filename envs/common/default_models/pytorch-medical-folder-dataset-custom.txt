@@ -625,14 +625,14 @@ class UNetTrainingPlan(TorchTrainingPlan):
         return np.concatenate((out, dummy_vars))
 
 
-    def training_data(self,  batch_size = 4):
+    def training_data(self, dataset_path, batch_size = 4):
     # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         common_shape = (48, 60, 48)
         training_transform = Compose([AddChannel(), Resize(common_shape), NormalizeIntensity(),])
         target_transform = Compose([AddChannel(), Resize(common_shape), AsDiscrete(to_onehot=2)])
 
         dataset = MedicalFolderDataset(
-            root=self.dataset_path,
+            root=dataset_path,
             data_modalities='T1',
             target_modalities='label',
             transform=training_transform,

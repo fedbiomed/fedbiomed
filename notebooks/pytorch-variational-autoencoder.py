@@ -73,12 +73,12 @@ class VariationalAutoencoderPlan(TorchTrainingPlan):
     
     """ We will work on MNIST data. This is the pytorch wrapper of this data.
     """
-    def training_data(self,  batch_size = 48):
+    def training_data(self, dataset_path, batch_size = 48):
         # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         mnist_transform = transforms.Compose([
                 transforms.ToTensor(),
         ])
-        train_dataset = datasets.MNIST(self.dataset_path, transform=mnist_transform, train=True, download=True)
+        train_dataset = datasets.MNIST(dataset_path, transform=mnist_transform, train=True, download=True)
         return DataManager(train_dataset,batch_size=batch_size,shuffle=True)
     
     """ Computed loss for variational autoencoders.

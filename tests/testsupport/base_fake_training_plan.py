@@ -9,7 +9,7 @@ class BaseFakeTrainingPlan(TorchTrainingPlan):
     def init_optimizer(self):
         pass
 
-    def training_data(self):
+    def training_data(self, dataset_path="fake_path"):
         pass
 
     def training_step(self):

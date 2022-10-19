@@ -52,14 +52,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.tp.add_dependency(expected)
         self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
-    def test_base_training_plan_02_set_dataset_path(self):
-        """ Test setting dataset path """
-
-        expected = '/path/to/my/data.csv'
-        self.tp.set_dataset_path(expected)
-        self.assertEqual(expected, self.tp.dataset_path, 'Can not set `dataset_path` properly')
-
-    def test_base_training_plan_03_save_code(self):
+    def test_base_training_plan_02_save_code(self):
         """ Testing the method save_code of BaseTrainingPlan """
 
         # Test without dependencies
@@ -105,7 +98,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 path, _ = self.tp.save_code(expected_filepath)
 
-    def test_base_training_plan_04_add_preprocess(self):
+    def test_base_training_plan_03_add_preprocess(self):
         def method(args):
             pass
 
@@ -121,7 +114,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.tp.add_preprocess(method, ProcessTypes.DATA_LOADER)
         self.assertTrue('method' in self.tp.pre_processes, 'add_preprocess could not add process properly')
 
-    def test_base_training_plan_05_set_data_loaders(self):
+    def test_base_training_plan_04_set_data_loaders(self):
         test_data_loader = [1, 2, 3]
         train_data_loader = [1, 2, 3]
 
@@ -129,7 +122,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertListEqual(self.tp.training_data_loader, train_data_loader)
         self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
 
-    def test_base_training_plan_06__create_metric_result(self):
+    def test_base_training_plan_05__create_metric_result(self):
         """
         Testing private method create metric result dict
 
@@ -208,13 +201,13 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertDictEqual(result, {'Custom': 4.5})
         self.assertIsInstance(result["Custom"], float)
 
-    def test_base_training_plan_07_training_data(self):
+    def test_base_training_plan_06_training_data(self):
         """ Test training_data method whether raises error """
 
         # The method training data should be defined by user, that's why
         # training_data in BaseTrainingPLan has been configured for raising error
         with self.assertRaises(FedbiomedTrainingPlanError):
-            self.tp.training_data()
+            self.tp.training_data("mock_dataset_path")
 
 
 if __name__ == '__main__':  # pragma: no cover

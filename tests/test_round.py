@@ -170,7 +170,6 @@ class TestRound(unittest.TestCase):
         #  - model.save
         #  - model.training_routine
         #  - model.after_training_params
-        #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
         MODEL_NAME = "my_model"
@@ -206,7 +205,6 @@ class TestRound(unittest.TestCase):
         # `run_model_training`
         with (
                 patch.object(FakeModel, 'load') as mock_load,
-                patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
                 patch.object(FakeModel, 'save') as mock_save
@@ -224,8 +222,8 @@ class TestRound(unittest.TestCase):
             mock_split_train_and_test_data.assert_called_once()
 
             # Since set training data return None, training_routine should be called as None
-            mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
-                                                           node_args=None)
+            mock_training_routine.assert_called_once_with(history_monitor=self.r1.history_monitor,
+                                                          node_args=None)
 
             mock_after_training_params.assert_called_once()
             mock_save.assert_called_once_with(_model_filename, _model_results)
@@ -272,8 +270,6 @@ class TestRound(unittest.TestCase):
             "   def set_data_loaders(self, *args, **kwargs):\n" + \
             "       self.testing_data_loader = True\n" + \
             "       self.training_data_loader = True\n" + \
-            "       pass\n" + \
-            "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
@@ -642,7 +638,7 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        r3 = Round(training_kwargs={})
+        r3 = Round(training_kwargs={}, dataset=my_dataset)
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -651,9 +647,11 @@ class TestRound(unittest.TestCase):
         self.assertEqual(dataset[0], 'orig-value')
 
         dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
-        r4 = Round(training_kwargs={},
-                   dlp_and_loading_block_metadata=dlp.serialize()
-                   )
+        r4 = Round(
+            training_kwargs={},
+            dataset=my_dataset,
+            dlp_and_loading_block_metadata=dlp.serialize()
+        )
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 

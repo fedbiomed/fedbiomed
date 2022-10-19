@@ -308,9 +308,6 @@ class Round:
         arguments.
         """
 
-        # Set requested data path for model training and validation
-        self.training_plan.set_dataset_path(self.dataset['path'])
-
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
@@ -360,7 +357,7 @@ class Round:
         args = list(parameters.keys())
 
         # Currently, training_data only accepts batch_size
-        if len(args) > 1 or (len(args) == 1 and 'batch_size' not in args):
+        if len(args) > 2 or (len(args) == 2 and 'batch_size' not in args):
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `the arguments of `training_data` of training "
                                       f"plan contains unsupported argument. ")
 
@@ -369,9 +366,11 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])
+                data_manager = self.training_plan.training_data(
+                    self.dataset['path'], batch_size=self.loader_arguments['batch_size']
+                )
             else:
-                data_manager = self.training_plan.training_data()
+                data_manager = self.training_plan.training_data(self.dataset['path'])
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")

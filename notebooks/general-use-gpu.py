@@ -4,9 +4,9 @@
 # # Fed-BioMed Researcher GPU usage example
 
 # This example demonstrates using a Nvidia GPU for training a model.
-# 
+#
 # The nodes for this example need to run on a machine providing a Nvidia GPU with enough GPU memory (and from a not-too-old model, so that it is supported by PyTorch).
-# 
+#
 # If GPU doesn't have enough memory you will get a **out of memory error** at run time.
 
 # ## Start the network
@@ -19,7 +19,7 @@
 #   * Confirm default tags by hitting "y" and ENTER
 #   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
-#   
+#
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config config1.ini list`, `./scripts/fedbiomed_run node config config2.ini list`, `./scripts/fedbiomed_run node config config3.ini list`
 # 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini run --gpu` so that the nodes offers GPU for training and uses the default device.
 # 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini run --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
@@ -37,23 +37,23 @@ from fedbiomed.common.data import DataManager
 from torchvision import datasets, transforms
 
 
-# Here we define the model to be used. 
+# Here we define the model to be used.
 # You can use any class name (here 'Net')
 class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Defines and return model 
+
+    # Defines and return model
     def init_model(self, model_args):
         return self.Net(model_args = model_args)
-    
+
     # Defines and return optimizer
     def init_optimizer(self, optimizer_args):
         return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
-    
+
     # Declares and return dependencies
     def init_dependencies(self):
         deps = ["from torchvision import datasets, transforms"]
         return deps
-    
+
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
@@ -81,14 +81,14 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self, dataset_path, batch_size = 48):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+        dataset1 = datasets.MNIST(dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset=dataset1, **train_kwargs)
-    
+
     def training_step(self, data, target):
         output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
@@ -103,13 +103,13 @@ class MyTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'batch_size': 48,
     'optimizer_args': {
         'lr': 1e-3
-    }, 
+    },
     'use_gpu': True,
-    'epochs': 1, 
-    'dry_run': False,  
+    'epochs': 1,
+    'dry_run': False,
     'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
@@ -174,4 +174,3 @@ print("\t- params_path: ", exp.aggregated_params()[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params()[rounds - 1]['params'].keys())
 
 # Feel free to run other sample notebooks or try your own models :D
-

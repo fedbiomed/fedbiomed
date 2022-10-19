@@ -9,6 +9,7 @@ import torch
 from torch import nn
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.data import DataManager
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -142,7 +143,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         pass
 
     @abstractmethod
-    def training_data(self):
+    def training_data(self, dataset_path: str) -> DataManager:
         """Abstract method to return training data"""
         pass
 

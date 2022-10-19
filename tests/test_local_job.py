@@ -49,7 +49,6 @@ class TestLocalJob(unittest.TestCase):
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
         self.model.load = MagicMock(return_value={'model_params': True})
-        self.model.set_dataset_path = MagicMock(return_value=None)
         self.model.training_data.return_value = mock_data_manager
         self.model.type = MagicMock(return_value=None)
         self.model.training_routine = MagicMock(return_value=None)

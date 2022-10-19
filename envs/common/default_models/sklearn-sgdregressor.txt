@@ -13,8 +13,8 @@ class SGDRegressorTrainingPlan(FedSGDRegressor):
         return ["from fedbiomed.common.training_plans import FedSGDRegressor",
                              "from sklearn.linear_model import SGDRegressor"]
 
-    def training_data(self):
-        dataset = pd.read_csv(self.dataset_path,delimiter=';')
+    def training_data(self, dataset_path):
+        dataset = pd.read_csv(dataset_path,delimiter=';')
         regressors_col = ['AGE', 'WholeBrain.bl',
                           'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl']
         target_col = ['MMSE.bl']

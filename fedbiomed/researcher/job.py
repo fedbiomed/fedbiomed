@@ -675,8 +675,7 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self._training_plan.set_dataset_path(self.dataset_path)
-                data_manager = self._training_plan.training_data()
+                data_manager = self._training_plan.training_data(self.dataset_path)
                 tp_type = self._training_plan.type()
                 data_manager.load(tp_type=tp_type)
                 train_loader, test_loader = data_manager.split(test_ratio=0)

@@ -32,22 +32,22 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
 from torchvision import datasets, transforms
 
-# Here we define the training plan. 
+# Here we define the training plan.
 class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Defines and return model 
+
+    # Defines and return model
     def init_model(self, model_args):
         return self.Net(model_args = model_args)
-    
+
     # Defines and return optimizer
     def init_optimizer(self, optimizer_args):
         return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
-    
+
     # Declares and return dependencies
     def init_dependencies(self):
         deps = ["from torchvision import datasets, transforms"]
         return deps
-    
+
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
@@ -75,14 +75,14 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self, dataset_path, batch_size = 48):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+        dataset1 = datasets.MNIST(dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset=dataset1, **train_kwargs)
-    
+
     def training_step(self, data, target):
         output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
@@ -100,12 +100,12 @@ class MyTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'batch_size': 48,
     'optimizer_args': {
         "lr" : 1e-3
     },
-    'epochs': 1, 
-    'dry_run': False,  
+    'epochs': 1,
+    'dry_run': False,
     'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
@@ -178,19 +178,19 @@ del exp
 
 
 # ## Resume an experiment
-# 
+#
 # While experiment is running, you can shut it down (after the first round) and resume the experiment from the next cell. Or wait for the experiment completion.
-# 
-# 
+#
+#
 # **To load the latest breakpoint of the latest experiment**
-# 
+#
 # Run :
 # `Experiment.load_breakpoint()`. It reloads latest breakpoint, and will bypass `search` method
-# 
+#
 # and then use `.run` method as you would do with an existing experiment.
-# 
+#
 # **To load a specific breakpoint** specify breakpoint folder.
-# 
+#
 # - absolute path: use
 #   `Experiment.load_breakpoint("${FEDBIOMED_DIR}/var/experiments/Experiment_xxxx/breakpoint_yyyy)`.
 #    Replace `xxxx` and `yyyy` by the real values.

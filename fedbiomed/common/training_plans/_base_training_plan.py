@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data import DataManager, NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
@@ -34,7 +34,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             a batch-wise (set of) metric(s)
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -44,7 +43,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
-        self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[
             str, Dict[str, Union[str, Callable[..., Any]]]
         ] = OrderedDict()
@@ -80,26 +78,40 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if val not in self._dependencies:
                 self._dependencies.append(val)
 
-    def set_dataset_path(self, dataset_path: str) -> None:
-        """Dataset path setter for TrainingPlan
+    def training_data(
+            self,
+            dataset_path: str
+        ) -> DataManager:
+        """Instantiate and return a DataManager suitable for this plan.
+
+        All subclasses must provide a training_data routine.
+
+        This method is called once per round by each node that performs
+        training and evaluation according to this plan.
 
         Args:
             dataset_path: The path where data is saved on the node.
-                This method is called by the node that executes the training.
+
+        Raises:
+            FedbiomedTrainingPlanError: if called and not inherited.
         """
-        self.dataset_path = dataset_path
-        logger.debug(f"Dataset path has been set as {self.dataset_path}")
+        msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
     def set_data_loaders(
             self,
-            train_data_loader: Union[DataLoader, NPDataLoader, None],
-            test_data_loader: Union[DataLoader, NPDataLoader, None]
+            train_data_loader: Union[DataLoader, NPDataLoader],
+            test_data_loader: Union[DataLoader, NPDataLoader]
         ) -> None:
-        """Sets data loaders
+        """Data loaders setter for TrainingPlan.
+
+        This method is used to provide with the final data loaders
+        that are to be used in the training and testing routines.
 
         Args:
-            train_data_loader: Data loader for training routine/loop
-            test_data_loader: Data loader for validation routine
+            train_data_loader: Data loader for training routine/loop.
+            test_data_loader: Data loader for validation routine.
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
@@ -174,17 +186,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         # Return filepath and content
         return filepath, content
-
-    def training_data(self):
-        """All subclasses must provide a training_data routine the purpose of this actual code is to detect
-        that it has been provided
-
-        Raises:
-            FedbiomedTrainingPlanError: if called and not inherited
-        """
-        msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
 
     def add_preprocess(
             self,
