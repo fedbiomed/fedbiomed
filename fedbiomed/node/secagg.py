@@ -1,6 +1,7 @@
 """Secure Aggregation setup on the node"""
 from typing import List
 from abc import ABC, abstractmethod
+import time
 
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.message import NodeMessages, SecaggReply
@@ -66,7 +67,6 @@ class SecaggSetup(ABC):
         Returns:
             secagg context element name
         """
-        pass
 
     def _create_secagg_reply(self, message: str = '', success: bool = False) -> SecaggReply:
         """Create reply message for researcher after secagg setup phase.
@@ -102,7 +102,6 @@ class SecaggSetup(ABC):
         Returns:
             message to return to the researcher after the setup
         """
-        pass
 
 
 class SecaggServkeySetup(SecaggSetup):
@@ -140,7 +139,6 @@ class SecaggServkeySetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        import time
         time.sleep(4)
         logger.info("Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE")
         msg = self._create_secagg_reply('', True)
@@ -183,7 +181,6 @@ class SecaggBiprimeSetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        import time
         time.sleep(6)
         logger.info("Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE")
         msg = self._create_secagg_reply('', True)

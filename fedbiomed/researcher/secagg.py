@@ -83,6 +83,7 @@ class SecaggContext(ABC):
         Returns:
             a tuple of a `context`, and a boolean `status` for the context element.
         """
+        # abstract method may contain some code in the future, so let's keep this command
         pass
 
     def _delete_payload(self) ->  Tuple[Union[dict, None], bool]:
