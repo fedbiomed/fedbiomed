@@ -87,37 +87,42 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     def test_node_01_add_task_normal_case_scenario(self, task_queue_add_patcher):
         """Tests add_task method (in the normal case scenario)"""
-        # arguments
-        # a dummy message
-        node_msg_request_create_task = {
-            'msg': "a message for testing",
-            'command': 'train'
-        }
-        # action
-        self.n1.add_task(node_msg_request_create_task)
 
-        # checks
-        task_queue_add_patcher.assert_called_once_with(node_msg_request_create_task)
+        for command in ['train', 'secagg']:
+            # arguments
+            # a dummy message
+            node_msg_request_create_task = {
+                'msg': "a message for testing",
+                'command': command
+            }
+            # action
+            self.n1.add_task(node_msg_request_create_task)
+
+            # checks
+            task_queue_add_patcher.assert_called_once_with(node_msg_request_create_task)
+            task_queue_add_patcher.reset_mock()
 
     @patch('fedbiomed.node.node.Node.add_task')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_02_on_message_normal_case_scenario_train_reply(
+    def test_node_02_on_message_normal_case_scenario_train_secagg_reply(
             self,
             node_msg_req_create_patcher,
             node_add_task_patcher,
     ):
-        """Tests `on_message` method (normal case scenario), with train command"""
-        # test 1: test normal case scenario, where `command` = 'train'
+        """Tests `on_message` method (normal case scenario), with train/secagg command"""
+        # test 1: test normal case scenario, where `command` = 'train' or 'secagg'
 
         node_msg_req_create_patcher.side_effect = TestNode.node_msg_side_effect
-        train_msg = {
-            'command': 'train'
-        }
-        # action
-        self.n1.on_message(train_msg)
+        for command in ['train', 'secagg']:
+            train_msg = {
+                'command': command
+            }
+            # action
+            self.n1.on_message(train_msg)
 
-        # checks
-        node_add_task_patcher.assert_called_once_with(train_msg)
+            # checks
+            node_add_task_patcher.assert_called_once_with(train_msg)
+            node_add_task_patcher.reset_mock()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
@@ -149,6 +154,38 @@ class TestNode(unittest.TestCase):
             })
         # checks
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    def test_node_03bis_on_message_normal_case_scenario_secagg_delete(
+            self,
+            node_msg_request_patch,
+            node_msg_reply_patch,
+            messaging_send_msg_patch
+    ):
+        """Tests `on_message` method (normal case scenario), with secagg-delete command"""
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+
+        # defining arguments
+        secagg_delete = {
+            'command': 'secagg-delete',
+            'researcher_id': 'researcher_id_1234',
+            'secagg_id': 'my_test_secagg_id',
+            'sequence': 1234
+        }
+
+        # action
+        self.n1.on_message(secagg_delete)
+        secagg_delete.update(
+            {
+                'node_id': environ['NODE_ID'],
+                'success': True,
+                'msg': ''
+            })
+        # checks
+        messaging_send_msg_patch.assert_called_once_with(secagg_delete)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
@@ -689,7 +726,7 @@ class TestNode(unittest.TestCase):
             # checks if `SystemError` is caught (triggered by patched `tasks_queue.get`)
             self.n1.task_manager()
 
-    # NOTA BENE: for test 14 to test 17 (testing `task_manager` method)
+    # NOTA BENE: for test 17to test 20 (testing `task_manager` method)
     # Since we don't have any proper way to stop the infinite loop defined
     # in the method, we are triggering `SystemExit` Exception to leave it
     # (SystemExit is an exception that is not caught by statement
@@ -698,7 +735,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_node_18_task_manager_exception_raised_parser_task_train(self,
+    def test_node_18_task_manager_train_exception_raised_parser_task_train(self,
                                                                tasks_queue_get_patch,
                                                                node_parser_task_train_patch):
         """Tests case where `Node.parser_task_train` method raises an exception (SystemExit).
@@ -725,9 +762,44 @@ class TestNode(unittest.TestCase):
             self.n1.task_manager()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.NodeMessages.request_create')
+    @patch('fedbiomed.node.node.NodeMessages.reply_create')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
+    def test_node_18bis_task_manager_exception_raised(self,
+                                                               tasks_queue_get_patch,
+                                                               reply_create_patch,
+                                                               request_create_patch,
+                                                               mssging_send_msg_patch):
+        """Tests case where `NodeMessages.request_create` method raises an exception 
+        and then the reply_create raises another exception(SystemExit).
+        """
+        # defining patchers
+        tasks_queue_get_patch.return_value = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "training": True,
+            "training_plan_url": "https://link.to.somewhere.where.my.model",
+            "training_plan_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "command": "train",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        request_create_patch.side_effect = Exception
+        reply_create_patch.side_effect = SystemExit("mimicking an exception" + " coming from NodeMessages.request_create")  # noqa
+        mssging_send_msg_patch.return_value = None
+
+        # action
+        with self.assertRaises(SystemExit):
+            # checks if `SystemExit` is caught
+            # (should be triggered by `Node.parser_task_train` method)
+            self.n1.task_manager()
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_node_19_task_manager_exception_raised_send_message(self,
+    def test_node_19_task_manager_train_exception_raised_send_message(self,
                                                                 tasks_queue_get_patch,
                                                                 node_parser_task_train_patch,
                                                                 mssging_send_msg_patch):
@@ -764,13 +836,13 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_node_20_task_manager_exception_raised_task_done(self,
+    def test_node_20_task_manager_train_exception_raised_task_done(self,
                                                              tasks_queue_get_patch,
                                                              node_parser_task_train_patch,
                                                              mssging_send_msg_patch,
                                                              tasks_queue_task_done_patch):
         """Tests if an Exception (SystemExit) is triggered when calling
-        `TasksQueue.task_done` method"""
+        `TasksQueue.task_done` method for train message"""
         # defining patchers
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
@@ -802,12 +874,73 @@ class TestNode(unittest.TestCase):
         # (because 2 rounds have been set in `rounds` attribute)
         self.assertEqual(mssging_send_msg_patch.call_count, 2)
 
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.Node.task_secagg')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
+    def test_node_20bis_task_manager_secagg_exception_raised_task_done(self,
+                                                             tasks_queue_get_patch,
+                                                             task_secagg_patch,
+                                                             mssging_send_msg_patch,
+                                                             tasks_queue_task_done_patch):
+        """Tests if an Exception (SystemExit) is triggered when calling
+        `TasksQueue.task_done` method for secagg message"""
+        # defining patchers
+        tasks_queue_get_patch.return_value = {
+            "researcher_id": "my_test_researcher",
+            "secagg_id": "my_test_secagg",
+            "sequence": 2345,
+            "element": 33,
+            "parties": [],
+            "command": "secagg"
+        }
+        task_secagg_patch.return_value = None
+        mssging_send_msg_patch.return_value = None
+
+        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
+
+        # action
+        with self.assertRaises(SystemExit):
+            # checks if `SystemExit` is raised (should be triggered by `TasksQueue.task_done`)
+            self.n1.task_manager()
+
+        # check that `Messaging.send_message` has not been called
+        self.assertEqual(mssging_send_msg_patch.call_count, 0)
+
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
+    def test_node_20ter_task_manager_badcommand_exception_raised_task_done(self,
+                                                             tasks_queue_get_patch,
+                                                             mssging_send_msg_patch,
+                                                             tasks_queue_task_done_patch):
+        """Tests if an Exception (SystemExit) is triggered when calling
+        `TasksQueue.task_done` method for an unexpected type of message"""
+        # defining patchers
+        tasks_queue_get_patch.return_value = {
+            "researcher_id": "researcher_id_1234",
+            "secagg_id": "secagg_id_2345",
+            "sequence": 33,
+            "command": "secagg-delete",
+        }
+        mssging_send_msg_patch.return_value = None
+
+        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
+
+        # action
+        with self.assertRaises(SystemExit):
+            # checks if `SystemExit` is raised (should be triggered by `TasksQueue.task_done`)
+            self.n1.task_manager()
+
+        # check that `Messaging.send_message` have been called once
+        self.assertEqual(mssging_send_msg_patch.call_count, 1)
+
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_node_21_task_manager_exception_raised_twice_in_send_msg(self,
+    def test_node_21_task_manager_train_exception_raised_twice_in_send_msg(self,
                                                                      tasks_queue_get_patch,
                                                                      node_parser_task_train_patch,
                                                                      mssging_send_msg_patch,
