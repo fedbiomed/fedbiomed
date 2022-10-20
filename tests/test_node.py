@@ -10,6 +10,7 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
+from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBiprimeSetup
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers
@@ -1051,10 +1052,14 @@ class TestNode(unittest.TestCase):
         self.assertNotIn('path', database_info)
         self.assertNotIn('tabular_file', database_info['dataset_parameters'])
 
+    @patch('fedbiomed.node.node.SecaggServkeySetup')
+    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     def test_node_29_task_secagg_success(
             self,
-            messaging_send_msg_patch):
+            messaging_send_msg_patch,
+            secagg_servkey_patch,
+            secagg_biprime_patch):
         """Tests `task_secagg` normal (successful) case"""
 
         # prepare
@@ -1077,11 +1082,32 @@ class TestNode(unittest.TestCase):
             'msg': ''
         }
 
+        secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
+            dict_secagg_request['researcher_id'],
+            dict_secagg_request['secagg_id'],
+            dict_secagg_request['sequence'],
+            dict_secagg_request['parties']
+        )
+        secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
+            dict_secagg_request['researcher_id'],
+            dict_secagg_request['secagg_id'],
+            dict_secagg_request['sequence'],
+            dict_secagg_request['parties']
+        )
+
         # action
         self.n1.task_secagg(msg_secagg_request)
 
         # check
         messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+
+        self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
+        self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+        self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
+        self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
+        self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+        self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
+
 
 
 
