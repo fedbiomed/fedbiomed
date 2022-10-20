@@ -54,11 +54,11 @@ export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 
 
 //Models
-export const EP_LIST_MODELS     = '/api/model/list'
-export const EP_APPROVE_MODEL   = '/api/model/approve'
-export const EP_REJECT_MODEL    = '/api/model/reject'
-export const EP_DELETE_MODEL    = '/api/model/delete'
-export const EP_PREVIEW_MODEL   = '/api/model/preview'
+export const EP_LIST_TRAINING_PLANS     = '/api/training-plan/list'
+export const EP_APPROVE_TRAINING_PLAN   = '/api/training-plan/approve'
+export const EP_REJECT_TRAINING_PLAN    = '/api/training-plan/reject'
+export const EP_DELETE_TRAINING_PLAN    = '/api/training-plan/delete'
+export const EP_PREVIEW_TRAINING_PLAN   = '/api/training-plan/preview'
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'

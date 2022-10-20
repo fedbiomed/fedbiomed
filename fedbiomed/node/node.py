@@ -16,7 +16,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
 
@@ -34,13 +34,13 @@ class Node:
 
     def __init__(self,
                  dataset_manager: DatasetManager,
-                 model_manager: ModelManager,
+                 tp_security_manager: TrainingPlanSecurityManager,
                  node_args: Union[dict, None] = None):
         """Constructor of the class.
 
         Attributes:
             dataset_manager: `DatasetManager` object for managing the node's datasets.
-            model_manager: `ModelManager` object managing the node's models.
+            tp_security_manager: `TrainingPlanSecurityManager` object managing the node's training plans.
             node_args: Command line arguments for node.
         """
 
@@ -48,7 +48,7 @@ class Node:
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
-        self.model_manager = model_manager
+        self.tp_security_manager = tp_security_manager
         self.rounds = []
 
         self.node_args = node_args
@@ -138,11 +138,11 @@ class Node:
                      'count': len(databases),
                      }).get_dict())
             elif command == 'approval':
-                # Ask for model approval
-                self.model_manager.reply_model_approval_request(request, self.messaging)
+                # Ask for training plan approval
+                self.tp_security_manager.reply_training_plan_approval_request(request, self.messaging)
             elif command == 'training-plan-status':
-                # Check is model approved
-                self.model_manager.reply_model_status_request(request, self.messaging)
+                # Check is training plan approved
+                self.tp_security_manager.reply_training_plan_status_request(request, self.messaging)
 
             else:
                 raise NotImplementedError('Command not found')
@@ -274,14 +274,16 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
 
-        assert training_plan_url is not None, 'URL for model on repository not found.'
+        assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
-            training_plan_url), 'URL for model on repository is not valid.'
-        assert training_plan_class is not None, 'classname for the model and training routine was not found in message.'
+            training_plan_url), 'URL for training plan on repository is not valid.'
+        assert training_plan_class is not None, 'classname for the training plan and training routine ' \
+                                                'was not found in message.'
 
         assert isinstance(
             training_plan_class,
-            str), '`training_plan_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
+            str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
+                  'and training routine in the repository'
 
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)

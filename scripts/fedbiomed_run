@@ -49,14 +49,14 @@ node      : a second argument is mandatory
             - delete-mnist non-interactively un-registers a mnist dataset
             - delete-all non interactively un-registers all node datasets
 
-            - register-model  | --register-model    : Register and approve a model from a local file.
-            - update-model    | --update-model      : Update model file (for a model registered from a local file)
-            - delete-model    | --delete-model  | -dml  : Delete a model from database (not for default models)
+            - register-training-plan  | --register-training-plan  | -rtp    : Register and approve a training plan from a local file.
+            - update-training-plan    | --update-training-plan    | -utp    : Update training plan file (for a training plan registered from a local file)
+            - delete-training-plan    | --delete-training-plan    | -dml    : Delete a training plan from database (not for default training plans)
 
-            - list-models     | --list-models   | -lms  : List all models (requested, default or registered)
-            - view-model      | --view-model    | -vml  : View a model source code (requested, default or registered)
-            - approve-model   | --approve-model | -aml  : Approve a model (requested, default or registered)
-            - reject-model    | --reject-model  | -rjml : Reject a model (requested, default or registered)
+            - list-training-plans     | --list-training-plans     | -ltps   : List all training plans (requested, default or registered)
+            - view-training-plan      | --view-training-plan      | -vtp    : View a training plan source code (requested, default or registered)
+            - approve-training-plan   | --approve-training-plan   | -atp    : Approve a training plan (requested, default or registered)
+            - reject-training-plan    | --reject-training-plan    | -rjtp   : Reject a training plan (requested, default or registered)
 
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
@@ -68,10 +68,10 @@ node      : a second argument is mandatory
 
             Option that should be used with start or add command to manage node modes.
 
-            - enable-model-approval     | --enable-model-approval   : to enable model approval mode
-            - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
-            - disable-model-approval    | --disable-model-approval  : to disable model approval mode
-            - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
+            - enable-training-plan-approval     | --enable-training-plan-approval   : to enable training plan approval mode
+            - allow-default-training-plans      | --allow-default-training-plans    : to allow default training plan for training plan approval mode
+            - disable-training-plan-approval    | --disable-training-plan-approval  : to disable training plan approval mode
+            - disable-default-training-plans    | --disable-default-training-plans  : to disable default training plans for training plan approval mode
 EOF
         ;;
 
@@ -125,8 +125,8 @@ function usage() {
     case $1 in
         node)
             cat <<EOF
-usage: fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | view-model | register-model | delete-model | update-model) PARAMS
+usage: fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
 
 
 Runs the fedbiomed node component after properly initializing the environments.
@@ -166,8 +166,8 @@ EOF
             cat <<EOF
 usage: fedbiomed_run network (stop)
        fedbiomed_run researcher [ip_address IP_ADDRESS]
-       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | view-model | register-model | delete-model | update-model) PARAMS
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
         febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
                          (start)
 
@@ -394,7 +394,7 @@ case $1 in
     node)
         while true ; do
             case $2 in
-                # handle optional parameters : config file, network ip, model approve and allow default models
+                # handle optional parameters : config file, network ip, training plan approval and allow default training plans
                 config)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing config file name"
@@ -413,20 +413,20 @@ case $1 in
                     shift
                     shift
                 ;;
-                enable-model-approval|--enable-model-approval|-emp)
-                    export ENABLE_MODEL_APPROVAL=True
+                enable-training-plan-approval|--enable-training-plan-approval|-tmp)
+                    export ENABLE_TRAINING_PLAN_APPROVAL=True
                     shift
                 ;;
-                disable-model-approval|--disable-model-approval|-dmp)
-                    export ENABLE_MODEL_APPROVAL=False
+                disable-training-plan-approval|--disable-training-plans-approval|-dtpa)
+                    export ENABLE_TRAINING_PLAN_APPROVAL=False
                     shift
                 ;;
-                allow-default-models|--allow-default-models|-adm )
-                    export ALLOW_DEFAULT_MODELS=True
+                allow-default-training-plans|--allow-default-training-plans|-adtps )
+                    export ALLOW_DEFAULT_TRAINING_PLANS=True
                     shift
                 ;;
-                disable-default-models|--disable-default-models|-ddm )
-                    export ALLOW_DEFAULT_MODELS=False
+                disable-default-training-plans|--disable-default-training-plans|-ddtps )
+                    export ALLOW_DEFAULT_TRAINING_PLANS=False
                     shift
                 ;;
 
@@ -487,38 +487,38 @@ case $1 in
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
-                register-model|--register-model|-rml)
+                register-training-plan|--register-training-plan|-rtp)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --register-model $PARAMS
+                    python -m fedbiomed.node.cli --register-training-plan $PARAMS
                     ;;
 
-                approve-model|--approve-model|-aml)
+                approve-training-plan|--approve-training-plan|-atp)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --approve-model $PARAMS
+                    python -m fedbiomed.node.cli --approve-training-plan $PARAMS
                     ;;
 
-                reject-model|--reject-model|-rjml)
+                reject-training-plan|--reject-training-plan|-rjtp)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --reject-model $PARAMS
+                    python -m fedbiomed.node.cli --reject-training-plan $PARAMS
                     ;;
-                update-model|--update-model|-uml)
+                update-training-plan|--update-training-plan|-utp)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --update-model $PARAMS
-                    ;;
-
-                list-models|--list-models|-lms)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --list-models $PARAMS
+                    python -m fedbiomed.node.cli --update-training-plan $PARAMS
                     ;;
 
-                delete-model|--delete-model|-dml)
+                list-training-plans|--list-training-plans|-ltps)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --delete-model $PARAMS
+                    python -m fedbiomed.node.cli --list-training-plans $PARAMS
                     ;;
 
-                view-model|--view-model|-vml)
+                delete-training-plan|--delete-training-plan|-dtp)
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --delete-training-plan $PARAMS
+                    ;;
+
+                view-training-plan|--view-training-plan|-vtp)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli --view-model $PARAMS
+                    python -m fedbiomed.node.cli --view-training-plan $PARAMS
                     ;;
 
                 start|--start|-s)
