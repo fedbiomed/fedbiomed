@@ -1051,6 +1051,41 @@ class TestNode(unittest.TestCase):
         self.assertNotIn('path', database_info)
         self.assertNotIn('tabular_file', database_info['dataset_parameters'])
 
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_29_task_secagg_success(
+            self,
+            messaging_send_msg_patch):
+        """Tests `task_secagg` normal (successful) case"""
+
+        # prepare
+        dict_secagg_request = {
+            'researcher_id': 'my_test_researcher_id',
+            'secagg_id': 'my_dummy_secagg_id',
+            'sequence': 888,
+            'element': 0,
+            'parties': ['party1', 'party2', 'party3'],
+            'command': 'secagg'
+        }
+        msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+        dict_secagg_reply = {
+            'researcher_id': dict_secagg_request['researcher_id'],
+            'secagg_id': dict_secagg_request['secagg_id'],
+            'sequence': dict_secagg_request['sequence'],
+            'command': dict_secagg_request['command'],
+            'node_id': environ['NODE_ID'],
+            'success': True,
+            'msg': ''
+        }
+
+        # action
+        self.n1.task_secagg(msg_secagg_request)
+
+        # check
+        messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+
+
+
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
