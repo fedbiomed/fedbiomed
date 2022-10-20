@@ -561,6 +561,11 @@ class TestTorchnn(unittest.TestCase):
         tp.training_routine(None, None)
         self.assertEqual(tp._optimizer.step.call_count, 3)
 
+        
+        tp = setup_tp(tp, num_samples=10, batch_size=5, num_updates=6)
+        tp._batch_maxnum = 3
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 6)
 
     def test_torch_nn_06_compute_corrected_loss(self):
         """test_torch_nn_06_compute_corrected_loss: 

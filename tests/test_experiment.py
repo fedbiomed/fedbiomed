@@ -982,6 +982,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.job.Job.update_training_args')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
+    @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
@@ -995,6 +996,7 @@ class TestExperiment(unittest.TestCase):
                                     mock_job_training_replies,
                                     mock_job_training_plan_type,
                                     mock_strategy_refine,
+                                    mock_fedavg_create_aggregator_args,
                                     mock_fedavg_aggregate,
                                     mock_job_update_training_args,
                                     mock_experiment_breakpoint):
@@ -1007,7 +1009,8 @@ class TestExperiment(unittest.TestCase):
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2])
         mock_fedavg_aggregate.return_value = None
-        mock_job_updates_params.return_value = None
+        mock_fedavg_create_aggregator_args.return_value = ({}, {})
+        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
         mock_job_update_training_args.return_value = {'num_updates': 1}
         mock_experiment_breakpoint.return_value = None
 
@@ -1341,11 +1344,17 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._round_current = round_current
 
         # build minimal Job object
-        class Job():
+        class DummyJob():
+            def __init__(self):
+                self._training_plan = None
             def save_state(self, breakpoint_path):
                 return job_state
+            
+            @property
+            def training_plan(self):
+                return self._training_plan
 
-        self.test_exp._job = Job()
+        self.test_exp._job = DummyJob()
         # patch Job training_plan / training_plan_file
         self.test_exp._job.training_plan_file = training_plan_file
         self.test_exp._job.training_plan_name = training_plan_class
@@ -1649,7 +1658,7 @@ class TestExperiment(unittest.TestCase):
             "class TestClass:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def load_state(self, state :str):\n" + \
+            "   def load_state(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         class_source_exception = \
@@ -1657,7 +1666,7 @@ class TestExperiment(unittest.TestCase):
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       raise Exception()\n" + \
-            "   def load_state(self, state :str):\n" + \
+            "   def load_state(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         test_class_name = 'TestClass'

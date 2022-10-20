@@ -1855,7 +1855,7 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(self._job.training_plan(), breakpoint_path, global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1986,7 +1986,7 @@ class Experiment(object):
                 training_plan.load
             )
         
-        # retrieve federator
+        # retrieve and change federator
         bkpt_aggregator_args = saved_state.get("aggregator")
         
         bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
@@ -2170,7 +2170,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        object_instance.load_state(args, training_plan)
+        object_instance.load_state(args, training_plan=training_plan)
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance

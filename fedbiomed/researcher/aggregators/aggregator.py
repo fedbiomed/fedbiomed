@@ -118,7 +118,7 @@ class Aggregator:
         training_plan.save(filename, arg)
         return filename
 
-    def load_state(self, state: Dict[str, Any] = None, *args):
+    def load_state(self, state: Dict[str, Any] = None, **kwargs):
         """
         use for breakpoints. load the aggregator state
         """

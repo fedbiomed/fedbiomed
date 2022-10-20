@@ -455,29 +455,37 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 num_batches_per_epoch = len(self.training_data_loader)
                 num_epochs = self._num_updates // num_batches_per_epoch #+ 1
             else:
-                num_batches_per_epoch = self._batch_maxnum
+                # FIXME: we decided that batch_maxnum is the maximum number of batch an epoch can have
+                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates 
+                # reaches num_updates
+                num_batches_per_epoch = min(self._batch_maxnum, len(self.training_data_loader))
+                self._num_updates_set = self._num_updates
                 self._num_updates = min(self._num_updates, self._batch_maxnum)
-                num_epochs = self._num_updates // num_batches_per_epoch
-            
+                num_epochs = max(self._num_updates, self._num_updates_set) // num_batches_per_epoch
+
             if self._num_updates % num_batches_per_epoch:
                 # increment self._num_updates // num_batches_per_epoch
                 num_epochs += 1
-            num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+            if self._batch_maxnum <= 0:
+                num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+            else:
+                num_batches_in_last_epoch = self._num_updates_set - num_batches_per_epoch * (num_epochs - 1)
+            
         else:
             num_epochs = self._epochs
             num_batches_in_last_epoch = None
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
-        print("UPDATE", self._num_updates, num_batches_per_epoch)
+
         for epoch in range(1, num_epochs + 1):
-            
+            #print("UPDATE", self._batch_maxnum, self._num_updates, num_batches_in_last_epoch, num_epochs)
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
-               
+
                 # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
                 if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch and epoch == num_epochs:
                     break
