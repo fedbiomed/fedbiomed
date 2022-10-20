@@ -52,6 +52,7 @@ import fedbiomed.node.history_monitor
 import fedbiomed.node.model_manager
 import fedbiomed.node.node
 import fedbiomed.node.round
+import fedbiomed.node.secagg
 import fedbiomed.researcher.__init__
 import fedbiomed.researcher.aggregators.__init__
 import fedbiomed.researcher.aggregators.aggregator
@@ -65,6 +66,7 @@ import fedbiomed.researcher.job
 import fedbiomed.researcher.monitor
 import fedbiomed.researcher.requests
 import fedbiomed.researcher.responses
+import fedbiomed.researcher.secagg
 import fedbiomed.researcher.strategies.__init__
 import fedbiomed.researcher.strategies.default_strategy
 import fedbiomed.researcher.strategies.strategy

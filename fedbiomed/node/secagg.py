@@ -57,6 +57,7 @@ class SecaggSetup(ABC):
         Returns:
             sequence number for this request
         """
+        return self._sequence
 
     @abstractmethod
     def element(self) -> str:
