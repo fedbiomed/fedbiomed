@@ -150,7 +150,7 @@ class ListDatasetRequest(Validator):
     })
 
 
-class ListModelRequest(Validator):
+class ListTrainingPlanRequest(Validator):
     type = 'json'
     schema = JsonSchema(
         {'type': "object",
@@ -170,50 +170,49 @@ class ListModelRequest(Validator):
     )
 
 
-class ApproveRejectModelRequest(Validator):
+class ApproveRejectTrainingPlanRequest(Validator):
     type = 'json'
     schema = JsonSchema(
         {'type': "object",
          "properties": {
-             "model_id": {"type": "string",
-                          "minLength": 1,
-                          'errorMessages': {"minLength": "model_id must have at least one character"},
-                          },
+             "training_plan_id": {"type": "string",
+                                  "minLength": 1,
+                                  'errorMessages': {"minLength": "model_id must have at least one character"},
+                                  },
              "notes": {"type": ["string", "null"], "default": "No notes available"}
          },
-         "required": ["model_id"]
+         "required": ["training_plan_id"]
          }
     )
 
 
-class DeleteModelRequest(Validator):
+class DeleteTrainingPlanRequest(Validator):
     type = 'json'
     schema = JsonSchema(
         {'type': "object",
          "properties": {
-             "model_id": {"type": "string",
-                          "minLength": 1,
-                          'errorMessages': {"minLength": "model_id must have at least one character"},
-                          }
+             "training_plan_id": {"type": "string",
+                                  "minLength": 1,
+                                  'errorMessages': {"minLength": "model_id must have at least one character"},
+                                  }
          },
-         "required": ["model_id"]
+         "required": ["training_plan_id"]
          }
     )
 
 
-class ModelPreviewRequest(Validator):
+class TrainingPlanPreviewRequest(Validator):
     type = 'json'
     schema = JsonSchema(
         {'type': "object",
          "properties": {
-             "model_path": {"type": "string",
-                            "minLength": 1,
-                            'errorMessages': {"minLength": "model_path must have at least one character"},
-
-                            },
-             "model_id": {"type": "string"},
+             "training_plan_id": {"type": "string",
+                                  "minLength": 1,
+                                  'errorMessages': {"minLength": "model_path must have at least one character"},
+                                  },
+             "training_plan_path": {"type": "string"},
          },
-         "required": []
+         "required": ["training_plan_id"]
          }
     )
 
@@ -547,17 +546,17 @@ class ValidateUserFormRequest(Validator):
                              'type': 'Please make sure password respects required format'
                          }},
             'confirm': {'type': 'string',
-                                 'minLength': 1,
-                                 'errorMessages': {
-                                     'minLength': 'Password is missing',
-                                     'type': 'Please make sure password confirmation corresponds required format'
-                                 }},
+                        'minLength': 1,
+                        'errorMessages': {
+                            'minLength': 'Password is missing',
+                            'type': 'Please make sure password confirmation corresponds required format'
+                        }},
             'old_password': {'type': 'string',
-                                 'minLength': 1,
-                                 'errorMessages': {
-                                     'minLength': 'Old Password is missing',
-                                     'type': 'Please make sure your provided old password'
-                                 }},
+                             'minLength': 1,
+                             'errorMessages': {
+                                 'minLength': 'Old Password is missing',
+                                 'type': 'Please make sure your provided old password'
+                             }},
             'name': {'type': 'string',
                      'minLength': 1,
                      'errorMessages': {

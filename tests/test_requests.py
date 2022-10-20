@@ -494,10 +494,10 @@ class TestRequests(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_request_13_model_approve(self,
+    def test_request_13_training_plan_approve(self,
                                       mock_get_responses,
                                       mock_upload_file):
-        """ Testing model_approve method """
+        """ Testing training_plan_approve method """
 
         # ths should not work at all
         filename = 'X:/'
@@ -550,10 +550,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                                     "test-model-1",
+                                                     "test-training-plan-1",
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
@@ -566,10 +566,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                                     "test-model-1",
+                                                     "test-training-plan-1",
                                                      timeout=2,
                                                      nodes=["dummy-id-1"]
                                                      )
@@ -591,10 +591,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                                     "test-model-1",
+                                                     "test-training-plan-1",
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
@@ -614,10 +614,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                                     "test-model-1",
+                                                     "test-training-plan-1",
                                                      timeout=2
                                                      )
         keys = list(result.keys())
@@ -639,10 +639,10 @@ class TestRequests(unittest.TestCase):
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
         result = self.requests.training_plan_approve(filename,
-                                                     "test-model-1",
+                                                     "test-training-plan-1",
                                                      timeout=2
                                                      )
         keys = list(result.keys())
