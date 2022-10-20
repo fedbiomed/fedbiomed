@@ -599,7 +599,7 @@ class localJob:
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            training_plan: Name of the model class to use for training or model class.
+            training_plan_class: Name of the model class to use for training or model class.
             training_plan_path: path to file containing model code. Defaults to None.
             training_args: contains training parameters: lr, epochs, batch_size...
             model_args: contains output and input feature dimension.
