@@ -173,15 +173,13 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task_secagg(self, msg: SecaggRequest) -> SecaggSetup:
-        """Parses a given secagg setup task message to create a secagg setup instance
+    def task_secagg(self, msg: SecaggRequest) -> None:
+        """Parses a given secagg setup task message and execute secagg task.
 
         Args:
             msg: `SecaggRequest` message object to parse
-
-        Returns:
-            `SecaggSetup` object built from request, or `None` if could not build this object
         """
+        # 1. Parse message content
         researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
         sequence = msg.get_param('sequence')
@@ -200,12 +198,61 @@ class Node:
             'SERVER_KEY': SecaggServkeySetup,
             'BIPRIME': SecaggBiprimeSetup
         }
-        if element.name in element2class.keys():
-            # instantiate a `SecaggSetup` object
-            return element2class[element.name](researcher_id, secagg_id, sequence, parties)
+
+        # 2. Instantiate secagg context element
+        try:
+            if element.name in element2class.keys():
+                # instantiate a `SecaggSetup` object
+                secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
+            else:
+                # should not exist 
+                secagg = None
+            error = ''
+        except Exception as e:
+            # bad secagg request
+            error = e
+            secagg = None
+
+        # 3. Execute
+        if secagg:
+            try:
+                logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
+                msg = secagg.setup()
+                self.messaging.send_message(msg)
+            except Exception as e:
+                errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
+                    f'{secagg.element()}: {e}'
+                logger.error(errmess)
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': secagg.researcher_id(),
+                            'secagg_id': secagg.secagg_id(),
+                            'sequence': secagg.sequence(),
+                            'success': False,
+                            'node_id': environ['NODE_ID'],
+                            'msg': errmess,
+                            'command': 'secagg'
+                        }
+                    ).get_dict()
+                )
         else:
-            # should not exist 
-            return None
+            # bad secagg request, cannot reply as secagg
+            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                f"received by {environ['NODE_ID']}: {error}"
+            logger.error(errmess)
+            self.messaging.send_message(
+                NodeMessages.reply_create(
+                    {
+                        'command': 'error',
+                        'extra_msg': errmess,
+                        'node_id': environ['NODE_ID'],
+                        'researcher_id': 'NOT_SET',
+                        'errnum': ErrorNumbers.FB318
+                    }
+                ).get_dict()
+            )
+
 
     def parser_task_train(self, msg: TrainRequest):
         """Parses a given training task message to create a round instance
@@ -325,52 +372,7 @@ class Node:
                         ).get_dict()
                     )
             elif command == 'secagg':
-                try:
-                    secagg = self.parser_task_secagg(item)
-                    error = ''
-                except Exception as e:
-                    # bad secagg request
-                    error = e
-                    secagg = False
-
-                if secagg:
-                    try:
-                        logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
-                        msg = secagg.setup()
-                        self.messaging.send_message(msg)
-                    except Exception as e:
-                        errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
-                            f'{secagg.element()}: {e}'
-                        logger.error(errmess)
-                        self.messaging.send_message(
-                            NodeMessages.reply_create(
-                                {
-                                    'researcher_id': secagg.researcher_id(),
-                                    'secagg_id': secagg.secagg_id(),
-                                    'sequence': secagg.sequence(),
-                                    'success': False,
-                                    'node_id': environ['NODE_ID'],
-                                    'msg': errmess,
-                                    'command': 'secagg'
-                                }
-                            ).get_dict()
-                        )
-                else:
-                    # bad secagg request, cannot reply as secagg
-                    errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
-                        f"received by {environ['NODE_ID']}: {error}"
-                    logger.error(errmess)
-                    self.messaging.send_message(
-                        NodeMessages.reply_create(
-                            {
-                                'command': 'error',
-                                'extra_msg': errmess,
-                                'node_id': environ['NODE_ID'],
-                                'researcher_id': 'NOT_SET',
-                                'errnum': ErrorNumbers.FB318
-                            }
-                        ).get_dict()
-                    )
+                self.task_secagg(item)
             else:
                 errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                 logger.error(errmess)
