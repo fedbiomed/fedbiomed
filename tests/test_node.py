@@ -1254,62 +1254,50 @@ class TestNode(unittest.TestCase):
             messaging_send_msg_patch.reset_mock()
 
     @patch('fedbiomed.node.node.SecaggElementTypes')
-    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
-    @patch('fedbiomed.node.node.SecaggServkeySetup')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_33_task_secagg_fails_secagg_badclass(
+    def test_node_33_task_secagg_fails_secagg_bad_secagg_element(
             self,
             messaging_send_msg_patch,
-            secagg_servkey_patch,
-            secagg_biprime_patch,
             element_types_patch):
-        """Tests `task_secagg` failing in class check"""
+        """Tests `task_secagg` failing with bad secagg element type"""
 
         # prepare
-        bad_message_value = 2
-        dict_secagg_request = {
-            'researcher_id': 'my_test_researcher_id',
-            'secagg_id': 'my_dummy_secagg_id',
-            'sequence': 888,
-            'element': bad_message_value,
-            'parties': ['party1', 'party2', 'party3'],
-            'command': 'secagg'
-        }
-        msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-        dict_secagg_reply = {
-            'command': 'error',
-            'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
-            'node_id': environ['NODE_ID'],
-            'researcher_id': 'NOT_SET',
-            'errnum': ErrorNumbers.FB318
-        }
+        bad_message_values = [2, 18, 987]
+        for bad_message_value in bad_message_values:
+            dict_secagg_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': bad_message_value,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            }
+            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+            dict_secagg_reply = {
+                'command': 'error',
+                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB318
+            }
 
-        secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
-            dict_secagg_request['researcher_id'],
-            dict_secagg_request['secagg_id'],
-            dict_secagg_request['sequence'],
-            dict_secagg_request['parties']
-        )
-        secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
-            dict_secagg_request['researcher_id'],
-            dict_secagg_request['secagg_id'],
-            dict_secagg_request['sequence'],
-            dict_secagg_request['parties']
-        )
+            class FakeSecaggElementTypes(_BaseEnum):
+                SERVER_KEY: int = 0
+                BIPRIME: int = 1
+                DUMMY: int = bad_message_value
+            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
+            element_types_patch.__iter__.return_value = [
+                FakeSecaggElementTypes(0),
+                FakeSecaggElementTypes(1),
+                FakeSecaggElementTypes(bad_message_value)
+            ]
 
-        class FakeSecaggElementTypes(_BaseEnum):
-            SERVER_KEY: int = 0
-            BIPRIME: int = 1
-            DUMMY: int = bad_message_value
-        element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
-        element_types_patch.__iter__.return_value = [FakeSecaggElementTypes(0), FakeSecaggElementTypes(1), FakeSecaggElementTypes(bad_message_value)]
+            # action
+            self.n1.task_secagg(msg_secagg_request)
 
-        # action
-        self.n1.task_secagg(msg_secagg_request)
-
-        # check
-        messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-        messaging_send_msg_patch.reset_mock()
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+            messaging_send_msg_patch.reset_mock()
 
 
 if __name__ == '__main__':  # pragma: no cover
