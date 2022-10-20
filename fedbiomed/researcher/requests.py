@@ -313,7 +313,7 @@ class Requests(metaclass=SingletonMeta):
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
-        """Send a model and a ApprovalRequest message to node(s).
+        """Send a training plan and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
         to all nodes of the list.
@@ -324,27 +324,27 @@ class Requests(metaclass=SingletonMeta):
             training_plan: the training plan to upload and send to the nodes for approval.
                    It can be:
                    - a path_name (str)
-                   - a model (class)
-                   - an instance of a model (TrainingPlan instance)
+                   - a training plan (class)
+                   - an instance of a training plan (TrainingPlan instance)
             nodes: list of nodes (specified by their UUID)
             description: Description of training plan approval request
             timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher
-            that the model has been correctly downloaded on the node side.
-            Warning: status does not mean that the model is approved, only that it has been added
+            that the training plan has been correctly downloaded on the node side.
+            Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
 
         # first verify all arguments
         if not isinstance(nodes, list):
-            logger.error("bad nodes argument, model not sent")
+            logger.error("bad nodes argument, training plan not sent")
             return {}
 
-        # verify the model and save it to a local file name if necessary
+        # verify the training plan and save it to a local file name if necessary
         if isinstance(training_plan, str):
-            # model is provided as a file
+            # training plan is provided as a file
             # TODO: verify that this file a a proper TrainingPlan
             if os.path.isfile(training_plan) and os.access(training_plan, os.R_OK):
                 training_plan_file = training_plan
@@ -352,18 +352,18 @@ class Requests(metaclass=SingletonMeta):
                 logger.error(f"cannot access to the file ({training_plan})")
                 return {}
         else:
-            # we need a model instance in other cases
+            # we need a training plan instance in other cases
             if inspect.isclass(training_plan):
-                # case if `model` is a class
+                # case if `training_plan` is a class
                 try:
                     training_plan_instance = training_plan()
                     deps = training_plan_instance.init_dependencies()
                     training_plan_instance.add_dependency(deps)
                 except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instantiate the given model ({e})")
+                    logger.error(f"cannot instantiate the given training plan ({e})")
                     return {}
             else:
-                # also handle case where model is already an instance of a class
+                # also handle case where training plan is already an instance of a class
                 training_plan_instance = training_plan
 
             # then save this instance to a file
@@ -373,7 +373,7 @@ class Requests(metaclass=SingletonMeta):
             try:
                 training_plan_instance.save_code(training_plan_file)
             except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the model to a file ({e})")
+                logger.error(f"Cannot save the training plan to a file ({e})")
                 logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
                 return {}
 
@@ -395,7 +395,7 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"This file is not a python file ({e})")
             return {}
 
-        # create a repository instance and upload the model file
+        # create a repository instance and upload the training plan file
         repository = Repository(environ['UPLOADS_URL'],
                                 environ['TMP_DIR'],
                                 environ['CACHE_DIR'])
@@ -435,20 +435,20 @@ class Requests(metaclass=SingletonMeta):
             result[n] = s
 
             if s:
-                logger.info(f"node ({n}) has correctly downloaded the model")
+                logger.info(f"node ({n}) has correctly downloaded the training plan")
             else:
-                logger.info(f"node ({n}) has not correctly downloaded the model")
+                logger.info(f"node ({n}) has not correctly downloaded the training plan")
 
         # print info to the user regarding the result
         if not result or not any(result.values()):
-            logger.info("no nodes have acknowledged correct model reception before the timeout")
+            logger.info("no nodes have acknowledged correct training plan reception before the timeout")
 
         # eventually complete the result with expected results
         # (if the message was sent to specific nodes)
         for n in nodes:
             if n not in result:
                 result[n] = False
-                logger.info(f"node ({n}) has not acknowledge model reception before the timeout")
+                logger.info(f"node ({n}) has not acknowledge training plan reception before the timeout")
 
         # return the result
         return result
