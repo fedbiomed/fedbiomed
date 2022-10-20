@@ -13,7 +13,7 @@ from testsupport.fake_message import FakeMessages
 from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBiprimeSetup
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
@@ -1052,8 +1052,8 @@ class TestNode(unittest.TestCase):
         self.assertNotIn('path', database_info)
         self.assertNotIn('tabular_file', database_info['dataset_parameters'])
 
-    @patch('fedbiomed.node.node.SecaggServkeySetup')
     @patch('fedbiomed.node.node.SecaggBiprimeSetup')
+    @patch('fedbiomed.node.node.SecaggServkeySetup')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     def test_node_29_task_secagg_success(
             self,
@@ -1062,56 +1062,198 @@ class TestNode(unittest.TestCase):
             secagg_biprime_patch):
         """Tests `task_secagg` normal (successful) case"""
 
+        for el in [0, 1]:
+            # prepare
+            dict_secagg_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': el,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            }
+            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+            dict_secagg_reply = {
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'command': dict_secagg_request['command'],
+                'node_id': environ['NODE_ID'],
+                'success': True,
+                'msg': ''
+            }
+
+            secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
+                dict_secagg_request['researcher_id'],
+                dict_secagg_request['secagg_id'],
+                dict_secagg_request['sequence'],
+                dict_secagg_request['parties']
+            )
+            secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
+                dict_secagg_request['researcher_id'],
+                dict_secagg_request['secagg_id'],
+                dict_secagg_request['sequence'],
+                dict_secagg_request['parties']
+            )
+
+            # action
+            self.n1.task_secagg(msg_secagg_request)
+
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+
+            self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
+            self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
+            self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
+            self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
+
+            messaging_send_msg_patch.reset_mock()
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_30_task_secagg_badmessage(
+            self,
+            messaging_send_msg_patch):
+        """Tests `task_secagg` with bad message values"""
+
         # prepare
-        dict_secagg_request = {
-            'researcher_id': 'my_test_researcher_id',
-            'secagg_id': 'my_dummy_secagg_id',
-            'sequence': 888,
-            'element': 0,
-            'parties': ['party1', 'party2', 'party3'],
-            'command': 'secagg'
-        }
-        msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-        dict_secagg_reply = {
-            'researcher_id': dict_secagg_request['researcher_id'],
-            'secagg_id': dict_secagg_request['secagg_id'],
-            'sequence': dict_secagg_request['sequence'],
-            'command': dict_secagg_request['command'],
-            'node_id': environ['NODE_ID'],
-            'success': True,
-            'msg': ''
-        }
+        dict_secagg_requests = [
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': 2,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': '',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': '',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2'],
+                'command': 'secagg'
+            },
+        ]
 
-        secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
-            dict_secagg_request['researcher_id'],
-            dict_secagg_request['secagg_id'],
-            dict_secagg_request['sequence'],
-            dict_secagg_request['parties']
-        )
-        secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
-            dict_secagg_request['researcher_id'],
-            dict_secagg_request['secagg_id'],
-            dict_secagg_request['sequence'],
-            dict_secagg_request['parties']
-        )
+        for req in dict_secagg_requests:
+            msg_secagg_request = NodeMessages.request_create(req)
 
-        # action
-        self.n1.task_secagg(msg_secagg_request)
+            # action
+            self.n1.task_secagg(msg_secagg_request)
 
-        # check
-        messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+            # check
+            messaging_send_msg_patch.assert_not_called()
+            messaging_send_msg_patch.reset_mock()
 
-        self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
-        self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
-        self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
-        self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
-        self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
-        self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
+    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
+    @patch('fedbiomed.node.node.SecaggServkeySetup')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_31_task_secagg_fails_secagg_create(
+            self,
+            messaging_send_msg_patch,
+            secagg_servkey_patch,
+            secagg_biprime_patch):
+        """Tests `task_secagg` failing in secagg creation"""
+
+        for el in [0, 1]:
+            # prepare
+            dict_secagg_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': el,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            }
+            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+            dict_secagg_reply = {
+                'command': 'error',
+                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB318
+            }
+
+            secagg_servkey_patch.side_effect = Exception
+            secagg_biprime_patch.side_effect = Exception
+
+            # action
+            self.n1.task_secagg(msg_secagg_request)
+
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+
+            messaging_send_msg_patch.reset_mock()
 
 
 
+    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
+    @patch('fedbiomed.node.node.SecaggServkeySetup')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_32_task_secagg_fails_secagg_setup(
+            self,
+            messaging_send_msg_patch,
+            secagg_servkey_patch,
+            secagg_biprime_patch):
+        """Tests `task_secagg` failing in `secagg.setup()`"""
 
+        for el in [0, 1]:
+            # prepare
+            dict_secagg_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': el,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            }
+            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+            dict_secagg_reply = {
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'command': dict_secagg_request['command'],
+                'node_id': environ['NODE_ID'],
+                'success': False,
+                'msg': f'ErrorNumbers.FB318: error during secagg setup for type {SecaggElementTypes(dict_secagg_request["element"])}: '
+            }
 
+            class FakeSecaggServkeySetupError(FakeSecaggServkeySetup):
+                def setup(self):
+                    raise Exception
+            secagg_servkey_patch.return_value = FakeSecaggServkeySetupError(
+                dict_secagg_request['researcher_id'],
+                dict_secagg_request['secagg_id'],
+                dict_secagg_request['sequence'],
+                dict_secagg_request['parties']
+            )
+
+            class FakeSecaggBiprimeSetupError(FakeSecaggBiprimeSetup):
+                def setup(self):
+                    raise Exception
+            secagg_biprime_patch.return_value = FakeSecaggBiprimeSetupError(
+                dict_secagg_request['researcher_id'],
+                dict_secagg_request['secagg_id'],
+                dict_secagg_request['sequence'],
+                dict_secagg_request['parties']
+            )
+
+            # action
+            self.n1.task_secagg(msg_secagg_request)
+
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+            messaging_send_msg_patch.reset_mock()
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
