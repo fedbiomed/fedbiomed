@@ -1282,13 +1282,9 @@ class TestNode(unittest.TestCase):
             }
 
             class FakeSecaggElementTypes(_BaseEnum):
-                SERVER_KEY: int = 0
-                BIPRIME: int = 1
                 DUMMY: int = bad_message_value
             element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
             element_types_patch.__iter__.return_value = [
-                FakeSecaggElementTypes(0),
-                FakeSecaggElementTypes(1),
                 FakeSecaggElementTypes(bad_message_value)
             ]
 
