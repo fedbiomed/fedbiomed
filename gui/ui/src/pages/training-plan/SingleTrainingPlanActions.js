@@ -3,15 +3,15 @@ import Button, {ButtonsWrapper} from "../../components/common/Button";
 import {connect} from "react-redux"
 import {useNavigate} from "react-router-dom";
 import Modal from "../../components/common/Modal"
-import {approve_model, delete_model, reject_model} from "../../store/actions/modelsActions";
+import {approve_training_plan, delete_training_plan, reject_training_plan} from "../../store/actions/trainingPlansActions";
 import {Label, TextArea} from "../../components/common/Inputs";
 
-const SingleModelActions = (props) => {
+const SingleTrainingPlanActions = (props) => {
 
-    const {single_model} = props
+    const {single_training_plan} = props
     const [modal , setModal] = React.useState({show: false, displayNotes:false,
         header: null, approveAction:null, cancelAction:null, content:null})
-    const [notes, setNotes] = React.useState(single_model.notes)
+    const [notes, setNotes] = React.useState(single_training_plan.notes)
     const navigator = useNavigate()
 
     /**
@@ -21,7 +21,7 @@ const SingleModelActions = (props) => {
     const handleModalApprove = (action) => {
 
         setModal({...modal, show:false})
-        action({model_id: single_model.model_id, notes: notes}, navigator)
+        action({training_plan_id: single_training_plan.training_plan_id, notes: notes}, navigator)
     }
 
     /**
@@ -38,9 +38,9 @@ const SingleModelActions = (props) => {
     const onApprove = () => {
         setModal({
             show: true,
-            approveAction : {text: "Approve Model", type: "positive", action:props.approve},
+            approveAction : {text: "Approve Training Plan", type: "positive", action:props.approve},
             cancelAction: {text: "Cancel", type: "negative"},
-            header: "Selected model will be approved.",
+            header: "Selected training plan will be approved.",
             displayNotes: true
             }
         )
@@ -52,9 +52,9 @@ const SingleModelActions = (props) => {
     const onReject = () => {
         setModal({
             show: true,
-            approveAction : {text: "Reject Model", type: "negative", action:props.reject},
+            approveAction : {text: "Reject Training Plan", type: "negative", action:props.reject},
             cancelAction: {text: "Cancel", type: "positive"},
-            header: "Selected model will be approved.",
+            header: "Selected training plan will be approved.",
             displayNotes: true}
         )
 
@@ -68,7 +68,7 @@ const SingleModelActions = (props) => {
             show: true,
             approveAction: {text: "Yes Delete", type:"negative", action:props._delete},
             cancelAction: {text: "Cancel", type: "positive"},
-            header: "Selected model will be deleted are you sure?",
+            header: "Selected training plan will be deleted are you sure?",
             displayNotes: false}
         )
     }
@@ -85,21 +85,25 @@ const SingleModelActions = (props) => {
     return (
         <div style={props.style}>
             <ButtonsWrapper alignment={'right'}>
-                {single_model.model_status === "Pending" ? (
+                {single_training_plan.training_plan_status === "Pending" ? (
                     <React.Fragment>
                         <Button type={"positive"} onClick={onApprove}>Approve</Button>
                         <Button type={"attention"} onClick={onReject}>Reject</Button>
                     </React.Fragment>
-                ) : single_model.model_status === "Approved" ? (
+                ) : single_training_plan.training_plan_status === "Approved" ? (
                     <React.Fragment>
                         <Button type={"attention"} onClick={onReject}>Change to Reject</Button>
                     </React.Fragment>
-                ) : single_model.model_status === "Rejected" ? (
+                ) : single_training_plan.training_plan_status === "Rejected" ? (
                     <React.Fragment>
                         <Button type={"positive"} onClick={onApprove}>Change to Approve</Button>
                     </React.Fragment>
                 ) : null}
-                <Button type={"negative"} disable={single_model.model_type === "default" ? true : false} onClick={onDelete}>Delete</Button>
+                <Button type={"negative"}
+                        disable={single_training_plan.training_plan_type === "default" ? true : false}
+                        onClick={onDelete}>
+                    Delete
+                </Button>
             </ButtonsWrapper>
             <Modal show={modal.show} width="35%" onModalClose={handleClose} >
                 <Modal.Header>
@@ -108,7 +112,7 @@ const SingleModelActions = (props) => {
                 <Modal.Content>
                     {modal.displayNotes ? (
                         <React.Fragment>
-                            <Label>Please enter or update the notes related to this model</Label>
+                            <Label>Please enter or update the notes related to this training plan</Label>
                             <TextArea
                                 style={{width:"inherit"}}
                                 name={"notes"}
@@ -134,13 +138,13 @@ const SingleModelActions = (props) => {
 
 const mapDispatchToPros = (dispatch) => {
     return{
-        approve : (data, n) => dispatch(approve_model(data, n)),
-        reject : (data, n) => dispatch(reject_model(data, n)),
-        _delete : (data, n) => dispatch(delete_model(data, n))
+        approve : (data, n) => dispatch(approve_training_plan(data, n)),
+        reject : (data, n) => dispatch(reject_training_plan(data, n)),
+        _delete : (data, n) => dispatch(delete_training_plan(data, n))
     }
 }
 
 
 
-export default connect(null, mapDispatchToPros)(SingleModelActions);
+export default connect(null, mapDispatchToPros)(SingleTrainingPlanActions);
 

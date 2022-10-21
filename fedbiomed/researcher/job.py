@@ -270,21 +270,21 @@ class Job:
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
                     if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
-                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Model status : {resp.get("status")}')
+                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Training plan status : {resp.get("status")}')
                 else:
-                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
 
         # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
-            logger.warning(f"Request for checking model status hasn't been replied \
+            logger.warning(f"Request for checking training plan status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
-                                 while runing your experiment. ")
+                                 while running your experiment. ")
 
         return responses
 
@@ -340,12 +340,13 @@ class Job:
             self._training_args['num_updates'] = num_updates
     
     def upload_training_params(self, training_args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
-                             aggregator_args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
+                               aggregator_args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
         #upload training_args through file messaging system, if their size is too big to be transfered through
         # MQTT (eg correction parameters in Scaffold aggregator)
         # write the url down into training_args_thr_msg
         
         for node_id, aggr_params in aggregator_args_thr_files.items():
+            
             for arg_name, aggr_param in aggr_params.items():
                 #arg_name = aggr_param['arg_name']
                 if arg_name == 'aggregator_name':
@@ -353,8 +354,9 @@ class Job:
                 training_args_thr_msg[node_id][arg_name] = {}
                 training_args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
                 
-                filename, url = self.update_parameters(aggr_param, aggr_param.get('filename'),
-                                                  variable_name=arg_name)
+                filename, url = self.update_parameters(aggr_param, None,
+                                                       is_model_params=False,
+                                                       variable_name=arg_name)
                 training_args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
                 training_args_thr_msg[node_id][arg_name]['url'] = url
         
@@ -460,7 +462,7 @@ class Job:
                         return
                     loaded_model = self._training_plan.load(params_path, to_params=True)
                     params = loaded_model['model_params']
-                    optimizer_args = loaded_model['optimizer_args']
+                    optimizer_args = loaded_model.get('optimizer_args')
                 else:
                     params_path = None
                     params = None
@@ -493,9 +495,12 @@ class Job:
         Args:
             params: data structure containing the new version of the aggregated parameters for this job,
             filename: path to the file containing the new version of the aggregated parameters for this job,
+            is_model_params (bool, optional):
             variable_name (str, optional):  name the filename with variable_name. Defaults to 'aggregated_prams'
+        
         Returns:
-            Name of the parameter file
+            str: Name of the parameter file
+            str: URL of the uploaded file
 
         Raises:
             ValueError: Bad arguments
@@ -504,7 +509,7 @@ class Job:
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = os.path.join(self._keep_files_dir,variable_name + str(uuid.uuid4()) + '.pt')
+                filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
                 self._training_plan.save(filename, params)
             
 
@@ -689,7 +694,7 @@ class localJob:
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            training_plan: Name of the model class to use for training or model class.
+            training_plan_class: Name of the model class to use for training or model class.
             training_plan_path: path to file containing model code. Defaults to None.
             training_args: contains training parameters: lr, epochs, batch_size...
             model_args: contains output and input feature dimension.

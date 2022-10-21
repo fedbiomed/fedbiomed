@@ -87,7 +87,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              "from fedbiomed.common.data import DataManager",
                              ])
 
-    def post_init(self, model_args: Dict, training_args: Dict) -> None:
+    def post_init(self, model_args: Dict, training_args: Dict,
+                  optimizer_args: Optional[Dict] = None,
+                  aggregator_args: Optional[Dict] = None) -> None:
         """ Instantiates model, training and optimizer arguments
 
         Args:
@@ -101,6 +103,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self.add_dependency(dependencies)
 
         self._model_args = model_args
+        self._aggregator_args = aggregator_args or {}
         self._training_args = training_args.pure_training_arguments()
         self._params = self._model.get_params()
         self._params.update({key: self._model_args[key] for key in model_args if key in self._params})

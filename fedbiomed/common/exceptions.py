@@ -126,9 +126,9 @@ class FedbiomedMetricError(FedbiomedError):
     pass
 
 
-class FedbiomedModelManagerError(FedbiomedError):
+class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
-    Exception specific to the ModelManager.
+    Exception specific to the TrainingPlanSecurityManager.
 
     (from fedbiomed.common.model_manager)
     """

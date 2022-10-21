@@ -246,7 +246,7 @@ class Experiment(object):
         # Note: currently keep this parameter as it cannot be updated in Job()
         # without refactoring Job() first
 
-        # sets self._training_plan_is_defined: bool == is the model properly defined ?
+        # sets self._training_plan_is_defined: bool == is the training plan properly defined ?
         # with current version of jobs, a correctly defined model requires:
         # - either training_plan_path to None + training_plan_class is the class a training plan
         # - or training_plan_path not None + training_plan_class is a name (str) of a training plan
@@ -1855,7 +1855,7 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(self._job.training_plan(), breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -2190,7 +2190,7 @@ class Experiment(object):
         If the node id(s) list is None (default), the message is broadcast to all nodes.
 
         Args:
-            training_plan: the model to upload and send to the nodes for approval.
+            training_plan: the training plan to upload and send to the nodes for approval.
                    It can be:
                    - a path_name (str)
                    - a training_plan (class)
