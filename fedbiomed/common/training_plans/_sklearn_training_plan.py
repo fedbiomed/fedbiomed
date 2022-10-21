@@ -371,14 +371,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             return {"model_params": params}
         return self._model
 
-    def get_model(self) -> BaseEstimator:
-        """Get the wrapped scikit-learn model.
-
-        Returns:
-            sklearn.base.BaseEstimator: the scikit-learn model instance.
-        """
-        return self._model
-
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
