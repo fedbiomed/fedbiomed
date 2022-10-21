@@ -18,7 +18,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.training_plans import TrainingPlan
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -329,7 +329,7 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def training_plan_approve(self,
-                              training_plan: BaseTrainingPlan,
+                              training_plan: TrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -359,9 +359,9 @@ class Requests(metaclass=SingletonMeta):
             return {}
 
         # verify the model and save it to a local file name if necessary
-        if not isinstance(training_plan, BaseTrainingPlan):
+        if not isinstance(training_plan, TrainingPlan):
             logger.error(
-                "Wrong 'training_plan' input: not a BaseTrainingPlan instance."
+                "Wrong 'training_plan' input: not a TrainingPlan instance."
             )
             return {}
         # then save this instance to a file

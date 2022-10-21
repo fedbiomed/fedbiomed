@@ -4,9 +4,9 @@
 
 import functools
 import importlib
-import inspect
 import json
 import os
+import sys
 import tempfile
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import declearn
 import numpy as np
+import python_minifier
 import torch
 from torch.utils.data import DataLoader
 
@@ -24,9 +25,13 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanErr
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.utils import get_class_source
 
 
-class BaseTrainingPlan(metaclass=ABCMeta):
+IMPORT_IDX = 0  # global counter to use unique names for generated .py files
+
+
+class TrainingPlan(metaclass=ABCMeta):
     """Base class for training plans.
 
     All concrete, framework- and/or model-specific training plans
@@ -169,7 +174,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"wrapped model using provided `model_args`: {exc}"
             )
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
         self._training_args = training_args
 
     def add_dependency(self, dep: List[str]) -> None:
@@ -255,11 +260,22 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             FedbiomedTrainingPlanError: if the model file cannot be written to.
         """
         # Assemble the class's source code.
-        source = "\n\n".join((
+        source = "\n".join((
             "\n".join(self._dependencies),  # import statements
-            inspect.getsource(type(self)),  # class definition
+            get_class_source(type(self)),  # class definition
         ))
+        # Minify it.
+        source = python_minifier.minify(
+            source,
+            remove_annotations=False,
+            combine_imports=False,
+            remove_pass=False,
+            hoist_literals=False,
+            remove_object_base=True,
+            rename_locals=False,
+        )
         # Wrap up the class's source and its parameters into a config dict.
+        # NOTE: pre-processes are *not* saved (as in current Fed-BioMed)
         config = {
             "clsname": self.__class__.__name__,
             "source": source,
@@ -281,8 +297,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg) from exc
 
     @staticmethod
-    def load_from_json(path: str) -> "BaseTrainingPlan":
+    def load_from_json(path: str) -> "TrainingPlan":
         """Reload a training plan from its JSON dump."""
+        global IMPORT_IDX  # REVISE: improve this (global is not great)
         # Import the JSON-serialized config.
         try:
             with open(path, "r", encoding="utf-8") as file:
@@ -294,32 +311,42 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB304.value}: failed to load training plan "
                 f"config from {path}: {exc}"
             )
-            logger.critical(path)
+            logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg) from exc
         # Execute the source code and gather the training plan subclass.
         # TODO: improve this part to enhance security.
-        workdir = os.getcwd()
-        try:
-            with tempfile.TemporaryDirectory() as folder:
-                # Write the source code to a temporary .py file.
-                path = os.path.join(folder, "source.py")
+        with tempfile.TemporaryDirectory() as folder:
+            # Write the source code to a temporary .py file.
+            try:
+                # Use a unique name (otherwise next import attempt would fail).
+                name = f"tplan_{IMPORT_IDX:03d}"
+                path = os.path.join(folder, f"{name}.py")
                 with open(path, "w", encoding="utf-8") as file:
                     file.write(config["source"])
-                # Import the file as a module and gather the class.
-                os.chdir(folder)
-                mod = importlib.import_module("source")
+                sys.path.append(folder)  # undone in next "finally" block
+            except Exception as exc:
+                msg = (
+                    f"{ErrorNumbers.FB304.value}: failed to write the "
+                    f"training plan subclass source code to a file: {exc}"
+                )
+                raise FedbiomedTrainingPlanError(msg) from exc
+            # Import the file as a module and gather the class.
+            try:
+                mod = importlib.import_module(name)
+                IMPORT_IDX += 1  # update number of used file names
                 cls = getattr(mod, config["clsname"])
-        except Exception as exc:
-            msg = (
-                f"{ErrorNumbers.FB304.value}: failed to recreate and import "
-                f"training plan subclass from its source code: {exc}"
-            )
-            logger.critical(path)
-            raise FedbiomedTrainingPlanError(msg) from exc
-        finally:
-            os.chdir(workdir)
+            except Exception as exc:
+                msg = (
+                    f"{ErrorNumbers.FB304.value}: failed to recreate the "
+                    f"training plan subclass from its source code: {exc}"
+                )
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg) from exc
+            # Ensure the temporary folder is removed from `sys.path`.
+            finally:
+                sys.path.remove(folder)
         # Instantiate the training plan.
-        if not (isinstance(cls, type) and issubclass(cls, BaseTrainingPlan)):
+        if not (isinstance(cls, type) and issubclass(cls, TrainingPlan)):
             msg = (
                 f"{ErrorNumbers.FB304.value}: Reloaded element from config "
                 "and source code is not a training plan subclass."
@@ -398,14 +425,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 passed to it depend on this parameter.
         """
         if not callable(method):
-            msg = (
+            msg = (  # type: ignore  # unreachable warning
                 f"{ErrorNumbers.FB605.value}: error while adding "
                 "preprocess, `method` should be callable."
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         if not isinstance(process_type, ProcessTypes):
-            msg = (
+            msg = (  # type: ignore  # unreachable warning
                 f"{ErrorNumbers.FB605.value}: error while adding "
                 "preprocess, `process_type` should be an instance "
                 "of `fedbiomed.common.constants.ProcessType`."
@@ -424,7 +451,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             method = process['method']
             process_type = process['process_type']
             if process_type == ProcessTypes.DATA_LOADER:
-                self._process_data_loader(method=method)
+                self._process_data_loader(method=method)  # type: ignore
             else:
                 logger.error(
                     f"Process type `{process_type}` is not implemented."
@@ -540,7 +567,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._process_training_node_args(node_args or {})
         # Iterate over epochs and step-wise batches to traing the model.
         while not epochs.saturated:
-            record_loss.keywords["epoch"] = epochs.value
+            record_loss.keywords["epoch"] = int(epochs.value)
             for idx, (inp, tgt) in enumerate(self.training_data_loader, 1):
                 rec = record_loss if (log_interval % idx == 0) else None
                 self._training_step(idx, inp, tgt, rec)
@@ -566,7 +593,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         # Gather the (fixed) number of samples and batches in the dataset.
         n_batches = len(self.training_data_loader)
-        n_samples = len(self.training_data_loader.dataset)
+        n_samples = len(self.training_data_loader.dataset)  # type: ignore
         # Define a routine to log and opt. record loss at set batch indices.
         def record_loss(
                 loss: float,
@@ -655,7 +682,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
-        # TODO: Add preprocess option for testing_data_loader.
         if self.testing_data_loader is None:
             msg = f"{ErrorNumbers.FB605.value}: no validation dataset was set."
             logger.critical(msg)
@@ -724,7 +750,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if metric is None:
                 metric = MetricTypes.ACCURACY
             metric_controller = Metrics()
-            def evaluate(data, target):
+            def evaluate(data, target):  # type: ignore
                 nonlocal metric, metric_args, metric_controller
                 output = self.predict(data)
                 if isinstance(target, torch.Tensor):

@@ -12,10 +12,10 @@ import torch
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from ._declearn_training_plan import BaseTrainingPlan
+from ._base import TrainingPlan
 
 
-class TorchTrainingPlan(BaseTrainingPlan):
+class TorchTrainingPlan(TrainingPlan):
     """Base class for training plans wrapping `torch.nn.Module` models.
 
     All concrete torch training plans inheriting this class should implement:
@@ -100,7 +100,8 @@ class TorchTrainingPlan(BaseTrainingPlan):
         model = getattr(self.model, "_model")  # type: torch.nn.Module
         with torch.no_grad():
             pred = model(data)
-        return pred.detach().numpy()
+            outp = pred.detach().numpy()  # type: np.ndarray
+        return outp
 
     def training_routine(
             self,

@@ -12,10 +12,10 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.logger import logger
 
-from ._declearn_training_plan import BaseTrainingPlan
+from ._base import TrainingPlan
 
 
-class SklearnSGDTrainingPlan(BaseTrainingPlan):
+class SklearnSGDTrainingPlan(TrainingPlan):
     """Base class for training plans using sklearn SGD Classifier/Regressor.
 
     All concrete sklearn-sgd training plans inheriting this class
@@ -78,7 +78,8 @@ class SklearnSGDTrainingPlan(BaseTrainingPlan):
         model = (
             getattr(self.model, "_model")
         )  # type: Union[SGDClassifier, SGDRegressor]
-        return model.predict(data)
+        preds = model.predict(data)  # type: np.ndarray
+        return preds
 
     def _process_training_node_args(
             self,

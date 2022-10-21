@@ -21,7 +21,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.training_plans import TrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -118,7 +118,7 @@ class Experiment(object):
                  aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                  node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                  round_limit: Union[int, None] = None,
-                 training_plan: Union[BaseTrainingPlan, str, None] = None,
+                 training_plan: Union[TrainingPlan, str, None] = None,
                  model_args: dict = {},
                  training_args: Union[TrainingArgs, dict, None] = None,
                  save_breakpoints: bool = False,
@@ -158,8 +158,8 @@ class Experiment(object):
                 the experiment. `None` means that no limit is defined. Defaults to None.
             training_plan: Training plan instance, wrapping the model to be
                 trained and providing with a way to load the nodes' data, or
-                path to its JSON dump file. See [`BaseTrainingPlan`]
-                [fedbiomed.common.training_plans.BaseTrainingPlan]
+                path to its JSON dump file. See [`TrainingPlan`]
+                [fedbiomed.common.training_plans.TrainingPlan]
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -366,13 +366,13 @@ class Experiment(object):
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     @exp_exceptions
-    def training_plan(self) -> Union[BaseTrainingPlan, None]:
+    def training_plan(self) -> Union[TrainingPlan, None]:
         """Retrieves the training plan used for training.
 
         Please see also [`set_training_plan`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
 
         Returns:
-            Training plan, instance of [`BaseTrainingPlan`][fedbiomed.common.training_plans.BaseTrainingPlan].
+            Training plan, instance of [`TrainingPlan`][fedbiomed.common.training_plans.TrainingPlan].
                 None if it isn't declared yet.
         """
 
@@ -397,10 +397,9 @@ class Experiment(object):
         Please see also [`set_training_args`][fedbiomed.researcher.experiment.Experiment.set_training_args]
 
         Returns:
-            The arguments that are going to be passed to `training_routine` of [`training_plans`]
-                [fedbiomed.common.training_plans] classes to perfom training on the node side.
-                An example training routine: [`TorchTrainingPlan.training_routine`]
-                [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
+            The arguments that are going to be passed to `training_routine` of the wrapped
+            [`TrainingPlan`][fedbiomed.common.training_plans.TrainingPlan] object to perfom
+            training on the node side.
         """
 
         return self._training_args.dict()
@@ -997,13 +996,13 @@ class Experiment(object):
     @exp_exceptions
     def set_training_plan(
             self,
-            training_plan: Union[BaseTrainingPlan, str, None]
-        ) -> Union[BaseTrainingPlan, None]:
+            training_plan: Union[TrainingPlan, str, None]
+        ) -> Union[TrainingPlan, None]:
         """Sets `training_plan` after conducting type checks.
 
         Args:
-            training_plan: Training plan instance (see [`BaseTrainingPlan`]
-                [fedbiomed.common.training_plans.BaseTrainingPlan]) to use
+            training_plan: Training plan instance (see [`TrainingPlan`]
+                [fedbiomed.common.training_plans.TrainingPlan]) to use
                 for training.
 
         Returns:
@@ -1013,14 +1012,14 @@ class Experiment(object):
             FedbiomedExperimentError : bad training_plan_class type
         """
         if training_plan is None:
-            self._training_plan: Union[BaseTrainingPlan, None] = None
+            self._training_plan: Union[TrainingPlan, None] = None
             logger.debug(
                 "Experiment not fully configured yet: no valid training plan"
             )
-        elif isinstance(training_plan, BaseTrainingPlan):
+        elif isinstance(training_plan, TrainingPlan):
             self._training_plan = training_plan
         elif isinstance(training_plan, str):
-            self._training_plan = BaseTrainingPlan.load_from_json(training_plan)
+            self._training_plan = TrainingPlan.load_from_json(training_plan)
         else:
             msg = (
                 f"{ErrorNumbers.FB410.value}: `training_plan`: "
@@ -2038,7 +2037,7 @@ class Experiment(object):
 
     @exp_exceptions
     def training_plan_approve(self,
-                              training_plan: BaseTrainingPlan,
+                              training_plan: TrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:

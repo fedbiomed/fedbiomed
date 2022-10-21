@@ -7,14 +7,14 @@ from typing import Any, Dict, Optional, Union
 import declearn
 import declearn.model.tensorflow
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf  # type: ignore
 
 from fedbiomed.common.data import NPDataLoader
 
-from ._declearn_training_plan import BaseTrainingPlan
+from ._base import TrainingPlan
 
 
-class TensorflowTrainingPlan(BaseTrainingPlan):
+class TensorflowTrainingPlan(TrainingPlan):
     """Base class for training plans wrapping `tf.keras.Layer` models.
 
     All concrete torch training plans inheriting this class should implement:
@@ -78,5 +78,5 @@ class TensorflowTrainingPlan(BaseTrainingPlan):
                 `fedbiomed.common.metrics.Metrics` specs).
         """
         model = getattr(self.model, "_model")  # type: tf.keras.Model
-        pred = model(data, training=False)
-        return pred.numpy()
+        pred = model(data, training=False).numpy()  # type: np.ndarray
+        return pred
