@@ -18,9 +18,10 @@ import logging
 import numpy as np
 from typing import Optional
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
@@ -53,6 +54,12 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         ) -> None:
             return None
 
+    def setUp(self):
+        logging.disable(logging.CRITICAL)
+
+    def tearDown(self) -> None:
+        logging.disable(logging.NOTSET)
+
     def test_sklearntrainingplanbasicinheritance_01_dataloaders(self):
         X = np.array([])
         loader = NPDataLoader(dataset=X, target=X)
@@ -63,24 +70,102 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             training_plan.set_data_loaders('wrong-type', 'wrong-type')
 
-    def test_sklearntrainingplanbasicinheritance_02_training_routine(self):
+    def test_sklearntrainingplanbasicinheritance_02_training_testing_routine(self):
         training_plan = TestSklearnTrainingPlanBasicInheritance.ChildSKLearnTrainingPlan()
-        with patch.object(training_plan, '_model_cls'):
+        # Model is not of the correct type
+        with patch.object(training_plan, '_model'):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.training_routine()
 
         X = np.array([])
         loader = NPDataLoader(dataset=X, target=X)
         training_plan.set_data_loaders(loader, loader)
-        training_plan.training_routine()
+        training_plan.training_routine()  # assert this works without failure
 
+        # Data loader is not of the correct type
         with patch.object(training_plan, 'training_data_loader'):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.training_routine()
 
+        # The training routine raises some error (here ValueError for example)
         with patch.object(training_plan, '_training_routine', side_effect=ValueError):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.training_routine()
+
+        # Node requests GPU, but sklearn does not support it
+        logging.disable(logging.NOTSET)  # Temporarily re-enable logging to capture warning output
+        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
+            training_plan.training_routine(node_args={'gpu_only': True})
+            self.assertIn('Node would like to force GPU usage, but sklearn training '
+                          'plan does not support it. Training on CPU.',
+                          captured.output[0])
+        logging.disable(logging.CRITICAL)
+
+        # testing_routine for classification tasks should create classes on the fly if they don't exist
+        with patch.object(training_plan, '_classes_from_concatenated_train_test', return_value=np.array([0, 1])), \
+             patch('fedbiomed.common.training_plans.BaseTrainingPlan.testing_routine', return_value=None):
+            training_plan._is_classification = True  # testing fixture for classification
+            training_plan.testing_routine(metric=None, metric_args={}, history_monitor=None, before_train=True)
+            self.assertTrue(hasattr(training_plan.model(), 'classes_'))
+            self.assertListEqual([x for x in training_plan.model().classes_], [0, 1])
+
+        # Inferring the classes works correctly
+        X = np.array([0, 1, 2, 3, 0, 1, 2])
+        loader = NPDataLoader(dataset=X, target=X)
+        training_plan.set_data_loaders(loader, loader)
+        classes = training_plan._classes_from_concatenated_train_test()
+        self.assertListEqual(
+            [x for x in classes],
+            [x for x in np.unique(X)]
+        )
+
+    def test_sklearntrainingplanbasicinheritance_03_save_load(self):
+        training_plan = TestSklearnTrainingPlanBasicInheritance.ChildSKLearnTrainingPlan()
+        saved_params = []
+        def mocked_joblib_dump(obj, *args, **kwargs):
+            saved_params.append(obj)
+
+        # Base case where params are not provided to save function
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+                   side_effect=mocked_joblib_dump), \
+             patch('builtins.open', mock_open()):
+            training_plan.save('filename')
+            self.assertEqual(saved_params[-1], training_plan.model())
+
+        # Params passed to save function as dict
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+                   side_effect=mocked_joblib_dump), \
+                patch('builtins.open', mock_open()):
+            training_plan.save('filename', params={'coef_': 0.42, 'intercept_': 0.42})
+            self.assertEqual(saved_params[-1].coef_, 0.42)
+            self.assertEqual(saved_params[-1].intercept_, 0.42)
+
+        # Params passed as dict with 'model_params' field
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+                   side_effect=mocked_joblib_dump), \
+                patch('builtins.open', mock_open()):
+            training_plan.save('filename', params={'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
+            self.assertEqual(saved_params[-1].coef_, 0.42)
+            self.assertEqual(saved_params[-1].intercept_, 0.42)
+
+        # Saved object is not the correct type
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
+                   return_value=FedSGDRegressor._model_cls()), \
+                patch('builtins.open', mock_open()):
+            with self.assertRaises(FedbiomedTrainingPlanError):
+                training_plan.load('filename')
+
+        # Option to retrieve model parameters instead of full model from load function
+        with patch.object(training_plan, '_param_list', ['coef_', 'intercept_']), \
+             patch.object(training_plan._model, 'coef_', 0.42), \
+             patch.object(training_plan._model, 'intercept_', 0.42), \
+             patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
+                   return_value=training_plan._model), \
+             patch('builtins.open', mock_open()):
+            params = training_plan.load('filename', to_params=True)
+            self.assertDictEqual(params, {'model_params': {'coef_': 0.42,  'intercept_': 0.42}})
+            params = training_plan.after_training_params()
+            self.assertDictEqual(params, {'coef_': 0.42,  'intercept_': 0.42})
 
 
 class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
@@ -130,15 +215,20 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
     def tearDown(self):
         logging.disable(logging.NOTSET)
 
-    def test_model_args(self):
+    def test_sklearntrainingplancommonfunctionalities_01_model_args(self):
         for training_plan in self.training_plans:
-            # ensure that the models args passed by the researcher are correctly stored in the class
+            # training plan type
+            self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
+            # ensure that the model args passed by the researcher are correctly stored in the class
             self.assertDictEqual(training_plan._model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
                 if key in TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type]:
-                    self.assertEqual(val, TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type][key])
+                    self.assertEqual(
+                        val,
+                        TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type][key]
+                    )
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
             self.assertNotIn('key_not_in_model', training_plan.model().get_params())
 
@@ -151,7 +241,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             for param in training_plan._param_list:
                 self.assertIsInstance(param, str)
 
-    def test_save_and_load(self):
+    def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
             training_plan.save(randomfile.name)
@@ -169,7 +259,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # ensure that the newly loaded model has the same params as the original model
             self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
-    def test_exceptions_are_correctly_converted(self):
+    def test_sklearntrainingplancommonfunctionalities_03_exceptions_are_correctly_converted(self):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1,1]])
         test_y = np.array([1, 0, 1, 0])
@@ -202,7 +292,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                                   history_monitor=None,
                                                   before_train=True)
 
-    def test_custom_testing_step(self):
+    def test_sklearntrainingplancommonfunctionalities_04_custom_testing_step(self):
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
 
@@ -269,11 +359,11 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
     def tearDown(self):
         logging.disable(logging.NOTSET)
 
-    def test_regression_parameters(self):
+    def test_skleanregression_01_parameters(self):
         for training_plan in self.training_plans:
             self.assertFalse(training_plan._is_classification)
 
-    def test_regression_testing_routine(self):
+    def test_sklearnregression_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
@@ -347,11 +437,11 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
     def tearDown(self):
         logging.disable(logging.NOTSET)
 
-    def test_classification_parameters(self):
+    def test_sklearnclassification_01_parameters(self):
         for training_plan in self.training_plans:
             self.assertTrue(training_plan._is_classification)
 
-    def test_classification_testing_routine(self):
+    def test_sklearnclassification_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
