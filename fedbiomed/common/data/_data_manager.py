@@ -2,23 +2,36 @@
 Data Management classes
 """
 
-
 from typing import Union
 
 import numpy as np
 import pandas as pd
+from torch.utils.data import Dataset, DataLoader
 
-from torch.utils.data import Dataset
-
+from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.constants import ErrorNumbers
 
 from ._torch_data_manager import TorchDataManager
-from ._sklearn_data_manager import SkLearnDataManager
+from ._sklearn_data_manager import NPDataLoader, SkLearnDataManager
 from ._tabular_dataset import TabularDataset
 
 
-class DataManager(object):
+class DataLoaderTypes(_BaseEnum):
+    """Enum for data-loader classes."""
+
+    NUMPY = NPDataLoader
+    TORCH = DataLoader
+
+
+# Type hint alias for Union of DataLoaderTypes concrete classes.
+TypeDataLoader = Union[
+    NPDataLoader,
+    DataLoader,
+]
+
+
+class DataManager:
     """Factory class that build different data loader/datasets based on the type of `dataset`.
     The argument `dataset` should be provided as `torch.utils.data.Dataset` object for to be used in
     PyTorch training.
@@ -44,12 +57,13 @@ class DataManager(object):
         self._loader_arguments = kwargs
         self._data_manager_instance = None
 
-    def load(self, tp_type: TrainingPlans):
+    def load(self, loader_type: DataLoaderTypes):
         """Loads proper DataManager based on given TrainingPlan and
         `dataset`, `target` attributes.
 
         Args:
-            tp_type: Enumeration instance of TrainingPlans that stands for type of training plan.
+            loader_type: Type of dataloader (torch DataLoader, NPDataLoader...)
+                required by the TrainingPlan.
 
         Raises:
             FedbiomedDataManagerError: If requested DataManager does not match with given arguments.
@@ -57,7 +71,7 @@ class DataManager(object):
         """
 
         # Training plan is type of TorcTrainingPlan
-        if tp_type == TrainingPlans.TorchTrainingPlan:
+        if loader_type is DataLoaderTypes.TORCH:
             if self._target is None and isinstance(self._dataset, Dataset):
                 # Create Dataset for pytorch
                 self._data_manager_instance = TorchDataManager(dataset=self._dataset, **self._loader_arguments)
@@ -73,7 +87,7 @@ class DataManager(object):
                                                 f"Dataset instance, or provide `dataset` and `target` arguments as "
                                                 f"an instance one of pd.DataFrame, pd.Series or np.ndarray ")
 
-        elif tp_type == TrainingPlans.SkLearnTrainingPlan:
+        elif loader_type is DataLoaderTypes.NUMPY:
             # Try to convert `torch.utils.Data.Dataset` to SkLearnBased dataset/datamanager
             if self._target is None and isinstance(self._dataset, Dataset):
                 torch_data_manager = TorchDataManager(dataset=self._dataset)
@@ -96,7 +110,9 @@ class DataManager(object):
                 raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The argument `dataset` and `target` "
                                                 f"should be instance of pd.DataFrame, pd.Series or np.ndarray ")
         else:
-            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Undefined training plan")
+            raise FedbiomedDataManagerError(
+                f"{ErrorNumbers.FB607.value}: Unsupported data loader type: {loader_type}"
+            )
 
     def __getattr__(self, item: str):
 

@@ -9,7 +9,7 @@ import declearn.model.tensorflow
 import numpy as np
 import tensorflow as tf  # type: ignore
 
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data import DataLoaderTypes
 
 from ._base import TrainingPlan
 
@@ -35,7 +35,7 @@ class TensorflowTrainingPlan(TrainingPlan):
     """
 
     _model_cls=declearn.model.tensorflow.TensorflowModel
-    _data_type=NPDataLoader  # FIXME: implement a dedicated data loader
+    _data_type=DataLoaderTypes.NUMPY  # FIXME: implement a dedicated data loader
 
     def __init__(
             self,

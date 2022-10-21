@@ -16,12 +16,13 @@ import declearn
 import numpy as np
 import python_minifier
 import torch
-from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.data import DataManager, NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.data import DataLoaderTypes, DataManager, TypeDataLoader
+from fedbiomed.common.exceptions import (
+    FedbiomedError, FedbiomedTrainingPlanError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
@@ -59,8 +60,7 @@ class TrainingPlan(metaclass=ABCMeta):
     """
 
     _model_cls: Type[declearn.model.api.Model]
-    # TODO: revise `DataManager.load` (and all calls...)
-    _data_type: Union[Type[DataLoader], Type[NPDataLoader]]
+    _data_type: DataLoaderTypes
 
     def __init__(
             self,
@@ -86,8 +86,8 @@ class TrainingPlan(metaclass=ABCMeta):
         self.pre_processes: Dict[
             str, Dict[str, Union[ProcessTypes, Callable[..., Any]]]
         ] = OrderedDict()
-        self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
-        self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.training_data_loader: Optional[TypeDataLoader] = None
+        self.testing_data_loader: Optional[TypeDataLoader] = None
 
     def _build_model(
             self,
@@ -152,6 +152,10 @@ class TrainingPlan(metaclass=ABCMeta):
         # Return the instantiated model.
         return optim
 
+    def data_loader_type(self) -> DataLoaderTypes:
+        """Getter for the type of DataLoader required by this TrainingPlan."""
+        return self._data_type
+
     # TODO-PAUL: merge this into `__init__`?
     def post_init(
             self,
@@ -214,8 +218,8 @@ class TrainingPlan(metaclass=ABCMeta):
 
     def set_data_loaders(
             self,
-            train_data_loader: Union[DataLoader, NPDataLoader],
-            test_data_loader: Union[DataLoader, NPDataLoader]
+            train_data_loader: TypeDataLoader,
+            test_data_loader: TypeDataLoader,
         ) -> None:
         """Data loaders setter for TrainingPlan.
 
@@ -227,10 +231,10 @@ class TrainingPlan(metaclass=ABCMeta):
             test_data_loader: Data loader for validation routine.
         """
         for loader in (train_data_loader, test_data_loader):
-            if not isinstance(loader, self._data_type):
+            if not isinstance(loader, self._data_type.value):
                 msg = (
-                    f"{ErrorNumbers.FB304.value}: unproper data loader "
-                    f"type: required {self._data_type}, got {type(loader)}"
+                    f"{ErrorNumbers.FB304.value}: unproper data loader type:"
+                    f" required {self._data_type.value}, got {type(loader)}"
                 )
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
@@ -534,11 +538,11 @@ class TrainingPlan(metaclass=ABCMeta):
                 for compatible model frameworks.
         """
         # Run training pre-checks.
-        if not isinstance(self.training_data_loader, self._data_type):
+        if not isinstance(self.training_data_loader, self._data_type.value):
             msg = (
                 f"{ErrorNumbers.FB310.value}: BaseTrainingPlan cannot "
                 "be trained without a `training_data_loader` of type "
-                f"{self._data_type}."
+                f"{self._data_type.value}."
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
@@ -592,6 +596,8 @@ class TrainingPlan(metaclass=ABCMeta):
                 logging and optional history-monitoring.
         """
         # Gather the (fixed) number of samples and batches in the dataset.
+        if self.training_data_loader is None:
+            raise TypeError("No training dataset available.")
         n_batches = len(self.training_data_loader)
         n_samples = len(self.training_data_loader.dataset)  # type: ignore
         # Define a routine to log and opt. record loss at set batch indices.

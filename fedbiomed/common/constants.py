@@ -71,13 +71,6 @@ class TrainingPlanApprovalStatus(_BaseEnum):
         return None
 
 
-class TrainingPlans(_BaseEnum):
-    """Enumeration class for Training plans """
-
-    TorchTrainingPlan: str = 'TorchTrainingPlan'
-    SkLearnTrainingPlan: str = 'SkLearnTrainingPlan'
-
-
 class ProcessTypes(_BaseEnum):
     """Enumeration class for Preprocess types
 

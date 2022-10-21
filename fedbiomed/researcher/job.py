@@ -676,8 +676,7 @@ class localJob:
             results = {}
             try:
                 data_manager = self._training_plan.training_data(self.dataset_path)
-                tp_type = self._training_plan.type()
-                data_manager.load(tp_type=tp_type)
+                data_manager.load(self._training_plan.data_loader_type())
                 train_loader, test_loader = data_manager.split(test_ratio=0)
                 self._training_plan.training_data_loader = train_loader
                 self._training_plan.testing_data_loader = test_loader

@@ -7,9 +7,9 @@ from typing import Any, Dict, Union
 import declearn
 import numpy as np
 from numpy.typing import ArrayLike
-from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.linear_model import SGDClassifier, SGDRegressor  # type: ignore
 
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data import DataLoaderTypes
 from fedbiomed.common.logger import logger
 
 from ._base import TrainingPlan
@@ -37,7 +37,7 @@ class SklearnSGDTrainingPlan(TrainingPlan):
     """
 
     _model_cls=declearn.model.sklearn.SklearnSGDModel
-    _data_type=NPDataLoader
+    _data_type=DataLoaderTypes.NUMPY
 
     def __init__(
             self,

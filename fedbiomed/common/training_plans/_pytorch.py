@@ -10,6 +10,7 @@ import declearn.model.torch
 import numpy as np
 import torch
 
+from fedbiomed.common.data import DataLoaderTypes
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from ._base import TrainingPlan
@@ -36,7 +37,7 @@ class TorchTrainingPlan(TrainingPlan):
     """
 
     _model_cls=declearn.model.torch.TorchModel
-    _data_type=torch.utils.data.DataLoader
+    _data_type=DataLoaderTypes.TORCH
 
     def __init__(
             self,
