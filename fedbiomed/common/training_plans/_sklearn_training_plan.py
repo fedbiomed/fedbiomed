@@ -284,11 +284,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Numpy array containing the unique values from the targets wrapped
             in the training and testing NPDataLoader instances.
         """
-        target = np.array([])
-        for loader in (self.training_data_loader, self.testing_data_loader):
-            if isinstance(loader, NPDataLoader):
-                target = np.concatenate(target, loader.target)
-        return np.unique(target)
+        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
 
     def save(
             self,
