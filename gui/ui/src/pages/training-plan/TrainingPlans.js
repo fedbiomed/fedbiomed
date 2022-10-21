@@ -1,7 +1,7 @@
 import React from 'react';
-import ModelsList from "./ModelsList";
+import TrainingPlansList from "./TrainingPlansList";
 
-const Models = () => {
+const TrainingPlans = () => {
 
     return (
         <React.Fragment>
@@ -20,7 +20,7 @@ const Models = () => {
                 </div>
             </div>
             <div className="frame-content">
-                <ModelsList/>
+                <TrainingPlansList/>
             </div>
             <div className="frame-footer">
             </div>
@@ -29,4 +29,4 @@ const Models = () => {
     );
 };
 
-export default Models;
+export default TrainingPlans;

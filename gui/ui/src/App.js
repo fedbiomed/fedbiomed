@@ -19,8 +19,8 @@ import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
 import MedicalFolderDataset from "./pages/datasets/medical.folder.dataset";
-import Models from "./pages/models/Models";
-import SingleModel from "./pages/models/SingleModel";
+import TrainingPlans from "./pages/training-plan/TrainingPlans";
+import SingleModel from "./pages/training-plan/SingleTrainingPlan";
 import Login from "./pages/authentication/Login";
 import Register from "./pages/authentication/Register";
 import {LoginProtected, AdminProtected} from "./components/layout/ProtectedRoutes";
@@ -55,8 +55,8 @@ function App(props) {
                       <Route path={"account-requests"} element={<AdminProtected redirect_to={'/user-account'}><AccountRequestManagement/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
-                  <Route path="/models/" element={<Models/>} />
-                  <Route path="/models/preview/:model_id" element={<SingleModel />} />
+                  <Route path="/training-plans/" element={<TrainingPlans/>} />
+                  <Route path="/training-plans/preview/:training_plan_id" element={<SingleModel />} />
                   <Route path="/datasets/" element={<Datasets/>} />
                   <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
