@@ -146,7 +146,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         # Update the `param` values, and reset gradients to zero.
         for key in self._param_list:
             setattr(self._model, key, grads[key] / b_len)
-            self._model.n_iter_ += 1
+        self._model.n_iter_ += 1
         # Optionally report the training loss over this batch.
         if report:
             try:
