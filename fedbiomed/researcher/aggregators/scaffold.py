@@ -87,9 +87,9 @@ class Scaffold(Aggregator):
         -----------------------
         
         c_i(+) <- c_i - c + 1/(K*eta_l*eta_g)(x - y_i)
-        c <- c + 1/N * avg_S(c_i(+) - c_i)
+        c <- c + 1/N * sum_S(c_i(+) - c_i)
         
-        x <- x + eta_g/S * avg_S(y_i - x)
+        x <- x + eta_g/S * sum_S(y_i - x)
         
         where, accroding to paper notations
             c_i: correction state for node `i`;
@@ -105,11 +105,12 @@ class Scaffold(Aggregator):
         Args:
             model_params (list): list of models parameters recieved from nodes
             weights (List[Dict[str, float]]): weitghs depciting sample proportions available
-                on each node
+                on each node. Unused for Scaffold. 
             global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): global model,
                 ie aggregated model
-            training_plan (BaseTrainingPlan): _description_
-            node_ids (Iterable[str]): iterable containing node_id participating to the current round
+            training_plan (BaseTrainingPlan): instance of TrainingPlan
+            node_ids (Iterable[str]): iterable containing node_id (string) participating to the current round.
+                its length should be lower or equal to 
             n_updates (int, optional): number of updates (number of batch performed). Defaults to 1.
             n_round (int, optional): current round. Defaults to 0.
 
@@ -123,12 +124,8 @@ class Scaffold(Aggregator):
         
         model_params_processed = self.scaling(model_params, global_model)
         model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed] # model params are contained in a dictionary with node_id as key, we just retrieve the params
- 
-        #model_params_processed = list(model_params_processed.values())
 
-        #weights_processed = self.normalize_weights(weights_processed)
-
-        aggregated_parameters = federated_averaging(model_params_processed, [1 / len(node_ids)] * len(node_ids))
+        aggregated_parameters = weighted_sum(model_params_processed, [1 / len(node_ids)] * len(node_ids))
 
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
@@ -136,7 +133,7 @@ class Scaffold(Aggregator):
 
         self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
         
-        self.update_aggregator_args(global_model)  # update aggregator_params (for breakpoints)
+        self.update_aggregator_args(global_model)  # update aggregator_args (for breakpoints)
         return aggregated_parameters
 
     def create_aggregator_args(self,
@@ -156,11 +153,7 @@ class Scaffold(Aggregator):
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
             # serializing correction parameters
-            # logger.critical("CORRECTION", self.nodes_correction_states)
 
-            # print(self.nodes_correction_states)
-            #serialized_aggregator_correction = {key: tensor.tolist() for key, tensor in self.nodes_correction_states[node_id].items()}
-            print("CORRECTION", self.nodes_correction_states)
             aggregator_args_thr_file.update({node_id: {'aggregator_name': self.aggregator_name,
                                                        'aggregator_correction': self.nodes_correction_states[node_id]}})
             
@@ -242,12 +235,19 @@ class Scaffold(Aggregator):
             x <- sum_i(x (1 - eta_g) + eta_g * y_i) / S
             x <- avg(x (1 - eta_g) + eta_g * y_i) ... averaging is done afterwards, in aggregate method
 
+        where (notations are the same as in the paper):
+        x: global model parameters
+        y_i: local node models updates
+        eta_g: server (researcher)'s learning rate
+        S: number of nodes particpating in the current round
+
         Args:
-            model_params (list): _description_
-            global_model (OrderedDict): _description_
+            model_params (list): model parameters to be scaled. model params are a list
+                of Dictionary mapping nodes id with model parameters.
+            global_model (OrderedDict): global model mapping layers names to parameter values
 
         Returns:
-            list: _description_
+            list: List of Dict that maps node ids to scaled model parameters (same format as model_params)
         """
         # refers as line 13 and 17 in pseudo code
         # should scale regading option

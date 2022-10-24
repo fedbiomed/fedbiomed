@@ -95,7 +95,7 @@ class Round:
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
 
-    def download_aggregator_args(self) -> Tuple[bool, str]:
+    def download_aggregator_args(self, training_plan) -> Tuple[bool, str]:
         # download heavy aggregator args (if any)
 
         if self.aggregator_args is not None:
@@ -113,7 +113,10 @@ class Round:
                         if not success:
                             return success, error_msg
                         else:
-                            self.aggregator_args[arg_name] = {'param_path': param_path}
+                            self.aggregator_args[arg_name] = {'param_path': param_path, 
+                                                              #'params': training_plan.load(param_path, to_params=True)
+                                                              }
+            print("AGGREGATOR_ARGS", self.aggregator_args)
             return True, ''
         else:
             return True, "no file downloads required for aggregator args"
@@ -178,9 +181,7 @@ class Round:
                 # if (status != 200) or params_path is None:
                 #     error_message = f"Cannot download param file: {self.params_url}"
                 success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
-                if success:
-                    # retrieving arggegator args
-                    success, error_msg = self.download_aggregator_args()
+                
                 if not success:
                     return self._send_round_reply(success=False, message=error_msg)
 
@@ -201,6 +202,10 @@ class Round:
             error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+        # retrieve aggregator args
+        success, error_msg = self.download_aggregator_args(self.training_plan)
+        if not success:
+            return self._send_round_reply(success, message=error_msg)
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,
@@ -460,10 +465,10 @@ class Round:
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
         # self.testing_data will be equal to None
-        # self.testing_data will be equal to all samples
+        # self.training_data will be equal to all samples
         # If testing ratio is 1,
         # self.testing_data will be equal to all samples
-        # self.testing_data will be equal to None
+        # self.training_data will be equal to None
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)

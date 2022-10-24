@@ -79,7 +79,7 @@ class Aggregator:
         return model_param
 
     def save_state(self,
-                   training_plan: BaseTrainingPlan,
+                   training_plan: Optional[BaseTrainingPlan] = None,
                    breakpoint_path: Optional[str] = None,
                    **aggregator_args_create) -> Dict[str, Any]:
         """

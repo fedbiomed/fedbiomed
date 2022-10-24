@@ -334,10 +334,16 @@ class Job:
             # updating `num_updates` parameter:
             max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
             batch_size = self._training_args['batch_size']
-            num_updates = max_n_samples // batch_size 
+            n_epochs = self._training_args.get('epochs', 0)
+            batch_maxnum = self._training_args.get('batch_maxnum', 0)
+            num_updates_for_one_epoch = max_n_samples // batch_size 
             if max_n_samples % batch_size:
-                num_updates += 1
-            self._training_args['num_updates'] = num_updates
+                num_updates_for_one_epoch += 1
+            if batch_maxnum > 0:
+                num_updates_for_one_epoch = min(num_updates_for_one_epoch, batch_maxnum)
+
+            self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
+            
     
     def upload_training_params(self, training_args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
                                aggregator_args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:

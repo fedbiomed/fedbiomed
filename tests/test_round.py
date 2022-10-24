@@ -671,7 +671,8 @@ class TestRound(unittest.TestCase):
     @patch('uuid.uuid4')
     def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, "my_model")
+        
+        repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
         success, _ = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         # if attribute `aggregator_args` is None, then do nothing
@@ -692,8 +693,18 @@ class TestRound(unittest.TestCase):
         
         for var in ('var3', 'var4'):
             self.assertNotIn('url', self.r1.aggregator_args[var].keys())
-            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model')
+            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
 
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_11_download_file(self, uuid_patch, repository_download_patch):
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, "my_model")
+        file_path = 'path/to/my/downloaded/files'
+        success, param_path, msg = self.r1.download_file('http://some/url/to/some/files', file_path)
+        self.assertEqual(success, True)
+        self.assertEqual(param_path, 'my_model')
+        self.assertEqual(msg, '')
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -142,34 +142,39 @@ class TestScaffold(unittest.TestCase):
     def test_4_aggregate(self, mock_federated_dataset):
         
         mock_federated_dataset.return_value = self.node_ids
-        mock_training_plan_get_model_params_len = len(self.node_ids)
+
         training_plan = MagicMock()
         training_plan.get_model_params = MagicMock(return_value = self.node_ids)
         
-
-        # settig all learning rate to 1
-        researcher_lr, node_lr = 1, 1
         
         agg = Scaffold(server_lr=.2)
         fds = FederatedDataSet({})
         agg.set_fds(fds)
         n_round = 0
         
+        weights = [{node_id: 1/self.n_nodes} for node_id in self.node_ids]
         # assuming that global model has all its coefficients to 0
-        aggregated_model_params = agg.aggregate(copy.deepcopy(self.models),
-                                                self.weights,
-                                                self.zero_model.state_dict(),
-                                                training_plan,
-                                                self.responses, self.node_ids, n_round=n_round)
-        # processed_weights = [w[node_id] for w,node_id in zip(self.weights, self.node_ids)]
-        # processed_models = [ list(model.values())[0] for model in self.models]
-        print("FEDAVG MODEL", self.models[-1]['node_3'])
-        fedavg = FedAverage().aggregate(copy.deepcopy(self.models), self.weights)
-        
-        for (k,v), (k_i, v_i) in zip(aggregated_model_params.items(), fedavg.items()):
-            print(v, "VALUE", v_i)
+        aggregated_model_params_scaffold = agg.aggregate(copy.deepcopy(self.models),
+                                                        weights,
+                                                        self.zero_model.state_dict(),
+                                                        training_plan,
+                                                        self.responses,
+                                                        self.node_ids,
+                                                        n_round=n_round)
+
+
+        aggregated_model_params_fedavg = FedAverage().aggregate(copy.deepcopy(self.models), weights)
+        # we check that fedavg and scaffold give proportional results provided:
+        # - all previous coefficient model are set to 0
+        # - model proportions are the same
+        # then:
+        # fedavg: x_i <- x_i / n_nodes
+        # scaffold: x_i <- server_lr * x_i ? n_nodes
+        for (k,v), (k_i, v_i) in zip(aggregated_model_params_scaffold.items(),
+                                     aggregated_model_params_fedavg.items()):
+
             self.assertTrue(torch.isclose(v, v_i * .2).all())
-        
+        # TODO: test methods when 
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

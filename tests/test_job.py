@@ -9,6 +9,8 @@ import uuid
 
 import numpy as np
 from fedbiomed.common import training_args
+from fedbiomed.researcher.datasets import FederatedDataSet
+from testsupport.fake_dataset import FederatedDataSetMock
 import torch
 
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
@@ -873,6 +875,21 @@ class TestJob(unittest.TestCase):
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
                     
-        
+    def test_job_20_update_training_args(self):
+        """test_job_20_update_training_args: checks that num_updates are computed accordingly
+        """
+        data = {'node_1': [{'shape': [20, 10, 10, 10]}], 
+                'node_2': [{'shape': [100, 10, 10, 10]}]}
+
+        class DummyFDS(FederatedDataSetMock):
+            def node_ids(self):
+                return list(self._data.keys())
+            
+        # adding values to training_args
+        self.job.training_args
+        # case where nodes arg is None
+        self.job.update_training_args(DummyFDS(data))
+        self.assertEqual(self.job._training_args['num_updates'], 20 // 12 + 1)
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
