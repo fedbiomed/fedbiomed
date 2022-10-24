@@ -133,6 +133,17 @@ class DatasetTypes(_BaseEnum):
     NONE = 'none'
 
 
+class SecaggElementTypes(_BaseEnum):
+    """Enumeration class for secure aggregation element types
+
+    Attributes:
+        SERVER_KEY: server key split between the parties
+        BIPRIME: biprime shared between the parties
+    """
+    SERVER_KEY: int = 0
+    BIPRIME: int = 1
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
@@ -169,7 +180,9 @@ class ErrorNumbers(_BaseEnum):
     FB314 = "FB314: Node round error"
     FB315 = "FB315: Error while loading the data "
     FB316 = "FB316: Data loading plan error"
-    FB317: Enum = "FB317: FLamby package import error"
+    FB317 = "FB317: FLamby package import error"
+    FB318 = "FB318: Secure aggregation setup error"
+    FB319 = "FB319: Command not found error"
 
     # application error on researcher
 
@@ -188,6 +201,8 @@ class ErrorNumbers(_BaseEnum):
     FB412 = "FB412: cannot do model checking for experiment"
     FB413 = "FB413: cannot save or load breakpoint for experiment"
     FB414 = "FB414: bad type or value for training arguments"
+    FB415 = "FB415: secure aggregation handling error"
+
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
