@@ -118,6 +118,10 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         ) -> float:
         """Perform gradient descent over a single data batch.
 
+        This method also resets the n_iter_ attribute of the
+        scikit-learn model, such that n_iter_ will always equal
+        1 at the end of the execution.
+
         Args:
             inputs: 2D-array of batched input features.
             target: 2D-array of batched target labels.
