@@ -1,6 +1,7 @@
 """Secure Aggregation setup on the node"""
 from typing import List
 from abc import ABC, abstractmethod
+from enum import Enum
 import time
 
 from fedbiomed.common.constants import SecaggElementTypes
@@ -61,7 +62,7 @@ class SecaggSetup(ABC):
         return self._sequence
 
     @abstractmethod
-    def element(self) -> str:
+    def element(self) -> Enum:
         """Getter for secagg context element type
 
         Returns:
@@ -125,7 +126,7 @@ class SecaggServkeySetup(SecaggSetup):
         super().__init__(researcher_id, secagg_id, sequence, parties)
         # add subclass specific init here
 
-    def element(self) -> str:
+    def element(self) -> Enum:
         """Getter for secagg context element type
 
         Returns:
@@ -167,7 +168,7 @@ class SecaggBiprimeSetup(SecaggSetup):
         super().__init__(researcher_id, secagg_id, sequence, parties)
         # add subclass specific init here
 
-    def element(self) -> str:
+    def element(self) -> Enum:
         """Getter for secagg context element type
 
         Returns:
