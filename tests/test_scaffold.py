@@ -157,7 +157,7 @@ class TestScaffold(unittest.TestCase):
         agg.set_fds(fds)
         n_round = 0
         
-        weights = [{node_id: 1/self.n_nodes} for node_id in self.node_ids]
+        weights = [{node_id: 1./self.n_nodes} for node_id in self.node_ids]
         # assuming that global model has all its coefficients to 0
         aggregated_model_params_scaffold = agg.aggregate(copy.deepcopy(self.models),
                                                         weights,
