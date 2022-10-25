@@ -26,7 +26,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-
+from sklearn.linear_model import SGDClassifier
 
 class Custom:
     def testing_step(mydata, mytarget):
@@ -94,7 +94,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         # testing_routine for classification tasks should create classes on the fly if they don't exist
         with patch.object(training_plan, '_classes_from_concatenated_train_test', return_value=np.array([0, 1])), \
-             patch('fedbiomed.common.training_plans.BaseTrainingPlan.testing_routine', return_value=None):
+                patch('fedbiomed.common.training_plans.BaseTrainingPlan.testing_routine', return_value=None):
             training_plan._is_classification = True  # testing fixture for classification
             training_plan.testing_routine(metric=None, metric_args={}, history_monitor=None, before_train=True)
             self.assertTrue(hasattr(training_plan.model(), 'classes_'))
@@ -113,13 +113,14 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
     def test_sklearntrainingplanbasicinheritance_03_save_load(self):
         training_plan = SKLearnTrainingPlan()
         saved_params = []
+
         def mocked_joblib_dump(obj, *args, **kwargs):
             saved_params.append(obj)
 
         # Base case where params are not provided to save function
         with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
                    side_effect=mocked_joblib_dump), \
-             patch('builtins.open', mock_open()):
+                patch('builtins.open', mock_open()):
             training_plan.save('filename')
             self.assertEqual(saved_params[-1], training_plan.model())
 
@@ -148,15 +149,15 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         # Option to retrieve model parameters instead of full model from load function
         with patch.object(training_plan, '_param_list', ['coef_', 'intercept_']), \
-             patch.object(training_plan._model, 'coef_', 0.42), \
-             patch.object(training_plan._model, 'intercept_', 0.42), \
-             patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-                   return_value=training_plan._model), \
-             patch('builtins.open', mock_open()):
+                patch.object(training_plan._model, 'coef_', 0.42), \
+                patch.object(training_plan._model, 'intercept_', 0.42), \
+                patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
+                      return_value=training_plan._model), \
+                patch('builtins.open', mock_open()):
             params = training_plan.load('filename', to_params=True)
-            self.assertDictEqual(params, {'model_params': {'coef_': 0.42,  'intercept_': 0.42}})
+            self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
             params = training_plan.after_training_params()
-            self.assertDictEqual(params, {'coef_': 0.42,  'intercept_': 0.42})
+            self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
 
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
@@ -263,7 +264,8 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type], FakeTrainingArgs())
+            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type],
+                        FakeTrainingArgs())
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
@@ -314,6 +316,24 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             self.assertDictEqual(m.get_params(), orig_params)
             # ensure that the newly loaded model has the same params as the original model
             self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
+
+    @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
+    def test_sklearntrainingplancommonfunctionalities_03_getters(self):
+        """Test getter methods of SkLearnTrainingPlan"""
+        # Set a model class to be able to build abstract SkLearnTrainingPlan class
+        SKLearnTrainingPlan._model_cls = SGDClassifier
+        training_plan = SKLearnTrainingPlan()
+        training_plan._model_cls = SGDClassifier
+        _tr_args = FakeTrainingArgs()
+        tr_args = _tr_args.pure_training_arguments()
+        m_args = {'n_classes': 2, 'n_features': 1}
+        training_plan.post_init(m_args, _tr_args)
+
+        model_args = training_plan.model_args()
+        training_args = training_plan.training_args()
+
+        self.assertDictEqual(m_args, model_args)
+        self.assertDictEqual(training_args, tr_args)
 
     def test_sklearntrainingplancommonfunctionalities_03_exceptions_are_correctly_converted(self):
         # Dataset
@@ -410,8 +430,6 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             self.assertTrue(np.all(training_plan._model.coef_ == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
             self.assertEqual(training_plan._model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
-
-
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
@@ -597,7 +615,8 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                                                num_batches=1)
 
             # check if `classes_` attribute of classifier has been created
-            self.assertTrue(hasattr(training_plan.model(), 'classes_'), msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
+            self.assertTrue(hasattr(training_plan.model(), 'classes_'),
+                            msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
             self.assertTrue(np.array_equal(training_plan.model().classes_, np.array([0, 1])))
 
             history_monitor.add_scalar.reset_mock()
@@ -649,7 +668,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             self.assertTrue(np.isnan(loss))
 
             with patch.object(training_plan, '_model_args', {'n_classes': 3}), \
-                 patch.object(training_plan._model, 'classes_', np.array([0, 1, 2])):
+                    patch.object(training_plan._model, 'classes_', np.array([0, 1, 2])):
                 batch_losses_stdout = [
                     ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
                     ['loss: 0.0', 'loss: 1.0', 'epoch', 'loss: 0.0'],
@@ -664,7 +683,5 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
-
-
 
 # Test init params

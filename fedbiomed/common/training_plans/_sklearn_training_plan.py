@@ -93,7 +93,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     @abstractmethod
     def set_init_params(self) -> None:
         """Initialize the model's trainable parameters."""
-        return None
 
     def set_data_loaders(
             self,
