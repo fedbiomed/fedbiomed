@@ -38,6 +38,10 @@ class TrainingPlanCannotInstanciate(BaseFakeTrainingPlan):
 
     pass
 
+class TrainingPlanCannotSave(BaseFakeTrainingPlan):
+     def save_code(self, path: str):
+         raise OSError
+
 
 class TestRequests(unittest.TestCase):
     """ Test class for Request class """
@@ -290,12 +294,19 @@ class TestRequests(unittest.TestCase):
         self.assertEqual(responses_1[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
-        # Test when `only_successful` is False
+        # Test when `only_successful` or `while_responses` is False
         mock_get_messages.side_effect = [test_response,
                                          FakeResponses([])]
 
         responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
         self.assertEqual(responses_2[0], test_response[0], 'Values of provided responses and values of result does not '
+                                                           'match')
+
+        mock_get_messages.side_effect = [test_response,
+                                         FakeResponses([])]
+
+        responses_2bis = self.requests.get_responses(look_for_commands='test', timeout=0.1, while_responses=False)
+        self.assertEqual(responses_2bis[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
         mock_get_messages.side_effect = [Exception()]
@@ -541,6 +552,14 @@ class TestRequests(unittest.TestCase):
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
+
+       # model that cannot be save
+        result = self.requests.training_plan_approve(TrainingPlanCannotSave,
+                                                     "cannot save",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
+
 
         # provide a real python file but do not get an answer before timeout
         mock_upload_file.return_value = {
