@@ -29,6 +29,12 @@ class Custom:
         return {'Metric': 42.0}
 
 
+class FakeTrainingArgs:
+
+    def pure_training_arguments(self):
+        return {"num_updates": 1}
+
+
 class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
     """Class that tests the generic functionalities of a sklearn training plan.
 
@@ -68,7 +74,8 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type], {"num_updates": 1}, {})
+            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type],
+                        FakeTrainingArgs())
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
@@ -107,7 +114,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
 
             new_tp = self.subclass_types[training_plan.parent_type]()
-            new_tp.post_init({'n_classes': 2, 'n_features': 1}, {}, {})
+            new_tp.post_init({'n_classes': 2, 'n_features': 1}, FakeTrainingArgs())
 
             m = new_tp.load(randomfile.name)
             # ensure output of load is the same as original parameters
@@ -205,7 +212,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], {"num_updates": 1}, {})
+            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], FakeTrainingArgs())
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
@@ -284,7 +291,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                                      {'parent_type': sklearn_model_type})
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansClassification.model_args[sklearn_model_type], {}, {})
+            m.post_init(TestSklearnTrainingPlansClassification.model_args[sklearn_model_type], FakeTrainingArgs())
             self.training_plans.append(m)
 
         logging.disable('CRITICAL')  # prevent flood of messages about missing datasets

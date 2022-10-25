@@ -7,11 +7,14 @@ import itertools
 import torch
 import torch.nn as nn
 
+from abc import ABC
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
-
+from torch.optim import Adam
+from torch.nn import Module
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
 
 
@@ -25,19 +28,31 @@ class TrainingPlan(TorchTrainingPlan):
         return True
 
 
-class TrainingPlanWithTestingStep(TorchTrainingPlan):
+class FakeDPController:
+    def validate_and_fix_model(self, model):
+        return model
 
-    def __init__(self):
-        super(TrainingPlanWithTestingStep, self).__init__()
-
-    def testing_step(self, data, target): # noqa
-        return {'Metric': 12}
-
+    def before_training(self, model, optimizer, loader):
+        return model, optimizer, loader
 
 class TestTorchnn(unittest.TestCase):
     """
     Test the Torchnn class
     """
+
+    model = Module()
+    optimizer = Adam([torch.zeros([2, 4])])
+
+    class FakeTrainingArgs:
+
+        def pure_training_arguments(self):
+            return {"dry_run": True, "epochs": 1, "batch_size": 10, "log_interval": 10}
+
+        def optimizer_arguments(self):
+            return {"lr": 0.0001}
+
+        def dp_arguments(self):
+            return None
 
     class CustomDataset(Dataset):
         """ Create PyTorch Dataset for test purposes """
@@ -59,56 +74,232 @@ class TestTorchnn(unittest.TestCase):
 
     # before the tests
     def setUp(self):
+
+        self.patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
+        self.patcher.start()
+
         self.TrainingPlan = TrainingPlan
         self.params = {'one': 1, '2': 'two'}
         self.tmpdir = '.'
 
     # after the tests
     def tearDown(self):
+        self.patcher.stop()
         pass
 
     #
     # TODO : add tests for checking the training payload
     #
-
-    def test_torchnn_01_save_load_model(self):
-
-        tp1 = self.TrainingPlan()
-        self.assertIsNotNone(tp1.test_method)
-        self.assertTrue(tp1.test_method())
-
+    def test_torch_training_plan_01_save_model(self):
+        """Test save model method of troch traning plan"""
+        tp1 = TorchTrainingPlan()
         modulename = 'tmp_model'
-        codefile = self.tmpdir + os.path.sep + modulename + '.py'
-        try:
-            os.remove(codefile)
-        except FileNotFoundError:
-            pass
+        file = self.tmpdir + os.path.sep + modulename + '.py'
 
-        tp1.save_code(codefile)
-        self.assertTrue(os.path.isfile(codefile))
+        if os.path.isfile(file):
+            os.remove(file)
 
-        # would expect commented lines to be necessary
-        #
-        # sys.path.insert(0, self.tmpdir)
-        # exec('import ' + modulename, globals())
-        exec('import ' + modulename)
-        # sys.path.pop(0)
-        TrainingPlan2 = eval(modulename + '.' + self.TrainingPlan.__name__)
-        tp2 = TrainingPlan2()
+        tp1.save_code(file)
+        self.assertTrue(os.path.isfile(file))
+        os.remove(file)
 
-        self.assertIsNotNone(tp2.test_method)
-        self.assertTrue(tp2.test_method())
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer")
+    @patch("fedbiomed.common.training_plans._torchnn.deepcopy")
+    def test_torch_training_plan_02_post_init(self, mock_deepcopy, conf_optimizer_model, conf_deps):
 
-        os.remove(codefile)
+        mock_deepcopy.return_value = []
+        conf_optimizer_model.return_value = None
+        conf_deps.return_value = None
 
-    def test_torchnn_02_save_load_params(self):
-        tp1 = TrainingPlan()
+        tp = TorchTrainingPlan()
+        tp._model = Module()
+        tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+
+        self.assertEqual(tp._log_interval, 10)
+        self.assertEqual(tp._epochs, 1)
+        self.assertEqual(tp._dry_run, True)
+
+        conf_optimizer_model.assert_called_once()
+        conf_deps.assert_called_once()
+        mock_deepcopy.assert_called_once()
+
+    @patch('fedbiomed.common.training_plans.BaseTrainingPlan.add_dependency')
+    def test_torch_training_plan_03_configure_deps(self, add_dependency):
+        """Test private method configure dependencies """
+        add_dependency.return_value = None
+
+        # Test default init dependencies
+        tp = TorchTrainingPlan()
+        add_dependency.reset_mock()
+        tp._configure_dependencies()
+        add_dependency.assert_called_once()
+
+        # Wrong 1 -----------------------------------------------------------------
+        class FakeWrongTP(BaseFakeTrainingPlan):
+            def init_dependencies(self, invalid):
+                pass
+
+        tp = FakeWrongTP()
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_dependencies()
+
+        # Wrong 2 -----------------------------------------------------------------
+        class FakeWrongTP(BaseFakeTrainingPlan):
+            def init_dependencies(self):
+                return None
+
+        tp = FakeWrongTP()
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_dependencies()
+
+    def test_torch_training_plan_04_configure_model_and_optimizer_1(self):
+        """Tests method for configuring model and optimizer """
+
+        tp = TorchTrainingPlan()
+
+        # Special methods without arguments ----------------------------------------------
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self):
+                return TestTorchnn.model
+
+            def init_optimizer(self):
+                return TestTorchnn.optimizer
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+        tp._configure_model_and_optimizer()
+        self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
+        self.assertEqual(tp._model, TestTorchnn.model)
+        # ---------------------------------------------------------------------------------
+
+    def test_torch_training_plan_05_configure_model_and_optimizer_2(self):
+        """Tests method for configuring model and optimizer with arguments """
+
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self, model_args):
+                return TestTorchnn.model
+
+            def init_optimizer(self, optimizer_args):
+                return TestTorchnn.optimizer
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+        tp._configure_model_and_optimizer()
+        self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
+        self.assertEqual(tp._model, TestTorchnn.model)
+        # -----------------------------------------------------------------------------------
+
+    def test_torch_training_plan_06_configure_model_and_optimizer_test_invalid_types(self):
+        """Tests method for configuring model and optimizer when they return invalid types """
+
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self, model_args):
+                return None
+
+            def init_optimizer(self, optimizer_args):
+                return TestTorchnn.optimizer
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_model_and_optimizer()
+
+        # -----------------------------------------------------------------------------------
+
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self, model_args):
+                return TestTorchnn.model
+
+            def init_optimizer(self, optimizer_args):
+                return None
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_model_and_optimizer()
+
+    def test_torch_training_plan_07_configure_model_and_optimizer_test_invalid_types(self):
+        """Tests method for configuring model and optimizer with wrong number of arguments """
+
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self, model_args, x):
+                return None
+
+            def init_optimizer(self, optimizer_args):
+                return TestTorchnn.optimizer
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_model_and_optimizer()
+
+        # -----------------------------------------------------------------------------------
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self, model_args):
+                return TestTorchnn.model
+
+            def init_optimizer(self, optimizer_args, x):
+                return None
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp._model_args = {}
+        tp._dp_controller = FakeDPController()
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp._configure_model_and_optimizer()
+
+    def test_torch_training_plan_08_getters(self):
+        """Tests getter methods. """
+
+        tp = TorchTrainingPlan()
+        tp._model = TestTorchnn.model
+        tp._optimizer = TestTorchnn.optimizer
+
+        m = tp.model()
+        self.assertEqual(m, TestTorchnn.model)
+
+        o = tp.optimizer()
+        self.assertEqual(o, TestTorchnn.optimizer)
+
+        ma = {"a": 12}
+        ta = {"t": 13}
+        oa = {"y": 14}
+        ip = {"s": 15}
+        tp._model_args = ma
+        tp._training_args = ta
+        tp._optimizer_args = oa
+        tp._init_params = ip
+
+        r_ma = tp.model_args()
+        r_ta = tp.training_args()
+        r_oa = tp.optimizer_args()
+        r_ip = tp.initial_parameters()
+
+        self.assertEqual(r_ma, ma)
+        self.assertEqual(r_oa, oa)
+        self.assertEqual(r_ta, ta)
+        self.assertEqual(r_ip, ip)
+
+    def test_torch_training_plan_09_save_and_load_params(self):
+        """ Test save and load parameters """
+        tp1 = TorchTrainingPlan()
         tp1._model = torch.nn.Module()
         paramfile = self.tmpdir + '/tmp_params.pt'
-        try:
+
+        if os.path.isfile(paramfile):
             os.remove(paramfile)
-        except FileNotFoundError:
-            pass
 
         # save/load from/to variable
         tp1.save(paramfile, self.params)
@@ -120,7 +311,7 @@ class TestTorchnn(unittest.TestCase):
 
         # save/load from/to object params
         tp1.save(paramfile)
-        tp2 = TrainingPlan()
+        tp2 = TorchTrainingPlan()
         tp2._model = torch.nn.Module()
         tp2.load(paramfile)
         self.assertTrue(type(params2) is dict)
@@ -141,7 +332,7 @@ class TestTorchnn(unittest.TestCase):
         os.remove(paramfile)
 
     @patch('torch.nn.Module.__call__')
-    def test_torchnn_03_testing_routine(self,
+    def test_torch_nn_03_testing_routine(self,
                                          patch_model_call):
 
         history_monitor = MagicMock()
@@ -205,8 +396,14 @@ class TestTorchnn(unittest.TestCase):
                                before_train=True)
         patch_model_call.side_effect = None
 
-
         # Testing routine with testing step ---------------------------------------------------------------------
+        class TrainingPlanWithTestingStep(BaseFakeTrainingPlan):
+            def __init__(self):
+                super(TrainingPlanWithTestingStep, self).__init__()
+
+            def testing_step(self, data, target):  # noqa
+                return {'Metric': 12}
+
         tp = TrainingPlanWithTestingStep()
         tp._model = torch.nn.Module()
         tp.set_data_loaders(test_data_loader=data_loader, train_data_loader=data_loader)
@@ -240,7 +437,7 @@ class TestTorchnn(unittest.TestCase):
                                    history_monitor=history_monitor,
                                    before_train=True)
 
-    def test_torchnn_04_logging_progress_computation(self):
+    def test_torch_nn_04_logging_progress_computation(self):
         """Test logging bug #313
 
         Create a DataLoader within a TrainingPlan with the following characteristics:
@@ -251,6 +448,7 @@ class TestTorchnn(unittest.TestCase):
         The expected behaviour is that the first iteration should report a progress of 3/5 (60%),
         while the second iteration should report a progress of 5/5 (100%).
         """
+
         tp = TorchTrainingPlan()
         tp._optimizer = MagicMock()
         tp._model = torch.nn.Module()
@@ -271,9 +469,10 @@ class TestTorchnn(unittest.TestCase):
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
-        tp.training_data_loader.batch_size = batch_size
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
+
+        tp._dp_controller = FakeDPController()
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
             tp.training_routine()
@@ -283,7 +482,7 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
+                self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
@@ -304,6 +503,7 @@ class TestTorchnn(unittest.TestCase):
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
 
+        @staticmethod
         def setup_tp(tp, num_samples, batch_size, num_updates):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
@@ -347,13 +547,16 @@ class TestTorchnn(unittest.TestCase):
         self.assertEqual(tp._optimizer.step.call_count, 3)
 
 
-
-
-
 class TestSendToDevice(unittest.TestCase):
+
     def setUp(self) -> None:
+        self.patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
+        self.patcher.start()
         self.cuda = torch.device('cuda')
         self.cpu = torch.device('cpu')
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
 
     @patch('torch.Tensor.to')
     def test_send_tensor_to_device(self, patch_tensor_to):
@@ -412,6 +615,13 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         """Utility create generators that load a data sample only once."""
         yield return_value
 
+    def setUp(self) -> None:
+        self.patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
+        self.patcher.start()
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
+
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tensors(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
@@ -422,6 +632,12 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
             (torch.Tensor([0]), torch.Tensor([1])))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
+
+        class FakeDPController:
+            def before_training(self, model, optimizer, loader):
+                return tp._model, tp._optimizer, tp.training_data_loader
+        tp._dp_controller = FakeDPController()
+
         tp.training_routine()
         tp.training_step.assert_called_once_with(torch.Tensor([0]), torch.Tensor([1]))
         patch_tensor_backward.assert_called_once()
@@ -436,6 +652,12 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
             ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
+
+        class FakeDPController:
+            def before_training(self, model, optimizer, loader):
+                return tp._model, tp._optimizer, tp.training_data_loader
+        tp._dp_controller = FakeDPController()
+
         tp.training_routine()
         tp.training_step.assert_called_once_with((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2]))
         patch_tensor_backward.assert_called_once()
@@ -449,16 +671,16 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
         tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+
+        class FakeDPController:
+            def before_training(self, model, optimizer, loader):
+                return tp._model, tp._optimizer, tp.training_data_loader
+        tp._dp_controller = FakeDPController()
+
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
         tp.training_routine()
         tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
         patch_tensor_backward.assert_called_once()
-
-
-
-
-
-
 
 
 if __name__ == '__main__':  # pragma: no cover

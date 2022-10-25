@@ -139,11 +139,8 @@ class Job:
         else:
             self._training_plan = self._training_plan_class
 
-        self._training_plan.post_init(
-            model_args={} if self._model_args is None else self._model_args,
-            training_args=self._training_args.pure_training_arguments(),
-            optimizer_args=self._training_args.optimizer_arguments()
-        )
+        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+                                      training_args=self._training_args)
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -224,10 +221,10 @@ class Job:
 
     @property
     def training_args(self):
-        return self._training_args
+        return self._training_args.dict()
 
     @training_args.setter
-    def training_args(self, training_args: dict):
+    def training_args(self, training_args: TrainingArgs):
         self._training_args = training_args
 
     def check_training_plan_is_approved_by_nodes(self) -> List:
@@ -255,7 +252,7 @@ class Job:
             logger.info('Sending request to node ' +
                         str(cli) + " to check model is approved or not")
             self._reqs.send_message(
-                ResearcherMessages.request_create(message).get_dict(),
+                message,
                 cli)
 
         # Wait for responses
@@ -266,21 +263,21 @@ class Job:
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
                     if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
-                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Model status : {resp.get("status")}')
+                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Training plan status : {resp.get("status")}')
                 else:
-                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
-        
+
         # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
-            logger.warning(f"Request for checking model status hasn't been replied \
+            logger.warning(f"Request for checking training plan status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
-                                 while runing your experiment. ")
+                                 while running your experiment. ")
 
         return responses
 
@@ -313,7 +310,7 @@ class Job:
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
-                   'training_args': self._training_args,
+                   'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
                    'command': 'train'}
@@ -594,7 +591,7 @@ class localJob:
     def __init__(self, dataset_path: str = None,
                  training_plan_class: str = 'MyTrainingPlan',
                  training_plan_path: str = None,
-                 training_args: dict = None,
+                 training_args: TrainingArgs = None,
                  model_args: dict = None):
 
         """
@@ -602,7 +599,7 @@ class localJob:
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            training_plan: Name of the model class to use for training or model class.
+            training_plan_class: Name of the model class to use for training or model class.
             training_plan_path: path to file containing model code. Defaults to None.
             training_args: contains training parameters: lr, num_updates, batch_size...
             model_args: contains output and input feature dimension.
@@ -647,8 +644,7 @@ class localJob:
                 self._training_plan = training_plan_class
 
         self._training_plan.post_init(model_args=self._model_args,
-                                      training_args=self._training_args.pure_training_arguments(),
-                                      optimizer_args=self._training_args.optimizer_arguments())
+                                      training_args=self._training_args)
 
     @property
     def training_plan(self):

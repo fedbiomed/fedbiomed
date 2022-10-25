@@ -10,7 +10,7 @@ import uuid
 
 from python_minifier import minify
 from time import sleep
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Union
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -122,7 +122,8 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def send_message(self, msg: dict, client: str = None):
+    def send_message(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
+            Union[int, None]:
         """
         Ask the messaging class to send a new message (receivers are
         deduced from the message content)
@@ -130,9 +131,23 @@ class Requests(metaclass=SingletonMeta):
         Args:
             msg: the message to send to nodes
             client: defines the channel to which the message will be sent. Defaults to None (all nodes)
+            add_sequence: if `True`, add unique sequence number to the message
+
+        Returns:
+            If `add_sequence` is True return the sequence number added to the message.
+                If `add_sequence` is False, return None
         """
         logger.debug(str(environ['RESEARCHER_ID']))
-        self.messaging.send_message(msg, client=client)
+        sequence = None
+        if add_sequence:
+            sequence = self._sequence
+            self._sequence += 1
+            msg['sequence'] = sequence
+
+        self.messaging.send_message(
+            ResearcherMessages.request_create(msg).get_dict(), 
+            client=client)
+        return sequence
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -170,15 +185,19 @@ class Requests(metaclass=SingletonMeta):
     def get_responses(self,
                       look_for_commands: list,
                       timeout: float = None,
-                      only_successful: bool = True) -> Responses:
+                      only_successful: bool = True,
+                      while_responses: bool = True) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
-            look_for_commands: instruction that has been sent to node. Can be either ping, search or train.
+            look_for_commands: instruction that has been sent to node (see `Message` commands)
             timeout: wait for a specific duration before collecting nodes messages. Defaults to None. If set to None;
                 uses value in global variable TIMEOUT instead.
             only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
                 Defaults to True.
+            while_responses: if `True`, continue while we get at least one response every
+                `timeout` seconds. If False, always terminate after `timeout` even if we get some
+                response.
         """
         timeout = timeout or environ['TIMEOUT']
         responses = []
@@ -202,6 +221,9 @@ class Requests(metaclass=SingletonMeta):
                 "Timeout finished"
                 break
             responses += new_responses
+            if not while_responses:
+                break
+
         return Responses(responses)
 
     def ping_nodes(self) -> list:
@@ -210,14 +232,13 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List ids of up and running nodes
         """
-        self.messaging.send_message(ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'sequence': self._sequence,
-             'command': 'ping'}).get_dict())
-        self._sequence += 1
+        self.send_message(
+            {'researcher_id': environ['RESEARCHER_ID'], 'command': 'ping'},
+            add_sequence=True)
 
+        # TODO: check sequence number in pong
         # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
+        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
         return nodes_online
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
@@ -313,7 +334,7 @@ class Requests(metaclass=SingletonMeta):
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
-        """Send a model and a ApprovalRequest message to node(s).
+        """Send a training plan and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
         to all nodes of the list.
@@ -324,27 +345,27 @@ class Requests(metaclass=SingletonMeta):
             training_plan: the training plan to upload and send to the nodes for approval.
                    It can be:
                    - a path_name (str)
-                   - a model (class)
-                   - an instance of a model (TrainingPlan instance)
+                   - a training plan (class)
+                   - an instance of a training plan (TrainingPlan instance)
             nodes: list of nodes (specified by their UUID)
             description: Description of training plan approval request
             timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher
-            that the model has been correctly downloaded on the node side.
-            Warning: status does not mean that the model is approved, only that it has been added
+            that the training plan has been correctly downloaded on the node side.
+            Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
 
         # first verify all arguments
         if not isinstance(nodes, list):
-            logger.error("bad nodes argument, model not sent")
+            logger.error("bad nodes argument, training plan not sent")
             return {}
 
-        # verify the model and save it to a local file name if necessary
+        # verify the training plan and save it to a local file name if necessary
         if isinstance(training_plan, str):
-            # model is provided as a file
+            # training plan is provided as a file
             # TODO: verify that this file a a proper TrainingPlan
             if os.path.isfile(training_plan) and os.access(training_plan, os.R_OK):
                 training_plan_file = training_plan
@@ -352,18 +373,18 @@ class Requests(metaclass=SingletonMeta):
                 logger.error(f"cannot access to the file ({training_plan})")
                 return {}
         else:
-            # we need a model instance in other cases
+            # we need a training plan instance in other cases
             if inspect.isclass(training_plan):
-                # case if `model` is a class
+                # case if `training_plan` is a class
                 try:
                     training_plan_instance = training_plan()
                     deps = training_plan_instance.init_dependencies()
                     training_plan_instance.add_dependency(deps)
                 except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instantiate the given model ({e})")
+                    logger.error(f"cannot instantiate the given training plan ({e})")
                     return {}
             else:
-                # also handle case where model is already an instance of a class
+                # also handle case where training plan is already an instance of a class
                 training_plan_instance = training_plan
 
             # then save this instance to a file
@@ -373,7 +394,7 @@ class Requests(metaclass=SingletonMeta):
             try:
                 training_plan_instance.save_code(training_plan_file)
             except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the model to a file ({e})")
+                logger.error(f"Cannot save the training plan to a file ({e})")
                 logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
                 return {}
 
@@ -395,7 +416,7 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"This file is not a python file ({e})")
             return {}
 
-        # create a repository instance and upload the model file
+        # create a repository instance and upload the training plan file
         repository = Repository(environ['UPLOADS_URL'],
                                 environ['TMP_DIR'],
                                 environ['CACHE_DIR'])
@@ -405,22 +426,19 @@ class Requests(metaclass=SingletonMeta):
         logger.debug(f"training_plan_approve: upload_status = {upload_status}")
 
         # send message to node(s)
-        sequence = self._sequence  # store the sequence for reply filtering
-        self._sequence += 1
-        message = ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'description': str(description),
-             'sequence': sequence,
-             'training_plan_url': upload_status['file'],
-             'command': 'approval'}).get_dict()
+        message = {
+            'researcher_id': environ['RESEARCHER_ID'],
+            'description': str(description),
+            'training_plan_url': upload_status['file'],
+            'command': 'approval'}
 
         if nodes:
             # send message to each node
             for n in nodes:
-                self.messaging.send_message(message, client=n)
+                sequence = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
-            self.messaging.send_message(message)
+            sequence = self.send_message(message, add_sequence=True)
 
         # wait for answers for a certain timeout
         result = {}
@@ -435,20 +453,20 @@ class Requests(metaclass=SingletonMeta):
             result[n] = s
 
             if s:
-                logger.info(f"node ({n}) has correctly downloaded the model")
+                logger.info(f"node ({n}) has correctly downloaded the training plan")
             else:
-                logger.info(f"node ({n}) has not correctly downloaded the model")
+                logger.info(f"node ({n}) has not correctly downloaded the training plan")
 
         # print info to the user regarding the result
         if not result or not any(result.values()):
-            logger.info("no nodes have acknowledged correct model reception before the timeout")
+            logger.info("no nodes have acknowledged correct training plan reception before the timeout")
 
         # eventually complete the result with expected results
         # (if the message was sent to specific nodes)
         for n in nodes:
             if n not in result:
                 result[n] = False
-                logger.info(f"node ({n}) has not acknowledge model reception before the timeout")
+                logger.info(f"node ({n}) has not acknowledge training plan reception before the timeout")
 
         # return the result
         return result

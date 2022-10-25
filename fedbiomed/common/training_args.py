@@ -2,7 +2,6 @@
 Provide a way to easily to manage training arguments.
 """
 
-
 from copy import deepcopy
 from typing import Any, Dict, TypeVar, Union, Tuple
 
@@ -12,6 +11,28 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
     ValidateError, RuleError, validator_decorator
+
+
+@validator_decorator
+def _validate_dp_type(value: Any):
+    """ Validates whether DP type is valid"""
+    if value not in ["central", "local"]:
+        return False, f"DP type should one of `central` or `local` not {value}"
+    else:
+        return True
+
+
+DPArgsValidator = SchemeValidator({
+    'type': {
+        "rules": [str, _validate_dp_type], "required": True, "default": "central"
+    },
+    'sigma': {
+        "rules": [float], "required": True
+    },
+    'clip': {
+        "rules": [float], "required": True
+    },
+})
 
 
 class TrainingArgs:
@@ -25,6 +46,7 @@ class TrainingArgs:
     It also permits to extend the TrainingArgs then testing new features
     by supplying an extra_scheme at TraininfArgs instanciation.
     """
+
     def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
         """
         Create a TrainingArgs from a Dict with input validation.
@@ -58,7 +80,7 @@ class TrainingArgs:
         except RuleError as e:
             #
             # internal error (invalid scheme)
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
@@ -70,17 +92,27 @@ class TrainingArgs:
             self._ta = self._sc.populate_with_defaults(ta, only_required=only_required)
         except ValidatorError as e:
             # scheme has required keys without defined default value
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
         try:
             self._sc.validate(self._ta)
-        except (ValidateError) as e:
+        except ValidateError as e:
             # transform to a Fed-BioMed error
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
+
+        # Validate DP arguments if it is existing in training arguments --------------------------------------------
+        if self._ta["dp_args"] is not None:
+            try:
+                self._ta["dp_args"] = DPArgsValidator.populate_with_defaults(self._ta["dp_args"], only_required=False)
+                DPArgsValidator.validate(self._ta["dp_args"])
+            except ValidateError as e:
+                msg = f"{ErrorNumbers.FB414.value}: {e}"
+                logger.critical(msg)
+                raise FedbiomedUserInputError(msg)
 
     def testing_arguments(self) -> Dict:
         """ Extract testing arguments from training arguments
@@ -113,8 +145,16 @@ class TrainingArgs:
             Contains training argument for training routine
         """
 
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "num_updates"]
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "num_updates", "use_gpu"]
         return self._extract_args(keys)
+
+    def dp_arguments(self):
+        """Extracts the arguments for differential privacy
+
+        Returns:
+            Contains differential privacy arguments
+        """
+        return self["dp_args"]
 
     def _extract_args(self, keys) -> Dict:
         """Extract arguments by given array of keys
@@ -159,7 +199,7 @@ class TrainingArgs:
 
     @staticmethod
     @validator_decorator
-    def _test_ratio_hook( v: Any) -> bool:
+    def _test_ratio_hook(v: Any) -> bool:
         """
         Test if in [ 0.0 , 1.0]  interval.
         """
@@ -178,6 +218,19 @@ class TrainingArgs:
             return False
         else:
             return True
+
+    @staticmethod
+    @validator_decorator
+    def _validate_dp_args(v: Any):
+        """
+        Test if lr is greater than 0.
+        """
+        if v is None:
+            return True
+        elif not isinstance(v, dict):
+            return False, f"`dp_args` should be None or dictionary, not {type(v)}"
+
+        return True
 
     @classmethod
     def default_scheme(cls) -> Dict:
@@ -225,8 +278,10 @@ class TrainingArgs:
             },
             "use_gpu": {
                 "rules": [bool], 'required': False, "default": False
-            }
-
+            },
+            "dp_args": {
+                "rules": [cls._validate_dp_args], "required": True, "default": None
+            },
         }
 
     def __str__(self) -> str:
@@ -270,7 +325,7 @@ class TrainingArgs:
         except (RuleError, ValidateError) as e:
             #
             # transform to FedbiomedError
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
         return deepcopy(self._ta[key])
@@ -291,10 +346,9 @@ class TrainingArgs:
         try:
             ret = self._ta[key]
             return ret
-        except (KeyError) as e:
-            #
+        except KeyError:
             # transform to FedbiomedError
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB414.value + f": The key `{key}` does not exist in training args"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
@@ -335,7 +389,6 @@ class TrainingArgs:
         """
         return self.update(other)
 
-
     def scheme(self) -> Dict:
         """
         Returns the scheme of a TrainingArgs instance.
@@ -346,7 +399,6 @@ class TrainingArgs:
             scheme:  the current scheme used for validation
         """
         return deepcopy(self._scheme)
-
 
     def default_value(self, key: str) -> Any:
         """
@@ -366,26 +418,24 @@ class TrainingArgs:
                 return deepcopy(self._sc.scheme()[key]["default"])
             else:
                 msg = ErrorNumbers.FB410.value + \
-                    f"no default value defined for key: {key}"
+                      f"no default value defined for key: {key}"
                 logger.critical(msg)
                 raise FedbiomedUserInputError(msg)
         else:
             msg = ErrorNumbers.FB410.value + \
-                f"no such key: {key}"
+                  f"no such key: {key}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
-
 
     def dict(self):
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)
         if 'test_metric' in ta and \
-           isinstance(ta['test_metric'], MetricTypes):
+                isinstance(ta['test_metric'], MetricTypes):
             # replace MetricType value by a string
             ta['test_metric'] = ta['test_metric'].name
         return ta
-
 
     def get(self, key: str, default: Any = None) -> Any:
         """Mimics the get() method of dict, provided for backward compatibility.

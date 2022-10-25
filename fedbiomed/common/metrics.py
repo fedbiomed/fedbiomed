@@ -132,7 +132,6 @@ class Metrics(object):
             y_true, y_pred, _, _ = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'ACCURACY')
             return metrics.accuracy_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            print(e)
             msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 

@@ -45,13 +45,14 @@ import fedbiomed.node.cli_utils.__init__
 import fedbiomed.node.cli_utils._database
 import fedbiomed.node.cli_utils._io
 import fedbiomed.node.cli_utils._medical_folder_dataset
-import fedbiomed.node.cli_utils._model_management
+import fedbiomed.node.cli_utils._training_plan_management
 import fedbiomed.node.dataset_manager
 import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
-import fedbiomed.node.model_manager
+import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
 import fedbiomed.node.round
+import fedbiomed.node.secagg
 import fedbiomed.researcher.__init__
 import fedbiomed.researcher.aggregators.__init__
 import fedbiomed.researcher.aggregators.aggregator
@@ -65,6 +66,7 @@ import fedbiomed.researcher.job
 import fedbiomed.researcher.monitor
 import fedbiomed.researcher.requests
 import fedbiomed.researcher.responses
+import fedbiomed.researcher.secagg
 import fedbiomed.researcher.strategies.__init__
 import fedbiomed.researcher.strategies.default_strategy
 import fedbiomed.researcher.strategies.strategy
