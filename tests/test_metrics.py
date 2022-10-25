@@ -70,6 +70,7 @@ class TestMetrics(unittest.TestCase):
         self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
     def test_metrics_04_evaluate_binary_classification_2D_1D_array(self):
+        """Test where y_true is one-hot encoded while y_pred is not."""
         # Test y_true is 2D array and y_pred 1D array with num labels
         y_true = [[1, 0], [0, 1], [1, 0], [0, 1]]
         y_pred = [0, 1, 0, 1]
