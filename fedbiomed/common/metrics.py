@@ -361,8 +361,13 @@ class Metrics(object):
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
 
+        if y_pred.ndim == 0:
+            y_pred = y_pred.reshape((1,))
+        if y_true.ndim == 0:
+            y_true = y_true.reshape((1,))
+
         if len(y_pred) != len(y_true):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions or true values should have"
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
                                        f"equal number of samples, {len(y_true)}, {len(y_pred)}")
 
         # Get shape of the prediction should be 1D or 2D array
