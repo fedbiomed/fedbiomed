@@ -850,7 +850,7 @@ class TestJob(unittest.TestCase):
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
 
-    def test_job_19_upload_training_params(self):
+    def test_job_19_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
         tensor = torch.tensor([[1, 2, 4], [2, 3, 4]])
@@ -862,7 +862,7 @@ class TestJob(unittest.TestCase):
                                    }
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
             patch_uuid.return_value = FakeUuid()
-            t_a = self.job.upload_training_params(copy.deepcopy(training_args_thr_msg), training_args_thr_files)
+            t_a = self.job.upload_aggregator_args(copy.deepcopy(training_args_thr_msg), training_args_thr_files)
             # first we check `training_args_thr_msg` are contained into `t_a` (be careful about references!)
             self.assertEqual(training_args_thr_msg, t_a | training_args_thr_msg  )
             print(t_a)
@@ -889,7 +889,18 @@ class TestJob(unittest.TestCase):
         self.job.training_args
         # case where nodes arg is None
         self.job.update_training_args(DummyFDS(data))
-        self.assertEqual(self.job._training_args['num_updates'], 20 // 12 + 1)
+        self.assertEqual(self.job._training_args['num_updates'], 20 // 12 + 1,
+                         "num_updates should be equal to min(node dataset shapes) // batch_size + min(node dataset shapes)/%/ batch_size")
+        
+        data2 = {'node_1': [{'shape': [200, 10, 10, 10]}], 
+                'node_2': [{'shape': [1000, 10, 10, 10]}],
+                'node_3': [{'shape': [400, 10, 10, 10]}]}
+        ta = TrainingArgs({'batch_size': 10, 'epochs': 5})
+        self.job.training_args = ta
+        self.job.update_training_args(DummyFDS(data2))
+        
+        # we should perform (200 / 10) * 5 updates 
+        self.assertEqual(self.job.training_args['num_updates'], 20*5 )
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

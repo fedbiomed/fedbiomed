@@ -690,10 +690,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
     def set_aggrgator_args(self, aggregator_args: Dict[str, Any]):
         """Handles and loads aggregators arguments sent through MQTT and
-        file exchanged system.
+        file exchanged system. If sent through file exchanged system, loads the arguments.
 
         Args:
-            aggregator_args (Dict[str, Any]): _description_
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg 
+            'aggregator_correction' with correction states)
         """
         self.aggregator_name = aggregator_args.get('aggregator_name')
         
@@ -732,7 +733,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         return params
 
     def compute_corrected_loss(self, res: torch.Tensor) -> torch.Tensor:
-        
+        """Corrects loss regarding the nature of the aggregator used.
+
+        Args:
+            res (torch.Tensor): loss value of the cost function
+
+        Returns:
+            torch.Tensor: corrected loss value
+        """
         # write here specific loss computation for aggregators
         if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
             if self.correction_state is None:

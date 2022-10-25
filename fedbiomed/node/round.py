@@ -95,7 +95,14 @@ class Round:
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
 
-    def download_aggregator_args(self, training_plan) -> Tuple[bool, str]:
+    def download_aggregator_args(self) -> Tuple[bool, str]:
+        """Retrieves aggregator argument, that are sent through file exchange service
+
+        Returns:
+            Tuple[bool, str]: a tuple containing:
+                a bool that indicates the success of operation
+                a string containing the error message
+        """
         # download heavy aggregator args (if any)
 
         if self.aggregator_args is not None:
@@ -122,6 +129,19 @@ class Round:
             return True, "no file downloads required for aggregator args"
 
     def download_file(self, url: str, file_path: str) -> Tuple[bool, str, str]:
+        """Downloads file from file exchange system
+
+        Args:
+            url (str): url used to download file
+            file_path (str): file path used to store the downloaded content
+
+        Returns:
+            Tuple[bool, str, str]: tuple that contains:
+                bool that indicates the success of the download
+                str that returns the complete path file
+                str containing the error message (if any). Returns empty
+                string if operation successful.
+        """
 
         status, params_path = self.repository.download_file(
                                                             url,
@@ -181,7 +201,10 @@ class Round:
                 # if (status != 200) or params_path is None:
                 #     error_message = f"Cannot download param file: {self.params_url}"
                 success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
-                
+                if success:
+                    # retrieving arggegator args
+                    success, error_msg = self.download_aggregator_args()
+
                 if not success:
                     return self._send_round_reply(success=False, message=error_msg)
 
@@ -202,10 +225,7 @@ class Round:
             error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # retrieve aggregator args
-        success, error_msg = self.download_aggregator_args(self.training_plan)
-        if not success:
-            return self._send_round_reply(success, message=error_msg)
+
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,

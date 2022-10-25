@@ -3,6 +3,8 @@
 
 from copy import deepcopy
 import copy
+from pyexpat import model
+from statistics import mode
 from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Tuple, Union
 
 from fedbiomed.common.logger import logger
@@ -115,14 +117,12 @@ class Scaffold(Aggregator):
             n_round (int, optional): current round. Defaults to 0.
 
         Returns:
-            Dict: aggregated parameters
+            Dict: aggregated parameters, ie mapping of layer names and layer values.
         """
 
-    
         #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
 
-        
-        model_params_processed = self.scaling(model_params, global_model)
+        model_params_processed = self.scaling(copy.deepcopy(model_params), copy.deepcopy(global_model))
         model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed] # model params are contained in a dictionary with node_id as key, we just retrieve the params
 
         aggregated_parameters = weighted_sum(model_params_processed, [1 / len(node_ids)] * len(node_ids))
@@ -130,10 +130,10 @@ class Scaffold(Aggregator):
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
+        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
 
-        self.update_correction_states(aggregated_parameters, global_model,  node_ids, n_updates)
+        self.update_correction_states(model_params, global_model, node_ids, n_updates)
         
-        self.update_aggregator_args(global_model)  # update aggregator_args (for breakpoints)
         return aggregated_parameters
 
     def create_aggregator_args(self,
@@ -142,11 +142,14 @@ class Scaffold(Aggregator):
         """Sends additional arguments for aggregator. For scaffold, it is mainly correction states
 
         Args:
-            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): _description_
-            node_ids (Iterator[str]): _description_
+            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): aggregated model
+            node_ids (Iterator[str]): iterable that contains strings of nodes id that have particpated to
+                the round
 
         Returns:
-            Dict: _description_
+            Tuple[Dict, Dict]: first dictionary contains parameters that will be sent through MQTT message
+                service, second dictionary parameters that will be sent through file exchange message. 
+                Aggregators args are dictionary mapping node_id to nodes parameters.
         """
         if self.nodes_correction_states is None:
             self.init_correction_states(global_model, node_ids) 
@@ -184,7 +187,24 @@ class Scaffold(Aggregator):
         if self._fds is None:
             raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()")
 
-    def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan, training_replies: List[Responses], n_round: int) -> Dict[str, List[float]]:
+    def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan,
+                                               training_replies: List[Responses],
+                                               n_round: int) -> Dict[str, List[float]]:
+        """Gets back learning rate of optimizer from Node (if learning rate scheduler is used)
+
+        Args:
+            training_plan (BaseTrainingPlan): training plan instance
+            training_replies (List[Responses]): training replies that must contain am `optimizer_args`
+                entry and a learning rate
+            n_round (int): number of rounds already performed
+
+        Raises:
+            FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
+
+        Returns:
+            Dict[str, List[float]]: dictionary mapping node_id and a list of float, as long as
+            the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
+        """
         # to be implemented in a utils module (for pytorch optimizers)
 
         n_model_layers = len(training_plan.get_model_params())
@@ -218,7 +238,14 @@ class Scaffold(Aggregator):
                                global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
                                node_ids: Iterable[str],
                                ):
-        # initialize nodes states
+        """Initialises correction_states variable for Scaffold
+
+        Args:
+            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): global model mapping layer name to model
+            parameters
+            node_ids (Iterable[str]): iterable containing node_ids
+        """
+        # initialize nodes states with zeros tensors
 
         init_params = {key:initialize(tensor)[1]for key, tensor in global_model.items()}
         self.nodes_correction_states = {node_id: deepcopy(init_params) for node_id in node_ids}
@@ -258,10 +285,10 @@ class Scaffold(Aggregator):
 
         return copy.deepcopy(model_params)
         
-    def update_correction_states(self, updated_model_params: Mapping[str, Union[torch.tensor, np.ndarray]],
+    def update_correction_states(self, updated_model_params: Dict[str, Mapping[str, Union[torch.tensor, np.ndarray]]],
                                  global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
                                  node_ids: Iterable[str], n_updates: int = 1,):
-        """_summary_
+        """Updates correction states
         
         Proof:
         
@@ -269,13 +296,25 @@ class Scaffold(Aggregator):
         c <- c + 1/N sum_i(c_i(+) - c_i)
         c <- c + 1/N * sum_i( 1/ (K * eta_l)(x - y_i) - c)
 
+        where (according to Scaffold paper):
+        c: is the correction term
+        S: the number of nodes participating in the current round
+        N: the total number of node participating in the experiment
+        K: number of updates
+        eta_l: nodes' learning rate
+        x: global model before updates
+        y_i: local model updates
+
         Args:
-            updated_model_params (dict): _description_
-            global_model (OrderedDict): _description_
-            lr (float): _description_
+            updated_model_params (Mapping[str, Union[torch.tensor, np.ndarray]]): node local model after updates, 
+                maps layer name to layer values
+            global_model (Mapping[str, Union[torch.tensor, np.ndarray]]): global model (before updates)
             node_ids (Iterator[str]): Iterable of all node ids taking part in the round
             n_updates (int, optional): number of batches (or updates) performed during one round. Refers to `K` in
             Scaffold paper. Defaults to 1.
+            
+        Raises:
+            FedbiomedAggregatorError: raised if no FederatedDataset has been found
         """
         # refers as line 12, 13 and 17 in pseudo code
         if self._fds is None:
@@ -299,7 +338,8 @@ class Scaffold(Aggregator):
             _tmp_correction_update.append({})
             #_tmp_correction_update[idx][node_id] = {}
             lrs: List[float] = self.nodes_lr[node_id]
-            for idx_layer, (layer_name, node_layer) in enumerate(updated_model_params.items()): # iterate params of each client
+
+            for idx_layer, (layer_name, node_layer) in enumerate(updated_model_params[node_id].items()): # iterate params of each client
 
                 # `_tmp_correction_update`` is an intermediate variable equals to 1/ (K * eta_l)(x - y_i) - c
 
@@ -310,26 +350,26 @@ class Scaffold(Aggregator):
         _aggregated_tmp_correction_update = weighted_sum(_tmp_correction_update, weights)
         
         # finally, perform `c <- c + S/N \Delta{c}`
+        
         for node_id in self._fds.node_ids():
-            for layer_name, node_layer in updated_model_params.items(): 
-
+            for layer_name, node_layer in global_model.items(): 
                 self.nodes_correction_states[node_id][layer_name] += _aggregated_tmp_correction_update[layer_name]
 
 
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
         """
         Overrides `set_training_plan_type` from parent class. 
-        Checks if trainning plan type, and if it is SKlearnTrainingPlan,
+        Checks the trainning plan type, and if it is SKlearnTrainingPlan,
         raises an error. Otherwise, calls parent method.
 
         Args:
-            training_plan_type (TrainingPlans): _description_
+            training_plan_type (TrainingPlans): training_plan type
 
         Raises:
-            FedbiomedAggregatorError: _description_
+            FedbiomedAggregatorError: raised if training_plan type has been set to SKLearn training plan
 
         Returns:
-            TrainingPlans: _description_
+            TrainingPlans: trainijng plan type
         """
         if training_plan_type == TrainingPlans.SkLearnTrainingPlan:
             raise FedbiomedAggregatorError("Aggregator SCAFFOLD not implemented for SKlearn")
@@ -337,13 +377,6 @@ class Scaffold(Aggregator):
         
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
-
-    def update_aggregator_args(self,
-                                 global_model: Mapping[str, Union[torch.tensor, np.ndarray]],
-                                 ):
-        aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
-        self._aggregator_args.update({'name': self.aggregator_name,
-                                        'server_lr': self.server_lr})
     
     def save_state(self, training_plan: BaseTrainingPlan, breakpoint_path: str, global_model: Mapping[str, Union[torch.tensor, np.ndarray]]) -> Dict[str, Any]:
         #aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())

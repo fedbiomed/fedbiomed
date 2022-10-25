@@ -345,28 +345,38 @@ class Job:
             self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
             
     
-    def upload_training_params(self, training_args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
-                               aggregator_args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
-        #upload training_args through file messaging system, if their size is too big to be transfered through
+    def upload_aggregator_args(self,
+                               args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
+                               args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
+        """
+
+        Args:
+            args_thr_msg (Union[Dict[str, Dict[str, Any]], dict]): 
+            args_thr_files (Union[Dict[str, Dict[str, Any]], dict]): _description_
+
+        Returns:
+            Dict[str, Dict[str, Any]]: _description_
+        """
+        # upload training_args through file messaging system, if their size is too big to be transfered through
         # MQTT (eg correction parameters in Scaffold aggregator)
         # write the url down into training_args_thr_msg
         
-        for node_id, aggr_params in aggregator_args_thr_files.items():
+        for node_id, aggr_params in args_thr_files.items():
             
             for arg_name, aggr_param in aggr_params.items():
                 #arg_name = aggr_param['arg_name']
                 if arg_name == 'aggregator_name':
                     continue
-                training_args_thr_msg[node_id][arg_name] = {}
-                training_args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
+                args_thr_msg[node_id][arg_name] = {}
+                args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
                 
                 filename, url = self.update_parameters(aggr_param, None,
                                                        is_model_params=False,
                                                        variable_name=arg_name)
-                training_args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
-                training_args_thr_msg[node_id][arg_name]['url'] = url
+                args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
+                args_thr_msg[node_id][arg_name]['url'] = url
         
-        return training_args_thr_msg
+        return args_thr_msg
         
     def start_nodes_training_round(self, round: int, aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
@@ -394,7 +404,7 @@ class Job:
 
         # if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
         #     client_correction_states_dict = self.init_first_correction_states()
-        self.upload_training_params(aggregator_args_thr_msg, aggregator_args_thr_files)  # passes heavy aggregator params
+        self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)  # passes heavy aggregator params
         #through file exchange system
         
         for cli in self._nodes:
