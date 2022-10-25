@@ -1,23 +1,20 @@
-'''
-TrainingPlan definition for torchnn ML framework
-'''
+"""TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from copy import deepcopy
 
+import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
-from fedbiomed.common.constants import TrainingPlans, ProcessTypes
-from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.metrics import Metrics
 from fedbiomed.common.privacy import DPController
-from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.utils import get_method_spec
+
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -38,6 +35,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     - a `training_step()` function
 
     Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
+
+    Attributes:
+        dataset_path: The path that indicates where dataset has been stored
+        pre_processes: Preprocess functions that will be applied to the
+            training data at the beginning of the training routine.
+        training_data_loader: Data loader used in the training routine.
+        testing_data_loader: Data loader used in the validation routine.
     """
 
     def __init__(self):
@@ -88,8 +92,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: TrainingArgs) -> None:
-        """ Sets arguments for training, model and optimizer
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any]
+        ) -> None:
+        """Set arguments for the model, training and the optimizer.
 
         Args:
             model_args: Arguments defined by researcher to instantiate model/torch module
@@ -176,14 +184,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._init_params
 
-    def init_dependencies(self) -> List:
-        """Default method where dependencies are returned
-
-        Returns:
-            Empty list as default
-        """
-        return []
-
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
@@ -197,19 +197,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
-
-    def _configure_dependencies(self):
-        """ Configures dependencies """
-        init_dep_spec = get_method_spec(self.init_dependencies)
-        if len(init_dep_spec.keys()) > 0:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
-                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
-
-        dependencies: Union[Tuple, List] = self.init_dependencies()
-        if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
-        self.add_dependency(dependencies)
 
     def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """
@@ -365,14 +352,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._set_device(self._use_gpu, node_args)
 
-        # Run preprocess when everything is ready before the training
-        self.__preprocess()
-
         # send all model to device, ensures having all the requested tensors
         self._model.to(self._device)
 
         # Run preprocess when everything is ready before the training
-        self.__preprocess()
+        self._preprocess()
 
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
@@ -450,120 +434,68 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
-    def testing_routine(self,
-                        metric: Union[MetricTypes, None],
-                        metric_args: Dict[str, Any],
-                        history_monitor: Any,
-                        before_train: Union[bool, None] = None):
-        """Performs validation routine on validation partition of the dataset
+    def testing_routine(
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional['HistoryMonitor'],
+            before_train: bool
+        ) -> None:
+        """Evaluation routine, to be called once per round.
 
-        Validation routine can be run any time after train and validation split is done. Method sends validation result
-        back to researcher component as real-time.
+        !!! info "Note"
+            If the training plan implements a `testing_step` method
+            (the signature of which is func(data, target) -> metrics)
+            then it will be used rather than the input metric.
 
         Args:
-            metric: Metric that will be used for validation
-            metric_args: The arguments for corresponding metric function.
-                Please see [`sklearn.metrics`][sklearn.metrics]
-            history_monitor: Real-time feed-back handler for validation results
-            before_train: Declares whether is performed before training model or not.
-
-        Raises:
-            FedbiomedTrainingPlanError: if the training is failed by any reason
-
+            metric: The metric used for validation.
+                If None, use MetricTypes.ACCURACY.
+            history_monitor: HistoryMonitor instance,
+                used to record computed metrics and communicate them to
+                the researcher (server).
+            before_train: Whether the evaluation is being performed
+                before local training occurs, of afterwards. This is merely
+                reported back through `history_monitor`.
         """
-        # TODO: Add preprocess option for testing_data_loader
-
-        if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
+        if not isinstance(self._model, torch.nn.Module):
+            msg = (
+                f"{ErrorNumbers.FB320.value}: model should be a torch "
+                f"nn.Module, but is of type {type(self._model)}"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
+        try:
+            self._model.eval()  # pytorch switch for model inference-mode
+            super().testing_routine(
+                metric, metric_args, history_monitor, before_train
+            )
+        finally:
+            self._model.train()  # restore training behaviors
 
-        # Build metrics object
-        metric_controller = Metrics()
-        tot_samples = len(self.testing_data_loader.dataset)
+    def predict(
+            self,
+            data: Any,
+        ) -> np.ndarray:
+        """Return model predictions for a given batch of input features.
 
-        self._model.eval()  # pytorch switch for model validation
-        # Complete prediction over batches
+        This method is called as part of `testing_routine`, to compute
+        predictions based on which evaluation metrics are computed. It
+        will however be skipped if a `testing_step` method is attached
+        to the training plan, than wraps together a custom routine to
+        compute an output metric directly from a (data, target) batch.
+
+        Args:
+            data: Array-like (or tensor) structure containing batched
+                input features.
+
+        Returns:
+            np.ndarray: Output predictions, converted to a numpy array
+                (as per the `fedbiomed.common.metrics.Metrics` specs).
+        """
         with torch.no_grad():
-            # Data Loader for testing partition includes entire dataset in the first batch
-            for batch_ndx, (data, target) in enumerate(self.testing_data_loader):
-                batch_ = batch_ndx + 1
-
-                # If `testing_step` is defined in the TrainingPlan
-                if hasattr(self, 'testing_step'):
-                    try:
-                        m_value = self.testing_step(data, target)
-                    except Exception as e:
-                        # catch exception because we are letting the user design this
-                        # `evaluation_step` method of the training plan
-                        msg = ErrorNumbers.FB605.value + \
-                              ": An error occurred while executing `testing_step` :" + \
-                              str(e)
-
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    # If custom validation step returns None
-                    if m_value is None:
-                        msg = ErrorNumbers.FB605.value + \
-                              ": metric function returned None"
-
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    metric_name = 'Custom'
-
-                # Otherwise, check a default metric is defined
-                # Use accuracy as default metric
-                else:
-
-                    if metric is None:
-                        metric = MetricTypes.ACCURACY
-                        logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
-                                    f"in the training arguments `: using default metric {metric.name}"
-                                    " for model validation")
-                    else:
-                        logger.info(
-                            f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                            " for model validation.")
-
-                    metric_name = metric.name
-
-                    try:
-                        # Pass data through network layers
-                        pred = self._model(data)
-                    except Exception as e:
-                        # Pytorch does not provide any means to catch exception (no custom Exceptions),
-                        # that is why we need to trap general Exception
-                        msg = ErrorNumbers.FB605.value + \
-                              ": error - " + \
-                              str(e)
-                        logger.critical(msg)
-                        raise FedbiomedTrainingPlanError(msg)
-
-                    # Convert prediction and actual values to numpy array
-                    y_true = target.detach().numpy()
-                    predicted = pred.detach().numpy()
-                    m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric, **metric_args)
-
-                metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
-
-                logger.debug('Validation: Batch {} [{}/{}] | Metric[{}]: {}'.format(
-                    str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
-
-                # Send scalar values via general/feedback topic
-                if history_monitor is not None:
-                    history_monitor.add_scalar(metric=metric_dict,
-                                               iteration=batch_,
-                                               epoch=None,  # no epoch
-                                               test=True,
-                                               test_on_local_updates=False if before_train else True,
-                                               test_on_global_updates=before_train,
-                                               total_samples=tot_samples,
-                                               batch_samples=len(target),
-                                               num_batches=len(self.testing_data_loader))
-
-        del metric_controller
+            pred = self._model(data)
+        return pred.detach().numpy()
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
@@ -629,59 +561,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for key, val in self._model.state_dict().items():
             norm += ((val - self._init_params[key]) ** 2).sum()
         return norm
-
-    def __preprocess(self):
-        """Executes registered preprocess that are defined by user."""
-        for (name, process) in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
-
-            if process_type == ProcessTypes.DATA_LOADER:
-                self.__process_data_loader(method=method)
-            else:
-                logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
-                             f"be ignored")
-
-    def __process_data_loader(self, method: Callable):
-        """Process handler for data loader kind processes.
-
-        Args:
-            method: Process method that is going to be executed
-
-        Raises:
-             FedbiomedTrainingPlanError: Raised if number of arguments of method is different than 1.
-                    - triggered if execution of method fails
-                    - triggered if type of the output of the method is not an instance of
-                        `self.training_data_loader`
-        """
-        argspec = get_method_spec(method)
-        if len(argspec) != 1:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process for type `PreprocessType.DATA_LOADER` should have only one argument/parameter"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        try:
-            data_loader = method(self.training_data_loader)
-        except Exception as e:
-            msg = ErrorNumbers.FB605.value + \
-                  ": error while running process method -> `{method.__name__}` - " + \
-                  str(e)
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        # Debug after running preprocess
-        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
-
-        if isinstance(data_loader, type(self.training_data_loader)):
-            self.training_data_loader = data_loader
-            logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
-        else:
-            msg = ErrorNumbers.FB605.value + \
-                  ": the input argument of the method `preprocess` is `data_loader`" + \
-                  " and expected return value should be an instance of: " + \
-                  type(self.training_data_loader) + \
-                  " instead of " + \
-                  type(data_loader)
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)

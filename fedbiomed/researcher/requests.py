@@ -330,7 +330,7 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def training_plan_approve(self,
-                              training_plan,
+                              training_plan: 'BaseTrainingPlan',
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:

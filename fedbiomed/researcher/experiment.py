@@ -591,17 +591,14 @@ class Experiment(object):
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
 
-
         !!! info "Loading aggregated parameters"
-
             After retrieving the training plan instance aggregated parameters should be loaded.
-
             Example:
-
             ```python
             training_plan = exp.training_plan()
             training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
             ```
+
         Returns:
             Training plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
         """
@@ -2197,7 +2194,7 @@ class Experiment(object):
 
     @exp_exceptions
     def training_plan_approve(self,
-                              training_plan,
+                              training_plan: 'BaseTrainingPlan',
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
