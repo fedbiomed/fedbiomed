@@ -158,7 +158,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         if not isinstance(self._model, BaseEstimator):
             msg = (
-                f"{ErrorNumbers.FB317.value}: model should be a scikit-learn "
+                f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
                 f"estimator, but is of type {type(self._model)}"
             )
             logger.critical(msg)

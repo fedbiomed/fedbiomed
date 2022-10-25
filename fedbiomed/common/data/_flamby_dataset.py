@@ -214,7 +214,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             module = import_module(f".{metadata['flamby_dataset_name']}",
                                    package='flamby.datasets')
         except ModuleNotFoundError as e:
-            msg = f"{ErrorNumbers.FB318.value}: Error while importing FLamby dataset package; {str(e)}"
+            msg = f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 

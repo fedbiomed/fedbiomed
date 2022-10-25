@@ -448,7 +448,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         if not isinstance(self._model, torch.nn.Module):
             msg = (
-                f"{ErrorNumbers.FB317.value}: model should be a torch "
+                f"{ErrorNumbers.FB320.value}: model should be a torch "
                 f"nn.Module, but is of type {type(self._model)}"
             )
             logger.critical(msg)
