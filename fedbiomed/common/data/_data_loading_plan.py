@@ -462,7 +462,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         target_dataset_type: a DatasetTypes enum representing the type of dataset targeted by this DataLoadingPlan
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super(DataLoadingPlan, self).__init__(*args, **kwargs)
         self.dlp_id = 'dlp_' + str(uuid.uuid4())
         self.desc = ""

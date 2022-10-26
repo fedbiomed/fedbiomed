@@ -3,13 +3,13 @@
 
 from datetime import datetime
 import hashlib
+import json
 import os
 import re
 import shutil
 import uuid
 from typing import Any, Dict, List, Tuple, Union
 
-from python_minifier import minify
 from tabulate import tabulate
 from tinydb import TinyDB, Query
 
@@ -50,7 +50,7 @@ class TrainingPlanSecurityManager:
     """Manages training plan approval for a node.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 
         Creates a DB object for the table named as `Training plans` and builds a query object to query
@@ -88,8 +88,8 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f': {path} is not a path')
 
         try:
-            with open(path, "r") as training_plan:
-                content = training_plan.read()
+            with open(path, "r", encoding="utf-8") as file:
+                content = file.read()
         except FileNotFoundError:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f": training plan file {path} not found on system")
@@ -102,19 +102,8 @@ class TrainingPlanSecurityManager:
                 ErrorNumbers.FB606.value + f": cannot open training plan file {path} " +
                 "(file might have been corrupted)")
 
-        # Minify training plan file using python_minifier module
-        try:
-            mini_content = minify(content,
-                                  remove_annotations=False,
-                                  combine_imports=False,
-                                  remove_pass=False,
-                                  hoist_literals=False,
-                                  remove_object_base=True,
-                                  rename_locals=False)
-        except Exception as err:
-            # minify doesn't provide any specific exception
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f": cannot minify file {path}"
-                                                                                       f"details: {err}")
+        # Minify training plan JSON file.
+        mini_content = json.dumps(json.loads(content))
         # Hash training plan content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
             hashing = HASH_FUNCTIONS[hash_algo]()
@@ -260,24 +249,29 @@ class TrainingPlanSecurityManager:
         # Training plan file registration date
         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
 
-        training_plan_record = dict(name=name, description=description,
-                                    hash=training_plan_hash, training_plan_path=path,
-                                    training_plan_id=training_plan_id, training_plan_type=training_plan_type,
-                                    training_plan_status=TrainingPlanApprovalStatus.APPROVED.value,
-                                    algorithm=algorithm,
-                                    researcher_id=researcher_id,
-                                    date_created=ctime,
-                                    date_modified=mtime,
-                                    date_registered=rtime,
-                                    date_last_action=rtime
-                                    )
+        training_plan_record = {
+            "name": name,
+            "description": description,
+            "hash": training_plan_hash,
+            "training_plan_path": path,
+            "training_plan_id": training_plan_id,
+            "training_plan_type": training_plan_type,
+            "training_plan_status": TrainingPlanApprovalStatus.APPROVED.value,
+            "algorithm": algorithm,
+            "researcher_id": researcher_id,
+            "date_created": ctime,
+            "date_modified": mtime,
+            "date_registered": rtime,
+            "date_last_action": rtime,
+        }
 
         try:
             self._db.insert(training_plan_record)
-        except Exception as err:
+        except Exception as exc:
             raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + " : database insertion failed with"
-                                           f" following error: {str(err)}")
+                f"{ErrorNumbers.FB606.value}: database insertion failed "
+                f"with following error: {exc}"
+            )
         return True
 
     def check_hashes_for_registered_training_plans(self):
@@ -513,7 +507,8 @@ class TrainingPlanSecurityManager:
 
         if isinstance(training_plan, dict):
             if content:
-                with open(training_plan["training_plan_path"], 'r') as file:
+                path = training_plan["training_plan_path"]
+                with open(path, "r", encoding="utf-8") as file:
                     training_plan_content = file.read()
             else:
                 training_plan_content = None
@@ -524,25 +519,6 @@ class TrainingPlanSecurityManager:
             training_plan.update({"content": training_plan_content})
 
         return training_plan
-
-    @staticmethod
-    def create_txt_training_plan_from_py(training_plan_path: str) -> str:
-        """Creates a text training plan file (*.txt extension) from a python (*.py) training plan file,
-        in the directory where the python training plan file belongs to.
-
-        Args:
-            training_plan_path (str): path to the training plan file (with *.py) extension
-
-        Returns:
-            training_plan_path_txt (str): path to new training plan file (with *.txt extension)
-        """
-        # remove '*.py' extension of `training_plan_path` and rename it into `*.txt`
-        training_plan_path_txt, _ = os.path.splitext(training_plan_path)
-        training_plan_path_txt += '.txt'
-
-        # save the content of the training plan into a plain '*.txt' file
-        shutil.copyfile(training_plan_path, training_plan_path_txt)
-        return training_plan_path_txt
 
     def reply_training_plan_approval_request(self, msg: dict, messaging: Messaging):
         """Submits a training plan file (TrainingPlan) for approval. Needs an action from Node
@@ -567,12 +543,12 @@ class TrainingPlanSecurityManager:
         try:
             # training_plan_id = str(uuid.uuid4())
             training_plan_name = "training_plan_" + str(uuid.uuid4())
-            status, tmp_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.py')
+            status, tmp_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.json')
 
             reply['status'] = status
 
             # check if training plan has already been registered into database
-            training_plan_to_check = self.create_txt_training_plan_from_py(tmp_file)
+            training_plan_to_check = tmp_file
             is_existant, _ = self.check_training_plan_status(training_plan_to_check, None)
 
         except FedbiomedRepositoryError as fed_err:
@@ -665,7 +641,7 @@ class TrainingPlanSecurityManager:
         try:
             # Create training plan file with id and download
             training_plan_name = 'my_training_plan_' + str(uuid.uuid4().hex)
-            status, training_plan_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.py')
+            status, training_plan_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.json')
             if status != 200:
                 # FIXME: should 'approval_obligation' be always false when training plan cannot be downloaded,
                 #  regardless of environment variable "TRAINING_PLAN_APPROVAL"?

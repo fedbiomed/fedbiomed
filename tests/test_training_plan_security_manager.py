@@ -124,7 +124,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
     def test_training_plan_manager_02_create_hash_hashing_exception(self):
         """Tests `create_hash` method is raising exception if hashing
         algorithm does not exist"""
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
 
         # action:
@@ -136,10 +136,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         cannot open and read training_plan file (test try/catch blocks when opening
         a file)
         """
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         # test 1 : test case where training plan file has not been found
 
-        # action 
+        # action
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager._create_hash("a/path/that/should/not/exist/on/your/computer")
 
@@ -160,7 +160,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
     def test_training_plan_manager_04_create_hash_minify_exception(self, minify_patch):
         """Tests that `_create_hash` method is catching exception coming
         from `minify` package"""
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         minify_patch.side_effect = Exception('Mimicking an Exception triggered by `minify` package')
 
@@ -197,8 +197,8 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """Tests `update_default_training_plan` when a training plans file that had been registered
         has been deleted
         """
-        file_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
-        new_default_training_plan_path = os.path.join(environ['TMP_DIR'], 'test-training-plan-1-2.txt')
+        file_path = os.path.join(self.testdir, 'test-training-plan-1.json')
+        new_default_training_plan_path = os.path.join(environ['TMP_DIR'], 'test-training-plan-1-2.json')
         shutil.copy(file_path, new_default_training_plan_path)
 
         # update database
@@ -235,7 +235,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 algo_tempo = a
                 break
 
-        new_default_training_plan_path = os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], 'my_default_training_plan.txt')
+        new_default_training_plan_path = os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], 'my_default_training_plan.json')
 
         for error in ['db_search', 'db_get-delete', 'db_remove-delete', 'db_get-exists', 'db_update-exists']:
 
@@ -244,7 +244,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             # some test may manage update database or files, or leave them in an unclean state
             # so we need to prepare at each test
 
-            shutil.copy(os.path.join(self.testdir, 'test-training-plan-1.txt'), new_default_training_plan_path)
+            shutil.copy(os.path.join(self.testdir, 'test-training-plan-1.json'), new_default_training_plan_path)
             self.tp_security_manager.register_update_default_training_plans()
             training_plans_before = self.tp_security_manager._db.all()
 
@@ -322,8 +322,8 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         self.tp_security_manager.register_update_default_training_plans()
 
-        training_plan_file_1 = os.path.join(self.testdir, 'test-training-plan-1.txt')
-        training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.txt')
+        training_plan_file_1 = os.path.join(self.testdir, 'test-training-plan-1.json')
+        training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.json')
 
         self.tp_security_manager.register_training_plan(
             name='test-training-plan',
@@ -378,7 +378,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # patch
         check_training_plan_not_existing_patch.value = None
 
-        training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.txt')
+        training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.json')
 
         # Cannot access corrupted database
         with open(environ['DB_PATH'], 'w') as f:
@@ -389,10 +389,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 name='test-training-plan-3',
                 path=training_plan_file_2,
                 training_plan_type='registered',
-                description='desc')        
+                description='desc')
 
         with open(environ['DB_PATH'], 'w') as f:
-            f.write('') 
+            f.write('')
 
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._create_hash')
     def test_training_plan_manager_12_check_hashes_for_registerd_training_plans(self,
@@ -420,10 +420,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # in the database
         self.tp_security_manager.register_update_default_training_plans()
 
-        training_plan_file_1_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_file_1_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         # copying training plan (we will delete it afterward)
-        training_plan_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-training-plan-1.txt')
+        training_plan_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-training-plan-1.json')
         shutil.copy(training_plan_file_1_path, training_plan_file_copied_path)
         self.tp_security_manager.register_training_plan(
             name='test-training-plan',
@@ -487,8 +487,8 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # Test 2: one training plan registered, but cannot update database
 
         # register training plan
-        training_plan_file_1_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
-        training_plan_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-training-plan-1.txt')
+        training_plan_file_1_path = os.path.join(self.testdir, 'test-training-plan-1.json')
+        training_plan_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-training-plan-1.json')
         shutil.copy(training_plan_file_1_path, training_plan_file_copied_path)
         self.tp_security_manager.register_training_plan(
             name='test-training-plan',
@@ -523,42 +523,11 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         self.patcher_db_remove.stop()
 
-    def test_training_plan_manager_14_create_txt_training_plan_from_py(self):
-        """Test training plan manager: tests if txt file can be created from py file"""
-        # initialisation: creating a *.py file
-        randomfolder = tempfile.mkdtemp()
-        if not os.access(randomfolder, os.W_OK):
-            self.skipTest("Test skipped cause temporary directory not writtable")
-        else:
-            file = os.path.join(environ['TMP_DIR'], 'training_plan.py')
-            code_source = \
-                "class TestClass:\n" + \
-                "   def __init__(self, **kwargs):\n" + \
-                "       self._kwargs = kwargs\n" + \
-                "   def load_state(self, state :str):\n" + \
-                "       self._state = state\n"
-            with open(file, 'w') as f:
-                f.write(code_source)
-
-            # action
-            txt_training_plan_path = self.tp_security_manager.create_txt_training_plan_from_py(file)
-
-            # checks
-            # tests if `txt_training_plan` has a *.txt extension
-            _, ext = os.path.splitext(txt_training_plan_path)
-            self.assertEqual(ext, '.txt')
-
-            # check if content is the same in *.txt file and in *.py file
-            with open(txt_training_plan_path, 'r') as f:
-                code = f.read()
-
-            self.assertEqual(code, code_source)
-
     def test_training_plan_manager_15_update_training_plan_normal_case(self, ):
         """Tests method `update_training_plan_hash` in the normal case scenario"""
 
         # database initialisation
-        default_training_plan_file_1 = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        default_training_plan_file_1 = os.path.join(self.testdir, 'test-training-plan-1.json')
         self.tp_security_manager.register_training_plan(
             name='test-training-plan',
             path=default_training_plan_file_1,
@@ -577,7 +546,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         training_plan_hashing_algorithm = 'a_hashing_algorithm'
 
         # action
-        default_training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.txt')
+        default_training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.json')
         with (patch.object(TrainingPlanSecurityManager, '_create_hash',
                            return_value=(training_plan_hash, training_plan_hashing_algorithm)),
               patch.object(os.path, 'getmtime', return_value=file_modification_date_timestamp),
@@ -601,7 +570,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # Test 1 : update of a default training plan
 
         # database preparation
-        default_training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        default_training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         self.tp_security_manager.register_training_plan(
             name='test-training-plan',
             path=default_training_plan_file_path,
@@ -621,9 +590,9 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # prepare
         for patch_start, patch_stop in [
                 (self.patcher_db_get.start, self.patcher_db_get.stop),
-                (self.patcher_db_update.start, self.patcher_db_update.stop)]: 
+                (self.patcher_db_update.start, self.patcher_db_update.stop)]:
             for training_plan_type in [TrainingPlanStatus.REGISTERED.value, TrainingPlanStatus.REQUESTED.value]:
-                training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+                training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.json')
                 self.tp_security_manager.register_training_plan(
                     name='test-training-plan',
                     path=training_plan_file_path,
@@ -631,7 +600,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                     description='desc',
                     training_plan_id='test-training-plan-id'
                 )
-                training_plan_file_path_new = os.path.join(self.testdir, 'test-training-plan-2.txt')
+                training_plan_file_path_new = os.path.join(self.testdir, 'test-training-plan-2.json')
 
                 patch_start()
 
@@ -648,7 +617,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
     def test_training_plan_manager_18_delete_registered_training_plans(self):
         """ Testing delete operation for training plan manager """
 
-        training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         self.tp_security_manager.register_training_plan(
             name='test-training-plan-1',
@@ -684,7 +653,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         training_plan_id = 'my_training_plan_id_for_test'
 
 
@@ -719,7 +688,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.tp_security_manager.register_training_plan(training_plan_name, 'my_training_plan_description', training_plan_path, training_plan_id = training_plan_id)
         training_plan1 = self.tp_security_manager.get_training_plan_by_name(training_plan_name)
 
-        # test + check        
+        # test + check
         self.assertNotEqual(training_plan1, None)
 
         for patch_start, patch_stop in [
@@ -754,7 +723,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         sort_by_fields = ['date_last_action',
                           'training_plan_type',
                           'training_plan_status',
-                          'algorithm', 
+                          'algorithm',
                           'researcher_id']
 
         for sort_by_field in sort_by_fields:
@@ -770,7 +739,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         # check with results filtered on `training_plan_status` field
         # first, register a training plan
-        training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_file_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         self.tp_security_manager.register_training_plan(
             name='test-training-plan-1',
@@ -778,7 +747,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             training_plan_type='registered',
             description='desc'
         )
-        # second, reject it 
+        # second, reject it
         _, training_plan_to_reject = self.tp_security_manager.check_training_plan_status(training_plan_file_path, TrainingPlanStatus.REGISTERED)
         self.tp_security_manager.reject_training_plan(training_plan_to_reject['training_plan_id'])
 
@@ -818,7 +787,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.tp_security_manager.register_update_default_training_plans()
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         # add one registered training plan in database
         self.tp_security_manager.register_training_plan(training_plan_name, 'my_training_plan_description', training_plan_path)
@@ -989,7 +958,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             msg = {
                 'researcher_id': 'ssss',
                 'job_id': 'xxx',
-                'training_plan_url': 'file:/' + os.path.join(self.testdir, 'test-training-plan-1.txt'),
+                'training_plan_url': 'file:/' + os.path.join(self.testdir, 'test-training-plan-1.json'),
                 'command': 'training-plan-status'
             }
             self.values["TRAINING_PLAN_APPROVAL"] = approval
@@ -1023,12 +992,12 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         - 1: by `Repository.download_file` (FedbiomedRepositoryError)
         - 2: by `TrainingPlanSecurityManager.check_is_training_plan_approved` (Exception)
         Checks that message (that should be sent to researcher) is created accordingly
-        to the triggered exception 
+        to the triggered exception
 
         """
         # test 1: tests that error triggered through `Repository.download)file` is
         # correctly handled
-        # patches 
+        # patches
         messaging = MagicMock()
         messaging.send_message.return_value = None
         default_training_plans = os.listdir(environ['DEFAULT_TRAINING_PLANS_DIR'])
@@ -1183,7 +1152,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         # Final : empty database to enable proper cleaning
         with open(environ['DB_PATH'], 'w') as f:
-            f.write('')        
+            f.write('')
 
     @patch('os.path.getctime')
     @patch('os.path.getmtime')
@@ -1201,7 +1170,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.tp_security_manager.register_update_default_training_plans()
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         # add one registered training plan in database
         self.tp_security_manager.register_training_plan(training_plan_name, 'my_training_plan_description', training_plan_path)
@@ -1241,7 +1210,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
 
         # default training plans in database (not directly used, but to search among multiple entries)
         self.tp_security_manager.register_update_default_training_plans()
@@ -1269,15 +1238,15 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.get_training_plan_by_name(training_plan_name)
 
-        self.patcher_db_get.stop()    
+        self.patcher_db_get.stop()
 
     def test_training_plan_manager_26_get_training_plan_from_database(self):
         """Test `get_training_plan_from_database` function
         """
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
-        same_training_plan_path = os.path.join(environ['TMP_DIR'], 'test-training-plan-1-2.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
+        same_training_plan_path = os.path.join(environ['TMP_DIR'], 'test-training-plan-1-2.json')
         shutil.copy(training_plan_path, same_training_plan_path)
 
         # default training plans in database (not directly used, but to search among multiple entries)
@@ -1293,7 +1262,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             self.assertEqual(training_plan['name'], training_plan_name)
 
         # Test 2 : look for non-existing training plan
-        training_plan = self.tp_security_manager.get_training_plan_from_database(os.path.join(self.testdir, 'test-training-plan-2.txt'))
+        training_plan = self.tp_security_manager.get_training_plan_from_database(os.path.join(self.testdir, 'test-training-plan-2.json'))
         self.assertIsNone(training_plan)
 
         # Test 3 : bad parameter errors
@@ -1307,14 +1276,14 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.get_training_plan_from_database(training_plan_path)
 
-        self.patcher_db_get.stop()    
+        self.patcher_db_get.stop()
 
     def test_training_plan_manager_27_get_training_plan_by_id(self):
         """Test `get_training_plan_by_id` function
         """
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         training_plan_id = 'my_training_plan_id_for_test'
 
         # default training plans in database (not directly used, but to search among multiple entries)
@@ -1352,7 +1321,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.get_training_plan_by_id(training_plan_id, secure, content)
 
-        self.patcher_db_get.stop()    
+        self.patcher_db_get.stop()
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     def test_training_plan_manager_28_reply_training_plan_approval_request(self, download_file_patch):
@@ -1380,7 +1349,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         training_plan_researcher_id = 'the researcher :%!#><|[]"*&$@!\'\\'
         training_plan_description = 'the description :%!#><|[]"*&$@!\'\\'
         training_plan_sequence = -4
-        training_plan_file = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_file = os.path.join(self.testdir, 'test-training-plan-1.json')
         msg = {
             'researcher_id': training_plan_researcher_id,
             'description': training_plan_description,
@@ -1532,7 +1501,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """
 
         training_plan_name = 'my_training_plan_name'
-        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
+        training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.json')
         training_plan_id = 'my_training_plan_id_for_test'
 
         # add one registered training plan in database
@@ -1580,7 +1549,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
                 self.tp_security_manager._update_training_plan_status(training_plan_id, TrainingPlanApprovalStatus.REJECTED, 'new_notes')
 
-            patch_stop()    
+            patch_stop()
 
     def test_training_plan_manager_30_remove_sensible_keys_from_request(self):
         """Test training plan manager `_remove_sensible_keys_from_request` function.
@@ -1590,7 +1559,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         key_sensible = 'training_plan_path'
         key_notsensible = 'training_plan_id'
 
-        doc = { 
+        doc = {
             key_sensible: 'valeur clef',
             key_notsensible: 'autre valeur'
         }

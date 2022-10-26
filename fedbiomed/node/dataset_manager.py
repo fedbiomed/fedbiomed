@@ -8,7 +8,7 @@ import tarfile
 import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
-from typing import Iterable, Union, List, Any, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 import torch
@@ -47,20 +47,18 @@ class DatasetManager:
         self._dataset_table = self._db.table(name='Datasets', cache_size=0)
         self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
-    def get_by_id(self, dataset_id: str) -> List[dict]:
+    def get_by_id(self, dataset_id: str) -> Optional[Dict[str, Any]]:
         """Searches for data with given dataset_id.
 
         Args:
-            dataset_id:  A dataset id
+            dataset_id: A dataset id.
 
         Returns:
-            A list of dict of matching datasets, each dict
-                containing all the fields describing the matching datasets
-                stored in Tiny database.
+            dataset: A dict documenting the retrieved dataset, if any.
+                Datasets should have unique ids; otherwise this will return
+                only one of the matched entries, picked up at random.
         """
-        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
-
-        return result
+        return self._dataset_table.get(self._database.dataset_id == dataset_id)
 
     def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
         """Return all existing DataLoadingPlans.
