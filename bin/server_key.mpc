@@ -1,0 +1,7 @@
+sk_0 = sint(0)
+sk_users_array = Array(2,sint)
+@for_range_opt(2)
+def _(i):
+    sk_users_array[i] = sint.get_input_from(i+1)
+sk_0 = - (sk_0 + sk_users_array[0] + sk_users_array[1])
+print_ln_to(0, '%s', sk_0.reveal_to(0)) # party 0 has to be the server
