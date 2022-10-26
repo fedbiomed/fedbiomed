@@ -3,10 +3,10 @@ Core code of the node component.
 '''
 
 from json import decoder
+from typing import Optional, Union
 
-from typing import Optional, Union, Dict, Any
+import validators
 
-from fedbiomed.common import json
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
@@ -14,13 +14,11 @@ from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
-from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
-
-import validators
+from fedbiomed.node.secagg import SecaggBiprimeSetup, SecaggServkeySetup
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 class Node:
@@ -205,7 +203,7 @@ class Node:
                 # instantiate a `SecaggSetup` object
                 secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
             else:
-                # should not exist 
+                # should not exist
                 secagg = None
             error = ''
         except Exception as e:

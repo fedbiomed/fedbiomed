@@ -8,9 +8,8 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 
-from fedbiomed.common.constants import _BaseEnum
+from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import ErrorNumbers
 
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import NPDataLoader, SkLearnDataManager

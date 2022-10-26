@@ -9,8 +9,13 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
-    ValidateError, RuleError, validator_decorator
+from fedbiomed.common.validator import (
+    RuleError,
+    SchemeValidator,
+    ValidateError,
+    ValidatorError,
+    validator_decorator,
+)
 
 
 @validator_decorator

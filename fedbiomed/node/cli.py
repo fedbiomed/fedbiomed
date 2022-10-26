@@ -2,25 +2,35 @@
 Command line user interface for the node component
 """
 
+import argparse
 import json
 import os
+import readline
 import signal
 import sys
 import time
 from multiprocessing import Process
-from typing import Union
 from types import FrameType
-import readline
-import argparse
+from typing import Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
+from fedbiomed.node.cli_utils import (
+    add_database,
+    dataset_manager,
+    delete_all_database,
+    delete_database,
+    approve_training_plan,
+    delete_training_plan,
+    register_training_plan,
+    reject_training_plan,
+    tp_security_manager,
+    update_training_plan,
+    view_training_plan,
+)
 from fedbiomed.node.environ import environ
 from fedbiomed.node.node import Node
-from fedbiomed.common.logger import logger
-from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
-    tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
-    delete_training_plan, view_training_plan
 
 
 #

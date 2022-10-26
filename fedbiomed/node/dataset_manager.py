@@ -2,30 +2,32 @@
 Interfaces with the node component database.
 '''
 
-
 import csv
-import os.path
-from typing import Iterable, Union, List, Any, Optional, Tuple
+import os
+import tarfile
 import uuid
-
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
-import tarfile
+from typing import Iterable, Union, List, Any, Optional, Tuple
 
-from tinydb import TinyDB, Query
 import pandas as pd
-from tabulate import tabulate  # only used for printing
-
 import torch
+from tabulate import tabulate  # only used for printing
+from tinydb import TinyDB, Query
 from torchvision import datasets
 from torchvision import transforms
 
-from fedbiomed.node.environ import environ
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.data import (
+    DataLoadingPlan,
+    DataLoadingBlock,
+    FlambyDataset,
+    FlambyLoadingBlockTypes,
+    MedicalFolderController,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock, FlambyLoadingBlockTypes, \
-    FlambyDataset
 from fedbiomed.common.logger import logger
+from fedbiomed.node.environ import environ
 
 
 class DatasetManager:

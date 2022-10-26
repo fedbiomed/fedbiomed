@@ -3,12 +3,26 @@ from typing import Any, Dict, List, Tuple, TypeVar, Type, Union, Optional
 from abc import ABC, abstractmethod
 from importlib import import_module
 
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedLoadingBlockValueError, \
-    FedbiomedDataLoadingPlanValueError, FedbiomedLoadingBlockError, FedbiomedDataLoadingPlanError
+from fedbiomed.common.constants import (
+    DataLoadingBlockTypes,
+    DatasetTypes,
+    ErrorNumbers,
+)
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedLoadingBlockValueError,
+    FedbiomedDataLoadingPlanValueError,
+    FedbiomedLoadingBlockError,
+    FedbiomedDataLoadingPlanError,
+)
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
-from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
-    ValidateError, RuleError, validator_decorator
+from fedbiomed.common.validator import (
+    RuleError,
+    SchemeValidator,
+    ValidateError,
+    ValidatorError,
+    validator_decorator,
+)
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
 TDataLoadingBlock = TypeVar("TDataLoadingBlock", bound="DataLoadingBlock")
@@ -243,7 +257,7 @@ class DataLoadingBlock(ABC):
 
     Subclasses of [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
     must respect the following conditions:
-    
+
     1. implement a default constructor
     2. the implemented constructor must call `super().__init__()`
     3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
@@ -478,7 +492,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
                 - a dictionary of key-value pairs with the
                 [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] parameters.
                 - a list of dict containing the data for reconstruction all the DataLoadingBlock
-                    of the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] 
+                    of the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan]
         """
         return dict(
             dlp_id=self.dlp_id,

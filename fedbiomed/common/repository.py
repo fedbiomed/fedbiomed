@@ -6,8 +6,8 @@ import requests  # Python built-in library
 from json import JSONDecodeError
 from typing import Callable, Dict, Any, Tuple, Text, Union, Optional
 
-from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 
 

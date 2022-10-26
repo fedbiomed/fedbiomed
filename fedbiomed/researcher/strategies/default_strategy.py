@@ -12,8 +12,8 @@ from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.strategies import Strategy
 from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.strategies.strategy import Strategy
 
 
 class DefaultStrategy(Strategy):

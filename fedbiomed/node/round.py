@@ -2,13 +2,13 @@
 implementation of Round class of the node component
 '''
 
+import inspect
+import importlib
 import os
 import sys
 import time
-import inspect
-import importlib
-from typing import Union, Any, Optional, Tuple, List
 import uuid
+from typing import Union, Any, Optional, Tuple, List
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan

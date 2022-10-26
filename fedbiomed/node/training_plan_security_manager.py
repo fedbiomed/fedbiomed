@@ -5,15 +5,24 @@ from datetime import datetime
 import hashlib
 import os
 import re
-from python_minifier import minify
 import shutil
-from tabulate import tabulate
-from tinydb import TinyDB, Query, where
-from typing import Any, Dict, List, Tuple, Union
 import uuid
+from typing import Any, Dict, List, Tuple, Union
 
-from fedbiomed.common.constants import HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError, FedbiomedRepositoryError
+from python_minifier import minify
+from tabulate import tabulate
+from tinydb import TinyDB, Query
+
+from fedbiomed.common.constants import (
+     ErrorNumbers,
+     HashingAlgorithms,
+     TrainingPlanApprovalStatus,
+     TrainingPlanStatus,
+)
+from fedbiomed.common.exceptions import (
+    FedbiomedRepositoryError,
+    FedbiomedTrainingPlanSecurityManagerError,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
