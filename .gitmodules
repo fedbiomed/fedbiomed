@@ -1,0 +1,3 @@
+[submodule "dependencies/MP-SPDZ"]
+	path = dependencies/MP-SPDZ
+	url = https://github.com/data61/MP-SPDZ.git
