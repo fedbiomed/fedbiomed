@@ -1,7 +1,7 @@
 #!/bin/bash
-
-### Configuration
-
+###############################################################################################################
+### MP-SPDZ Configuration
+###############################################################################################################
 
 # Color configuration -----------------------------------------------------------------------------------------
 RED='\033[1;31m' #red
@@ -32,6 +32,7 @@ if test $(uname) = "Linux"; then
   echo -e "${BOLD}Linux detected. MP-SPDZ will be used through binary distribution${NC}\n"
   cpu_info='cat /proc/cpuinfo'
 elif test $(uname) = "Darwin"; then
+  # TODO: Implement macOS installation
   echo -e "${BOLD}macOS detected. MP-SPDZ will be compiled from source instead of using binary distribution${NC}\n"
 else
   echo -e "${RED}ERROR${NC}: Unknown operation system. Only Linux or macOS based operating systems are supported\n"
@@ -104,6 +105,7 @@ if [ ! -d "$player_data/test_ip_assigned.tldr" ]; then
   rm "$player_data/test_ip_assigned.tldr"
 fi
 
+# Create data for two test party
 for i in 0 1; do
   openssl req -newkey rsa -nodes -x509 -out "$player_data/P$i.pem" -keyout "$player_data/P$i.key" -subj "/CN=P$i"
   echo "10" > "$player_data/Test-Input-P$i-0"
@@ -112,5 +114,8 @@ done
 echo -e "${BOLD}Done! ${NC}"
 
 
-echo -e "\n${GRN} MP-SPDZ configuration is successful!\n"
+echo -e "${BOLD} MP-SPDZ configuration is successfully tests! ${NC}"
+# Testing Ends ################################################################################################
 
+
+echo -e "\n${GRN} MP-SPDZ configuration is successful!\n"
