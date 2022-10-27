@@ -69,7 +69,7 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     global node
 
     if node:
-        node.send_error(ErrorNumbers.FB312)
+        node.messaging.send_error(ErrorNumbers.FB312)
     else:
         logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
@@ -123,7 +123,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     except Exception as e:
         # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
-        node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
+        node.messaging.send_error(ErrorNumbers.FB300, extra_msg=f"Error = {e}")
         logger.critical("Node stopped.")
 
     finally:

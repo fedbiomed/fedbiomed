@@ -1,6 +1,4 @@
-'''
-implementation of Round class of the node component
-'''
+"""Class wrapping the training routine of a node at a given round."""
 
 import inspect
 import os
@@ -28,21 +26,21 @@ class Round:
     """Class wrapping the training routine of a node at a given round."""
 
     def __init__(
-            self,
-            model_kwargs: Dict[str, Any],
-            training_kwargs: Dict[str, Any],
-            dataset: Dict[str, Any],
-            training_plan_url: str,
-            params_url: str,
-            training: bool = True,
-            job_id: str = "",
-            researcher_id: str = "",
-            history_monitor: Optional[HistoryMonitor] = None,
-            node_args: Optional[Dict[str, Any]] = None,
-            dlp_and_loading_block_metadata: Optional[
-                Tuple[Dict[str, Any], List[Dict[str, Any]]]
-            ] = None,
-        ) -> None:
+        self,
+        model_kwargs: Dict[str, Any],
+        training_kwargs: Dict[str, Any],
+        dataset: Dict[str, Any],
+        training_plan_url: str,
+        params_url: str,
+        training: bool = True,
+        job_id: str = "",
+        researcher_id: str = "",
+        history_monitor: Optional[HistoryMonitor] = None,
+        node_args: Optional[Dict[str, Any]] = None,
+        dlp_and_loading_block_metadata: Optional[
+            Tuple[Dict[str, Any], List[Dict[str, Any]]]
+        ] = None,
+    ) -> None:
         """Constructor of the class
 
         Args:
@@ -81,12 +79,12 @@ class Round:
         self.model_arguments = model_kwargs
 
     def create_round_reply(
-            self,
-            message: str = "",
-            success: bool = False,
-            params_url: Optional[str] = None,
-            timing: Optional[Dict[str, float]] = None
-        ) -> TrainReply:
+        self,
+        message: str = "",
+        success: bool = False,
+        params_url: Optional[str] = None,
+        timing: Optional[Dict[str, float]] = None
+    ) -> TrainReply:
         """Set up a TrainReply to be sent to the researcher.
 
         This method should be called as part of the `run_model_training`
@@ -145,7 +143,7 @@ class Round:
         try:
             self.setup_training_plan_data_loaders(training_plan)
         except FedbiomedRoundError as exc:
-            raise exc
+            return self.create_round_reply(success=False, message=str(exc))
         except Exception as exc:
             msg = f"Uncaught error while setting up data loaders: {exc}"
             return self.create_round_reply(success=False, message=msg)
@@ -304,9 +302,9 @@ class Round:
         return path
 
     def setup_training_plan_data_loaders(
-            self,
-            training_plan: TrainingPlan
-        ) -> None:
+        self,
+        training_plan: TrainingPlan
+    ) -> None:
         """Set up and assign data loaders to a given training plan.
 
         This method handles the following operations:
@@ -363,9 +361,9 @@ class Round:
             ) from exc
 
     def _build_data_manager(
-            self,
-            training_plan: TrainingPlan,
-        ) -> DataManager:
+        self,
+        training_plan: TrainingPlan,
+    ) -> DataManager:
         """Set up and load a DataManager based on a TrainingPlan.
 
         Args:
@@ -420,9 +418,9 @@ class Round:
         return data_manager
 
     def _configure_dataset(
-            self,
-            data_manager: DataManager,
-        ) -> None:
+        self,
+        data_manager: DataManager,
+    ) -> None:
         """Configure the dataset wrapped by a freshly-loaded DataManager.
 
         Args:
@@ -455,10 +453,10 @@ class Round:
                 )
 
     def _run_testing_routine(
-            self,
-            training_plan: TrainingPlan,
-            before_train: bool,
-        ) -> None:
+        self,
+        training_plan: TrainingPlan,
+        before_train: bool,
+    ) -> None:
         """Run a training plan's testing routine, catching any exception.
 
         Args:
