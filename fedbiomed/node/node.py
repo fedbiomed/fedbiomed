@@ -251,8 +251,7 @@ class Node:
                 ).get_dict()
             )
 
-
-    def parser_task_train(self, msg: TrainRequest):
+    def parser_task_train(self, msg: TrainRequest) -> None:
         """Parses a given training task message to create a round instance
 
         Args:
@@ -332,8 +331,8 @@ class Node:
             logger.debug('[TASKS QUEUE] Item:' + str(item))
 
             try:
-                item = NodeMessages.request_create(item)
-                command = item.get_param('command')
+                message = NodeMessages.request_create(item)
+                command = message.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
                 self.messaging.send_message(
@@ -350,14 +349,14 @@ class Node:
 
             if command == 'train':
                 try:
-                    self.parser_task_train(item)
+                    self.parser_task_train(message)
                     # once task is out of queue, initiate training rounds
-                    for round in self.rounds:
+                    for round_ in self.rounds:
                         # iterate over each dataset found
                         # in the current round (here round refers
                         # to a round to be done on a specific dataset).
-                        msg = round.run_model_training()
-                        self.messaging.send_message(msg)
+                        msg = round_.run()
+                        self.messaging.send_message(msg.get_dict())
                 except Exception as e:
                     # send an error message back to network if something
                     # wrong occured
@@ -373,7 +372,7 @@ class Node:
                         ).get_dict()
                     )
             elif command == 'secagg':
-                self.task_secagg(item)
+                self.task_secagg(message)
             else:
                 errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                 logger.error(errmess)
