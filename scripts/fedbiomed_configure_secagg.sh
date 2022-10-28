@@ -19,6 +19,24 @@ basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 mpspdz_basedir=$basedir/modules/MP-SPDZ
 # ---------------------------------------------------------------------------------------------------------------
 
+subprocess() {
+    # find all suprocesses of a given pid
+    # (should be as portable as pgrep is)
+    parent=$1
+
+    [[ -z "$parent" ]] && { echo "" ; return ; }
+    pids=$(pgrep -P $parent)
+
+    [[ -z "pids" ]] && { echo "" ; return ; }
+
+    list=""
+    for i in $pids ; do
+        list+="$i $(subprocess $i) "
+    done
+
+    echo "$list"
+}
+
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
 # Clone initialize github submodule if it is not existing
@@ -60,19 +78,24 @@ else
   exit 1
 fi
 
-# Extract/copy binaries to ${FEDBIOMED_DIR}/bin ------------------------------------------------------------------
+# Link binaries to ${FEDBIOMED_DIR}/bin ------------------------------------------------------------------
 echo -e "\n${YLW}Copying binary distributions... ${NC}"
-if ! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'; then
+if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
   echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
   exit 1
 fi
+
+# Copy command
+#! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'
+
 # ----------------------------------------------------------------------------------------------------------------
 
 
-# Locate MPC files ----------------------------------------------------------------------------------------------
-echo -e "\n${YLW}Locating MPC files... ${NC}"
-if ! find "$basedir/bin/" -name '*.mpc'  -exec cp -prv '{}' "$basedir/modules/MP-SPDZ/Programs/Source/" ';'; then
-  echo -e "\n${RED}ERROR${NC}: Can not copy MPC file into MP-SPDZ files!\n"
+# Link MPC files ----------------------------------------------------------------------------------------------
+# This also includes linking test_setup
+echo -e "\n${YLW}Linking MPC files... ${NC}"
+if ! ln -nsf "$basedir"/bin/*.mpc "$mpspdz_basedir"/; then
+  echo -e "\n${RED}ERROR${NC}: Can not create link for MPC files into MP-SPDZ programs!\n"
   exit 1
 fi
 echo -e "${BOLD}Done! ${NC}"
@@ -105,17 +128,59 @@ if [ ! -d "$player_data/test_ip_assigned.tldr" ]; then
   rm "$player_data/test_ip_assigned.tldr"
 fi
 
+rm $mpspdz_basedir/Player-Data/Test-
+
 # Create data for two test party
-for i in 0 1; do
-  openssl req -newkey rsa -nodes -x509 -out "$player_data/P$i.pem" -keyout "$player_data/P$i.key" -subj "/CN=P$i"
+for i in 0 1 2; do
+  openssl req -newkey rsa -nodes -x509 -out "$player_data"/P"$i".pem -keyout "$player_data"/P"$i".key -subj /CN=P"$i"
   echo "10" > "$player_data/Test-Input-P$i-0"
-  echo "localhost:11651$i" >> "$player_data/test_ip_assigned.tldr"
+  echo "localhost:11112$i" >> "$player_data/test_ip_assigned.tldr"
 done
+c_rehash "$mpspdz_basedir"/Player-Data
 echo -e "${BOLD}Done! ${NC}"
 
+# Run configuration test-----------------------------------------------------------------------------------------------
 
-echo -e "${BOLD} MP-SPDZ configuration is successfully tests! ${NC}"
+# Compiles test setup mpc file
+"$basedir"/scripts//fedbiomed_mpc.sh --compile test_setup
+
+# Starts parties for MPC
+for i in 0 1 2; do
+  "$basedir"/scripts/fedbiomed_mpc.sh --exec shamir-party $i \
+      -ip Player-Data/test_ip_assigned.tldr \
+      -IF Player-Data/Test-Input \
+      -OF Player-Data/Test-Output \
+      test_setup \
+      -N 3 > /dev/null &
+  pid=$!
+  ALL_PIDS+=" $pid $(subprocess $pid)"
+done
+
+# Waits for calculation. There are 3 required output from 3 different party as "RESULT 35"
+# when each output is received from parties test will pass. If this process takes mortahn 10 seconds
+# test will fail.
+count=0
+wait=(1 1 1)
+while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
+  sleep 1;
+  for i in 0 1 2; do
+    test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
+    if [ "$test_result" == "RESULT 35" ]; then
+        wait[$i]=0
+    fi
+    count=$((count+1))
+  done
+
+  # More than 9 seconds exit process with error
+  if [[ "$count" -gt 9 ]]; then
+    echo -e "\n${RED}ERROR${NC}: Unknown error occurred while testing MP-SPDZ configuration please check above logs!\n"
+    exit 1
+  fi
+done
+kill -9 $ALL_PIDS 2> /dev/null
+
+echo -e "${BOLD} MP-SPDZ configuration is successfully tested! ${NC}"
+
 # Testing Ends ################################################################################################
-
 
 echo -e "\n${GRN} MP-SPDZ configuration is successful!\n"
