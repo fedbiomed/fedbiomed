@@ -1,10 +1,10 @@
-"""
-"""
+"""Federated averaring Aggregator."""
 
-from typing import Dict
+from typing import List
+
+from declearn.model.api import Vector
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import federated_averaging
 
 
 class FedAverage(Aggregator):
@@ -12,23 +12,27 @@ class FedAverage(Aggregator):
     Defines the Federated averaging strategy
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Construct `FedAverage` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
         """
-        super(FedAverage, self).__init__()
+        super().__init__()
         self.aggregator_name = "FedAverage"
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
-        """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
-        strategy.
+    def aggregate(
+            self,
+            model_params: List[Vector],
+            weights: List[float],
+        ) -> Vector:
+        """Aggregate model parameters.
 
         Args:
-            model_params: contains each model layers
-            weights: contains all weights of a given layer.
+            model_params: List of model parameters received from each node.
+            weights: List of node-wise weights.
 
         Returns:
-            Aggregated parameters
+            params: Aggregated parameters, as a declearn Vector.
         """
         weights = self.normalize_weights(weights)
-        return federated_averaging(model_params, weights)
+        updates = sum(p * w for p, w in zip(model_params, weights))
+        return updates  # type: ignore  # edge case: 0 on empty list

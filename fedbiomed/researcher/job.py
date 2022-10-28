@@ -2,11 +2,7 @@
 
 import atexit
 import copy
-import inspect
-import importlib
-import json
 import os
-import re
 import sys
 import shutil
 import tempfile
@@ -15,13 +11,11 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 
 import declearn
-import numpy as np
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TrainingPlan
@@ -372,7 +366,7 @@ class Job:
 
     def update_parameters(
             self,
-            params: Optional[Dict[str, np.ndarray]] = None,
+            params: Optional[declearn.model.api.Vector] = None,
             filename: Optional[str] = None
         ) -> str:
         """Updates global model aggregated parameters in `params`.
@@ -383,16 +377,16 @@ class Job:
         given (file exists) it has precedence over `params`.
 
         Args:
-            params: data structure containing the new version of the
+            params: Vector structure containing the new version of the
                 aggregated parameters for this job.
-            filename: path to the file containing the new version of
+            filename: Path to a file containing the new version of
                 the aggregated parameters for this job.
 
         Returns:
-            Name of the parameter file
+            Name of the parameters file.
 
         Raises:
-            ValueError: Bad arguments
+            SystemExit: if the operation fails.
         """
         try:
             if filename:
@@ -403,12 +397,10 @@ class Job:
                     "filename or params is needed."
                 )
             else:
+                self._training_plan.model.set_weights(params)
                 filename = os.path.join(
                     self._keep_files_dir,
-                    f"aggregated_params_{uuid.uuid4()}.pt"
-                )
-                self._training_plan.model.set_weights(
-                    declearn.model.api.NumpyVector.unpack(params)
+                    f"aggregated_params_{uuid.uuid4()}.json"
                 )
                 self._training_plan.save_weights(filename)
             repo_response = self.repo.upload_file(filename)

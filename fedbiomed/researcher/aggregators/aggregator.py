@@ -1,25 +1,20 @@
-"""
-top class for all aggregators
-"""
+"""Aggregator abstract base class."""
+
+from abc import ABCMeta, abstractmethod
+from typing import Any, Dict, List
+
+from declearn.model.api import Vector
 
 
-from typing import Dict, Any
+class Aggregator(metaclass=ABCMeta):
+    """Abstract base class to implement federated updates' aggregation."""
 
-from fedbiomed.common.constants  import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedAggregatorError
-from fedbiomed.common.logger     import logger
-
-
-class Aggregator:
-    """
-    Defines methods for aggregating strategy
-    (eg FedAvg, FedProx, SCAFFOLD, ...).
-    """
-    def __init__(self):
+    def __init__(self) -> None:
+        """Instantiate the aggregator."""
         self._aggregator_params = None
 
     @staticmethod
-    def normalize_weights(weights) -> list:
+    def normalize_weights(weights: List[float]) -> List[float]:
         """
         Load list of weights assigned to each node and
         normalize these weights so they sum up to 1
@@ -36,21 +31,22 @@ class Aggregator:
             norm = [_w / _s for _w in weights]
         return norm
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
-        """
-        Strategy to aggregate models
+    @abstractmethod
+    def aggregate(
+            self,
+            model_params: List[Vector],
+            weights: List[float]
+        ) -> Vector:
+        """Aggregate model parameters.
 
         Args:
-            model_params: List of model parameters received from each node
-            weights: Weight for each node-model-parameter set
+            model_params: List of model parameters received from each node.
+            weights: List of node-wise weights.
 
-        Raises:
-            FedbiomedAggregatorError: If the method is not defined by inheritor
+        Returns:
+            params: Aggregated parameters, as a declearn Vector.
         """
-        msg = ErrorNumbers.FB401.value + \
-            ": aggreate method should be overloaded by the choosen strategy"
-        logger.critical(msg)
-        raise FedbiomedAggregatorError(msg)
+        return NotImplemented
 
     def save_state(self) -> Dict[str, Any]:
         """
@@ -63,7 +59,7 @@ class Aggregator:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any]) -> None:
         """
         use for breakpoints. load the aggregator state
         """
