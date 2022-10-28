@@ -19,7 +19,7 @@ if not compiler.options.nodes:
 
 
 @compiler.register_function('server_key')
-def server_key_setup():
+def server_key():
     nodes = int(compiler.options.nodes) - 1
     sk_nodes_array = Array(nodes, sint)
     @for_range_opt(nodes)
