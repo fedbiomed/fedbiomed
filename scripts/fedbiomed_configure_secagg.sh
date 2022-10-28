@@ -19,24 +19,6 @@ basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 mpspdz_basedir=$basedir/modules/MP-SPDZ
 # ---------------------------------------------------------------------------------------------------------------
 
-subprocess() {
-    # find all suprocesses of a given pid
-    # (should be as portable as pgrep is)
-    parent=$1
-
-    [[ -z "$parent" ]] && { echo "" ; return ; }
-    pids=$(pgrep -P $parent)
-
-    [[ -z "pids" ]] && { echo "" ; return ; }
-
-    list=""
-    for i in $pids ; do
-        list+="$i $(subprocess $i) "
-    done
-
-    echo "$list"
-}
-
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
 # Clone initialize github submodule if it is not existing
@@ -73,23 +55,22 @@ if test "$cpu_info"; then
     echo -e "${RED}ERROR${NC}: Unknown CPU architecture"
     exit 1
   fi
+
+  # Link binaries to ${FEDBIOMED_DIR}/bin ------------------------------------------------------------------
+  echo -e "\n${YLW}Copying binary distributions... ${NC}"
+  if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
+    echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
+    exit 1
+  fi
+  # ----------------------------------------------------------------------------------------------------------------
+
 else
   echo -e "${RED}ERROR${NC}: Can not get CPU info 'cat /proc/cpuinfo' failed!"
   exit 1
 fi
 
-# Link binaries to ${FEDBIOMED_DIR}/bin ------------------------------------------------------------------
-echo -e "\n${YLW}Copying binary distributions... ${NC}"
-if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
-  echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
-  exit 1
-fi
-
 # Copy command
 #! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'
-
-# ----------------------------------------------------------------------------------------------------------------
-
 
 # Link MPC files ----------------------------------------------------------------------------------------------
 # This also includes linking test_setup
@@ -152,8 +133,6 @@ for i in 0 1 2; do
       -OF Player-Data/Test-Output \
       test_setup \
       -N 3 > /dev/null &
-  pid=$!
-  ALL_PIDS+=" $pid $(subprocess $pid)"
 done
 
 # Waits for calculation. There are 3 required output from 3 different party as "RESULT 35"
@@ -177,7 +156,6 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
     exit 1
   fi
 done
-kill -9 $ALL_PIDS 2> /dev/null
 
 echo -e "${BOLD} MP-SPDZ configuration is successfully tested! ${NC}"
 
