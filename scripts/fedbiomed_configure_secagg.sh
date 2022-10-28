@@ -34,6 +34,8 @@ if test $(uname) = "Linux"; then
 elif test $(uname) = "Darwin"; then
   # TODO: Implement macOS installation
   echo -e "${BOLD}macOS detected. MP-SPDZ will be compiled from source instead of using binary distribution${NC}\n"
+  echo -e "${YL}\n IMPORTANT: macOS implementation is not completed!"
+  exit 1
 else
   echo -e "${RED}ERROR${NC}: Unknown operation system. Only Linux or macOS based operating systems are supported\n"
   echo -e "Aborting installation \n"
@@ -63,7 +65,6 @@ if test "$cpu_info"; then
     exit 1
   fi
   # ----------------------------------------------------------------------------------------------------------------
-
 else
   echo -e "${RED}ERROR${NC}: Can not get CPU info 'cat /proc/cpuinfo' failed!"
   exit 1
