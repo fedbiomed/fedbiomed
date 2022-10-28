@@ -33,6 +33,11 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    -ss|--shamir-server-key)
+     SHAMIR=1
+     NODE_ID=$2
+     NODE_NUMBER=$3
+     ;;
     -h | --help)
       echo "HELP"
       ;;
@@ -86,8 +91,13 @@ fi
 
 # Execute protocol ------------------------------------------------------------------------------------------------
 if [ -n "$EXEC" ]; then
-
-  command=$(cd "$mpspdz_basedir" && ./"$EXEC".x $EXTRA_ARGS)
-
+  exec_out=$(cd "$mpspdz_basedir" && ./"$EXEC".x $EXTRA_ARGS)
 fi
 # -----------------------------------------------------------------------------------------------------------------
+
+
+# Execute Shamir
+
+if [ -n "$SHAMIR" ]; then
+   echo "Execute all necessary actions for shamir protocol including key generation and compiling. "
+fi
