@@ -219,8 +219,8 @@ class TrainingPlan(metaclass=ABCMeta):
 
     def set_data_loaders(
             self,
-            train_data_loader: TypeDataLoader,
-            test_data_loader: TypeDataLoader,
+            train_data_loader: Optional[TypeDataLoader],
+            test_data_loader: Optional[TypeDataLoader],
         ) -> None:
         """Data loaders setter for TrainingPlan.
 
@@ -232,6 +232,8 @@ class TrainingPlan(metaclass=ABCMeta):
             test_data_loader: Data loader for validation routine.
         """
         for loader in (train_data_loader, test_data_loader):
+            if loader is None:
+                continue
             if not isinstance(loader, self._data_type.value):
                 msg = (
                     f"{ErrorNumbers.FB304.value}: unproper data loader type:"
@@ -574,7 +576,7 @@ class TrainingPlan(metaclass=ABCMeta):
         while not epochs.saturated:
             record_loss.keywords["epoch"] = int(epochs.value)
             for idx, (inp, tgt) in enumerate(self.training_data_loader, 1):
-                rec = record_loss if (log_interval % idx == 0) else None
+                rec = record_loss if (idx % log_interval == 0) else None
                 self._training_step(idx, inp, tgt, rec)
                 # Update effort constraints and break when one is met.
                 nsteps.increment()
@@ -584,7 +586,7 @@ class TrainingPlan(metaclass=ABCMeta):
 
     def _setup_loss_reporting(
             self,
-            history_monitor: Optional["HistoryMonitor"]
+            history_monitor: Optional[HistoryMonitor]
         ) -> functools.partial:
         """Set up a function that performs loss reporting.
 
@@ -666,10 +668,10 @@ class TrainingPlan(metaclass=ABCMeta):
 
     def testing_routine(
             self,
-            metric: Optional[MetricTypes],
-            metric_args: Dict[str, Any],
-            history_monitor: Optional[HistoryMonitor],
-            before_train: bool
+            metric: Optional[MetricTypes] = None,
+            metric_args: Optional[Dict[str, Any]] = None,
+            history_monitor: Optional[HistoryMonitor] = None,
+            before_train: bool = False
         ) -> None:
         """Evaluation routine, to be called once per round.
 
@@ -735,7 +737,7 @@ class TrainingPlan(metaclass=ABCMeta):
     def _setup_evaluate_step(
             self,
             metric: Optional[MetricTypes],
-            metric_args: Dict[str, Any],
+            metric_args: Optional[Dict[str, Any]],
         ) -> Tuple[Callable[[Any, Any], Any], str]:
         """Set up a batch-wise metrics-computation function.
 
@@ -763,7 +765,7 @@ class TrainingPlan(metaclass=ABCMeta):
                 if isinstance(target, torch.Tensor):
                     target = target.detach().numpy()
                 return metric_controller.evaluate(
-                    target, output, metric=metric, **metric_args
+                    target, output, metric=metric, **(metric_args or {})
                 )
             metric_name = metric.name
         # Return the evaluation function and the metric's name.

@@ -6,20 +6,35 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
-from fedbiomed.common.data import DataManager, DataLoadingPlan
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    TrainingPlanApprovalStatus,
+)
+from fedbiomed.common.data import (
+    DataLoadingPlan,
+    DataManager,
+    TorchDataManager,
+    TypeDataManager,
+)
 from fedbiomed.common.exceptions import (
-    FedbiomedError, FedbiomedRoundError, FedbiomedTrainingPlanError
+    FedbiomedError,
+    FedbiomedRoundError,
+    FedbiomedTrainingPlanError,
 )
 from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, TrainReply
+from fedbiomed.common.message import (
+    NodeMessages,
+    TrainReply,
+)
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TrainingPlan
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.node.training_plan_security_manager import (
+    TrainingPlanSecurityManager,
+)
 
 
 class Round:
@@ -49,7 +64,8 @@ class Round:
             training_kwargs: Keyword arguments to parametrize training, but
                 also evaluation and data loading. Parsed using `TrainingArgs`.
             dataset: Metadata about the local dataset, enabling its proper use.
-                Keys: "dataset_id", "path" and optionally "dataset_parameters".
+                Keys: "dataset_id", "path" and optionally "dataset_parameters"
+                (the latter being compatible with some specific datasets only).
             training_plan_url: url from which to download the training plan
                 JSON dump file.
             params_url: url from which download and at which to upload model
@@ -60,6 +76,11 @@ class Round:
                 feed-back to the end-user during training and evaluation.
             node_args: Keyword arguments collected from the node's commandline.
                 Passed as `node_args` to `training_plan.training_routine`.
+            dlp_and_loading_block_metadata: Optional parameters to add a
+                `DataLoadingPlan` to the dataset specified by the training
+                plan. Only used when a `TorchDataManager` handles the data
+                and said data is a `torch.utils.data.Dataset` subclass that
+                implements a `set_dlp` method.
         """
         self.dataset = dataset
         self.training_plan_url = training_plan_url
@@ -308,8 +329,8 @@ class Round:
         """Set up and assign data loaders to a given training plan.
 
         This method handles the following operations:
-        * Build a DataManager using `training_plan.training_data(...)`.
-        * Load this DataManager based on `training_plan.data_loader_type()`.
+        * Build a generic DataManager using `training_plan.training_data(...)`.
+        * Build a concrete manager based on `training_plan.data_loader_type()`.
         * Pass along configuration parameters to the DataManager's dataset.
         * Optionally set up a DataLoadingPlan on top of the dataset.
         * Split the dataset into a pair of data loaders for train and test.
@@ -324,7 +345,7 @@ class Round:
         """
         # Gather testing parameters.
         testing_arguments = self.training_arguments.testing_arguments()
-        test_ratio = testing_arguments.get('test_ratio', 0)
+        test_ratio = testing_arguments.get('test_ratio', 0.)
         test_global = testing_arguments.get('test_on_global_updates')
         test_local = testing_arguments.get('test_on_local_updates')
         # Inform user about mismatch arguments settings.
@@ -363,19 +384,20 @@ class Round:
     def _build_data_manager(
         self,
         training_plan: TrainingPlan,
-    ) -> DataManager:
-        """Set up and load a DataManager based on a TrainingPlan.
+    ) -> TypeDataManager:
+        """Set up and load a concrete DataManager based on a TrainingPlan.
 
         Args:
             training_plan: TrainingPlan, the `training_data` method of
                 which to call, and the `data_loader_type()` from which
-                to use when calling `DataManager.load`.
+                to use when calling `DataManager.build`.
 
         Returns:
-            data_manager: DataManager instance created by calling the
-                method with mapped parameters taken from the `dataset`
-                and `training_arguments` wrapped by this `Round`. The
-                `load` method will already have been called.
+            data_manager: Instance created by calling the `build` method
+                of the generic `DataManager` returned from the training
+                plan's `training_data` method. The latter is called with
+                parameters taken from the `dataset` and `training_arguments`
+                wrapped by this `Round`.
 
         Raises:
             FedbiomedRoundError: If the call to `training_data` fails,
@@ -385,14 +407,16 @@ class Round:
         # Inspect the arguments of the method `training_data`, because it is
         # defined by the researcher and might include additional arguments.
         signature = inspect.signature(training_plan.training_data)
-        arguments = list(signature.parameters.keys())
+        arguments = set(signature.parameters.keys())
         # Map training arguments to the former.
-        kwargs = self.training_arguments.loader_arguments()
-        kwargs = {key: val for key, val in kwargs.items() if key in arguments}
+        # Separate those passed to `training_data` from those passed later on.
+        loader_args = self.training_arguments.loader_arguments()
+        arguments = set.intersection(arguments, loader_args)
+        t_data_args = {key: loader_args.pop(key) for key in arguments}
         # Try running the method.
         try:
             data_manager = training_plan.training_data(
-                dataset_path=self.dataset["path"], **kwargs
+                dataset_path=self.dataset["path"], **t_data_args
             )
         except Exception as exc:
             raise FedbiomedRoundError(
@@ -406,26 +430,25 @@ class Round:
                 "should a `fedbiomed.common.data.DataManager` instance, "
                 f"not {type(data_manager)}"
             )
-        # Load the type-specific data manager through the generic factory.
+        # Build the type-specific data manager from the generic factory.
         try:
-            data_manager.load(loader_type=training_plan.data_loader_type())
+            data_manager.set_loader_arguments(loader_args, update=True)
+            return data_manager.build(training_plan.data_loader_type())
         except FedbiomedError as exc:
             raise FedbiomedRoundError(
-                f"{ErrorNumbers.FB314.value}: Error while loading the "
-                f"data manager: {exc}"
+                f"{ErrorNumbers.FB314.value}: Error while building the "
+                f"concrete data manager: {exc}"
             ) from exc
-        # Return the data manager.
-        return data_manager
 
     def _configure_dataset(
         self,
-        data_manager: DataManager,
+        data_manager: TypeDataManager,
     ) -> None:
-        """Configure the dataset wrapped by a freshly-loaded DataManager.
+        """Configure the dataset wrapped by a DataManager class.
 
         Args:
-            data_manager: DataManager instance, the `load` method of which
-                has already been called.
+            data_manager: Data manager freshly created through the DataManager
+                generic factory.
 
         Raises:
             FedbiomedDatasetError: if a method from `data_manager` or from
@@ -433,6 +456,16 @@ class Round:
             FedbiomedRoundError: if a DataLoadingPlan is configured to be
                 set on the `data_manager.dataset` but cannot be.
         """
+        if not isinstance(data_manager, TorchDataManager):
+            if (
+                self.dataset.get("dataset_parameters")
+                or self._dlp_and_loading_block_metadata is not None
+            ):
+                logger.warning(
+                    "'dataset_parameters' and 'DataLoadingPlan' parameters "
+                    "wrapped by `Round` cannot be applied to the dataset: "
+                    "it is not handled through a TorchDataManager."
+                )
         # Optionally pass on some dataset parameters.
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})

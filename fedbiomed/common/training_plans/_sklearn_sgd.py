@@ -2,7 +2,8 @@
 
 """Training Plan designed to wrap scikit-learn SGD Classifier/Regressor."""
 
-from typing import Any, Dict, Union
+import functools
+from typing import Any, Dict, Optional, Union
 
 import declearn
 import numpy as np
@@ -86,8 +87,24 @@ class SklearnSGDTrainingPlan(TrainingPlan):
             node_args: Dict[str, Any],
         ) -> None:
         # Warn if GPU-use was expected (as it is not supported).
-        if node_args.get('gpu_only', True):
+        if node_args.get("gpu_only", False):
             logger.warning(
-                'Node would like to force GPU usage, but sklearn training '
-                'plan does not support it. Training on CPU.'
+                "Node would like to force GPU usage, but sklearn training "
+                "plan does not support it. Training on CPU."
             )
+
+    def _training_step(
+            self,
+            idx: int,
+            inputs: Any,
+            target: Any,
+            record_loss: Optional[functools.partial] = None,
+        ) -> None:
+        """Backend method to run a single training step.
+
+        This method should always be called as part of `training_routine`
+        and is merely factored out of it to enable its extension by model
+        or framework-specific subclasses.
+        """
+        target = target.ravel()  # scikit-learn expects 1d-array targets
+        super()._training_step(idx, inputs, target, record_loss)

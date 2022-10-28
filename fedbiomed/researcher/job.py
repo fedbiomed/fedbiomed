@@ -624,9 +624,6 @@ class LocalJob:
     def start_training(self):
         """Sends training task to nodes and waits for the responses"""
 
-        for i in self._training_plan._dependencies:
-            exec(i, globals())
-
         is_failed = False
         error_message = ''
 
@@ -634,8 +631,8 @@ class LocalJob:
         if not is_failed:
             results = {}
             try:
-                data_manager = self._training_plan.training_data(self.dataset_path)
-                data_manager.load(self._training_plan.data_loader_type())
+                base_manager = self._training_plan.training_data(self.dataset_path)
+                data_manager = base_manager.build(self._training_plan.data_loader_type())
                 train_loader, test_loader = data_manager.split(test_ratio=0)
                 self._training_plan.set_data_loaders(train_loader, test_loader)
                 self._training_plan.training_routine()
