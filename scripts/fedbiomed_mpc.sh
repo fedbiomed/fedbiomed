@@ -25,40 +25,8 @@ programs_dir=$mpspdz_basedir/Programs/Source
 eval "$(conda shell.bash hook)"
 conda activate fedbiomed-researcher
 
-
-# Compile action ------------------------------------------------------------------------------------------------
-function compile(){
-
-  SCRIPTS=$1
-  EXTRA_ARGS=$2
-
-  # Check MPC script is existing in MPC
-  if [ ! -f "$mpspdz_basedir/Programs/Source/$COMPILE.mpc" ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}Unknown MPC program '$COMPILE'. Please run --help to see available MPC scripts ${NC}\n"
-    exit 1
-  fi
-
-  # Retrieve bi-prime
-  biprime=$(cat $basedir/bin/biprime)
-
-  # Execute compile command
-  compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$COMPILE.mpc" $EXTRA_ARGS --prime="$biprime" 2>&1 )
-  if [ ! $? -eq 0 ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}Above error occurred while compiling MPC program '$COMPILE'.${NC}\n"
-    echo -e "##########################################################################"
-    echo -e "$compile_out"
-    echo -e "##########################################################################\n"
-    exit 1
-  else
-    echo -e "\n${GRN}Compilation is successful!${NC}"
-    echo -e "##########################################################################"
-    echo -e "$compile_out"
-    echo -e "##########################################################################\n"
-  fi
-}
-# ----------------------------------------------------------------------------------------------------------------
+PROTOCOLS=(shamir-party)
+SCRIPTS=(server_key test_setup)
 
 function help(){
 
@@ -121,6 +89,67 @@ EOF
 
 }
 
+# Compile action ------------------------------------------------------------------------------------------------
+function compile(){
+
+  SCRIPT=$1
+  EXTRA_ARGS=$2
+
+  # shellcheck disable=SC2076
+  if [[ ! " ${SCRIPTS[*]} " =~ " $SCRIPT " ]]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}MPC script '$SCRIPT' is not supported or not existing.${NC}\n"
+    exit 1
+  fi
+
+  # Check MPC script is existing in MPC
+  if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts ${NC}\n"
+    exit 1
+  fi
+
+  # Retrieve bi-prime
+  biprime=$(cat $basedir/bin/biprime)
+
+  # Execute compile command
+  compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$SCRIPT.mpc" $EXTRA_ARGS --prime="$biprime" 2>&1 )
+  if [ ! $? -eq 0 ]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}Above error occurred while compiling MPC program '$SCRIPT'.${NC}\n"
+    echo -e "##########################################################################"
+    echo -e "$compile_out"
+    echo -e "##########################################################################\n"
+    exit 1
+  else
+    echo -e "\n${GRN}Compilation is successful!${NC}"
+    echo -e "##########################################################################"
+    echo -e "$compile_out"
+    echo -e "##########################################################################\n"
+  fi
+}
+# ----------------------------------------------------------------------------------------------------------------
+
+
+function execute_protocol(){
+
+  PROTOCOL=$1
+  EXTRA_ARGS=$2
+  # shellcheck disable=SC2076
+  if [[ ! " ${PROTOCOLS[*]} " =~ " $PROTOCOL " ]]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}The MPC protocol '$PROTOCOL' is not supported or not existing.${NC}\n"
+    exit 1
+  fi
+
+  exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
+  if [ ! $? -eq 0 ]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
+    exit 1
+  fi
+}
+
 
 
 # Parsing arguments ---------------------------------------------------------------------------------------------
@@ -128,9 +157,9 @@ case $1 in
 
   compile)
     while [[ $# -gt 0 ]]; do
-      case $1 in
+      case $2 in
         -s|--script)
-          SCRIPT="$2"
+          SCRIPT="$3"
           shift # past argument
           shift # past value
           ;;
@@ -158,9 +187,9 @@ case $1 in
 
     # Parse arguments for protocol execution
     while [[ $# -gt 0 ]]; do
-      case $1 in
+      case $2 in
         -s|--protocol)
-          PROTOCOL="$2"
+          PROTOCOL="$3"
           shift # past argument
           shift # past value
           ;;
@@ -169,7 +198,7 @@ case $1 in
           exit 0
           ;;
         *)
-          EXTRA_ARGS+=" $1" # save positional arg
+          EXTRA_ARGS+=" $2" # save positional arg
           shift # past argument
           ;;
       esac
@@ -177,7 +206,7 @@ case $1 in
 
     # Execute protocol
     if [ -n "$PROTOCOL" ]; then
-      exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
+      execute_protocol "$PROTOCOL" "$EXTRA_ARGS"
     else
        echo -e "\n${RED}ERROR:${NC}"
           echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
@@ -186,6 +215,7 @@ case $1 in
   ;;
 
   shamir-server-key)
+    echo "Not implemented"
       #TODO: Implement directly shamir
   ;;
   -h|--help)
@@ -198,5 +228,5 @@ case $1 in
     ;;
 esac
 
-exit 1
+exit 0
 

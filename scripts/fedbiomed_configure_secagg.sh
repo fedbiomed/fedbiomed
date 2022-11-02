@@ -113,7 +113,8 @@ if [ ! -d "$player_data/test_ip_assigned.tldr" ]; then
   rm "$player_data/test_ip_assigned.tldr"
 fi
 
-rm $mpspdz_basedir/Player-Data/Test-
+# Remove test input and outputs
+rm $mpspdz_basedir/Player-Data/Test-*
 
 # Create data for two test party
 for i in 0 1 2; do
@@ -127,16 +128,20 @@ echo -e "${BOLD}Done! ${NC}"
 # Run configuration test-----------------------------------------------------------------------------------------------
 
 # Compiles test setup mpc file
-"$basedir"/scripts//fedbiomed_mpc.sh --compile test_setup
+if ! "$basedir"/scripts/fedbiomed_mpc.sh compile --script test_setup; then
+    echo -e "\n${RED}ERROR${NC}:"
+    echo -e "${BOLD} Error while compiling 'test_setup' ${NC}"
+    exit 1
+fi
 
 # Starts parties for MPC
 for i in 0 1 2; do
-  "$basedir"/scripts/fedbiomed_mpc.sh --exec shamir-party $i \
+  "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party $i \
       -ip Player-Data/test_ip_assigned.tldr \
       -IF Player-Data/Test-Input \
       -OF Player-Data/Test-Output \
       test_setup \
-      -N 3 > /dev/null &
+      -N 3  &
 done
 
 # Waits for calculation. There are 3 required output from 3 different party as "RESULT 35"
