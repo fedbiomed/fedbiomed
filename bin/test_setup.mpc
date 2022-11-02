@@ -3,8 +3,8 @@ import sys
 
 # Setup system path
 file = __file__
-source = os.path.split(file)[0]
-sys.path.append(source)
+compiler_source = os.path.join(os.path.split(file)[0], "..", "..")
+sys.path.append(compiler_source)
 
 
 from Compiler.library import print_ln, sint

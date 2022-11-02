@@ -20,6 +20,11 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 programs_dir=$mpspdz_basedir/Programs/Source
 # ---------------------------------------------------------------------------------------------------------------
 
+
+# Activate conda environment
+eval "$(conda shell.bash hook)"
+conda activate fedbiomed-researcher
+
 # Parsing arguments ---------------------------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,7 +38,7 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    -ss|--shamir-server-key)
+    -ssk|--shamir-server-key)
      SHAMIR=1
      NODE_ID=$2
      NODE_NUMBER=$3
@@ -61,8 +66,7 @@ fi
 if [ -n "$COMPILE" ]; then
 
   # Check MPC script is existing in MPC
-  if [ ! -f "$programs_dir/$COMPILE.mpc" ]; then
-    echo "$programs_dir/$COMPILE.mpc"
+  if [ ! -f "$mpspdz_basedir/Programs/Source/$COMPILE.mpc" ]; then
     echo -e "\n${RED}ERROR:${NC}"
     echo -e "${BOLD}Unknown MPC program '$COMPILE'. Please run --help to see available MPC scripts ${NC}\n"
     exit 1
@@ -72,7 +76,7 @@ if [ -n "$COMPILE" ]; then
   biprime=$(cat $basedir/bin/biprime)
 
   # Execute compile command
-  compile_out=$(cd "$mpspdz_basedir" && python "$COMPILE.mpc" $EXTRA_ARGS --prime="$biprime" 2>&1 )
+  compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$COMPILE.mpc" $EXTRA_ARGS --prime="$biprime" 2>&1 )
   if [ ! $? -eq 0 ]; then
     echo -e "\n${RED}ERROR:${NC}"
     echo -e "${BOLD}Above error occurred while compiling MPC program '$COMPILE'.${NC}\n"

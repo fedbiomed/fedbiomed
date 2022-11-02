@@ -10,7 +10,7 @@ GRN='\033[1;32m' #green
 NC='\033[0m' #no color
 BOLD='\033[1m'
 
-# Base Fed-BioMed directory ------------------------------------------------------------------------------------
+# Base Fed-BioMed directory -------------------------------------------------------------------------------------
 [[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
 basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
@@ -19,12 +19,15 @@ basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 mpspdz_basedir=$basedir/modules/MP-SPDZ
 # ---------------------------------------------------------------------------------------------------------------
 
+# Activate conda environment ------------------------------------------------------------------------------------
+eval "$(conda shell.bash hook)"
+conda activate fedbiomed-node
+# ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
 # Clone initialize github submodule if it is not existing
-#if [ -z "$(ls -A $mpspdz_basedir)" ]; then
-  git submodule update --init modules/MP-SPDZ
-#fi
+echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
+git submodule update --init modules/MP-SPDZ
 
 # Get system information  ---------------------------------------------------------------------------------------
 echo -e "\n${YLW}--------------------------------SYSTEM INFORMATION------------------------------------------${NC}"
@@ -58,25 +61,25 @@ if test "$cpu_info"; then
     exit 1
   fi
 
-  # Link binaries to ${FEDBIOMED_DIR}/bin ------------------------------------------------------------------
+  # Link binaries to ${FEDBIOMED_DIR}/bin ---------------------------------------------------------------------
   echo -e "\n${YLW}Copying binary distributions... ${NC}"
   if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
     echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
     exit 1
   fi
-  # ----------------------------------------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------------------------------------
 else
   echo -e "${RED}ERROR${NC}: Can not get CPU info 'cat /proc/cpuinfo' failed!"
   exit 1
 fi
 
-# Copy command
+# To use it later
 #! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'
 
 # Link MPC files ----------------------------------------------------------------------------------------------
 # This also includes linking test_setup
 echo -e "\n${YLW}Linking MPC files... ${NC}"
-if ! ln -nsf "$basedir"/bin/*.mpc "$mpspdz_basedir"/; then
+if ! ln -nsf "$basedir"/bin/*.mpc "$mpspdz_basedir"/Programs/Source/; then
   echo -e "\n${RED}ERROR${NC}: Can not create link for MPC files into MP-SPDZ programs!\n"
   exit 1
 fi
