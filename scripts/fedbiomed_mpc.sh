@@ -204,7 +204,7 @@ function execute_shamir_server_key(){
 
   "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
-        -IF "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0 \
+        -IF "$mpspdz_basedir"/Player-Data/Server-Key-Input \
         -OF "$OUTPUT_FILE" \
         server_key \
         -N "$NUMBER_OF_PARTIES"
