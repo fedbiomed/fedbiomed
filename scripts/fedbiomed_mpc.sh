@@ -102,6 +102,7 @@ function compile(){
     exit 1
   fi
 
+  echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
   # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
     echo -e "\n${RED}ERROR:${NC}"
@@ -135,6 +136,8 @@ function execute_protocol(){
 
   PROTOCOL=$1
   EXTRA_ARGS=$2
+
+
   # shellcheck disable=SC2076
   if [[ ! " ${PROTOCOLS[*]} " =~ " $PROTOCOL " ]]; then
     echo -e "\n${RED}ERROR:${NC}"
@@ -142,14 +145,71 @@ function execute_protocol(){
     exit 1
   fi
 
+
+  echo -e "${GRN}Executing protocol '$PROTOCOL'...${NC}"
+  echo -e "${BOLD}Press CTL+C to stop${NC}"
   exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
+
   if [ ! $? -eq 0 ]; then
     echo -e "\n${RED}ERROR:${NC}"
     echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
     exit 1
   fi
+
+
 }
 
+
+function execute_shamir_server_key(){
+
+  NUMBER_OF_PARTIES=$1
+  PARTY_NUMBER=$2
+  ASSIGNED_IPS=$3
+  OUTPUT_FILE=$4
+  COMPILE=$5
+
+  if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ] || [ -z "$OUTPUT_FILE" ]; then
+    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "${BOLD}There missing arguments. Please make sure that all the arguments are provided.${NC}\n\
+            \rSee 'fedbiomed_mpc shamir-server-key --help'"
+    exit 1
+  fi
+
+
+  if [ -n "$COMPILE" ]; then
+    if ! "$basedir"/scripts/fedbiomed_mpc.sh compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+      echo -e "\n${RED}ERROR:${NC}"
+      echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
+      exit 1
+    fi
+  fi
+
+  # Generate the key-share
+  if [ ! "$PARTY_NUMBER" -eq 0 ]; then
+    echo -e "${GRN}Generating key share for party $PARTY_NUMBER ${NC}"
+    if ! python "$basedir"/bin/generate_sk.py --n_len 2048 > "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0; then
+      echo -e "\n${RED}ERROR:${NC}"
+      echo -e "${BOLD}Error while generating key share.${NC}\n"
+      exit 1
+    fi
+    echo -e "${BOLD}Done! Key generated in $mpspdz_basedir/Player-Data/Server-Key-Input-P$PARTY_NUMBER-0${NC}"
+  fi
+  echo -e "\n${YLW}Execution info:${NC}"
+  echo -e "${YLW}---------------------------------------${NC}"
+  echo -e "${BOLD}Party no          :${NC} $PARTY_NUMBER"
+  echo -e "${BOLD}Number of parties :${NC} $NUMBER_OF_PARTIES"
+  echo -e "${BOLD}Assigned IPs      :${NC} $ASSIGNED_IPS"
+  echo -e "${BOLD}Output file       :${NC} $OUTPUT_FILE"
+  echo -e "${BOLD}Input file        :${NC} $mpspdz_basedir/Player-Data/Server-Key-Input-P$PARTY_NUMBER-0 \n"
+
+  "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party "$PARTY_NUMBER" \
+        -ip "$ASSIGNED_IPS" \
+        -IF "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0 \
+        -OF "$OUTPUT_FILE" \
+        server_key \
+        -N "$NUMBER_OF_PARTIES"
+
+}
 
 
 # Parsing arguments ---------------------------------------------------------------------------------------------
@@ -209,14 +269,54 @@ case $1 in
       execute_protocol "$PROTOCOL" "$EXTRA_ARGS"
     else
        echo -e "\n${RED}ERROR:${NC}"
-          echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
-          exit 1
+       echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
+       exit 1
     fi
   ;;
 
   shamir-server-key)
-    echo "Not implemented"
-      #TODO: Implement directly shamir
+
+    # Parse arguments for protocol execution
+    while [[ $# -gt 0 ]]; do
+      case $2 in
+        -nop|--num-of-parties)
+          NUMBER_OF_PARTIES="$3"
+          shift # past argument
+          shift # past value
+          ;;
+        -aip|--assigned-ips)
+          ASSIGNED_IPS="$3"
+          shift # past argument
+          shift # past value
+          ;;
+        -pn|--party-number)
+          PARTY_NUMBER="$3"
+          shift # past argument
+          shift # past value
+          ;;
+       -of|--ouput-file)
+          OUTPUT_FILE="$3"
+          shift # past argument
+          shift # past value
+          ;;
+        -c|--compile)
+          COMPILE=1
+          shift # past argument
+          shift # past value
+          ;;
+        *)
+          if [ -z  "$2" ]; then
+            break;
+          else
+            echo -e "\n${RED}ERROR:${NC}"
+            echo -e "${BOLD}Unknown argument '$2' ${NC}\n"
+            exit 1
+          fi
+          ;;
+      esac
+    done
+
+    execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$COMPILE"
   ;;
   -h|--help)
     help main
