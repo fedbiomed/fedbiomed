@@ -109,12 +109,15 @@ echo -e "\n${YLW}Creating temporary certificates and input files for testing${NC
 player_data="$basedir/modules/MP-SPDZ/Player-Data"
 
 # Remove existing test assigned IP address for each test party
-if [ ! -d "$player_data/test_ip_assigned.tldr" ]; then
+if [ -f "$player_data/test_ip_assigned.tldr" ]; then
   rm "$player_data/test_ip_assigned.tldr"
 fi
 
 # Remove test input and outputs
-rm $mpspdz_basedir/Player-Data/Test-*
+if [ -n "$(ls -a "$mpspdz_basedir"/Player-Data/ | grep Test-Output-*)" ]; then
+  echo -e "\n${YLW}Removing previous test files${NC}"
+  rm "$mpspdz_basedir"/Player-Data/Test-Output*
+fi
 
 # Create data for two test party
 for i in 0 1 2; do
@@ -151,22 +154,32 @@ count=0
 wait=(1 1 1)
 while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
   sleep 1;
+
+  echo -e "${BOLD}Checking the output of parties for testing  round $count out of 9 ------------------------------${NC}"
   for i in 0 1 2; do
-    test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
+    if [ ! -f "$mpspdz_basedir/Player-Data/Test-Output-P$i-0" ]; then
+      test_result=''
+    else
+      test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
+    fi
+
     if [ "$test_result" == "RESULT 35" ]; then
         wait[$i]=0
     fi
-    count=$((count+1))
+    echo "Checking output of party ->  $i : Result '$test_result' "
   done
+  count=$((count+1))
 
   # More than 9 seconds exit process with error
-  if [[ "$count" -gt 9 ]]; then
-    echo -e "\n${RED}ERROR${NC}: Unknown error occurred while testing MP-SPDZ configuration please check above logs!\n"
+  if [[ "$count" -gt 15 ]]; then
+    echo -e "\n${RED}ERROR${NC}: Could not verify MP-SPDZ installation expected outputs are not received. \n\
+                \r Please check the logs above!\n"
     exit 1
   fi
 done
 
-echo -e "${BOLD} MP-SPDZ configuration is successfully tested! ${NC}"
+echo -e "*Testings result received at round $(($count-1))"
+echo -e "${BOLD}MP-SPDZ configuration is successfully tested! ${NC}"
 
 # Testing Ends ################################################################################################
 
