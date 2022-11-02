@@ -25,45 +25,12 @@ programs_dir=$mpspdz_basedir/Programs/Source
 eval "$(conda shell.bash hook)"
 conda activate fedbiomed-researcher
 
-# Parsing arguments ---------------------------------------------------------------------------------------------
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    -c|--compile)
-      COMPILE="$2"
-      shift # past argument
-      shift # past value
-      ;;
-    -x|--exec)
-      EXEC="$2"
-      shift # past argument
-      shift # past value
-      ;;
-    -ssk|--shamir-server-key)
-     SHAMIR=1
-     NODE_ID=$2
-     NODE_NUMBER=$3
-     ;;
-    -h | --help)
-      echo "HELP"
-      ;;
-    *)
-      EXTRA_ARGS+=" $1" # save positional arg
-      shift # past argument
-      ;;
-  esac
-done
-# ----------------------------------------------------------------------------------------------------------------
 
-# Verif if command is correct -----------------------------------------------------------------------------------------
-if [ -n "$COMPILE" ] && [ -n "$EXEC" ]; then
-  echo -e "\n${RED}ERROR:${NC}"
-  echo -e "${BOLD}Please specify only one of them; '-c | --compile' or '-x | --exec' not both in the same command ${NC}\n"
-  exit 1
-fi
-# -----------------------------------------------------------------------------------------------------------------
+# Compile action ------------------------------------------------------------------------------------------------
+function compile(){
 
-# Compile provided MPC script -------------------------------------------------------------------------------------
-if [ -n "$COMPILE" ]; then
+  SCRIPTS=$1
+  EXTRA_ARGS=$2
 
   # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$COMPILE.mpc" ]; then
@@ -90,18 +57,146 @@ if [ -n "$COMPILE" ]; then
     echo -e "$compile_out"
     echo -e "##########################################################################\n"
   fi
+}
+# ----------------------------------------------------------------------------------------------------------------
 
-fi
+function help(){
 
-# Execute protocol ------------------------------------------------------------------------------------------------
-if [ -n "$EXEC" ]; then
-  exec_out=$(cd "$mpspdz_basedir" && ./"$EXEC".x $EXTRA_ARGS)
-fi
-# -----------------------------------------------------------------------------------------------------------------
+  case $1 in
+
+    main)
+
+      cat <<EOF
+MPC Controller
+
+Usage
+
+> fedbiomed_mpc.sh [compile | exec | shamir-server-key]
+
+compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
+                      and more information
+exec                : To execute MPC protocol. Please run 'exec --help' for the usage and more information
+shamir-server-key   : Executes shamir protocol for server-key computation. Please run 'exec --help' for the usage
+                      and more information
+
+EOF
+    ;;
+    compile)
+      cat <<EOF
+Compiles MPC scripts
+
+Usage:
+> fedbiomed_mpc.sh  compile --script [script-name] [extra arguments]
+
+Script argument is mandatory
+
+-s | --script : The name of the MPC scripts. available scripts -> [test_setup | server_key]
+
+Pass other extra arguments for the compilation. These arguments may very based on MPC script. If the arguments are not
+supported compile operation will fail. E.g '--script server_key -N 2'
+
+EOF
+    ;;
+
+    exec)
+      cat <<EOF
+
+Executes MPC protocols
+
+Usage
+> fedbiomed_mpc exec --protocol [protocol-name] [extra-arguments]
+
+Protocol argument is mandatory
+
+-p | --protocol : The name of the MPC protocol. Should be one of available protocols are [shamir-party,]
+
+Extra arguments to pass to the protocol script. The arguments should be supported by the protocol. Otherwise, script
+will exit from the execution.
 
 
-# Execute Shamir
+EOF
+      ;;
+  esac
 
-if [ -n "$SHAMIR" ]; then
-   echo "Execute all necessary actions for shamir protocol including key generation and compiling. "
-fi
+
+}
+
+
+
+# Parsing arguments ---------------------------------------------------------------------------------------------
+case $1 in
+
+  compile)
+    while [[ $# -gt 0 ]]; do
+      case $1 in
+        -s|--script)
+          SCRIPT="$2"
+          shift # past argument
+          shift # past value
+          ;;
+        -h| --help)
+          help compile
+          exit 0
+          ;;
+        *)
+          EXTRA_ARGS+=" $1" # save positional arg
+          shift # past argument
+          ;;
+      esac
+    done
+
+    # Compile the protocol
+    if [ -n "$SCRIPT" ]; then
+          compile "$SCRIPT" "$EXTRA_ARGS"
+      else
+          echo -e "\n${RED}ERROR:${NC}"
+          echo -e "${BOLD}Please specify MPC script name to compile. e.g '--scripts test_setup' ${NC}\n"
+          exit 1
+    fi
+  ;;
+  exec)
+
+    # Parse arguments for protocol execution
+    while [[ $# -gt 0 ]]; do
+      case $1 in
+        -s|--protocol)
+          PROTOCOL="$2"
+          shift # past argument
+          shift # past value
+          ;;
+        -h| --help)
+          help exec
+          exit 0
+          ;;
+        *)
+          EXTRA_ARGS+=" $1" # save positional arg
+          shift # past argument
+          ;;
+      esac
+    done
+
+    # Execute protocol
+    if [ -n "$PROTOCOL" ]; then
+      exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
+    else
+       echo -e "\n${RED}ERROR:${NC}"
+          echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
+          exit 1
+    fi
+  ;;
+
+  shamir-server-key)
+      #TODO: Implement directly shamir
+  ;;
+  -h|--help)
+    help main
+    exit 0
+  ;;
+  *)
+    echo "Please specify the component you want to run between: network, node, researcher, gui"
+    exit 1
+    ;;
+esac
+
+exit 1
+
