@@ -79,18 +79,22 @@ configure_darwin() {
 
   echo -e "\n${YLW}--------------------------------Building from source distribution---------------------------${NC}"
 
-  cleaning=$(cd "$mpspdz_basedir" && make clean)
+
+  if ! make -C "$mpspdz_basedir" clean; then
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD} Can not build MP-SPDZ. Please check the logs above"
+    exit 1
+  fi
+
   echo "MOD = -DGFP_MOD_SZ=33" >> "$mpspdz_basedir"/CONFIG.mine
-  installing=$(cd "$mpspdz_basedir" && make tldr)
-  if [ ! $? -eq 0 ]; then
+  if ! make -j 8 -C "$mpspdz_basedir" tldr; then
     echo -e "${RED}ERROR:${NC}"
     echo -e "${BOLD} Can not build MP-SPDZ. Please check the logs above"
     exit 1
   fi
 
   # TODO:
-  installing_shamir=$(cd "$mpspdz_basedir" && make shamir)
-  if [ ! $? -eq 0 ]; then
+  if ! make -C "$mpspdz_basedir" shamir; then
     echo -e "${RED}ERROR:${NC}"
     echo -e "${BOLD} Can not build shamir protocol. Please check the logs above"
     exit 1
