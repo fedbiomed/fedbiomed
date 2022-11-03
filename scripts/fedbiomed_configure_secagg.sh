@@ -89,7 +89,7 @@ configure_darwin() {
   fi
 
   # TODO:
-  installing_shamir=$(cd "$mpspdz_basedir" && make tldr)
+  installing_shamir=$(cd "$mpspdz_basedir" && make shamir)
   if [ ! $? -eq 0 ]; then
     echo -e "${RED}ERROR:${NC}"
     echo -e "${BOLD} Can not build shamir protocol. Please check the logs above"
