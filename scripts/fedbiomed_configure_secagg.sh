@@ -79,27 +79,32 @@ configure_darwin() {
 
   echo -e "\n${YLW}--------------------------------Building from source distribution---------------------------${NC}"
 
-
+  echo -e "${GRN}\nRunning make clean ...${NC}"
   if ! make -C "$mpspdz_basedir" clean; then
     echo -e "${RED}ERROR:${NC}"
-    echo -e "${BOLD} Can not build MP-SPDZ. Please check the logs above"
+    echo -e "${BOLD}Can not build MP-SPDZ. Please check the logs above"
     exit 1
   fi
+  echo -e "${BOLD}Done cleaning! .${NC}"
 
   echo "MOD = -DGFP_MOD_SZ=33" >> "$mpspdz_basedir"/CONFIG.mine
+
+  echo -e "${GRN}\nInstalling MP-SPDZ from source dist ${NC}"
   if ! make -j 8 -C "$mpspdz_basedir" tldr; then
     echo -e "${RED}ERROR:${NC}"
-    echo -e "${BOLD} Can not build MP-SPDZ. Please check the logs above"
+    echo -e "${BOLD}Can not build MP-SPDZ. Please check the logs above"
     exit 1
   fi
+  echo -e "${BOLD}Done make tldr! .${NC}"
 
+  echo -e "${GRN}\nInstalling protocol SHAMIR ${NC}"
   # TODO:
   if ! make -C "$mpspdz_basedir" shamir; then
     echo -e "${RED}ERROR:${NC}"
-    echo -e "${BOLD} Can not build shamir protocol. Please check the logs above"
+    echo -e "${BOLD}Can not build shamir protocol. Please check the logs above"
     exit 1
   fi
-
+  echo -e "${BOLD}Done shamir! .${NC}"
 }
 
 
