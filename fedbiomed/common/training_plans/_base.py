@@ -168,8 +168,8 @@ class TrainingPlan(metaclass=ABCMeta):
         Args:
             model_args: Arguments defined to instantiate the wrapped model.
             training_args: Arguments that are used in training routines
-                such as epoch, dry_run etc.
-                Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+                such as epoch, dry_run etc. Please see
+                [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
         """
         try:
             self.model.initialize(model_args)
@@ -210,6 +210,10 @@ class TrainingPlan(metaclass=ABCMeta):
         Args:
             dataset_path: The path where data is saved on the node.
 
+        Returns:
+            manager: DataManager instance from which to obtain data loaders
+                that are to be used by this instance for training.
+
         Raises:
             FedbiomedTrainingPlanError: if called and not inherited.
         """
@@ -243,19 +247,6 @@ class TrainingPlan(metaclass=ABCMeta):
                 raise FedbiomedTrainingPlanError(msg)
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
-
-    def save_code(self, filepath: str) -> str:
-        """Save the training plan's source code and parameters to a JSON file.
-
-        Args:
-            filepath: Path to the destination file.
-
-        Raises:
-            FedbiomedTrainingPlanError: if the model file cannot be written to.
-        """
-        # TODO: garbage-collect this (after correcting external calls)
-        self.save_to_json(filepath)
-        return filepath
 
     def save_to_json(self, path: str) -> None:
         """Save the training plan's source code and parameters to a JSON file.
@@ -321,7 +312,7 @@ class TrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg) from exc
         # Execute the source code and gather the training plan subclass.
-        # TODO: improve this part to enhance security.
+        # REVISE: improve this part to enhance security.
         with tempfile.TemporaryDirectory() as folder:
             # Write the source code to a temporary .py file.
             try:
@@ -556,11 +547,6 @@ class TrainingPlan(metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        # Run optional preprocessing operations.
-        self._preprocess()
-        # Set up loss reporting.
-        log_interval = self._training_args.get("log_interval", 10)
-        record_loss = self._setup_loss_reporting(history_monitor)
         # Set up effort constraints (max. number of epochs and/or steps).
         epochs = declearn.main.utils.Constraint(
             self._training_args.get("epochs", 1.), name="n_epochs"
@@ -570,9 +556,39 @@ class TrainingPlan(metaclass=ABCMeta):
         )
         if bool(self._training_args.get("dry_run")):
             nsteps.limit = 1
+        elif not any(np.isfinite(c.limit) for c in (epochs, nsteps)):
+            msg = (
+                f"{ErrorNumbers.FB305}: Cannot train for an infinite number "
+                "of epochs and update steps. Please set the 'epochs' and/or "
+                "'num_updates' training argument to a finite positive integer."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        # Set up an additional constraint (for backward compatibility).
+        steps_per_epoch = (
+            self._training_args.get("max_batch_per_epoch", None)
+            or self._training_args.get("batch_maxnum", float("inf"))
+        )
+        if not isinstance(steps_per_epoch, (float, int)):
+            logger.error(
+                f"{ErrorNumbers.FB304.value}: Cannot use non-float training "
+                "argument 'max_batch_per_epoch' / 'batch_maxnum'. Removing "
+                "this argument."
+            )
+            steps_per_epoch = float("inf")
+        if np.isfinite(steps_per_epoch):
+            logger.warning(
+                "Using deprecated parameter 'batch_maxnum' (or its alias "
+                "'max_batch_per_epoch'). This parameter will be removed "
+                "in a future Fed-BioMed version. Please consider using "
+                "'num_updates' instead."
+            )
         # Process node arguments.
         self._process_training_node_args(node_args or {})
-        # Iterate over epochs and step-wise batches to traing the model.
+        # Set up loss reporting.
+        log_interval = self._training_args.get("log_interval", 10)
+        record_loss = self._setup_loss_reporting(history_monitor)
+        # Iterate over epochs and step-wise batches to train the model.
         while not epochs.saturated:
             record_loss.keywords["epoch"] = int(epochs.value)
             for idx, (inp, tgt) in enumerate(self.training_data_loader, 1):

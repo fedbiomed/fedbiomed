@@ -4,6 +4,7 @@ import functools
 import os
 import sys
 import json
+import importlib
 import inspect
 import traceback
 from copy import deepcopy
@@ -1986,29 +1987,16 @@ class Experiment(object):
 
         # import module class
         try:
-            import_str = 'from ' + module_path + ' import ' + module_class
-            exec(import_str)
+            mod = importlib.import_modle(module_path)
+            cls = getattr(mod, module_class)
         # could do a `except Exception as e` as exceptions may be diverse
         # reasonable heuristic:
-        except (ModuleNotFoundError, ImportError, SyntaxError, TypeError) as e:
+        except (ModuleNotFoundError, ImportError, AttributeError) as e:
             # ModuleNotFoundError : bad module name
-            # ImportError : bad class name
-            # SyntaxError : expression cannot be exec()'ed
-            # TypeError : module_path or module_class are not strings
+            # ImportError : error while importing the module
+            # AttributeError : type error and/or bad class name
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
                 f'breakpoint file seems corrupted. Module import for class {str(module_class)} ' + \
-                f'fails with message {str(e)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # create a class variable containing the class
-        try:
-            class_code = eval(module_class)
-        except Exception as e:
-            # can we restrict the type of exception ? difficult as
-            # it may be SyntaxError, TypeError, NameError, ValueError, ArithmeticError, etc.
-            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                f'breakpoint file seems corrupted. Evaluating class {str(module_class)} ' + \
                 f'fails with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -2016,9 +2004,9 @@ class Experiment(object):
         # instantiate object from module
         try:
             if not object_kwargs:
-                object_instance = class_code()
+                object_instance = cls()
             else:
-                object_instance = class_code(**object_kwargs)
+                object_instance = cls(**object_kwargs)
         except Exception as e:
             # can we restrict the type of exception ? difficult as
             # it may be SyntaxError, TypeError, NameError, ValueError,

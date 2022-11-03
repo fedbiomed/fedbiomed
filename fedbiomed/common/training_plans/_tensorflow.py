@@ -17,7 +17,8 @@ from ._base import TrainingPlan
 class TensorflowTrainingPlan(TrainingPlan):
     """Base class for training plans wrapping `tf.keras.Layer` models.
 
-    All concrete torch training plans inheriting this class should implement:
+    All concrete tensorflow training plans inheriting this class should
+    implement:
         * the `training_data` method:
             to define how to set up the `fedbiomed.data.DataManager`
             wrapping the training (and, by split, validation) data

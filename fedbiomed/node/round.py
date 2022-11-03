@@ -222,7 +222,7 @@ class Round:
             training_plan: The restored TrainingPlan to use.
 
         Raises:
-            FedbiomedError: in case of failure at any step.
+            FedbiomedRoundError: in case of failure at any step.
         """
         # Try downloading the plan and params files, and check plan approval.
         # Note: a FedbiomedError will be raised in case of failure.
@@ -240,7 +240,7 @@ class Round:
             training_plan.load_weights(param_path, assign=True)
         except FedbiomedTrainingPlanError as exc:
             msg = f"Failed to initialize the training plan: {exc}"
-            raise FedbiomedError(msg) from exc
+            raise FedbiomedRoundError(msg) from exc
         # Return the training plan if all went well.
         return training_plan
 
@@ -251,7 +251,7 @@ class Round:
             path: A string containing the path to the downloaded file.
 
         Raises:
-            FedbiomedError: If the download fails.
+            FedbiomedRoundError: If the download fails.
         """
         # Try downloading the training plan file.
         try:
@@ -267,7 +267,7 @@ class Round:
                 "Failed to download training plan file "
                 f"{self.training_plan_url}: {exc}"
             )
-            raise FedbiomedError(message) from exc
+            raise FedbiomedRoundError(message) from exc
         # In case of success, return the downloaded file's path.
         return path
 

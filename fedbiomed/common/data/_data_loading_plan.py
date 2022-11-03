@@ -334,7 +334,8 @@ class DataLoadingBlock(ABC):
         """
         try:
             dlb_module = import_module(loading_block['loading_block_module'])
-            dlb = eval(f"dlb_module.{loading_block['loading_block_class']}()")
+            dlb_cls = getattr(dlb_module, loading_block['loading_block_class'])
+            dlb = dlb_cls()
         except Exception as e:
             msg = f"{ErrorNumbers.FB614.value}: could not instantiate DataLoadingBlock from the following metadata: " +\
                   f"{loading_block} because of {type(e).__name__}: {e}"
@@ -360,7 +361,8 @@ class DataLoadingBlock(ABC):
         """
         try:
             keys = import_module(key_module)
-            loading_block_key = eval(f"keys.{key_classname}('{loading_block_key_str}')")
+            cls = getattr(keys, key_classname)
+            loading_block_key = cls('loading_block_key_str')
         except Exception as e:
             msg = f"{ErrorNumbers.FB615.value} Error deserializing loading block key " + \
                   f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
