@@ -445,6 +445,100 @@ class SearchReply(Message):
     command: str
 
 
+# Secure aggregation messages
+
+@catch_dataclass_exception
+@dataclass
+class SecaggDeleteRequest(Message):
+    """Describes a secagg context element delete request message sent by the researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that requests deletion
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    command: str
+
+@catch_dataclass_exception
+@dataclass
+class SecaggDeleteReply(Message):
+    """Describes a secagg context element delete reply message sent by the node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests deletion
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replies to the request
+        msg: Custom message
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    success: bool
+    node_id: str
+    msg: str
+    command: str
+
+@catch_dataclass_exception
+@dataclass
+class SecaggRequest(Message):
+    """Describes a secagg context element setup request message sent by the researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that requests setup
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        element: Type of secagg context element
+        parties: List of parties participating to the secagg context element setup
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    element: int
+    parties: list
+    command: str
+
+@catch_dataclass_exception
+@dataclass
+class SecaggReply(Message):
+    """Describes a secagg context element setup reply message sent by the node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests setup
+        secagg_id: ID of secagg context element that is sent by researcher
+        sequence: (unique) sequence number which identifies the message
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replies to the request
+        msg: Custom message
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    secagg_id: str
+    sequence: int
+    success: bool
+    node_id: str
+    msg: str
+    command: str
+
 # Train messages
 
 @catch_dataclass_exception
@@ -492,8 +586,8 @@ class TrainReply(Message):
         node_id: Node id that replys the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
-        tming: Timing statistics
-        msg: Custom message\
+        timing: Timing statistics
+        msg: Custom message
         command: Reply command string
 
     Raises:
@@ -524,7 +618,9 @@ class ResearcherMessages():
                                                            ListReply,
                                                            AddScalarReply,
                                                            TrainingPlanStatusReply,
-                                                           ApprovalReply]:
+                                                           ApprovalReply,
+                                                           SecaggReply,
+                                                           SecaggDeleteReply]:
         """Message reception (as a mean to reply to node requests, such as a Ping request).
 
         It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
@@ -556,7 +652,9 @@ class ResearcherMessages():
                                      'list': ListReply,
                                      'add_scalar': AddScalarReply,
                                      'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply
+                                     'approval': ApprovalReply,
+                                     'secagg': SecaggReply,
+                                     'secagg-delete': SecaggDeleteReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -571,7 +669,9 @@ class ResearcherMessages():
                                                              PingRequest,
                                                              ListRequest,
                                                              TrainingPlanStatusRequest,
-                                                             ApprovalRequest]:
+                                                             ApprovalRequest,
+                                                             SecaggRequest,
+                                                             SecaggDeleteRequest]:
 
         """Creates the adequate message/request,
 
@@ -604,7 +704,9 @@ class ResearcherMessages():
                                      'ping': PingRequest,
                                      'list': ListRequest,
                                      'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest
+                                     'approval': ApprovalRequest,
+                                     'secagg': SecaggRequest,
+                                     'secagg-delete': SecaggDeleteRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -623,7 +725,9 @@ class NodeMessages():
                                                    PingRequest,
                                                    ListRequest,
                                                    TrainingPlanStatusRequest,
-                                                   ApprovalRequest]:
+                                                   ApprovalRequest,
+                                                   SecaggRequest,
+                                                   SecaggDeleteRequest]:
         """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
         "command" in the input dictionary `params`) to a Message object
 
@@ -651,7 +755,9 @@ class NodeMessages():
                                      'ping': PingRequest,
                                      'list': ListRequest,
                                      'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest
+                                     'approval': ApprovalRequest,
+                                     'secagg': SecaggRequest,
+                                     'secagg-delete': SecaggDeleteRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -669,7 +775,9 @@ class NodeMessages():
                                                  AddScalarReply,
                                                  ListReply,
                                                  TrainingPlanStatusReply,
-                                                 ApprovalReply]:
+                                                 ApprovalReply,
+                                                 SecaggReply,
+                                                 SecaggDeleteReply]:
         """Message reception.
 
         It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
@@ -702,7 +810,9 @@ class NodeMessages():
                                      'add_scalar': AddScalarReply,
                                      'list': ListReply,
                                      'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply
+                                     'approval': ApprovalReply,
+                                     'secagg': SecaggReply,
+                                     'secagg-delete': SecaggDeleteReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:

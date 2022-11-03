@@ -434,9 +434,10 @@ class TrainingPlanSecurityManager:
                                         ) -> Union[Dict[str, Any], None]:
         """Gets training plan from database, by its hash
 
+        !!! info "Training plan file MUST be a *.txt file."
+
         Args:
             training_plan_path: training plan path where the file is saved, in order to compute its hash.
-            !!! info "Training plan file MUST be a *.txt file."
 
         Returns:
             training_plan: training plan entry found in the dataset if query in database succeed. Otherwise, returns
@@ -943,8 +944,7 @@ class TrainingPlanSecurityManager:
 
         Args:
             training_plan_id: id of the training plan.
-            extra_notes: notes detailing why training plan has been approved.
-            Defaults to None.
+            extra_notes: notes detailing why training plan has been approved. Defaults to None.
 
         Returns:
             Currently always returns True
@@ -959,8 +959,7 @@ class TrainingPlanSecurityManager:
 
         Args:
             training_plan_id: id of the training plan.
-            extra_notes: notes detailing why training plan has been rejected.
-            Defaults to None.
+            extra_notes: notes detailing why training plan has been rejected. Defaults to None.
 
         Returns:
             Currently always returns True

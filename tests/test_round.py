@@ -706,5 +706,6 @@ class TestRound(unittest.TestCase):
         self.assertEqual(param_path, 'my_model')
         self.assertEqual(msg, '')
 
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

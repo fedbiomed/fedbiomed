@@ -151,7 +151,14 @@ class FedbiomedResponsesError(FedbiomedError):
 
 class FedbiomedRoundError(FedbiomedError):
     """
-    Exceptions specific for the class node round class.
+    Exceptions specific for the node round class.
+    """
+    pass
+
+
+class FedbiomedSecaggError(FedbiomedError):
+    """
+    Exceptions specific for the researcher secure aggregation class.
     """
     pass
 
@@ -206,8 +213,22 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     pass
 
 
+class FedbiomedTypeError(FedbiomedError, TypeError):
+    """
+    TypeError for Fed-BioMed
+    """
+    pass
+
+
 class FedbiomedUserInputError(FedbiomedError):
     """
     Exception raised then user input is invalid.
+    """
+    pass
+
+
+class FedbiomedValueError(FedbiomedError, ValueError):
+    """
+    ValueError for Fed-BioMed
     """
     pass

@@ -618,7 +618,7 @@ class TestTorchnn(unittest.TestCase):
         model = torch.nn.Linear(10, 3)
         tp_fedavg = set_training_plan(model, "fedavg", .1)
         tp_fedavg.training_routine(None, None)
-
+        
         tp_scaffold = set_training_plan(model, "scaffold", .1)
         
         tp_scaffold.training_routine(None, None)
@@ -628,19 +628,20 @@ class TestTorchnn(unittest.TestCase):
                                                                 tp_scaffold._model.state_dict().items()):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
 
+        model = torch.nn.Linear(10, 3)
         correction_state = copy.deepcopy(model)
         
         for p in correction_state.parameters():
             p.data.fill_(1)
-        tp_scaffold = set_training_plan(correction_state, "scaffold")
+        tp_scaffold = set_training_plan(model, "scaffold", 0.)
         tp_scaffold.correction_state = correction_state.state_dict()
 
         tp_scaffold.training_routine(None, None)
 
-        # for (name, layer_fedavg), (name, layer_scaffold) in zip(tp_fedavg._model.state_dict().items(),
-        #                                                         tp_scaffold._model.state_dict().items()):
-        #     self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
-        
+        # for (name, layer_scaffold), (name, correction_state) in zip(tp_scaffold._model.state_dict().items(),
+        #                                                             tp_scaffold.correction_state.items()):
+        #     self.assertTrue(torch.isclose(layer_scaffold, correction_state).all())
+      
     def test_torch_nn_07_compute_corrected_loss_2(self):
         """test_torch_nn_07_compute_corrected_loss_2: 
         Tests consistancy of loss values returned by method
@@ -659,15 +660,17 @@ class TestTorchnn(unittest.TestCase):
         tp._model = correction_state
         tp.correction_state = correction_state.state_dict()
         tp.aggregator_name = 'scaffold'
+
         loss = torch.tensor(0.)
         val = tp.compute_corrected_loss(loss)
         self.assertEqual(val, loss - (n_layer + 1) * dim, "loss should be equal to loss minus number of layers + 1 time input dimension ")
-        
+
+
         # test for fedavg
         tp.aggregator_name = 'fedavg'
         val = tp.compute_corrected_loss(loss)
         self.assertEqual(loss, val)
-        
+
         # TODO: test fedprox
         
     def test_torch_nn_08_get_learning_rate(self):

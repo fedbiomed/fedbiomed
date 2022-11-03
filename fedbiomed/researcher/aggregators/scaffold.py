@@ -128,7 +128,7 @@ class Scaffold(Aggregator):
         aggregated_parameters = weighted_sum(model_params_processed, [1 / len(node_ids)] * len(node_ids))
 
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
-        if n_round == 0:
+        if n_round <= 0:
             self.init_correction_states(global_model, node_ids)
         model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
 
@@ -181,11 +181,12 @@ class Scaffold(Aggregator):
         """
         # check if values are non zero
         if not node_lrs.any():
-            raise FedbiomedAggregatorError(f"Learning rate(s) should be non-zero, but got {node_lrs} ")
+            raise FedbiomedAggregatorError(f"Learning rate(s) should be non-zero, but got {node_lrs} (in SCAFFOLD aggreagator)")
         if n_updates == 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(f"n_updates should be a non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
         if self._fds is None:
-            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()")
+            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()`")
+        # TODO: check if optimizer is SGD, otherwise, trigger warning
 
     def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan,
                                                training_replies: List[Responses],

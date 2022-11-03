@@ -3,6 +3,7 @@ implementation of Round class of the node component
 '''
 
 import os
+import shutil
 import sys
 import time
 import inspect
@@ -96,7 +97,7 @@ class Round:
         self.loader_arguments = self.training_arguments.loader_arguments()
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
-        """Retrieves aggregator argument, that are sent through file exchange service
+        """Retrieves aggregator arguments, that are sent through file exchange service
 
         Returns:
             Tuple[bool, str]: a tuple containing:
@@ -110,8 +111,7 @@ class Round:
             for arg_name, aggregator_arg in self.aggregator_args.items():
                 if isinstance(aggregator_arg, dict):
                     url = aggregator_arg.get('url', False)
-                    
-                    arg_name
+
                     if any((url, arg_name)):
                         # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
                         # exchanged system
@@ -120,10 +120,10 @@ class Round:
                         if not success:
                             return success, error_msg
                         else:
+                            # FIXME: should we load parameters here or in the training plan
                             self.aggregator_args[arg_name] = {'param_path': param_path, 
                                                               #'params': training_plan.load(param_path, to_params=True)
                                                               }
-            print("AGGREGATOR_ARGS", self.aggregator_args)
             return True, ''
         else:
             return True, "no file downloads required for aggregator args"
@@ -152,6 +152,7 @@ class Round:
             error_message = f"Cannot download param file: {url}"
             return False, '', error_message
         else:
+            shutil.copy2(params_path, f'/home/ybouilla/Documents/correction_sate_{str(uuid.uuid4())}' + '.pt')
             return True, params_path, ''
 
     def run_model_training(self) -> dict[str, Any]:

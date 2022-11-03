@@ -161,7 +161,7 @@ class TestScaffold(unittest.TestCase):
         # assuming that global model has all its coefficients to 0
         aggregated_model_params_scaffold = agg.aggregate(copy.deepcopy(self.models),
                                                         weights,
-                                                        self.zero_model.state_dict(),
+                                                        copy.deepcopy(self.zero_model.state_dict()),
                                                         training_plan,
                                                         self.responses,
                                                         self.node_ids,
@@ -170,7 +170,7 @@ class TestScaffold(unittest.TestCase):
 
         aggregated_model_params_fedavg = FedAverage().aggregate(copy.deepcopy(self.models), weights)
         # we check that fedavg and scaffold give proportional results provided:
-        # - all previous coefficient model are set to 0
+        # - all previous correction state model are set to 0 (round 0)
         # - model proportions are the same
         # then:
         # fedavg: x_i <- x_i / n_nodes
@@ -179,6 +179,10 @@ class TestScaffold(unittest.TestCase):
                                      aggregated_model_params_fedavg.items()):
 
             self.assertTrue(torch.isclose(v, v_i * .2).all())
+            
+        # check that at the end of aggregation, all correction states are non zeros (
+        for (k,v) in agg.nodes_correction_states.items():
+            self.assertTrue(torch.is_nonzero(v))
         # TODO: test methods when proportions are differents
 
 
