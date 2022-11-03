@@ -29,49 +29,89 @@ echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
 echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
 git submodule update --init modules/MP-SPDZ
 
+#################################
+# Linux Configuration
+#################################
+configure_linux() {
+
+  cpu_info='cat /proc/cpuinfo'
+
+  # Detect architecture
+  if test "$cpu_info"; then
+    echo -e "${YLW}--------------------------------ARCHITECTURE INFO-------------------------------------------${NC}"
+    if $cpu_info | grep -q avx2; then
+      echo -e "${BOLD}CPU uses Advanced Vector Extension 2 'avx2'${NC}\n"
+      cpu_arch=avx2
+    elif $cpu_info | grep -q avx2; then
+      cpu_arch=amd64
+      echo -e "${BOLD}CPU uses Advanced Micro Devices 64 'amd64'${NC}\n"
+    else
+      echo -e "${RED}ERROR${NC}: Unknown CPU architecture"
+      exit 1
+    fi
+
+    # Link binaries to ${FEDBIOMED_DIR}/bin ---------------------------------------------------------------------
+    echo -e "\n${YLW}Copying binary distributions... ${NC}"
+    if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
+      echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
+      exit 1
+    fi
+    # -----------------------------------------------------------------------------------------------------------
+  else
+    echo -e "${RED}ERROR${NC}: Can not get CPU info 'cat /proc/cpuinfo' failed!"
+    exit 1
+  fi
+
+}
+
+
+#################################
+# Darwin Configuration
+#################################
+configure_darwin() {
+
+  if ! type brew; then
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD} Please install 'Homebrew' to continue configuration"
+    exit 1
+  fi
+
+
+  echo -e "\n${YLW}--------------------------------Building from source distribution---------------------------${NC}"
+
+  make clean
+  echo "MOD = -DGFP_MOD_SZ=33" >> "$mpspdz_basedir"/CONFIG.mine
+  if ! make tldr; then
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD} Can not build MP-SPDZ. Please check the logs above"
+    exit 1
+  fi
+
+  # TODO:
+  if ! make shamir; then
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD} Can not build shamir protocol. Please check the logs above"
+    exit 1
+  fi
+
+}
+
+
 # Get system information  ---------------------------------------------------------------------------------------
 echo -e "\n${YLW}--------------------------------SYSTEM INFORMATION------------------------------------------${NC}"
 if test $(uname) = "Linux"; then
   echo -e "${BOLD}Linux detected. MP-SPDZ will be used through binary distribution${NC}\n"
-  cpu_info='cat /proc/cpuinfo'
+  configure_linux
 elif test $(uname) = "Darwin"; then
-  # TODO: Implement macOS installation
   echo -e "${BOLD}macOS detected. MP-SPDZ will be compiled from source instead of using binary distribution${NC}\n"
-  echo -e "${YL}\n IMPORTANT: macOS implementation is not completed!"
-  exit 1
+  configure_darwin
 else
-  echo -e "${RED}ERROR${NC}: Unknown operation system. Only Linux or macOS based operating systems are supported\n"
+  echo -e "${RED}ERROR${NC}: Unknown operating system. Only Linux or macOS based operating systems are supported\n"
   echo -e "Aborting installation \n"
   exit 1
 fi
 # ----------------------------------------------------------------------------------------------------------------
 
-
-# Detect architecture
-if test "$cpu_info"; then
-  echo -e "${YLW}--------------------------------ARCHITECTURE INFO-------------------------------------------${NC}"
-  if $cpu_info | grep -q avx2; then
-    echo -e "${BOLD}CPU uses Advanced Vector Extension 2 'avx2'${NC}\n"
-    cpu_arch=avx2
-  elif $cpu_info | grep -q avx2; then
-    cpu_arch=amd64
-    echo -e "${BOLD}CPU uses Advanced Micro Devices 64 'amd64'${NC}\n"
-  else
-    echo -e "${RED}ERROR${NC}: Unknown CPU architecture"
-    exit 1
-  fi
-
-  # Link binaries to ${FEDBIOMED_DIR}/bin ---------------------------------------------------------------------
-  echo -e "\n${YLW}Copying binary distributions... ${NC}"
-  if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
-    echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
-    exit 1
-  fi
-  # -----------------------------------------------------------------------------------------------------------
-else
-  echo -e "${RED}ERROR${NC}: Can not get CPU info 'cat /proc/cpuinfo' failed!"
-  exit 1
-fi
 
 # To use it later
 #! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'
@@ -96,6 +136,7 @@ if [ ! -d "$basedir/modules/MP-SPDZ/Player-Data" ]; then
 fi
 echo -e "${BOLD}Done! ${NC}"
 # ----------------------------------------------------------------------------------------------------------------
+
 
 
 ##################################################################################################################
@@ -184,3 +225,4 @@ echo -e "${BOLD}MP-SPDZ configuration is successfully tested! ${NC}"
 # Testing Ends ################################################################################################
 
 echo -e "\n${GRN} MP-SPDZ configuration is successful!\n"
+
