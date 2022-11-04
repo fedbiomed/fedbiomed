@@ -1,7 +1,6 @@
 """Manage the training part of the experiment."""
 
 import atexit
-from collections import OrderedDict
 import copy
 import inspect
 import os
@@ -12,24 +11,21 @@ import tempfile
 import time
 import uuid
 import importlib
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
-import validators
-
 from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
+import validators
+
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.aggregators.functional import initialize
 
 
 class Job:
@@ -306,12 +302,12 @@ class Job:
             nodes_done = set()
 
         return not nodes_done == set(self._nodes)
-    
+
     def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
         """Updates training_args before sending it to nodes (all nodes or selected nodes).
-        
+
         Updates the following parameters:
-        - num_updates (provided only if number of epochs has been passed by user: nb of epochs needed 
+        - num_updates (provided only if number of epochs has been passed by user: nb of epochs needed
         computation will be based considering minimum number of samples available accross all nodes)
 
         Args:
@@ -327,7 +323,7 @@ class Job:
                 node_present: List[str] = fds.node_ids()
             else:
                 node_present: List[str] = nodes
-                
+
             assert len(node_present)>0, "subset of nodes should be greater than 0"
             if not node_present:
                 raise FedbiomedError("No node have answered")
@@ -336,22 +332,22 @@ class Job:
             batch_size = self._training_args['batch_size']
             n_epochs = self._training_args.get('epochs', 0)
             batch_maxnum = self._training_args.get('batch_maxnum', 0)
-            num_updates_for_one_epoch = max_n_samples // batch_size 
+            num_updates_for_one_epoch = max_n_samples // batch_size
             if max_n_samples % batch_size:
                 num_updates_for_one_epoch += 1
             if batch_maxnum > 0:
                 num_updates_for_one_epoch = min(num_updates_for_one_epoch, batch_maxnum)
 
             self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
-            
-    
+
+
     def upload_aggregator_args(self,
-                               args_thr_msg: Union[Dict[str, Dict[str, Any]], dict], 
+                               args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
                                args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
         """
 
         Args:
-            args_thr_msg (Union[Dict[str, Dict[str, Any]], dict]): 
+            args_thr_msg (Union[Dict[str, Dict[str, Any]], dict]):
             args_thr_files (Union[Dict[str, Dict[str, Any]], dict]): _description_
 
         Returns:
@@ -360,24 +356,24 @@ class Job:
         # upload training_args through file messaging system, if their size is too big to be transfered through
         # MQTT (eg correction parameters in Scaffold aggregator)
         # write the url down into training_args_thr_msg
-        
+
         for node_id, aggr_params in args_thr_files.items():
-            
+
             for arg_name, aggr_param in aggr_params.items():
                 #arg_name = aggr_param['arg_name']
                 if arg_name == 'aggregator_name':
                     continue
                 args_thr_msg[node_id][arg_name] = {}
                 args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
-                
+
                 filename, url = self.update_parameters(aggr_param, None,
                                                        is_model_params=False,
                                                        variable_name=arg_name)
                 args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
                 args_thr_msg[node_id][arg_name]['url'] = url
-        
+
         return args_thr_msg
-        
+
     def start_nodes_training_round(self, round: int, aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
                                    do_training: bool = True):
@@ -388,7 +384,7 @@ class Job:
                 training steps of a federated model between 2 aggregations).
             aggregator_args_thr_msg (Dict[str, Dict[str, Any]]): dictionary containing some metadata about the aggregation
                 strategy, useful to transfer some data when it's required by am aggregator. First key should be the node_id
-                , and sub-dictionary sould be parameters to be sent through MQTT messaging system 
+                , and sub-dictionary sould be parameters to be sent through MQTT messaging system
             do_training (bool): if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
@@ -398,7 +394,7 @@ class Job:
                    'model_args': self._model_args,
                    'command': 'train',
                    'aggregator_args': {}}
-        
+
         msg = {**headers, **self._repository_args}
         time_start = {}
 
@@ -406,12 +402,12 @@ class Job:
         #     client_correction_states_dict = self.init_first_correction_states()
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)  # passes heavy aggregator params
         #through file exchange system
-        
+
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
             #if strategy_info.get('strategy') == 'Scaffold':
                 #if round == 0:
-            
+
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
                 msg['aggregator_args'] = aggregator_args_thr_msg[cli]
@@ -527,10 +523,10 @@ class Job:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
                 self._training_plan.save(filename, params)
-            
+
 
             repo_response = self.repo.upload_file(filename)
-            
+
             if is_model_params:
                 # case where we are designing model parameter file
                 self._repository_args['params_url'] = repo_response['file']

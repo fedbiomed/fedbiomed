@@ -73,7 +73,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._epochs = 1
         self._dry_run = False
         self._num_updates = None
-        
+
         self.correction_state = OrderedDict()
         self.aggregator_name = None
 
@@ -101,18 +101,26 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Aggregated model parameters
         self._init_params = None
 
-    def post_init(self, model_args: Dict, training_args: Dict, optimizer_args: Optional[Dict] = None,
-                  aggregator_args: Optional[Dict] = None) -> None:
-        """ Sets arguments for training, model and optimizer
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
+        ) -> None:
+        """Process model, training and optimizer arguments.
 
         Args:
-            model_args: Arguments defined by researcher to instantiate model/torch module
-            training_args: Arguments that are used in training routine such as epoch, dry_run etc.
+            model_args: Arguments defined to instantiate the wrapped model.
+            training_args: Arguments that are used in training routines
+                such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
 
         Raises:
-            FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
-                - If return values of optimizer, model  and dependencies are not satisfied
+            FedbiomedTrainingPlanError: If the provided arguments do not
+                match expectations, or if the optimizer, model and dependencies
+                configuration goes wrong.
         """
 
         self._model_args = model_args
@@ -120,17 +128,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
-        
+
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
-        
+
         # aggregator args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         # TODO: put fedprox mu inside strategy_args
         self._aggregator_args = aggregator_args or {}
-        
+
         self.set_aggrgator_args(self._aggregator_args)
         #self.aggregator_name = self._aggregator_args.get('aggregator_name')
         # FIXME: we should have a AggregatorHandler that handles aggregator args
@@ -175,7 +183,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             Model arguments arguments
         """
         return self._model_args
-    
+
     def get_learning_rate(self) -> List[float]:
         """
         Gets learning rate from  value set in optimizer (could be the default value,
@@ -186,15 +194,15 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 (as many as the number of the layers contained in the model)
         """
         learning_rates = []
-        
+
         # lr_optimizer_args = self._optimizer_args.get('lr')
         # if lr_optimizer_args is not None:
         #     return [lr_optimizer_args]
         # else:
-        
+
         # extract learning rate directly from optimizer
         params = self._optimizer.param_groups
-        
+
         for param in params:
             learning_rates.append(param['lr'])
         return learning_rates
@@ -202,9 +210,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def update_optimizer_args(self) -> Dict:
         """
         Updates `_optimizer_args` variable. Can prove useful
-        to retrieve optimizer parameters after having trained a 
+        to retrieve optimizer parameters after having trained a
         model, parameters which may have changed during training (eg learning rate).
-        
+
         Updated arguments:
          - learning_rate
 
@@ -215,7 +223,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._optimizer_args = {}
         self._optimizer_args['lr'] = self.get_learning_rate()
         return self._optimizer_args
-        
+
     def get_model_params(self) -> OrderedDict:
         return self._model.state_dict()
 
@@ -424,19 +432,19 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # initial aggregated model parameters
         self._init_params = deepcopy(self._model.state_dict())
-        
+
         if self._num_updates is not None:
             # compute num epochs and batches from num_updates
             # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
             # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
             # the last epoch will have 0 iterations.
-            
+
             if self._batch_maxnum <= 0:
                 num_batches_per_epoch = len(self.training_data_loader)
                 num_epochs = self._num_updates // num_batches_per_epoch #+ 1
             else:
                 # FIXME: we decided that batch_maxnum is the maximum number of batch an epoch can have
-                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates 
+                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates
                 # reaches num_updates
                 num_batches_per_epoch = min(self._batch_maxnum, len(self.training_data_loader))
                 self._num_updates_set = self._num_updates
@@ -450,7 +458,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
             else:
                 num_batches_in_last_epoch = self._num_updates_set - num_batches_per_epoch * (num_epochs - 1)
-            
+
         else:
             num_epochs = self._epochs
             num_batches_in_last_epoch = None
@@ -478,7 +486,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 res = self.training_step(data, target)  # raises an exception if not provided
 
-                
+
                 corrected_loss = self.compute_corrected_loss(res)
                 corrected_loss.backward()
 
@@ -624,17 +632,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         file exchanged system. If sent through file exchanged system, loads the arguments.
 
         Args:
-            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg 
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
             'aggregator_correction' with correction states)
         """
         self.aggregator_name = aggregator_args.get('aggregator_name') or self.aggregator_name
-        
+
         for arg_name, aggregator_arg in aggregator_args.items():
             if arg_name == 'aggregator_correction' and aggregator_arg.get('param_path', False):
-                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled 
-                # by an aggregator handler that contains all keys for all strategies implemented 
+                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
+                # by an aggregator handler that contains all keys for all strategies implemented
                 # in fedbiomed
-                
+
                 #setattr(self, arg_name, aggregator_arg)
                 # here we ae loading all args that have been sent from file exchange system
                 self.correction_state = self.load(aggregator_arg.get('param_path'), True)
@@ -676,10 +684,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # write here specific loss computation for aggregators
         if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
             # if self.correction_state is None:
-            
+
             #     for i in self._model.state_dict():
 
-            #         self.correction_state[i] = 0  
+            #         self.correction_state[i] = 0
             # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
             dot_product = compute_dot_product(self._model.state_dict(), self.correction_state, self._device)
             corrected_loss = res - dot_product

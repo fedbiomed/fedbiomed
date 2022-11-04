@@ -6,25 +6,23 @@ import sys
 import json
 import inspect
 import traceback
-
 from copy import deepcopy
 from re import findall
-from tabulate import tabulate
-from typing import Callable, Optional, OrderedDict, Tuple, Union, Dict, Any, TypeVar, Type, List
-from fedbiomed.common.metrics import MetricTypes
-from pathvalidate import sanitize_filename, sanitize_filepath
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
-from fedbiomed.common.logger import logger
+from pathvalidate import sanitize_filename, sanitize_filepath
+from tabulate import tabulate
+
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import initialize
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.utils import is_ipython
+
+from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
@@ -909,7 +907,7 @@ class Experiment(object):
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
         if self._fds is not None:
             self._aggregator.set_fds(self._fds)
-        
+
         return self._aggregator
 
     @exp_exceptions
@@ -1250,12 +1248,12 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad training_args type
         """
-        
+
         if isinstance(training_args, TrainingArgs):
             self._training_args = deepcopy(training_args)
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
-        
+
         return self._training_args.dict()
 
     @exp_exceptions
@@ -1577,12 +1575,12 @@ class Experiment(object):
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
-        
+
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         # Trigger training round on sampled nodes
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                        self._job._nodes)    
+                                                                                        self._job._nodes)
         _ = self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
@@ -1593,15 +1591,15 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
-        
-        
+
+
         # aggregate model from nodes to a global model
         # --------------------------------------------
         # here, we are passing all arguments that the aggregator may need, using named arguments
         # if your aggregator requieres additional arguments, you can add those in the `aggregate` call, using named
         # arguments. They will be ignored in the strategies already implemented in Fedbiomed (ie will be
         # passed in the **kwargs arguments).
-                
+
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
                                                        global_model = self._global_model,
@@ -1616,15 +1614,15 @@ class Experiment(object):
         aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
-        
+
         # if self.strategy_info["strategy"] == "Scaffold":
-        #     # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
+        #     # Setting the client state for round i+1, with scaling of the local parameters by server_lr
         #     self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)
 
         #     # Setting the correction state for round i+1
         #     self._client_correction_states_dict = self.set_new_correction_states_dict(server_state=aggregated_params)
         #     self.strategy_info["correction_states"] = self._client_correction_states_dict
-        #self.strategy_info["correction_states"] = self._aggregator.nodes_correction_states 
+        #self.strategy_info["correction_states"] = self._aggregator.nodes_correction_states
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
 
@@ -1641,7 +1639,7 @@ class Experiment(object):
         if test_after:
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            self._job._nodes) 
+                                                                                            self._job._nodes)
             self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
@@ -2035,7 +2033,7 @@ class Experiment(object):
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
-        # nota: we are initializing experiment with no aggregator: hence, by default, 
+        # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
 
         # changing `Experiment` attributes
@@ -2053,17 +2051,17 @@ class Experiment(object):
                 saved_state.get('aggregated_params'),
                 training_plan.load
             )
-        
+
         # retrieve and change federator
         bkpt_aggregator_args = saved_state.get("aggregator")
-        
+
         bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
-        
-        
+
+
         # nota: exceptions should be handled in Job, when refactoring it
 
         # changing secagg attributes
