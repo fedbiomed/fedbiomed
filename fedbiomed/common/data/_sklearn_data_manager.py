@@ -184,7 +184,7 @@ class _BatchIterator:
         """
         self._loader = loader
         self._index = None
-        self._num_yielded = 0
+        self._last_idx_yielded = 0
         self._reset()
 
     def _reset(self):
@@ -192,7 +192,7 @@ class _BatchIterator:
 
         restore num_yielded to 0, reshuffles the indices if shuffle is True, and applies drop_last
         """
-        self._num_yielded = 0
+        self._last_idx_yielded = 0
         dlen = len(self._loader.dataset)
 
         self._index = np.arange(dlen)
@@ -216,19 +216,24 @@ class _BatchIterator:
         Raises:
             StopIteration: when an epoch of data has been exhausted.
         """
-        if self._num_yielded < len(self._loader):
-            start = self._num_yielded*self._loader.batch_size()
-            stop = (self._num_yielded+1)*self._loader.batch_size()
+        start = self._last_idx_yielded
+        stop = self._last_idx_yielded + self._loader.batch_size()
+        if stop > len(self._index):
+            indices = self._index[start:]
+            self._reset()
+            stop = stop - len(self._index)
+            indices = np.concatenate((indices, self._index[:stop]))
+        else:
             indices = self._index[start:stop]
-            self._num_yielded += 1
-            if self._loader.target is None:
-                return self._loader.dataset[indices, :], None
-            else:
-                return self._loader.dataset[indices, :], self._loader.target[indices, :]
 
-        # Set index to zero for next epochs
-        self._reset()
-        raise StopIteration
+        self._last_idx_yielded = stop
+        if stop >= len(self._index):
+            self._reset()
+
+        if self._loader.target is None:
+            return self._loader.dataset[indices, :], None
+        else:
+            return self._loader.dataset[indices, :], self._loader.target[indices, :]
 
 
 class SkLearnDataManager(object):
