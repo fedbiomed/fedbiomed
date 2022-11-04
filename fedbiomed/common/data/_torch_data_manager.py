@@ -3,15 +3,52 @@ Torch data manager
 """
 
 import math
-from typing import Union, Tuple
+from itertools import cycle
+from typing import Union, Tuple, Iterator
 
 from torch.utils.data import Dataset, Subset, DataLoader
-from torch.utils.data import random_split
+from torch.utils.data import random_split, SequentialSampler, RandomSampler
 
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
 
 from ._sklearn_data_manager import SkLearnDataManager
+
+
+class CyclingSequentialSampler(SequentialSampler):
+    def __iter__(self) -> Iterator[int]:
+        return cycle(super().__iter__())
+
+
+class CyclingRandomSampler:
+    class _Iter:
+        def __init__(self, dataset, **kwargs):
+            self._dataset = dataset
+            self._kwargs = kwargs
+            self._sampler = RandomSampler(self._dataset, **self._kwargs)
+            self._iter = iter(self._sampler)
+            self.num_yielded = 0
+
+        def __next__(self):
+            if self.num_yielded == len(self._sampler):
+                self.reset()
+            self.num_yielded += 1
+            return next(self._iter)
+
+        def reset(self):
+            self.num_yielded = 0
+            self._sampler = RandomSampler(self._dataset, **self._kwargs)
+            self._iter = iter(self._sampler)
+
+    def __init__(self, dataset, **kwargs):
+        self._dataset = dataset
+        self._kwargs = kwargs
+
+    def __len__(self):
+        return len(self._sampler)
+
+    def __iter__(self) -> Iterator[int]:
+        return CyclingRandomSampler._Iter(self._dataset, **self._kwargs)
 
 
 class TorchDataManager(object):
@@ -174,7 +211,14 @@ class TorchDataManager(object):
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = DataLoader(dataset, **kwargs)
+            shuffle = False
+            if 'shuffle' in kwargs:
+                shuffle = kwargs.pop('shuffle')
+            if not shuffle:
+                loader = DataLoader(dataset, sampler=CyclingSequentialSampler(dataset), **kwargs)
+            else:
+                generator = kwargs.get('generator')
+                loader = DataLoader(dataset, sampler=CyclingRandomSampler(dataset, generator=generator), **kwargs)
         except AttributeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}:  Error while creating Torch DataLoader due to undefined attribute"
