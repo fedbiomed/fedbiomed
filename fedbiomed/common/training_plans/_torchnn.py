@@ -62,11 +62,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._optimizer_args = None
         self._use_gpu = False
 
-        self._batch_maxnum = 100
         self._fedprox_mu = None
-        self._log_interval = 10
-        self._num_updates = 1
+        self._log_interval = None
         self._dry_run = False
+        self._num_updates = None
+        self._epochs = None
+        self._batch_maxnum = None
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -113,11 +114,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
-        self._batch_maxnum = self._training_args.get('batch_maxnum')
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         self._log_interval = self._training_args.get('log_interval')
-        self._num_updates = self._training_args.get('num_updates')
         self._dry_run = self._training_args.get('dry_run')
+
+        self._num_updates = self._training_args.get('num_updates')
+        self._epochs = self._training_args.get('epochs')
+        self._batch_maxnum = self._training_args.get('batch_maxnum', 0)
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
 
@@ -197,6 +200,23 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
+
+    def num_parameter_updates(self):
+        num_batches_per_epoch = self._batch_maxnum if self._batch_maxnum > 0 else len(self.training_data_loader)
+        if 'num_updates' in self._training_args:
+            if 'epochs' in self._training_args:
+                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
+                               "`epochs` will be ignored.")
+            if 'batch_maxnum' in self._training_args:
+                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
+                               "`batch_maxnum` will be ignored.")
+            return self._training_args['num_updates'], num_batches_per_epoch
+        elif 'epochs' in self._training_args:
+            return self._training_args['epochs']*num_batches_per_epoch, num_batches_per_epoch
+        else:
+            msg = f"{ErrorNumbers.FB619}. Either `num_updates` or `epochs` must be specified in training arguments."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
     def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """
@@ -362,71 +382,46 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
-        # compute num epochs and batches from num_updates
-        # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
-        # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
-        # the last epoch will have 0 iterations.
-        num_batches_per_epoch = len(self.training_data_loader) if self._batch_maxnum <= 0 else self._batch_maxnum
-        num_epochs = self._num_updates // num_batches_per_epoch + 1
-        num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+        num_updates, num_batches_per_epoch = self.num_parameter_updates()
+        for update_idx, (data, target) in enumerate(self.training_data_loader, start=1):
+            if update_idx > num_updates:
+                break
 
-        for epoch in range(1, num_epochs + 1):
-            # (below) sampling data (with `training_data` method defined on
-            # researcher's notebook)
-            # training_data = self.training_data(batch_size=batch_size)
-            num_samples_till_now = 0
-            for batch_idx, (data, target) in enumerate(self.training_data_loader):
+            data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
+            self._optimizer.zero_grad()
 
-                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if epoch == num_epochs and batch_idx >= num_batches_in_last_epoch:
-                    break
+            res = self.training_step(data, target)  # raises an exception if not provided
 
-                # Plus one since batch_idx starts from 0
-                batch_ = batch_idx + 1
+            # If FedProx is enabled: use regularized loss function
+            if self._fedprox_mu is not None:
+                res += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
-                data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
-                self._optimizer.zero_grad()
+            res.backward()
+            self._optimizer.step()
 
-                res = self.training_step(data, target)  # raises an exception if not provided
+            if update_idx % self._log_interval == 0 or self._dry_run:
+                epoch = num_updates // num_batches_per_epoch + 1
+                logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch,
+                    num_updates*self.training_data_loader.batch_size,
+                    len(self.training_data_loader.dataset),
+                    100 * (num_updates % num_batches_per_epoch) / len(self.training_data_loader),
+                    res.item()))
 
-                # If FedProx is enabled: use regularized loss function
-                if self._fedprox_mu is not None:
-                    res += float(self._fedprox_mu) / 2 * self.__norm_l2()
+                # Send scalar values via general/feedback topic
+                if history_monitor is not None:
+                    history_monitor.add_scalar(metric={'Loss': res.item()},
+                                               iteration=num_updates % num_batches_per_epoch,
+                                               epoch=epoch,
+                                               train=True,
+                                               num_batches=len(self.training_data_loader),
+                                               total_samples=len(self.training_data_loader.dataset),
+                                               batch_samples=self.training_data_loader.batch_size)
 
-                res.backward()
-                self._optimizer.step()
-
-                num_samples_till_now += len(data)
-
-                if batch_ % self._log_interval == 0 or self._dry_run:
-                    logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch,
-                        num_samples_till_now,
-                        len(self.training_data_loader.dataset),
-                        100 * batch_ / len(self.training_data_loader),
-                        res.item()))
-
-                    # Send scalar values via general/feedback topic
-                    if history_monitor is not None:
-                        history_monitor.add_scalar(metric={'Loss': res.item()},
-                                                   iteration=batch_,
-                                                   epoch=epoch,
-                                                   train=True,
-                                                   num_batches=len(self.training_data_loader),
-                                                   total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
-
-                    if self._dry_run:
-                        self._model.to(self._device_init)
-                        torch.cuda.empty_cache()
-                        return
-
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
-                if (self._batch_maxnum > 0) and (batch_ >= self._batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
-                    break
+                if self._dry_run:
+                    self._model.to(self._device_init)
+                    torch.cuda.empty_cache()
+                    return
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object

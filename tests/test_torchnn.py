@@ -450,10 +450,12 @@ class TestTorchnn(unittest.TestCase):
         """
 
         tp = TorchTrainingPlan()
-        tp._optimizer = MagicMock()
-        tp._model = torch.nn.Module()
+        with patch.object(tp, 'init_model', new=lambda _: MagicMock(spec=torch.nn.Module)), \
+                patch.object(tp, 'init_optimizer', new=lambda _: MagicMock(spec=torch.optim.Adam)):
+            tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+        tp._dry_run = False
         tp._log_interval = 1
-        tp.training_data_loader = MagicMock()
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
 
         mocked_loss_result = MagicMock()
         mocked_loss_result.item.return_value = 0.
@@ -467,8 +469,10 @@ class TestTorchnn(unittest.TestCase):
         dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
-        tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
+        tp.training_data_loader.__iter__.return_value = itertools.cycle([(fake_data, fake_target)])
         tp.training_data_loader.__len__.return_value = num_batches
+        tp.training_data_loader.batch_size = batch_size
+        tp.training_data_loader.dataset = MagicMock()
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
 
@@ -502,14 +506,23 @@ class TestTorchnn(unittest.TestCase):
         tp.training_step = MagicMock(return_value=MagicMock())
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
+        tp._training_args = {}
 
         def setup_tp(tp, num_samples, batch_size, num_updates):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
-            num_batches_per_epoch = num_samples // batch_size
-            tp.training_data_loader = list(itertools.repeat(
-                (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
-            tp._num_updates = num_updates
+            tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
+            num_batches = num_samples // batch_size
+            tp.training_data_loader.__iter__.return_value = itertools.cycle(
+                num_batches*[(
+                    batch_size*[MagicMock(spec=torch.Tensor)],
+                    batch_size*[MagicMock(spec=torch.Tensor)]
+                 )],
+            )
+            tp.training_data_loader.__len__.return_value = num_batches
+            tp.training_data_loader.dataset = MagicMock()
+            tp.training_data_loader.dataset.__len__ = num_samples
+            tp._training_args['num_updates'] = num_updates
             return tp
 
         tp._dp_controller = FakeDPController()
@@ -626,12 +639,16 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tensors(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp._model = torch.nn.Module()
-        tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
-        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+        with patch.object(tp, 'init_model', new=lambda _: MagicMock(spec=torch.nn.Module)), \
+                patch.object(tp, 'init_optimizer', new=lambda _: MagicMock(spec=torch.optim.Adam)):
+            tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+        tp._dry_run = False
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
+        gen_data = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             (torch.Tensor([0]), torch.Tensor([1])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.__iter__.return_value = gen_data
+        tp.training_data_loader.__len__.return_value = 1
+        tp.training_data_loader.batch_size = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -646,12 +663,16 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tuples(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp._model = torch.nn.Module()
-        tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
-        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+        with patch.object(tp, 'init_model', new=lambda _: MagicMock(spec=torch.nn.Module)), \
+                patch.object(tp, 'init_optimizer', new=lambda _: MagicMock(spec=torch.optim.Adam)):
+            tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+        tp._dry_run = False
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
+        gen_data = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.__iter__.return_value = gen_data
+        tp.training_data_loader.__len__.return_value = 1
+        tp.training_data_loader.batch_size = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -666,19 +687,23 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_dicts(self, patch_tensor_backward):
         tp = TorchTrainingPlan()
-        tp._model = torch.nn.Module()
-        tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
-        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+        with patch.object(tp, 'init_model', new=lambda _: MagicMock(spec=torch.nn.Module)), \
+             patch.object(tp, 'init_optimizer', new=lambda _: MagicMock(spec=torch.optim.Adam)):
+            tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+        tp._dry_run = False
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
+        gen_data = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.__iter__.return_value = gen_data
+        tp.training_data_loader.__len__.return_value = 1
+        tp.training_data_loader.batch_size = 1
+        tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader
         tp._dp_controller = FakeDPController()
 
-        tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
         tp.training_routine()
         tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
         patch_tensor_backward.assert_called_once()

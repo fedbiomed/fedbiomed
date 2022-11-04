@@ -245,13 +245,16 @@ class TrainingArgs:
                 "rules": [int], "required": True, "default": 48
             },
             "num_updates": {
-                "rules": [int], "required": True, "default": 1
+                "rules": [int], "required": False, "default": 1
+            },
+            "epochs": {
+                "rules": [int], "required": False, "default": 1
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": 100
+                "rules": [int], "required": False, "default": 0
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
