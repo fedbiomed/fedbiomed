@@ -130,7 +130,7 @@ class Scaffold(Aggregator):
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
         if n_round <= 0:
             self.init_correction_states(global_model, node_ids)
-        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
+        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in copy.deepcopy(model_params)}
 
         self.update_correction_states(model_params, global_model, node_ids, n_updates)
         
@@ -203,8 +203,8 @@ class Scaffold(Aggregator):
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
 
         Returns:
-            Dict[str, List[float]]: dictionary mapping node_id and a list of float, as long as
-            the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
+            Dict[str, List[float]]: dictionary mapping node_id and a list of float, as many as
+                the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
         # to be implemented in a utils module (for pytorch optimizers)
 

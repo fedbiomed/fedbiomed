@@ -509,17 +509,17 @@ class Job:
         next training round. If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
-            params: data structure containing the new version of the aggregated parameters for this job,
-            filename: path to the file containing the new version of the aggregated parameters for this job,
-            is_model_params (bool, optional):
-            variable_name (str, optional):  name the filename with variable_name. Defaults to 'aggregated_prams'
+            params (dict): data structure containing the new version of the aggregated parameters for this job,
+            defaults to empty dictionary {}
+            filename (str): path to the file containing the new version of the aggregated parameters for this job,
+            defaults to None.
+            is_model_params (bool, optional): whether params are models parameters or another value that must be sent
+            through file exchange system. Defaults to True (argument are model parameters).
+            variable_name (str, optional):  name the filename with variable_name. Defaults to 'aggregated_prams'.
         
         Returns:
             str: Name of the parameter file
             str: URL of the uploaded file
-
-        Raises:
-            ValueError: Bad arguments
         """
         try:
             if not filename:

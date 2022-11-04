@@ -505,7 +505,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                     total_samples=len(self.training_data_loader.dataset),
                                                     batch_samples=len(data))
 
-                logger.debug(f"CORRECTED 2 {corrected_loss}")
+
                 if self._dry_run:
                     self._model.to(self._device_init)
                     torch.cuda.empty_cache()
@@ -521,6 +521,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
+        logger.debug(f"CHECK MODEL EVOLUTION {self._model.state_dict()}")
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
@@ -592,10 +593,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """Save the torch training parameters from this training plan or from given `params` to a file
 
         Args:
-            filename: Path to the destination file
-            params: Parameters to save to a file, should be structured as a torch state_dict()
+            filename (str): Path to the destination file
+            params (dict): Parameters to save to a file, should be structured as a torch state_dict()
 
         """
+        logger.debug(f"PARAMS {filename}, {params}, ")
         if params is not None:
             return torch.save(params, filename)
         else:
@@ -649,9 +651,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         # Check whether postprocess method exists, and use it
-        logger.debug("running model.postprocess() method")
+        
         params = self._model.state_dict()
         if hasattr(self, 'postprocess'):
+            logger.debug("running model.postprocess() method")
             try:
                 params = self.postprocess(self._model.state_dict())  # Post process
             except Exception as e:

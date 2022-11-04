@@ -212,6 +212,7 @@ class Experiment(object):
         self._experimentation_folder = None
         self.aggregator_args = {}
         self._aggregator = None
+        self._global_model = None
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
@@ -1569,8 +1570,9 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         #if self.strategy_info["strategy"] == "Scaffold":
-        self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
-
+        if self._global_model is None:
+            self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
+        print("GLOBAL MODEL", self._global_model)
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
@@ -1585,7 +1587,7 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True)
-
+        
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
@@ -1609,6 +1611,8 @@ class Experiment(object):
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
+        print("AGGREGATED PARAMS", aggregated_params)
+        self._global_model = aggregated_params  # update global model
         aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')

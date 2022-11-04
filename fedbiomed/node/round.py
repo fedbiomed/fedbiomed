@@ -152,7 +152,7 @@ class Round:
             error_message = f"Cannot download param file: {url}"
             return False, '', error_message
         else:
-            shutil.copy2(params_path, f'/home/ybouilla/Documents/correction_sate_{str(uuid.uuid4())}' + '.pt')
+
             return True, params_path, ''
 
     def run_model_training(self) -> dict[str, Any]:
@@ -330,6 +330,8 @@ class Round:
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
+
+                logger.debug(f"CHECK VALUE {filename}")
             except Exception as e:
                 is_failed = True
                 error_message = f"Cannot upload results: {str(e)}"
