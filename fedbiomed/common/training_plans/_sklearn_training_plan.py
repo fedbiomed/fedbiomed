@@ -162,23 +162,17 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Training routine, to be called once per round.
 
         Args:
-        - history_monitor ([type], optional): optional HistoryMonitor
+            history_monitor: optional HistoryMonitor
                 instance, recording training metadata. Defaults to None.
-        - node_args (Union[dict, None]): command line arguments for node. 
-            These arguments can specify GPU use; however, this is not
+            node_args: command line arguments for node.
+                These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
-                Can include:
-            - gpu (bool): propose use a GPU device if any is available. Default False.
-            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-              GPU device if this GPU device is available. Default None.
-            - gpu_only (bool): force use of a GPU device if any available, even if researcher
-              doesnt request for using a GPU. Default False.
-                """
+        """
         if self._model is None:
             raise FedbiomedTrainingPlanError('model is None')
 
         # Run preprocesses
-        self.__preprocess()
+        self._preprocess()
 
         if not isinstance(self._model, BaseEstimator):
             msg = (
