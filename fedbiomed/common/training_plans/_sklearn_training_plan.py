@@ -156,7 +156,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Scikit-learn model instance
         """
         return self._model
-    
+
     def get_model_params(self) -> Dict:
         return self.after_training_params()
 

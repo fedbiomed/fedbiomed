@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from io import StringIO
 from typing import Any, Dict, Iterator, List, Optional
 
-from typing import List
 import numpy as np
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
@@ -105,7 +104,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                     )
 
                 if 0 < self._batch_maxnum <= idx:
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
+                    logger.info(f'Reached {self._batch_maxnum} batches for this epoch, ignore remaining data')
                     break
         # Reset model verbosity to its initial value.
         if report:

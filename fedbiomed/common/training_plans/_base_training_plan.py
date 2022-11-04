@@ -96,15 +96,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.dataset_path = dataset_path
         logger.debug(f"Dataset path has been set as {self.dataset_path}")
 
-    def set_data_loaders(        #        training_data: Union[FederatedDataSet, dict, None] = None,
-        #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-        #        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-        #        training_plan: Union[Type_TrainingPlan, str, None] = None,
-        #        model_args: dict = {},
-        #        training_args: dict = {},
-        #        save_breakpoints: bool = False,
-        #        tensorboard: bool = False,
-        #        experimentation_folder: Union[str, None] = None,
+    def set_data_loaders(
             self,
             train_data_loader: Union[DataLoader, NPDataLoader, None],
             test_data_loader: Union[DataLoader, NPDataLoader, None]
@@ -198,12 +190,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def get_model_params(self) -> Union[OrderedDict, Dict]:
         """
-        Retrieves parameters from a model defined in a training plan. 
-        Output format depends on the nature of the training plan (OrderedDict for 
+        Retrieves parameters from a model defined in a training plan.
+        Output format depends on the nature of the training plan (OrderedDict for
         a PyTorch training plan, np.ndarray for a sklearn training plan)
 
         Returns:
-            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on 
+            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on
             the nature of the TrainingPlan
         """
         msg = ErrorNumbers.FB303.value + ": get_model_parans method must be implemented in the TrainingPlan"
@@ -212,16 +204,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
-    
+
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
 
     def optimizer_args(self) -> Dict:
-        """Retrieves optimizer arguments (to be overrided
+        """Retrieves optimizer arguments (to be overridden
         by children classes)
 
         Returns:
-            Empty dictionary: (to be overrided in children classes)
+            Empty dictionary: (to be overridden in children classes)
         """
         logger.warning("`optimizer_args` method not defined in training_plan!")
         return {}
