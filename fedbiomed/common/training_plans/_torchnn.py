@@ -401,21 +401,21 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
             if update_idx % self._log_interval == 0 or self._dry_run:
                 epoch = num_updates // num_batches_per_epoch + 1
-                logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                logger.debug('Train Epoch: {} [{}/{} ({:.0f}%) samples]\tLoss: {:.6f}'.format(
                     epoch,
+                    update_idx*self.training_data_loader.batch_size,
                     num_updates*self.training_data_loader.batch_size,
-                    len(self.training_data_loader.dataset),
-                    100 * (num_updates % num_batches_per_epoch) / len(self.training_data_loader),
+                    100 * update_idx / num_updates,
                     res.item()))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
                     history_monitor.add_scalar(metric={'Loss': res.item()},
-                                               iteration=num_updates % num_batches_per_epoch,
+                                               iteration=update_idx,
                                                epoch=epoch,
                                                train=True,
-                                               num_batches=len(self.training_data_loader),
-                                               total_samples=len(self.training_data_loader.dataset),
+                                               num_batches=num_updates,
+                                               total_samples=num_updates*self.training_data_loader.batch_size,
                                                batch_samples=self.training_data_loader.batch_size)
 
                 if self._dry_run:

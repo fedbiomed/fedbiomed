@@ -6,15 +6,15 @@ import itertools
 
 import torch
 import torch.nn as nn
+import numpy as np
 
-from abc import ABC
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam
 from torch.nn import Module
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
 
 
@@ -438,16 +438,26 @@ class TestTorchnn(unittest.TestCase):
                                    before_train=True)
 
     def test_torch_nn_04_logging_progress_computation(self):
-        """Test logging bug #313
+        """Test the logging facility during training
 
         Create a DataLoader within a TrainingPlan with the following characteristics:
         - batch size = 3
         - total num samples = 5
-        - therefore, 2 batches will be processed
+        - num_updates = 3
 
-        The expected behaviour is that the first iteration should report a progress of 3/5 (60%),
-        while the second iteration should report a progress of 5/5 (100%).
+        The expected behaviour is that the first update should report:
+            - epoch 1
+            - progress of 3/9 (33%),
+        the second update should report:
+            - epoch 2
+            - progress of 6/9 (66%),
+        the third and final update should report:
+            - epoch 2
+            - progress of 9/9 (100%),
         """
+        num_samples = 5
+        batch_size = 3
+        num_updates = 3
 
         tp = TorchTrainingPlan()
         with patch.object(tp, 'init_model', new=lambda _: MagicMock(spec=torch.nn.Module)), \
@@ -455,6 +465,7 @@ class TestTorchnn(unittest.TestCase):
             tp.post_init({}, TestTorchnn.FakeTrainingArgs())
         tp._dry_run = False
         tp._log_interval = 1
+        tp._training_args['num_updates'] = num_updates
         tp.training_data_loader = MagicMock(spec=torch.utils.data.DataLoader)
 
         mocked_loss_result = MagicMock()
@@ -464,31 +475,27 @@ class TestTorchnn(unittest.TestCase):
         custom_dataset = self.CustomDataset()
         x_train = torch.Tensor(custom_dataset.X_train)
         y_train = torch.Tensor(custom_dataset.Y_train)
-        num_batches = 3
-        batch_size = 5
-        dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = itertools.cycle([(fake_data, fake_target)])
-        tp.training_data_loader.__len__.return_value = num_batches
+        tp.training_data_loader.__len__.return_value = int(np.ceil(num_samples // batch_size))
         tp.training_data_loader.batch_size = batch_size
         tp.training_data_loader.dataset = MagicMock()
-        tp.training_data_loader.dataset.__len__.return_value = dataset_size
-        tp._num_updates = num_batches
+        tp.training_data_loader.dataset.__len__.return_value = num_samples
 
         tp._dp_controller = FakeDPController()
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
             tp.training_routine()
-            training_progress_messages = [x for x in captured.output if re.search('Train Epoch: 1', x)]
-            self.assertEqual(len(training_progress_messages), num_batches)  # Double-check correct number of train iters
+            training_progress_messages = [x for x in captured.output if re.search('Train Epoch: ', x)]
+            self.assertEqual(len(training_progress_messages), num_updates)  # Double-check correct number of train iters
             for i, logging_message in enumerate(training_progress_messages):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
-                self.assertEqual(logged_total_num_samples, dataset_size)
-                self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
+                self.assertEqual(logged_num_processed_samples, (i+1)*batch_size)
+                self.assertEqual(logged_total_num_samples, batch_size*num_updates)
+                self.assertEqual(logged_percent_progress, round(100*(i+1)/num_updates))
 
     def test_torchnn_05_num_updates(self):
         """Test that num_updates parameter is respected correctly.
