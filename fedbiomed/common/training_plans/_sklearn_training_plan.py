@@ -64,15 +64,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         ])
         self.add_dependency(list(self._model_dep))
 
-    def post_init(self, model_args: Dict, training_args: Dict,
-                  optimizer_args: Optional[Dict] = None,
-                  aggregator_args: Optional[Dict] = None) -> None:
-        """ Instantiates model, training and optimizer arguments
-        Process model, training and optimizer arguments.
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
+        ) -> None:
+        """Process model, training and optimizer arguments.
 
         Args:
-            model_args: Model arguments.
-            training_args: Training arguments.
+            model_args: Arguments defined to instantiate the wrapped model.
+            training_args: Arguments that are used in training routines
+                such as epoch, dry_run etc.
+                Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
         """
         self._model_args = model_args
         self._aggregator_args = aggregator_args or {}

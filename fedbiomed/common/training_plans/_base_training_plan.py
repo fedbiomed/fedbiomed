@@ -58,15 +58,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
-        """Set arguments for the model, training and the optimizer.
+        """Process model, training and optimizer arguments.
 
         Args:
             model_args: Arguments defined to instantiate the wrapped model.
             training_args: Arguments that are used in training routines
                 such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
         """
         return None
 
