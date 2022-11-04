@@ -50,12 +50,12 @@ class Scaffold(Aggregator):
             fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
 
         """
-        super(Scaffold, self).__init__()
+        super().__init__()
         self.aggregator_name: str = "Scaffold"
         if server_lr == 0.:
             raise FedbiomedAggregatorError("SCAFFOLD Error: Server learning rate cannot be equal to 0")
         self.server_lr: float = server_lr
-        self.nodes_correction_states: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]] = None
+        self.nodes_correction_states: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]] = {}
 
         self.nodes_lr: Dict[str, List[float]] = {}
         if fds is not None:
@@ -64,7 +64,8 @@ class Scaffold(Aggregator):
             self._aggregator_args = {}
         #self.update_aggregator_params()
 
-    def aggregate(self, model_params: list,
+    def aggregate(self,
+                  model_params: list,
                   weights: List[Dict[str, float]],
                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
@@ -115,7 +116,8 @@ class Scaffold(Aggregator):
         #weights_processed = [list(weight.values())[0] for weight in weights] # same retrieving
 
         model_params_processed = self.scaling(copy.deepcopy(model_params), copy.deepcopy(global_model))
-        model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed] # model params are contained in a dictionary with node_id as key, we just retrieve the params
+        # model params are contained in a dictionary with node_id as key, we just retrieve the params
+        model_params_processed = [list(model_param.values())[0] for model_param in model_params_processed]
 
         aggregated_parameters = weighted_sum(model_params_processed, [1 / len(node_ids)] * len(node_ids))
 
@@ -143,7 +145,7 @@ class Scaffold(Aggregator):
                 service, second dictionary parameters that will be sent through file exchange message.
                 Aggregators args are dictionary mapping node_id to nodes parameters.
         """
-        if self.nodes_correction_states is None:
+        if not self.nodes_correction_states:
             self.init_correction_states(global_model, node_ids)
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
