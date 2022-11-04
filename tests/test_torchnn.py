@@ -46,7 +46,7 @@ class TestTorchnn(unittest.TestCase):
     class FakeTrainingArgs:
 
         def pure_training_arguments(self):
-            return {"dry_run": True, "epochs": 1, "batch_size": 10, "log_interval": 10}
+            return {"dry_run": True, "num_updates": 1, "batch_size": 10, "log_interval": 10}
 
         def optimizer_arguments(self):
             return {"lr": 0.0001}
@@ -117,7 +117,7 @@ class TestTorchnn(unittest.TestCase):
         tp.post_init({}, TestTorchnn.FakeTrainingArgs())
 
         self.assertEqual(tp._log_interval, 10)
-        self.assertEqual(tp._epochs, 1)
+        self.assertEqual(tp._num_updates, 1)
         self.assertEqual(tp._dry_run, True)
 
         conf_optimizer_model.assert_called_once()
@@ -493,7 +493,7 @@ class TestTorchnn(unittest.TestCase):
         number of updates requested by the researcher. Remember each update corresponds to one optimizer step, i.e.
         one batch.
         """
-        tp = TrainingPlan()
+        tp = TorchTrainingPlan()
         tp._model = MagicMock()
         tp._set_device = MagicMock()
         tp._batch_maxnum = 0
@@ -503,7 +503,6 @@ class TestTorchnn(unittest.TestCase):
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
 
-        @staticmethod
         def setup_tp(tp, num_samples, batch_size, num_updates):
             """Utility function to prepare the TrainingPlan test"""
             tp._optimizer.step.reset_mock()
@@ -512,6 +511,8 @@ class TestTorchnn(unittest.TestCase):
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
             tp._num_updates = num_updates
             return tp
+
+        tp._dp_controller = FakeDPController()
 
         # Case where we do 1 single epoch with 1 batch
         tp = setup_tp(tp, num_samples=5, batch_size=5, num_updates=1)
