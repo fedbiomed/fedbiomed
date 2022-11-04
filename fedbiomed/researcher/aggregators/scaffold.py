@@ -1,28 +1,21 @@
 """
 """
 
-from copy import deepcopy
 import copy
-from pyexpat import model
-from statistics import mode
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, OrderedDict, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Union
 
-from fedbiomed.common.logger import logger
+import numpy as np
+import torch
+
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
-
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import federated_averaging, weighted_sum
+from fedbiomed.researcher.aggregators.functional import weighted_sum
 from fedbiomed.researcher.aggregators.functional import initialize
-
-from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
-
-import torch
-import numpy as np
 
 
 class Scaffold(Aggregator):
@@ -249,8 +242,8 @@ class Scaffold(Aggregator):
         # initialize nodes states with zeros tensors
 
         init_params = {key:initialize(tensor)[1]for key, tensor in global_model.items()}
-        self.nodes_correction_states = {node_id: deepcopy(init_params) for node_id in node_ids}
-    
+        self.nodes_correction_states = {node_id: copy.deepcopy(init_params) for node_id in node_ids}
+
     def scaling(self,
                 model_params: List[Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]],
                 global_model: Mapping[str, Union[torch.tensor, np.ndarray]]) -> List[Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]]:
