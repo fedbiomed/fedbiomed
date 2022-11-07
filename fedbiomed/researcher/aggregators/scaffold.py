@@ -199,8 +199,8 @@ class Scaffold(Aggregator):
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
 
         Returns:
-            Dict[str, List[float]]: dictionary mapping node_id and a list of float, as long as
-            the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
+            Dict[str, List[float]]: dictionary mapping node_id and a list of float, as many as
+                the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
         # to be implemented in a utils module (for pytorch optimizers)
 
