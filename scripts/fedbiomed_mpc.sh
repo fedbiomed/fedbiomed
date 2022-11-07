@@ -84,6 +84,23 @@ will exit from the execution.
 
 EOF
       ;;
+
+    shamir-server-key)
+      cat <<EOF
+Executes Shamir protocol for computing server key for secure aggregation
+
+Usage: fedbiomed_mpc.sh shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
+                                          -of [OUTPUT_FILE] [-c|--compile] | [ ]
+-nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
+                          responsible  for aggregation
+-aip|--assigned-ips     : File path where IP and PORT information of each parties are stored. This file should respect
+                          the format: '<ip-address>:<port>'
+-pn|--party-number      : Party number that represents the number where the protocol is executed
+-of|--output-file       : File path where the output of the calculation for concerning party will be saved.
+-c|--compile            : Option if the MPC script will be compiled before starting the protocol
+
+EOF
+      ;;
   esac
 
 
@@ -304,6 +321,10 @@ case $1 in
           shift # past argument
           shift # past value
           ;;
+        -h| --help)
+          help shamir-server-key
+          exit 0
+          ;;
         *)
           if [ -z  "$2" ]; then
             break;
@@ -323,7 +344,7 @@ case $1 in
     exit 0
   ;;
   *)
-    echo "Please specify the component you want to run between: network, node, researcher, gui"
+    echo "Please specify the action you want to run between: compile, exec, shamir-server-key"
     exit 1
     ;;
 esac
