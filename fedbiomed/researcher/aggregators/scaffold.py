@@ -124,8 +124,8 @@ class Scaffold(Aggregator):
             aggregated_parameters[key] = newval
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
-        # At round 0, initialize correction states. FIXME-PAUL: this does not make sense.
-        if n_round <= 0:
+        # At round 0, initialize zero-valued correction states.
+        if n_round == 0:
             self.init_correction_states(global_model, node_ids)
         # Update correction states.
         self.update_correction_states(model_params, global_model, n_updates)
@@ -151,16 +151,19 @@ class Scaffold(Aggregator):
             self.init_correction_states(global_model, node_ids)
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
-            # serializing correction parameters
-
-            aggregator_args_thr_file.update({node_id: {'aggregator_name': self.aggregator_name,
-                                                       'aggregator_correction': self.nodes_correction_states[node_id]}})
-
-            aggregator_args_thr_msg.update({node_id: {'aggregator_name': self.aggregator_name,
-                                                      }})
-            # if self._aggregator_args.get(node_id) is None:
-            #     self._aggregator_args[node_id] = {}
-        #self._aggregator_args['aggregator_correction']= self.nodes_correction_states
+            # in case of a new node, use zero-valued local state
+            if node_id not in self.nodes_correction_states:
+                self.nodes_correction_states[node_id] = {
+                    key: -val for key, val in self.global_state.items()
+                }
+            # pack information and parameters to send
+            aggregator_args_thr_file[node_id] = {
+                'aggregator_name': self.aggregator_name,
+                'aggregator_correction': self.nodes_correction_states[node_id]
+            }
+            aggregator_args_thr_msg[node_id] = {
+                'aggregator_name': self.aggregator_name
+            }
         return aggregator_args_thr_msg, aggregator_args_thr_file
 
     def check_values(self, node_lrs: List[float], n_updates: int):
