@@ -110,11 +110,11 @@ function compile(){
     exit 1
   fi
 
-  # Retrieve bi-prime
-  biprime=$(cat $basedir/bin/biprime)
+  # Retrieve long prime
+  longprime=$(cat $basedir/bin/longprime)
 
   # Execute compile command
-  compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$SCRIPT.mpc" $EXTRA_ARGS --prime="$biprime" 2>&1 )
+  compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$SCRIPT.mpc" $EXTRA_ARGS --prime="$longprime" 2>&1 )
   if [ ! $? -eq 0 ]; then
     echo -e "\n${RED}ERROR:${NC}"
     echo -e "${BOLD}Above error occurred while compiling MPC program '$SCRIPT'.${NC}\n"
