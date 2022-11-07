@@ -124,8 +124,8 @@ class Scaffold(Aggregator):
             aggregated_parameters[key] = newval
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
-        # At round 0, initialize correction states. FIXME-PAUL: this does not make sense.
-        if n_round <= 0:
+        # At round 0, initialize zero-valued correction states.
+        if n_round == 0:
             self.init_correction_states(global_model, node_ids)
         # Update correction states.
         self.update_correction_states(model_params, global_model, n_updates)
