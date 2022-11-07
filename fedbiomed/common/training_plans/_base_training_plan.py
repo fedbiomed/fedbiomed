@@ -413,6 +413,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            # Immediately exit if max num iterations was reached.
+            if idx > n_batches:
+                break
             # Run the evaluation step; catch and raise exceptions.
             try:
                 m_value = evaluate(data, target)
