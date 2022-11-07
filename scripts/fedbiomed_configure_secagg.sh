@@ -244,9 +244,17 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
       test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
     fi
 
-    if [ "$test_result" == "RESULT 33" ]; then
-        wait[$i]=0
+    if [ -n "$test_result" -a "$test_result" != "" ]; then
+        if [ "$test_result" == "RESULT 33" ]; then
+          wait[$i]=0
+        else
+          # Expected output for each party is "RESULT 33" if any part has an output different than "RESULT 33"
+          # installation test exits
+          echo -e "\n${RED}ERROR${NC}: Calculation is wrong. Got result '$test_result' instead of 'RESULT 33'"
+          exit 1
+        fi
     fi
+
     echo "Checking output of party ->  $i : Result '$test_result' "
   done
   count=$((count+1))
