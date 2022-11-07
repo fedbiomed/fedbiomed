@@ -28,7 +28,7 @@ class Scaffold(Aggregator):
      parameters obtained for each client
     """
 
-    def __init__(self, server_lr: float = .01, fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = .9, fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
 
@@ -46,7 +46,7 @@ class Scaffold(Aggregator):
         Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
 
         Args:
-            server_lr (float): server's (or Researcher's) learning rate. Defaults to .01.
+            server_lr (float): server's (or Researcher's) learning rate. Defaults to .9.
             fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
 
         """
@@ -119,8 +119,15 @@ class Scaffold(Aggregator):
         # Compute the new aggregated model parameters.
         aggregated_parameters = {}
         for key, val in global_model.items():
+            #     Computes quantity `x (1 - eta_g) + eta_g / S * sum_i(y_i))`
+            # Proof:
+            #     x <- x + eta_g * grad(x)
+            #     x <- x + eta_g / S * sum_i(y_i - x)
+            #     x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
+
             update = sum(params[key] for params in model_params.values()) / len(model_params)
             newval = (1 - self.server_lr) * val + self.server_lr * update
+
             aggregated_parameters[key] = newval
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
@@ -287,8 +294,8 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError("Cannot run SCAFFOLD aggregator: No Federated Dataset set")
         total_nb_nodes = len(self._fds.node_ids())
         # Compute the node-wise average of corrected gradients (ACG_i).
-        # i.e. (theta^t - theta_i^{t+1}) / (K * eta_l)
-        local_state_updates = {}  # type: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]
+        # i.e. (x^t - y_i^t}) / (K * eta_l)
+        local_state_updates: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]] = {} 
         for node_id, params in local_models.items():
             local_state_updates[node_id] = {
                 key: (global_model[key] - val) / (self.nodes_lr[node_id][idx] * n_updates)
