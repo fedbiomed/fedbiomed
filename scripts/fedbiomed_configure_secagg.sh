@@ -243,7 +243,7 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
       test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
     fi
 
-    if [ "$test_result" == "RESULT 35" ]; then
+    if [ "$test_result" == "RESULT 30" ]; then
         wait[$i]=0
     fi
     echo "Checking output of party ->  $i : Result '$test_result' "
