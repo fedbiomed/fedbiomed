@@ -174,7 +174,7 @@ fi
 # Create data for two test party
 for i in 0 1 2; do
   openssl req -newkey rsa -nodes -x509 -out "$player_data"/P"$i".pem -keyout "$player_data"/P"$i".key -subj /CN=P"$i"
-  echo "10" > "$player_data/Test-Input-P$i-0"
+  echo "1$i" > "$player_data/Test-Input-P$i-0"
   echo "localhost:1111$i" >> "$player_data/test_ip_assigned"
 done
 c_rehash "$mpspdz_basedir"/Player-Data
@@ -216,7 +216,7 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
       test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
     fi
 
-    if [ "$test_result" == "RESULT 35" ]; then
+    if [ "$test_result" == "RESULT 33" ]; then
         wait[$i]=0
     fi
     echo "Checking output of party ->  $i : Result '$test_result' "
@@ -236,5 +236,6 @@ echo -e "${BOLD}MP-SPDZ configuration is successfully tested! ${NC}"
 
 # Testing Ends ################################################################################################
 
-echo -e "\n${GRN} MP-SPDZ configuration is successful!\n"
+echo -e "\n${GRN} MP-SPDZ configuration is successful!\n${NC}
+"
 

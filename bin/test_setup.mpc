@@ -17,7 +17,7 @@ def test_setup():
     i_1 = sint.get_input_from(0).reveal()
     i_2 = sint.get_input_from(1).reveal()
     i_3 = sint.get_input_from(2).reveal()
-    r = i_1 + 1_2 + 1_3
+    r = i_1 + i_2 + i_3
 
     print_ln("RESULT %s",  r)
 
