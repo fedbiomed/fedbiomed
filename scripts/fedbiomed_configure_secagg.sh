@@ -19,9 +19,34 @@ basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 mpspdz_basedir=$basedir/modules/MP-SPDZ
 # ---------------------------------------------------------------------------------------------------------------
 
+fedbiomed_envs=(node researcher)
+fedbiomed_env=$1
+
+if [ -z "$fedbiomed_env" ]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_configure_secagg.sh node|researcher'"
+  exit 1
+fi
+
+# shellcheck disable=SC2076
+if [[ ! " ${fedbiomed_envs[*]} " =~ " $fedbiomed_env " ]]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}Fed-BioMed component should be 'node' or 'researcher' but got '$fedbiomed_env'"
+  exit 1
+fi
+
 # Activate conda environment ------------------------------------------------------------------------------------
-eval "$(conda shell.bash hook)"
-conda activate fedbiomed-node
+if ! eval "$(conda shell.bash hook)"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that 'conda' is installed and compatible with the current shell you are using"
+  exit 1
+fi
+
+if ! conda activate fedbiomed-"$fedbiomed_env"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that conda environment 'fedbiomed-$fedbiomed_env' is existing."
+  exit 1
+fi
 # ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
@@ -141,13 +166,12 @@ echo -e "${BOLD}Done! ${NC}"
 echo -e "\n${YLW}Creating Player-Data directory... ${NC}"
 if [ ! -d "$basedir/modules/MP-SPDZ/Player-Data" ]; then
   if ! mkdir "$basedir/modules/MP-SPDZ/Player-Data"; then
-    echo -e "\n${RED}ERROR${NC}: Can create Player-Data directory!\n"
+    echo -e "\n${RED}ERROR${NC}: Can not create Player-Data directory!\n"
     exit 1
   fi
 fi
 echo -e "${BOLD}Done! ${NC}"
 # ----------------------------------------------------------------------------------------------------------------
-
 
 
 ##################################################################################################################
