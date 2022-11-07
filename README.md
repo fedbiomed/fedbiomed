@@ -615,3 +615,36 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 ```
+
+## Secure Aggregation Setup: Dev
+
+Fed-BioMed uses MP-SPDZ to provide secure aggregation of the model parameters. Running secure aggregation in Fed-BioMed 
+is optional which makes MP-SPDZ installation/configuration optional as well. Fed-BioMed will be able to run
+FL experiment without MP-SPDZ as long as secure aggregation is not activated on the nodes and the researcher
+components. 
+
+### Configuring MP-SPDZ 
+
+Configuration or installation can be done  with the following command by specifying the Fed-BioMed component. 
+If node and the researcher will be started in the same clone if Fed-BioMed running following command with once
+(`node` or `researcher`) will be enough.  For macOS, the operating system (Darwin) should higher than `High Sierra (10.13)`
+
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_confgiure_secagg.sh <node|researcher>
+```
+
+
+### Running MP-SPDZ protocols 
+
+MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
+Fed-BioMed node and researcher components. The script for executing the protocols is located in 
+`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc compile --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc exec --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc shamir-server-key --help
+
+```
