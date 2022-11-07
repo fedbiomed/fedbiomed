@@ -11,7 +11,6 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import weighted_sum
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
@@ -158,10 +157,10 @@ class Scaffold(Aggregator):
             self.init_correction_states(global_model, node_ids)
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
         for node_id in node_ids:
-            # in case of a new node, use zero-valued local state
+            # in case of a new node, initialize its correction state
             if node_id not in self.nodes_correction_states:
                 self.nodes_correction_states[node_id] = {
-                    key: -val for key, val in self.global_state.items()
+                    key: initialize(tensor)[1] for key, tensor in global_model.items()
                 }
             # pack information and parameters to send
             aggregator_args_thr_file[node_id] = {
@@ -329,9 +328,7 @@ class Scaffold(Aggregator):
             # Case when the node participated in the round
             # d_i^{t+1} = c_i^{t+1} - c^{t+1} = ACG_i - d_i^{t} - c^{t+1}
             else:
-
                 for key, val in self.nodes_correction_states[node_id].items():
-                    
                     self.nodes_correction_states[node_id][key] = (
                         local_state_updates[node_id][key] - val - global_state_new[key]
                     )
