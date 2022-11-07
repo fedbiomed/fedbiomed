@@ -131,7 +131,7 @@ fi
 # This also includes linking test_setup
 echo -e "\n${YLW}Linking MPC files... ${NC}"
 if ! ln -nsf "$basedir"/bin/*.mpc "$mpspdz_basedir"/Programs/Source/; then
-  echo -e "\n${RED}ERROR${NC}: Can not create link for MPC files into MP-SPDZ programs!\n"
+  echo -e "\n${RED}ERROR${NC}: Cannot not create link for MPC files into MP-SPDZ programs!\n"
   exit 1
 fi
 echo -e "${BOLD}Done! ${NC}"
@@ -141,7 +141,7 @@ echo -e "${BOLD}Done! ${NC}"
 echo -e "\n${YLW}Creating Player-Data directory... ${NC}"
 if [ ! -d "$basedir/modules/MP-SPDZ/Player-Data" ]; then
   if ! mkdir "$basedir/modules/MP-SPDZ/Player-Data"; then
-    echo -e "\n${RED}ERROR${NC}: Can create Player-Data directory!\n"
+    echo -e "\n${RED}ERROR${NC}: Cannot create Player-Data directory!\n"
     exit 1
   fi
 fi
@@ -161,8 +161,8 @@ echo -e "\n${YLW}Creating temporary certificates and input files for testing${NC
 player_data="$basedir/modules/MP-SPDZ/Player-Data"
 
 # Remove existing test assigned IP address for each test party
-if [ -f "$player_data/test_ip_assigned.tldr" ]; then
-  rm "$player_data/test_ip_assigned.tldr"
+if [ -f "$player_data/test_ip_assigned" ]; then
+  rm "$player_data/test_ip_assigned"
 fi
 
 # Remove test input and outputs
@@ -175,7 +175,7 @@ fi
 for i in 0 1 2; do
   openssl req -newkey rsa -nodes -x509 -out "$player_data"/P"$i".pem -keyout "$player_data"/P"$i".key -subj /CN=P"$i"
   echo "10" > "$player_data/Test-Input-P$i-0"
-  echo "localhost:11112$i" >> "$player_data/test_ip_assigned.tldr"
+  echo "localhost:1111$i" >> "$player_data/test_ip_assigned"
 done
 c_rehash "$mpspdz_basedir"/Player-Data
 echo -e "${BOLD}Done! ${NC}"
@@ -192,7 +192,7 @@ fi
 # Starts parties for MPC
 for i in 0 1 2; do
   "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party $i \
-      -ip Player-Data/test_ip_assigned.tldr \
+      -ip Player-Data/test_ip_assigned \
       -IF Player-Data/Test-Input \
       -OF Player-Data/Test-Output \
       test_setup \
@@ -203,11 +203,12 @@ done
 # when each output is received from parties test will pass. If this process takes mortahn 10 seconds
 # test will fail.
 count=0
+maxcount=9
 wait=(1 1 1)
 while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
   sleep 1;
 
-  echo -e "${BOLD}Checking the output of parties for testing  round $count out of 9 ------------------------------${NC}"
+  echo -e "${BOLD}Checking the output of parties for testing  round $count out of $maxcount ------------------------------${NC}"
   for i in 0 1 2; do
     if [ ! -f "$mpspdz_basedir/Player-Data/Test-Output-P$i-0" ]; then
       test_result=''
@@ -222,8 +223,8 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
   done
   count=$((count+1))
 
-  # More than 9 seconds exit process with error
-  if [[ "$count" -gt 15 ]]; then
+  # More than maxcount seconds exit process with error
+  if [[ "$count" -gt "$maxcount" ]]; then
     echo -e "\n${RED}ERROR${NC}: Could not verify MP-SPDZ installation expected outputs are not received. \n\
                 \r Please check the logs above!\n"
     exit 1

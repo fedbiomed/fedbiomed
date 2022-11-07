@@ -147,7 +147,7 @@ function execute_protocol(){
 
 
   echo -e "${GRN}Executing protocol '$PROTOCOL'...${NC}"
-  echo -e "${BOLD}Press CTL+C to stop${NC}"
+  echo -e "${BOLD}Press CTRL+C to stop${NC}"
   exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
 
   if [ ! $? -eq 0 ]; then
