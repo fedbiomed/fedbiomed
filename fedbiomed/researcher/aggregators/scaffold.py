@@ -297,7 +297,7 @@ class Scaffold(Aggregator):
             for key in global_model
         }
         # Compute the updated shared state variable.
-        # c^{t+1} = (1 - I/N)c^t + (1/N) sum_{i=1}^I ACG_i
+        # c^{t+1} = (1 - S/N)c^t + (1/N) sum_{i=1}^S ACG_i
         share = 1 - len(local_models) / total_nb_nodes
         global_state_new = {
             key: share * self.global_state[key] + val
@@ -314,12 +314,14 @@ class Scaffold(Aggregator):
             # Case when the node did not participate in the round.
             # d_i^{t+1} = d_i^t + c^t - c^{t+1}
             if acg is None:
-                for key, val in self.nodes_correction_states.items():
+                for key, val in self.nodes_correction_states[node_id].items():
                     self.nodes_correction_states[node_id][key] += global_state_diff[key]
             # Case when the node participated in the round
             # d_i^{t+1} = c_i^{t+1} - c^{t+1} = ACG_i - d_i^{t} - c^{t+1}
             else:
-                for key, val in self.nodes_correction_states.items():
+
+                for key, val in self.nodes_correction_states[node_id].items():
+                    
                     self.nodes_correction_states[node_id][key] = (
                         local_state_updates[node_id][key] - val - global_state_new[key]
                     )
