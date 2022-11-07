@@ -101,7 +101,6 @@ configure_darwin() {
     exit 1
   fi
 
-
   echo -e "\n${YLW}--------------------------------Building from source distribution---------------------------${NC}"
 
   echo -e "${GRN}\nRunning make clean ...${NC}"
@@ -201,7 +200,12 @@ for i in 0 1 2; do
   echo "10" > "$player_data/Test-Input-P$i-0"
   echo "localhost:11112$i" >> "$player_data/test_ip_assigned.tldr"
 done
-c_rehash "$mpspdz_basedir"/Player-Data
+
+if ! c_rehash "$mpspdz_basedir"/Player-Data; then
+    echo -e "\n${RED}ERROR${NC}:"
+    echo -e "${BOLD} Can not execute 'c_rehash' to finish creation of certificates. Please check the logs above. ${NC}"
+    exit 1
+fi
 echo -e "${BOLD}Done! ${NC}"
 
 # Run configuration test-----------------------------------------------------------------------------------------------
