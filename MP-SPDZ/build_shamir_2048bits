@@ -15,3 +15,6 @@ sed -i -e 's:static-release:static/shamir-party.x:' $BUILDFILE
 # misc: avoid non fatal error messages during build
 sed -i -e 's: mkdir bin: [ -d bin ] || mkdir bin:' $BUILDFILE
 sed -i -e 's: rm -R $dest: [ -e $dest ] \&\& rm -R $dest:' $BUILDFILE
+
+# do the build
+./Scripts/build-shamir.sh
