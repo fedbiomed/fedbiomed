@@ -75,9 +75,9 @@ configure_linux() {
       exit 1
     fi
 
-    # Link binaries to ${FEDBIOMED_DIR}/bin ---------------------------------------------------------------------
+    # Link binaries to ${FEDBIOMED_DIR}/MP-SPDZ ---------------------------------------------------------------------
     echo -e "\n${YLW}Copying binary distributions... ${NC}"
-    if ! ln -nsf "$basedir"/bin/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
+    if ! ln -nsf "$basedir"/MP-SPDZ/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
       echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
       exit 1
     fi
@@ -149,12 +149,12 @@ fi
 
 
 # To use it later
-#! find "$basedir/bin/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/bin/" ';'
+#! find "$basedir/MP-SPDZ/$(uname)-$cpu_arch/" -name '*.x'  -exec cp -prv '{}' "$basedir/MP-SPDZ/" ';'
 
 # Link MPC files ----------------------------------------------------------------------------------------------
 # This also includes linking test_setup
 echo -e "\n${YLW}Linking MPC files... ${NC}"
-if ! ln -nsf "$basedir"/bin/*.mpc "$mpspdz_basedir"/Programs/Source/; then
+if ! ln -nsf "$basedir"/MP-SPDZ/*.mpc "$mpspdz_basedir"/Programs/Source/; then
   echo -e "\n${RED}ERROR${NC}: Cannot not create link for MPC files into MP-SPDZ programs!\n"
   exit 1
 fi
@@ -211,7 +211,7 @@ echo -e "${BOLD}Done! ${NC}"
 # Run configuration test-----------------------------------------------------------------------------------------------
 
 # Compiles test setup mpc file
-if ! "$basedir"/scripts/fedbiomed_mpc.sh compile --script test_setup; then
+if ! "$basedir"/scripts/fedbiomed_mpc compile --script test_setup; then
     echo -e "\n${RED}ERROR${NC}:"
     echo -e "${BOLD} Error while compiling 'test_setup' ${NC}"
     exit 1
@@ -219,7 +219,7 @@ fi
 
 # Starts parties for MPC
 for i in 0 1 2; do
-  "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party $i \
+  "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party $i \
       -ip Player-Data/test_ip_assigned \
       -IF Player-Data/Test-Input \
       -OF Player-Data/Test-Output \

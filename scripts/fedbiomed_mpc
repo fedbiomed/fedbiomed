@@ -39,7 +39,7 @@ MPC Controller
 
 Usage
 
-> fedbiomed_mpc.sh [compile | exec | shamir-server-key]
+> fedbiomed_mpc [compile | exec | shamir-server-key]
 
 compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
                       and more information
@@ -51,14 +51,14 @@ EOF
     ;;
     compile)
       cat <<EOF
-Compiles MPC scripts
+Compiles MPC script
 
 Usage:
-> fedbiomed_mpc.sh  compile --script [script-name] [extra arguments]
+> fedbiomed_mpc  compile --script [script-name] [extra arguments]
 
 Script argument is mandatory
 
--s | --script : The name of the MPC scripts. available scripts -> [test_setup | server_key]
+-s | --script : The name of the MPC script. available scripts -> [test_setup | server_key]
 
 Pass other extra arguments for the compilation. These arguments may very based on MPC script. If the arguments are not
 supported compile operation will fail. E.g '--script server_key -N 2'
@@ -89,7 +89,7 @@ EOF
       cat <<EOF
 Executes Shamir protocol for computing server key for secure aggregation
 
-Usage: fedbiomed_mpc.sh shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
+Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
                                           -of [OUTPUT_FILE] [-c|--compile] | [ ]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
@@ -128,7 +128,7 @@ function compile(){
   fi
 
   # Retrieve long prime
-  longprime=$(cat $basedir/bin/longprime)
+  longprime=$(cat $basedir/MP-SPDZ/longprime)
 
   # Execute compile command
   compile_out=$(cd "$mpspdz_basedir" && python "Programs/Source/$SCRIPT.mpc" $EXTRA_ARGS --prime="$longprime" 2>&1 )
@@ -194,7 +194,7 @@ function execute_shamir_server_key(){
 
 
   if [ -n "$COMPILE" ]; then
-    if ! "$basedir"/scripts/fedbiomed_mpc.sh compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+    if ! "$basedir"/scripts/fedbiomed_mpc compile --script server_key -N "$NUMBER_OF_PARTIES"; then
       echo -e "\n${RED}ERROR:${NC}"
       echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
       exit 1
@@ -204,7 +204,7 @@ function execute_shamir_server_key(){
   # Generate the key-share
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
     echo -e "${GRN}Generating key share for party $PARTY_NUMBER ${NC}"
-    if ! python "$basedir"/bin/generate_sk.py --n_len 2048 > "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0; then
+    if ! python "$basedir"/MP-SPDZ/generate_sk.py --n_len 2048 > "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0; then
       echo -e "\n${RED}ERROR:${NC}"
       echo -e "${BOLD}Error while generating key share.${NC}\n"
       exit 1
@@ -219,7 +219,7 @@ function execute_shamir_server_key(){
   echo -e "${BOLD}Output file       :${NC} $OUTPUT_FILE"
   echo -e "${BOLD}Input file        :${NC} $mpspdz_basedir/Player-Data/Server-Key-Input-P$PARTY_NUMBER-0 \n"
 
-  "$basedir"/scripts/fedbiomed_mpc.sh exec --protocol shamir-party "$PARTY_NUMBER" \
+  "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
         -IF "$mpspdz_basedir"/Player-Data/Server-Key-Input \
         -OF "$OUTPUT_FILE" \
@@ -256,7 +256,7 @@ case $1 in
           compile "$SCRIPT" "$EXTRA_ARGS"
       else
           echo -e "\n${RED}ERROR:${NC}"
-          echo -e "${BOLD}Please specify MPC script name to compile. e.g '--scripts test_setup' ${NC}\n"
+          echo -e "${BOLD}Please specify MPC script name to compile. e.g '--script test_setup' ${NC}\n"
           exit 1
     fi
   ;;

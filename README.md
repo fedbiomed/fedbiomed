@@ -631,7 +631,7 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_confgiure_secagg.sh <node|researcher>
+{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg <node|researcher>
 ```
 
 
