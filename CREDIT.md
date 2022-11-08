@@ -8,7 +8,7 @@ MP-SPDZ is used in Fed-BioMed for secure aggregation. Fed-BioMed redistributes s
 CSIRO Open Source Software Licence Agreement (variation of the BSD / MIT License)
 Copyright (c) 2022, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
 
-[MP-SPDZ licence](./credit/mp-spdz-licence.txt)
+Full [MP-SPDZ licence](./credit/mp-spdz-licence.txt)
 
 The following third party components are distributed with the Software.
 
