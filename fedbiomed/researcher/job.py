@@ -364,6 +364,7 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
+    #TODO Made redundant by the use of apply_gradients, check if needs to be garbage collected
     def update_parameters(
             self,
             params: Optional[declearn.model.api.Vector] = None,

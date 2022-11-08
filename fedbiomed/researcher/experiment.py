@@ -1,46 +1,44 @@
 """Code of the researcher. Implements the experiment orchestration"""
 
 import functools
-import os
-import sys
-import json
 import importlib
 import inspect
+import json
+import os
+import sys
 import traceback
 from copy import deepcopy
 from re import findall
 from typing import Any, Callable, Dict, List, Tuple, Type, Union
 
-from pathvalidate import sanitize_filename
-from tabulate import tabulate
-
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.utils import is_ipython
-from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
-)
+from fedbiomed.common.exceptions import (FedbiomedError,
+                                         FedbiomedExperimentError,
+                                         FedbiomedSilentTerminationError)
+from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TrainingPlan
+from fedbiomed.common.utils import is_ipython
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import (
-    choose_bkpt_file,
-    create_exp_folder,
-    create_unique_file_link,
-    create_unique_link,
-    find_breakpoint_path,
-)
+from fedbiomed.researcher.filetools import (choose_bkpt_file,
+                                            create_exp_folder,
+                                            create_unique_file_link,
+                                            create_unique_link,
+                                            find_breakpoint_path)
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.strategies.strategy import Strategy
+from fedbiomed.researcher.secagg import (SecaggBiprimeContext, SecaggContext,
+                                         SecaggServkeyContext)
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
+from fedbiomed.researcher.strategies.strategy import Strategy
+from pathvalidate import sanitize_filename
+from tabulate import tabulate
 
 
 # Exception handling at top lever for researcher
@@ -1414,8 +1412,10 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current)
 
         # aggregate model from nodes to a global model
-        aggregated_params = self._aggregator.aggregate(model_params,
-                                                       weights)
+
+        global_model = self.training_plan().model
+        aggregated_params = self._aggregator.aggregate(global_model, model_params, weights)
+
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
