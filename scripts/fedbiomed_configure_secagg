@@ -24,7 +24,7 @@ fedbiomed_env=$1
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
-  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_configure_secagg.sh node|researcher'"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_configure_secagg node|researcher'"
   exit 1
 fi
 
