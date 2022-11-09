@@ -201,6 +201,7 @@ case $1 in
         ;;
 
     *)
+        conda deactivate
         cat <<EOF
 Usage: fedbiomed_environment network|node [IP_ADDRESS] |researcher [IP_ADDRESS] |gui |reset|clean
 
