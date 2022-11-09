@@ -180,26 +180,53 @@ class Node:
             msg: `SecaggRequest` message object to parse
         """
         # 1. Parse message content
-        researcher_id = msg.get_param('researcher_id')
-        secagg_id = msg.get_param('secagg_id')
-        sequence = msg.get_param('sequence')
-        element = msg.get_param('element')
-        parties = msg.get_param('parties')
+        is_bad_message = False
+        error = ''
 
-        if element in [m.value for m in SecaggElementTypes]:
-            element = SecaggElementTypes(element)
-        else:
-            element = None
+        try:
+            researcher_id = msg.get_param('researcher_id')
+            secagg_id = msg.get_param('secagg_id')
+            sequence = msg.get_param('sequence')
+            element = msg.get_param('element')
+            parties = msg.get_param('parties')
+        except Exception as e:
+            # should not happen, because Message object already checks message params
+            is_bad_message = True
+            error = str(e)
 
-        if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
+        if not is_bad_message:
+            if element in [m.value for m in SecaggElementTypes]:
+                element = SecaggElementTypes(element)
+            else:
+                element = None
+
+            if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
+                is_bad_message = True
+                error = 'incorrect message parameters'
+
+        if is_bad_message:
+            errmess = f'{ErrorNumbers.FB318}: received bad request message: {error}'
+            logger.error(errmess)
+            self.messaging.send_message(
+                NodeMessages.reply_create(
+                    {
+                        'command': 'error',
+                        'extra_msg': errmess,
+                        'node_id': environ['NODE_ID'],
+                        'researcher_id': 'NOT_SET',
+                        'errnum': ErrorNumbers.FB318
+                    }
+                ).get_dict()
+            )
+            # dont continue if already failed
             return None
 
+        # 2. Instantiate secagg context element
         element2class = {
             'SERVER_KEY': SecaggServkeySetup,
             'BIPRIME': SecaggBiprimeSetup
         }
 
-        # 2. Instantiate secagg context element
         try:
             if element.name in element2class.keys():
                 # instantiate a `SecaggSetup` object
@@ -210,7 +237,7 @@ class Node:
             error = ''
         except Exception as e:
             # bad secagg request
-            error = e
+            error = str(e)
             secagg = None
 
         # 3. Execute

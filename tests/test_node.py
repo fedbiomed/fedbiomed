@@ -14,7 +14,7 @@ from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBipri
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, SecaggRequest
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -1143,16 +1143,78 @@ class TestNode(unittest.TestCase):
                 'parties': ['party1', 'party2'],
                 'command': 'secagg'
             },
+            {
+                'secagg_id': '',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': '',
+                'element': 0,
+                'parties': ['party1', 'party2'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': '',
+                'sequence': 888,
+                'parties': ['party1', 'party2'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': '',
+                'sequence': 888,
+                'element': 0,
+                'command': 'secagg'
+            },
+        ]
+        dict_secagg_extra_msg = [
+            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
+            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
+            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'researcher_id'",
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'secagg_id'",
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'sequence'",
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'element'",
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'parties'",
+            
         ]
 
+        class CustomFakeMessages(FakeMessages):
+            def get_param(self, val: str) -> Any:
+                if val in self.msg:
+                    return self.msg.get(val)
+                else:
+                    raise AttributeError(f"no such attribute '{val}'")
+
         for req in dict_secagg_requests:
-            msg_secagg_request = NodeMessages.request_create(req)
+            msg_secagg_request = CustomFakeMessages(req)
+
+            dict_secagg_reply = {
+                'command': 'error',
+                'extra_msg': dict_secagg_extra_msg.pop(0),
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB318
+            }
 
             # action
             self.n1.task_secagg(msg_secagg_request)
 
             # check
-            messaging_send_msg_patch.assert_not_called()
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+            # messaging_send_msg_patch.assert_not_called()
             messaging_send_msg_patch.reset_mock()
 
     @patch('fedbiomed.node.node.SecaggBiprimeSetup')
