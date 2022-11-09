@@ -17,4 +17,4 @@ sed -i -e 's: mkdir bin: [ -d bin ] || mkdir bin:' $BUILDFILE
 sed -i -e 's: rm -R $dest: [ -e $dest ] \&\& rm -R $dest:' $BUILDFILE
 
 # do the build
-./Scripts/build-shamir.sh
+./$BUILDFILE
