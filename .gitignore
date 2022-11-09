@@ -21,9 +21,9 @@ db.sqlite3-journal
 static
 
 
-# Ignore MPC .x files after installing or compiling
+# MP-SDPZ
 bin/*.x
-
+MP-SPDZ_build
 
 # If your build process includes running collectstatic, then you probably don't need or want to include staticfiles/
 # in your Git repository. Update and uncomment the following line accordingly.
