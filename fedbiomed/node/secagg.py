@@ -40,7 +40,12 @@ class SecaggSetup(ABC):
             except ValidatorError as e:
                 errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{param}` should be a {type}: {e}'
                 logger.error(errmess)
-                raise FedbiomedSecaggError(errmess) 
+                raise FedbiomedSecaggError(errmess)
+        for param, name in [(researcher_id, 'researcher_id'), (secagg_id, 'secagg_id')]:
+            if not param:
+                errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{name}` should not be empty string'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
         try:
             self._v.validate(parties, list)
             for p in parties:
@@ -55,7 +60,7 @@ class SecaggSetup(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         if researcher_id != parties[0]:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `researched_id` : {researcher_id} : ' \
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : ' \
                 'needs to be the same as the first secagg party'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)

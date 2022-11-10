@@ -1116,11 +1116,12 @@ class TestNode(unittest.TestCase):
             self,
             messaging_send_msg_patch):
         """Tests `task_secagg` with bad message values"""
+        # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
 
         # prepare
         dict_secagg_requests = [
             {
-                'researcher_id': 'my_test_researcher_id',
+                'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 2,
@@ -1128,7 +1129,15 @@ class TestNode(unittest.TestCase):
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
+                'researcher_id': '',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'party1',
                 'secagg_id': '',
                 'sequence': 888,
                 'element': 0,
@@ -1136,44 +1145,44 @@ class TestNode(unittest.TestCase):
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': '',
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
                 'parties': ['party1', 'party2'],
                 'command': 'secagg'
             },
             {
-                'secagg_id': '',
+                'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
-                'parties': ['party1', 'party2'],
+                'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
                 'researcher_id': 'my_test_researcher_id',
                 'sequence': 888,
                 'element': 0,
-                'parties': ['party1', 'party2'],
+                'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': '',
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
                 'element': 0,
-                'parties': ['party1', 'party2'],
+                'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': '',
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
-                'parties': ['party1', 'party2'],
+                'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': '',
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
                 'command': 'secagg'
@@ -1181,8 +1190,9 @@ class TestNode(unittest.TestCase):
         ]
         dict_secagg_extra_msg = [
             'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
-            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
-            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
+            'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
+            'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
+            "ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'researcher_id'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'secagg_id'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'sequence'",

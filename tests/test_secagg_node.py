@@ -6,6 +6,7 @@ import testsupport.mock_node_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_message import FakeMessages
 
 from fedbiomed.common.constants import SecaggElementTypes
+from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup
 
@@ -27,7 +28,7 @@ class TestSecaggResearcher(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_secagg_01_init_and_getters(self):
+    def test_secagg_01_init_ok_and_getters(self):
         """Instantiate secagg classes + read state via getters"""
 
         # prepare
@@ -35,7 +36,7 @@ class TestSecaggResearcher(unittest.TestCase):
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'sequence': 123,
-            'parties': ['my party'],
+            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
         secagg_setups = [
             [SecaggServkeySetup, SecaggElementTypes.SERVER_KEY],
@@ -52,9 +53,114 @@ class TestSecaggResearcher(unittest.TestCase):
             self.assertEqual(secagg.sequence(), kwargs['sequence'])
             self.assertEqual(secagg.element(), element_type)
 
+    def test_secagg_02_init_badargs(self):
+        """Instantiate secagg classes with bad arguments"""
+
+        # prepare
+        kwargs_list = [
+            {
+                'researcher_id': None,
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 234,
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': "",
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': None,
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': 12345,
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "",
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': None,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 'sequence is not a string',
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': ['sequence is not a list'],
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': None,
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': 'need to be a list',
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': [None, None],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': [654, 321],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': ['need to be same as researcher_id', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'sequence': 123,
+                'parties': ['my researcher', 'need 3+ parties'],
+            },
+        ]
+        secagg_setups = [SecaggServkeySetup, SecaggBiprimeSetup]
+
+        for kwargs in kwargs_list:
+            for secagg_setup in secagg_setups :
+                # test
+                with self.assertRaises(FedbiomedSecaggError):
+                    secagg_setup(**kwargs)
+
+
     @patch('time.sleep')
     @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
-    def test_secagg_02_setup(
+    def test_secagg_03_setup(
             self,
             patch_reply_create,
             patch_time_sleep):
@@ -71,7 +177,7 @@ class TestSecaggResearcher(unittest.TestCase):
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'sequence': 123,
-            'parties': ['my party'],
+            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
         secagg_setups = [
             SecaggServkeySetup,
@@ -92,7 +198,7 @@ class TestSecaggResearcher(unittest.TestCase):
             self.assertEqual(msg['command'], 'secagg')
 
     @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
-    def test_secagg_03_create_secagg_reply(
+    def test_secagg_04_create_secagg_reply(
             self,
             patch_reply_create):
         """Create a reply message for researcher
@@ -108,7 +214,7 @@ class TestSecaggResearcher(unittest.TestCase):
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'sequence': 123,
-            'parties': ['my party'],
+            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
         secagg_setups = [
             SecaggServkeySetup,
