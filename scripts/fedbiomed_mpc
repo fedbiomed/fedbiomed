@@ -44,7 +44,7 @@ Usage
 compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
                       and more information
 exec                : To execute MPC protocol. Please run 'exec --help' for the usage and more information
-shamir-server-key   : Executes shamir protocol for server-key computation. Please run 'exec --help' for the usage
+shamir-server-key   : Executes Shamir S.S. protocol for server-key computation. Please run 'exec --help' for the usage
                       and more information
 
 EOF
