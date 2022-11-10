@@ -4,9 +4,11 @@ from abc import ABC, abstractmethod
 from enum import Enum
 import time
 
-from fedbiomed.common.constants import SecaggElementTypes
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.message import NodeMessages, SecaggReply
 from fedbiomed.common.logger import logger
+from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.node.environ import environ
 
@@ -30,8 +32,35 @@ class SecaggSetup(ABC):
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
         """
-        # we can suppose input was properly checked before instantiating this object
+        # check arguments
+        self._v = Validator()
+        for param, type in [(researcher_id, str), (secagg_id, str), (sequence, int)]:
+            try:
+                self._v.validate(param, type)
+            except ValidatorError as e:
+                errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{param}` should be a {type}: {e}'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess) 
+        try:
+            self._v.validate(parties, list)
+            for p in parties:
+                self._v.validate(p, str)
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` must be a list of strings: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+        if len(parties) < 3:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
+                'at least 3 parties for secure aggregation'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+        if researcher_id != parties[0]:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `researched_id` : {researcher_id} : ' \
+                'needs to be the same as the first secagg party'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
+        # assign argument values
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._sequence = sequence

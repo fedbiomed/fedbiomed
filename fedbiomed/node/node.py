@@ -200,7 +200,7 @@ class Node:
             else:
                 element = None
 
-            if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
+            if not element:
                 is_bad_message = True
                 error = 'incorrect message parameters'
 

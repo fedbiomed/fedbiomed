@@ -35,7 +35,7 @@ class SecaggContext(ABC):
             for p in parties:
                 self._v.validate(p, str)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` should be a list of strings: {e}'
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` must be a list of strings: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         if len(parties) < 3:

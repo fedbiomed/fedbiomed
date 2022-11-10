@@ -1187,8 +1187,7 @@ class TestNode(unittest.TestCase):
             "ErrorNumbers.FB318: received bad request message: no such attribute 'secagg_id'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'sequence'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'element'",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'parties'",
-            
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'parties'",  
         ]
 
         class CustomFakeMessages(FakeMessages):
