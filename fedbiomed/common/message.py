@@ -554,8 +554,7 @@ class TrainRequest(Message):
         training_data: Dataset meta-data for training
         training: Declares whether training will be performed
         model_args: Arguments to initialize training plan class
-        training_plan_url: URL where TrainingPlan is available
-        training_plan_class: Class name of the training plan
+        training_plan_url: URL where TrainingPlan JSON dump is available
         command: Reply command string
 
     Raises:
@@ -569,7 +568,6 @@ class TrainRequest(Message):
     training: bool
     model_args: dict
     training_plan_url: str
-    training_plan_class: str
     command: str
 
 

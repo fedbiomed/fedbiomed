@@ -6,7 +6,7 @@ import unittest
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 from fedbiomed.researcher.environ import environ
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.researcher.job import localJob
+from fedbiomed.researcher.job import LocalJob
 from testsupport.fake_training_plan import FakeModel
 
 
@@ -57,7 +57,7 @@ class TestLocalJob(unittest.TestCase):
 
         type(self.model).dependencies = PropertyMock(return_value=['from os import mkdir'])
         # Global Local Job Object
-        self.local_job = localJob(training_plan_class=self.model)
+        self.local_job = LocalJob(training_plan_class=self.model)
 
     def tearDown(self) -> None:
 
@@ -72,7 +72,7 @@ class TestLocalJob(unittest.TestCase):
         model_file_path = TestLocalJob.create_fake_model('dummy_model.py')
 
         # Rebuild local jon for testing __init__
-        self.local_job = localJob(training_plan_path=model_file_path,
+        self.local_job = LocalJob(training_plan_path=model_file_path,
                                   training_plan_class='FakeModel')
 
         self.assertEqual(self.local_job.training_plan.__class__.__name__, FakeModel.__name__,
@@ -82,14 +82,14 @@ class TestLocalJob(unittest.TestCase):
         # Testing model_path with unsupported python module name
         model_file_path = TestLocalJob.create_fake_model('dummy.model.py')
         with self.assertRaises(SystemExit):
-            self.local_job = localJob(training_plan_path=model_file_path,
+            self.local_job = LocalJob(training_plan_path=model_file_path,
                                       training_plan_class='FakeModel')
 
     def test_local_job_02_initialization_with_model_instance(self):
         """ Testing Local Job initialization by passing training_plan_class as python instance -> `built class`"""
 
         # Rebuild local jon for init test
-        self.local_job = localJob(training_plan_class=self.model)
+        self.local_job = LocalJob(training_plan_class=self.model)
         self.assertEqual(self.local_job.training_plan.__class__.__name__, self.model.__class__.__name__,
                          'Provided model and model instance of Job do not match, '
                          'while initializing Local Job with already built model class')
@@ -100,7 +100,7 @@ class TestLocalJob(unittest.TestCase):
         # Testing Local Job with model arguments
         args = {'args': True}
         # Rebuild local jon for testing __init__
-        self.local_job = localJob(training_plan_class=FakeModel, model_args=args)
+        self.local_job = LocalJob(training_plan_class=FakeModel, model_args=args)
         self.assertDictEqual(args, self.local_job._model_args, 'Model arguments is not set properly')
         self.assertEqual(self.local_job.training_plan.__class__.__name__, 'FakeModel',
                          'Provided model and model instance of Local Job do not match, ')

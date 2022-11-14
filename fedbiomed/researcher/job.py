@@ -3,6 +3,8 @@
 import atexit
 import copy
 import inspect
+import importlib
+import json
 import os
 import re
 import sys
@@ -10,19 +12,19 @@ import shutil
 import tempfile
 import time
 import uuid
-import importlib
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
+from typing import Any, Dict, List, Optional, Union
+
+import declearn
+import numpy as np
 import validators
 
-from typing import Union, Callable, List, Dict, Type
-
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
-
+from fedbiomed.common.training_plans import TrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
@@ -36,15 +38,14 @@ class Job:
 
     Starts a message queue, loads python model file created by researcher (through
     [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a temporary file
-    (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
+    (under the filename '<TEMP_DIR>/training_plan_<random_id>.py').
 
     """
 
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 training_plan_class: Union[Type[Callable], str] = None,
-                 training_plan_path: str = None,
+                 training_plan: TrainingPlan = None,
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
@@ -55,7 +56,7 @@ class Job:
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
-            training_plan_path: Path to file containing model class code
+            training_plan: Training plan instance that wraps training.
             training_args: Contains training parameters; lr, epochs, batch_size.
             model_args: Contains output and input feature dimension
             data: Federated datasets
@@ -73,10 +74,8 @@ class Job:
         self._model_args = model_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
-        self._model_file = None  # path to local file containing model code
-        self._model_params_file = None  # path to local file containing current version of aggregated params
-        self._training_plan_class = training_plan_class
-        self._training_plan = None
+        self._model_params_file = ""  # path to local file containing current version of aggregated params
+        self._training_plan = training_plan
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -98,49 +97,19 @@ class Job:
         if self._data is not None:
             self.check_data_quality()
 
-        # Model is mandatory
-        if self._training_plan_class is None:
-            mess = "Missing training plan class name or instance in Job arguments"
-            logger.critical(mess)
-            raise NameError(mess)
-
-        # handle case when model is in a file
-        if training_plan_path is not None:
-            try:
-                # import model from python file
-
-                model_module = os.path.basename(training_plan_path)
-                model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(training_plan_path))
-
-                module = importlib.import_module(model_module)
-                tr_class = getattr(module, self._training_plan_class)
-                self._training_plan_class = tr_class
-                sys.path.pop(0)
-
-            except Exception as e:
-                e = sys.exc_info()
-                logger.critical(f"Cannot import class {self._training_plan_class} from "
-                                f"path {training_plan_path} - Error: {str(e)}")
-                sys.exit(-1)
-
-        # check class is defined
-        try:
-            _ = inspect.isclass(self._training_plan_class)
-        except NameError:
-            mess = f"Cannot find training plan for Job, training plan class {self._training_plan_class} is not defined"
-            logger.critical(mess)
-            raise NameError(mess)
-
-        # create/save TrainingPlan instance
-        if inspect.isclass(self._training_plan_class):
-            self._training_plan = self._training_plan_class()  # contains TrainingPlan
-
-        else:
-            self._training_plan = self._training_plan_class
-
-        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
-                                      training_args=self._training_args)
+        # Check training plan type
+        if not isinstance(self._training_plan, TrainingPlan):
+            msg = (
+                "Job received an unproper object as `training_plan`: "
+                f"{type(self._training_plan)}"
+            )
+            logger.critical(msg)
+            raise FedbiomedError(msg)
+        # Finalize the training plan's instantiation
+        self._training_plan.post_init(
+            model_args=self._model_args or {},
+            training_args=self._training_args
+        )
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -148,34 +117,35 @@ class Job:
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
-        self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
+        self._training_plan_file = os.path.join(
+            self._keep_files_dir, f"training_plan_{uuid.uuid4()}.json"
+        )
         try:
-            self._training_plan.save_code(self._training_plan_file)
+            self._training_plan.save_to_json(self._training_plan_file)
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
-        # upload my_model_xxx.py on repository server (contains model definition)
+        # upload the training plan file to the repository server
         repo_response = self.repo.upload_file(self._training_plan_file)
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
-        self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
+        self._model_params_file = os.path.join(
+            self._keep_files_dir, f"aggregated_params_init_{uuid.uuid4()}.json"
+        )
         try:
-            self._training_plan.save(self._model_params_file)
+            self._training_plan.save_weights(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
-        # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
+        # upload aggregated_params_init_xxx.json on repository server (contains model parameters)
         repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
 
-        # (below) regex: matches a character not present among "^", "\", "."
-        # characters at the end of string.
-        self._repository_args['training_plan_class'] = self._training_plan_name
-
         # Validate fields in each argument
-        self.validate_minimal_arguments(self._repository_args,
-                                        ['training_plan_url', 'training_plan_class', 'params_url'])
+        self.validate_minimal_arguments(
+            self._repository_args, ['training_plan_url', 'params_url']
+        )
         # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
 
     @staticmethod
@@ -372,12 +342,14 @@ class Job:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:
                         _, params_path = self.repo.download_file(m['params_url'],
-                                                                 'node_params_' + str(uuid.uuid4()) + '.pt')
+                                                                 'node_params_' + str(uuid.uuid4()) + '.json')
                     except FedbiomedRepositoryError as err:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self._training_plan.load(params_path, to_params=True)['model_params']
+                    params = self._training_plan.load_weights(
+                        params_path, assign=False
+                    )
                 else:
                     params_path = None
                     params = None
@@ -385,7 +357,6 @@ class Job:
                 # TODO: could choose completely different name/structure for
                 timing = m['timing']
                 timing['rtime_total'] = rtime_total
-
                 r = Responses({'success': m['success'],
                                'msg': m['msg'],
                                'dataset_id': m['dataset_id'],
@@ -399,14 +370,23 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
-    def update_parameters(self, params: dict = {}, filename: str = None) -> str:
-        """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
-        already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
-        next training round. If a `filename` is given (file exists) it has precedence over `params`.
+    def update_parameters(
+            self,
+            params: Optional[Dict[str, np.ndarray]] = None,
+            filename: Optional[str] = None
+        ) -> str:
+        """Updates global model aggregated parameters in `params`.
+
+        Save the parameters to file `filename` (unless it already exists),
+        then upload file to the repository so that params are ready to be
+        sent to the nodes for the next training round. If a `filename` is
+        given (file exists) it has precedence over `params`.
 
         Args:
-            params: data structure containing the new version of the aggregated parameters for this job,
-            filename: path to the file containing the new version of the aggregated parameters for this job,
+            params: data structure containing the new version of the
+                aggregated parameters for this job.
+            filename: path to the file containing the new version of
+                the aggregated parameters for this job.
 
         Returns:
             Name of the parameter file
@@ -415,24 +395,34 @@ class Job:
             ValueError: Bad arguments
         """
         try:
-            if not filename:
-                if not params:
-                    raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan.save(filename, params)
-
+            if filename:
+                self._training_plan.load_weights(filename)
+            elif not params:
+                raise ValueError(
+                    "Bad arguments for update_parameters, "
+                    "filename or params is needed."
+                )
+            else:
+                filename = os.path.join(
+                    self._keep_files_dir,
+                    f"aggregated_params_{uuid.uuid4()}.pt"
+                )
+                self._training_plan.model.set_weights(
+                    declearn.model.api.NumpyVector.unpack(params)
+                )
+                self._training_plan.save_weights(filename)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
             self._model_params_file = filename
-        except Exception as e:
-            e = sys.exc_info()
-            logger.error("Cannot update parameters - Error: " + str(e))
+        except Exception as exc:
+            logger.error(f"Cannot update parameters - Error: {exc}")
             sys.exit(-1)
         return self._model_params_file
 
-    def save_state(self, breakpoint_path: str) -> dict:
-        """Creates current state of the job to be included in a breakpoint. Includes creating links to files included
-        in the job state.
+    def save_state(self, breakpoint_path: str) -> Dict[str, Any]:
+        """Creates current state of the job to be included in a breakpoint.
+
+        Includes creating links to files included in the job state.
 
         Args:
             breakpoint_path: path to the existing breakpoint directory
@@ -440,91 +430,84 @@ class Job:
         Returns:
             Job's current state for breakpoint
         """
-
         # Note: some state is passed to __init__() thus is not managed
         # as job state but as experiment state in current version
+        params_path = create_unique_link(
+            breakpoint_path,
+            'aggregated_params_current',
+            '.json',
+            os.path.join('..', os.path.basename(self._model_params_file))
+        )
         state = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'model_params_path': self._model_params_file,
-            'training_replies': self._save_training_replies(self._training_replies)
+            'model_params_path': params_path,
+            'training_replies': self._pack_training_replies()
         }
-
-        state['model_params_path'] = create_unique_link(
-            breakpoint_path,
-            'aggregated_params_current', '.pt',
-            os.path.join('..', os.path.basename(state["model_params_path"]))
-        )
-
         for round_replies in state['training_replies']:
             for response in round_replies:
-                node_params_path = create_unique_file_link(breakpoint_path,
-                                                           response['params_path'])
+                node_params_path = create_unique_file_link(
+                    breakpoint_path, response['params_path']
+                )
                 response['params_path'] = node_params_path
-
         return state
 
-    def load_state(self, saved_state: dict = None):
+    def load_state(
+            self,
+            saved_state: Dict[str, Any]
+        ) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
             saved_state: breakpoint content
         """
-        self._id = saved_state.get('job_id')
+        self._id = saved_state["job_id"]
         self.update_parameters(filename=saved_state.get('model_params_path'))
-        self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies'),
-            self._training_plan.load
+        self._training_replies = self._unpack_training_replies(
+            saved_state["training_replies"]
         )
         self._researcher_id = saved_state.get('researcher_id')
 
-    @staticmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[dict]]:
-        """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
+    def _pack_training_replies(self) -> List[List[dict]]:
+        """Extract a copy of `self._training_replies` for saving in breakpoint.
 
         - strip unwanted fields
         - structure as list/dict, so it can be saved with JSON
 
-        Args:
-            training_replies: training replies of already executed rounds of the job
-
         Returns:
-            Extract from `training_replies` formatted for breakpoint
+            Extract from `self._training_replies` formatted for breakpoint
         """
         converted_training_replies = []
-
-        for round_ in training_replies.keys():
-            training_reply = copy.deepcopy(training_replies[round_].data())
+        for reply in self._training_replies.values():
+            training_reply = copy.deepcopy(reply.data())
             # we want to strip some fields for the breakpoint
             for node in training_reply:
-                del node['params']
+                node.pop("params")
             converted_training_replies.append(training_reply)
-
         return converted_training_replies
 
-    @staticmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]],
-                               func_load_params: Callable) -> Dict[int, Responses]:
-        """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
+    def _unpack_training_replies(
+            self,
+            bkpt_training_replies: List[List[dict]],
+        ) -> Dict[int, Responses]:
+        """Unpack training replies recovered from a formatted breakpoint file.
 
         Args:
-            bkpt_training_replies: Extract from training replies saved in breakpoint
-            func_load_params: Function for loading parameters from file to training replies data structure
+            bkpt_training_replies: Extract from training replies saved
+                in breakpoint (using `self._pack_training_replies`).
 
         Returns:
-            Training replies of already executed rounds of the job
+            Training replies of already executed rounds of the job.
         """
-
         training_replies = {}
-        for round_ in range(len(bkpt_training_replies)):
-            loaded_training_reply = Responses(bkpt_training_replies[round_])
+        for round_, reply in enumerate(bkpt_training_replies):
+            loaded_training_reply = Responses(reply)
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node['params'] = func_load_params(
-                    node['params_path'], to_params=True)['model_params']
-
+                node['params'] = self._training_plan.load_weights(
+                    node["params_path"], assign=False
+                )
             training_replies[round_] = loaded_training_reply
-
         return training_replies
 
     def check_data_quality(self):
@@ -574,33 +557,28 @@ class Job:
                 if len(set([k[1] for k in shapes])) != 1:
                     logger.error(f'Color channels of the images in federated \
                                     datasets do not match. {shapes}')
-
-            # If it is default MNIST dataset pass
-            else:
-                pass
-
-        pass
+            # Else: it is default MNIST dataset pass, no action required
 
 
-class localJob:
-    """Represents the entity that manage the training part. LocalJob is the version of Job but applied locally on a
-    local dataset (thus not involving any network). It is only used to compare results to a Federated approach, using
-    networks.
+class LocalJob:
+    """Represents the entity that manages the training part.
+
+    LocalJob is a version of Job applied locally, on a local dataset
+    (thus not involving any network).
+
+    It is only used to compare results to a Federated approach.
     """
 
-    def __init__(self, dataset_path: str = None,
-                 training_plan_class: str = 'MyTrainingPlan',
-                 training_plan_path: str = None,
+    def __init__(self,
+                 dataset_path: str = None,
+                 training_plan: TrainingPlan = None,
                  training_args: TrainingArgs = None,
-                 model_args: dict = None):
-
-        """
-        Constructor of the class
+                 model_args: dict = None) -> None:
+        """Constructor of the local job.
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            training_plan: Name of the model class to use for training or model class.
-            training_plan_path: path to file containing model code. Defaults to None.
+            training_plan: Training plan instance used for training.
             training_args: contains training parameters: lr, epochs, batch_size...
             model_args: contains output and input feature dimension.
         """
@@ -619,30 +597,11 @@ class localJob:
                 logger.warning("Cannot perform validation, not supported for LocalJob")
 
         # handle case when model is in a file
-        if training_plan_path is not None:
-            try:
-                model_module = os.path.basename(training_plan_path)
-                model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(training_plan_path))
-
-                module = importlib.import_module(model_module)
-                tr_class = getattr(module, training_plan_class)
-                self._training_plan = tr_class()
-                sys.path.pop(0)
-
-            except Exception as e:
-                e = sys.exc_info()
-                logger.critical("Cannot import class " + training_plan_class + " from path " +
-                                training_plan_path + " - Error: " + str(e))
-                sys.exit(-1)
-        else:
-
-            # create/save model instance
-            if inspect.isclass(training_plan_class):
-                self._training_plan = training_plan_class()
-            else:
-                self._training_plan = training_plan_class
-
+        if not isinstance(training_plan, TrainingPlan):
+            raise TypeError(
+                "'training_plan' should be a TrainingPlan instance."
+            )
+        self._training_plan = training_plan
         self._training_plan.post_init(model_args=self._model_args,
                                       training_args=self._training_args)
 
@@ -652,7 +611,7 @@ class localJob:
 
     @property
     def model(self):
-        return self._training_plan.model()
+        return self._training_plan.model
 
     @property
     def training_args(self):
@@ -678,8 +637,7 @@ class localJob:
                 data_manager = self._training_plan.training_data(self.dataset_path)
                 data_manager.load(self._training_plan.data_loader_type())
                 train_loader, test_loader = data_manager.split(test_ratio=0)
-                self._training_plan.training_data_loader = train_loader
-                self._training_plan.testing_data_loader = test_loader
+                self._training_plan.set_data_loaders(train_loader, test_loader)
                 self._training_plan.training_routine()
             except Exception as e:
                 is_failed = True
@@ -689,7 +647,7 @@ class localJob:
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
-                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
+                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.json'
                 self._training_plan.save(filename, results)
             except Exception as e:
                 is_failed = True

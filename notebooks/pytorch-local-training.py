@@ -160,10 +160,10 @@ transform = transforms.Compose([
 datasets.MNIST(root = local_mnist, download = True, train = True, transform = transform)
 
 
-# We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
+# We create an object LocalJob, which mimics the functionalities of the class Job to run the model on the input local dataset
 
 # The class local job mimics the class job used in the experiment
-from fedbiomed.researcher.job import localJob
+from fedbiomed.researcher.job import LocalJob
 from fedbiomed.researcher.environ import environ
 
 rounds = 2
@@ -171,11 +171,11 @@ rounds = 2
 # local train on same amount of data as federated with 1 node
 training_args['epochs'] *= rounds
 
-local_job = localJob( dataset_path = local_mnist,
+local_job = LocalJob( dataset_path = local_mnist,
           training_plan_class=MyTrainingPlan,
           training_args=training_args)
 
-# Running the localJob
+# Running the LocalJob
 
 local_job.start_training()
 
