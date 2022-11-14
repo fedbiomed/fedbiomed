@@ -1,11 +1,16 @@
+"""Data structure for nodes' responses."""
+
+from typing import Any, Dict, Iterator, List, Union
+
 import pandas as pd
-from typing import Union, List, Dict
+
 from fedbiomed.common.exceptions import FedbiomedResponsesError
 
 
 class Responses:
-    """Class parsing Nodes' responses Reconfigures input data into either a dictionary in a list (List[dict]), or
-    a list with unique values.
+    """Class parsing Nodes' responses.
+
+    Reconfigures input data into a list of dictionaries and/or unique fields.
     """
 
     def __init__(self, data: Union[list, dict]):
@@ -22,6 +27,10 @@ class Responses:
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
+
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
+        """Iterate over the wrapped response elements."""
+        yield from self._data
 
     def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index

@@ -1,19 +1,13 @@
-"""
-The `fedbiomed.common.training_plans` module includes training plan classes
-that are used for federated training
-"""
+"""TrainingPlan API and framework-specific classes for Federated Learning."""
 
-
-from ._torchnn import TorchTrainingPlan
-from ._sklearn_training_plan import SKLearnTrainingPlan
-from ._sklearn_models import FedPerceptron, FedSGDClassifier, FedSGDRegressor
-from ._base_training_plan import BaseTrainingPlan
+from ._base import BaseTrainingPlan
+from ._sklearn_sgd import SklearnSGDTrainingPlan
+from ._pytorch import TorchTrainingPlan
+from ._tensorflow import TensorflowTrainingPlan
 
 __all__ = [
+    "BaseTrainingPlan",
+    "SklearnSGDTrainingPlan",
     "TorchTrainingPlan",
-    "SKLearnTrainingPlan",
-    "FedPerceptron",
-    "FedSGDRegressor",
-    'FedSGDClassifier',
-    "BaseTrainingPlan"
+    #"TensorflowTrainingPlan",
 ]

@@ -2,15 +2,13 @@
 Implements the message exchanges from researcher to nodes
 """
 
-import inspect
 import json
 import os
-import tabulate
 import uuid
-
-from python_minifier import minify
 from time import sleep
 from typing import Any, Dict, Callable, Union
+
+import tabulate
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -20,6 +18,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -330,7 +329,7 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
+                              training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -343,10 +342,6 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a model (class)
-                   - an instance of a model (TrainingPlan instance)
             nodes: list of nodes (specified by their UUID)
             description: Description of training plan approval request
             timeout: maximum waiting time for the answers
@@ -364,58 +359,20 @@ class Requests(metaclass=SingletonMeta):
             return {}
 
         # verify the model and save it to a local file name if necessary
-        if isinstance(training_plan, str):
-            # model is provided as a file
-            # TODO: verify that this file a a proper TrainingPlan
-            if os.path.isfile(training_plan) and os.access(training_plan, os.R_OK):
-                training_plan_file = training_plan
-            else:
-                logger.error(f"cannot access to the file ({training_plan})")
-                return {}
-        else:
-            # we need a model instance in other cases
-            if inspect.isclass(training_plan):
-                # case if `model` is a class
-                try:
-                    training_plan_instance = training_plan()
-                    deps = training_plan_instance.init_dependencies()
-                    training_plan_instance.add_dependency(deps)
-                except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instantiate the given model ({e})")
-                    return {}
-            else:
-                # also handle case where model is already an instance of a class
-                training_plan_instance = training_plan
-
-            # then save this instance to a file
-            training_plan_file = os.path.join(environ['TMP_DIR'],
-                                              "training_plan_" + str(uuid.uuid4()) + ".py")
-
-            try:
-                training_plan_instance.save_code(training_plan_file)
-            except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the model to a file ({e})")
-                logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
-                return {}
-
-        # verify that the file can be minified before sending
-        #
-        # TODO: enforce a stronger check here (user story #179)
-        try:
-            with open(training_plan_file, "r") as f:
-                content = f.read()
-            minify(content,
-                   remove_annotations=False,
-                   combine_imports=False,
-                   remove_pass=False,
-                   hoist_literals=False,
-                   remove_object_base=True,
-                   rename_locals=False)
-        except Exception as e:
-            # minify does not provide any specific exception
-            logger.error(f"This file is not a python file ({e})")
+        if not isinstance(training_plan, BaseTrainingPlan):
+            logger.error(
+                "Wrong 'training_plan' input: not a BaseTrainingPlan instance."
+            )
             return {}
-
+        # then save this instance to a file
+        training_plan_file = os.path.join(
+            environ['TMP_DIR'], f"training_plan_{uuid.uuid4()}.json"
+        )
+        try:
+            training_plan.save_to_json(training_plan_file)
+        except Exception as exc:  # TODO: be more specific
+            logger.error(f"Cannot save the model to file: {exc}")
+            return {}
         # create a repository instance and upload the model file
         repository = Repository(environ['UPLOADS_URL'],
                                 environ['TMP_DIR'],

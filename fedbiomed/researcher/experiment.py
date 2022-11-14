@@ -6,27 +6,33 @@ import sys
 import json
 import inspect
 import traceback
-
 from copy import deepcopy
 from re import findall
+from typing import Any, Callable, Dict, List, Tuple, Type, Union
+
+from pathvalidate import sanitize_filename
 from tabulate import tabulate
-from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
-from fedbiomed.common.metrics import MetricTypes
-from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.utils import is_ipython
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
-    FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+)
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
-    create_unique_link, create_unique_file_link, find_breakpoint_path
+from fedbiomed.researcher.filetools import (
+    choose_bkpt_file,
+    create_exp_folder,
+    create_unique_file_link,
+    create_unique_link,
+    find_breakpoint_path,
+)
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
@@ -34,15 +40,6 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
-
-_E = TypeVar("Experiment")  # only for typing
-
-# for checking class passed to experiment
-# TODO : should we move this to common/constants.py ?
-training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
-# for typing only
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 
 
 # Exception handling at top lever for researcher
@@ -98,9 +95,8 @@ def exp_exceptions(function):
             if is_ipython():
                 # raise a silent specific exception, don't exit the interactive kernel
                 raise FedbiomedSilentTerminationError
-            else:
-                # exit the process
-                sys.exit(code)
+            # exit the process
+            sys.exit(code)
 
         return ret
 
@@ -122,15 +118,14 @@ class Experiment(object):
                  aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                  node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                  round_limit: Union[int, None] = None,
-                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-                 training_plan_path: Union[str, None] = None,
+                 training_plan: Union[BaseTrainingPlan, str, None] = None,
                  model_args: dict = {},
-                 training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
+                 training_args: Union[TrainingArgs, dict, None] = None,
                  save_breakpoints: bool = False,
                  tensorboard: bool = False,
                  experimentation_folder: Union[str, None] = None,
                  use_secagg: bool = False,
-                 secagg_timeout: float = 0
+                 secagg_timeout: float = 0,
                  ):
 
         """Constructor of the class.
@@ -161,14 +156,10 @@ class Experiment(object):
                 - else strategy is None (cannot be initialized), experiment cannot be launched yet
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
                 the experiment. `None` means that no limit is defined. Defaults to None.
-            training_plan_class: name of the training plan class [`str`][str] or training plan class (`Type_TrainingPlan`) to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed as argument).
-                Defaults to None (no training plan class defined yet)
-
-            training_plan_path: path to a file containing training plan code [`str`][str] or None (no file containing
-                training plan code, `training_plan` needs to be a class matching `Type_TrainingPlan`) Defaults to None.
+            training_plan: Training plan instance, wrapping the model to be
+                trained and providing with a way to load the nodes' data, or
+                path to its JSON dump file. See [`BaseTrainingPlan`]
+                [fedbiomed.common.training_plans.BaseTrainingPlan]
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -199,8 +190,7 @@ class Experiment(object):
         self._node_selection_strategy = None
         self._job = None
         self._round_limit = None
-        self._training_plan_path = None
-        self._reqs = None
+        self._reqs = Requests()  # note: seless to add setter/getter
         self._training_args = None
         self._node_selection_strategy = None
         self._tags = None
@@ -218,9 +208,6 @@ class Experiment(object):
         # set self._model_args and self._training_args to dict
         self.set_model_args(model_args)
         self.set_training_args(training_args)
-
-        # Useless to add a param and setter/getter for Requests() as it is a singleton ?
-        self._reqs = Requests()
 
         # set self._fds: type Union[FederatedDataSet, None]
         self.set_training_data(training_data, True)
@@ -240,14 +227,8 @@ class Experiment(object):
         # Note: currently keep this parameter as it cannot be updated in Job()
         # without refactoring Job() first
 
-        # sets self._training_plan_is_defined: bool == is the model properly defined ?
-        # with current version of jobs, a correctly defined model requires:
-        # - either training_plan_path to None + training_plan_class is the class a training plan
-        # - or training_plan_path not None + training_plan_class is a name (str) of a training plan
-        #
-        # note: no need to set self._training_plan_is_defined before calling `set_training_plan_class`
-        self.set_training_plan_class(training_plan_class)
-        self.set_training_plan_path(training_plan_path)
+        # sets self._training_plan
+        self.set_training_plan(training_plan)
 
         # set self._job to Union[Job, None]
         self.set_job()
@@ -385,31 +366,17 @@ class Experiment(object):
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     @exp_exceptions
-    def training_plan_class(self) -> Union[Type_TrainingPlan, str, None]:
-        """Retrieves the training plan (training plan class) that is created for training.
+    def training_plan(self) -> Union[BaseTrainingPlan, None]:
+        """Retrieves the training plan used for training.
 
-        Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
-
-        Returns:
-            Training plan class as one of [`Type_TrainingPlan`][fedbiomed.researcher.experiment.Type_TrainingPlan]. None
-                if it isn't declared yet. [`str`][str] if [`training_plan_path`]
-                [fedbiomed.researcher.experiment.Experiment.training_plan_path]that represents training plan class
-                created externally is provided.
-        """
-
-        return self._training_plan_class
-
-    @exp_exceptions
-    def training_plan_path(self) -> Union[str, None]:
-        """Retrieves training plan path where training plan class is saved as python script externally.
-
-        Please see also [`set_training_plan_path`][fedbiomed.researcher.experiment.Experiment.set_training_plan_path].
+        Please see also [`set_training_plan`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
 
         Returns:
-            Path to python script (`.py`) where training plan class (training plan) is created. None if it isn't declared yet.
+            Training plan, instance of [`BaseTrainingPlan`][fedbiomed.common.training_plans.BaseTrainingPlan].
+                None if it isn't declared yet.
         """
 
-        return self._training_plan_path
+        return self._training_plan
 
     @exp_exceptions
     def model_args(self) -> dict:
@@ -569,31 +536,6 @@ class Experiment(object):
         else:
             return self._job.training_replies
 
-    # TODO: better checking of training plan object type in Job() to guarantee it is a TrainingPlan
-
-    @exp_exceptions
-    def training_plan(self) -> Union[TrainingPlan, None]:
-        """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
-        for each round of training.
-
-        !!! info "Loading aggregated parameters"
-            After retrieving the training plan instance aggregated parameters should be loaded.
-            Example:
-            ```python
-            training_plan = exp.training_plan()
-            training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
-            ```
-
-        Returns:
-            Training plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
-        """
-        # at this point `job` is defined but may be None
-        if self._job is None:
-            logger.error('No `job` defined for experiment, cannot get `training_plan`')
-            return None
-        else:
-            return self._job.training_plan
-
     @exp_exceptions
     def use_secagg(self) -> bool:
         """Retrieves the status of whether secure aggregation will be used for next rounds.
@@ -638,8 +580,7 @@ class Experiment(object):
                 'Aggregator',
                 'Strategy',
                 'Job',
-                'Training Plan Path',
-                'Training Plan Class',
+                'Training Plan',
                 'Model Arguments',
                 'Training Arguments',
                 'Rounds already run',
@@ -679,7 +620,6 @@ class Experiment(object):
         may_be_missing = {
             '_fds': 'Training Data',
             '_node_selection_strategy': 'Strategy',
-            '_training_plan_is_defined': 'Training Plan',
             '_job': 'Job'
         }
         # definitions found missing
@@ -687,12 +627,14 @@ class Experiment(object):
 
         for key, value in may_be_missing.items():
             try:
-                if eval('self.' + key) is None or eval('self.' + key) is False:
+                if getattr(self, key) is None or getattr(self, key) is False:
                     missing += f'- {value}\n'
             except Exception:
                 # should not happen, all eval variables should be defined
-                msg = ErrorNumbers.FB400.value + \
-                      f', in method `info` : self.{key} not defined for experiment'
+                msg = (
+                    f"{ErrorNumbers.FB400.value}: in method `info`: "
+                    f"self.{key} not defined for experiment."
+                )
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         if missing:
@@ -810,7 +752,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # case where no training data are passed
-        if training_data is None and from_tags is True:
+        if training_data is None and from_tags:
             # cannot search for training_data if tags not initialized;
             # nodes can be None (no filtering on nodes by default)
             if self._tags is not None:
@@ -1053,120 +995,44 @@ class Experiment(object):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
-            Union[Type_TrainingPlan, str, None]:
-        """Sets  `training_plan` + verification on arguments type
+    def set_training_plan(
+            self,
+            training_plan: Union[BaseTrainingPlan, str, None]
+        ) -> Union[BaseTrainingPlan, None]:
+        """Sets `training_plan` after conducting type checks.
 
         Args:
-            training_plan_class: name of the training plan class (`str`) or training plan class as one of [`TrainingPlans`]
-                [fedbiomed.common.training_plans] to use for training. For experiment to be properly and fully defined
-                `training_plan_class` needs to be:
-                    - a `str` when `training_plan_path` is not None (training plan class comes from a file).
-                    - a `Type_TrainingPlan` when `training_plan_path` is None (training plan class passed
-                    as argument).
+            training_plan: Training plan instance (see [`BaseTrainingPlan`]
+                [fedbiomed.common.training_plans.BaseTrainingPlan]) to use
+                for training.
 
         Returns:
-            `training_plan_class` that is set for experiment
+            `training_plan` that is set for experiment
 
         Raises:
             FedbiomedExperimentError : bad training_plan_class type
         """
-        if training_plan_class is None:
-            self._training_plan_class = None
-            self._training_plan_is_defined = False
-        elif isinstance(training_plan_class, str):
-            if str.isidentifier(training_plan_class):
-                # correct python identifier
-                self._training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = isinstance(self._training_plan_path, str)
-
-            else:
-                # bad identifier
-                msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} bad identifier'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        elif inspect.isclass(training_plan_class):
-            # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans):
-                # valid class
-                self._training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = self._training_plan_path is None
-            else:
-                # bad class
-                msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} class'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
+        if training_plan is None:
+            self._training_plan: Union[BaseTrainingPlan, None] = None
+            logger.debug(
+                "Experiment not fully configured yet: no valid training plan"
+            )
+        elif isinstance(training_plan, BaseTrainingPlan):
+            self._training_plan = training_plan
+        elif isinstance(training_plan, str):
+            self._training_plan = BaseTrainingPlan.load_from_json(training_plan)
         else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_plan_class` of type: {type(training_plan_class)}'
+            msg = (
+                f"{ErrorNumbers.FB410.value}: `training_plan`: "
+                f"unsupported type {type(training_plan)}"
+            )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
-            # self._training_plan_is_defined and self._training_plan_class always exist at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan_class={self._training_plan_class} training_plan_class_path={self._training_plan_path}')
-
         if self._job is not None:
-            logger.debug('Experimentation training_plan changed, you may need to update `job`')
-
-        return self._training_plan_class
-
-    @exp_exceptions
-    def set_training_plan_path(self, training_plan_path: Union[str, None]) -> Union[str, None]:
-        """Sets `training_plan_path` + verification on arguments type.
-
-        Training plan path is the path where training plan class is saved as python script/module externally.
-
-        Args:
-            training_plan_path (Union[str, None]) : path to a file containing  training plan code (`str`) or None (no file containing
-                training plan code, `training_plan` needs to be a class matching one of [`training_plans`]
-                [fedbiomed.common.training_plans]
-
-        Returns:
-            The path that is set for retrieving module where training plan class is defined
-
-        Raises:
-            FedbiomedExperimentError : bad training_plan_path type
-        """
-        # self._training_plan and self._training_plan_is_defined already exist when entering this function
-
-        if training_plan_path is None:
-            self._training_plan_path = None
-            # .. so training plan is defined if it is a class (+ then, it has been tested as valid)
-            self._training_plan_is_defined = inspect.isclass(self._training_plan_class)
-        elif isinstance(training_plan_path, str):
-            if sanitize_filepath(training_plan_path, platform='auto') == training_plan_path \
-                    and os.path.isfile(training_plan_path):
-                # provided training plan path is a sane path to an existing file
-                self._training_plan_path = training_plan_path
-                # if providing a training plan path, we expect a training plan class name (not a class)
-                self._training_plan_is_defined = isinstance(self._training_plan_class, str)
-            else:
-                # bad filepath
-                msg = ErrorNumbers.FB410.value + \
-                      f' `training_plan_path` : {training_plan_path} is not a same path to an existing file'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + ' `training_plan_path` : type(training_plan_path)'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # self._training_plan_path is also defined at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan={self._training_plan_class} training_plan_path={self._training_plan_path}')
-
-        if self._job is not None:
-            logger.debug('Experimentation training_plan_path changed, you may need to update `job`')
-
-        return self._training_plan_path
+            logger.debug(
+                "Experimentation training_plan changed, you may need to update `job`."
+            )
+        return self._training_plan
 
     # TODO: model_args need checking of dict items, to be done by Job and node
     # (using a training plan method ?)
@@ -1341,20 +1207,20 @@ class Experiment(object):
             The object that is initialized for creating round jobs.
         """
         # at this point all are defined among:
-        # self.{_reqs,_fds,_training_plan_is_defined,_training_plan,_training_plan_path,_model_args,_training_args}
+        # self.{_reqs,_fds,_training_plan,_model_args,_training_args}
         # self._experimentation_folder => self.experimentation_path()
         # self._round_current
 
         if self._job is not None:
             # a job is already defined, and it may also have run some rounds
             logger.debug('Experimentation `job` changed after running '
-                         '{self._round_current} rounds, may give inconsistent results')
-
-        if self._training_plan_is_defined is not True:
+                         f'{self._round_current} rounds, may give inconsistent results.')
+        if self._training_plan is None:
             # training plan not properly defined yet
             self._job = None
-            logger.debug('Experiment not fully configured yet: no job. Missing proper training plan '
-                         f'definition (training_plan={self._training_plan_class} training_plan_path={self._training_plan_path})')
+            logger.debug(
+                "Experiment not fully configured yet: no job. Missing proper training plan."
+            )
         elif self._fds is None:
             # not training data yet
             self._job = None
@@ -1362,8 +1228,7 @@ class Experiment(object):
         else:
             # meeting requisites for instantiating a job
             self._job = Job(reqs=self._reqs,
-                            training_plan_class=self._training_plan_class,
-                            training_plan_path=self._training_plan_path,
+                            training_plan=self._training_plan,
                             model_args=self._model_args,
                             training_args=self._training_args,
                             data=self._fds,
@@ -1514,7 +1379,7 @@ class Experiment(object):
 
         # nota:  we should never have self._round_current > self._round_limit, only ==
         if self._round_limit is not None and self._round_current >= self._round_limit:
-            if increase is True:
+            if increase:
                 logger.debug(f'Auto increasing total rounds for experiment from {self._round_limit} '
                              f'to {self._round_current + 1}')
                 self._round_limit = self._round_current + 1
@@ -1672,8 +1537,11 @@ class Experiment(object):
 
         # run the rounds
         for _ in range(rounds):
-            if isinstance(self._round_limit, int) and self._round_current == (self._round_limit - 1) \
-                    and self._training_args['test_on_global_updates'] is True:
+            if (
+                isinstance(self._round_limit, int)
+                and self._round_current == (self._round_limit - 1)
+                and self._training_args['test_on_global_updates']
+            ):
                 # Do "validation after a round" only if this a round limit is defined and we reached it
                 # and validation is active on global params
                 # When this condition is met, it also means we are running the last of
@@ -1783,7 +1651,6 @@ class Experiment(object):
           - training_data
           - training_args
           - model_args
-          - training_plan_path
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
@@ -1839,9 +1706,6 @@ class Experiment(object):
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
-            'training_plan_path': self._job.training_plan_file,  # only in Job we always model saved to a file
-            # with current version
-            'training_plan_class': self._job.training_plan_name,  # not always available properly
             # formatted in Experiment with current version
             'round_current': self._round_current,
             'round_limit': self._round_limit,
@@ -1857,17 +1721,15 @@ class Experiment(object):
             'secagg_servkey': secagg_servkey,
             'secagg_biprime': secagg_biprime
         }
-
-        # rewrite paths in breakpoint : use the links in breakpoint directory
-        state['training_plan_path'] = create_unique_link(
-            breakpoint_path,
-            # - Need a file with a restricted characters set in name to be able to import as module
-            'model_' + str("{:04d}".format(self._round_current - 1)), '.py',
-            # - Prefer relative path, eg for using experiment result after
-            # experiment in a different tree
-            os.path.join('..', os.path.basename(state["training_plan_path"]))
-        )
-
+        # Create a link to the job-managed training plan dump file.
+        if self._training_plan is not None:
+            path = self._job._training_plan_file
+            state["training_plan_path"] = create_unique_link(
+                breakpoint_path,
+                f"model_{self._round_current - 1:04d}",
+                ".json",
+                os.path.join("..", os.path.basename(path))
+            )
         # save state into a json file.
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
@@ -1884,15 +1746,16 @@ class Experiment(object):
 
     @classmethod
     @exp_exceptions
-    def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder_path: Union[str, None] = None) -> _E:
+    def load_breakpoint(
+            cls,
+            breakpoint_folder_path: Union[str, None] = None
+        ) -> "Experiment":
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
-          cls: Experiment class
           breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
             "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
             experiment. Defaults to None.
@@ -1955,8 +1818,7 @@ class Experiment(object):
                          aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
-                         training_plan_class=saved_state.get("training_plan_class"),
-                         training_plan_path=saved_state.get("training_plan_path"),
+                         training_plan=saved_state.get("training_plan_path"),
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
@@ -2176,7 +2038,7 @@ class Experiment(object):
 
     @exp_exceptions
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
+                              training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -2189,11 +2051,7 @@ class Experiment(object):
         If the node id(s) list is None (default), the message is broadcast to all nodes.
 
         Args:
-            training_plan: the model to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training_plan (class)
-                   - an instance of a training plan
+            training_plan: the training plan to upload and send to the nodes for approval.
             nodes: list of nodes (specified by their UUID)
             description: Description for training plan approve request
             timeout: maximum waiting time for the answers
