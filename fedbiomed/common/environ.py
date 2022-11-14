@@ -155,6 +155,7 @@ class Environ(metaclass=SingletonMeta):
         self._values['VAR_DIR'] = VAR_DIR
         self._values['CACHE_DIR'] = os.path.join(VAR_DIR, 'cache')
         self._values['TMP_DIR'] = os.path.join(VAR_DIR, 'tmp')
+        self._values['IP_INCREMENT'] = os.path.join(ROOT_DIR, "etc", "ip_increment")
 
         for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR':
             dir = self._values[_key]
@@ -540,6 +541,35 @@ class Environ(metaclass=SingletonMeta):
         uploads_url = os.getenv('UPLOADS_URL', uploads_url)
 
         return uploads_url
+
+    def create_ip_increment(self):
+        """ Create IP increment file """
+
+        ip = os.getenv('MPSPDZ_IP', "localhost")
+        port = os.getenv('MPSPDZ_PORT', "14000")
+        return self.set_ip_increment(ip, port)
+
+    def ip_increment(self):
+        """ Gets IP increment """
+        with open(self._values["IP_INCREMENT"], "a") as file:
+            ip_increment = file.read()
+            port = ip_increment.split(":")[0]
+
+        return port
+
+    def set_ip_increment(self, ip, port):
+        """ Sets Ip increment 0
+
+        Args:
+            ip: ...
+            port: ...
+        """
+
+        with open(self._values["IP_INCREMENT"], "w") as file:
+            file.write(f"{ip}:{port}")
+            file.close()
+
+        return True
 
     def info(self):
         """Print useful information at environment creation"""
