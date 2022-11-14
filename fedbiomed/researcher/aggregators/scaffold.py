@@ -1,11 +1,13 @@
 """Scaffold Aggregator."""
 
 import copy
+import os
 from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Union
+import uuid
 
 import numpy as np
 import torch
-
+from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -27,7 +29,7 @@ class Scaffold(Aggregator):
      parameters obtained for each client
     """
 
-    def __init__(self, server_lr: float = .9, fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = 1., fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
 
@@ -45,7 +47,7 @@ class Scaffold(Aggregator):
         Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
 
         Args:
-            server_lr (float): server's (or Researcher's) learning rate. Defaults to .9.
+            server_lr (float): server's (or Researcher's) learning rate. Defaults to 1..
             fds (FederatedDataset, optional): FederatedDataset obtained after a `search` request. Defaults to None.
 
         """
@@ -62,7 +64,7 @@ class Scaffold(Aggregator):
             self.set_fds(fds)
         if self._aggregator_args is None:
             self._aggregator_args = {}
-        #self.update_aggregator_params()
+        #self.update_aggregator_params()FedbiomedAggregatorError:
 
     def aggregate(self,
                   model_params: list,
@@ -113,23 +115,16 @@ class Scaffold(Aggregator):
             Dict: aggregated parameters, ie mapping of layer names and layer values.
         """
 
+        # Gather the learning rates used by nodes, updating `self.nodes_lr`.
+        self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
+        
         # Unpack input local model parameters to {node_id: {name: value, ...}, ...} format.
         model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
         # Compute the new aggregated model parameters.
-        aggregated_parameters = {}
-        for key, val in global_model.items():
-            #     Computes quantity `x (1 - eta_g) + eta_g / S * sum_i(y_i))`
-            # Proof:
-            #     x <- x + eta_g * grad(x)
-            #     x <- x + eta_g / S * sum_i(y_i - x)
-            #     x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
-
-            update = sum(params[key] for params in model_params.values()) / len(model_params)
-            newval = (1 - self.server_lr) * val + self.server_lr * update
-
-            aggregated_parameters[key] = newval
-        # Gather the learning rates used by nodes, updating `self.nodes_lr`.
-        self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
+        
+        print("GLOBAL MODEL", global_model.keys())
+        aggregated_parameters = self.scaling(model_params, global_model)
+        
         # At round 0, initialize zero-valued correction states.
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
@@ -149,7 +144,7 @@ class Scaffold(Aggregator):
                 the round
 
         Returns:
-            Tuple[Dict, Dict]: first dictionary contains parameters that will be sent through MQTT message
+            Tuple[Dict, Dict]: first dictionary contains parameters that will be sent thrFedbiomedAggregatorError:ough MQTT message
                 service, second dictionary parameters that will be sent through file exchange message.
                 Aggregators args are dictionary mapping node_id to nodes parameters.
         """
@@ -172,26 +167,37 @@ class Scaffold(Aggregator):
             }
         return aggregator_args_thr_msg, aggregator_args_thr_file
 
-    def check_values(self, node_lrs: List[float], n_updates: int):
+    def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """
         This method checks if all values are correct and have been set before using aggregator.
         Raises error otherwise
-        This can prove usefull, so that user will have errors before performing first round of training
+        This can prove useful if user has set wrong hyperparameter values, so that user will
+        have errors before performing first round of training
 
         Args:
-            lr (float): _description_
+
+            n_updates (int): number of updates. Must be non-zero and an integer.
+            training_plan (BaseTrainingPlan): training plan. used for checking if optimizer is SGD, otherwise, 
+                triggers warning.
 
         Raises:
-            FedbiomedAggregatorError: _description_
+            FedbiomedAggregatorError: triggered if any of the learning rate(s) equals 0
+            FedbiomedAggregatorError: triggered if number of updates equals 0 or is not an integer
+            FedbiomedAggregatorError: triggered if [FederatedDataset][fedbiomed.researcher.datasets.FederatedDataset]
+                has not been set.
+             
         """
-        # check if values are non zero
-        if not node_lrs.any():
-            raise FedbiomedAggregatorError(f"Learning rate(s) should be non-zero, but got {node_lrs} (in SCAFFOLD aggreagator)")
+        
         if n_updates == 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(f"n_updates should be a non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
         if self._fds is None:
-            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use `set_fds()`")
+            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`")
         # TODO: check if optimizer is SGD, otherwise, trigger warning
+        if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
+            if not isinstance(training_plan._optimizer, torch.optim.SGD):
+                logger.warning(f"Found optimizer {training_plan._optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
+
+        return True
 
     def set_nodes_learning_rate_after_training(self, training_plan: BaseTrainingPlan,
                                                training_replies: List[Responses],
@@ -211,7 +217,7 @@ class Scaffold(Aggregator):
             Dict[str, List[float]]: dictionary mapping node_id and a list of float, as many as
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
-        # to be implemented in a utils module (for pytorch optimizers)
+        # to be implemented in a utMapping[str, Union[np.ndarray, torch.Tensor]]ils module (for pytorch optimizers)
 
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
@@ -223,7 +229,7 @@ class Scaffold(Aggregator):
                 lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
 
             else:
-                # ...otherwise retrieve default learning rate
+                # ...otherwise retrieve default learning rateglobal_model: Mapping[str, Union[np.ndarray, torch.Tensor]]
                 lrs += training_plan.get_learning_rate()
 
             if len(lrs) == 1:
@@ -256,6 +262,25 @@ class Scaffold(Aggregator):
         self.nodes_correction_states = {node_id: copy.deepcopy(init_params) for node_id in node_ids}
         self.global_state = init_params
 
+    def scaling(self,
+                model_params: Dict[str, Mapping[str, Union[np.ndarray, torch.Tensor]]],
+                global_model: Mapping[str, Union[np.ndarray, torch.Tensor]]
+                ) -> Mapping[str, Union[np.ndarray, torch.Tensor]]:
+        aggregated_parameters = {}
+        for key, val in global_model.items():
+            #     Computes quantity `x (1 - eta_g) + eta_g / S * sum_i(y_i))`
+            # Proof:
+            #     x <- x + eta_g * grad(x)
+            #     x <- x + eta_g / S * sum_i(y_i - x)
+            #     x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
+
+            update = sum(params[key] for params in model_params.values()) / len(model_params)
+            newval = (1 - self.server_lr) * val + self.server_lr * update
+
+            aggregated_parameters[key] = newval
+            print("AGG PARAMS", aggregated_parameters.keys())
+        return aggregated_parameters
+
     def update_correction_states(self,
                                  local_models: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]],
                                  global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
@@ -267,6 +292,7 @@ class Scaffold(Aggregator):
         c <- c + S/N grad(c)
         c <- c + 1/N sum_i(c_i(+) - c_i)
         c <- c + 1/N * sum_i( 1/ (K * eta_l)(x - y_i) - c)
+        c <- (1 - S/N) c + ACG_i , where ACG_i = sum_i( 1/ (K * eta_l)(x - y_i))
 
         where (according to Scaffold paper):
         c: is the correction term
@@ -276,6 +302,9 @@ class Scaffold(Aggregator):
         eta_l: nodes' learning rate
         x: global model before updates
         y_i: local model updates
+        
+        Remark: 
+        c^{t=0} = 0
 
         Args:
             local_models: Node-wise local model parameters after updates, as
@@ -312,7 +341,8 @@ class Scaffold(Aggregator):
             key: share * self.global_state[key] + val
             for key, val in global_state_update.items()
         }
-        # Compute the difference between past and new shared state variables.
+        # Compute the difference between past and new shared state variables
+        # (ie c^t−c^{t+1} ).
         global_state_diff = {
             key: self.global_state[key] - val
             for key, val in global_state_new.items()
@@ -359,14 +389,28 @@ class Scaffold(Aggregator):
 
     def save_state(self, training_plan: BaseTrainingPlan, breakpoint_path: str, global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
         #aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
-
-        return super().save_state(training_plan, breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids())
+        # adding aggregator parameters to the breakpoint that wont be sent to nodes
+        self._aggregator_args['server_lr'] = self.server_lr
+        
+        # saving global state variable into a file
+        filename = os.path.join(breakpoint_path, 'global_state_' + str(uuid.uuid4()) + '.pt')
+        training_plan.save(filename, self.global_state)
+        self._aggregator_args['global_state_filename'] = filename
+        # adding aggregator parameters that will be sent to nodes afterwards
+        return super().save_state(training_plan,
+                                  breakpoint_path,
+                                  global_model=global_model,
+                                  node_ids=self._fds.node_ids())
 
     def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
         super().load_state(state)
+        print("AGGREGATOR ARGS", self._aggregator_args)
         self.server_lr = self._aggregator_args['server_lr']
 
-        self.nodes_correction_states = {}
+        # loading global state
+        global_state_filename = self._aggregator_args['global_state_filename']
+        self.global_state = training_plan.load(global_state_filename, to_params=True)
+
         for node_id in self._aggregator_args['aggregator_correction'].keys():
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
 

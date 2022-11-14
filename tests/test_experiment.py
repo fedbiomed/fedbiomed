@@ -9,7 +9,7 @@ import inspect
 from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.common import training_plans
 from fedbiomed.common.constants import TrainingPlans
-
+from fedbiomed.common.training_plans import BaseTrainingPlan
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
@@ -33,6 +33,12 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
+class FakeAggregator(Aggregator):
+    pass
+
+class FakeStrategy(Strategy):
+    pass
+        
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
 
@@ -489,7 +495,7 @@ class TestExperiment(unittest.TestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 4, "Logger debug is called unexpected times")
 
     def test_experiment_05_set_aggregator(self):
         """Testing setter for aggregator attribute of Experiment class"""
@@ -1430,7 +1436,8 @@ class TestExperiment(unittest.TestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self):
+            def save_state(self, training_plan: BaseTrainingPlan,
+                           breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
@@ -1550,14 +1557,14 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
-    @patch('fedbiomed.researcher.experiment.Experiment._create_object')
+    #@patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
     def test_experiment_29_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
-                                                  patch_create_object,
+                                                  #patch_create_object,
                                                   patch_training_plan
                                                   ):
         """ test `load_breakpoint` :
@@ -1575,8 +1582,9 @@ class TestExperiment(unittest.TestCase):
         training_plan_class = 'ThisIsTheTrainingPlan'
         round_current = 1
         experimentation_folder = 'My_experiment_folder_258'
-        aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
-        strategy = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
+        aggregator_params = {'aggregator_name': 'dummy-aggregator',
+                      'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
+        strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
         aggregated_params = {
             '1': {'params_path': '/path/to/my/params_path_1.pt'},
             2: {'params_path': '/path/to/my/params_path_2.pt'}
@@ -1586,6 +1594,11 @@ class TestExperiment(unittest.TestCase):
         secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two']}
         secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
 
+        fake_aggregator = FakeAggregator()
+        fake_aggregator._aggregator_args = aggregator_params
+        
+        fake_strategy = FakeStrategy(data=training_args)
+        fake_strategy._parameters = strategy_params
         # breakpoint structure
         state = {
             'training_data': training_data,
@@ -1596,8 +1609,17 @@ class TestExperiment(unittest.TestCase):
             'round_current': round_current,
             'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
-            'aggregator': aggregator,
-            'node_selection_strategy': strategy,
+            'aggregator': {
+                            "class": 'FakeAggregator',
+                            "module": self.__module__,
+                            "parameters": aggregator_params
+                        },
+            'node_selection_strategy': {
+                            "class": 'FakeStrategy',
+                            "module": self.__module__,
+                            "parameters": strategy_params,
+                            "fds": training_data
+                        },
             'tags': self.tags,
             'aggregated_params': aggregated_params,
             'job': job,
@@ -1629,17 +1651,19 @@ class TestExperiment(unittest.TestCase):
                                                 '2': 243}]}
 
         final_training_args = TrainingArgs(only_required=False)
-        final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
+        final_aggregator = {'aggregator_name': 'dummy-aggregator',
+                            'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         final_use_secagg = True
         final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two']}
         final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
 
-        def side_create_object(args, **kwargs):
-            return args
+        
+        # def side_create_object(args, **kwargs):
+        #     return args
 
-        patch_create_object.side_effect = side_create_object
+        # patch_create_object.side_effect = side_create_object
 
         class FakeModelInstance:
             def load(self, aggreg, to_params):

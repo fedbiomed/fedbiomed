@@ -693,16 +693,18 @@ class TestTorchnn(unittest.TestCase):
         # this pytorch scheduler increase earning rate by twice its previous value
         for e, (x,y) in enumerate(zip(dataset, target)):
             # training a simple model in pytorch fashion
+            # `e` represents epoch
             out = tp._model.forward(x)
             tp._optimizer.zero_grad()
             loss = torch.mean(out) - y
             loss.backward()
-    
+            tp._optimizer.step()
             scheduler.step()
             
             # checks
             lr_extracted = tp.get_learning_rate()
             self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+
 
 class TestSendToDevice(unittest.TestCase):
 

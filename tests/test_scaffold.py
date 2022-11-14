@@ -24,7 +24,7 @@ import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 class TestScaffold(unittest.TestCase):
     '''
-    Test the Scaffold class
+    Tests the Scaffold class
     '''
 
     # before the tests
@@ -55,19 +55,24 @@ class TestScaffold(unittest.TestCase):
         # boundary conditions
         # if learning rate of server equals 0, scaled models equals inital model
         agg.server_lr = 0
-        scaled_models = agg.scaling(self.models, self.model.state_dict())
-        for i  in range(self.n_nodes):
-            node_id = list(scaled_models[i].keys())[0]
-            for k, v in scaled_models[i][node_id].items():
-                self.assertTrue(torch.isclose(v, self.model.state_dict()[k]).all())
+        
+        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in self.models}
+        
+        scaled_models = agg.scaling(copy.deepcopy(model_params), self.model.state_dict())
+        
+        for k, v in scaled_models.items():
+            self.assertTrue(torch.isclose(v, self.model.state_dict()[k]).all())
 
-        # if learning rate  of server equals 1, scaled models equals local models
+        # if learning rate  of server equals 1, scaled models equals average of local models
+        # (assuming `federated_averaging`` function is working)
         agg = Scaffold(server_lr=1)
-        scaled_models = agg.scaling(self.models, self.model.state_dict())
-        for i  in range(self.n_nodes):
-            node_id = list(scaled_models[i].keys())[0]
-            for (k_t, v_t), (k_i, v_i) in zip(scaled_models[i][node_id].items(), self.models[i][node_id].items()):
-                self.assertTrue(torch.isclose(v_t, v_i).all())
+        scaled_models = agg.scaling(model_params, self.model.state_dict())
+        model_params2 = [v for  v in model_params.values()]
+        avg = federated_averaging(model_params2, [1/self.n_nodes] * self.n_nodes)
+      
+        for (k_t, v_t), (k_i, v_i) in zip(scaled_models.items(), avg.items()):
+
+            self.assertTrue(torch.isclose(v_t, v_i).all())
 
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')        
     def test_2_update_correction_state(self, mock_federated_dataset):
@@ -81,30 +86,30 @@ class TestScaffold(unittest.TestCase):
         fds = FederatedDataSet({})
         agg.set_fds(fds)
         agg.update_correction_states({node_id: self.zero_model.state_dict() for node_id in self.node_ids},
-                                     self.model.state_dict(), self.node_ids, n_updates=1)
+                                     self.model.state_dict(), n_updates=1)
 
         for node_id in self.node_ids:
-            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), self.model.state_dict().items()):
+            for (k, v), (k_i, v_i) in zip(agg.global_state.items(), self.model.state_dict().items()):
                 self.assertTrue(torch.isclose(v, v_i).all())
         # let's do another update where corrections are non zeros tensors (corection terms should cancel out)
                 
         agg.update_correction_states({node_id: self.zero_model.state_dict() for node_id in self.node_ids},
-                                     self.model.state_dict(), self.node_ids, n_updates=1)
+                                     self.model.state_dict(), n_updates=1)
 
-        for node_id in self.node_ids:
-            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), self.model.state_dict().items()):
-                self.assertTrue(torch.isclose(v, v_i).all())
+
+        for (k, v), (k_i, v_i) in zip(agg.global_state.items(), self.model.state_dict().items()):
+            self.assertTrue(torch.isclose(v, v_i).all())
                 
         # case where model has not been updated: it implies correction are set to 0 (if N==S)
         agg.init_correction_states(self.model.state_dict(), self.node_ids)
-        correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
+        global_correction_term_before_update = copy.deepcopy(agg.global_state)
 
         agg.update_correction_states({node_id: self.model.state_dict() for node_id in self.node_ids},
-                                     self.model.state_dict(), self.node_ids, n_updates=random.randint(1, 10))
-        for node_id in self.node_ids:
-            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):
+                                     self.model.state_dict(), n_updates=random.randint(1, 10))
 
-                self.assertTrue(torch.isclose(v , v_i).all())
+        for (k, v), (k_i, v_i) in zip(agg.global_state.items(), global_correction_term_before_update.items()):
+
+            self.assertTrue(torch.isclose(v , v_i).all())
                 
                 
         # case where there is more than one update (4 updates): correction terms should be devided by 4 (ie by n_updates)
@@ -112,16 +117,16 @@ class TestScaffold(unittest.TestCase):
         agg.init_correction_states(self.model.state_dict(), self.node_ids)
         correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
         agg.update_correction_states({node_id: self.zero_model.state_dict() for node_id in self.node_ids},
-                                     self.model.state_dict(), self.node_ids, n_updates=n_updates)
-        for node_id in self.node_ids:
-            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), self.model.state_dict().items()):
-                self.assertTrue(torch.isclose(v , v_i / n_updates).all())
+                                     self.model.state_dict(), n_updates=n_updates)
+
+        for (k, v), (k_i, v_i) in zip(agg.global_state.items(), self.model.state_dict().items()):
+            self.assertTrue(torch.isclose(v , v_i / n_updates).all())
 
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')      
     def test_3_update_correction_state_2(self, mock_federated_dataset):
         mock_federated_dataset.return_value = self.node_ids
         # case where S = 2 (only 2 nodes are selected during the round) and there are no updates
-        # then, new correction terms equals 1/2 * former correction terms
+        # (meaning ACG_i = 0), then, new correction terms equals 1/2 * former correction terms
         S = 2
 
         agg = Scaffold(server_lr=.2)
@@ -132,16 +137,16 @@ class TestScaffold(unittest.TestCase):
         agg.nodes_lr = { k :[.1] * self.n_nodes for k in self.node_ids}
 
         agg.update_correction_states({node_id: Linear(10, 3).state_dict() for node_id in self.node_ids},
-                                     self.zero_model.state_dict(), self.node_ids)  # making correction terms non zeros
-        correction_terms_before_update = copy.deepcopy(agg.nodes_correction_states)
+                                     self.zero_model.state_dict(), n_updates=1)  # making correction terms non zeros
+        global_state_terms_before_update = copy.deepcopy(agg.global_state)
 
         agg.update_correction_states({node_id: self.model.state_dict() for node_id in current_round_nodes},
-                                     self.model.state_dict(), current_round_nodes, n_updates=1)
-        for node_id in self.node_ids:
-            for (k, v), (k_i, v_i) in zip(agg.nodes_correction_states[node_id].items(), correction_terms_before_update[node_id].items()):
+                                     self.model.state_dict(), n_updates=1)
+        
+        for (k, v), (k_i, v_i) in zip(agg.global_state.items(), global_state_terms_before_update.items()):
+            self.assertTrue(torch.isclose(v, .5 * v_i ).all())
 
-                self.assertTrue(torch.isclose(v, .5 * v_i ).all())
-
+        # TODO: check also for node_correction states
 
     @patch('fedbiomed.researcher.datasets.FederatedDataSet.node_ids')  
     def test_4_aggregate(self, mock_federated_dataset):
@@ -182,9 +187,15 @@ class TestScaffold(unittest.TestCase):
             
         # check that at the end of aggregation, all correction states are non zeros (
         for (k,v) in agg.nodes_correction_states.items():
-            self.assertTrue(torch.is_nonzero(v))
+            
+            for layer in v.values():
+                self.assertFalse(torch.nonzero(layer).all())
         # TODO: test methods when proportions are differents
 
 
+# TODO:
+# ideas for further tests:
+# test 1: check that with one client, correction terms are zeros
+# test 2: check that for 2 clients, correction terms have opposite values
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

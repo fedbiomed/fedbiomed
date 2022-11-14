@@ -467,7 +467,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
         for epoch in range(1, num_epochs + 1):
-            #print("UPDATE", self._batch_maxnum, self._num_updates, num_batches_in_last_epoch, num_epochs)
+
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
@@ -501,11 +501,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         num_samples_till_now,
                         len(self.training_data_loader.dataset),
                         100 * batch_ / len(self.training_data_loader),
-                        corrected_loss.item()))
+                        res.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
-                        history_monitor.add_scalar(metric={'Loss': corrected_loss.item()},
+                        history_monitor.add_scalar(metric={'Loss': res.item()},
                                                     iteration=batch_,
                                                     epoch=epoch,
                                                     train=True,
@@ -529,7 +529,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
-        logger.debug(f"CHECK MODEL EVOLUTION {self._model.state_dict()}")
+
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
@@ -605,7 +605,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             params (dict): Parameters to save to a file, should be structured as a torch state_dict()
 
         """
-        logger.debug(f"PARAMS {filename}, {params}, ")
         if params is not None:
             return torch.save(params, filename)
         else:
@@ -691,7 +690,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
             dot_product = compute_dot_product(self._model.state_dict(), self.correction_state, self._device)
             corrected_loss = res - dot_product
-            logger.debug(f"VALUE LOSS: RES {res}, DOT PRODUCT {dot_product}, CORRECTED {corrected_loss}")
+
         else:
             # case where no correction is done (eg: fedavg)
             corrected_loss = res
