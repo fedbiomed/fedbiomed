@@ -392,7 +392,8 @@ class Experiment(object):
             Training plan, instance of [`TrainingPlan`][fedbiomed.common.training_plans.TrainingPlan].
                 None if it isn't declared yet.
         """
-
+        if self._job is not None:
+            return self._job.training_plan
         return self._training_plan
 
     @exp_exceptions
