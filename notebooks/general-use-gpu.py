@@ -21,9 +21,9 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config config1.ini list`, `./scripts/fedbiomed_run node config config2.ini list`, `./scripts/fedbiomed_run node config config3.ini list`
-# 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini run --gpu` so that the nodes offers GPU for training and uses the default device.
-# 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini run --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
-# 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini run` so that the nodes doesn't offers GPU for training (default behaviour).
+# 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini start --gpu` so that the nodes offers GPU for training and uses the default device.
+# 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini start --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
+# 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini start` so that the nodes doesn't offers GPU for training (default behaviour).
 # 6. Wait until you get `Starting task manager` for each node, it means you are online.
 
 # ## Define an experiment model and parameters
