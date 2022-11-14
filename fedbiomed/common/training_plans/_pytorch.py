@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from fedbiomed.common.data import DataLoaderTypes
+from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from ._base import TrainingPlan
@@ -62,7 +63,7 @@ class TorchTrainingPlan(TrainingPlan):
             self,
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
-            history_monitor: Optional['HistoryMonitor'],
+            history_monitor: Optional[HistoryMonitor],
             before_train: bool
         ) -> None:
         try:
@@ -106,7 +107,7 @@ class TorchTrainingPlan(TrainingPlan):
 
     def training_routine(
             self,
-            history_monitor: Optional['HistoryMonitor'] = None,
+            history_monitor: Optional[HistoryMonitor] = None,
             node_args: Optional[Dict[str, Any]] = None
         ) -> None:
         # Run the parent method, but ensure the model is moved back to CPU.

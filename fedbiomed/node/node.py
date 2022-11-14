@@ -8,13 +8,13 @@ from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
@@ -262,6 +262,7 @@ class Node:
         """
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
+                                      node_id=environ['NODE_ID'],
                                       researcher_id=msg.get_param('researcher_id'),
                                       client=self.messaging)
         # Get arguments for the model and training

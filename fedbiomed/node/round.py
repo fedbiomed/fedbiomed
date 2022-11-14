@@ -13,13 +13,13 @@ import uuid
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
+from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
