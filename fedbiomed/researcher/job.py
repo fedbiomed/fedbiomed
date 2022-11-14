@@ -19,7 +19,7 @@ import numpy as np
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
@@ -104,7 +104,7 @@ class Job:
                 f"{type(self._training_plan)}"
             )
             logger.critical(msg)
-            raise FedbiomedError(msg)
+            sys.exit(1)
         # Finalize the training plan's instantiation
         self._training_plan.post_init(
             model_args=self._model_args or {},

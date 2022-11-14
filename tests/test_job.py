@@ -1,17 +1,16 @@
-import inspect
 import os
 import shutil
 from typing import Dict, Any
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import create_autospec, patch, MagicMock
 
 import numpy as np
 import torch
 
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
-from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
+from testsupport.fake_training_plan import FakeTrainingPlan
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.researcher.environ import environ
@@ -25,25 +24,19 @@ class TestJob(unittest.TestCase):
 
     @classmethod
     def create_fake_model(cls, name: str):
-        """ Class method saving codes of FakeModel
+        """Create a JSON dump of a FakeTrainingPlan.
 
         Args:
-            name (str): Name of the model file that will be created
+            name: Name of the model file that will be created.
+
+        Returns:
+            path: Path to the created (temporary) model dump file.
         """
-
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
-        tmp_dir_model = os.path.join(tmp_dir, name)
-        if not os.path.isdir(tmp_dir):
-            os.mkdir(tmp_dir)
-
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
-
-        return tmp_dir_model
+        os.makedirs(tmp_dir, exist_ok=True)
+        tmp_dst = os.path.join(tmp_dir, name)
+        FakeTrainingPlan().save_to_json(tmp_dst)
+        return tmp_dst
 
     # once in test lifetime
     @classmethod
@@ -81,17 +74,17 @@ class TestJob(unittest.TestCase):
         self.mock_request_create = self.patcher4.start()
 
         # Globally create mock for Model and FederatedDataset
-        self.model = MagicMock(return_value=None)
-        self.model.save = MagicMock(return_value=None)
-        self.model.save_code = MagicMock(return_value=None)
-        self.model.load = MagicMock(return_value={'model_params': True})
+        self.model = create_autospec(FakeTrainingPlan())
+        self.model.save_weights = MagicMock(return_value=None)
+        self.model.save_to_json = MagicMock(return_value=None)
+        self.model.load_weights = MagicMock(return_value={'model_params': True})
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
         self.mock_request_create.side_effect = TestJob.msg_side_effect
 
         # Build Global Job that will be used in most of the tests
-        self.job = Job(training_plan_class=self.model,
+        self.job = Job(training_plan=self.model,
                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                        data=self.fds)
 
@@ -116,14 +109,14 @@ class TestJob(unittest.TestCase):
         """ Test first raise error when there is no model provided """
         mock_logger_critical.return_value = None
 
-        with self.assertRaises(NameError):
+        with self.assertRaises(SystemExit):
             _ = Job()
             mock_logger_critical.assert_called_once()
 
     def test_job_02_init_keep_files_dir(self):
         """ Testing initialization of Job with keep_files_dir """
 
-        j = Job(training_plan_class=self.model,
+        j = Job(training_plan=self.model,
                 data=self.fds,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 keep_files_dir=environ['TMP_DIR'])
@@ -135,7 +128,7 @@ class TestJob(unittest.TestCase):
         """ Testing initialization of Job by providing Request object """
 
         reqs = Requests()
-        j = Job(training_plan_class=self.model,
+        j = Job(training_plan=self.model,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds,
                 reqs=reqs)
@@ -149,15 +142,14 @@ class TestJob(unittest.TestCase):
         tmp_dir_model = TestJob.create_fake_model('fake_model.py')
         self.mock_upload_file.reset_mock()
 
-        j = Job(training_plan_path=tmp_dir_model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                training_plan_class='FakeModel')
+        j = Job(training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_plan=FakeTrainingPlan())
 
-        self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
+        self.assertEqual(j.training_plan.__class__.__name__, "FakeTrainingPlan",
                          'Provided model and model instance of Job do not match, '
                          'while initializing Job with static model python file')
 
-        self.assertEqual(j._training_plan_name, 'FakeModel',
+        self.assertEqual(j._training_plan_name, 'FakeTrainingPlan',
                          'Model is not initialized properly while providing training_plan_path')
 
         # # Upload file must be called 2 times one for model
@@ -177,9 +169,8 @@ class TestJob(unittest.TestCase):
         tmp_dir_model = TestJob.create_fake_model('fake.model.py')
 
         with self.assertRaises(SystemExit):
-            _ = Job(training_plan_path=tmp_dir_model,
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                    training_plan_class='FakeModel')
+            _ = Job(training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_plan=tmp_dir_model)
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.critical')
@@ -191,7 +182,7 @@ class TestJob(unittest.TestCase):
 
         mock_isclass.side_effect = NameError
         with self.assertRaises(NameError):
-            _ = Job(training_plan_class='FakeModel',
+            _ = Job(training_plan=tmp_dir_model,
                     training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                     data=self.fds)
             mock_logger_critical.assert_called_once()
@@ -205,19 +196,19 @@ class TestJob(unittest.TestCase):
         mock_logger_error.return_values = None
 
         # Test TRY/EXCEPT when save_code raises Exception
-        self.model.save_code.side_effect = Exception
-        _ = Job(training_plan_class=self.model,
+        self.model.save_to_json.side_effect = Exception
+        _ = Job(training_plan=self.model,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
         # Reset mocks for next tests
-        self.model.save_code.side_effect = None
+        self.model.save_to_json.side_effect = None
         mock_logger_error.reset_mock()
 
         # Test TRY/EXCEPT when model.save() raises Exception
-        self.model.save.side_effect = Exception
-        _ = Job(training_plan_class=self.model,
+        self.model.save_weights.side_effect = Exception
+        _ = Job(training_plan=self.model,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds)
         mock_logger_error.assert_called_once()
@@ -228,7 +219,7 @@ class TestJob(unittest.TestCase):
         """
         self.assertEqual(self.model, self.job.training_plan,
                          'Can not get Requests attribute from Job properly')
-        self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
+        self.assertEqual('FakeTrainingPlan', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
         model_file = self.job.training_plan_file
@@ -443,14 +434,14 @@ class TestJob(unittest.TestCase):
         """ Testing update_parameters by passing only params """
 
         # Reset model.save mock
-        self.model.save.reset_mock()
+        self.model.save_weights.reset_mock()
 
         params = {'params': [1, 2, 3, 4]}
         # Test without passing filename
 
         result = self.job.update_parameters(params=params)
         self.assertEqual(self.job._model_params_file, result)
-        self.model.save.assert_called_once()
+        self.model.save_weights.assert_called_once()
 
     def test_job_13_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """
@@ -539,7 +530,7 @@ class TestJob(unittest.TestCase):
 
     def test_job_15_save_private_training_replies(self):
         """
-        tests if `_save_training_replies` is properly extracting
+        tests if `_pack_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
         FakeResponses, a weak implementation of `Responses` class
         """
@@ -563,7 +554,8 @@ class TestJob(unittest.TestCase):
         }
 
         # action
-        new_training_replies = self.job._save_training_replies(training_replies)
+        self.job._training_replies = training_replies
+        new_training_replies = self.job._pack_training_replies()
 
         # check if `training_replies` is  saved accordingly
         self.assertTrue(type(new_training_replies) is list)
@@ -571,55 +563,29 @@ class TestJob(unittest.TestCase):
         self.assertTrue('params' not in new_training_replies[1][0])
         self.assertEqual(new_training_replies[1][1].get('dataset_id'), 'id_node_2')
 
-    @patch('fedbiomed.researcher.responses.Responses.__getitem__')
-    @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_16_private_load_training_replies(
-            self,
-            patch_responses_init,
-            patch_responses_getitem
-    ):
-        """tests if `_load_training_replies` is loading file content from path file
+    def test_job_16_private_unpack_training_replies(self):
+        """tests if `_unpack_training_replies` is loading file content from path file
         and is building a proper training replies structure from breakpoint info
         """
-
-        # first test with a model done with pytorch
-        pytorch_params = {
-            # dont need other fields
-            'model_params': torch.Tensor([1, 3, 5, 7])
-        }
-        sklearn_params = {
-            # dont need other fields
-            'model_params': np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
-        }
         # mock FederatedDataSet
         fds = MagicMock()
         fds.data = MagicMock(return_value={})
 
+        # #### FIRST TEST PSEUDO-TORCH MODELS
+        pytorch_params = {
+            # dont need other fields
+            'model_params': torch.Tensor([1, 3, 5, 7])
+        }
         # mock Pytorch model object
-        model_torch = MagicMock(return_value=None)
-        model_torch.save = MagicMock(return_value=None)
-        func_torch_loadparams = MagicMock(return_value=pytorch_params)
-
-        # mock Responses
-        #
-        # nota: works fine only with one instance of Response active at a time thus
-        # - cannot be used in `test_save_private_training_replies`
-        # - if testing on more than 1 round, only the last round can be used for Asserts
-        def side_responses_init(data, *args):
-            self.responses_data = data
-
-        def side_responses_getitem(arg, *args):
-            return self.responses_data[arg]
-
-        patch_responses_init.side_effect = side_responses_init
-        patch_responses_init.return_value = None
-        patch_responses_getitem.side_effect = side_responses_getitem
+        model_torch = MagicMock(FakeTrainingPlan())
+        model_torch.save_weights = MagicMock(return_value=None)
+        model_torch.load_weights = MagicMock(return_value=pytorch_params)
 
         # instantiate job
-        test_job_torch = Job(training_plan_class=model_torch,
+        test_job_torch = Job(training_plan=model_torch,
                              training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                              data=fds)
-        # second create a `training_replies` variable
+        # create a `training_replies` variable
         loaded_training_replies_torch = [
             [
                 {"success": True,
@@ -638,11 +604,9 @@ class TestJob(unittest.TestCase):
                  }
             ]
         ]
-
-        # action
-        torch_training_replies = test_job_torch._load_training_replies(
-            loaded_training_replies_torch,
-            func_torch_loadparams
+        # run the function and associated tests
+        torch_training_replies = test_job_torch._unpack_training_replies(
+            loaded_training_replies_torch
         )
 
         self.assertTrue(type(torch_training_replies) is dict)
@@ -651,13 +615,20 @@ class TestJob(unittest.TestCase):
             torch_training_replies[0][0]['node_id'],
             loaded_training_replies_torch[0][0]['node_id'])
         # check `training_replies` for pytorch models
-        self.assertTrue(torch.isclose(torch_training_replies[0][1]['params'],
-                                      pytorch_params['model_params']).all())
+        self.assertTrue(torch.isclose(
+            torch_training_replies[0][1]['params']['model_params'],
+            pytorch_params['model_params']
+        ).all())
         self.assertTrue(torch_training_replies[0][1]['params_path'],
                         "/path/to/file/param2.pt")
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
-        # #### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
+        # #### REPRODUCE TESTS FOR PSEUDO-SKLEARN MODELS AND 2 ROUNDS
+        sklearn_params = {
+            # dont need other fields
+            'model_params': np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
+        }
+
         # create a `training_replies` variable
         loaded_training_replies_sklearn = [
             [
@@ -678,18 +649,17 @@ class TestJob(unittest.TestCase):
         ]
 
         # mock sklearn model object
-        model_sklearn = MagicMock(return_value=None)
-        model_sklearn.save = MagicMock(return_value=None)
-        func_sklearn_loadparams = MagicMock(return_value=sklearn_params)
+        model_sklearn = MagicMock(FakeTrainingPlan())
+        model_sklearn.save_weights = MagicMock(return_value=None)
+        model_sklearn.load_weights = MagicMock(return_value=sklearn_params)
         # instantiate job
-        test_job_sklearn = Job(training_plan_class=model_sklearn,
+        test_job_sklearn = Job(training_plan=model_sklearn,
                                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                                data=fds)
 
         # action
-        sklearn_training_replies = test_job_sklearn._load_training_replies(
-            loaded_training_replies_sklearn,
-            func_sklearn_loadparams
+        sklearn_training_replies = test_job_sklearn._unpack_training_replies(
+            loaded_training_replies_sklearn
         )
 
         # heuristic check `training_replies` for existing field in input
@@ -697,19 +667,21 @@ class TestJob(unittest.TestCase):
             sklearn_training_replies[1][0]['node_id'],
             loaded_training_replies_sklearn[1][0]['node_id'])
         # check `training_replies` for sklearn models
-        self.assertTrue(np.allclose(sklearn_training_replies[1][0]['params'],
-                                    sklearn_params['model_params']))
+        self.assertTrue(np.allclose(
+            sklearn_training_replies[1][0]['params']['model_params'],
+            sklearn_params['model_params']
+        ))
         self.assertTrue(sklearn_training_replies[1][0]['params_path'],
                         "/path/to/file/param2_sklearn.pt")
         self.assertTrue(isinstance(sklearn_training_replies[0],
                                    Responses))
 
-    @patch('fedbiomed.researcher.job.Job._load_training_replies')
+    @patch('fedbiomed.researcher.job.Job._unpack_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     def test_job_17_load_state(
             self,
             patch_job_update_parameters,
-            patch_job_load_training_replies
+            patch_job_unpack_training_replies
     ):
         """
         test if the job state values correctly initialize job
@@ -726,8 +698,8 @@ class TestJob(unittest.TestCase):
         # patch `update_parameters`
         patch_job_update_parameters.return_value = "dummy_string"
 
-        # patch `_load_training_replies`
-        patch_job_load_training_replies.return_value = new_training_replies
+        # patch `_unpack_training_replies`
+        patch_job_unpack_training_replies.return_value = new_training_replies
 
         # action
         self.job.load_state(job_state)
@@ -738,10 +710,10 @@ class TestJob(unittest.TestCase):
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
-    @patch('fedbiomed.researcher.job.Job._save_training_replies')
+    @patch('fedbiomed.researcher.job.Job._pack_training_replies')
     def test_job_18_save_state(
             self,
-            patch_job_save_training_replies,
+            patch_job_pack_training_replies,
             patch_create_unique_file_link,
             patch_create_unique_link
     ):
@@ -777,7 +749,7 @@ class TestJob(unittest.TestCase):
 
         patch_create_unique_file_link.side_effect = side_create_ufl
 
-        patch_job_save_training_replies.return_value = new_training_replies
+        patch_job_pack_training_replies.return_value = new_training_replies
 
         # choose arguments for saving state
         breakpoint_path = 'xxx'

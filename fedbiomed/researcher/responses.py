@@ -27,6 +27,10 @@ class Responses:
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
+        else:
+            raise FedbiomedResponsesError(
+                f"Responses received invalid 'data': type {type(data)}."
+            )
 
     def __iter__(self) -> Iterator[Dict[str, Any]]:
         """Iterate over the wrapped response elements."""

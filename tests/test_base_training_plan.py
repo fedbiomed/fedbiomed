@@ -1,44 +1,24 @@
-import unittest
-from unittest.mock import patch, MagicMock
-from typing import Any, Dict, Optional
 import logging
-import torch
+import unittest
+from unittest.mock import create_autospec, patch, MagicMock
+
 import numpy as np
+import torch
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+from fedbiomed.common.training_plans import TrainingPlan  # noqa
 # Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
-import fedbiomed.common.training_plans._base_training_plan  # noqa
+import fedbiomed.common.training_plans._base  # noqa
+
+from testsupport.fake_training_plan import FakeTrainingPlan
 
 
-class SimpleTrainingPlan(BaseTrainingPlan):
-    def training_routine(
-            self,
-            history_monitor: Optional['HistoryMonitor'] = None,
-            node_args: Optional[Dict[str, Any]] = None
-    ) -> None:
-        pass
-
-    def post_init(
-            self,
-            model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
-    ) -> None:
-        pass
-
-    def predict(
-            self,
-            data: Any,
-    ) -> np.ndarray:
-        pass
-
-
-class TestBaseTrainingPlan(unittest.TestCase):
+class TestTrainingPlan(unittest.TestCase):
     """ Test Class for Base Training Plan """
 
     def setUp(self):
-        self.tp = SimpleTrainingPlan()
+        self.tp = FakeTrainingPlan()
         logging.disable('CRITICAL')
         pass
 
@@ -48,34 +28,34 @@ class TestBaseTrainingPlan(unittest.TestCase):
     def test_base_training_plan_01_add_dependency(self):
         """ Test  adding dependencies """
 
-        expected = ['from torch import nn']
+        expected = self.tp._dependencies + ['from torch import nn']
         self.tp.add_dependency(expected)
         self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
     def test_base_training_plan_02_save_code(self):
-        """ Testing the method save_code of BaseTrainingPlan """
-        expected_filepath = 'path/to/model.py'
+        """ Testing the method save_code of TrainingPlan """
+        expected_filepath = 'path/to/model.json'
 
         # Test without dependencies
-        with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
+        with patch.object(fedbiomed.common.training_plans._base, 'open', MagicMock()) as mock_open:
             self.tp.save_code(expected_filepath)
-            mock_open.assert_called_once_with(expected_filepath, "w")
+            mock_open.assert_called_once_with(expected_filepath, "w", encoding="utf-8")
 
         # Test with adding dependencies
-        with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
+        with patch.object(fedbiomed.common.training_plans._base, 'open', MagicMock()) as mock_open:
             self.tp.add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
             self.tp.save_code(expected_filepath)
-            mock_open.assert_called_once_with(expected_filepath, "w")
+            mock_open.assert_called_once_with(expected_filepath, "w", encoding="utf-8")
 
         # Test if get_class_source raises error
-        with patch('fedbiomed.common.training_plans._base_training_plan.get_class_source') \
+        with patch('fedbiomed.common.training_plans._base.get_class_source') \
                 as mock_get_class_source:
-            mock_get_class_source.side_effect = FedbiomedError
+            mock_get_class_source.side_effect = FedbiomedTrainingPlanError
             with self.assertRaises(FedbiomedTrainingPlanError):
                 self.tp.save_code(expected_filepath)
 
         # Test if open function raises errors
-        with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
+        with patch.object(fedbiomed.common.training_plans._base, 'open', MagicMock()) as mock_open:
             mock_open.side_effect = OSError
             with self.assertRaises(FedbiomedTrainingPlanError):
                 self.tp.save_code(expected_filepath)
@@ -105,12 +85,14 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertTrue('method' in self.tp.pre_processes, 'add_preprocess could not add process properly')
 
     def test_base_training_plan_04_set_data_loaders(self):
-        test_data_loader = [1, 2, 3]
-        train_data_loader = [1, 2, 3]
+        type_loader = self.tp.data_loader_type()
+        array = np.zeros(shape=(4, 1))
+        train_data_loader = type_loader(array, array)
+        test_data_loader = type_loader(array, array)
 
         self.tp.set_data_loaders(train_data_loader, test_data_loader)
-        self.assertListEqual(self.tp.training_data_loader, train_data_loader)
-        self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
+        self.assertEqual(self.tp.training_data_loader, train_data_loader)
+        self.assertEqual(self.tp.testing_data_loader, test_data_loader)
 
     def test_base_training_plan_05__create_metric_result(self):
         """
@@ -121,73 +103,73 @@ class TestBaseTrainingPlan(unittest.TestCase):
         """
 
         metric = 14
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom': 14})
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = True
-            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = 'True'
-            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         metric = [14, 14, 14.5]
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14.5})
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = ['14', '14', '14']
-            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         metric = {'my_metric': 12, 'other_metric': 14.15}
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, metric)
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {'my_metric': 'True', 'other_metric': 14.15}
-            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         # Testing torch.tensor
         metric = torch.tensor(14)
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom': 14})
 
         metric = [torch.tensor(14), torch.tensor(14), torch.tensor(14)]
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14})
 
         metric = {"m1": torch.tensor(14), "m2": torch.tensor(14)}
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'m1': 14, 'm2': 14})
 
         metric = {"m1": torch.tensor(14.5), "m2": torch.tensor(14.5)}
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'m1': 14.5, 'm2': 14.5})
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {"m1": torch.tensor([14.5, 14.5]), "m2": torch.tensor([14.5,14.5])}
-            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         # Testing numpy arrays
         metric = np.array([14, 14, 14])
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14})
 
         metric = np.array([14.5, 14.5, 14.5])
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14.5, 'Custom_2': 14.5, 'Custom_3': 14.5})
 
         metric = np.array([14.5, 14.5, 14.5], dtype=np.floating)
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14.5, 'Custom_2': 14.5, 'Custom_3': 14.5})
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {"m1": np.array([14.5, 14.5]), "m2": np.array([14.5, 14.5])}
-            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         metric = np.float64(4.5)
-        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        result = TrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom': 4.5})
         self.assertIsInstance(result["Custom"], float)
 

@@ -1,24 +1,22 @@
-from typing import Dict
-import unittest
+import inspect
+import json
 import os
 import sys
 import shutil
-import json
-import inspect
+import tempfile
+import unittest
+from typing import Dict
 
 from unittest.mock import patch, MagicMock, PropertyMock
 
-import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
-from testsupport.fake_training_plan import FakeModel
-from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+from testsupport.fake_training_plan import FakeTrainingPlan
 from testsupport.fake_researcher_secagg import (
     FAKE_CONTEXT_VALUE, FakeSecaggServkeyContext, FakeSecaggBiprimeContext
 )
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -35,39 +33,6 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
-
-    # For testing training_plan setter of Experiment
-    class FakeModelTorch(BaseFakeTrainingPlan):
-        """ Should inherit TorchTrainingPlan to pass the condition
-            `issubclass` of `TorchTrainingPlan`
-        """
-        def init_model(self, args):
-            pass
-
-        pass
-
-    @staticmethod
-    def create_fake_training_plan_file(name: str):
-        """ Class method saving codes of FakeModel
-
-        Args:
-            name (str): Name of the model file that will be created
-        """
-
-        tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
-        tmp_dir_model = os.path.join(tmp_dir, name)
-        if not os.path.isdir(tmp_dir):
-            os.mkdir(tmp_dir)
-
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
-
-        return tmp_dir_model
-
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -256,12 +221,8 @@ class TestExperiment(unittest.TestCase):
                                                       'experimentation path')
 
         # Test getter for training_plan
-        training_plan = self.test_exp.training_plan_class()
+        training_plan = self.test_exp.training_plan()
         self.assertIsNone(training_plan, 'Getter for training_plan did not return expected training_plan')
-
-        # Test getter for training_plan_path
-        training_plan_path = self.test_exp.training_plan_path()
-        self.assertIsNone(training_plan_path, 'Getter for training_plan_path did not return expected training_plan_path')
 
         # Test getter for model arguments
         model_args = self.test_exp.model_args()
@@ -288,7 +249,8 @@ class TestExperiment(unittest.TestCase):
         # Test when ._job is None
         training_replies = self.test_exp.training_replies()
         self.assertIsNone(training_replies, 'Getter for training_replies did not return expected value None')
-        self.mock_logger_error.assert_called_once()
+        self.assertEqual(self.mock_logger_error.call_count, 2)
+        self.mock_logger_error.reset_mock()
 
         # Test when ._job is not None
         tr_reply = {'node-1': True}
@@ -297,19 +259,16 @@ class TestExperiment(unittest.TestCase):
         training_replies = self.test_exp.training_replies()
         self.assertDictEqual(training_replies, tr_reply, 'Getter for training_replies did not return expected values')
 
-        # Test getter for model instance
-
-        # Test when ._job is None
+        # Test getter for training plan instance
+        # Test when ._job is None.
         self.test_exp._job = None
-        self.mock_logger_error.reset_mock()
         training_plan = self.test_exp.training_plan()
         self.assertIsNone(training_plan, 'Getter for .training_plan did not return expected value None')
-        self.mock_logger_error.assert_called_once()
 
-        # Test when ._job is not None
-        fake_training_plan = FakeModel()
-        type(self.mock_job).training_plan = PropertyMock(return_value=fake_training_plan)
+        # Test when ._job is not None.
+        fake_training_plan = FakeTrainingPlan()
         self.test_exp._job = self.mock_job
+        self.test_exp._job.training_plan = fake_training_plan
         training_plan = self.test_exp.training_plan()
         self.assertEqual(training_plan, fake_training_plan, 'Getter for training_plan did not return expected Model')
 
@@ -348,20 +307,7 @@ class TestExperiment(unittest.TestCase):
         # Test info by completing missing parts for proper .run
         self.test_exp._fds = FederatedDataSetMock({'node-1': []})
         self.test_exp._job = self.mock_job
-        self.test_exp._training_plan_is_defined = True
         self.test_exp.info()
-
-
-    @patch('builtins.eval')
-    @patch('builtins.print')
-    def test_experiment_02_info_exception(self, mock_print, mock_eval):
-        """Testing exceptions raise in info method of Experiment """
-
-        mock_print.return_value(None)
-        mock_eval.side_effect = Exception
-        with self.assertRaises(SystemExit):
-            self.test_exp.info()
-
 
     def test_experiment_03_set_tags(self):
         """ Testing setter for _tags attribute of Experiment """
@@ -649,94 +595,42 @@ class TestExperiment(unittest.TestCase):
         self.mock_logger_debug.assert_called_once()
 
 
-    def test_experiment_10_set_training_plan_class(self):
+    def test_experiment_10_set_training_plan(self):
         """ Testing setter for training_plan  """
 
         # Test setting training_plan to None
-        training_plan = self.test_exp.set_training_plan_class(None)
-        self.assertIsNone(training_plan, 'Model class is not set as None')
+        training_plan = self.test_exp.set_training_plan(None)
+        self.assertIsNone(training_plan, 'Training plan is not set to None')
 
-        # Setting training_plan as string
-        mc_expected = 'TestModel'
-        training_plan = self.test_exp.set_training_plan_class(mc_expected)
-        self.assertEqual(training_plan, mc_expected, 'Model class is not set properly while setting it in `str` type')
+        # Setting training_plan as valid instance
+        expected = FakeTrainingPlan()
+        training_plan = self.test_exp.set_training_plan(expected)
+        self.assertEqual(
+            training_plan, expected, 'Training plan instance is not set properly'
+        )
 
-        # Back to normal
-        self.test_exp._training_plan_path = None
+        # Setting training_plan for valid dump file
+        expected = FakeTrainingPlan()
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "plan.json")
+            expected.save_to_json(path)
+            training_plan = self.test_exp.set_training_plan(path)
+        self.assertEqual(
+            training_plan.__class__.__name__, expected.__class__.__name__,
+            'Training plan JSON-dumped instance is not set properly'
+        )
 
-        # Test by passing class
-        training_plan = self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
-        self.assertEqual(training_plan, TestExperiment.FakeModelTorch,
-                         'Model class is not set properly while setting it as class')
-
-        # Test by passing class which has no subclass of one of the training plan
+        # Test passing unproper instance.
         with self.assertRaises(SystemExit):
-            self.test_exp.set_training_plan_class(FakeModel)
+            self.test_exp.set_training_plan(MagicMock())
 
-        # Back to normal
-        self.test_exp._training_plan_path = None
-
-        #  Test passing incorrect python identifier
+        # Test passing a string that does not point to a training plan dump.
         with self.assertRaises(SystemExit):
-            self.test_exp.set_training_plan_class('Fake Model')
+            self.test_exp.set_training_plan("Fake Model")
 
-        # Test passing class built object
+        # Test passing invalid type.
         with self.assertRaises(SystemExit):
-            training_plan = self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch())
-
-        # Test passing class invalid type
-        with self.assertRaises(SystemExit):
-            training_plan = self.test_exp.set_training_plan_class(12)
-
-        # Test passing class invalid type
-        with self.assertRaises(SystemExit):
-            training_plan = self.test_exp.set_training_plan_class({})
-
-        # Test if ._job is not None
-        self.mock_logger_debug.reset_mock()
-        self.test_exp._job = MagicMock(return_value=True)
-        self.test_exp.set_training_plan_class('FakeModel')
-        # There will be two logger.debug call
-        #  First    : Experiment is not fully configured since training_plan_path is still None
-        #  Second   : Update Job since training_plan has changed
-        self.assertEqual(self.mock_logger_debug.call_count, 2, 'Logger debug is called unexpected time while setting '
-                                                               'model class')
-
-    def test_experiment_11_set_training_plan_path(self):
-        """ Testing setter for training_plan_path of experiment """
-
-        # Test training_plan_path is None
-        training_plan_path = self.test_exp.set_training_plan_path(None)
-        self.assertIsNone(training_plan_path, 'Setter for training_plan_path did not set training_plan_path to None')
-
-        # Test passing path for training_plan_file
-        fake_training_plan_path = self.create_fake_training_plan_file('fake_model_2.py')
-        training_plan_path = self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(training_plan_path, fake_training_plan_path, 'Setter for training_plan_path did not set training_plan_path properly')
-
-        # Test
-        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filepath') as m:
-            m.return_value = 'test'
-            with self.assertRaises(SystemExit):
-                self.test_exp.set_training_plan_path(fake_training_plan_path)
-
-        # Test invalid type of training_plan_path argument
-        with self.assertRaises(SystemExit):
-            self.test_exp.set_training_plan_path(12)
-
-        # Test when mode class is also set
-        self.test_exp.set_training_plan_class('FakeModel')
-        self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(self.test_exp._training_plan_is_defined, True, '_training_plan_is_defined returns False even training_plan and '
-                                                                'training_plan_path is fully configured')
-        # Test if `._job` is not None
-        self.mock_logger_debug.reset_mock()
-        self.test_exp._job = MagicMock(return_value=True)
-        self.test_exp.set_training_plan_path(fake_training_plan_path)
-        # There will be one debug call. If model_is_defined is False there might be two calls.
-        # Since _training_plan_is_defined has become True with previous test block there will be only one call
-        self.mock_logger_debug.assert_called_once()
-
+            training_plan = self.test_exp.set_training_plan(12)
 
     def test_experiment_12_set_model_arguments(self):
         """ Testing setter for model arguments of Experiment """
@@ -843,8 +737,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(self.test_exp._training_args['test_ratio'], ratio_1_2)
 
         # case 2: setting a Job and a test_ratio afterwards
-        self.test_exp._training_plan_is_defined = True
-        self.test_exp.set_training_plan_class = TestExperiment.FakeModelTorch
+        self.test_exp.set_training_plan(FakeTrainingPlan())
         self.test_exp.set_job()
         ratio_2 = .8
 
@@ -953,7 +846,6 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._job = None
 
         # Test when ._fds is None
-        self.test_exp._training_plan_is_defined = True
         self.test_exp._fds = None
         self.mock_logger_debug.reset_mock()
         self.test_exp.set_job()
@@ -963,8 +855,7 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._fds = True  # Assign any value to not make it None
 
         # Test proper set job when everything is ready to create Job
-        self.test_exp._training_plan_is_defined = True
-        self.test_exp.set_training_plan_class = TestExperiment.FakeModelTorch
+        self.test_exp.set_training_plan(FakeTrainingPlan())
         job = self.test_exp.set_job()
         self.assertIsInstance(job, Job, 'Job has not been set properly')
 
@@ -1114,7 +1005,7 @@ class TestExperiment(unittest.TestCase):
         # Test run_once when everything is ready to run
 
         # Set model class to be able to create Job
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_training_plan(FakeTrainingPlan())
         # Set default Job
         self.test_exp.set_job()
         # Set strategy again (it was removed)
@@ -1279,7 +1170,7 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.training_plan_file(display='not-bool')
 
         # Test when display is false
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_training_plan(FakeTrainingPlan())
         self.test_exp.set_job()
         result = self.test_exp.training_plan_file(display=False)
         self.assertEqual(result,
@@ -1311,7 +1202,7 @@ class TestExperiment(unittest.TestCase):
         # Test when job is defined
         expected_approved_result = {'node-1': {'is_approved': False}}
         mock_job_model_is_approved.return_value = expected_approved_result
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_training_plan(FakeTrainingPlan())
         self.test_exp.set_job()
         result = self.test_exp.check_training_plan_status()
         self.assertDictEqual(result, expected_approved_result, 'check_training_plan_status did not return expected value')
@@ -1472,15 +1363,16 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.breakpoint()
 
         # verification
-        final_training_plan_path = os.path.join(
-            self.experimentation_folder_path,
-            'model_' + str("{:04d}".format(round_current - 1)) + '.py')
+        folder = self.experimentation_folder_path
+        # final_training_plan_path = os.path.join(
+        #     folder, f"model_{round_current - 1:04d}.json"
+        # )
         final_agg_params = {
             'entry1': {
-                'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
+                'params_path': os.path.join(folder, 'params_path.pt')
             },
             'entry2': {
-                'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
+                'params_path': os.path.join(folder, 'other_params_path.pt')
             }
         }
         # better : catch exception if cannot read file or not json
@@ -1490,8 +1382,6 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['training_data'], training_data)
         self.assertEqual(final_state['training_args'], training_args.dict())
         self.assertEqual(final_state['model_args'], model_args)
-        self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
-        self.assertEqual(final_state['training_plan_class'], training_plan_class)
         self.assertEqual(final_state['round_current'], round_current)
         self.assertEqual(final_state['round_limit'], self.round_limit)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
@@ -1524,7 +1414,6 @@ class TestExperiment(unittest.TestCase):
                 self.test_exp.breakpoint()
 
 
-    @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
     @patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
@@ -1533,7 +1422,6 @@ class TestExperiment(unittest.TestCase):
     def test_experiment_29_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
                                                   patch_create_object,
-                                                  patch_training_plan
                                                   ):
         """ test `load_breakpoint` :
             1. if breakpoint file is json loadable
@@ -1546,8 +1434,7 @@ class TestExperiment(unittest.TestCase):
         training_data = {'train_node1': [{'name': 'my_first_dataset', 2: 243}]}
         training_args = TrainingArgs( only_required = False )
         model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
-        training_plan_path = '/path/to/breakpoint_training_plan_file.py'
-        training_plan_class = 'ThisIsTheTrainingPlan'
+        training_plan_path = '/path/to/breakpoint_training_plan_file.json'
         round_current = 1
         experimentation_folder = 'My_experiment_folder_258'
         aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
@@ -1567,7 +1454,6 @@ class TestExperiment(unittest.TestCase):
             'training_args': training_args.dict(),
             'model_args': model_args,
             'training_plan_path': training_plan_path,
-            'training_plan_class': training_plan_class,
             'round_current': round_current,
             'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
@@ -1616,12 +1502,6 @@ class TestExperiment(unittest.TestCase):
 
         patch_create_object.side_effect = side_create_object
 
-        class FakeModelInstance:
-            def load(self, aggreg, to_params):
-                return model_params
-
-        patch_training_plan.return_value = FakeModelInstance()
-
         # could not have it working with a decorator or by patching the whole class
         # (we are in a special case : constructor of
         # an object instantiated from the `cls` of a class function)
@@ -1629,7 +1509,7 @@ class TestExperiment(unittest.TestCase):
             patch('fedbiomed.researcher.experiment.Experiment.__init__',
                   ExperimentMock.__init__),
             patch('fedbiomed.researcher.experiment.Experiment._set_round_current',
-                  ExperimentMock._set_round_current)
+                  ExperimentMock._set_round_current),
         ]
         for p in patches_experiment:
             p.start()
@@ -1661,7 +1541,10 @@ class TestExperiment(unittest.TestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test when everything is OK
-        loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
+        with patch.object(fedbiomed.common.training_plans.TrainingPlan, 'load_from_json') as m_load:
+            m_load.return_value = FakeTrainingPlan()
+            loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
+            m_load.assert_called_once_with(training_plan_path)
 
         for p in patches_experiment:
             p.stop()
@@ -1675,8 +1558,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
-        self.assertEqual(loaded_exp._training_plan_class, training_plan_class)
-        self.assertEqual(loaded_exp._training_plan_path, training_plan_path)
+        self.assertTrue(isinstance(loaded_exp._training_plan, FakeTrainingPlan))
         self.assertEqual(loaded_exp._model_args, model_args)
         self.assertDictEqual(loaded_exp._training_args.dict(), final_training_args.dict())
         self.assertEqual(loaded_exp._job._saved_state, final_job)

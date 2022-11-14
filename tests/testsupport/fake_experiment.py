@@ -4,14 +4,13 @@
 from typing import Union, TypeVar, Type, List
 
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TrainingPlan
 from fedbiomed.researcher.experiment import Experiment
 
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
 Aggregator = TypeVar("Aggregator")
 Strategy = TypeVar("Strategy")
-Type_TrainingPlan = TypeVar("Type_TrainingPlan")
-TrainingPlan = TypeVar("TrainingPlan")
 _E = TypeVar("Experiment")
 
 class ExperimentMock():
@@ -26,10 +25,9 @@ class ExperimentMock():
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 round_limit: Union[int, None] = None,
-                training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-                training_plan_path: Union[str, None] = None,
+                training_plan: Union[TrainingPlan, str, None] = None,
                 model_args: dict = {},
-                training_args: dict = {},
+                training_args: Union[TrainingArgs, dict, None] = None,
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
                 experimentation_folder: Union[str, None] = None
@@ -46,8 +44,9 @@ class ExperimentMock():
         self._round_current = 0
         self._round_limit = round_limit
         self._experimentation_folder = experimentation_folder
-        self._training_plan_class = training_plan_class
-        self._training_plan_path = training_plan_path
+        if isinstance(training_plan, str):
+            training_plan = TrainingPlan.load_from_json(training_plan)
+        self._training_plan = training_plan
         self._model_args = model_args
         self._training_args = TrainingArgs(only_required=False)
         class Job:

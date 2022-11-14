@@ -1834,12 +1834,10 @@ class Experiment(object):
                 'breakpoint file seems corrupted, `training_plan` is None'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        else:
-            loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
-                saved_state.get('aggregated_params'),
-                training_plan.load
-            )
-
+        loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
+            saved_state.get('aggregated_params'),
+            training_plan.load_weights
+        )
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
         # nota: exceptions should be handled in Job, when refactoring it
@@ -1864,6 +1862,7 @@ class Experiment(object):
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
 
+    # TODO: revise this method
     @staticmethod
     @exp_exceptions
     def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
@@ -1906,6 +1905,7 @@ class Experiment(object):
 
         return aggregated_params
 
+    # TODO: revise this method
     @staticmethod
     @exp_exceptions
     def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
@@ -1950,7 +1950,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = func_load_params(aggreg['params_path'], to_params=True)
+            aggreg['params'] = func_load_params(aggreg['params_path'], assign=False)
             # errors should be handled in training plan loader function
 
         return aggregated_params
