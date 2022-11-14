@@ -23,7 +23,7 @@ class TestNPDataLoader(unittest.TestCase):
     def assertNPArrayEqual(self, arr1, arr2):
         self.assertIterableEqual(arr1.flatten(), arr2.flatten())
 
-    def iterate_and_assert(self, batch_size, n_epochs, drop_last=False):
+    def iterate_and_assert(self, batch_size, n_updates, drop_last=False):
         dataloader = NPDataLoader(dataset=self.X,
                                   target=self.X,
                                   batch_size=batch_size,
@@ -32,31 +32,41 @@ class TestNPDataLoader(unittest.TestCase):
         num_batches_per_epoch = self.len//batch_size
         if not drop_last and self.len % batch_size > 0:
             num_batches_per_epoch += 1
+        n_epochs = n_updates // num_batches_per_epoch
 
         self.assertEqual(num_batches_per_epoch, len(dataloader))
 
         outcome = list()
-        for epoch in range(n_epochs):
-            for data, target in dataloader:
-                outcome.append(data)
-
-        self.assertEqual(len(outcome), num_batches_per_epoch*n_epochs)
+        for i, (data, target) in enumerate(dataloader, start=1):
+            if i > n_updates:
+                break
+            outcome.append(data)
 
         remainder = self.len % batch_size
         if remainder > 0 and drop_last:
             expected_sum = self.X[:-remainder].sum()
         else:
             expected_sum = self.X.sum()
+        if remainder > 0 and not drop_last:
+            expected_sum += self.X[:batch_size-remainder].sum()
+        expected_sum *= n_epochs
         out_sum = functools.reduce(lambda x, y: x + y.sum(), outcome, 0)
-        self.assertEqual(out_sum, expected_sum*n_epochs)
+        self.assertEqual(out_sum, expected_sum)
 
         if remainder == 0:
             self.assertNPArrayEqual(outcome[-1], self.X[-batch_size:])
         else:
             if not drop_last:
-                self.assertNPArrayEqual(outcome[-1], self.X[-remainder:])
+                self.assertNPArrayEqual(outcome[-1],
+                                        np.concatenate(
+                                            (
+                                                self.X[-remainder:],
+                                                self.X[:batch_size-remainder]
+                                            )
+                                        ))
             else:
-                self.assertNPArrayEqual(outcome[-1], self.X[-batch_size-remainder:-remainder])
+                self.assertNPArrayEqual(outcome[-1],
+                                        self.X[-batch_size-remainder:-remainder])
 
     def test_npdataloader_00_creation(self):
         _ = NPDataLoader(dataset=self.X,
@@ -118,26 +128,26 @@ class TestNPDataLoader(unittest.TestCase):
 
     def test_npdataloader_01_iteration(self):
         # scenario: batch_size=1 and 1 epoch
-        self.iterate_and_assert(1, 1, drop_last=False)
+        self.iterate_and_assert(1, self.len, drop_last=False)
         # scenario: batch_size=full dataset and 1 epoch
-        self.iterate_and_assert(self.len, 1, drop_last=False)
+        self.iterate_and_assert(self.len, self.len, drop_last=False)
         # scenario: batch_size=3 and 1 epoch
-        self.iterate_and_assert(3, 1, drop_last=False)
-
-        # same scenarios, but 3 epochs
-        self.iterate_and_assert(1, 3, drop_last=False)
-        self.iterate_and_assert(self.len, 3, drop_last=False)
         self.iterate_and_assert(3, 3, drop_last=False)
 
+        # same scenarios, but 3 epochs
+        self.iterate_and_assert(1, 3*self.len, drop_last=False)
+        self.iterate_and_assert(self.len, 3*self.len, drop_last=False)
+        self.iterate_and_assert(3, 9, drop_last=False)
+
         # same as initial scenarios, but drop_last=True
-        self.iterate_and_assert(1, 1, drop_last=True)
-        self.iterate_and_assert(self.len, 1, drop_last=True)
-        self.iterate_and_assert(3, 1, drop_last=True)
+        self.iterate_and_assert(1, self.len, drop_last=True)
+        self.iterate_and_assert(self.len, self.len, drop_last=True)
+        self.iterate_and_assert(3, self.len, drop_last=True)
 
         # same as initial scenarios, but 3 epochs and drop_last=True
-        self.iterate_and_assert(1, 3, drop_last=True)
-        self.iterate_and_assert(self.len, 3, drop_last=True)
-        self.iterate_and_assert(3, 3, drop_last=True)
+        self.iterate_and_assert(1, 3*self.len, drop_last=True)
+        self.iterate_and_assert(self.len, 3*self.len, drop_last=True)
+        self.iterate_and_assert(3, 3*self.len, drop_last=True)
 
         # test iteration with targets
         batch_size = 2
@@ -146,10 +156,12 @@ class TestNPDataLoader(unittest.TestCase):
                                   batch_size=batch_size)
         num_batches_per_epoch = self.len // batch_size + 1  # drop_last is False
         n_epochs = 2
+        n_updates = num_batches_per_epoch*n_epochs
         outcome = list()
-        for epoch in range(n_epochs):
-            for data, target in dataloader:
-                outcome.append((data, target))
+        for i, (data, target) in enumerate(dataloader, start=1):
+            if i > n_updates:
+                break
+            outcome.append((data, target))
 
         self.assertEqual(len(outcome), num_batches_per_epoch*n_epochs)
 
@@ -168,13 +180,17 @@ class TestNPDataLoader(unittest.TestCase):
                                   shuffle=True,
                                   random_seed=42)
         outcome = list()
-        for data, target in dataloader:
+        for i, (data, target) in enumerate(dataloader, start=1):
+            if i > len(dataloader):
+                break
             outcome.append(data)
         self.assertTrue(any([x != y for x, y in zip(outcome, self.X)]))
 
         # Assert that iterating a second time yields another shuffling
         second_epoch = list()
-        for data, target in dataloader:
+        for i, (data, target) in enumerate(dataloader, start=1):
+            if i > len(dataloader):
+                break
             second_epoch.append(data)
         self.assertTrue(any([x != y for x, y in zip(outcome, second_epoch)]))
 
@@ -185,7 +201,9 @@ class TestNPDataLoader(unittest.TestCase):
                                   batch_size=1,
                                   random_seed=42)
         for epoch in range(2):
-            for data, target in dataloader:
+            for i, (data, target) in enumerate(dataloader, start=1):
+                if i > len(dataloader):
+                    break
                 self.assertEqual(data, target)
 
         dataloader = NPDataLoader(dataset=self.X,
@@ -193,7 +211,9 @@ class TestNPDataLoader(unittest.TestCase):
                                   batch_size=3,
                                   random_seed=42)
         for epoch in range(2):
-            for data, target in dataloader:
+            for i, (data, target) in enumerate(dataloader, start=1):
+                if i > len(dataloader):
+                    break
                 self.assertNPArrayEqual(data, target)
 
         dataloader = NPDataLoader(dataset=self.X,
@@ -202,7 +222,9 @@ class TestNPDataLoader(unittest.TestCase):
                                   drop_last=True,
                                   random_seed=42)
         for epoch in range(2):
-            for data, target in dataloader:
+            for i, (data, target) in enumerate(dataloader, start=1):
+                if i > len(dataloader):
+                    break
                 self.assertNPArrayEqual(data, target)
 
         dataloader = NPDataLoader(dataset=self.X,
@@ -212,7 +234,9 @@ class TestNPDataLoader(unittest.TestCase):
                                   shuffle=True,
                                   random_seed=42)
         for epoch in range(2):
-            for data, target in dataloader:
+            for i, (data, target) in enumerate(dataloader, start=1):
+                if i > len(dataloader):
+                    break
                 self.assertNPArrayEqual(data, target)
 
     def test_npdataloader_04_empty(self):
@@ -231,7 +255,9 @@ class TestNPDataLoader(unittest.TestCase):
 
         for epoch in range(2):
             count = 0
-            for i, (_, _) in enumerate(dataloader):
+            for i, (_, _) in enumerate(dataloader, start=1):
+                if i > len(dataloader):
+                    break
                 count += 1
             self.assertEqual(count, 0)
 
