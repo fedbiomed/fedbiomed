@@ -1,18 +1,16 @@
 import unittest
 
-import numpy as np
-from unittest.mock import patch, MagicMock
-
 import pandas as pd
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from torch.utils.data import Dataset
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.data._torch_data_manager import TorchDataManager
-from fedbiomed.common.data._sklearn_data_manager import SkLearnDataManager
+from fedbiomed.common.data import (
+    DataLoaderTypes,
+    DataManager,
+    SkLearnDataManager,
+    TorchDataManager,
+)
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import TrainingPlans
 
 
 class TestDataManager(unittest.TestCase):
@@ -42,53 +40,53 @@ class TestDataManager(unittest.TestCase):
         # Test passing invalid argument
         with self.assertRaises(FedbiomedDataManagerError):
             data_manager = DataManager(dataset='invalid-argument')
-            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+            data_manager.load(loader_type=DataLoaderTypes.TORCH)
 
         # Test passing another invalid argument
         with self.assertRaises(FedbiomedDataManagerError):
             DataManager(dataset=12)
-            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+            data_manager.load(loader_type=DataLoaderTypes.TORCH)
 
         # Test passing dataset as list
         with self.assertRaises(FedbiomedDataManagerError):
             data_manager = DataManager(dataset=[12, 12, 12, 12])
-            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+            data_manager.load(loader_type=DataLoaderTypes.TORCH)
 
         # Test passing PyTorch Dataset while training plan is SkLearn
         with self.assertRaises(FedbiomedDataManagerError):
             data_manager = DataManager(dataset=TestDataManager.CustomDataset())
-            data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+            data_manager.load(loader_type=DataLoaderTypes.NUMPY)
 
         # Test Torch Dataset Scenario
         data_manager = DataManager(dataset=TestDataManager.CustomDataset())
-        data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        data_manager.load(loader_type=DataLoaderTypes.TORCH)
         self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
 
         # Test SkLearn Scenario
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2]))
-        data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+        data_manager.load(loader_type=DataLoaderTypes.NUMPY)
         self.assertIsInstance(data_manager._data_manager_instance, SkLearnDataManager)
 
         # Test auto PyTorch dataset creation
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2]))
-        data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        data_manager.load(loader_type=DataLoaderTypes.TORCH)
         self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
 
         # Test if inputs are not supported by SkLearnTrainingPlan
         data_manager = DataManager(dataset=['non-pd-or-numpy'], target=['non-pd-or-numpy'])
         with self.assertRaises(FedbiomedDataManagerError):
-            data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+            data_manager.load(loader_type=DataLoaderTypes.NUMPY)
 
         # Test undefined training plan
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2]))
         with self.assertRaises(FedbiomedDataManagerError):
-            data_manager.load(tp_type='NanaNone')
+            data_manager.load(loader_type='NanaNone')
 
     def test_data_manager_01___getattr___(self):
         """ Test __getattr__ magic method of DataManager """
 
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2]))
-        data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        data_manager.load(loader_type=DataLoaderTypes.TORCH)
         try:
             load = data_manager.__getattr__('load')
             dataset = data_manager.__getattr__('dataset')

@@ -20,71 +20,74 @@
 
 # ## Define an experiment model and parameters
 
-# Declare a torch training plan MyTrainingPlan class to send for training on the node
+# Declare a TorchTrainingPlan subclass to send for training on the node
 
 import torch
-import torch.nn as nn
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
 from torchvision import datasets, transforms
 
-
-# Here we define the model to be used. 
-# You can use any class name (here 'Net')
-class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Defines and return model 
-    def init_model(self, model_args):
-        return self.Net(model_args = model_args)
-    
-    # Defines and return optimizer
-    def init_optimizer(self, optimizer_args):
-        return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
-    
-    # Declares and return dependencies
-    def init_dependencies(self):
-        deps = ["from torchvision import datasets, transforms"]
-        return deps
-    
-    class Net(nn.Module):
-        def __init__(self, model_args):
-            super().__init__()
-            self.conv1 = nn.Conv2d(1, 32, 3, 1)
-            self.conv2 = nn.Conv2d(32, 64, 3, 1)
-            self.dropout1 = nn.Dropout(0.25)
-            self.dropout2 = nn.Dropout(0.5)
-            self.fc1 = nn.Linear(9216, 128)
-            self.fc2 = nn.Linear(128, 10)
-
-        def forward(self, x):
-            x = self.conv1(x)
-            x = F.relu(x)
-            x = self.conv2(x)
-            x = F.relu(x)
-            x = F.max_pool2d(x, 2)
-            x = self.dropout1(x)
-            x = torch.flatten(x, 1)
-            x = self.fc1(x)
-            x = F.relu(x)
-            x = self.dropout2(x)
-            x = self.fc2(x)
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
-            output = F.log_softmax(x, dim=1)
-            return output
+# This class enables using any torch module (hence model architecture),
+# and only specifies how to load and prepare the MNIST dataset.
+class MnistTorchTrainingPlan(TorchTrainingPlan):
+    """Custom torch training plan, implementing MNIST dataset loading."""
 
-    def training_data(self, batch_size = 48):
-        # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose([transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))])
-        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+    def training_data(
+            self,
+            dataset_path: str,
+            batch_size: int = 48,
+        ) -> DataManager:
+        """Return a DataManager wrapping the MNIST dataset."""
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+        dataset = datasets.MNIST(
+            dataset_path, train=True, download=False, transform=transform
+        )
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        return DataManager(dataset=dataset1, **train_kwargs)
-    
-    def training_step(self, data, target):
-        output = self.model().forward(data)
-        loss   = torch.nn.functional.nll_loss(output, target)
-        return loss
+        return DataManager(dataset=dataset, **train_kwargs)
+
+
+# Instantiation.
+# Write the torch module - as one would in a centralized context.
+module = torch.nn.Sequential(
+    torch.nn.Conv2d(1, 32, 3, 1),
+    torch.nn.ReLU(),
+    torch.nn.Conv2d(32, 64, 3, 1),
+    torch.nn.ReLU(),
+    torch.nn.MaxPool2d(2),
+    torch.nn.Dropout(0.25),
+    torch.nn.Flatten(),
+    torch.nn.Linear(9216, 128),
+    torch.nn.ReLU(),
+    torch.nn.Dropout(0.5),
+    torch.nn.Linear(128, 10),
+    torch.nn.LogSoftmax(),
+)
+
+# Set up an Adam optimizer with 0.001 learning rate for nodes to use.
+from declearn.optimizer import Optimizer
+from declearn.optimizer.modules import AdamModule, MomentumModule
+
+node_opt = Optimizer(lrate=0.001, modules=[AdamModule()])
+
+# Wrap up the torch module and Adam optimizer for federated training.
+training_plan = MnistTorchTrainingPlan(
+    model=module,
+    optim=node_opt,
+    loss=torch.nn.NLLLoss(),
+)
+
+# Add requirements: due to the `training_data` part only.
+training_plan.add_dependency([
+    "from torchvision import datasets, transforms",
+    "from fedbiomed.common.data import DataManager",
+    "from fedbiomed.common.training_plans import TorchTrainingPlan",
+])
+
 
 
 
@@ -97,13 +100,11 @@ class MyTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
-    'optimizer_args': {
-        "lr" : 1e-3
-    },
-    'epochs': 1, 
-    'dry_run': False,  
-    'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    'batch_size': 48,
+    'epochs': 1,
+    'num_updates': 100, # Fast pass for development: only use 100 steps per round
+    'test_on_global_updates': True,  # test the updated model on round start
+    'test_ratio': 0.2,  # use 20% of the dataset as validation
 }
 
 #    ## Declare and run the experiment
@@ -117,13 +118,18 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 tags =  ['#MNIST', '#dataset']
 rounds = 2
 
-exp = Experiment(tags=tags,
-                 model_args=model_args,
-                 training_plan_class=MyTrainingPlan,
-                 training_args=training_args,
-                 round_limit=rounds,
-                 aggregator=FedAverage(),
-                 node_selection_strategy=None)
+# Use Momentum on the researcher side.
+res_opt = Optimizer(lrate=1., modules=[MomentumModule()])
+
+exp = Experiment(
+    tags=tags,
+    model_args=model_args,
+    training_plan=training_plan,
+    training_args=training_args,
+    round_limit=rounds,
+    aggregator=FedAverage(res_opt),
+    node_selection_strategy=None
+)
 
 
 # Let's start the experiment.
@@ -163,7 +169,6 @@ print("\nList the training rounds : ", exp.aggregated_params().keys())
 
 print("\nAccess the federated params for the last training round : ")
 print("\t- params_path: ", exp.aggregated_params()[rounds - 1]['params_path'])
-print("\t- parameter data: ", exp.aggregated_params()[rounds - 1]['params'].keys())
+print("\t- parameter spec: ", exp.aggregated_params()[rounds - 1]['params'])
 
 # Feel free to run other sample notebooks or try your own models :D
-

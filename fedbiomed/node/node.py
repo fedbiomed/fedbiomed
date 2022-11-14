@@ -2,25 +2,24 @@
 Core code of the node component.
 '''
 
-from json import decoder
+from json import JSONDecodeError
+from typing import Any, Dict, List, Optional
 
-from typing import Optional, Union, Dict, Any
+import validators
 
-from fedbiomed.common import json
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
-from fedbiomed.node.environ import environ
-from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
-
-import validators
+from fedbiomed.node.secagg import SecaggBiprimeSetup, SecaggServkeySetup
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 class Node:
@@ -35,7 +34,7 @@ class Node:
     def __init__(self,
                  dataset_manager: DatasetManager,
                  tp_security_manager: TrainingPlanSecurityManager,
-                 node_args: Union[dict, None] = None):
+                 node_args: Optional[Dict[str, Any]] = None):
         """Constructor of the class.
 
         Attributes:
@@ -49,19 +48,9 @@ class Node:
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
-        self.rounds = []
-
         self.node_args = node_args
 
-    def add_task(self, task: dict):
-        """Adds a task to the pending tasks queue.
-
-        Args:
-            task: A `Message` object describing a training task
-        """
-        self.tasks_queue.add(task)
-
-    def on_message(self, msg: dict, topic: str = None):
+    def on_message(self, msg: dict, topic: Optional[str] = None) -> None:
         """Handler to be used with `Messaging` class (ie the messager).
 
         Called when a  message arrives through the `Messaging`.
@@ -84,19 +73,19 @@ class Node:
         logger.debug('Message received: ' + str(msg))
         try:
             # get the request from the received message (from researcher)
-            command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
+            command = request["command"]
             if command in ['train', 'secagg']:
                 # add training task to queue
-                self.add_task(request)
+                self.tasks_queue.add(request)
             elif command == 'secagg-delete':
                 logger.info('Not implemented yet, PUT SECAGG DELETE PAYLOAD HERE')
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
-                            'researcher_id': msg['researcher_id'],
-                            'secagg_id': msg['secagg_id'],
-                            'sequence': msg['sequence'],
+                            'researcher_id': request['researcher_id'],
+                            'secagg_id': request['secagg_id'],
+                            'sequence': request['sequence'],
                             'success': True,
                             'node_id': environ['NODE_ID'],
                             'msg': '',
@@ -106,10 +95,10 @@ class Node:
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
-                            'researcher_id': msg['researcher_id'],
+                            'researcher_id': request['researcher_id'],
                             'node_id': environ['NODE_ID'],
                             'success': True,
-                            'sequence': msg['sequence'],
+                            'sequence': request['sequence'],
                             'command': 'pong'
                         }).get_dict())
             elif command == 'search':
@@ -122,8 +111,8 @@ class Node:
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
-                         'researcher_id': msg['researcher_id'],
-                         'databases': databases,
+                         'researcher_id': request['researcher_id'],
+                         'databases': [dict(db) for db in databases],
                          'count': len(databases)}).get_dict())
             elif command == 'list':
                 # Get list of all datasets
@@ -133,8 +122,8 @@ class Node:
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
-                     'researcher_id': msg['researcher_id'],
-                     'databases': databases,
+                     'researcher_id': request['researcher_id'],
+                     'databases': [dict(db) for db in databases],
                      'count': len(databases),
                      }).get_dict())
             elif command == 'approval':
@@ -146,32 +135,30 @@ class Node:
 
             else:
                 raise NotImplementedError('Command not found')
-        except decoder.JSONDecodeError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg="Not able to deserialize the message",
-                            researcher_id=resid)
+        except JSONDecodeError:
+            self.messaging.send_error(
+                ErrorNumbers.FB301,
+                extra_msg="Unable to deserialize the message",
+                researcher_id=msg.get("researcher_id", "unknown_researcher_id")
+            )
+        except FedbiomedError as exc:
+            self.messaging.send_error(
+                ErrorNumbers.FB301,
+                extra_msg=str(exc),
+                researcher_id=msg.get("researcher_id", "unknown_researcher_id")
+            )
         except NotImplementedError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg=f"Command `{command}` is not implemented",
-                            researcher_id=resid)
-        except KeyError:
-            # FIXME: this error could be raised for other missing keys (eg
-            # researcher_id, ....)
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg="'command' property was not found",
-                            researcher_id=resid)
+            self.messaging.send_error(
+                ErrorNumbers.FB301,
+                extra_msg=f"Command `{command}` is not implemented",
+                researcher_id=msg.get("researcher_id", "unknown_researcher_id")
+            )
         except TypeError:  # Message was not serializable
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg='Message was not serializable',
-                            researcher_id=resid)
+            self.messaging.send_error(
+                ErrorNumbers.FB301,
+                extra_msg="Message was not serializable",
+                researcher_id=msg.get("researcher_id", "unknown_researcher_id")
+            )
 
     def task_secagg(self, msg: SecaggRequest) -> None:
         """Parses a given secagg setup task message and execute secagg task.
@@ -201,11 +188,11 @@ class Node:
 
         # 2. Instantiate secagg context element
         try:
-            if element.name in element2class.keys():
+            if element.name in element2class:
                 # instantiate a `SecaggSetup` object
                 secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
             else:
-                # should not exist 
+                # should not exist
                 secagg = None
             error = ''
         except Exception as e:
@@ -253,163 +240,119 @@ class Node:
                 ).get_dict()
             )
 
-
-    def parser_task_train(self, msg: TrainRequest):
-        """Parses a given training task message to create a round instance
+    def parse_train_request(self, msg: TrainRequest) -> List[Round]:
+        """Parses a given training task message to create round instances.
 
         Args:
-            msg: `TrainRequest` message object to parse
+            msg: `TrainRequest` message instance to parse.
         """
         # msg becomes a TrainRequest object
-        hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
-                                      researcher_id=msg.get_param('researcher_id'),
-                                      client=self.messaging)
-        # Get arguments for the model and training
-        model_kwargs = msg.get_param('model_args') or {}
-        training_kwargs = msg.get_param('training_args') or {}
-        training_status = msg.get_param('training') or False
-        training_plan_url = msg.get_param('training_plan_url')
-        training_plan_class = msg.get_param('training_plan_class')
-        params_url = msg.get_param('params_url')
-        job_id = msg.get_param('job_id')
-        researcher_id = msg.get_param('researcher_id')
+        hist_monitor = HistoryMonitor(
+            job_id=msg.get_param('job_id'),
+            node_id=environ['NODE_ID'],
+            researcher_id=msg.get_param('researcher_id'),
+            client=self.messaging
+        )
+        # Get arguments for the model and training.
+        round_kwargs = {
+            "model_kwargs": msg.get_param('model_args') or {},
+            "training_kwargs": msg.get_param('training_args') or {},
+            "training_plan_url": msg.get_param('training_plan_url'),
+            "params_url": msg.get_param('params_url'),
+            "aux_vars_url": msg.get_param('aux_vars_url'),
+            "training": msg.get_param('training') or False,
+            "job_id": msg.get_param('job_id'),
+            "researcher_id": msg.get_param('researcher_id'),
+            "history_monitor": hist_monitor,
+            "node_args": self.node_args
+        }
+        if round_kwargs["training_plan_url"] is None:
+            raise FedbiomedError('URL for training plan on repository not found.')
+        if not validators.url(round_kwargs["training_plan_url"]):
+            raise FedbiomedError('URL for training plan on repository is not valid.')
 
-        assert training_plan_url is not None, 'URL for training plan on repository not found.'
-        assert validators.url(
-            training_plan_url), 'URL for training plan on repository is not valid.'
-        assert training_plan_class is not None, 'classname for the training plan and training routine ' \
-                                                'was not found in message.'
-
-        assert isinstance(
-            training_plan_class,
-            str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
-                  'and training routine in the repository'
-
-        self.rounds = []  # store here rounds associated to each dataset_id
-        # (so it is possible to train model on several dataset per round)
+        rounds = []  # store here rounds associated to each dataset_id
+        # (so it is possible to train a model on several datasets per round)
 
         if environ['NODE_ID'] in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
                 data = self.dataset_manager.get_by_id(dataset_id)
                 if data is None or 'path' not in data.keys():
-                    # TODO: create a data structure for messaging
-                    # (ie an object creating a dict with field accordingly)
-                    # FIXME: 'the condition above depends on database model
-                    # if database model changes (ie `path` field removed/
-                    # modified);
-                    # condition above is likely to be false
-                    logger.error('Did not found proper data in local datasets ' +
+                    logger.error('Did not find proper data in local datasets '
                                  f'on node={environ["NODE_ID"]}')
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'command': "error",
-                         'node_id': environ['NODE_ID'],
-                         'researcher_id': researcher_id,
+                         'node_id': environ["NODE_ID"],
+                         'researcher_id': round_kwargs["researcher_id"],
                          'errnum': ErrorNumbers.FB313,
-                         'extra_msg': "Did not found proper data in local datasets"}
+                         'extra_msg': "Did not find proper data in local datasets"}
                     ).get_dict())
                 else:
-                    dlp_and_loading_block_metadata = None
-                    if 'dlp_id' in data:
-                        dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-                    self.rounds.append(Round(model_kwargs,
-                                             training_kwargs,
-                                             training_status,
-                                             data,
-                                             training_plan_url,
-                                             training_plan_class,
-                                             params_url,
-                                             job_id,
-                                             researcher_id,
-                                             hist_monitor,
-                                             self.node_args,
-                                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
+                    dlp = (
+                        self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+                        if 'dlp_id' in data else None
+                    )
+                    round_ = Round(
+                        dataset=data,
+                        dlp_and_loading_block_metadata=dlp,
+                        **round_kwargs
+                    )
+                    rounds.append(round_)
+        # Return the list of Round instances parsed from the request.
+        return rounds
 
-    def task_manager(self):
-        """Manages training tasks in the queue.
-        """
-
+    def task_manager(self) -> None:
+        """Manage training tasks in the queue."""
         while True:
             item = self.tasks_queue.get()
             logger.debug('[TASKS QUEUE] Item:' + str(item))
-
+            # Parse the received message.
             try:
-                item = NodeMessages.request_create(item)
-                command = item.get_param('command')
-            except Exception as e:
-                # send an error message back to network if something wrong occured
-                self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'command': 'error',
-                            'extra_msg': str(e),
-                            'node_id': environ['NODE_ID'],
-                            'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB300
-                        }
-                    ).get_dict()
-                )
-
-            if command == 'train':
+                message = NodeMessages.request_create(item)
+            except FedbiomedError as exc:
+                self._send_task_error(exc)
+                continue
+            # Case when message is a TrainRequest.
+            if isinstance(message, TrainRequest):
                 try:
-                    self.parser_task_train(item)
-                    # once task is out of queue, initiate training rounds
-                    for round in self.rounds:
-                        # iterate over each dataset found
-                        # in the current round (here round refers
-                        # to a round to be done on a specific dataset).
-                        msg = round.run_model_training()
-                        self.messaging.send_message(msg)
-                except Exception as e:
-                    # send an error message back to network if something
-                    # wrong occured
-                    self.messaging.send_message(
-                        NodeMessages.reply_create(
-                            {
-                                'command': 'error',
-                                'extra_msg': str(e),
-                                'node_id': environ['NODE_ID'],
-                                'researcher_id': 'NOT_SET',
-                                'errnum': ErrorNumbers.FB300
-                            }
-                        ).get_dict()
-                    )
-            elif command == 'secagg':
-                self.task_secagg(item)
+                    # Parse the request into a list of rounds to run
+                    # (once per dataset matching the request).
+                    rounds = self.parse_train_request(message)
+                    # Run each and every round and send back train replies.
+                    for round_ in rounds:
+                        reply = round_.run()
+                        self.messaging.send_message(reply.get_dict())
+                except FedbiomedError as exc:
+                    self._send_task_error(exc)
+                    continue
+            # Case when message is a SecaggRequest.
+            elif isinstance(message, SecaggRequest):
+                self.task_secagg(message)
+            # Case when message is of unsupported type.
             else:
-                errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
-                logger.error(errmess)
-                self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'command': 'error',
-                            'extra_msg': errmess,
-                            'node_id': environ['NODE_ID'],
-                            'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB319
-                        }
-                    ).get_dict()
+                command = message.get_param('command')
+                self._send_task_error(
+                    FedbiomedError(f"{ErrorNumbers.FB319.value}: {command}")
                 )
-
+            # Mark the task as done.
             self.tasks_queue.task_done()
 
-    def start_messaging(self, block: Optional[bool] = False):
+    def _send_task_error(self, exc: Exception) -> None:
+        """Send an error message due to an exception in `task_manager`."""
+        params = {
+            "command": "error",
+            "extra_msg": str(exc),
+            "node_id": environ["NODE_ID"],
+            "researcher_id": "NOT_SET",
+            "errnum": ErrorNumbers.FB300
+        }
+        message = NodeMessages.reply_create(params)
+        self.messaging.send_message(message.get_dict())
+
+    def start_messaging(self, block: bool = False) -> None:
         """Calls the start method of messaging class.
 
         Args:
             block: Whether messager is blocking (or not). Defaults to False.
         """
         self.messaging.start(block)
-
-    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
-        """Sends an error message.
-
-        It is a wrapper of `Messaging.send_error()`.
-
-        Args:
-            errnum: Code of the error.
-            extra_msg: Additional human readable error message.
-            researcher_id: Destination researcher.
-        """
-
-        #
-        self.messaging.send_error(errnum, extra_msg=extra_msg, researcher_id=researcher_id)

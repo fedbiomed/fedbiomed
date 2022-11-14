@@ -3,22 +3,23 @@
 Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
+from enum import Enum
+from functools import cache
 from os import PathLike
 from pathlib import Path
 from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
-from enum import Enum
 
 import torch
 import pandas as pd
-
-from functools import cache
 from monai.data import ITKReader
 from monai.transforms import LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.constants import (
+    DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
+)
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin
 
 

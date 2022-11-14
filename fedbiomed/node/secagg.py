@@ -1,12 +1,13 @@
 """Secure Aggregation setup on the node"""
-from typing import List
+
+import time
 from abc import ABC, abstractmethod
 from enum import Enum
-import time
+from typing import List
 
 from fedbiomed.common.constants import SecaggElementTypes
-from fedbiomed.common.message import NodeMessages, SecaggReply
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import NodeMessages, SecaggReply
 
 from fedbiomed.node.environ import environ
 

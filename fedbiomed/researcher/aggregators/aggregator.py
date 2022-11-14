@@ -1,25 +1,37 @@
-"""
-top class for all aggregators
-"""
+"""Aggregator abstract base class."""
 
+from abc import ABCMeta, abstractmethod
+from typing import Any, Dict, List, Union
 
-from typing import Dict, Any
-
-from fedbiomed.common.constants  import ErrorNumbers
+from declearn.model.api import Model, NumpyVector
+from declearn.optimizer import Optimizer
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.logger import logger
 
 
-class Aggregator:
-    """
-    Defines methods for aggregating strategy
-    (eg FedAvg, FedProx, SCAFFOLD, ...).
-    """
-    def __init__(self):
-        self._aggregator_params = None
+class Aggregator(metaclass=ABCMeta):
+    """Abstract base class to implement federated updates' aggregation."""
+
+    aggregator_name: str
+
+    def __init__(
+        self,
+        optim: Union[Optimizer, Dict[str, Any], None] = None,
+    ) -> None:
+        """Instantiate the aggregator."""
+        if isinstance(optim, Dict):
+            self.optim = Optimizer.from_config(optim)
+        elif isinstance(optim, Optimizer):
+            self.optim = optim
+        elif not optim:
+            self.optim = Optimizer(lrate=1)
+        else:
+            msg = "optim must be an one of Dict, Optimizer, or None"
+            logger.critical(msg)
+            raise FedbiomedAggregatorError(msg)
 
     @staticmethod
-    def normalize_weights(weights) -> list:
+    def normalize_weights(weights: List[float]) -> List[float]:
         """
         Load list of weights assigned to each node and
         normalize these weights so they sum up to 1
@@ -31,26 +43,30 @@ class Aggregator:
             return []
         _s = sum(weights)
         if _s == 0:
-            norm = [ 1.0 / _l ] * _l
+            norm = [1.0 / _l] * _l
         else:
             norm = [_w / _s for _w in weights]
         return norm
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
-        """
-        Strategy to aggregate models
+    @abstractmethod
+    def aggregate(
+        self,
+        global_model: Model,
+        local_model_params: List[NumpyVector],
+        weights: List[float],
+    ) -> NumpyVector:
+        """Aggregate local model parameters and update global model.
 
         Args:
-            model_params: List of model parameters received from each node
-            weights: Weight for each node-model-parameter set
+            global_model: Reference Model handled by the researcher, the
+                weights from which are to be updated.
+            local_model_params: List of model parameters received from each node.
+            weights: List of node-wise weights.
 
-        Raises:
-            FedbiomedAggregatorError: If the method is not defined by inheritor
+        Returns:
+            params: Aggregated parameters, as a declearn NumpyVector.
         """
-        msg = ErrorNumbers.FB401.value + \
-            ": aggreate method should be overloaded by the choosen strategy"
-        logger.critical(msg)
-        raise FedbiomedAggregatorError(msg)
+        return NotImplemented
 
     def save_state(self) -> Dict[str, Any]:
         """
@@ -59,12 +75,19 @@ class Aggregator:
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": self._aggregator_params
+            # TODO add in Optimizer serialization
         }
+        logger.warning(
+            "`Aggregator.save_state` implementation is yet to be completed"
+        )
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any]) -> None:
         """
         use for breakpoints. load the aggregator state
         """
-        self._aggregator_params = state['parameters']
+        # TODO add in Optimizer deserialization
+
+        logger.warning(
+            "`Aggregator.load_state` implementation is yet to be completed"
+        )

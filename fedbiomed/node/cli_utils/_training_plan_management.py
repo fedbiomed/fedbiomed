@@ -1,15 +1,17 @@
 import os
 import shutil
 import tkinter.messagebox
-import warnings
 import uuid
+import warnings
+
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import Terminal256Formatter
-from fedbiomed.node.environ import environ
-from fedbiomed.common.logger import logger
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanStatus
+from fedbiomed.common.logger import logger
+from fedbiomed.node.environ import environ
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 

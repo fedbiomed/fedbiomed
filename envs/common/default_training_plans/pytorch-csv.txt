@@ -46,8 +46,8 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = criterion(output, target.unsqueeze(1))
         return loss
 
-    def training_data(self,  batch_size = 48):
-        df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
+    def training_data(self, dataset_path, batch_size = 48):
+        df = pd.read_csv(dataset_path, sep=';', index_col=False)
         x_dim = self.model_args()['in_features']
         x_train = df.iloc[:,:x_dim].values
         y_train = df.iloc[:,-1].values

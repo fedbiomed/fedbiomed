@@ -63,19 +63,12 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     APPROVED = "Approved"
     REJECTED = "Rejected"
     PENDING = "Pending"
-    
+
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
                 return e
         return None
-
-
-class TrainingPlans(_BaseEnum):
-    """Enumeration class for Training plans """
-
-    TorchTrainingPlan = 'TorchTrainingPlan'
-    SkLearnTrainingPlan = 'SkLearnTrainingPlan'
 
 
 class ProcessTypes(_BaseEnum):

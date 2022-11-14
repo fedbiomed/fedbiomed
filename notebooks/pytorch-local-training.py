@@ -76,11 +76,11 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self, dataset_path, batch_size = 48):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+        dataset1 = datasets.MNIST(dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset=dataset1, **train_kwargs)
     
@@ -160,10 +160,10 @@ transform = transforms.Compose([
 datasets.MNIST(root = local_mnist, download = True, train = True, transform = transform)
 
 
-# We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
+# We create an object LocalJob, which mimics the functionalities of the class Job to run the model on the input local dataset
 
 # The class local job mimics the class job used in the experiment
-from fedbiomed.researcher.job import localJob
+from fedbiomed.researcher.job import LocalJob
 from fedbiomed.researcher.environ import environ
 
 rounds = 2
@@ -171,11 +171,11 @@ rounds = 2
 # local train on same amount of data as federated with 1 node
 training_args['epochs'] *= rounds
 
-local_job = localJob( dataset_path = local_mnist,
+local_job = LocalJob( dataset_path = local_mnist,
           training_plan_class=MyTrainingPlan,
           training_args=training_args)
 
-# Running the localJob
+# Running the LocalJob
 
 local_job.start_training()
 

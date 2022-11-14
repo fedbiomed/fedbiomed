@@ -146,8 +146,8 @@ class CelebaTrainingPlan(TorchTrainingPlan):
     
     # The training_data creates the Dataloader to be used for training in the 
     # general class Torchnn of fedbiomed
-    def training_data(self,  batch_size = 48):
-        dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
+    def training_data(self, dataset_path, batch_size = 48):
+        dataset = self.CelebaDataset(dataset_path + "/target.csv", dataset_path + "/data/")
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset, **train_kwargs)
     

@@ -40,14 +40,19 @@ Common Global Variables:
 import configparser
 import os
 import uuid
-
 from typing import Any
 
-from fedbiomed.common.constants import ErrorNumbers
+
+from fedbiomed.common.constants import (
+    ComponentType, ErrorNumbers, HashingAlgorithms
+)
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
-from fedbiomed.common.constants import ComponentType, HashingAlgorithms
+
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', '..'))
 
 
 class Environ(metaclass=SingletonMeta):
@@ -132,29 +137,16 @@ class Environ(metaclass=SingletonMeta):
              FedbiomedEnvironError: In case of error (OS errors usually)
         """
 
-        # guess the fedbiomed package top dir if no root dir is given
-        if rootdir is None:
-            # locate the top dir from the file location (got up twice)
-            ROOT_DIR = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(
-                        os.path.abspath(__file__)),
-                    '..',
-                    '..'
-                )
-            )
-        else:
-            ROOT_DIR = rootdir
+        # guess the fedbiomed package top dir if no root dir is provided
+        root_dir = ROOT_DIR if rootdir is None else os.path.abspath(rootdir)
 
         # Initialize all environment values
-        self._values['ROOT_DIR'] = ROOT_DIR
-
+        self._values['ROOT_DIR'] = root_dir
         # main directories
-        self._values['CONFIG_DIR'] = os.path.join(ROOT_DIR, 'etc')
-        VAR_DIR = os.path.join(ROOT_DIR, 'var')
-        self._values['VAR_DIR'] = VAR_DIR
-        self._values['CACHE_DIR'] = os.path.join(VAR_DIR, 'cache')
-        self._values['TMP_DIR'] = os.path.join(VAR_DIR, 'tmp')
+        self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
+        self._values['VAR_DIR'] = var_dir = os.path.join(root_dir, 'var')
+        self._values['CACHE_DIR'] = os.path.join(var_dir, 'cache')
+        self._values['TMP_DIR'] = os.path.join(var_dir, 'tmp')
 
         for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR':
             dir = self._values[_key]
@@ -169,8 +161,6 @@ class Environ(metaclass=SingletonMeta):
                     _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
                     logger.critical(_msg)
                     raise FedbiomedEnvironError(_msg)
-
-        pass
 
     def _init_researcher(self):
         """Specific configuration values for researcher
@@ -199,12 +189,12 @@ class Environ(metaclass=SingletonMeta):
                                                   _cfg_value)
         self._values['ID'] = self._values['RESEARCHER_ID']
 
-        ROOT_DIR = self._values['ROOT_DIR']
-        VAR_DIR = self._values['VAR_DIR']
+        root_dir  = self._values['ROOT_DIR']
+        var_dir = self._values['VAR_DIR']
 
         # more directories
-        self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(ROOT_DIR, 'runs')
-        self._values['EXPERIMENTS_DIR'] = os.path.join(VAR_DIR, "experiments")
+        self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(root_dir, 'runs')
+        self._values['EXPERIMENTS_DIR'] = os.path.join(var_dir, "experiments")
 
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
@@ -220,7 +210,7 @@ class Environ(metaclass=SingletonMeta):
                     logger.critical(_msg)
                     raise FedbiomedEnvironError(_msg)
 
-        self._values['MESSAGES_QUEUE_DIR'] = os.path.join(VAR_DIR, 'queue_messages')
+        self._values['MESSAGES_QUEUE_DIR'] = os.path.join(var_dir, 'queue_messages')
 
         pass
 
@@ -349,12 +339,7 @@ class Environ(metaclass=SingletonMeta):
                                            'config_node.ini')
 
         # Parser for the .ini file
-        try:
-            cfg = configparser.ConfigParser()
-        except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": cannot parse configuration file"
-            logger.critical(_msg)
-            raise FedbiomedEnvironError(_msg)
+        cfg = configparser.ConfigParser()
 
         if os.path.isfile(CONFIG_FILE):
             # get values from .ini file

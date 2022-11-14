@@ -1,11 +1,12 @@
-import sys
 import inspect
+import sys
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Union
-from IPython.core.magics.code import extract_symbols
 
 import torch
 import numpy as np
+from IPython.core.magics.code import extract_symbols
+
 from fedbiomed.common.exceptions import FedbiomedError
 
 

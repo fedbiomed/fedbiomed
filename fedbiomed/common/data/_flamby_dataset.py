@@ -8,10 +8,9 @@ import flamby.datasets as flamby_datasets_module
 from torchvision.transforms import Compose as TorchCompose
 from monai.transforms import Compose as MonaiCompose
 
-
-from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 

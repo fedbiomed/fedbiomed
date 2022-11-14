@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
 
@@ -389,4 +389,3 @@ class SkLearnDataManager(object):
             raise FedbiomedValueError(msg)
 
         return loader
-
