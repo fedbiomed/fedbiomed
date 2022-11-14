@@ -2,15 +2,13 @@
 Implements the message exchanges from researcher to nodes
 """
 
-import inspect
 import json
 import os
-import tabulate
 import uuid
-
-from python_minifier import minify
 from time import sleep
 from typing import Any, Dict, Callable, Union
+
+import tabulate
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -20,6 +18,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.training_plans import TrainingPlan
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -145,7 +144,7 @@ class Requests(metaclass=SingletonMeta):
             msg['sequence'] = sequence
 
         self.messaging.send_message(
-            ResearcherMessages.request_create(msg).get_dict(), 
+            ResearcherMessages.request_create(msg).get_dict(),
             client=client)
         return sequence
 
@@ -280,7 +279,7 @@ class Requests(metaclass=SingletonMeta):
             logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
 
         if not data_found:
-            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+            logger.info("No available dataset was found in nodes with tags: {}".format(tags))
 
         return data_found
 
@@ -330,7 +329,7 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
+                              training_plan: TrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -343,10 +342,6 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training plan (class)
-                   - an instance of a training plan (TrainingPlan instance)
             nodes: list of nodes (specified by their UUID)
             description: Description of training plan approval request
             timeout: maximum waiting time for the answers
@@ -363,60 +358,22 @@ class Requests(metaclass=SingletonMeta):
             logger.error("bad nodes argument, training plan not sent")
             return {}
 
-        # verify the training plan and save it to a local file name if necessary
-        if isinstance(training_plan, str):
-            # training plan is provided as a file
-            # TODO: verify that this file a a proper TrainingPlan
-            if os.path.isfile(training_plan) and os.access(training_plan, os.R_OK):
-                training_plan_file = training_plan
-            else:
-                logger.error(f"cannot access to the file ({training_plan})")
-                return {}
-        else:
-            # we need a training plan instance in other cases
-            if inspect.isclass(training_plan):
-                # case if `training_plan` is a class
-                try:
-                    training_plan_instance = training_plan()
-                    deps = training_plan_instance.init_dependencies()
-                    training_plan_instance.add_dependency(deps)
-                except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instantiate the given training plan ({e})")
-                    return {}
-            else:
-                # also handle case where training plan is already an instance of a class
-                training_plan_instance = training_plan
-
-            # then save this instance to a file
-            training_plan_file = os.path.join(environ['TMP_DIR'],
-                                              "training_plan_" + str(uuid.uuid4()) + ".py")
-
-            try:
-                training_plan_instance.save_code(training_plan_file)
-            except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the training plan to a file ({e})")
-                logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
-                return {}
-
-        # verify that the file can be minified before sending
-        #
-        # TODO: enforce a stronger check here (user story #179)
-        try:
-            with open(training_plan_file, "r") as f:
-                content = f.read()
-            minify(content,
-                   remove_annotations=False,
-                   combine_imports=False,
-                   remove_pass=False,
-                   hoist_literals=False,
-                   remove_object_base=True,
-                   rename_locals=False)
-        except Exception as e:
-            # minify does not provide any specific exception
-            logger.error(f"This file is not a python file ({e})")
+        # verify the model and save it to a local file name if necessary
+        if not isinstance(training_plan, TrainingPlan):
+            logger.error(
+                "Wrong 'training_plan' input: not a TrainingPlan instance."
+            )
             return {}
-
-        # create a repository instance and upload the training plan file
+        # then save this instance to a file
+        training_plan_file = os.path.join(
+            environ['TMP_DIR'], f"training_plan_{uuid.uuid4()}.json"
+        )
+        try:
+            training_plan.save_to_json(training_plan_file)
+        except Exception as exc:  # TODO: be more specific
+            logger.error(f"Cannot save the model to file: {exc}")
+            return {}
+        # create a repository instance and upload the model file
         repository = Repository(environ['UPLOADS_URL'],
                                 environ['TMP_DIR'],
                                 environ['CACHE_DIR'])

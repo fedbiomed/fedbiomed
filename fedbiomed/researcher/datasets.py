@@ -1,7 +1,7 @@
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
-from typing import List, Dict
 import uuid
+from typing import List, Dict
 
 
 class FederatedDataSet:

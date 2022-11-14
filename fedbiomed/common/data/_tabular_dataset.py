@@ -10,8 +10,8 @@ import pandas as pd
 from torch import from_numpy, Tensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError
-from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
 class TabularDataset(Dataset):

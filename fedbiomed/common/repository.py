@@ -6,8 +6,8 @@ import requests  # Python built-in library
 from json import JSONDecodeError
 from typing import Callable, Dict, Any, Tuple, Text, Union, Optional
 
-from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 
 
@@ -161,7 +161,9 @@ class Repository:
             logger.debug('Details of exception: ' + str(err))
             raise FedbiomedRepositoryError(_msg)
         else:
-            logger.debug(f'upload (HTTP {response.request.method} request) of file {filename} successful,'
+            method = response.request.method
+            action = "download" if method == "GET" else "upload"
+            logger.debug(f'{action} (HTTP {method} request) of file {filename} successful,'
                          f' with status code {response.status_code}')
 
     @staticmethod

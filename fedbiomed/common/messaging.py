@@ -7,10 +7,9 @@ from typing import Any, Callable, Union
 
 import paho.mqtt.client as mqtt
 
-from fedbiomed.common import json
+from fedbiomed.common import json, message
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessagingError
-import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
 
 

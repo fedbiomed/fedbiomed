@@ -1,8 +1,14 @@
-from typing import Optional, List, Tuple
 import warnings
 from copy import copy
 from collections import defaultdict
-from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock
+from typing import List, Optional, Tuple
+
+from fedbiomed.common.data import (
+    DataLoadingPlan,
+    MapperBlock,
+    MedicalFolderController,
+    MedicalFolderBase,
+)
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
@@ -39,7 +45,7 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
     modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
     print("\nThe following modalities were detected:\n", "\n".join([m for m in modality_folder_names]))
     # TODO: add CLI support for DLP, temporarily disactivated (not working yet)
-    # 
+    #
     #if interactive:
     #    choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
     #    if choice.lower() == 'y':

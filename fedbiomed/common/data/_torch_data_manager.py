@@ -8,8 +8,8 @@ from typing import Union, Tuple
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
 
-from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 
 from ._sklearn_data_manager import SkLearnDataManager
 

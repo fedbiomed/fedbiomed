@@ -61,8 +61,8 @@ class MyTrainingPlan(TorchTrainingPlan):
 
             return (self.X_train[idx], self.Y_train[idx])
 
-    def training_data(self,  batch_size = 48):
+    def training_data(self, dataset_path, batch_size = 48):
     # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
-        dataset = self.csv_Dataset(self.dataset_path, self.model_args()["in_features"])
+        dataset = self.csv_Dataset(dataset_path, self.model_args()["in_features"])
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset=dataset , **train_kwargs)

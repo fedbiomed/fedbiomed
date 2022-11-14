@@ -1,10 +1,9 @@
-"""
-"""
+"""Federated averaring Aggregator."""
 
-from typing import Dict
+from typing import List
 
+from declearn.model.api import Model, NumpyVector
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.aggregators.functional import federated_averaging
 
 
 class FedAverage(Aggregator):
@@ -12,23 +11,31 @@ class FedAverage(Aggregator):
     Defines the Federated averaging strategy
     """
 
-    def __init__(self):
-        """Construct `FedAverage` object as an instance of [`Aggregator`]
-        [fedbiomed.researcher.aggregators.Aggregator].
-        """
-        super(FedAverage, self).__init__()
-        self.aggregator_name = "FedAverage"
+    aggregator_name = "FedAverage"
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
-        """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
-        strategy.
+    def aggregate(
+        self,
+        global_model: Model,
+        local_model_params: List[NumpyVector],
+        weights: List[float],
+    ) -> NumpyVector:
+        """Aggregate local model parameters and update global model.
 
         Args:
-            model_params: contains each model layers
-            weights: contains all weights of a given layer.
+            global_model: Reference Model handled by the researcher, the
+                weights from which are to be updated.
+            local_model_params: List of model parameters received from each node.
+            weights: List of node-wise weights.
 
         Returns:
-            Aggregated parameters
+            params: Aggregated parameters, as a declearn NumpyVector.
         """
+        # Compute the weighted average of local parameters.
         weights = self.normalize_weights(weights)
-        return federated_averaging(model_params, weights)
+        average = sum(p * w for p, w in zip(local_model_params, weights))
+        # Compute the average update (rather than weights).
+        updates = global_model.get_weights() - average
+        # Use the optimizer to refine and apply these updates.
+        self.optim.apply_gradients(global_model, updates)
+        # Gather and return the updated weights.
+        return global_model.get_weights()

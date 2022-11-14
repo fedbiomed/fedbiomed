@@ -9,8 +9,13 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
-    ValidateError, RuleError, validator_decorator
+from fedbiomed.common.validator import (
+    RuleError,
+    SchemeValidator,
+    ValidateError,
+    ValidatorError,
+    validator_decorator,
+)
 
 
 @validator_decorator
@@ -144,8 +149,7 @@ class TrainingArgs:
         Returns:
             Contains training argument for training routine
         """
-
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "use_gpu"]
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "num_updates", "use_gpu"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -162,7 +166,7 @@ class TrainingArgs:
         Returns:
             Contains key value peer of given keys
         """
-        return {arg: self[arg] for arg in keys}
+        return {arg: self.get(arg, None) for arg in keys}
 
     @staticmethod
     @validator_decorator
@@ -250,8 +254,11 @@ class TrainingArgs:
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
+            "num_updates": {
+                "rules": [int], "required": False,
+            },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": 100
+                "rules": [int], "required": False,
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
@@ -427,7 +434,7 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-    def dict(self):
+    def dict(self) -> Dict[str, Any]:
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)

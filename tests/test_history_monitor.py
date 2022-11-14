@@ -4,7 +4,7 @@ from unittest.mock import patch
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.common.exceptions import FedbiomedMessageError
-from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.messaging import Messaging
 
 
@@ -33,6 +33,7 @@ class TestHistoryMonitor(unittest.TestCase):
 
         try:
             self.history_monitor = HistoryMonitor(job_id='1234',
+                                                  node_id='node-id',
                                                   researcher_id='reasearcher-id',
                                                   client=self._messaging
                                                   )
@@ -69,8 +70,6 @@ class TestHistoryMonitor(unittest.TestCase):
             epoch=111
         )
         self.assertEqual(scalar, None)
-
-        pass
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     def test_send_message_error(self, mocking_messaging_send_message):

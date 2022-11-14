@@ -9,8 +9,8 @@ from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger     import logger
 
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.responses import Responses
 
 
 class Strategy:
