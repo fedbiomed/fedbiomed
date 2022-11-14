@@ -7,17 +7,18 @@ from json import decoder
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
+from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
 
 import validators
 
@@ -33,13 +34,13 @@ class Node:
 
     def __init__(self,
                  dataset_manager: DatasetManager,
-                 model_manager: ModelManager,
+                 tp_security_manager: TrainingPlanSecurityManager,
                  node_args: Union[dict, None] = None):
         """Constructor of the class.
 
         Attributes:
             dataset_manager: `DatasetManager` object for managing the node's datasets.
-            model_manager: `ModelManager` object managing the node's models.
+            tp_security_manager: `TrainingPlanSecurityManager` object managing the node's training plans.
             node_args: Command line arguments for node.
         """
 
@@ -47,7 +48,7 @@ class Node:
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
-        self.model_manager = model_manager
+        self.tp_security_manager = tp_security_manager
         self.rounds = []
 
         self.node_args = node_args
@@ -85,9 +86,22 @@ class Node:
             # get the request from the received message (from researcher)
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
-            if command == 'train':
+            if command in ['train', 'secagg']:
                 # add training task to queue
                 self.add_task(request)
+            elif command == 'secagg-delete':
+                logger.info('Not implemented yet, PUT SECAGG DELETE PAYLOAD HERE')
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'secagg_id': msg['secagg_id'],
+                            'sequence': msg['sequence'],
+                            'success': True,
+                            'node_id': environ['NODE_ID'],
+                            'msg': '',
+                            'command': 'secagg-delete'
+                        }).get_dict())
             elif command == 'ping':
                 self.messaging.send_message(
                     NodeMessages.reply_create(
@@ -124,11 +138,11 @@ class Node:
                      'count': len(databases),
                      }).get_dict())
             elif command == 'approval':
-                # Ask for model approval
-                self.model_manager.reply_model_approval_request(request, self.messaging)
+                # Ask for training plan approval
+                self.tp_security_manager.reply_training_plan_approval_request(request, self.messaging)
             elif command == 'training-plan-status':
-                # Check is model approved
-                self.model_manager.reply_model_status_request(request, self.messaging)
+                # Check is training plan approved
+                self.tp_security_manager.reply_training_plan_status_request(request, self.messaging)
 
             else:
                 raise NotImplementedError('Command not found')
@@ -159,15 +173,93 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
-        """Parses a given task message to create a round instance
+    def task_secagg(self, msg: SecaggRequest) -> None:
+        """Parses a given secagg setup task message and execute secagg task.
 
         Args:
-            msg: serialized `Message` object to parse (or that have been parsed)
+            msg: `SecaggRequest` message object to parse
         """
-        if isinstance(msg, str) or isinstance(msg, bytes):
-            msg = json.deserialize_msg(msg)
-        msg = NodeMessages.request_create(msg)
+        # 1. Parse message content
+        researcher_id = msg.get_param('researcher_id')
+        secagg_id = msg.get_param('secagg_id')
+        sequence = msg.get_param('sequence')
+        element = msg.get_param('element')
+        parties = msg.get_param('parties')
+
+        if element in [m.value for m in SecaggElementTypes]:
+            element = SecaggElementTypes(element)
+        else:
+            element = None
+
+        if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
+            return None
+
+        element2class = {
+            'SERVER_KEY': SecaggServkeySetup,
+            'BIPRIME': SecaggBiprimeSetup
+        }
+
+        # 2. Instantiate secagg context element
+        try:
+            if element.name in element2class.keys():
+                # instantiate a `SecaggSetup` object
+                secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
+            else:
+                # should not exist 
+                secagg = None
+            error = ''
+        except Exception as e:
+            # bad secagg request
+            error = e
+            secagg = None
+
+        # 3. Execute
+        if secagg:
+            try:
+                logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
+                msg = secagg.setup()
+                self.messaging.send_message(msg)
+            except Exception as e:
+                errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
+                    f'{secagg.element()}: {e}'
+                logger.error(errmess)
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': secagg.researcher_id(),
+                            'secagg_id': secagg.secagg_id(),
+                            'sequence': secagg.sequence(),
+                            'success': False,
+                            'node_id': environ['NODE_ID'],
+                            'msg': errmess,
+                            'command': 'secagg'
+                        }
+                    ).get_dict()
+                )
+        else:
+            # bad secagg request, cannot reply as secagg
+            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                f"received by {environ['NODE_ID']}: {error}"
+            logger.error(errmess)
+            self.messaging.send_message(
+                NodeMessages.reply_create(
+                    {
+                        'command': 'error',
+                        'extra_msg': errmess,
+                        'node_id': environ['NODE_ID'],
+                        'researcher_id': 'NOT_SET',
+                        'errnum': ErrorNumbers.FB318
+                    }
+                ).get_dict()
+            )
+
+
+    def parser_task_train(self, msg: TrainRequest):
+        """Parses a given training task message to create a round instance
+
+        Args:
+            msg: `TrainRequest` message object to parse
+        """
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
@@ -182,14 +274,16 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
 
-        assert training_plan_url is not None, 'URL for model on repository not found.'
+        assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
-            training_plan_url), 'URL for model on repository is not valid.'
-        assert training_plan_class is not None, 'classname for the model and training routine was not found in message.'
+            training_plan_url), 'URL for training plan on repository is not valid.'
+        assert training_plan_class is not None, 'classname for the training plan and training routine ' \
+                                                'was not found in message.'
 
         assert isinstance(
             training_plan_class,
-            str), '`training_plan_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
+            str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
+                  'and training routine in the repository'
 
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
@@ -236,22 +330,13 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
+            logger.debug('[TASKS QUEUE] Item:' + str(item))
 
             try:
-                logger.debug('[TASKS QUEUE] Item:' + str(item))
-                self.parser_task(item)
-                # once task is out of queue, initiate training rounds
-                for round in self.rounds:
-                    # iterate over each dataset found
-                    # in the current round (here round refers
-                    # to a round to be done on a specific dataset).
-                    msg = round.run_model_training()
-                    self.messaging.send_message(msg)
-
-                self.tasks_queue.task_done()
+                item = NodeMessages.request_create(item)
+                command = item.get_param('command')
             except Exception as e:
-                # send an error message back to network if something
-                # wrong occured
+                # send an error message back to network if something wrong occured
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
@@ -263,6 +348,49 @@ class Node:
                         }
                     ).get_dict()
                 )
+
+            if command == 'train':
+                try:
+                    self.parser_task_train(item)
+                    # once task is out of queue, initiate training rounds
+                    for round in self.rounds:
+                        # iterate over each dataset found
+                        # in the current round (here round refers
+                        # to a round to be done on a specific dataset).
+                        msg = round.run_model_training()
+                        self.messaging.send_message(msg)
+                except Exception as e:
+                    # send an error message back to network if something
+                    # wrong occured
+                    self.messaging.send_message(
+                        NodeMessages.reply_create(
+                            {
+                                'command': 'error',
+                                'extra_msg': str(e),
+                                'node_id': environ['NODE_ID'],
+                                'researcher_id': 'NOT_SET',
+                                'errnum': ErrorNumbers.FB300
+                            }
+                        ).get_dict()
+                    )
+            elif command == 'secagg':
+                self.task_secagg(item)
+            else:
+                errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
+                logger.error(errmess)
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'command': 'error',
+                            'extra_msg': errmess,
+                            'node_id': environ['NODE_ID'],
+                            'researcher_id': 'NOT_SET',
+                            'errnum': ErrorNumbers.FB319
+                        }
+                    ).get_dict()
+                )
+
+            self.tasks_queue.task_done()
 
     def start_messaging(self, block: Optional[bool] = False):
         """Calls the start method of messaging class.

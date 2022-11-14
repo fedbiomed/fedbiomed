@@ -20,7 +20,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 class Round:
@@ -46,11 +46,10 @@ class Round:
 
         Args:
             model_kwargs: contains model args
-            training_kwargs: contains model characteristics, especially input  dimension (key: 'in_features')
-                and output dimension (key: 'out_features')
+            training_kwargs: contains training arguments
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description...
-            training_plan_url: url from which to download model
+            training_plan_url: url from which to download training plan file
             training_plan_class: name of the training plan (eg 'MyTrainingPlan')
             params_url: url from which to upload/download model params
             job_id: job id
@@ -71,7 +70,7 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
-        self.model_manager = ModelManager()
+        self.tp_security_manager = TrainingPlanSecurityManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.training_plan = None
@@ -92,8 +91,8 @@ class Round:
         self.loader_arguments = self.training_arguments.loader_arguments()
 
     def run_model_training(self) -> dict[str, Any]:
-        """This method downloads model file; then runs the training of a model
-        and finally uploads model params
+        """This method downloads training plan file; then runs the training of a model
+        and finally uploads model params to the file repository
 
         Returns:
             Returns the corresponding node message, training reply instance
@@ -110,31 +109,31 @@ class Round:
             logger.debug(f"{msg}: {e}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
-        # Download model, training routine, execute it and return model results
         try:
             # module name cannot contain dashes
-            import_module = 'my_model_' + str(uuid.uuid4().hex)
+            import_module = 'training_plan_' + str(uuid.uuid4().hex)
             status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
 
             if status != 200:
-                error_message = "Cannot download model file: " + self.training_plan_url
+                error_message = "Cannot download training plan file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
             else:
-                if environ["MODEL_APPROVAL"]:
-                    approved, model = self.model_manager.check_model_status(os.path.join(environ["TMP_DIR"],
-                                                                                         import_module + '.py'),
-                                                                            TrainingPlanApprovalStatus.APPROVED)
+                if environ["TRAINING_PLAN_APPROVAL"]:
+                    approved, training_plan_ = self.tp_security_manager.check_training_plan_status(
+                        os.path.join(environ["TMP_DIR"], import_module + '.py'),
+                        TrainingPlanApprovalStatus.APPROVED)
+
                     if not approved:
-                        error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
+                        error_message = f'Requested training plan is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
                     else:
-                        logger.info(f'Model has been approved by the node {model["name"]}')
+                        logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
 
             if not is_failed:
                 status, params_path = self.repository.download_file(
                     self.params_url,
-                    'my_model_' + str(uuid.uuid4()) + '.pt')
+                    'training_plan_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     error_message = f"Cannot download param file: {self.params_url}"
                     return self._send_round_reply(success=False, message=error_message)
@@ -142,10 +141,10 @@ class Round:
         except Exception as e:
             is_failed = True
             # FIXME: this will trigger if model is not approved by node
-            error_message = f"Cannot download model files: {str(e)}"
+            error_message = f"Cannot download training plan files: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # import module, declare the model, load parameters
+        # import module, declare the training plan, load parameters
         try:
             sys.path.insert(0, environ['TMP_DIR'])
             module = importlib.import_module(import_module)
@@ -153,7 +152,7 @@ class Round:
             self.training_plan = train_class()
             sys.path.pop(0)
         except Exception as e:
-            error_message = f"Cannot instantiate model object: {str(e)}"
+            error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         try:
@@ -163,7 +162,7 @@ class Round:
             error_message = f"Can't initialize training plan with the arguments: {e}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # import model params into the model instance
+        # import model params into the training plan instance
         try:
             self.training_plan.load(params_path, to_params=False)
         except Exception as e:
@@ -261,7 +260,7 @@ class Round:
                 del self.training_plan
                 del import_module
             except Exception as e:
-                logger.debug(f'Exception raise while deleting model {e}')
+                logger.debug(f'Exception raise while deleting training plan instance: {e}')
                 pass
 
             return self._send_round_reply(success=True,
@@ -326,17 +325,17 @@ class Round:
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-        # Set models validatino and training parts for model
+        # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
 
     def _split_train_and_test_data(self, test_ratio: float = 0):
         """
         Method for splitting training and validation data based on training plan type. It sets
-        `dataset_path` for model and calls `training_data` method of training plan.
+        `dataset_path` for training plan and calls `training_data` method of training plan.
 
         Args:
-            test_ratio: The ratio that represent validatino partition. Default is 0, means that
+            test_ratio: The ratio that represent validating partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:

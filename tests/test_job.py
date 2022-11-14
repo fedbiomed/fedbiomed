@@ -250,7 +250,7 @@ class TestJob(unittest.TestCase):
     def test_job_07_check_training_plan_is_approved_by_nodes(self,
                                                              mock_requests_get_responses,
                                                              mock_requests_send_message):
-        """ Testing the method that check model approval status of the nodes"""
+        """ Testing the method that check training plan approval status of the nodes"""
 
         self.fds.node_ids = MagicMock(return_value=['node-1', 'node-2'])
         mock_requests_send_message.return_value = None
@@ -286,7 +286,7 @@ class TestJob(unittest.TestCase):
         self.assertListEqual(responses.data(), result.data(),
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
-        # Test when model approval obligation is False by one node
+        # Test when training plan approval obligation is False by one node
         responses = FakeResponses([
             {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False},
             {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}

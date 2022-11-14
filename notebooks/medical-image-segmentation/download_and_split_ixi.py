@@ -21,8 +21,8 @@ keep_alive = 60
 
 [security]
 hashing_algorithm = SHA256
-allow_default_models = True
-model_approval = False
+allow_default_training_plans = True
+training_plan_approval = False
 """
 
 
