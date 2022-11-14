@@ -434,7 +434,7 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-    def dict(self):
+    def dict(self) -> Dict[str, Any]:
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)

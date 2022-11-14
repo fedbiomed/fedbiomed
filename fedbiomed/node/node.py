@@ -83,9 +83,9 @@ class Node:
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
-                            'researcher_id': msg['researcher_id'],
-                            'secagg_id': msg['secagg_id'],
-                            'sequence': msg['sequence'],
+                            'researcher_id': request['researcher_id'],
+                            'secagg_id': request['secagg_id'],
+                            'sequence': request['sequence'],
                             'success': True,
                             'node_id': environ['NODE_ID'],
                             'msg': '',
@@ -95,10 +95,10 @@ class Node:
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
-                            'researcher_id': msg['researcher_id'],
+                            'researcher_id': request['researcher_id'],
                             'node_id': environ['NODE_ID'],
                             'success': True,
-                            'sequence': msg['sequence'],
+                            'sequence': request['sequence'],
                             'command': 'pong'
                         }).get_dict())
             elif command == 'search':
@@ -111,8 +111,8 @@ class Node:
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
-                         'researcher_id': msg['researcher_id'],
-                         'databases': databases,
+                         'researcher_id': request['researcher_id'],
+                         'databases': [dict(db) for db in databases],
                          'count': len(databases)}).get_dict())
             elif command == 'list':
                 # Get list of all datasets
@@ -122,8 +122,8 @@ class Node:
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
-                     'researcher_id': msg['researcher_id'],
-                     'databases': databases,
+                     'researcher_id': request['researcher_id'],
+                     'databases': [dict(db) for db in databases],
                      'count': len(databases),
                      }).get_dict())
             elif command == 'approval':
@@ -259,6 +259,7 @@ class Node:
             "training_kwargs": msg.get_param('training_args') or {},
             "training_plan_url": msg.get_param('training_plan_url'),
             "params_url": msg.get_param('params_url'),
+            "aux_vars_url": msg.get_param('aux_vars_url'),
             "training": msg.get_param('training') or False,
             "job_id": msg.get_param('job_id'),
             "researcher_id": msg.get_param('researcher_id'),

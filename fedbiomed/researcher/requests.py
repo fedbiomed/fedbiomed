@@ -279,7 +279,7 @@ class Requests(metaclass=SingletonMeta):
             logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
 
         if not data_found:
-            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+            logger.info("No available dataset was found in nodes with tags: {}".format(tags))
 
         return data_found
 

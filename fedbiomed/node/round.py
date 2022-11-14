@@ -6,10 +6,9 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from fedbiomed.common.constants import (
-    ErrorNumbers,
-    TrainingPlanApprovalStatus,
-)
+import declearn
+
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import (
     DataLoadingPlan,
     DataManager,
@@ -23,14 +22,10 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.history_monitor import HistoryMonitor
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import (
-    NodeMessages,
-    TrainReply,
-)
+from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TrainingPlan
-
 from fedbiomed.node.environ import environ
 from fedbiomed.node.training_plan_security_manager import (
     TrainingPlanSecurityManager,
@@ -47,6 +42,7 @@ class Round:
         dataset: Dict[str, Any],
         training_plan_url: str,
         params_url: str,
+        aux_vars_url: Optional[str] = None,
         training: bool = True,
         job_id: str = "",
         researcher_id: str = "",
@@ -66,10 +62,13 @@ class Round:
             dataset: Metadata about the local dataset, enabling its proper use.
                 Keys: "dataset_id", "path" and optionally "dataset_parameters"
                 (the latter being compatible with some specific datasets only).
-            training_plan_url: url from which to download the training plan
+            training_plan_url: URL from which to download the training plan
                 JSON dump file.
-            params_url: url from which download and at which to upload model
+            params_url: URL from which to download and at which to upload model
                 parameters, before and after training, as a JSON dump file.
+            aux_vars_url: URL from which to download and at which to upload
+                auxiliary variables, before and after training, as a JSON dump file.
+            training: Whether to conduct training or not.
             job_id: Job identifier string.
             researcher_id: Researcher identifier string.
             history_monitor: HistoryMonitor instance that collects real-time
@@ -85,6 +84,7 @@ class Round:
         self.dataset = dataset
         self.training_plan_url = training_plan_url
         self.params_url = params_url
+        self.aux_vars_url = aux_vars_url
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
@@ -104,7 +104,8 @@ class Round:
         message: str = "",
         success: bool = False,
         params_url: Optional[str] = None,
-        timing: Optional[Dict[str, float]] = None
+        aux_vars_url: Optional[str] = None,
+        timing: Optional[Dict[str, float]] = None,
     ) -> TrainReply:
         """Set up a TrainReply to be sent to the researcher.
 
@@ -116,6 +117,7 @@ class Round:
             message: Message regarding the process.
             success: Whether training/validation was successful.
             params_url: URL where parameters are uploaded (in case of success).
+            aux_vars_url: URL where auxiliary variables are uploaded, if any.
             timing: Timing statistics (in case of training success).
 
         Returns:
@@ -134,6 +136,7 @@ class Round:
             "success": success,
             "dataset_id": self.dataset["dataset_id"] if success else "",
             "params_url": params_url or "",
+            "aux_vars_url": aux_vars_url,
             "msg": message,
             "timing": timing or {},
         }
@@ -170,7 +173,7 @@ class Round:
             return self.create_round_reply(success=False, message=msg)
         # Optionally run a validation round before training.
         testing_arguments = self.training_arguments.testing_arguments()
-        if testing_arguments.get('test_on_global_updates'):
+        if testing_arguments.get("test_on_global_updates"):
             self._run_testing_routine(training_plan, before_train=True)
         # If the training routine is not to be run, send a reply and exit.
         if not self.training:
@@ -179,8 +182,7 @@ class Round:
         try:
             rtime, ptime = time.perf_counter(), time.process_time()
             training_plan.training_routine(
-                history_monitor=self.history_monitor,
-                node_args=self.node_args
+                history_monitor=self.history_monitor, node_args=self.node_args
             )
             timing = {
                 "rtime_training": time.perf_counter() - rtime,
@@ -191,22 +193,25 @@ class Round:
             message = f"Failed to train the model: {exc}"
             return self.create_round_reply(success=False, message=message)
         # Optionally run the post-training validation routine.
-        if testing_arguments.get('test_on_local_updates'):
+        if testing_arguments.get("test_on_local_updates"):
             self._run_testing_routine(training_plan, before_train=False)
-        # Try uploading model parameters to the server repository.
+        # Try uploading model parameters and aux vars to the remote repository.
         try:
-            filename = os.path.join(
-                environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.json"
-            )
-            training_plan.save_weights(filename)
-            repo_resp = self.repository.upload_file(filename)
-            logger.info("Updated weights successfully uploaded.")
+            params_url = self._upload_model_params(training_plan)
         except Exception as exc:
             message = f"Failed to upload updated weights: {exc}"
             return self.create_round_reply(success=False, message=message)
+        try:
+            aux_vars_url = self._upload_optim_aux_vars(training_plan)
+        except Exception as exc:
+            message = f"Failed to upload optimizer auxiliary variables: {exc}"
+            return self.create_round_reply(success=False, message=message)
         # If training and uploading went fine, send a positive reply.
         return self.create_round_reply(
-            success=True, timing=timing, params_url=repo_resp["file"]
+            success=True,
+            timing=timing,
+            params_url=params_url,
+            aux_vars_url=aux_vars_url,
         )
 
     def setup_training_plan(self) -> TrainingPlan:
@@ -226,9 +231,11 @@ class Round:
         """
         # Try downloading the plan and params files, and check plan approval.
         # Note: a FedbiomedError will be raised in case of failure.
-        tplan_path = self._download_training_plan()
+        tplan_path = self._download_file(
+            self.training_plan_url, "training_plan"
+        )
         self._check_training_plan_approval(tplan_path)
-        param_path = self._download_parameters()
+        param_path = self._download_file(self.params_url, "params")
         # Try instantiating the training plan, re-initializing it
         # with model and training args, and reloading its weights.
         try:
@@ -241,32 +248,37 @@ class Round:
         except FedbiomedTrainingPlanError as exc:
             msg = f"Failed to initialize the training plan: {exc}"
             raise FedbiomedRoundError(msg) from exc
+        # Optionally try downloading and processing optimizer aux vars.
+        if self.aux_vars_url:
+            aux_vars_path = self._download_file(self.aux_vars_url, "aux_vars")
+            try:
+                # NOTE: aux_vars contain dataset-wise auxiliary variables
+                #       for the node, hence Round must gather a sub-dict
+                aux_vars = declearn.utils.json_load(aux_vars_path)
+                uid = f"{environ['NODE_ID']}/{self.dataset['dataset_id']}"
+                aux_vars = aux_vars.get(uid, {})
+                training_plan.optim.process_aux_var(aux_vars)
+            except Exception as exc:
+                msg = f"Failed to load an process optimizer aux vars: {exc}"
+                raise FedbiomedRoundError(msg) from exc
         # Return the training plan if all went well.
         return training_plan
 
-    def _download_training_plan(self) -> str:
-        """Try downloading the training plan file.
-
-        Returns:
-            path: A string containing the path to the downloaded file.
-
-        Raises:
-            FedbiomedRoundError: If the download fails.
-        """
-        # Try downloading the training plan file.
+    def _download_file(
+        self,
+        url: str,
+        basename: str,
+    ) -> str:
+        """Download a file from a given URL into a file with given basename."""
+        # Try downloading the file.
         try:
-            tempname = f"training_plan_{uuid.uuid4().hex}.json"
-            status, path = self.repository.download_file(
-                self.training_plan_url, tempname
-            )
+            filename = f"{basename}_{uuid.uuid4().hex}.json"
+            status, path = self.repository.download_file(url, filename)
             if status != 200:
                 raise RuntimeError(f"status code {status}")
         # In case of failure, send an error reply and return it.
         except Exception as exc:
-            message = (
-                "Failed to download training plan file "
-                f"{self.training_plan_url}: {exc}"
-            )
+            message = f"Failed to download {basename} file from {url}: {exc}"
             raise FedbiomedRoundError(message) from exc
         # In case of success, return the downloaded file's path.
         return path
@@ -297,34 +309,9 @@ class Round:
             # Otherwise, log about the approval.
             logger.info(f"Training plan {info['name']} has been {message}")
 
-    def _download_parameters(self) -> str:
-        """Try downloading the parameters file.
-
-        Returns:
-            path: A string containing the path to the downloaded file.
-
-        Raises:
-            FedbiomedError: If the download fails.
-        """
-        # Try downloading the training plan file.
-        try:
-            status, path = self.repository.download_file(
-                self.params_url, f"params_{uuid.uuid4().hex}.json"
-            )
-            if status != 200:
-                raise RuntimeError(f"status code {status}")
-        # In case of failure, send an error reply and return it.
-        except Exception as exc:
-            message = (
-                f"Failed to download parameters file {self.params_url}: {exc}"
-            )
-            raise FedbiomedError(message) from exc
-        # In case of success, return the downloaded file's path.
-        return path
-
     def setup_training_plan_data_loaders(
         self,
-        training_plan: TrainingPlan
+        training_plan: TrainingPlan,
     ) -> None:
         """Set up and assign data loaders to a given training plan.
 
@@ -345,9 +332,9 @@ class Round:
         """
         # Gather testing parameters.
         testing_arguments = self.training_arguments.testing_arguments()
-        test_ratio = testing_arguments.get('test_ratio', 0.)
-        test_global = testing_arguments.get('test_on_global_updates')
-        test_local = testing_arguments.get('test_on_local_updates')
+        test_ratio = testing_arguments.get("test_ratio", 0.0)
+        test_global = testing_arguments.get("test_on_global_updates")
+        test_local = testing_arguments.get("test_on_local_updates")
         # Inform user about mismatch arguments settings.
         if (test_ratio == 0) and (test_local or test_global):
             logger.warning(
@@ -497,12 +484,12 @@ class Round:
             before_train: Whether the plan was trained locally before this
                 function was called (this has merely aesthetical effects).
         """
-        params_type = 'global' if before_train else 'local'
+        params_type = "global" if before_train else "local"
         testing_arguments = self.training_arguments.testing_arguments()
         try:
             training_plan.testing_routine(
-                metric=testing_arguments.get('test_metric', None),
-                metric_args=testing_arguments.get('test_metric_args', {}),
+                metric=testing_arguments.get("test_metric", None),
+                metric_args=testing_arguments.get("test_metric_args", {}),
                 history_monitor=self.history_monitor,
                 before_train=before_train,
             )
@@ -516,3 +503,49 @@ class Round:
                 f"Undetermined error during the testing phase on "
                 f"{params_type} parameter updates: {exc}"
             )
+
+    def _upload_model_params(
+        self,
+        training_plan: TrainingPlan,
+    ) -> str:
+        """Upload model parameters from a training plan.
+
+        Args:
+            training_plan: TrainingPlan, the parameters from which to upload.
+
+        Returns:
+            url: URL at which the model parameters file was uploaded.
+        """
+        filename = os.path.join(
+            environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.json"
+        )
+        training_plan.save_weights(filename)
+        repo_resp = self.repository.upload_file(filename)
+        logger.info("Updated weights successfully uploaded.")
+        return repo_resp["file"]  # type: ignore
+
+    def _upload_optim_aux_vars(
+        self,
+        training_plan: TrainingPlan,
+    ) -> Optional[str]:
+        """Collect and upload optimizer auxiliary variables, if any.
+
+        Args:
+            training_plan: TrainingPlan, the aux. vars from which to upload.
+
+        Returns:
+            url: URL at which the auxiliary variables file was uploaded.
+                May be None if there were no auxiliary variables to upload.
+        """
+        # Collect the auxiliary variables dict, which may be empty.
+        aux_vars = training_plan.optim.collect_aux_var()
+        if not aux_vars:
+            return None
+        # Export the dict to a JSON file and upload it.
+        filename = os.path.join(
+            environ["TMP_DIR"], f"aux_vars_{uuid.uuid4()}.json"
+        )
+        declearn.utils.json_dump(aux_vars, filename)
+        repo_resp = self.repository.upload_file(filename)
+        logger.info("Optimizer aux. variables successfully uploaded.")
+        return repo_resp["file"]  # type: ignore

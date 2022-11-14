@@ -161,7 +161,9 @@ class Repository:
             logger.debug('Details of exception: ' + str(err))
             raise FedbiomedRepositoryError(_msg)
         else:
-            logger.debug(f'upload (HTTP {response.request.method} request) of file {filename} successful,'
+            method = response.request.method
+            action = "download" if method == "GET" else "upload"
+            logger.debug(f'{action} (HTTP {method} request) of file {filename} successful,'
                          f' with status code {response.status_code}')
 
     @staticmethod

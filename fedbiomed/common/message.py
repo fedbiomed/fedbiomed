@@ -1,11 +1,11 @@
-'''
+"""
 Definition of messages exchanged by the researcher and the nodes
-'''
+"""
 
+import dataclasses
 import functools
-
 from dataclasses import dataclass
-from typing import Dict, Any, Union, Callable
+from typing import Any, Callable, Dict, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -31,17 +31,21 @@ def catch_dataclass_exception(cls: Callable):
         """
 
         try:
-            self.__class__.__dict__['__initial_init__'](self, *args, **kwargs)
+            self.__class__.__dict__["__initial_init__"](self, *args, **kwargs)
 
         except TypeError as e:
             # this is the error raised by dataclass if number of parameter is wrong
-            _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad number of parameters: "
+                + str(e)
+            )
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
     @functools.wraps(cls)
     def wrap(cls: Callable):
-        """ Wrapper to the class given as parameter
+        """Wrapper to the class given as parameter
 
         Class wrapping should keep some attributes (__doc__, etc) of the initial class or the API documentation tools
         will be mistaken
@@ -55,7 +59,8 @@ def catch_dataclass_exception(cls: Callable):
     return wrap(cls)
 
 
-class Message(object):
+@dataclass
+class Message:
     """Base class for all fedbiomed messages providing all methods
     to access the messages
 
@@ -63,7 +68,7 @@ class Message(object):
     """
 
     def __post_init__(self):
-        """ Post init of dataclass
+        """Post init of dataclass
 
         - remark: this is not check by @dataclass
 
@@ -72,8 +77,12 @@ class Message(object):
 
         """
 
-        if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
+        if not self.__validate_fields():
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad input value for message: "
+                + self.__str__()
+            )
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
 
@@ -91,9 +100,9 @@ class Message(object):
         Returns:
             Message as dictionary
         """
-        return self.__dict__
+        return dataclasses.asdict(self)
 
-    def __validate(self, fields: Dict[str, Any]) -> bool:
+    def __validate_fields(self) -> bool:
         """Checks whether incoming field types match with attributes class type.
 
         Args:
@@ -103,10 +112,12 @@ class Message(object):
             If validated, ie everything matches, returns True, else returns False.
         """
         ret = True
-        for field_name, field_def in fields:
-            value = getattr(self, field_name)
-            if not isinstance(value, field_def.type):
-                logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
+        for field in dataclasses.fields(self):
+            value = getattr(self, field.name)
+            if not isinstance(value, field.type):
+                logger.critical(
+                    f"{field.name}: '{value}' instead of '{field.type}'"
+                )
                 ret = False
         return ret
 
@@ -118,6 +129,7 @@ class Message(object):
 #
 
 # AddScalar message
+
 
 @catch_dataclass_exception
 @dataclass
@@ -143,6 +155,7 @@ class AddScalarReply(Message):
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
+
     researcher_id: str
     node_id: str
     job_id: str
@@ -177,6 +190,7 @@ class ApprovalRequest(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     description: str
     sequence: int
@@ -199,6 +213,7 @@ class ApprovalReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
     sequence: int
@@ -208,6 +223,7 @@ class ApprovalReply(Message):
 
 
 # Error message
+
 
 @catch_dataclass_exception
 @dataclass
@@ -224,6 +240,7 @@ class ErrorMessage(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
     errnum: ErrorNumbers
@@ -232,6 +249,7 @@ class ErrorMessage(Message):
 
 
 # List messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -279,6 +297,7 @@ class ListReply(Message):
 
 # Log message
 
+
 @catch_dataclass_exception
 @dataclass
 class LogMessage(Message):
@@ -294,6 +313,7 @@ class LogMessage(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
     level: str
@@ -302,6 +322,7 @@ class LogMessage(Message):
 
 
 # TrainingPlanStatus messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -316,7 +337,7 @@ class TrainingPlanStatusRequest(Message):
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
-   """
+    """
 
     researcher_id: str
     job_id: str
@@ -360,6 +381,7 @@ class TrainingPlanStatusReply(Message):
 
 # Ping messages
 
+
 @catch_dataclass_exception
 @dataclass
 class PingRequest(Message):
@@ -373,10 +395,10 @@ class PingRequest(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     sequence: int
     command: str
-
 
 
 @catch_dataclass_exception
@@ -394,6 +416,7 @@ class PingReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
     success: bool
@@ -402,6 +425,7 @@ class PingReply(Message):
 
 
 # Search messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -416,6 +440,7 @@ class SearchRequest(Message):
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     tags: list
     command: str
@@ -437,6 +462,7 @@ class SearchReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     success: bool
     databases: list
@@ -446,6 +472,7 @@ class SearchReply(Message):
 
 
 # Secure aggregation messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -461,10 +488,12 @@ class SecaggDeleteRequest(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     sequence: int
     command: str
+
 
 @catch_dataclass_exception
 @dataclass
@@ -483,6 +512,7 @@ class SecaggDeleteReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     sequence: int
@@ -490,6 +520,7 @@ class SecaggDeleteReply(Message):
     node_id: str
     msg: str
     command: str
+
 
 @catch_dataclass_exception
 @dataclass
@@ -507,12 +538,14 @@ class SecaggRequest(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     sequence: int
     element: int
     parties: list
     command: str
+
 
 @catch_dataclass_exception
 @dataclass
@@ -531,6 +564,7 @@ class SecaggReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     sequence: int
@@ -539,7 +573,9 @@ class SecaggReply(Message):
     msg: str
     command: str
 
+
 # Train messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -550,6 +586,7 @@ class TrainRequest(Message):
         researcher_id: ID of the researcher that requests training
         job_id: Id of the Job that is sent by researcher
         params_url: URL where model parameters are uploaded
+        aux_vars_url: URL where auxiliary variables are uploaded
         training_args: Arguments for training routine
         training_data: Dataset meta-data for training
         training: Declares whether training will be performed
@@ -560,9 +597,11 @@ class TrainRequest(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     job_id: str
     params_url: str
+    aux_vars_url: (str, type(None))
     training_args: dict
     training_data: dict
     training: bool
@@ -583,6 +622,7 @@ class TrainReply(Message):
         node_id: Node id that replys the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
+        aux_vars_url: URL of auxiliary variables uploaded by node
         timing: Timing statistics
         msg: Custom message
         command: Reply command string
@@ -590,12 +630,14 @@ class TrainReply(Message):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     job_id: str
     success: bool
     node_id: str
     dataset_id: str
     params_url: str
+    aux_vars_url: (str, type(None))
     timing: dict
     msg: str
     command: str
@@ -603,21 +645,26 @@ class TrainReply(Message):
 
 # protocol definition
 
-class ResearcherMessages():
+
+class ResearcherMessages:
     """Allows to create the corresponding class instance from a received/sent message by the researcher."""
 
     @classmethod
-    def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
-                                                           SearchReply,
-                                                           PingReply,
-                                                           LogMessage,
-                                                           ErrorMessage,
-                                                           ListReply,
-                                                           AddScalarReply,
-                                                           TrainingPlanStatusReply,
-                                                           ApprovalReply,
-                                                           SecaggReply,
-                                                           SecaggDeleteReply]:
+    def reply_create(
+        cls, params: Dict[str, Any]
+    ) -> Union[
+        TrainReply,
+        SearchReply,
+        PingReply,
+        LogMessage,
+        ErrorMessage,
+        ListReply,
+        AddScalarReply,
+        TrainingPlanStatusReply,
+        ApprovalReply,
+        SecaggReply,
+        SecaggDeleteReply,
+    ]:
         """Message reception (as a mean to reply to node requests, such as a Ping request).
 
         It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
@@ -635,40 +682,50 @@ class ResearcherMessages():
             An instance of the corresponding Message class
         """
         try:
-            message_type = params['command']
+            message_type = params["command"]
         except KeyError:
             _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                     'search': SearchReply,
-                                     'pong': PingReply,
-                                     'log': LogMessage,
-                                     'error': ErrorMessage,
-                                     'list': ListReply,
-                                     'add_scalar': AddScalarReply,
-                                     'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply,
-                                     'secagg': SecaggReply,
-                                     'secagg-delete': SecaggDeleteReply
-                                     }
+        MESSAGE_TYPE_TO_CLASS_MAP = {
+            "train": TrainReply,
+            "search": SearchReply,
+            "pong": PingReply,
+            "log": LogMessage,
+            "error": ErrorMessage,
+            "list": ListReply,
+            "add_scalar": AddScalarReply,
+            "training-plan-status": TrainingPlanStatusReply,
+            "approval": ApprovalReply,
+            "secagg": SecaggReply,
+            "secagg-delete": SecaggDeleteReply,
+        }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad message type for reply_create: {}".format(
+                    message_type
+                )
+            )
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
-                                                             SearchRequest,
-                                                             PingRequest,
-                                                             ListRequest,
-                                                             TrainingPlanStatusRequest,
-                                                             ApprovalRequest,
-                                                             SecaggRequest,
-                                                             SecaggDeleteRequest]:
+    def request_create(
+        cls, params: Dict[str, Any]
+    ) -> Union[
+        TrainRequest,
+        SearchRequest,
+        PingRequest,
+        ListRequest,
+        TrainingPlanStatusRequest,
+        ApprovalRequest,
+        SecaggRequest,
+        SecaggDeleteRequest,
+    ]:
 
         """Creates the adequate message/request,
 
@@ -690,41 +747,51 @@ class ResearcherMessages():
         """
 
         try:
-            message_type = params['command']
+            message_type = params["command"]
         except KeyError:
             _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                     'search': SearchRequest,
-                                     'ping': PingRequest,
-                                     'list': ListRequest,
-                                     'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest,
-                                     'secagg-delete': SecaggDeleteRequest
-                                     }
+        MESSAGE_TYPE_TO_CLASS_MAP = {
+            "train": TrainRequest,
+            "search": SearchRequest,
+            "ping": PingRequest,
+            "list": ListRequest,
+            "training-plan-status": TrainingPlanStatusRequest,
+            "approval": ApprovalRequest,
+            "secagg": SecaggRequest,
+            "secagg-delete": SecaggDeleteRequest,
+        }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad message type for request_create: {}".format(
+                    message_type
+                )
+            )
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
-class NodeMessages():
+class NodeMessages:
     """Allows to create the corresponding class instance from a received/sent message by the Node"""
 
     @classmethod
-    def request_create(cls, params: dict) -> Union[TrainRequest,
-                                                   SearchRequest,
-                                                   PingRequest,
-                                                   ListRequest,
-                                                   TrainingPlanStatusRequest,
-                                                   ApprovalRequest,
-                                                   SecaggRequest,
-                                                   SecaggDeleteRequest]:
+    def request_create(
+        cls, params: dict
+    ) -> Union[
+        TrainRequest,
+        SearchRequest,
+        PingRequest,
+        ListRequest,
+        TrainingPlanStatusRequest,
+        ApprovalRequest,
+        SecaggRequest,
+        SecaggDeleteRequest,
+    ]:
         """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
         "command" in the input dictionary `params`) to a Message object
 
@@ -740,41 +807,51 @@ class NodeMessages():
             An instance of the corresponding class (TrainRequest,SearchRequest, PingRequest)
         """
         try:
-            message_type = params['command']
+            message_type = params["command"]
         except KeyError:
             _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
         # mapping message type to an object
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                     'search': SearchRequest,
-                                     'ping': PingRequest,
-                                     'list': ListRequest,
-                                     'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest,
-                                     'secagg-delete': SecaggDeleteRequest
-                                     }
+        MESSAGE_TYPE_TO_CLASS_MAP = {
+            "train": TrainRequest,
+            "search": SearchRequest,
+            "ping": PingRequest,
+            "list": ListRequest,
+            "training-plan-status": TrainingPlanStatusRequest,
+            "approval": ApprovalRequest,
+            "secagg": SecaggRequest,
+            "secagg-delete": SecaggDeleteRequest,
+        }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad message type for reply_create: {}".format(
+                    message_type
+                )
+            )
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def reply_create(cls, params: dict) -> Union[TrainReply,
-                                                 SearchReply,
-                                                 PingReply,
-                                                 LogMessage,
-                                                 ErrorMessage,
-                                                 AddScalarReply,
-                                                 ListReply,
-                                                 TrainingPlanStatusReply,
-                                                 ApprovalReply,
-                                                 SecaggReply,
-                                                 SecaggDeleteReply]:
+    def reply_create(
+        cls, params: dict
+    ) -> Union[
+        TrainReply,
+        SearchReply,
+        PingReply,
+        LogMessage,
+        ErrorMessage,
+        AddScalarReply,
+        ListReply,
+        TrainingPlanStatusReply,
+        ApprovalReply,
+        SecaggReply,
+        SecaggDeleteReply,
+    ]:
         """Message reception.
 
         It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
@@ -793,27 +870,33 @@ class NodeMessages():
             An instance of the corresponding class
         """
         try:
-            message_type = params['command']
+            message_type = params["command"]
         except KeyError:
             _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                     'search': SearchReply,
-                                     'pong': PingReply,
-                                     'log': LogMessage,
-                                     'error': ErrorMessage,
-                                     'add_scalar': AddScalarReply,
-                                     'list': ListReply,
-                                     'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply,
-                                     'secagg': SecaggReply,
-                                     'secagg-delete': SecaggDeleteReply
-                                     }
+        MESSAGE_TYPE_TO_CLASS_MAP = {
+            "train": TrainReply,
+            "search": SearchReply,
+            "pong": PingReply,
+            "log": LogMessage,
+            "error": ErrorMessage,
+            "add_scalar": AddScalarReply,
+            "list": ListReply,
+            "training-plan-status": TrainingPlanStatusReply,
+            "approval": ApprovalReply,
+            "secagg": SecaggReply,
+            "secagg-delete": SecaggDeleteReply,
+        }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad message type for request_create: {}".format(
+                    message_type
+                )
+            )
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
