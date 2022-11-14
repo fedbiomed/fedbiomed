@@ -21,7 +21,7 @@
 
 # ## Create an experiment to train a model on the data found
 
-# Declare a torch.nn MyTrainingPlan class to send for training on the node
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
 
 import os
 import torch
