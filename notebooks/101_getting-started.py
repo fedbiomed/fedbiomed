@@ -15,12 +15,12 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
-# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Starting task manager`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
 
 
 # ## Define an experiment model and parameters
 
-# Declare a torch.nn MyTrainingPlan class to send for training on the node
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
 
 import torch
 import torch.nn as nn
