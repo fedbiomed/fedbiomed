@@ -58,7 +58,7 @@ git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 $ ./scripts/configure_conda
 ```
 
-* this script will create/upadte the conda environments
+* this script will create/update the conda environments
 
 * there is one specific environment for each component:
 
