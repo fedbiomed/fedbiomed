@@ -275,7 +275,6 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
-        logger.debug(f"aggregator args {aggregator_args}")
         
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'

@@ -122,7 +122,6 @@ class Scaffold(Aggregator):
         model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
         # Compute the new aggregated model parameters.
         
-        print("GLOBAL MODEL", global_model.keys())
         aggregated_parameters = self.scaling(model_params, global_model)
         
         # At round 0, initialize zero-valued correction states.
@@ -278,7 +277,7 @@ class Scaffold(Aggregator):
             newval = (1 - self.server_lr) * val + self.server_lr * update
 
             aggregated_parameters[key] = newval
-            print("AGG PARAMS", aggregated_parameters.keys())
+
         return aggregated_parameters
 
     def update_correction_states(self,
@@ -404,7 +403,7 @@ class Scaffold(Aggregator):
 
     def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
         super().load_state(state)
-        print("AGGREGATOR ARGS", self._aggregator_args)
+
         self.server_lr = self._aggregator_args['server_lr']
 
         # loading global state

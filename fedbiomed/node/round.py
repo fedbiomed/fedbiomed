@@ -233,7 +233,7 @@ class Round:
 
         # import model params into the training plan instance
         try:
-            logger.debug(f"PARAM PATH { params_path}")
+
             self.training_plan.load(params_path, to_params=False)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
@@ -328,7 +328,7 @@ class Round:
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
 
-                logger.debug(f"CHECK VALUE {filename}")
+
             except Exception as e:
                 is_failed = True
                 error_message = f"Cannot upload results: {str(e)}"

@@ -2115,7 +2115,7 @@ class Experiment(object):
                     f'should be `dict` not {type(value)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
-            print("BREAKPINT", breakpoint_path, value.get('params_path'), aggregated_params_init)
+
             params_path = create_unique_file_link(breakpoint_path,
                                                   value.get('params_path'))
             aggregated_params[key] = {'params_path': params_path}

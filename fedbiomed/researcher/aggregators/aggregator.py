@@ -101,9 +101,9 @@ class Aggregator:
                         for arg_name, aggregator_arg in node_arg.items():
                             filename = self._save_arg_to_file(training_plan, breakpoint_path,
                                                               arg_name, node_id, aggregator_arg)
-                            if not self._aggregator_args.get(arg_name, False):
+                            self._aggregator_args.setdefault(arg_name, {})
                                 
-                                self._aggregator_args[arg_name] = {}
+
                             self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
                     else:
                         filename = self._save_arg_to_file(training_plan, breakpoint_path, arg_name, node_id, node_arg)
