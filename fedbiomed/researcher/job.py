@@ -146,8 +146,8 @@ class Job:
         self._training_plan_name = self._training_plan.__class__.__name__
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
-
-        self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
+        
+        self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:

@@ -57,7 +57,10 @@ class Aggregator:
             ": aggreate method should be overloaded by the choosen strategy"
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
-    
+
+    def check_values(self, *args, **kwargs) -> True:
+        return True
+
     def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
         self._fds = fds
         return self._fds

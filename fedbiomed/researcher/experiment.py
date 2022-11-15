@@ -1570,12 +1570,14 @@ class Experiment(object):
         #if self.strategy_info["strategy"] == "Scaffold":
         if self._global_model is None:
             self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
-        print("GLOBAL MODEL", self._global_model)
+
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
 
+        self._aggregator.check_values(n_updates=self._training_args['num_updates'],
+                                      training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         # Trigger training round on sampled nodes
@@ -1609,20 +1611,12 @@ class Experiment(object):
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current)
         # write results of the aggregated model in a temp file
-        print("AGGREGATED PARAMS", aggregated_params)
+
         self._global_model = aggregated_params  # update global model
         aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 
-        # if self.strategy_info["strategy"] == "Scaffold":
-        #     # Setting the client state for round i+1, with scaling of the local parameters by server_lr
-        #     self._client_states_dict = self.set_new_client_states_dict(client_states_list=model_params)
-
-        #     # Setting the correction state for round i+1
-        #     self._client_correction_states_dict = self.set_new_correction_states_dict(server_state=aggregated_params)
-        #     self.strategy_info["correction_states"] = self._client_correction_states_dict
-        #self.strategy_info["correction_states"] = self._aggregator.nodes_correction_states
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
 
@@ -1941,7 +1935,7 @@ class Experiment(object):
         )
 
         # save state into a json file.
-        print("STATE", state)
+
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
             with open(breakpoint_file_path, 'w') as bkpt:
@@ -1971,7 +1965,7 @@ class Experiment(object):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object, user can then use `.run()` method to pursue model
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()` method to pursue model
                 training.
 
         Raises:

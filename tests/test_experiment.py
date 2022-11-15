@@ -10,6 +10,7 @@ from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.common import training_plans
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
@@ -34,11 +35,12 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class FakeAggregator(Aggregator):
-    pass
+    aggregator_name: str = 'dummy-aggregator'
 
 class FakeStrategy(Strategy):
     pass
         
+
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
 
@@ -1416,7 +1418,7 @@ class TestExperiment(unittest.TestCase):
 
         # patch choose_bkpt_file create_unique_{file_}link  with minimal functions
         def side_bkpt_file(exp_folder, round):
-            # save directly in experiment folder to avoir creating additional dirs
+            # save directly in experiment folder to avoid creating additional dirs
             return self.experimentation_folder_path, bkpt_file
 
         patch_choose_bkpt_file.side_effect = side_bkpt_file
@@ -1591,8 +1593,15 @@ class TestExperiment(unittest.TestCase):
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         use_secagg = True
-        secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two']}
-        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        secagg_servkey = {'secagg_id': '1234',
+                          'researcher_id': '1234',
+                          'status': True, 
+                          'context': None,
+                          'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'],
+                          'class': 'FakeSecaggServkeyContext',
+                          'module': self.__module__}
+        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+                          'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
         fake_aggregator = FakeAggregator()
         fake_aggregator._aggregator_args = aggregator_params
@@ -1656,8 +1665,10 @@ class TestExperiment(unittest.TestCase):
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         final_use_secagg = True
-        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two']}
-        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'],
+                                }
+        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+                                'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
         
         # def side_create_object(args, **kwargs):
@@ -1710,6 +1721,7 @@ class TestExperiment(unittest.TestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test when everything is OK
+
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
         for p in patches_experiment:
@@ -1719,8 +1731,10 @@ class TestExperiment(unittest.TestCase):
         self.assertTrue(isinstance(loaded_exp, Experiment))
         self.assertEqual(loaded_exp._tags, final_tags)
         self.assertEqual(loaded_exp._fds.data(), final_training_data)
-        self.assertEqual(loaded_exp._aggregator, final_aggregator)
-        self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
+        self.assertEqual(loaded_exp._aggregator._aggregator_args, final_aggregator)
+        self.assertIsInstance(loaded_exp._aggregator, Aggregator)
+        self.assertEqual(loaded_exp._node_selection_strategy._parameters, final_strategy)
+        self.assertIsInstance(loaded_exp._node_selection_strategy, Strategy)
         self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
@@ -1733,8 +1747,8 @@ class TestExperiment(unittest.TestCase):
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
         self.assertEqual(loaded_exp._use_secagg, final_use_secagg)
-        self.assertEqual(loaded_exp._secagg_servkey, final_secagg_servkey)
-        self.assertEqual(loaded_exp._secagg_biprime, final_secagg_biprime)
+        self.assertEqual(loaded_exp._secagg_servkey.parties, final_secagg_servkey['parties'])
+        self.assertEqual(loaded_exp._secagg_biprime.parties, final_secagg_biprime['parties'])
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     def test_experiment_30_static_save_aggregated_params(self,

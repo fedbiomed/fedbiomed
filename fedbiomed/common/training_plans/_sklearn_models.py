@@ -223,6 +223,9 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
         for key, val in init_params.items():
             setattr(self._model, key, val)
 
+    def get_learning_rate(self) -> List[float]:
+        return self._model.eta0
+
 
 class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDClassifier models."""
@@ -261,8 +264,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         setattr(self._model, "classes_", np.arange(n_classes))
 
     def get_learning_rate(self) -> List[float]:
-        _lr_key = 'eta0'
-        return super().get_learning_rate(_lr_key)
+        return self._model.eta0
 
     def _parse_batch_loss(
             self,

@@ -68,7 +68,7 @@ class TestAggregator(unittest.TestCase):
             'parameters': {'param' : True}
         }
         self.aggregator.load_state(state)
-        self.assertDictEqual(self.aggregator._aggregator_params,
+        self.assertDictEqual(self.aggregator._aggregator_args,
                              state['parameters'],
                              'The state of the aggregator class has not been loaded correctly')
 

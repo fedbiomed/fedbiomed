@@ -196,11 +196,7 @@ class Round:
                         logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
 
             if not is_failed:
-                # status, params_path = self.repository.download_file(
-                #     self.params_url,
-                #     'my_model_' + str(uuid.uuid4()) + '.pt')
-                # if (status != 200) or params_path is None:
-                #     error_message = f"Cannot download param file: {self.params_url}"
+
                 success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
                 if success:
                     # retrieving arggegator args
@@ -237,6 +233,7 @@ class Round:
 
         # import model params into the training plan instance
         try:
+            logger.debug(f"PARAM PATH { params_path}")
             self.training_plan.load(params_path, to_params=False)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"

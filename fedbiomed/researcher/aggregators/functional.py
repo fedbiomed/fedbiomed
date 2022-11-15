@@ -37,7 +37,18 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
 
 
 def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
-                  proportions: List[float]):
+                 proportions: List[float]) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
+    """Performs weighted sum operation
+
+    Args:
+        model_params (List[Dict[str, Union[torch.Tensor, np.ndarray]]]): list that contains nodes' model parameters; each model is stored as an OrderedDict (maps
+            model layer name to the model weights)
+        proportions (List[float]): weights of all items whithin model_params's list
+
+    Returns:
+        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weigthed sum 
+                                                       operation
+    """
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
 

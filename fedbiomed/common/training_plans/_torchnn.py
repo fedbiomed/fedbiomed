@@ -139,7 +139,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # TODO: put fedprox mu inside strategy_args
         self._aggregator_args = aggregator_args or {}
 
-        self.set_aggrgator_args(self._aggregator_args)
+        self.set_aggregator_args(self._aggregator_args)
         #self.aggregator_name = self._aggregator_args.get('aggregator_name')
         # FIXME: we should have a AggregatorHandler that handles aggregator args
 
@@ -626,7 +626,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._model.load_state_dict(params)
         return params
 
-    def set_aggrgator_args(self, aggregator_args: Dict[str, Any]):
+    def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         """Handles and loads aggregators arguments sent through MQTT and
         file exchanged system. If sent through file exchanged system, loads the arguments.
 
