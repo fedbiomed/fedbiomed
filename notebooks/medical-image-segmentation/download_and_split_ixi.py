@@ -59,9 +59,9 @@ def download_file(url, filename):
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = 'https://md-datasets-cache-zipfiles-prod.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
+    url = 'https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
     zip_filename = os.path.join(root_folder, 'notebooks', 'data', '7kd5wj7v7p-3.zip')
-    data_folder = os.path.join(root_folder, 'notebooks', 'data' )
+    data_folder = os.path.join(root_folder, 'notebooks', 'data')
     extracted_folder = os.path.join(data_folder, '7kd5wj7v7p-3', 'IXI_sample')
 
     # Extract if ZIP exists but not folder
