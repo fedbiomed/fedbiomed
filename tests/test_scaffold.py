@@ -4,6 +4,7 @@ from platform import node
 from re import U
 import unittest
 from unittest.mock import MagicMock, patch
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
@@ -165,13 +166,13 @@ class TestScaffold(unittest.TestCase):
         weights = [{node_id: 1./self.n_nodes} for node_id in self.node_ids]
         # assuming that global model has all its coefficients to 0
         aggregated_model_params_scaffold = agg.aggregate(copy.deepcopy(self.models),
-                                                        weights,
-                                                        copy.deepcopy(self.zero_model.state_dict()),
-                                                        training_plan,
-                                                        self.responses,
-                                                        self.node_ids,
-                                                        n_round=n_round)
-
+                                                         weights,
+                                                         copy.deepcopy(self.zero_model.state_dict()),
+                                                         training_plan,
+                                                         self.responses,
+                                                         self.node_ids,
+                                                         n_round=n_round)
+ 
 
         aggregated_model_params_fedavg = FedAverage().aggregate(copy.deepcopy(self.models), weights)
         # we check that fedavg and scaffold give proportional results provided:
@@ -192,10 +193,33 @@ class TestScaffold(unittest.TestCase):
                 self.assertFalse(torch.nonzero(layer).all())
         # TODO: test methods when proportions are differents
 
+    def test_5_setting_scaffold_with_wrong_parameters(self):
+        """test_5_setting_scaffold_with_wrong_parameters: tests that scaffold is
+        returning an error when set with incorrect parameters
+        """
+        #  test 1: `server_lr` should be different than 0
+        for x in (0, 0.):
+            with self.assertRaises(FedbiomedAggregatorError):
+                Scaffold(server_lr = x)
+                
+        # test 2: calling `update_correction_states` without any federated dataset
+        with self.assertRaises(FedbiomedAggregatorError):
+            scaffold = Scaffold()
+            scaffold.update_correction_states({node_id: self.model.state_dict() for node_id in self.node_ids},
+                                              self.model.state_dict())
+        # test 3: `n_updates` should be a positive and non zero integer
+        training_plan = MagicMock()
+        for x in (-1, .2, 0, 0., -3.2):
+            with self.assertRaises(FedbiomedAggregatorError):
+                scaffold = Scaffold()
+                scaffold.check_values(n_updates=x, training_plan=training_plan)
+    
+    def test_6_create_aggregator_args(self):
+        pass
 
 # TODO:
 # ideas for further tests:
-# test 1: check that with one client, correction terms are zeros
+# test 1: check that with one client only, correction terms are zeros
 # test 2: check that for 2 clients, correction terms have opposite values
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
