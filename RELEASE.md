@@ -17,7 +17,7 @@ git pull --prune
 git commit
 git push origin develop
 ```
-- check that the CI for `develop` build correctly on https://ci.inria.fr/fedbiomed/
+- check that the CI for `develop` builds correctly on https://ci.inria.fr/fedbiomed/
   - set the release version tag for the release (or use this tag directly in commands)
 ```bash
 export RELEASE_TAG=v3.3
@@ -32,7 +32,7 @@ git checkout -b release/$RELEASE_TAG
 - note: it is not needed to push to branch to the remote, as we currently don't have an additional step of multi-people test of the release branch
 - in the `release` branch, do the release time updates:
   * `CHANGELOG.md`
-  * `README.md` : change `version 3` if major release
+  * `README.md` : change `v3.x` occurences ; change `version 3` if major release
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
