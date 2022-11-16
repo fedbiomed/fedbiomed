@@ -7,7 +7,7 @@
 - add node side GUI support for IXI dataset
 - major redesign of training plan implementation for genericity
 - redesign Opacus integration with torch training plan
-- implement central and local differential privacy (CDP/LDP)
+- implement central and local differential privacy (CDP/LDP) for Pytorch training plan
 - introduce integration with FLamby FL benchmark package
 - introduce node side GUI user accounts, authentication, accounts management
 - introduce data loading plan functionality for dataset load-time custom view on the node side
