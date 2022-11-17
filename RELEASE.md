@@ -10,6 +10,8 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 ## pre-release
 
+- it is recommended to use a fresh clone of the repository to avoid any side effect
+
 - checkout to `develop` branch, push your last changes, sync your local clone with remote
 ```bash
 git checkout develop
