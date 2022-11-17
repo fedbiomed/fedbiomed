@@ -106,7 +106,7 @@ if __name__ == '__main__':
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
-        print(f'Creating node at: {cfg_file}')
+        print(f'Creating node at: {cfg_file} (config file)')
         with open(cfg_file, 'w') as f:
             f.write(config_file.replace('CENTER_ID', center_name))
 
@@ -144,6 +144,9 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
+    print("Make sure Network component is running before launching Nodes: \t./scripts/fedbiomed_run network ")
+    print()
+
     print('Please add the data to your nodes executing and using the `bids-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
