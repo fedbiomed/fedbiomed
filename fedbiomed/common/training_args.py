@@ -251,7 +251,7 @@ class TrainingArgs:
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": 100
+                "rules": [int], "required": True, "default": 0
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
