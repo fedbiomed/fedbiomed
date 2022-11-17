@@ -193,12 +193,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
+        if self._optimizer is None:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call `init_optimizer` \
+                                             beforehand")
         learning_rates = []
 
-        # lr_optimizer_args = self._optimizer_args.get('lr')
-        # if lr_optimizer_args is not None:
-        #     return [lr_optimizer_args]
-        # else:
 
         # extract learning rate directly from optimizer
         params = self._optimizer.param_groups
@@ -257,7 +256,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         try:
             self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
         except AttributeError as e:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}")
 
         return self._optimizer
@@ -293,7 +292,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Validate model
         if not isinstance(self._model, nn.Module):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
@@ -309,7 +308,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Validate optimizer
         if not isinstance(self._optimizer, torch.optim.Optimizer):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -491,16 +490,22 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 corrected_loss.backward()
 
                 self._optimizer.step()
-
+                    
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
 
+                    if self._num_updates is None:
+                        _len_data_loader = len(self.training_data_loader.dataset)
+                    
+                    else:
+                        _len_data_loader = self._num_updates
+                    
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
-                        len(self.training_data_loader.dataset),
-                        100 * batch_ / len(self.training_data_loader),
+                        len(self.training_data_loader),
+                        100 * batch_ / _len_data_loader,
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -509,7 +514,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                     iteration=batch_,
                                                     epoch=epoch,
                                                     train=True,
-                                                    num_batches=len(self.training_data_loader),
+                                                    num_batches=_len_data_loader,
                                                     total_samples=len(self.training_data_loader.dataset),
                                                     batch_samples=len(data))
 
