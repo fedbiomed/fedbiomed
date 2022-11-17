@@ -215,7 +215,13 @@ class TestScaffold(unittest.TestCase):
                 scaffold.check_values(n_updates=x, training_plan=training_plan)
     
     def test_6_create_aggregator_args(self):
-        pass
+        agg = Scaffold()
+        agg_thr_msg, agg_thr_file = agg.create_aggregator_args(self.model.state_dict(),
+                                                               self.node_ids)
+        
+        for node_id in self.node_ids:
+            for (k, v), (k0, v0) in zip(agg.nodes_correction_states[node_id].items(), self.zero_model.state_dict().items()):
+                self.assertTrue(torch.isclose(v, v0).all())
 
 # TODO:
 # ideas for further tests:
