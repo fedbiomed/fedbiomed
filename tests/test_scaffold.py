@@ -1,5 +1,6 @@
 
 from curses import update_lines_cols
+import os
 from platform import node
 from re import U
 import unittest
@@ -10,6 +11,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
+from testsupport.fake_uuid import FakeUuid
 import torch
 from torch.nn import Linear
 import numpy as np
@@ -213,6 +215,13 @@ class TestScaffold(unittest.TestCase):
             with self.assertRaises(FedbiomedAggregatorError):
                 scaffold = Scaffold()
                 scaffold.check_values(n_updates=x, training_plan=training_plan)
+                
+        # test 4: `FederatedDataset` has not been specified
+        
+        with self.assertRaises(FedbiomedAggregatorError):
+            scaffold = Scaffold()
+            # scaffold._fds = None
+            scaffold.check_values(n_updates=1, training_plan=training_plan)
     
     def test_6_create_aggregator_args(self):
         agg = Scaffold()
@@ -248,6 +257,78 @@ class TestScaffold(unittest.TestCase):
         # check `agg_thr_file` contains node correction state
         for node_id in self.node_ids:
             self.assertDictEqual(agg_thr_file[node_id]['aggregator_correction'], agg.nodes_correction_states[node_id])
+
+    @patch('uuid.uuid4')
+    def test_7_save_state(self, uuid_patch):
+        uuid_patch.return_value = FakeUuid()
+        server_lr = .5
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        bkpt_path = '/path/to/my/breakpoint'
+        training_plan = MagicMock()
+        scaffold = Scaffold(server_lr, fds=fds)
+        scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
+        state = scaffold.save_state(training_plan=training_plan,
+                                    breakpoint_path=bkpt_path,
+                                    global_model=self.model.state_dict())
+        self.assertEqual(training_plan.save.call_count, self.n_nodes + 1,
+                        f"training_plan 'save' method should be called {self.n_nodes} times for each nodes + \
+                        one more time for global_state")
+
+        for node_id in self.node_ids:
+            self.assertEqual(state['parameters']['aggregator_correction'][node_id],
+                             os.path.join(bkpt_path, 'aggregator_correction_' + str(node_id) + '.pt'))
+        
+        self.assertEqual(state['parameters']['server_lr'], server_lr)
+        self.assertEqual(state['parameters']['global_state_filename'], os.path.join(bkpt_path,
+                                                                                    'global_state_'
+                                                                                    + str(FakeUuid.VALUE) + '.pt'))
+        self.assertEqual(state['class'], Scaffold.__name__)
+        self.assertEqual(state['module'], Scaffold.__module__)
+
+    def test_8_load_state(self):
+        server_lr = .5
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        bkpt_path = '/path/to/my/breakpoint'
+        training_plan = MagicMock()
+        scaffold = Scaffold(server_lr, fds=fds)
+        
+        # first we create a state before trying to load it
+        scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
+        state = scaffold.save_state(training_plan=training_plan,
+                                    breakpoint_path=bkpt_path,
+                                    global_model=self.model.state_dict())
+        
+        training_plan.reset_mock()
+        # action
+        scaffold.load_state(state, training_plan)
+        
+        training_plan.load.return_value = self.model.state_dict()
+        self.assertEqual(training_plan.load.call_count, self.n_nodes + 1,
+                f"training_plan 'load' method should be called {self.n_nodes} times for each nodes + \
+                one more time for global_state")
+        
+        
+    def test_9_load_state_2(self):
+        server_lr = .5
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        bkpt_path = '/path/to/my/breakpoint'
+        training_plan = MagicMock()
+        scaffold = Scaffold(server_lr, fds=fds)
+        
+        # first we create a state before trying to load it
+        scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
+        state = scaffold.save_state(training_plan=training_plan,
+                                    breakpoint_path=bkpt_path,
+                                    global_model=self.model.state_dict())
+        
+        training_plan.load = MagicMock(return_value=self.model.state_dict())
+
+        # action
+        scaffold.load_state(state, training_plan)
+        for node_id in self.node_ids:
+            for (k,v), (k_ref, v_ref) in zip(scaffold.nodes_correction_states[node_id].items(), 
+                                             self.model.state_dict().items()):
+                self.assertTrue(torch.isclose(v, v_ref).all())
 
 # TODO:
 # ideas for further tests:

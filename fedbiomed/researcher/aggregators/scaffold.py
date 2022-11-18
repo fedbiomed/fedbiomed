@@ -147,6 +147,7 @@ class Scaffold(Aggregator):
                 service, second dictionary parameters that will be sent through file exchange message.
                 Aggregators args are dictionary mapping node_id to nodes parameters.
         """
+
         if not self.nodes_correction_states:
             self.init_correction_states(global_model, node_ids)
         aggregator_args_thr_msg, aggregator_args_thr_file = {}, {}
@@ -385,7 +386,9 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(self, training_plan: BaseTrainingPlan, breakpoint_path: str, global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
+    def save_state(self, training_plan: BaseTrainingPlan,
+                   breakpoint_path: str,
+                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
         #aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
         # adding aggregator parameters to the breakpoint that wont be sent to nodes
         self._aggregator_args['server_lr'] = self.server_lr

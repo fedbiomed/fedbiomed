@@ -99,12 +99,13 @@ class Aggregator:
                     if isinstance(node_arg, dict):
 
                         for arg_name, aggregator_arg in node_arg.items():
-                            filename = self._save_arg_to_file(training_plan, breakpoint_path,
-                                                              arg_name, node_id, aggregator_arg)
-                            self._aggregator_args.setdefault(arg_name, {})
-                                
+                            if arg_name != 'aggregator_name': # do not save `aggregator_name` as a file
+                                filename = self._save_arg_to_file(training_plan, breakpoint_path,
+                                                                  arg_name, node_id, aggregator_arg)
+                                self._aggregator_args.setdefault(arg_name, {})
+                                    
 
-                            self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
+                                self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
                     else:
                         filename = self._save_arg_to_file(training_plan, breakpoint_path, arg_name, node_id, node_arg)
                         self._aggregator_args[arg_name] = filename
@@ -117,6 +118,7 @@ class Aggregator:
 
     def _save_arg_to_file(self, training_plan: BaseTrainingPlan, breakpoint_path: str, arg_name: str,
                           node_id: str, arg: Any) -> str:
+        
         filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
         training_plan.save(filename, arg)
         return filename
