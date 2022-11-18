@@ -80,7 +80,8 @@ def list_data_path():
                 includes = []
                 if not dataset and os.path.isdir(fullpath):
                     includes = [d for d in all_datasets
-                                if re.search('^' + os.path.join(fullpath, ''), d.get("path", ''))]
+                                if re.search('^' + os.path.join(fullpath, ''),
+                                             d.get("path", '') or '')]
 
                 # This is the path that will be displayed on the GUI
                 # It is created as list to be able to use it with `os.path.join`
