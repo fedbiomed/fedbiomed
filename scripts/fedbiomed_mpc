@@ -95,7 +95,8 @@ Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PART
                           responsible  for aggregation
 
 -aip|--assigned-ips     : File path where IP and PORT information of each parties are stored. This file should respect
-                          the format: '<ip-address>:<port>'
+                          the format: '<ip-address>:<port>' as each line represents different party respecting the
+                          order of party numbers.
 
 -pn|--party-number      : Party number that represents the number where the protocol is executed
 
@@ -120,12 +121,14 @@ EOF
 
 }
 
+# Print error
 function error(){
-    echo -e "\n${RED}ERROR:${NC}"
+    echo -e "\n${RED}ERROR:${NC}\n"
     echo -e "${BOLD}$1${NC}"
     exit 1
 }
 
+# Function the retrieve absolute path of Input and Ouput files
 function absolute_path(){
   path=$1
   for=$2
@@ -151,17 +154,13 @@ function compile(){
 
   # shellcheck disable=SC2076
   if [[ ! " ${SCRIPTS[*]} " =~ " $SCRIPT " ]]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}MPC script '$SCRIPT' is not supported or not existing.${NC}\n"
-    exit 1
+    error "MPC script '$SCRIPT' is not supported or not existing."
   fi
 
   echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
   # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts ${NC}\n"
-    exit 1
+    error "Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts "
   fi
 
   # Retrieve long prime
@@ -194,9 +193,7 @@ function execute_protocol(){
 
   # shellcheck disable=SC2076
   if [[ ! " ${PROTOCOLS[*]} " =~ " $PROTOCOL " ]]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}The MPC protocol '$PROTOCOL' is not supported or not existing.${NC}\n"
-    exit 1
+    error "The MPC protocol '$PROTOCOL' is not supported or not existing."
   fi
 
   echo -e "${GRN}Executing protocol '$PROTOCOL'...${NC}"
@@ -326,9 +323,7 @@ case $1 in
     if [ -n "$SCRIPT" ]; then
           compile "$SCRIPT" "$EXTRA_ARGS"
       else
-          echo -e "\n${RED}ERROR:${NC}"
-          echo -e "${BOLD}Please specify MPC script name to compile. e.g '--script test_setup' ${NC}\n"
-          exit 1
+          error "Please specify MPC script name to compile. e.g '--script test_setup'"
     fi
   ;;
   exec)
@@ -356,9 +351,7 @@ case $1 in
     if [ -n "$PROTOCOL" ]; then
       execute_protocol "$PROTOCOL" "$EXTRA_ARGS"
     else
-       echo -e "\n${RED}ERROR:${NC}"
-       echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
-       exit 1
+      error "Please specify protocol name to compile. e.g '--protocol shamir-party' "
     fi
   ;;
 
