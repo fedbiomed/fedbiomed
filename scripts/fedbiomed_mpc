@@ -93,10 +93,24 @@ Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PART
                                           -of [OUTPUT_FILE] [-c|--compile] | [ ]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
+
 -aip|--assigned-ips     : File path where IP and PORT information of each parties are stored. This file should respect
                           the format: '<ip-address>:<port>'
+
 -pn|--party-number      : Party number that represents the number where the protocol is executed
--of|--output-file       : File path where the output of the calculation for concerning party will be saved.
+
+-of|--output-file       : File path where the output of the calculation will be saved for party 0. The will will
+                          automatically add P0-0 at the end of the file name specified. It will be created by the script
+                          if it is not existing, or overwritten if it exists. For example;
+                          the file specified as 'path/to/directory/Output-File' for party 1 will become
+                          'path/to/directory/Output-File-P1-0'. Please make sure the directory is existing.
+
+-if|--input-file        : File path where the input (key shares) of the parties will be saved for the parties different
+                          than 0 (server). The script will automatically add P0-0 at the end of the file name specified.
+                          It will be created by the script if it is not existing, or overwritten if it exists. For example;
+                          the file specified as 'path/to/directory/Input-File' for party 1 will become
+                          'path/to/directory/Input-File-P1-0'. Please make sure the directory is existing.
+
 -c|--compile            : Option if the MPC script will be compiled before starting the protocol
 
 EOF
