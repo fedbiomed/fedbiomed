@@ -496,27 +496,27 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                     if self._num_updates is None:
                         _len_data_loader = len(self.training_data_loader.dataset)
-                    
+                        _n_data_parsed = len(self.training_data_loader.dataset)
                     else:
                         _len_data_loader = self._num_updates
-                    
+                        _n_data_parsed = self._num_updates * batch_size
                     num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
-                        len(self.training_data_loader),
+                        _n_data_parsed,
                         100 * batch_ / _len_data_loader,
                         res.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
                         history_monitor.add_scalar(metric={'Loss': res.item()},
-                                                    iteration=batch_,
-                                                    epoch=epoch,
-                                                    train=True,
-                                                    num_batches=_len_data_loader,
-                                                    total_samples=len(self.training_data_loader.dataset),
-                                                    batch_samples=len(data))
+                                                   iteration=batch_,
+                                                   epoch=epoch,
+                                                   train=True,
+                                                   num_batches=_len_data_loader,
+                                                   total_samples=_n_data_parsed,
+                                                   batch_samples=len(data))
 
 
                 if self._dry_run:

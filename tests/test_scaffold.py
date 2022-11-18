@@ -220,8 +220,34 @@ class TestScaffold(unittest.TestCase):
                                                                self.node_ids)
         
         for node_id in self.node_ids:
-            for (k, v), (k0, v0) in zip(agg.nodes_correction_states[node_id].items(), self.zero_model.state_dict().items()):
+            for (k, v), (k0, v0) in zip(agg.nodes_correction_states[node_id].items(),
+                                        self.zero_model.state_dict().items()):
                 self.assertTrue(torch.isclose(v, v0).all())
+                
+                
+        # check that each element returned by method contains key 'aggregator_name'
+        for node_id in self.node_ids:
+            self.assertTrue(agg_thr_msg[node_id].get('aggregator_name', False))
+        
+            self.assertTrue(agg_thr_file[node_id].get('aggregator_name', False))
+        
+        # check `agg_thr_file` contains node correction state
+        for node_id in self.node_ids:
+            self.assertDictEqual(agg_thr_file[node_id]['aggregator_correction'], agg.nodes_correction_states[node_id])
+            
+        # checking case where a node has been added to the training (repeating same tests above)
+        self.n_nodes += 1
+        self.node_ids.append(f'node_{self.n_nodes}')
+        agg_thr_msg, agg_thr_file = agg.create_aggregator_args(self.model.state_dict(),
+                                                               self.node_ids)
+        
+        for node_id in self.node_ids:
+            self.assertTrue(agg_thr_msg[node_id].get('aggregator_name', False))
+            self.assertTrue(agg_thr_file[node_id].get('aggregator_name', False))
+        
+        # check `agg_thr_file` contains node correction state
+        for node_id in self.node_ids:
+            self.assertDictEqual(agg_thr_file[node_id]['aggregator_correction'], agg.nodes_correction_states[node_id])
 
 # TODO:
 # ideas for further tests:

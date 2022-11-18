@@ -174,7 +174,7 @@ class TrainingArgs:
         if val is None or isinstance(val, (float, int)):
             if val is not None:
                 if int(val) != float(val) or val < 0:
-                    return False, f"num_updates and epochs should be postive integer, but got {val}"
+                    return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
 
                     # maybe we should not validate case val == 0
 

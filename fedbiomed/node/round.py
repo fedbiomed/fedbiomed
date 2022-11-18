@@ -323,7 +323,7 @@ class Round:
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
-                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
+                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + str(uuid.uuid4()) + '.pt')
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")

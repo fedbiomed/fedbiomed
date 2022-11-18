@@ -1576,6 +1576,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
 
+        # check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args['num_updates'],
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
@@ -1595,7 +1596,7 @@ class Experiment(object):
         self._aggregator.set_fds(self._fds)
 
 
-        # aggregate model from nodes to a global model
+        # aggregate models from nodes to a global model
         # --------------------------------------------
         # here, we are passing all arguments that the aggregator may need, using named arguments
         # if your aggregator requieres additional arguments, you can add those in the `aggregate` call, using named

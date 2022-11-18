@@ -817,6 +817,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
 
         tp.training_data_loader.__len__.return_value = 3
         tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
+        tp.training_data_loader.dataset.__len__.return_value = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
