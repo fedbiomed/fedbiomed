@@ -105,8 +105,9 @@ class DataLoadingBlockTypes(_BaseEnum):
     - All fields must be str;
     - All field values must be unique.
 
-    :warning: this class must always be empty as it is not allowed to
-    contain any fields!
+    !!! warning
+        This class must always be empty as it is not allowed to
+        contain any fields!
     """
     def __init__(self, *args):
         cls = self.__class__
