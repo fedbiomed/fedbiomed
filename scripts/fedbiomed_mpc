@@ -231,7 +231,7 @@ function execute_shamir_server_key(){
   # Check input file if party number is different than 0 --------------------------------------------------------------
   else
     if [ -z "$INPUT_FILE" ]; then
-      error "Parties different than '0 (server)' should have an output file specified with the option -if | --input-file"
+      error "Parties different than '0 (server)' should have an input file specified with the option -if | --input-file"
     elif ! INPUT_FILE=$(absolute_path "$INPUT_FILE" "--input-file | -if option" ); then
       echo  "$INPUT_FILE"
       exit 1
@@ -280,7 +280,7 @@ function execute_shamir_server_key(){
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
       "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
-        -IF "$basedir"/Server-Key-Input \
+        -IF "$INPUT_FILE" \
         server_key \
         -N "$NUMBER_OF_PARTIES"
 
@@ -288,7 +288,7 @@ function execute_shamir_server_key(){
   else
       "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
           -ip "$ASSIGNED_IPS" \
-          -OF "$basedir"/"$OUTPUT_FILE" \
+          -OF "$OUTPUT_FILE" \
           server_key \
           -N "$NUMBER_OF_PARTIES"
   fi
