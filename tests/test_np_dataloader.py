@@ -1,4 +1,3 @@
-import functools
 import itertools
 import unittest
 import logging
@@ -6,7 +5,7 @@ import logging
 import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.data.loaders import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader, _generate_roughly_one_epoch
 
 
 class TestNPDataLoader(unittest.TestCase):
@@ -241,6 +240,35 @@ class TestNPDataLoader(unittest.TestCase):
         self.assertEqual(count, num_updates)
         self.assertEqual(len(dataloader), 0)
 
+    def test_npdataloader_06_utils(self):
+        """Test DataLoader utils applied to NPDataLoader"""
+        batch_size = 1
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=batch_size)
+        expected_num_iterations = len(self.X) // batch_size
+        for i, _ in enumerate(_generate_roughly_one_epoch(dataloader), start=1):
+            pass
+        self.assertEqual(i, expected_num_iterations)
+
+        batch_size = 3
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=batch_size)
+        expected_num_iterations = len(self.X) // batch_size + 1
+        for i, _ in enumerate(_generate_roughly_one_epoch(dataloader), start=1):
+            pass
+        self.assertEqual(i, expected_num_iterations)
+
+        batch_size = 3
+        dataloader = NPDataLoader(dataset=self.X,
+                                  target=self.X,
+                                  batch_size=batch_size,
+                                  drop_last=True)
+        expected_num_iterations = len(self.X) // batch_size
+        for i, _ in enumerate(_generate_roughly_one_epoch(dataloader), start=1):
+            pass
+        self.assertEqual(i, expected_num_iterations)
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
