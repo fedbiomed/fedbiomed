@@ -400,7 +400,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._optimizer.step()
 
             if update_idx % self._log_interval == 0 or self._dry_run:
-                epoch = num_updates // num_batches_per_epoch + 1
+                epoch = (update_idx-1) // num_batches_per_epoch + 1
                 logger.debug('Train Epoch: {} [{}/{} ({:.0f}%) samples]\tLoss: {:.6f}'.format(
                     epoch,
                     update_idx*self.training_data_loader.batch_size,
