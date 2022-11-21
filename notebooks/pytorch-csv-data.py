@@ -26,7 +26,7 @@
 
 
 
-# Declare a torch.nn MyTrainingPlan class to send for training on the node
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
 import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
