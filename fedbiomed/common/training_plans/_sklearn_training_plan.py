@@ -283,7 +283,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Numpy array containing the unique values from the targets wrapped
             in the training and testing NPDataLoader instances.
         """
-        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
+        from fedbiomed.common.data.loaders import _generate_roughly_one_epoch
+        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in _generate_roughly_one_epoch(loader)])
 
     def num_parameter_updates(self):
         num_batches_per_epoch = self._batch_maxnum if self._batch_maxnum > 0 else len(self.training_data_loader)
