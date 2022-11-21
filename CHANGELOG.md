@@ -1,8 +1,32 @@
 # Fed-BioMed changelog
 
-## 2022-xx-xx version 3.6 or 4.0
+## 2022-11-17 version 4.0
 
+- introduce IXI (image + CSV file) dataset support as MedicalFolderDataset
+- add advanced brain image segmentation tutorial for IXI dataset
+- add node side GUI support for IXI dataset
+- major redesign of training plan implementation for genericity
+- redesign Opacus integration with torch training plan
+- implement central and local differential privacy (CDP/LDP) for Pytorch training plan
+- introduce integration with FLamby FL benchmark package
+- introduce node side GUI user accounts, authentication, accounts management
+- introduce data loading plan functionality for dataset load-time custom view on the node side
+- add data loading plan support for IXI medical folder dataset
+- introduce training plan approval capability in application: researcher request, node approval CLI
+- add node side GUI support for training plan approval
+- introduce mini-batch support in scikit-learn training plans
+- refactor scikit-learn training plans with hierarchical design
+- refactor NIFTI folder dataset type for code quality and robustness
 - TrainingArgs class to manage/verify training arguments on researcher side
+- rename model approval as training plan approval for coherency
+- add sample notebook for researcher-side filtering of datasets on minimum samples number
+- obfuscate node side path to researcher for better privacy
+- misc node side TinyDB database access refactor for code quality and robustness
+- misc improve scikit-learn training plan dependency handling
+- fix bug on training plan report of sample/percentage progress
+- fix missing `fedprox_mu` parameter in training args
+- fix dry run mode for pytorch training plan
+- fix conda environment GLIBC version issue
 
 ## 2022-05-09 version 3.5
 
