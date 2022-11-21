@@ -271,7 +271,7 @@ function execute_shamir_server_key(){
   # If party is 0 (server)
   if [ "$PARTY_NUMBER" -eq 0 ]; then
       echo -e "${BOLD}Output file       :${NC} $OUTPUT_FILE-P$PARTY_NUMBER-0"
-  # If party is 1
+  # If party is different to 0 (nodes)
   else
       echo -e "${BOLD}Input file        :${NC} $INPUT_FILE-P$PARTY_NUMBER-0 \n"
   fi
