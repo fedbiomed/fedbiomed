@@ -17,6 +17,17 @@ Fed-BioMed DataLoaders do not raise `StopIteration` after one epoch. Instead, th
     Instead, the developer is required to keep track of the number of iterations that have been performed, and implement
     their own strategy for exiting the loop.
 
+The recommended way to achieve this is the following (note the use of the start option in enumerate, and the quick
+exit based on the iteration counter value):
+```python
+for i, (data, target) in enumerate(dataloader, start=1):
+    # quick exit when total number of iterations is reached
+    if i > num_updates:
+        break
+    # continue with rest of loop
+    # e.g. perform training
+```
+
 This was done because we want to "move away" from the notion of epochs, which in a federated setting does not make
 much sense since each node may have a different number of samples in their dataset. In order to achieve this, we
 need DataLoaders to be able to cycle through the data as many times as needed to achieve the total number of updates
