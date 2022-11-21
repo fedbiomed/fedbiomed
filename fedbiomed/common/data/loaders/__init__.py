@@ -39,7 +39,9 @@ At the moment Fed-BioMed provides a custom implementation for numpy-based datase
 [`torch.utils.data.DataLoader`](https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader) class.
 """
 from .np_dataloader import NPDataLoader
+from .utils import _generate_roughly_one_epoch
 
 __all__ = [
-    'NPDataLoader'
+    'NPDataLoader',
+    '_generate_roughly_one_epoch'
 ]
