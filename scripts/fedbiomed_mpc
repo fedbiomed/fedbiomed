@@ -276,7 +276,7 @@ function execute_shamir_server_key(){
       echo -e "${BOLD}Input file        :${NC} $INPUT_FILE-P$PARTY_NUMBER-0 \n"
   fi
 
-  # If party is not zero they will have input files
+  # If party is not zero it will have Input file
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
       "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
@@ -284,7 +284,7 @@ function execute_shamir_server_key(){
         server_key \
         -N "$NUMBER_OF_PARTIES"
 
-  # If party is zero it should have input file
+  # If party is zero it should have Output file
   else
       "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
           -ip "$ASSIGNED_IPS" \
