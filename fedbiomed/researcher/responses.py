@@ -26,7 +26,10 @@ class Responses:
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
-                    self._update_map_node(data)
+                    self._update_map_node(d)
+                    
+        else:
+            raise FedbiomedResponsesError(f"data argument should be of type list or dict, not {type(data)}")
 
     def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index

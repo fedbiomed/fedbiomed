@@ -62,8 +62,8 @@ class Scaffold(Aggregator):
         self.nodes_lr: Dict[str, List[float]] = {}
         if fds is not None:
             self.set_fds(fds)
-        if self._aggregator_args is None:
-            self._aggregator_args = {}
+        
+        self._aggregator_args = {}  # we need `_aggregator_args` to be not None
         #self.update_aggregator_params()FedbiomedAggregatorError:
 
     def aggregate(self,
@@ -155,7 +155,7 @@ class Scaffold(Aggregator):
             # in case of a new node, initialize its correction state
             if node_id not in self.nodes_correction_states:
                 self.nodes_correction_states[node_id] = {
-                    key: initialize(tensor)[1] for key, tensor in global_model.items()
+                    key: copy.deepcopy(initialize(tensor))[1] for key, tensor in global_model.items()
                 }
             # pack information and parameters to send
             aggregator_args_thr_file[node_id] = {
@@ -228,7 +228,7 @@ class Scaffold(Aggregator):
                 lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
 
             else:
-                # ...otherwise retrieve default learning rateglobal_model: Mapping[str, Union[np.ndarray, torch.Tensor]]
+                # ...otherwise retrieve default learning rate
                 lrs += training_plan.get_learning_rate()
 
             if len(lrs) == 1:

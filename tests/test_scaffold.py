@@ -1,8 +1,5 @@
 
-from curses import update_lines_cols
 import os
-from platform import node
-from re import U
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -286,6 +283,7 @@ class TestScaffold(unittest.TestCase):
         self.assertEqual(state['module'], Scaffold.__module__)
 
     def test_8_load_state(self):
+        """test_8_load_state: check how many time `save` method of training plan is called"""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
@@ -304,19 +302,19 @@ class TestScaffold(unittest.TestCase):
         
         training_plan.load.return_value = self.model.state_dict()
         self.assertEqual(training_plan.load.call_count, self.n_nodes + 1,
-                f"training_plan 'load' method should be called {self.n_nodes} times for each nodes + \
-                one more time for global_state")
-        
-        
+                         f"training_plan 'load' method should be called {self.n_nodes} times for each nodes + \
+                         one more time for global_state")
+
     def test_9_load_state_2(self):
+        """test_9_load_state_2: check loaded parameters are correctly reloaded"""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
         training_plan = MagicMock()
         scaffold = Scaffold(server_lr, fds=fds)
         
-        # first we create a state before trying to load it
-        scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
+        # first we create a correction state before trying to load it
+        #scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
         state = scaffold.save_state(training_plan=training_plan,
                                     breakpoint_path=bkpt_path,
                                     global_model=self.model.state_dict())
@@ -325,11 +323,72 @@ class TestScaffold(unittest.TestCase):
 
         # action
         scaffold.load_state(state, training_plan)
+        # tests
         for node_id in self.node_ids:
             for (k,v), (k_ref, v_ref) in zip(scaffold.nodes_correction_states[node_id].items(), 
                                              self.model.state_dict().items()):
+                
                 self.assertTrue(torch.isclose(v, v_ref).all())
+            
+            for (k, v), (k_0, v_0) in zip(scaffold.global_state.items(),
+                                          self.model.state_dict().items()):
 
+                self.assertTrue(torch.isclose(v, v_0).all())
+        self.assertEqual(scaffold.server_lr, server_lr)
+                
+    def test_10_set_nodes_learning_rate_after_training(self):
+        
+        n_rounds = 3
+
+        # test case were learning rates change from one layer to another
+        lr = [.1,.2,.3]
+        n_model_layer = len(lr)  # number of layers model contains
+        
+        training_replies = {r:
+            Responses( [{'node_id': node_id, 'optimizer_args': {'lr': lr}}
+                          for node_id in self.node_ids])
+            for r in range(n_rounds)}
+
+        print("REPLIES", training_replies[0]._map_node, n_model_layer)
+        #assert n_model_layer == len(lr), "error in test: n_model_layer must be equal to the length of list of learning rate"
+        training_plan = MagicMock()
+        get_model_params_mock = MagicMock()
+
+        get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
+        training_plan.get_model_params.return_value = get_model_params_mock
+        
+        
+        print("TEST MODK", len(training_plan.get_model_params()))
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        scaffold = Scaffold(fds=fds)
+        for n_round in range(n_rounds):
+            print("NODELR", training_replies[0].get_index_from_node_id('node_1'))
+            node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan, 
+                                                                      training_replies=training_replies,
+                                                                      n_round=n_round)
+            test_node_lr = {node_id: lr for node_id in self.node_ids}
+            
+            self.assertDictEqual(node_lr, test_node_lr)
+            
+        # same test with a mix of nodes present in training_replies and non present
+        
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ['node_99']})
+        training_plan.get_learning_rate = MagicMock(return_value=lr)
+        scaffold = Scaffold(fds=fds)
+        for n_round in range(n_rounds):
+            node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan, 
+                                                                      training_replies=training_replies,
+                                                                      n_round=n_round)
+
+        # test case where len(lr) != n_model_layer 
+        lr += [.333]
+        training_plan.get_learning_rate = MagicMock(return_value=lr)
+        
+        for n_round in range(n_rounds):
+            with self.assertRaises(FedbiomedAggregatorError):
+                scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan, 
+                                                                training_replies=training_replies,
+                                                                n_round=n_round)
 # TODO:
 # ideas for further tests:
 # test 1: check that with one client only, correction terms are zeros
