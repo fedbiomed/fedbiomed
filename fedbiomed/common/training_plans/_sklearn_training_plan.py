@@ -13,7 +13,7 @@ from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes

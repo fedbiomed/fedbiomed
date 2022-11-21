@@ -23,7 +23,7 @@ import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
 from sklearn.linear_model import SGDClassifier
