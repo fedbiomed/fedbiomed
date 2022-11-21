@@ -1,6 +1,7 @@
 """DataLoaders for Fed-BioMed.
 
 DataLoader classes are responsible for:
+
 - calling the dataset's `__getitem__` method when needed
 - collating samples in a batch
 - shuffling the data at every epoch
@@ -32,6 +33,10 @@ This was done because we want to "move away" from the notion of epochs, which in
 much sense since each node may have a different number of samples in their dataset. In order to achieve this, we
 need DataLoaders to be able to cycle through the data as many times as needed to achieve the total number of updates
 requested by the researcher.
+
+At the moment Fed-BioMed provides a custom implementation for numpy-based datasets
+(the [`NPDataLoader`][fedbiomed.common.data.loaders.NPDataLoader]) while torch-based datasets should rely on the
+[`torch.utils.data.DataLoader`](https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader) class.
 """
 from .np_dataloader import NPDataLoader
 

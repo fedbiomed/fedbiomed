@@ -200,9 +200,6 @@ class _BatchIterator:
         (features_batch, target_batch).
 
         Automatically resets the iterator after each epoch.
-
-        Raises:
-            StopIteration: when an epoch of data has been exhausted.
         """
         start = self._last_idx_yielded
         stop = self._last_idx_yielded + self._loader.batch_size()
