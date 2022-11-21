@@ -188,6 +188,7 @@ class Node:
             secagg_id = msg.get_param('secagg_id')
             sequence = msg.get_param('sequence')
             element = msg.get_param('element')
+            job_id = msg.get_param('job_id')
             parties = msg.get_param('parties')
         except Exception as e:
             # should not happen, because Message object already checks message params
@@ -230,7 +231,7 @@ class Node:
         try:
             if element.name in element2class.keys():
                 # instantiate a `SecaggSetup` object
-                secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
+                secagg = element2class[element.name](researcher_id, secagg_id, job_id, sequence, parties)
             else:
                 # should not exist 
                 secagg = None

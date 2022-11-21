@@ -18,13 +18,15 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str]):
+    def __init__(self, parties: List[str], job_id: str):
         """Constructor of the class.
 
         Args:
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
+            job_id: ID of the job to which this secagg context element is attached.
+                Empty string means the element is not attached to a specific job
 
         Raises:
             FedbiomedSecaggError: bad parameter type
@@ -51,6 +53,8 @@ class SecaggContext(ABC):
         self._status = False
         self._context = None
 
+        self.set_job_id(job_id)
+
     def secagg_id(self) -> str:
         """Getter for secagg context element ID 
 
@@ -58,6 +62,14 @@ class SecaggContext(ABC):
             secagg context element unique ID
         """
         return self._secagg_id
+
+    def job_id(self) -> str:
+        """Getter for secagg context element job_id
+
+        Returns:
+            secagg context element job_ib (or empty string if no job_id is attached to the element)
+        """
+        return self._job_id
 
     def status(self) -> bool:
         """Getter for secagg context element status
@@ -75,6 +87,18 @@ class SecaggContext(ABC):
             secagg context element, or `None` if it doesn't exist
         """
         return self._context
+
+    def set_job_id(self, job_id: str) -> None:
+        """Setter for secagg context element job_id
+        """
+        try:
+            self._v.validate(job_id, str, None)
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
+        self._job_id = job_id
 
     @abstractmethod
     def _payload(self) -> Tuple[Union[dict, None], bool]:
@@ -214,6 +238,7 @@ class SecaggContext(ABC):
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
+            'job_id': self._job_id,
             'parties': self._parties,
             'command': 'secagg',
         }
@@ -262,6 +287,7 @@ class SecaggContext(ABC):
             "module": self.__module__,
             "secagg_id": self._secagg_id,
             "parties": self._parties,
+            "job_id": self._job_id,
             "researcher_id": self._researcher_id,
             "status": self._status,
             "context": self._context
@@ -277,6 +303,7 @@ class SecaggContext(ABC):
         """
         self._secagg_id = state['secagg_id']
         self._parties = state['parties']
+        self._job_id = state['job_id']
         self._researcher_id = state['researcher_id']
         self._status = state['status']
         self._context = state['context']
@@ -287,15 +314,21 @@ class SecaggServkeyContext(SecaggContext):
     Handles a Secure Aggregation server key context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str]):
+    def __init__(self, parties: List[str], job_id: str):
         """Constructor of the class.
 
         Args:
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
+            job_id: ID of the job to which this secagg context element is attached.
         """
-        super().__init__(parties)
+        super().__init__(parties, job_id)
+
+        if not self._job_id:
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be non empty string'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
         self._element = SecaggElementTypes.SERVER_KEY
 
@@ -328,7 +361,7 @@ class SecaggBiprimeContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
         """
-        super().__init__(parties)
+        super().__init__(parties, '')
 
         self._element = SecaggElementTypes.BIPRIME
 

@@ -22,6 +22,7 @@ class SecaggSetup(ABC):
             self,
             researcher_id: str,
             secagg_id: str,
+            job_id: str,
             sequence: int,
             parties: List[str]):
         """Constructor of the class.
@@ -29,12 +30,13 @@ class SecaggSetup(ABC):
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
+            job_id: ID of the job to which this secagg context element is attached
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
         """
         # check arguments
         self._v = Validator()
-        for param, type in [(researcher_id, str), (secagg_id, str), (sequence, int)]:
+        for param, type in [(researcher_id, str), (secagg_id, str), (job_id, str), (sequence, int)]:
             try:
                 self._v.validate(param, type)
             except ValidatorError as e:
@@ -68,6 +70,7 @@ class SecaggSetup(ABC):
         # assign argument values
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
+        self._job_id = job_id
         self._sequence = sequence
         self._parties = parties
 
@@ -147,6 +150,7 @@ class SecaggServkeySetup(SecaggSetup):
             self,
             researcher_id: str,
             secagg_id: str,
+            job_id: str,
             sequence: int,
             parties: List[str]):
         """Constructor of the class.
@@ -154,10 +158,11 @@ class SecaggServkeySetup(SecaggSetup):
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
+            job_id: ID of the job to which this secagg context element is attached
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
         """
-        super().__init__(researcher_id, secagg_id, sequence, parties)
+        super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
         # add subclass specific init here
 
     def element(self) -> Enum:
@@ -175,7 +180,7 @@ class SecaggServkeySetup(SecaggSetup):
             message to return to the researcher after the setup
         """
         time.sleep(4)
-        logger.info("Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE")
+        logger.info(f"Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE, job_id='{self._job_id}'")
         msg = self._create_secagg_reply('', True)
 
         return msg
@@ -184,23 +189,29 @@ class SecaggServkeySetup(SecaggSetup):
 class SecaggBiprimeSetup(SecaggSetup):
     """
     Sets up a biprime Secure Aggregation context element on the node side.
-
-        Args:
-            researcher_id: ID of the researcher that requests setup
-            secagg_id: ID of secagg context element for this setup request
-            sequence: unique sequence number of setup request
-            parties: List of parties participating to the secagg context element setup
     """
     def __init__(
             self,
             researcher_id: str,
             secagg_id: str,
+            job_id: str,
             sequence: int,
             parties: List[str]):
         """Constructor of the class.
+
+        Args:
+            researcher_id: ID of the researcher that requests setup
+            secagg_id: ID of secagg context element for this setup request
+            job_id: must be an empty string for a biprime context element (not attached to a job)
+            sequence: unique sequence number of setup request
+            parties: List of parties participating to the secagg context element setup
         """
-        super().__init__(researcher_id, secagg_id, sequence, parties)
-        # add subclass specific init here
+        super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
+
+        if self._job_id:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be an empty string'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
     def element(self) -> Enum:
         """Getter for secagg context element type
@@ -217,7 +228,7 @@ class SecaggBiprimeSetup(SecaggSetup):
             message to return to the researcher after the setup
         """
         time.sleep(6)
-        logger.info("Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE")
+        logger.info(f"Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE, job_id='{self._job_id}'")
         msg = self._create_secagg_reply('', True)
 
         return msg
