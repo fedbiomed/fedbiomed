@@ -1,6 +1,6 @@
 # Fed-BioMed
 
-version 3 implementation of the Fed-BioMed project
+version 4 implementation of the Fed-BioMed project
 
 ## Table of Contents
 [[_TOC_]]
@@ -14,7 +14,7 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
 
 Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v3.4) aka the master branch.
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.0) aka the master branch.
 
 
 ## Install and run in development environment
@@ -24,8 +24,9 @@ It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
-Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v3.4/tutorials/installation/0-basic-software-installation/
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v3.4/user-guide/installation/windows-installation/
+Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v4.0/tutorials/installation/0-basic-software-installation/
+
+An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v4.0/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -58,7 +59,7 @@ git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 $ ./scripts/configure_conda
 ```
 
-* this script will create/upadte the conda environments
+* this script will create/update the conda environments
 
 * there is one specific environment for each component:
 
@@ -614,4 +615,37 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+```
+
+## Secure Aggregation Setup: Dev
+
+Fed-BioMed uses MP-SPDZ to provide secure aggregation of the model parameters. Running secure aggregation in Fed-BioMed 
+is optional which makes MP-SPDZ installation/configuration optional as well. Fed-BioMed will be able to run
+FL experiment without MP-SPDZ as long as secure aggregation is not activated on the nodes and the researcher
+components. 
+
+### Configuring MP-SPDZ 
+
+Configuration or installation can be done  with the following command by specifying the Fed-BioMed component. 
+If node and the researcher will be started in the same clone if Fed-BioMed running following command with once
+(`node` or `researcher`) will be enough.  For macOS, the operating system (Darwin) should higher than `High Sierra (10.13)`
+
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg <node|researcher>
+```
+
+
+### Running MP-SPDZ protocols 
+
+MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
+Fed-BioMed node and researcher components. The script for executing the protocols is located in 
+`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc compile --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc exec --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc shamir-server-key --help
+
 ```

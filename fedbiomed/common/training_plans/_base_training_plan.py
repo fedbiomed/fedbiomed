@@ -406,7 +406,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 nonlocal metric, metric_args, metric_controller
                 output = self.predict(data)
                 if isinstance(target, torch.Tensor):
-                    target = target.detach().numpy()
+                    target = target.numpy()
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
