@@ -455,9 +455,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             raise FedbiomedTrainingPlanError(msg)
         try:
             self._model.eval()  # pytorch switch for model inference-mode
-            super().testing_routine(
-                metric, metric_args, history_monitor, before_train
-            )
+            with torch.no_grad():
+                super().testing_routine(
+                    metric, metric_args, history_monitor, before_train
+                )
         finally:
             self._model.train()  # restore training behaviors
 
@@ -483,7 +484,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         with torch.no_grad():
             pred = self._model(data)
-        return pred.detach().numpy()
+        return pred.numpy()
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
