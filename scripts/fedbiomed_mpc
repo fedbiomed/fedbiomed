@@ -93,10 +93,25 @@ Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PART
                                           -of [OUTPUT_FILE] [-c|--compile] | [ ]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
+
 -aip|--assigned-ips     : File path where IP and PORT information of each parties are stored. This file should respect
-                          the format: '<ip-address>:<port>'
+                          the format: '<ip-address>:<port>' as each line represents different party respecting the
+                          order of party numbers.
+
 -pn|--party-number      : Party number that represents the number where the protocol is executed
--of|--output-file       : File path where the output of the calculation for concerning party will be saved.
+
+-of|--output-file       : File path where the output of the calculation will be saved for party 0. The will will
+                          automatically add P0-0 at the end of the file name specified. It will be created by the script
+                          if it is not existing, or overwritten if it exists. For example;
+                          the file specified as 'path/to/directory/Output-File' for party 1 will become
+                          'path/to/directory/Output-File-P1-0'. Please make sure the directory is existing.
+
+-if|--input-file        : File path where the input (key shares) of the parties will be saved for the parties different
+                          than 0 (server). The script will automatically add P0-0 at the end of the file name specified.
+                          It will be created by the script if it is not existing, or overwritten if it exists. For example;
+                          the file specified as 'path/to/directory/Input-File' for party 1 will become
+                          'path/to/directory/Input-File-P1-0'. Please make sure the directory is existing.
+
 -c|--compile            : Option if the MPC script will be compiled before starting the protocol
 
 EOF
@@ -106,6 +121,31 @@ EOF
 
 }
 
+# Print error
+function error(){
+    echo -e "\n${RED}ERROR:${NC}\n"
+    echo -e "${BOLD}$1${NC}"
+    exit 1
+}
+
+# Function the retrieve absolute path of Input and Ouput files
+function absolute_path(){
+  path=$1
+  for=$2
+  directory=${path%/*}
+
+  # Check directory is existing
+  if [ ! -d "$directory" ]; then
+    error "Directory is not existing for '$for': $directory/. \n\
+    \rIf you are using relative path please make sure the format respect where the script is executed"
+  fi
+
+  # Retrieve absolute path
+  absolute="$(cd "$(dirname -- "$path")" >/dev/null; pwd -P)/$(basename -- "$path")"
+  echo "$absolute"
+}
+
+
 # Compile action ------------------------------------------------------------------------------------------------
 function compile(){
 
@@ -114,17 +154,13 @@ function compile(){
 
   # shellcheck disable=SC2076
   if [[ ! " ${SCRIPTS[*]} " =~ " $SCRIPT " ]]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}MPC script '$SCRIPT' is not supported or not existing.${NC}\n"
-    exit 1
+    error "MPC script '$SCRIPT' is not supported or not existing."
   fi
 
   echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
   # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts ${NC}\n"
-    exit 1
+    error "Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts "
   fi
 
   # Retrieve long prime
@@ -157,23 +193,16 @@ function execute_protocol(){
 
   # shellcheck disable=SC2076
   if [[ ! " ${PROTOCOLS[*]} " =~ " $PROTOCOL " ]]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}The MPC protocol '$PROTOCOL' is not supported or not existing.${NC}\n"
-    exit 1
+    error "The MPC protocol '$PROTOCOL' is not supported or not existing."
   fi
-
 
   echo -e "${GRN}Executing protocol '$PROTOCOL'...${NC}"
   echo -e "${BOLD}Press CTRL+C to stop${NC}"
   exec_out=$(cd "$mpspdz_basedir" && ./"$PROTOCOL".x $EXTRA_ARGS)
 
   if [ ! $? -eq 0 ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
-    exit 1
+    error "Error while executing protocol '$PROTOCOL'. Please check the logs above\n"
   fi
-
-
 }
 
 
@@ -183,48 +212,87 @@ function execute_shamir_server_key(){
   PARTY_NUMBER=$2
   ASSIGNED_IPS=$3
   OUTPUT_FILE=$4
-  COMPILE=$5
+  INPUT_FILE=$5
+  COMPILE=$6
 
-  if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ] || [ -z "$OUTPUT_FILE" ]; then
-    echo -e "\n${RED}ERROR:${NC}"
-    echo -e "${BOLD}There missing arguments. Please make sure that all the arguments are provided.${NC}\n\
+  if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ]; then
+    error "There missing arguments. Please make sure that all the arguments are provided.\n\
             \rSee 'fedbiomed_mpc shamir-server-key --help'"
-    exit 1
   fi
 
-
-  if [ -n "$COMPILE" ]; then
-    if ! "$basedir"/scripts/fedbiomed_mpc compile --script server_key -N "$NUMBER_OF_PARTIES"; then
-      echo -e "\n${RED}ERROR:${NC}"
-      echo -e "${BOLD}Error while executing protocol '$PROTOCOL'. Please check the logs above${NC}\n"
+  # Check output file if party number is 0 (server) -------------------------------------------------------------------
+  if [ "$PARTY_NUMBER" -eq 0 ]; then
+    if [ -z "$OUTPUT_FILE" ]; then
+      error "Party 0 should have an output file specified with the option -of | --output-file"
+    elif ! OUTPUT_FILE=$(absolute_path "$OUTPUT_FILE" "--output-file | -of option" ); then
+      echo  "$OUTPUT_FILE"
+      exit 1
+    fi
+  # Check input file if party number is different than 0 --------------------------------------------------------------
+  else
+    if [ -z "$INPUT_FILE" ]; then
+      error "Parties different than '0 (server)' should have an output file specified with the option -if | --input-file"
+    elif ! INPUT_FILE=$(absolute_path "$INPUT_FILE" "--input-file | -if option" ); then
+      echo  "$INPUT_FILE"
       exit 1
     fi
   fi
+
+  # Check file for ip addresses is existing ---------------------------------------------------------------------------
+  if [ ! -f "$ASSIGNED_IPS" ]; then
+    error "The file for assigned ip addresses not found.If the given path is a relative path please make the path \n\
+    \rrespects where ths command/script is executed"
+  else
+    ASSIGNED_IPS="$(cd "$(dirname -- "$ASSIGNED_IPS")" >/dev/null; pwd -P)/$(basename -- "$ASSIGNED_IPS")"
+  fi
+
+  # Compile server key MPC file --------------------------------------------------------------------------------------
+  if [ -n "$COMPILE" ]; then
+    if ! "$basedir"/scripts/fedbiomed_mpc compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+      error "Error while executing protocol '$PROTOCOL'. Please check the logs above"
+    fi
+  fi
+
 
   # Generate the key-share
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
     echo -e "${GRN}Generating key share for party $PARTY_NUMBER ${NC}"
-    if ! python "$basedir"/MP-SPDZ/generate_sk.py --n_len 2048 > "$mpspdz_basedir"/Player-Data/Server-Key-Input-P"$PARTY_NUMBER"-0; then
-      echo -e "\n${RED}ERROR:${NC}"
-      echo -e "${BOLD}Error while generating key share.${NC}\n"
-      exit 1
+    if ! python "$basedir"/MP-SPDZ/generate_sk.py --n_len 2048 > "$INPUT_FILE"-P"$PARTY_NUMBER"-0; then
+      error "Error while generating key share."
     fi
-    echo -e "${BOLD}Done! Key generated in $mpspdz_basedir/Player-Data/Server-Key-Input-P$PARTY_NUMBER-0${NC}"
+    echo -e "${BOLD}Done! Key generated in $INPUT_FILE-P$PARTY_NUMBER-0${NC}"
   fi
   echo -e "\n${YLW}Execution info:${NC}"
   echo -e "${YLW}---------------------------------------${NC}"
   echo -e "${BOLD}Party no          :${NC} $PARTY_NUMBER"
   echo -e "${BOLD}Number of parties :${NC} $NUMBER_OF_PARTIES"
   echo -e "${BOLD}Assigned IPs      :${NC} $ASSIGNED_IPS"
-  echo -e "${BOLD}Output file       :${NC} $OUTPUT_FILE"
-  echo -e "${BOLD}Input file        :${NC} $mpspdz_basedir/Player-Data/Server-Key-Input-P$PARTY_NUMBER-0 \n"
 
-  "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+  # If party is 0 (server)
+  if [ "$PARTY_NUMBER" -eq 0 ]; then
+      echo -e "${BOLD}Output file       :${NC} $OUTPUT_FILE-P$PARTY_NUMBER-0"
+  # If party is 1
+  else
+      echo -e "${BOLD}Input file        :${NC} $INPUT_FILE-P$PARTY_NUMBER-0 \n"
+  fi
+
+  # If party is not zero they will have input files
+  if [ ! "$PARTY_NUMBER" -eq 0 ]; then
+      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
-        -IF "$mpspdz_basedir"/Player-Data/Server-Key-Input \
-        -OF "$OUTPUT_FILE" \
+        -IF "$basedir"/Server-Key-Input \
         server_key \
         -N "$NUMBER_OF_PARTIES"
+
+  # If party is zero it should have input file
+  else
+      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+          -ip "$ASSIGNED_IPS" \
+          -OF "$basedir"/"$OUTPUT_FILE" \
+          server_key \
+          -N "$NUMBER_OF_PARTIES"
+  fi
+
 
 }
 
@@ -255,9 +323,7 @@ case $1 in
     if [ -n "$SCRIPT" ]; then
           compile "$SCRIPT" "$EXTRA_ARGS"
       else
-          echo -e "\n${RED}ERROR:${NC}"
-          echo -e "${BOLD}Please specify MPC script name to compile. e.g '--script test_setup' ${NC}\n"
-          exit 1
+          error "Please specify MPC script name to compile. e.g '--script test_setup'"
     fi
   ;;
   exec)
@@ -285,9 +351,7 @@ case $1 in
     if [ -n "$PROTOCOL" ]; then
       execute_protocol "$PROTOCOL" "$EXTRA_ARGS"
     else
-       echo -e "\n${RED}ERROR:${NC}"
-       echo -e "${BOLD}Please specify protocol name to compile. e.g '--protocol shamir-party' ${NC}\n"
-       exit 1
+      error "Please specify protocol name to compile. e.g '--protocol shamir-party' "
     fi
   ;;
 
@@ -316,6 +380,11 @@ case $1 in
           shift # past argument
           shift # past value
           ;;
+        -if|--input-file)
+          INPUT_FILE="$3"
+          shift
+          shift
+        ;;
         -c|--compile)
           COMPILE=1
           shift # past argument
@@ -337,7 +406,7 @@ case $1 in
       esac
     done
 
-    execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$COMPILE"
+    execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$INPUT_FILE" "$COMPILE"
   ;;
   -h|--help)
     help main
