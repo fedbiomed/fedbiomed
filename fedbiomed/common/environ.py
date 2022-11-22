@@ -42,13 +42,14 @@ import os
 import uuid
 
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any, Union, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedEnvironError
+from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.constants import ComponentType, HashingAlgorithms
+from fedbiomed.common.certificate_manager import CertificateManager
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -298,6 +299,50 @@ class Environ(metaclass=SingletonABCMeta):
             'keep_alive': 60
         }
 
+    @staticmethod
+    def _generate_certificate(
+            self,
+            component_id,
+            certificate_data: dict = {}
+    ) -> Tuple[str, str]:
+        """Generates certificates
+
+        Args:
+            component_id: ID of the component for which the certificate will be generated
+            certificate_data: Data for certificates to declare, `email`, `country`, `organization`, `validity`.
+                Certificate data should be dict where `email`, `country`, `organization` is string type and `validity`
+                boolean
+
+        Raises:
+            FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
+                `certificate.key` files generated.
+
+        Returns:
+            key_file: The path where private key file is saved
+            pem_file: The path where public key file is saved
+        """
+
+        certificate_path = os.path.join(self._values["CERT_DIR"], f"cert_{component_id}")
+
+        if os.path.isdir(certificate_path) \
+                and (os.path.isfile(os.path.join(certificate_path, "certificate.key"))
+                     or os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
+
+            raise FedbiomedEnvironError(f"Certificate generation is aborted. Directory {certificate_path} already "
+                                        f"certificates. Please remove those files to regenerate")
+        else:
+            os.makedirs(certificate_path)
+
+        try:
+            key_file, pem_file = CertificateManager.generate_certificate(
+                certificate_path,
+                certificate_data
+            )
+        except FedbiomedError as e:
+            raise FedbiomedEnvironError(f"Can not generate certificate: {e}")
+
+        return key_file, pem_file
+
     def _configure_secure_aggregation(self):
         """ Add MPSDPZ section into configuration file."""
 
@@ -309,11 +354,21 @@ class Environ(metaclass=SingletonABCMeta):
         }
 
     @staticmethod
-    def _retrieve_ip_and_port(increment_file, new: bool = False, increment=None):
+    def _retrieve_ip_and_port(
+            increment_file,
+            new: bool = False,
+            increment: int = None
+    ) -> Tuple[str, int]:
         """Creates MPSDPZ IP and PORT based on increment file for ports
 
-        Args
+        Args:
             increment_file: Path to port increment file
+            new: If `True`, ignores increment file and create new one
+            increment: Increment value (port number) that will be used if `new = True`.
+
+        Returns:
+            ip: The IP for the MPSDPZ
+            port: The port number for MPSPDZ
         """
 
         ip = os.getenv('MPSPDZ_IP', "localhost")
@@ -419,6 +474,15 @@ class ResearcherEnviron(Environ):
             'uploads_url': uploads_url
         }
 
+        # Generate self-signed certificates
+        key_file, pem_file = Environ._generate_certificate(researcher_id)
+
+        # Set public and private keys
+        self._cfg['ssl'] = {
+            'private_key': key_file,
+            'public_key': pem_file
+        }
+
     def info(self):
         """Print useful information at environment creation"""
 
@@ -517,6 +581,9 @@ class NodeEnviron(Environ):
             'uploads_url': uploads_url
         }
 
+        # Generate self-signed certificates
+        key_file, pem_file = Environ._generate_certificate(node_id)
+
         # Security variables
         # Default hashing algorithm is SHA256
         allow_default_training_plans = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True)
@@ -527,6 +594,13 @@ class NodeEnviron(Environ):
             'allow_default_training_plans': allow_default_training_plans,
             'training_plan_approval': training_plan_approval
         }
+
+        # Set public and private keys
+        self._cfg['ssl'] = {
+            'private_key': key_file,
+            'public_key': pem_file
+        }
+
 
     def info(self):
         """"""
