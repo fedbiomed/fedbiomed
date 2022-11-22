@@ -47,7 +47,8 @@ class TestTorchnn(unittest.TestCase):
     class FakeTrainingArgs:
 
         def pure_training_arguments(self):
-            return {"dry_run": True, "num_updates": 1, "batch_size": 10, "log_interval": 10}
+            return {"dry_run": True, "num_updates": 1, "batch_size": 10, "log_interval": 10,
+                    "epochs": None, "batch_maxnum": None}
 
         def optimizer_arguments(self):
             return {"lr": 0.0001}
@@ -549,6 +550,8 @@ class TestTorchnn(unittest.TestCase):
             tp.training_data_loader.dataset = MagicMock()
             tp.training_data_loader.dataset.__len__ = num_samples
             tp._training_args['num_updates'] = num_updates
+            tp._training_args['epochs'] = None
+            tp._training_args['batch_maxnum'] = None
             return tp
 
         # Case where we do 1 single epoch with 1 batch
