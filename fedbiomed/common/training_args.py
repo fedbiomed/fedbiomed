@@ -162,7 +162,7 @@ class TrainingArgs:
         Returns:
             Contains key value peer of given keys
         """
-        return {arg: self[arg] for arg in keys if arg in self.dict()}
+        return {arg: self[arg] for arg in keys}
 
     @staticmethod
     @validator_decorator
@@ -245,16 +245,16 @@ class TrainingArgs:
                 "rules": [int], "required": True, "default": 48
             },
             "num_updates": {
-                "rules": [int], "required": True, "default": 1
+                "rules": [int], "required": True, "default": None
             },
             "epochs": {
-                "rules": [int], "required": False
+                "rules": [int], "required": True, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": False
+                "rules": [int], "required": True, "default": None
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0

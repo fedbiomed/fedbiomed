@@ -286,23 +286,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         from fedbiomed.common.data.loaders import _generate_roughly_one_epoch
         return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in _generate_roughly_one_epoch(loader)])
 
-    def num_parameter_updates(self):
-        num_batches_per_epoch = self._batch_maxnum if self._batch_maxnum > 0 else len(self.training_data_loader)
-        if 'num_updates' in self._training_args:
-            if 'epochs' in self._training_args:
-                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
-                               "`epochs` will be ignored.")
-            if 'batch_maxnum' in self._training_args:
-                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
-                               "`batch_maxnum` will be ignored.")
-            return self._training_args['num_updates'], num_batches_per_epoch
-        elif 'epochs' in self._training_args:
-            return self._training_args['epochs']*num_batches_per_epoch, num_batches_per_epoch
-        else:
-            msg = f"{ErrorNumbers.FB619}. Either `num_updates` or `epochs` must be specified in training arguments."
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
     def save(
             self,
             filename: str,

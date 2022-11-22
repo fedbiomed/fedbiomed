@@ -120,7 +120,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._num_updates = self._training_args.get('num_updates')
         self._epochs = self._training_args.get('epochs')
-        self._batch_maxnum = self._training_args.get('batch_maxnum', 0)
+        self._batch_maxnum = self._training_args.get('batch_maxnum')
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
 
@@ -200,23 +200,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
-
-    def num_parameter_updates(self):
-        num_batches_per_epoch = self._batch_maxnum if self._batch_maxnum > 0 else len(self.training_data_loader)
-        if 'num_updates' in self._training_args:
-            if 'epochs' in self._training_args:
-                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
-                               "`epochs` will be ignored.")
-            if 'batch_maxnum' in self._training_args:
-                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
-                               "`batch_maxnum` will be ignored.")
-            return self._training_args['num_updates'], num_batches_per_epoch
-        elif 'epochs' in self._training_args:
-            return self._training_args['epochs']*num_batches_per_epoch, num_batches_per_epoch
-        else:
-            msg = f"{ErrorNumbers.FB619}. Either `num_updates` or `epochs` must be specified in training arguments."
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
 
     def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """
