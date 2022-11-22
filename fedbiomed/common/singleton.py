@@ -42,7 +42,7 @@ class SingletonMeta(type):
 
         with cls._lock_instantiation:
             if cls not in cls._objects:
-                object = super().__call__(*args, **kwargs)
-                cls._objects[cls] = object
+                object_ = super().__call__(*args, **kwargs)
+                cls._objects[cls] = object_
 
         return cls._objects[cls]
