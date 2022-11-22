@@ -143,9 +143,10 @@ class Scaffold(Aggregator):
                 the round
 
         Returns:
-            Tuple[Dict, Dict]: first dictionary contains parameters that will be sent thrFedbiomedAggregatorError:ough MQTT message
+            Tuple[Dict, Dict]: first dictionary contains parameters that will be sent through MQTT message
                 service, second dictionary parameters that will be sent through file exchange message.
-                Aggregators args are dictionary mapping node_id to nodes parameters.
+                Aggregators args are dictionary mapping node_id to SCAFFOLD parameters specific to 
+                each `Nodes`.
         """
 
         if not self.nodes_correction_states:
