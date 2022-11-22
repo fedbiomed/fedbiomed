@@ -69,9 +69,6 @@ class Environ(metaclass=SingletonABCMeta):
         self._cfg = configparser.ConfigParser()
         self._root_dir = root_dir
 
-        # display some information on the present environment
-        self.info()
-
     def __getitem__(self, key: str):
         """Override the `[]` get operator to control the Exception type
         Args:
@@ -119,7 +116,7 @@ class Environ(metaclass=SingletonABCMeta):
 
     @abstractmethod
     def info(self):
-        """"""
+        """Abstract method to return component information"""
 
     def from_config(self, section, key):
         """Gets values from config file"""
@@ -373,6 +370,9 @@ class ResearcherEnviron(Environ):
         # Setup environment variables
         self.setup_environment()
 
+        # display some information on the present environment
+        self.info()
+
     def default_config_file(self) -> str:
         """Sets config file path """
 
@@ -425,8 +425,6 @@ class ResearcherEnviron(Environ):
         logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
 
-
-
 class NodeEnviron(Environ):
 
     def __init__(self, root_dir: str = None):
@@ -436,6 +434,8 @@ class NodeEnviron(Environ):
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
         # Setup environment variables
         self.setup_environment()
+        # display some information on the present environment
+        self.info()
 
     def default_config_file(self) -> str:
         """Sets config file path """
