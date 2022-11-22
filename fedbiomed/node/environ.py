@@ -14,9 +14,7 @@ print(environ['NODE_ID'])
 
 """
 
-
-from fedbiomed.common.constants import ComponentType
-from fedbiomed.common.environ   import Environ
+from fedbiomed.common.environ import NodeEnviron
 
 # global dictionary which contains all environment for the NODE
-environ = Environ(component=ComponentType.NODE)
+environ = NodeEnviron()

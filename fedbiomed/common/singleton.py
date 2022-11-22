@@ -11,6 +11,21 @@
 
 
 import threading
+from abc import ABCMeta
+
+
+class SingletonABCMeta(ABCMeta, type):
+
+    _objects = {}
+    _lock_instantiation = threading.Lock()
+
+    def __call__(cls, *args, **kwargs):
+        with cls._lock_instantiation:
+            if cls not in cls._objects:
+                object_ = super().__call__(*args, **kwargs)
+                cls._objects[cls] = object_
+
+        return cls._objects[cls]
 
 
 class SingletonMeta(type):

@@ -14,9 +14,7 @@ print(environ['RESEARCHER_ID'])
 
 """
 
-
-from fedbiomed.common.constants import ComponentType
-from fedbiomed.common.environ import Environ
+from fedbiomed.common.environ import ResearcherEnviron
 
 # Global dictionary which contains all environment for the RESEARCHER
-environ = Environ(component=ComponentType.RESEARCHER)
+environ = ResearcherEnviron()
