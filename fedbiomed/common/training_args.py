@@ -162,7 +162,7 @@ class TrainingArgs:
         Returns:
             Contains key value peer of given keys
         """
-        return {arg: self[arg] for arg in keys}
+        return {arg: self[arg] for arg in keys if arg in self.dict()}
 
     @staticmethod
     @validator_decorator
