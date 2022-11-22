@@ -173,8 +173,9 @@ class Environ(metaclass=SingletonABCMeta):
         self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
         self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")
+        self._values['CERT_DIR'] = os.path.join(root_dir, "etc", "certs")
 
-        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR':
+        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR':
             dir_ = self._values[_key]
             if not os.path.isdir(dir_):
                 try:
