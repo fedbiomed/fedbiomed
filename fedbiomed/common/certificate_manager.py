@@ -106,4 +106,4 @@ class CertificateManager:
             except Exception as e:
                 raise FedbiomedError(f"Can not write public key: {e}")
         finally:
-            return True
+            return key_file, pem_file
