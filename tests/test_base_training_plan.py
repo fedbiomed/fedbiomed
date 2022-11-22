@@ -206,6 +206,45 @@ class TestBaseTrainingPlan(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             self.tp.training_data()
 
+    def test_base_training_plan_08_num_updates(self):
+        """Test computation of number of parameter updates."""
+        # base case
+        train_args = {'num_updates': 10, 'epochs': None, 'batch_maxnum': None}
+        with patch.object(self.tp, '_training_args', new=train_args),\
+                patch.object(self.tp, 'training_data_loader'):
+            self.tp.training_data_loader.__len__.return_value = 5
+            num_updates, num_batches_per_epoch = self.tp.num_parameter_updates()
+            self.assertEqual(num_updates, 10)
+            self.assertEqual(num_batches_per_epoch, 5)
+        # infer num_updates from epochs
+        train_args = {'num_updates': None, 'epochs': 2, 'batch_maxnum': None}
+        with patch.object(self.tp, '_training_args', new=train_args), \
+                patch.object(self.tp, 'training_data_loader'):
+            self.tp.training_data_loader.__len__.return_value = 5
+            num_updates, num_batches_per_epoch = self.tp.num_parameter_updates()
+            self.assertEqual(num_updates, 10)
+            self.assertEqual(num_batches_per_epoch, 5)
+        # infer num_updates from epochs, but set batch_maxnum
+        train_args = {'num_updates': None, 'epochs': 2, 'batch_maxnum': 1}
+        with patch.object(self.tp, '_training_args', new=train_args), \
+                patch.object(self.tp, 'training_data_loader'):
+            self.tp.training_data_loader.__len__.return_value = 5
+            num_updates, num_batches_per_epoch = self.tp.num_parameter_updates()
+            self.assertEqual(num_updates, 2)
+            self.assertEqual(num_batches_per_epoch, 1)
+        # Assert warnings are raised when conflicting arguments are provided
+        logging.disable(logging.NOTSET)  # re-enable logging temporarily
+        with self.assertLogs('fedbiomed', logging.WARNING) as captured:
+            train_args = {'num_updates': 10, 'epochs': 3, 'batch_maxnum': 7}
+            with patch.object(self.tp, '_training_args', new=train_args), \
+                    patch.object(self.tp, 'training_data_loader'):
+                self.tp.training_data_loader.__len__.return_value = 5
+                num_updates, num_batches_per_epoch = self.tp.num_parameter_updates()
+                self.assertEqual(num_updates, 10)
+                self.assertEqual(num_batches_per_epoch, 5)
+                self.assertEqual(len(captured.output), 2)  # both warning about epoch and about batch_maxnum
+        logging.disable('CRITICAL')
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
