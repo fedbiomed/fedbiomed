@@ -5,7 +5,9 @@ import logging
 import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.data.loaders import NPDataLoader, _generate_roughly_one_epoch
+from fedbiomed.common.data.loaders import NPDataLoader, CyclingSequentialSampler, CyclingRandomSampler, \
+    _generate_roughly_one_epoch
+from torch.utils.data import DataLoader
 
 
 class TestNPDataLoader(unittest.TestCase):
@@ -269,6 +271,45 @@ class TestNPDataLoader(unittest.TestCase):
         for i, _ in enumerate(_generate_roughly_one_epoch(dataloader), start=1):
             pass
         self.assertEqual(i, expected_num_iterations)
+
+
+class TestTorchDataLoader(unittest.TestCase):
+    def setUp(self):
+        self.len = 7
+        self.X = np.arange(self.len)[:, np.newaxis]
+        logging.disable('CRITICAL')
+
+    def tearDown(self) -> None:
+        logging.disable(logging.NOTSET)
+
+    def test_torch_dataloader_01_sequential_sampler(self):
+        """Test Cycling Sequential Sampler"""
+        dl = DataLoader(self.X,
+                        sampler=CyclingSequentialSampler(self.X))
+        # test cycling twice over the data
+        num_iterations = 2*self.len
+        for i, v in enumerate(dl, start=1):
+            if i > num_iterations:
+                break
+            self.assertEqual(v[:, 0], self.X[(i-1) % self.len, 0])
+
+    def test_torch_dataloader_02_random_sampler(self):
+        """Test Cycling Random Sampler"""
+        dl = DataLoader(self.X,
+                        sampler=CyclingRandomSampler(self.X))
+        num_iterations = 2*self.len
+        outputs = []
+        for i, v in enumerate(dl, start=1):
+            if i > num_iterations:
+                break
+            outputs.append(v[:, 0])
+        # Assert first half was shuffled
+        self.assertTrue(any([x != y for x, y in zip(outputs[:self.len], self.X[:, 0])]))
+        # Assert second half was shuffled
+        self.assertTrue(any([x != y for x, y in zip(outputs[self.len:], self.X[:, 0])]))
+        # Assert two halves were different
+        self.assertTrue(any([x != y for x, y in zip(outputs[:self.len], outputs[self.len:])]))
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
