@@ -892,6 +892,7 @@ class TestNode(unittest.TestCase):
             "secagg_id": "my_test_secagg",
             "sequence": 2345,
             "element": 33,
+            "job_id": "my_job",
             "parties": [],
             "command": "secagg"
         }
@@ -1069,6 +1070,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_test_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
@@ -1086,12 +1088,14 @@ class TestNode(unittest.TestCase):
             secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
             secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1104,6 +1108,7 @@ class TestNode(unittest.TestCase):
 
             self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
             self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_servkey_patch.return_value.job_id(), dict_secagg_request['job_id'])
             self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
             self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
             self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
@@ -1125,6 +1130,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 2,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1133,6 +1139,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1141,6 +1148,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': '',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1149,6 +1157,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2'],
                 'command': 'secagg'
             },
@@ -1156,6 +1165,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1163,6 +1173,7 @@ class TestNode(unittest.TestCase):
                 'researcher_id': 'my_test_researcher_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1170,6 +1181,7 @@ class TestNode(unittest.TestCase):
                 'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1177,6 +1189,7 @@ class TestNode(unittest.TestCase):
                 'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
@@ -1185,6 +1198,15 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': 0,
+                'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
         ]
@@ -1198,6 +1220,7 @@ class TestNode(unittest.TestCase):
             "ErrorNumbers.FB318: received bad request message: no such attribute 'sequence'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'element'",
             "ErrorNumbers.FB318: received bad request message: no such attribute 'parties'",  
+            "ErrorNumbers.FB318: received bad request message: no such attribute 'job_id'",  
         ]
 
         class CustomFakeMessages(FakeMessages):
@@ -1243,6 +1266,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
@@ -1283,6 +1307,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
@@ -1303,6 +1328,7 @@ class TestNode(unittest.TestCase):
             secagg_servkey_patch.return_value = FakeSecaggServkeySetupError(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1313,6 +1339,7 @@ class TestNode(unittest.TestCase):
             secagg_biprime_patch.return_value = FakeSecaggBiprimeSetupError(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1340,6 +1367,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': bad_message_value,
+                'job_id': 'my_job_id',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
