@@ -163,7 +163,12 @@ class SecaggServkeySetup(SecaggSetup):
             parties: List of parties participating to the secagg context element setup
         """
         super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
-        # add subclass specific init here
+
+        if not self._job_id:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be a non empty string'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
 
     def element(self) -> Enum:
         """Getter for secagg context element type

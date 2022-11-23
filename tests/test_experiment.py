@@ -977,12 +977,14 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
+    @patch('fedbiomed.researcher.experiment.Job')
     @patch('fedbiomed.researcher.experiment.SecaggServkeyContext')
     @patch('fedbiomed.researcher.experiment.SecaggBiprimeContext')
     def test_experiment_21_set_use_secagg(
         self,
         mock_secaggbiprimecontext,
         mock_secaggservkeycontext,
+        mock_job,
     ):
         """ Test setter for use_secagg attr of experiment class """
 
@@ -1002,11 +1004,20 @@ class TestExperiment(unittest.TestCase):
             ['tag1', 'tag2'],
         ]
         parties = ['party1', 'party2', 'party3', 'party4']
+        job_id = 'my_test_job_id'
+
+        class FakeJob:
+            def __init__(self):
+                self.id = job_id
 
         for tags in tags_cases:
             exp = Experiment(tags=tags)
-            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
             mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
+            mock_job.return_value = FakeJob()
+            # we should not set directly exp._job (internal to exp) for unit tests
+            # but ...
+            exp._job = mock_job
 
             use_false = exp.set_use_secagg(False)
             context_false_servkey, context_false_biprime = exp.secagg_context()
@@ -1026,6 +1037,7 @@ class TestExperiment(unittest.TestCase):
             ['tag1', 'tag2'],
         ]
         parties = ['party1', 'party2', 'party3', 'party4']
+        job_id = 'my_test_job_id'
         setup_results = [
             [True, False],
             [False, True],
@@ -1035,10 +1047,14 @@ class TestExperiment(unittest.TestCase):
         for tags in tags_cases:
             for result in setup_results:
                 exp = Experiment(tags=tags)
-                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
                 mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
                 mock_secaggservkeycontext.return_value.set_setup_success(result[0])
                 mock_secaggbiprimecontext.return_value.set_setup_success(result[1])
+                mock_job.return_value = FakeJob()
+                # we should not set directly exp._job (internal to exp) for unit tests
+                # but ...
+                exp._job = mock_job
 
                 use_false = exp.set_use_secagg(False)
                 context_false_servkey, context_false_biprime = exp.secagg_context()
@@ -1565,8 +1581,8 @@ class TestExperiment(unittest.TestCase):
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         use_secagg = True
-        secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two']}
-        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'], 'job_id': 'A JOB1 ID'}
+        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID'}
 
         # breakpoint structure
         state = {
@@ -1615,8 +1631,8 @@ class TestExperiment(unittest.TestCase):
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         final_use_secagg = True
-        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two']}
-        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'], 'job_id': 'A JOB1 ID'}
+        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID'}
 
         def side_create_object(args, **kwargs):
             return args

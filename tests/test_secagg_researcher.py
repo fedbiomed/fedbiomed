@@ -50,7 +50,7 @@ class TestSecaggResearcher(unittest.TestCase):
         ]
         for parties in parties_set:
             # test
-            servkey = SecaggServkeyContext(parties)
+            servkey = SecaggServkeyContext(parties, 'JOB_ID')
             biprime = SecaggBiprimeContext(parties)
 
             # check
@@ -76,7 +76,7 @@ class TestSecaggResearcher(unittest.TestCase):
         for parties in parties_set:
             # check
             with self.assertRaises(FedbiomedSecaggError):
-                SecaggServkeyContext(parties)
+                SecaggServkeyContext(parties, 'JOB_ID')
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggBiprimeContext(parties)            
 
@@ -86,7 +86,7 @@ class TestSecaggResearcher(unittest.TestCase):
         # Want a dummy test for abstract method (unused) code to keep code coverage
         patcher = patch.multiple(SecaggContext, __abstractmethods__=set())
         patcher.start()
-        dummy = SecaggContext(['un', 'deux', 'trois'])
+        dummy = SecaggContext(['un', 'deux', 'trois'], 'JOB_ID')
         dummy._payload()
         patcher.stop()
 
@@ -118,7 +118,7 @@ class TestSecaggResearcher(unittest.TestCase):
         # test with no established context, then with already existing context
         for i in range(2):
             # test setup
-            secagg = SecaggServkeyContext(parties)
+            secagg = SecaggServkeyContext(parties, 'JOB_ID')
             secagg.setup(timeout=5)
             biprime = SecaggBiprimeContext(parties)
             biprime.setup(timeout=5)
@@ -152,7 +152,7 @@ class TestSecaggResearcher(unittest.TestCase):
             {'node_id': 'ANOTHER_NODE'},
             {'sequence': 12345}
         ]
-        contexts = [SecaggServkeyContext(parties), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
 
         # test and check, on non-established then on established context
         for i in range(2):
@@ -186,7 +186,7 @@ class TestSecaggResearcher(unittest.TestCase):
         patch_requests_send_message.side_effect = fake_requests.send_message
         patch_requests_get_responses.side_effect = fake_requests.get_responses
 
-        contexts = [SecaggServkeyContext(parties), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
         timeouts = [0.1, 0.2, 0.45]
 
         # test and check
@@ -201,7 +201,7 @@ class TestSecaggResearcher(unittest.TestCase):
 
         # setup
         parties = [ environ['RESEARCHER_ID'], 'party2', 'party3']
-        contexts = [SecaggServkeyContext(parties), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
         values = ['2', '2.3', '', [2], {'3': 3}]
 
         # check and test
@@ -226,6 +226,7 @@ class TestSecaggResearcher(unittest.TestCase):
 
         # prepare
         parties = [environ['RESEARCHER_ID'], 'node1', 'node2', 'node3']
+        job_id = 'JOB_ID'
 
         # time.sleep: just need a dummy patch to avoid waiting
 
@@ -233,20 +234,26 @@ class TestSecaggResearcher(unittest.TestCase):
         patch_requests_send_message.side_effect = fake_requests.send_message
         patch_requests_get_responses.side_effect = fake_requests.get_responses
 
-        contexts = [SecaggServkeyContext(parties), SecaggBiprimeContext(parties)]
+        contexts = [
+            (SecaggServkeyContext(parties, job_id), False),
+            (SecaggBiprimeContext(parties), True)
+        ]
 
         # test with no context, then with established context
         for i in range(2):
-            for context in contexts:
+            for context, empty_job_id in contexts:
                 expected_state = {
                     'class': type(context).__name__,
                     'module': context.__module__,
                     'secagg_id': context.secagg_id(),
+                    'job_id': job_id,
                     'parties': parties,
                     'researcher_id': environ['RESEARCHER_ID'],
                     'status': context.status(),
                     'context': context.context(),
                 }
+                if empty_job_id:
+                    expected_state['job_id'] = ''
 
                 # test
                 state = context.save_state()
@@ -263,10 +270,11 @@ class TestSecaggResearcher(unittest.TestCase):
             'secagg_id': 'my_secagg_id',
             'parties': ['ONE_PARTY', 'TWO_PARTIES', 'THREE_PARTIES'],
             'researcher_id': 'my_researcher_id',
+            'job_id': 'my_job_id',
             'status': False,
             'context': 'MY CONTEXT'
         }
-        contexts = [SecaggServkeyContext(parties), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
 
         # test with no context, then with established context
         for i in range(2):
@@ -279,6 +287,7 @@ class TestSecaggResearcher(unittest.TestCase):
                 # check
                 self.assertEqual(state['status'], context.status())
                 self.assertEqual(state['secagg_id'], context.secagg_id())
+                self.assertEqual(state['job_id'], context.job_id())
                 self.assertEqual(state['context'], context.context())
 
         # 3. Load incomplete breakpoints

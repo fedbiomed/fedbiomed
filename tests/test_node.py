@@ -1112,6 +1112,7 @@ class TestNode(unittest.TestCase):
             self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
             self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
             self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_biprime_patch.return_value.job_id(), dict_secagg_request['job_id'])
             self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
 
             messaging_send_msg_patch.reset_mock()
