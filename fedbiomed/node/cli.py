@@ -11,17 +11,16 @@ from multiprocessing import Process
 from typing import Union
 from types import FrameType
 import readline
-import argparse
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.node import Node
 from fedbiomed.common.logger import logger
+from fedbiomed.common.cli import CommonCLI
 from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
     tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
     delete_training_plan, view_training_plan
-
 
 #
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -122,13 +121,13 @@ def manage_node(node_args: Union[dict, None] = None):
         # cleaning staff should be done here
         pass
 
-
     # finally:
     #     # must send info to the researcher (as critical ?)
     #     logger.critical("(CRIT)Node stopped, probably by user decision (Ctrl C)")
     #     time.sleep(1)
     #     logger.exception("Reason:")
     #     time.sleep(1)
+
 
 def launch_node(node_args: Union[dict, None] = None):
     """Launches a node in a separate process.
@@ -167,73 +166,74 @@ def launch_cli():
     """Parses command line input for the node component and launches node accordingly.
     """
 
-    parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
-                                     formatter_class=argparse.RawTextHelpFormatter)
+    cli = CommonCLI()
+    cli.initialize_certificate_parser(data={'DP_PATH': environ["DB_PATH"]})
 
-    parser.add_argument('-a', '--add',
-                        help='Add and configure local dataset (interactive)',
-                        action='store_true')
-    parser.add_argument('-am', '--add-mnist',
-                        help='Add MNIST local dataset (non-interactive)',
-                        type=str, nargs='?', const='', metavar='path_mnist',
-                        action='store')
+    cli.parser.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
+    cli.parser.add_argument('-a', '--add',
+                            help='Add and configure local dataset (interactive)',
+                            action='store_true')
+    cli.parser.add_argument('-am', '--add-mnist',
+                            help='Add MNIST local dataset (non-interactive)',
+                            type=str, nargs='?', const='', metavar='path_mnist',
+                            action='store')
     # this option provides a json file describing the data to add
-    parser.add_argument('-adff', '--add-dataset-from-file',
-                        help='Add a local dataset described by json file (non-interactive)',
-                        type=str,
-                        action='store')
-    parser.add_argument('-d', '--delete',
-                        help='Delete existing local dataset (interactive)',
-                        action='store_true')
-    parser.add_argument('-da', '--delete-all',
-                        help='Delete all existing local datasets (non interactive)',
-                        action='store_true')
-    parser.add_argument('-dm', '--delete-mnist',
-                        help='Delete existing MNIST local dataset (non-interactive)',
-                        action='store_true')
-    parser.add_argument('-l', '--list',
-                        help='List my shared_data',
-                        action='store_true')
-    parser.add_argument('-s', '--start-node',
-                        help='Start fedbiomed node.',
-                        action='store_true')
-    parser.add_argument('-rtp', '--register-training-plan',
-                        help='Register and approve a training plan from a local file.',
-                        action='store_true')
-    parser.add_argument('-atp', '--approve-training-plan',
-                        help='Approve a training plan (requested, default or registered)',
-                        action='store_true')
-    parser.add_argument('-rjtp', '--reject-training-plan',
-                        help='Reject a training plan (requested, default or registered)',
-                        action='store_true')
-    parser.add_argument('-utp', '--update-training-plan',
-                        help='Update training plan file (for a training plan registered from a local file)',
-                        action='store_true')
-    parser.add_argument('-dtp', '--delete-training-plan',
-                        help='Delete a training plan from database (not for default training plans)',
-                        action='store_true')
-    parser.add_argument('-ltps', '--list-training-plans',
-                        help='List all training plans (requested, default or registered)',
-                        action='store_true')
-    parser.add_argument('-vtp', '--view-training-plan',
-                        help='View a training plan source code (requested, default or registered)',
-                        action='store_true')
-    parser.add_argument('-g', '--gpu',
-                        help='Use of a GPU device, if any available (default: dont use GPU)',
-                        action='store_true')
-    parser.add_argument('-gn', '--gpu-num',
-                        help='Use GPU device with the specified number instead of default device, if available',
-                        type=int,
-                        action='store')
-    parser.add_argument('-go', '--gpu-only',
-                        help='Force use of a GPU device, if any available, even if researcher doesnt ' +
-                        'request it (default: dont use GPU)',
-                        action='store_true')
+    cli.parser.add_argument('-adff', '--add-dataset-from-file',
+                            help='Add a local dataset described by json file (non-interactive)',
+                            type=str,
+                            action='store')
+    cli.parser.add_argument('-d', '--delete',
+                            help='Delete existing local dataset (interactive)',
+                            action='store_true')
+    cli.parser.add_argument('-da', '--delete-all',
+                            help='Delete all existing local datasets (non interactive)',
+                            action='store_true')
+    cli.parser.add_argument('-dm', '--delete-mnist',
+                            help='Delete existing MNIST local dataset (non-interactive)',
+                            action='store_true')
+    cli.parser.add_argument('-l', '--list',
+                            help='List my shared_data',
+                            action='store_true')
+    cli.parser.add_argument('-s', '--start-node',
+                            help='Start fedbiomed node.',
+                            action='store_true')
+    cli.parser.add_argument('-rtp', '--register-training-plan',
+                            help='Register and approve a training plan from a local file.',
+                            action='store_true')
+    cli.parser.add_argument('-atp', '--approve-training-plan',
+                            help='Approve a training plan (requested, default or registered)',
+                            action='store_true')
+    cli.parser.add_argument('-rjtp', '--reject-training-plan',
+                            help='Reject a training plan (requested, default or registered)',
+                            action='store_true')
+    cli.parser.add_argument('-utp', '--update-training-plan',
+                            help='Update training plan file (for a training plan registered from a local file)',
+                            action='store_true')
+    cli.parser.add_argument('-dtp', '--delete-training-plan',
+                            help='Delete a training plan from database (not for default training plans)',
+                            action='store_true')
+    cli.parser.add_argument('-ltps', '--list-training-plans',
+                            help='List all training plans (requested, default or registered)',
+                            action='store_true')
+    cli.parser.add_argument('-vtp', '--view-training-plan',
+                            help='View a training plan source code (requested, default or registered)',
+                            action='store_true')
+    cli.parser.add_argument('-g', '--gpu',
+                            help='Use of a GPU device, if any available (default: dont use GPU)',
+                            action='store_true')
+    cli.parser.add_argument('-gn', '--gpu-num',
+                            help='Use GPU device with the specified number instead of default device, if available',
+                            type=int,
+                            action='store')
+    cli.parser.add_argument('-go', '--gpu-only',
+                            help='Force use of a GPU device, if any available, even if researcher doesnt ' +
+                                 'request it (default: dont use GPU)',
+                            action='store_true')
 
-    args = parser.parse_args()
+    args = cli.parser.parse_args()
 
     if not any(args.__dict__.values()):
-        parser.print_help()
+        cli.parser.print_help()
     else:
         print(__intro__)
         print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
@@ -254,7 +254,7 @@ def launch_cli():
         # verify that json file is complete
         for k in ["path", "data_type", "description", "tags", "name"]:
             if k not in data:
-                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
+                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file)
 
         # dataset path can be defined:
         # - as an absolute path -> take it as it is
@@ -262,7 +262,7 @@ def launch_cli():
         # - using an OS environment variable -> transform it
         #
         elements = data["path"].split(os.path.sep)
-        if elements[0].startswith("$") :
+        if elements[0].startswith("$"):
             # expand OS environment variable
             var = elements[0][1:]
             if var in os.environ:
@@ -274,7 +274,7 @@ def launch_cli():
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            elements = [ environ["ROOT_DIR"] ] + elements
+            elements = [environ["ROOT_DIR"]] + elements
 
         # rebuild the path with these (eventually) new elements
         data["path"] = os.path.join(os.path.sep, *elements)
