@@ -6,5 +6,7 @@ __all__ = [
     "Aggregator",
     "FedAverage",
     "initialize",
-    "federated_averaging"
+    "federated_averaging",
+    "weighted_sum",
+    "Scaffold"
 ]
