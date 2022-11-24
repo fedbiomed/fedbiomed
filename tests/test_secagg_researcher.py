@@ -10,6 +10,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
+
 class TestSecaggResearcher(unittest.TestCase):
     """ Test for researcher's secagg module"""
 
@@ -48,18 +49,20 @@ class TestSecaggResearcher(unittest.TestCase):
             [ 'party1', 'party2', 'party3', 'party4'],
             [ 'party1', 'party2', 'party3', 'party4', 'party5', 'party6', 'party7', 'party8', 'party9', 'party10'],
         ]
+        job_ids = ['JOB_ID', 'another string but not empty']
         for parties in parties_set:
-            # test
-            servkey = SecaggServkeyContext(parties, 'JOB_ID')
-            biprime = SecaggBiprimeContext(parties)
+            for job_id in job_ids:
+                # test
+                servkey = SecaggServkeyContext(parties, job_id)
+                biprime = SecaggBiprimeContext(parties)
 
-            # check
-            self.assertEqual(servkey.context(), None)
-            self.assertTrue(isinstance(servkey.secagg_id(), str))
-            self.assertFalse(servkey.status())
-            self.assertEqual(biprime.context(), None)
-            self.assertTrue(isinstance(biprime.secagg_id(), str))
-            self.assertFalse(biprime.status())
+                # check
+                self.assertEqual(servkey.context(), None)
+                self.assertTrue(isinstance(servkey.secagg_id(), str))
+                self.assertFalse(servkey.status())
+                self.assertEqual(biprime.context(), None)
+                self.assertTrue(isinstance(biprime.secagg_id(), str))
+                self.assertFalse(biprime.status())
 
         # Bad secagg classes instantiations
 
@@ -79,6 +82,19 @@ class TestSecaggResearcher(unittest.TestCase):
                 SecaggServkeyContext(parties, 'JOB_ID')
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggBiprimeContext(parties)            
+
+        job_id_set = [
+            '',
+            ['not a string but an array'],
+            123,
+            None,
+            True,
+            {'not a string'},
+        ]
+        for job_id in job_id_set:
+            # check
+            with self.assertRaises(FedbiomedSecaggError):
+                SecaggServkeyContext(['p1', 'p2', 'p3'], job_id)            
 
     def test_secagg_02_dummy_abstract(self):
         """Dummy test for abstract methods"""
@@ -104,6 +120,7 @@ class TestSecaggResearcher(unittest.TestCase):
 
         # prepare
         parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
+        job_id = 'JOB_ID'
 
         fake_requests = FakeRequests()
         patch_requests_send_message.side_effect = fake_requests.send_message
@@ -118,7 +135,7 @@ class TestSecaggResearcher(unittest.TestCase):
         # test with no established context, then with already existing context
         for i in range(2):
             # test setup
-            secagg = SecaggServkeyContext(parties, 'JOB_ID')
+            secagg = SecaggServkeyContext(parties, job_id)
             secagg.setup(timeout=5)
             biprime = SecaggBiprimeContext(parties)
             biprime.setup(timeout=5)
@@ -152,7 +169,7 @@ class TestSecaggResearcher(unittest.TestCase):
             {'node_id': 'ANOTHER_NODE'},
             {'sequence': 12345}
         ]
-        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
 
         # test and check, on non-established then on established context
         for i in range(2):
@@ -181,12 +198,13 @@ class TestSecaggResearcher(unittest.TestCase):
 
         # prepare
         parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
+        job_id = 'JOD ID'
 
         fake_requests = FakeRequests()
         patch_requests_send_message.side_effect = fake_requests.send_message
         patch_requests_get_responses.side_effect = fake_requests.get_responses
 
-        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
         timeouts = [0.1, 0.2, 0.45]
 
         # test and check
@@ -195,13 +213,13 @@ class TestSecaggResearcher(unittest.TestCase):
                 with self.assertRaises(FedbiomedSecaggError):
                     context.setup(timeout=t)
 
-
     def test_secagg_05_setup_delete_badparams(self):
         """Try setup or delete a secagg class giving bad params"""
 
         # setup
         parties = [ environ['RESEARCHER_ID'], 'party2', 'party3']
-        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
+        job_id = 'JOB ID'
+        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
         values = ['2', '2.3', '', [2], {'3': 3}]
 
         # check and test
@@ -274,7 +292,7 @@ class TestSecaggResearcher(unittest.TestCase):
             'status': False,
             'context': 'MY CONTEXT'
         }
-        contexts = [SecaggServkeyContext(parties, 'JOB_ID'), SecaggBiprimeContext(parties)]
+        contexts = [SecaggServkeyContext(parties, 'ANY_JOB_ID'), SecaggBiprimeContext(parties)]
 
         # test with no context, then with established context
         for i in range(2):
