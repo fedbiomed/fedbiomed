@@ -1,10 +1,10 @@
 import os
 
 from OpenSSL import crypto
-from typing import Dict, List
+from typing import Dict, List, Union
 from tinydb import TinyDB, Query
 
-from validator import SchemeValidator, ValidateError
+from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -24,15 +24,22 @@ class CertificateManager:
         _db: TinyDB database to store certificates
     """
 
-    def __init__(self, db: str):
+    def __init__(self, db: str = None):
         """Constructs certificate manager
 
         Args:
             db: The name of the DB file to connect through TinyDB
         """
 
-        self._db: TinyDB = TinyDB(db, 'Certificates')
+        self._db: Union[TinyDB, None] = None
         self._query: Query = Query()
+
+        if db is not None:
+            self._db: TinyDB = TinyDB(db, 'Certificates')
+
+    def set_db(self, db_path: str) -> None:
+        """Sets database """
+        self._db = TinyDB(db_path, "Certificates")
 
     def insert(
             self,
