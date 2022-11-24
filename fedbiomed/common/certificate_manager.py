@@ -3,7 +3,9 @@ import os
 from OpenSSL import crypto
 from typing import Dict, List
 from tinydb import TinyDB, Query
+
 from validator import SchemeValidator, ValidateError
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
 CertificateDataValidator = SchemeValidator({
@@ -81,11 +83,35 @@ class CertificateManager:
 
         return self._db.remove(self._query.party_id == party_id)
 
+    def register_certificate(
+            self,
+            certificate_path,
+            party_id
+    ) -> int:
+
+        if not os.path.isfile(certificate_path):
+            raise FedbiomedError(f"Certificate path doe snot represents a file.")
+
+        # Read certificate content
+        with open(certificate_path) as file:
+            certificate = file.read()
+            file.close()
+
+        # Save certificate in database
+        component = ComponentType.NODE if party_id.startswith("node") else ComponentType.RESEARCHER
+        register = self.insert(
+            certificate=certificate,
+            party_id=party_id,
+            component=component
+        )
+
+        return register
+
     def write_certificates_for_experiment(
             self,
             parties: List[str],
             path: str
-    ) -> None:
+    ) -> List[str]:
         """ Writes certificates into given directory respecting the order
 
         Args:
@@ -93,21 +119,37 @@ class CertificateManager:
             path:
 
         """
-        certificates = []
+
+        # Files already writen into directory
+        writen_certificates = []
+
+        # Function remove writen files in case of error
+        def remove_writen_files():
+            for wf in writen_certificates:
+                os.remove(wf)
 
         # Get certificate for each party
-        for party in parties:
+        for index, party in enumerate(parties):
             party = self.get(party)
             if not party:
+                remove_writen_files()
                 raise FedbiomedError(
                     f"Certificate for {party} is not existing. Aborting setup."
                 )
-            certificates.append(party.certificates)
 
-        # # Adds part number
-        # for certificate, index in enumerate(certificates):
-        #
-        #     with open(path)
+            # Write certificate
+            try:
+                with open(os.path.join(path, f"P{index}.pem")) as file:
+                    file.write(party.certificate)
+                    file.close()
+            except Exception as e:
+                remove_writen_files()
+                raise FedbiomedError(
+                    f"Can not write certificate file for {party}. Aborting the operation. Please check raised "
+                    f"exception: {e}"
+                )
+
+        return writen_certificates
 
     @staticmethod
     def generate_certificate(
