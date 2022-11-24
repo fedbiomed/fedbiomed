@@ -54,6 +54,7 @@ class TestSecaggResearcher(unittest.TestCase):
             # check
             self.assertEqual(secagg.researcher_id(), kwargs['researcher_id'])
             self.assertEqual(secagg.secagg_id(), kwargs['secagg_id'])
+            self.assertEqual(secagg.job_id(), kwargs['job_id'])
             self.assertEqual(secagg.sequence(), kwargs['sequence'])
             self.assertEqual(secagg.element(), element_type)
 
@@ -61,46 +62,47 @@ class TestSecaggResearcher(unittest.TestCase):
         """Instantiate secagg classes with bad arguments"""
 
         # prepare
-        kwargs_list = [
+        job_id = 'my_job'
+        kwargs_servkey_list = [
             {
                 'researcher_id': None,
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 234,
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': "",
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': None,
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': 12345,
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
@@ -114,71 +116,96 @@ class TestSecaggResearcher(unittest.TestCase):
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': 999,
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'job_id': '',
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            },
+            {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'job_id': job_id,
                 'sequence': None,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 'sequence is not a string',
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': ['sequence is not a list'],
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': None,
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': 'need to be a list',
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': [None, None],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': [654, 321],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['need to be same as researcher_id', 'my node2', 'my node3'],
             },
             {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': 'my_job',
+                'job_id': job_id,
                 'sequence': 123,
                 'parties': ['my researcher', 'need 3+ parties'],
             },
         ]
-        secagg_setups = [SecaggServkeySetup, SecaggBiprimeSetup]
+        kwargs_biprime_list = deepcopy(kwargs_servkey_list)
+        # normal case for servkey (non empty `job_id` string) is the error case for biprime (and vice verse)
+        for kwargs in kwargs_biprime_list:
+            if kwargs['job_id'] == job_id:
+                kwargs['job_id'] = ''
+            elif kwargs['job_id'] == '':
+                kwargs['job_id'] = job_id
 
-        for kwargs in kwargs_list:
-            for secagg_setup in secagg_setups :
+        secaggs = [
+            (SecaggServkeySetup, kwargs_servkey_list),
+            (SecaggBiprimeSetup, kwargs_biprime_list)
+        ]
+
+        for secagg_setup, kwargs_list in secaggs :
+            for kwargs in kwargs_list:
                 # test
                 with self.assertRaises(FedbiomedSecaggError):
                     secagg_setup(**kwargs)

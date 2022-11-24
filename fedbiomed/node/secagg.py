@@ -30,7 +30,7 @@ class SecaggSetup(ABC):
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
-            job_id: ID of the job to which this secagg context element is attached
+            job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
         """
@@ -89,6 +89,14 @@ class SecaggSetup(ABC):
             secagg context element unique ID
         """
         return self._secagg_id
+
+    def job_id(self) -> str:
+        """Getter for `job_id`
+
+        Returns:
+            ID of the job to which this secagg context element is attached (empty string if no attached job)
+        """
+        return self._job_id
 
     def sequence(self) -> str:
         """ Getter for `sequence`

@@ -2,6 +2,7 @@ from typing import Union, List
 
 FAKE_CONTEXT_VALUE = "MY_CONTEXT"
 
+
 class FakeSecaggContext:
     def __init__(self, parties: List[str], job_id: str):
         self.parties = parties
