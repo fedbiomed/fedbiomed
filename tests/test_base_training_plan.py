@@ -1,32 +1,56 @@
-import os
-import sys
 import unittest
+from unittest.mock import patch, MagicMock
+from typing import Any, Dict, Optional
+import logging
 import torch
 import numpy as np
-import fedbiomed.common.training_plans._base_training_plan # noqa
 
-from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+# Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
+import fedbiomed.common.training_plans._base_training_plan  # noqa
+
+
+class SimpleTrainingPlan(BaseTrainingPlan):
+    def training_routine(
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None,
+            node_args: Optional[Dict[str, Any]] = None
+    ) -> None:
+        pass
+
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any]
+    ) -> None:
+        pass
+
+    def predict(
+            self,
+            data: Any,
+    ) -> np.ndarray:
+        pass
 
 
 class TestBaseTrainingPlan(unittest.TestCase):
     """ Test Class for Base Training Plan """
 
     def setUp(self):
-        self.tp = BaseTrainingPlan()
+        self.tp = SimpleTrainingPlan()
+        logging.disable('CRITICAL')
         pass
 
     def tearDown(self) -> None:
-        pass
+        logging.disable(logging.NOTSET)
 
     def test_base_training_plan_01_add_dependency(self):
         """ Test  adding dependencies """
 
         expected = ['from torch import nn']
         self.tp.add_dependency(expected)
-        self.assertListEqual(expected, self.tp.dependencies, 'Can not set dependency properly')
+        self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
     def test_base_training_plan_02_set_dataset_path(self):
         """ Test setting dataset path """
@@ -37,49 +61,39 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
     def test_base_training_plan_03_save_code(self):
         """ Testing the method save_code of BaseTrainingPlan """
+        expected_filepath = 'path/to/model.py'
 
         # Test without dependencies
         with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
-            mock_open.write.return_value = None
-            mock_open.close.return_value = None
-
-            expected_filepath = 'path/to/model.py'
-            path, _ = self.tp.save_code(expected_filepath)
-            self.assertEqual(path, expected_filepath, 'Can not save model file properly')
+            self.tp.save_code(expected_filepath)
+            mock_open.assert_called_once_with(expected_filepath, "w")
 
         # Test with adding dependencies
         with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
-            mock_open.write.return_value = None
-            mock_open.close.return_value = None
-
             self.tp.add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
-            expected_filepath = 'path/to/model.py'
-            path, _ = self.tp.save_code(expected_filepath)
-            self.assertEqual(path, expected_filepath, 'Can not save model file properly')
+            self.tp.save_code(expected_filepath)
+            mock_open.assert_called_once_with(expected_filepath, "w")
 
         # Test if get_class_source raises error
         with patch('fedbiomed.common.training_plans._base_training_plan.get_class_source') \
                 as mock_get_class_source:
             mock_get_class_source.side_effect = FedbiomedError
             with self.assertRaises(FedbiomedTrainingPlanError):
-                path, _ = self.tp.save_code(expected_filepath)
+                self.tp.save_code(expected_filepath)
 
         # Test if open function raises errors
         with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
-            mock_open.write.return_value = None
-            mock_open.close.return_value = None
-
             mock_open.side_effect = OSError
             with self.assertRaises(FedbiomedTrainingPlanError):
-                path, _ = self.tp.save_code(expected_filepath)
+                self.tp.save_code(expected_filepath)
 
             mock_open.side_effect = PermissionError
             with self.assertRaises(FedbiomedTrainingPlanError):
-                path, _ = self.tp.save_code(expected_filepath)
+                self.tp.save_code(expected_filepath)
 
             mock_open.side_effect = MemoryError
             with self.assertRaises(FedbiomedTrainingPlanError):
-                path, _ = self.tp.save_code(expected_filepath)
+                self.tp.save_code(expected_filepath)
 
     def test_base_training_plan_04_add_preprocess(self):
         def method(args):

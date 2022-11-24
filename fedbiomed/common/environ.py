@@ -16,15 +16,14 @@ Researcher Global Variables:
 
 Nodes Global Variables:
 
-- NODE_ID                 : id of the node
-- ID                      : equals to node id
-- MESSAGES_QUEUE_DIR      : Path for queues
-- DB_PATH                 : TinyDB database path where datasets are saved
-- MODEL_DB_PATH           : Database where registered model are saved
-- DEFAULT_MODELS_DIR      : Path of directory for storing default models
-- MODEL_DIR               : Path of directory for storing registered models
-- MODEL_APPROVAL          : True if the node enables model approval
-- ALLOW_DEFAULT_MODELS    : True if the node enables default models for model approval
+- NODE_ID                           : id of the node
+- ID                                : equals to node id
+- MESSAGES_QUEUE_DIR                : Path for queues
+- DB_PATH                           : TinyDB database path where datasets/training_plans/loading plans are saved
+- DEFAULT_TRAINING_PLANS_DIR        : Path of directory for storing default training plans
+- TRAINING_PLANS_DIR                 : Path of directory for storing registered training plans
+- TRAINING_PLAN_APPROVAL            : True if the node enables training plan approval
+- ALLOW_DEFAULT_TRAINING_PLANS      : True if the node enables default training plans for training plan approval
 
 Common Global Variables:
 
@@ -256,37 +255,37 @@ class Environ(metaclass=SingletonMeta):
         self._values['DB_PATH'] = os.path.join(VAR_DIR,
                                                f'db_{NODE_ID}.json')
 
-        self._values['DEFAULT_MODELS_DIR'] = os.path.join(ROOT_DIR,
-                                                          'envs', 'common', 'default_models')
+        self._values['DEFAULT_TRAINING_PLANS_DIR'] = os.path.join(ROOT_DIR,
+                                                          'envs', 'common', 'default_training_plans')
 
-        # default diectory for saving model approved / waiting for approval / rejected
-        self._values['MODEL_DIR'] = os.path.join(VAR_DIR, f'model_{NODE_ID}')
+        # default directory for saving training plans that are approved / waiting for approval / rejected
+        self._values['TRAINING_PLANS_DIR'] = os.path.join(VAR_DIR, f'training_plans_{NODE_ID}')
         # FIXME: we may want to change that
         # Catch exceptions
-        if not os.path.isdir(self._values['MODEL_DIR'] ):
-            # create model directry 
-            os.mkdir(self._values['MODEL_DIR'])
+        if not os.path.isdir(self._values['TRAINING_PLANS_DIR'] ):
+            # create training plan directory
+            os.mkdir(self._values['TRAINING_PLANS_DIR'])
         try:
-            _cfg_value = cfg.get('security', 'allow_default_models')
+            _cfg_value = cfg.get('security', 'allow_default_training_plans')
         except configparser.Error:
             _msg = ErrorNumbers.FB600.value + \
-                   ": no security/allow_default_models in config file, please recreate a new config file"
+                   ": no security/allow_default_training_plans in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
-        self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS',
+        self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS',
                                                          _cfg_value) \
                                                    .lower() in ('true', '1', 't', True)
 
         try:
-            _cfg_value = cfg.get('security', 'model_approval')
+            _cfg_value = cfg.get('security', 'training_plan_approval')
         except configparser.Error:
             _msg = ErrorNumbers.FB600.value + \
-                   ": no security/model_approval in config file, please recreate a new config file"
+                   ": no security/training_plan_approval in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
-        self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL',
+        self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL',
                                                    _cfg_value) \
                                              .lower() in ('true', '1', 't', True)
 
@@ -409,17 +408,17 @@ class Environ(metaclass=SingletonMeta):
 
         # Security variables
         # Default hashing algorithm is SHA256
-        allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS', True)
-        model_approval = os.getenv('ENABLE_MODEL_APPROVAL', False)
+        allow_default_training_plans = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True)
+        training_plan_approval = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False)
 
         cfg['security'] = {
             'hashing_algorithm': HashingAlgorithms.SHA256.value,
-            'allow_default_models': allow_default_models,
-            'model_approval': model_approval
+            'allow_default_training_plans': allow_default_training_plans,
+            'training_plan_approval': training_plan_approval
         }
 
         # write the config for future relaunch of the same component
-        # (only if the file does not exists)
+        # (only if the file does not exist)
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
@@ -551,5 +550,5 @@ class Environ(metaclass=SingletonMeta):
 
         if self._values['COMPONENT_TYPE'] == ComponentType.NODE:
             logger.info("type                = " + str(self._values['COMPONENT_TYPE']))
-            logger.info("model_approval      = " + str(self._values['MODEL_APPROVAL']))
-            logger.info("allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))
+            logger.info("training_plan_approval      = " + str(self._values['TRAINING_PLAN_APPROVAL']))
+            logger.info("allow_default_training_plans = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))

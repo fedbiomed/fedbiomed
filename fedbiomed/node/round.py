@@ -6,19 +6,21 @@ import os
 import sys
 import time
 import inspect
-from typing import Union, Any
+import importlib
+from typing import Union, Any, Optional, Tuple, List
 import uuid
 
-from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
+from fedbiomed.common.data import DataManager, DataLoadingPlan
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 class Round:
@@ -31,24 +33,24 @@ class Round:
                  training_kwargs: dict = None,
                  training: bool = True,
                  dataset: dict = None,
-                 model_url: str = None,
-                 model_class: str = None,
+                 training_plan_url: str = None,
+                 training_plan_class: str = None,
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
-                 node_args: Union[dict, None] = None):
+                 node_args: Union[dict, None] = None,
+                 dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
         """Constructor of the class
 
         Args:
             model_kwargs: contains model args
-            training_kwargs: contains model characteristics, especially input  dimension (key: 'in_features')
-                and output dimension (key: 'out_features')
+            training_kwargs: contains training arguments
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description...
-            model_url: url from which to download model
-            model_class: name of the training plan (eg 'MyTrainingPlan')
+            training_plan_url: url from which to download training plan file
+            training_plan_class: name of the training plan (eg 'MyTrainingPlan')
             params_url: url from which to upload/download model params
             job_id: job id
             researcher_id: researcher id
@@ -60,72 +62,78 @@ class Round:
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
         """
-        testing_args_keys = ('test_ratio', 'test_on_local_updates',
-                             'test_on_global_updates', 'test_metric',
-                             'test_metric_args')
-
-        self.model_kwargs = model_kwargs
-        # Split validation and training arguments
-
-        self.testing_arguments = {}
-        for arg in testing_args_keys:
-            self.testing_arguments[arg] = training_kwargs.get(arg, None)
-            training_kwargs.pop(arg, None)
-
-        self.batch_size = training_kwargs.get('batch_size', 48)
-        training_kwargs.pop('batch_size', None)
-
-        # Set training arguments after removing validation arguments
-        self.training_kwargs = training_kwargs
 
         self.dataset = dataset
-        self.model_url = model_url
-        self.model_class = model_class
+        self.training_plan_url = training_plan_url
+        self.training_plan_class = training_plan_class
         self.params_url = params_url
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
-        self.model_manager = ModelManager()
+        self.tp_security_manager = TrainingPlanSecurityManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
-        self.model = None
+        self.training_plan = None
         self.training = training
+        self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
+
+        self.training_kwargs = training_kwargs
+        self.model_arguments = model_kwargs
+        self.testing_arguments = None
+        self.loader_arguments = None
+        self.training_arguments = None
+
+    def initialize_validate_training_arguments(self) -> None:
+        """Validates and separates training argument for experiment round"""
+
+        self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
+        self.testing_arguments = self.training_arguments.testing_arguments()
+        self.loader_arguments = self.training_arguments.loader_arguments()
 
     def run_model_training(self) -> dict[str, Any]:
-        """This method downloads model file; then runs the training of a model
-        and finally uploads model params
+        """This method downloads training plan file; then runs the training of a model
+        and finally uploads model params to the file repository
 
         Returns:
             Returns the corresponding node message, training reply instance
         """
         is_failed = False
-        error_message = ''
 
-        # Download model, training routine, execute it and return model results
+        # Initialize and validate requested experiment/training arguments
+        try:
+            self.initialize_validate_training_arguments()
+        except FedbiomedUserInputError as e:
+            return self._send_round_reply(success=False, message=str(e))
+        except Exception as e:
+            msg = 'Unexpected error while validating training argument'
+            logger.debug(f"{msg}: {e}")
+            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
+
         try:
             # module name cannot contain dashes
-            import_module = 'my_model_' + str(uuid.uuid4().hex)
-            status, _ = self.repository.download_file(self.model_url,
+            import_module = 'training_plan_' + str(uuid.uuid4().hex)
+            status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
 
             if status != 200:
-                error_message = "Cannot download model file: " + self.model_url
+                error_message = "Cannot download training plan file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
             else:
-                if environ["MODEL_APPROVAL"]:
-                    approved, model = self.model_manager.check_model_status(os.path.join(environ["TMP_DIR"],
-                                                                            import_module + '.py'),
-                                                                            ModelApprovalStatus.APPROVED)
+                if environ["TRAINING_PLAN_APPROVAL"]:
+                    approved, training_plan_ = self.tp_security_manager.check_training_plan_status(
+                        os.path.join(environ["TMP_DIR"], import_module + '.py'),
+                        TrainingPlanApprovalStatus.APPROVED)
+
                     if not approved:
-                        error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
+                        error_message = f'Requested training plan is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
                     else:
-                        logger.info(f'Model has been approved by the node {model["name"]}')
+                        logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
 
             if not is_failed:
                 status, params_path = self.repository.download_file(
                     self.params_url,
-                    'my_model_' + str(uuid.uuid4()) + '.pt')
+                    'training_plan_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     error_message = f"Cannot download param file: {self.params_url}"
                     return self._send_round_reply(success=False, message=error_message)
@@ -133,50 +141,33 @@ class Round:
         except Exception as e:
             is_failed = True
             # FIXME: this will trigger if model is not approved by node
-            error_message = f"Cannot download model files: {str(e)}"
+            error_message = f"Cannot download training plan files: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # import module, declare the model, load parameters
+        # import module, declare the training plan, load parameters
         try:
             sys.path.insert(0, environ['TMP_DIR'])
-
-            # import TrainingPlan created by Researcher on node
-            exec('import ' + import_module, globals())
+            module = importlib.import_module(import_module)
+            train_class = getattr(module, self.training_plan_class)
+            self.training_plan = train_class()
             sys.path.pop(0)
-
-            # instantiate model as `train_class`
-            train_class = eval(import_module + '.' + self.model_class)
-            if self.model_kwargs is None or len(self.model_kwargs) == 0:
-                # case where no args have been found (default)
-                self.model = train_class()
-            else:
-                # case where args have been found  (and passed)
-                self.model = train_class(self.model_kwargs)
         except Exception as e:
-            error_message = f"Cannot instantiate model object: {str(e)}"
+            error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # import model params into the model instance
         try:
-            self.model.load(params_path, to_params=False)
+            self.training_plan.post_init(model_args=self.model_arguments,
+                                         training_args=self.training_arguments)
+        except Exception as e:
+            error_message = f"Can't initialize training plan with the arguments: {e}"
+            return self._send_round_reply(success=False, message=error_message)
+
+        # import model params into the training plan instance
+        try:
+            self.training_plan.load(params_path, to_params=False)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
             return self._send_round_reply(success=False, message=error_message)
-
-        # Run the training routine
-        # Caution: always provide values for node-side arguments
-        # (history_monitor, node_args) especially if they are security
-        # related, to avoid overloading by malicious researcher.
-        #
-        # We want to have explicit message in case of overloading attempt
-        # (and continue training) though by default it fails with
-        # "dict() got multiple values for keyword argument"
-        node_side_args = ['history_monitor', 'node_args']
-        for arg in node_side_args:
-            if arg in self.training_kwargs:
-                del self.training_kwargs[arg]
-                logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
-                               f' Maybe a malicious researcher attack.')
 
         # Split training and validation data
         try:
@@ -189,21 +180,16 @@ class Round:
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-                                            node_args=self.node_args,
-                                            **self.training_kwargs)
-        logger.info(f'training with arguments {training_kwargs_with_history}')
-
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
             # Last control to make sure validation data loader is set.
-            if self.model.testing_data_loader is not None:
+            if self.training_plan.testing_data_loader is not None:
                 try:
-                    self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
-                                               metric_args=self.testing_arguments.get('test_metric_args', {}),
-                                               history_monitor=self.history_monitor,
-                                               before_train=True)
+                    self.training_plan.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                                       metric_args=self.testing_arguments.get('test_metric_args', {}),
+                                                       history_monitor=self.history_monitor,
+                                                       before_train=True)
                 except FedbiomedError as e:
                     logger.error(f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
                                  f"{str(e)}")
@@ -216,12 +202,14 @@ class Round:
         #
         # If training is activated.
         if self.training:
-            if self.model.training_data_loader is not None:
+            if self.training_plan.training_data_loader is not None:
                 try:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.model.training_routine(**training_kwargs_with_history)
+                    self.training_plan.training_routine(history_monitor=self.history_monitor,
+                                                        node_args=self.node_args
+                                                        )
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
@@ -231,12 +219,13 @@ class Round:
             # Validation after training
             if self.testing_arguments.get('test_on_local_updates', False) is not False:
 
-                if self.model.testing_data_loader is not None:
+                if self.training_plan.testing_data_loader is not None:
                     try:
-                        self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
-                                                   metric_args=self.testing_arguments.get('test_metric_args', {}),
-                                                   history_monitor=self.history_monitor,
-                                                   before_train=False)
+                        self.training_plan.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                                           metric_args=self.testing_arguments.get('test_metric_args',
+                                                                                                  {}),
+                                                           history_monitor=self.history_monitor,
+                                                           before_train=False)
                     except FedbiomedError as e:
                         logger.error(
                             f"{ErrorNumbers.FB314.value}: During the validation phase on local parameter updates; "
@@ -252,13 +241,13 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = self.model.after_training_params()
+            results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                self.model.save(filename, results)
+                self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
             except Exception as e:
@@ -268,10 +257,10 @@ class Round:
 
             # end : clean the namespace
             try:
-                del self.model
+                del self.training_plan
                 del import_module
             except Exception as e:
-                logger.debug(f'Exception raise while deleting model {e}')
+                logger.debug(f'Exception raise while deleting training plan instance: {e}')
                 pass
 
             return self._send_round_reply(success=True,
@@ -319,7 +308,7 @@ class Round:
         """
 
         # Set requested data path for model training and validation
-        self.model.set_dataset_path(self.dataset['path'])
+        self.training_plan.set_dataset_path(self.dataset['path'])
 
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
@@ -333,22 +322,23 @@ class Round:
                            "experiment.")
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
-            logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                           ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
+            logger.warning(
+                'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
+                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-        # Set models validatino and training parts for model
-        self.model.set_data_loaders(train_data_loader=training_data_loader,
-                                    test_data_loader=testing_data_loader)
+        # Set models validating and training parts for training plan
+        self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
+                                            test_data_loader=testing_data_loader)
 
     def _split_train_and_test_data(self, test_ratio: float = 0):
         """
         Method for splitting training and validation data based on training plan type. It sets
-        `dataset_path` for model and calls `training_data` method of training plan.
+        `dataset_path` for training plan and calls `training_data` method of training plan.
 
         Args:
-            test_ratio: The ratio that represent validatino partition. Default is 0, means that
+            test_ratio: The ratio that represent validating partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:
@@ -361,15 +351,15 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
-        training_plan_type = self.model.type()
+        training_plan_type = self.training_plan.type()
 
         # Inspect the arguments of the method `training_data`, because this
         # part is defined by user might include invalid arguments
-        parameters = inspect.signature(self.model.training_data).parameters
+        parameters = inspect.signature(self.training_plan.training_data).parameters
         args = list(parameters.keys())
 
         # Currently, training_data only accepts batch_size
-        if len(args) > 1 and 'batch_size' not in args:
+        if len(args) > 1 or (len(args) == 1 and 'batch_size' not in args):
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `the arguments of `training_data` of training "
                                       f"plan contains unsupported argument. ")
 
@@ -378,13 +368,12 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.model.training_data(batch_size=self.batch_size)
+                data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])
             else:
-                data_manager = self.model.training_data()
+                data_manager = self.training_plan.training_data()
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
-
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
@@ -404,6 +393,15 @@ class Round:
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})
             data_manager.dataset.set_dataset_parameters(dataset_parameters)
+
+        if self._dlp_and_loading_block_metadata is not None:
+            if hasattr(data_manager.dataset, 'set_dlp'):
+                dlp = DataLoadingPlan().deserialize(*self._dlp_and_loading_block_metadata)
+                data_manager.dataset.set_dlp(dlp)
+            else:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
+                                          f"{self._dlp_and_loading_block_metadata['name']} on dataset of type "
+                                          f"{data_manager.dataset.__class__.__name__} which is not enabled.")
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,

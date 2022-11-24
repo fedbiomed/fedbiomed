@@ -1,6 +1,9 @@
 # Fed-BioMed
 
-version 3 implementation of the Fed-BioMed project
+version 4 implementation of the Fed-BioMed project
+
+## Table of Contents
+[[_TOC_]]
 
 ## Introduction
 
@@ -11,7 +14,7 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
 
 Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v3.4) aka the master branch.
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.0) aka the master branch.
 
 
 ## Install and run in development environment
@@ -21,8 +24,9 @@ It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
-Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v3.4/tutorials/installation/0-basic-software-installation/
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v3.4/user-guide/installation/windows-installation/
+Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v4.0/tutorials/installation/0-basic-software-installation/
+
+An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v4.0/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -55,7 +59,7 @@ git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 $ ./scripts/configure_conda
 ```
 
-* this script will create/upadte the conda environments
+* this script will create/update the conda environments
 
 * there is one specific environment for each component:
 
@@ -363,7 +367,7 @@ exp = Experiment(tags=tags,
                  #nodes=None,
                  model_path=model_file,
                  model_args=model_args,
-                 model_class='MyTrainingPlan',
+                 training_plan_class='MyTrainingPlan',
                  training_args=training_args,
                  round_limit=round_limit,
                  aggregator=FedAverage(),
@@ -418,11 +422,11 @@ tensorboard --logdir "$tensorboard_dir"`
 
 ## Model Hashing and Enabling Model Approve
 
-Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.
+Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
 
 #### Config file for security parameters
 
-Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum operation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
+Enabling training plan approval mode, allowing default Fed-BioMed training plans and the hashing algorithm that will be performed for the checksum operation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
 
 ```
 [default]
@@ -433,87 +437,87 @@ Enabling model approval mode, allowing default Fed-BioMed models and the hashing
 
 [security]
 hashing_algorithm = SHA256
-allow_default_models = True
-model_approval = False
+allow_default_training_plans = True
+training_plan_approval = False
 
 ```
 
-By default, when node is launched for the first time without additional security parameters, `model_approval` mode comes as disabled. If `model_approval` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approval` you should set `model_approval` to `True` and if it is desired `allow_default_models` can be set to `False` for not accepting models of default Fed-BioMed examples.
+By default, when node is launched for the first time without additional security parameters, `training_plan_approval` mode comes as disabled. If `training_plan_approval` is disabled the status of `allow_defaults_training_plans` will have no effect. To enable `training_plan_approval` you should set `training_plan_approval` to `True` and if it is desired `allow_default_training_plans` can be set to `False` for not accepting training plans of default Fed-BioMed examples.
 
 The default hashing algorithm is `SHA256` and it can also be changed to other hashing algorithms that are provided by Fed-BioMed. You can see the list of Hashing algorithms in the following section.
 
 
 #### Hashing Algorithms
 
-`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should be typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default models during the starting process.
+`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should be typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default training plans during the starting process.
 
 Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_384`, `SHA3_512`, `BLAKE2B` and `BLAKE2S`. These are the algorithms that has been guaranteed by `hashlib` library of Python.
 
 
 #### Starting nodes with different modes
 
-To enable `model_approval` mode and `allow_default_models` node, start the following command.
+To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini --enable-model-approval --allow-default-models start
+./scripts/fedbiomed_run node config config-n1.ini --enable-training-plan-approval --allow-default-training-plans start
 ```
 
-This command will start the node with model approval activated mode even the config file has been set as `model_aprove = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled model approval mode.
+This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
 
 ```
 [security]
 hashing_algorithm = SHA256
-allow_default_models = True
-model_approval = True
+allow_default_training_plans = True
+training_plan_approval = True
 
 
-For starting node with disabled model approval and default models;
-
-```shell
-./scripts/fedbiomed_run node config config-n1.ini --disable-model-approval --disable-default-models start
-```
-
-#### Default Models
-
-Default models are located in the `envs/common/default_models/` directory as `txt` files. Each time  the node starts with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algorithm of the model is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/common/default_models` directory. After the copy/save operation node should be restarted.
-
-
-#### Registering New Models
-
-New models can be registered using `fedbiomed_run` scripts with `register-model` option.
+For starting node with disabled training plan approval and default training plans;
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini register-model
+./scripts/fedbiomed_run node config config-n1.ini --disable-training-plan-approval --disable-default-training-plans start
 ```
 
-The CLI asks for the name of the model, description and the path where model file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
+#### Default TrainingPlans
 
-#### Deleting Registered Models
+Default training plans are located in the `envs/common/default_training_plans/` directory as `txt` files. Each time  the node starts with the `training_plan_approval = True` and `allow_default_training_plan = True` modes, hashing of the training plan files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new training plan file added. If training plan files are modified `ModelManager` updates hashes for these training plans in the database. If the hashing algorithm of the training plan is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `training-plan-approval` and `allow-default-training-plans` modes are activated. To add new default training plan for the examples or for testing, training plan files should be saved as `txt` and copied into the `envs/common/default_training_plans` directory. After the copy/save operation node should be restarted.
 
-Following command is used for deleting registered models.
+
+#### Registering New TrainingPlans
+
+New training plans can be registered using `fedbiomed_run` scripts with `register-training-plan` option.
+
+```shell
+./scripts/fedbiomed_run node config config-n1.ini register-training-plan
+```
+
+The CLI asks for the name of the training plan, description and the path where training plan file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
+
+#### Deleting Registered TrainingPlans
+
+Following command is used for deleting registered training plans.
 
 ```
-./scripts/fedbiomed_run node config config-n1.ini delete-model
+./scripts/fedbiomed_run node config config-n1.ini delete-training-plan
 ```
 
-Output of this command will list registered models with their name and id. It will ask to select model file you would like to remove. For example, in the follwing example, typing `1`  will remove the `MyModel` from registered/approved list of models.
+Output of this command will list registered training plans with their name and id. It will ask to select training plan file you would like to remove. For example, in the follwing example, typing `1`  will remove the `MyModel` from registered/approved list of training plans.
 
 ```
-Select the model to delete:
-1) MyModel	 Model ID model_98a1e68d-7938-4889-bc46-357e4ce8b6b5
+Select the training plan to delete:
+1) MyModel	 Model ID training_plan_98a1e68d-7938-4889-bc46-357e4ce8b6b5
 Select:
 ```
 
-Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_models` directory. After restarting the node, deleted model files will be also removed from the `Models` table of the node DB.
+Default training plans can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_training_plans` directory. After restarting the node, deleted training plan files will be also removed from the `TrainingPlans` table of the node DB.
 
 
-#### Updating Registered model
+#### Updating Registered training plan
 
-Following command is used for updating registered models. It updates chosen model with provided new model file. User also
-can provide same model file to update its content.
+Following command is used for updating registered training plans. It updates chosen training plan with provided new training plan file. User also
+can provide same training plan file to update its content.
 
 ```
-./scripts/fedbiomed_run node config config-n1.ini update-model
+./scripts/fedbiomed_run node config config-n1.ini update-training-plan
 ```
 
 ## Fed-BioMed Node GUI
@@ -540,6 +544,13 @@ provided, default will be``config_node.ini``.
 
 It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
 it you can modify following command.
+
+The GUI is based on HTTPS and by default, it will generate a self-signed certificate for you. Butyou can also start GUI specifying the certificate and the private key
+names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**  
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' cert '<name-of-certificate>' key '<name-of-private-key>' start
+```
 
 **IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
@@ -587,7 +598,7 @@ The command above will serve ``var/gui-build`` directory as well as API services
 see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
+source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
 cd ${FEDBIOMED_DIR}/gui/ui
 npm start
 ```
@@ -604,4 +615,37 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+```
+
+## Secure Aggregation Setup: Dev
+
+Fed-BioMed uses MP-SPDZ to provide secure aggregation of the model parameters. Running secure aggregation in Fed-BioMed 
+is optional which makes MP-SPDZ installation/configuration optional as well. Fed-BioMed will be able to run
+FL experiment without MP-SPDZ as long as secure aggregation is not activated on the nodes and the researcher
+components. 
+
+### Configuring MP-SPDZ 
+
+Configuration or installation can be done  with the following command by specifying the Fed-BioMed component. 
+If node and the researcher will be started in the same clone if Fed-BioMed running following command with once
+(`node` or `researcher`) will be enough.  For macOS, the operating system (Darwin) should higher than `High Sierra (10.13)`
+
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg <node|researcher>
+```
+
+
+### Running MP-SPDZ protocols 
+
+MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
+Fed-BioMed node and researcher components. The script for executing the protocols is located in 
+`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+
+```bash
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc compile --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc exec --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc shamir-server-key --help
+
 ```

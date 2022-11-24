@@ -1,17 +1,11 @@
-import os
-import copy
 import re
-from importlib import reload
 
-from . import api
-from app import app, db_prefix
-from flask import request, jsonify
-from utils import get_node_id
-from utils import success, error, response
+from app import app
+from utils import response
 
 from fedbiomed.node.environ import environ
-import fedbiomed.common.environ
-import fedbiomed.node.dataset_manager
+from flask_jwt_extended import jwt_required
+from . import api
 
 
 @api.route('/config/node-id', methods=['GET'])
@@ -50,9 +44,9 @@ def fedbiomed_environ():
     """
     res = {}
     confs = ['NODE_ID', 'DB_PATH', 'ROOT_DIR',
-             'CONFIG_DIR', 'DEFAULT_MODELS_DIR', 'MESSAGES_QUEUE_DIR',
+             'CONFIG_DIR', 'DEFAULT_TRAINING_PLANS_DIR', 'MESSAGES_QUEUE_DIR',
              'MQTT_BROKER', 'MQTT_BROKER_PORT', 'UPLOADS_URL',
-             'MODEL_APPROVAL', 'ALLOW_DEFAULT_MODELS', 'HASHING_ALGORITHM']
+             'TRAINING_PLAN_APPROVAL', 'ALLOW_DEFAULT_TRAINING_PLANS', 'HASHING_ALGORITHM']
 
     for key in confs:
         try:

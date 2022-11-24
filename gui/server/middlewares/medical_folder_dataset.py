@@ -1,12 +1,15 @@
 import os
-from functools import cache
-from fedbiomed.common.data import MedicalFolderController
-from fedbiomed.common.exceptions import FedbiomedError
 from flask import request, g
 from app import app
 from utils import error, response
+from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, \
+    DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import DatasetTypes
+from fedbiomed.node.dataset_manager import DatasetManager
 
 mf_controller = MedicalFolderController()
+dataset_manager = DatasetManager()
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
@@ -47,8 +50,83 @@ def validate_medical_folder_root():
     g.modalities = modalities
 
 
+def validate_all_modalities():
+    """Validates MedicalFolderDataset has subjects with all modalities"""
+    req = request.json
+    root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
+    modalities = req["modalities"]
+    if 'reference_csv_path' in req and req["reference_csv_path"]:
+        reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
+    else:
+        reference_path = None
+    index_col = req["index_col"]
+
+    try:
+        mf_dataset = MedicalFolderDataset(
+            root=root,
+            data_modalities=modalities,
+            target_modalities=modalities,
+            tabular_file=reference_path,
+            index_col=index_col
+        )
+    except FedbiomedError as e:
+        return error(f"Cannot instantiate MedicalFolder: {e}"), 400
+
+    if req['dlp_id']:
+        try:
+            dlp = DataLoadingPlan()
+            dlp_and_dlbs_dict = dataset_manager.get_dlp_by_id(req['dlp_id'])
+            dlp.deserialize(*dlp_and_dlbs_dict)
+        except FedbiomedError as e:
+            return error(f"Cannot instantiate data loading plan of MedicalFolder: {e}"), 400
+        try:
+            mf_dataset.set_dlp(dlp)
+        except FedbiomedError as e:
+            return error(f"Cannot set data loading plan of medical folder: {e}"), 400
+
+    try:
+        subjects = mf_dataset.subjects_has_all_modalities
+    except FedbiomedError as e:
+        return error(f"Cannot check subjects with all modalities: {e}"), 400
+
+    g.subjects = subjects
+
+
+def create_dlp():
+    """Creates a DLP object from the input values"""
+    req = request.json
+
+    try:
+        dlb = MapperBlock()
+        dlb.map = req["modalities_mapping"]
+    except FedbiomedError as e:
+        return error(f"Cannot create data loading block for customizations: {e}"), 400
+
+    try:
+        dlp = DataLoadingPlan()
+        dlp.desc = req["name"]
+        dlp.target_dataset_type = DatasetTypes.MEDICAL_FOLDER
+        dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS] = dlb
+    except (FedbiomedError, KeyError) as e:
+        return error(f"Cannot create data loading plan for customizations: {e}"), 400
+
+    g.dlp = dlp
+
+
+def load_dlp():
+    req = request.json
+    dlp = None
+    if req['dlp_id'] is not None:
+        try:
+            dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
+        except FedbiomedError as e:
+            return error(f"Cannot load data loading plan for customizations: {e}"), 400
+
+    g.dlp = dlp
+
+
 def validate_available_subjects():
-    """Retries available subjects for MedicalFolder Dataset"""
+    """Retrieves available subjects for MedicalFolder Dataset"""
 
     if g.reference is None:
         return None
@@ -60,7 +138,7 @@ def validate_available_subjects():
         intersection, missing_folders, missing_entries = \
             mf_controller.available_subjects(subjects_from_index=reference.index)
     except Exception as e:
-        return error("Can not get subjects"), 400
+        return error(f"Can not get subjects, error {e}"), 400
 
     if not len(intersection) > 0:
         return response({"valid": False,
@@ -74,4 +152,3 @@ def validate_available_subjects():
     }
 
     g.available_subjects = mf_subjects
-

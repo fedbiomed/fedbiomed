@@ -7,6 +7,10 @@ to be completed
 
 ## Code writing rules
 
+### general
+
+- use getters/setters instead of `@property`
+
 ### regarding the exceptions
 
 

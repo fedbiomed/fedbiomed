@@ -22,6 +22,9 @@ class FakeModel:
         self.__type = 'DummyTrainingPlan'
         pass
 
+    def post_init(self, model_args, training_args):
+        pass
+
     def type(self):
         """ Getter for TrainingPlan Type"""
         return self.__type

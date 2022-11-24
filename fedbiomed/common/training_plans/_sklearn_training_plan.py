@@ -1,498 +1,383 @@
-"""TrainingPlan definitions for sklearn ML framework
+"""TrainingPlan definitions for the scikit-learn ML framework.
 
-This module implements the base class for all implementations of Fed-BioMed wrappers around scikit-learn models.
+This module implements the base class for all implementations of
+Fed-BioMed training plans wrapping scikit-learn models.
 """
 
-import sys
-import numpy as np
+from abc import ABCMeta, abstractmethod
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from typing import Any, Dict, Union, Callable
-from io import StringIO
-from joblib import dump, load
+import joblib
+import numpy as np
+from sklearn.base import BaseEstimator
+from torch.utils.data import DataLoader
+
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.metrics import MetricTypes
 
 from ._base_training_plan import BaseTrainingPlan
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.metrics import Metrics, MetricTypes
-from fedbiomed.common.utils import get_method_spec
 
-
-class _Capturer(list):
-    """Capturing class for the console output of the scikit-learn models during training
-    when verbose is set to true.
-    """
-
-    def __enter__(self):
-        sys.stdout.flush()
-        self._stdout = sys.stdout
-        sys.stdout = self._stringio = StringIO()
-        return self
-
-    def __exit__(self, *args):
-        self.extend(self._stringio.getvalue().splitlines())
-        del self._stringio  # Remove it from memory
-        sys.stdout = self._stdout
-
-
-class SKLearnTrainingPlan(BaseTrainingPlan):
+class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     """Base class for Fed-BioMed wrappers of sklearn classes.
 
-    Classes that inherit from this must meet the following conditions:
-    - have a `model` attribute with an instance of the scikit-learn class being wrapped
-    - populate a `params_list` attribute during initialization with the model parameters to be used for aggregation
-    - implement a `training_routine_hook` method that:
-        1. sets `data` and `target` attributes as outputs of a data loader
-        2. calls `partial_fit` or a similar method of the wrapped scikit-learn model
-    - implement a `evaluate_loss` method that calls the `_evaluate_loss_core` method of this class (i.e. the base)
+    Classes that inherit from this abstract class must:
+    - Specify a `_model_cls` class attribute that defines the type
+      of scikit-learn model being wrapped for training.
+    - Implement a `set_init_params` method that:
+      - sets and assigns the model's initial trainable weights attributes.
+      - populates the `_param_list` attribute with names of these attributes.
+    - Implement a `_training_routine` method that performs a training round
+      based on `self.train_data_loader` (which is a `NPDataLoader`).
 
     Attributes:
-        params: parameters of the model, both learnable and non-learnable
-        model_args: model arguments provided by researcher
-        param_list: names of the parameters that will be used for aggregation
-        dataset_path: the path to the dataset on the node
+        dataset_path: The path that indicates where dataset has been stored
+        pre_processes: Preprocess functions that will be applied to the
+            training data at the beginning of the training routine.
+        training_data_loader: Data loader used in the training routine.
+        testing_data_loader: Data loader used in the validation routine.
     """
 
-    def __init__(self, model_args: dict = None):
-        """
-        Class initializer.
+    _model_cls: Type[BaseEstimator]        # wrapped model class
+    _model_dep: Tuple[str, ...] = tuple()  # model-specific dependencies
 
-        Args:
-        - model_args (dict, optional): model arguments. Defaults to {}.
-        """
-        if model_args is None:
-            model_args = {}
+    def __init__(self) -> None:
+        """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-
-        if getattr(self, 'model') is None:
-            msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        if not isinstance(model_args, dict):
-            msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        self.params = self.model.get_params()
-        self.params.update({key: model_args[key] for key in model_args if key in self.params})
-
-        self.model_args = model_args
-
-        self.param_list = []
-
+        self._model = self._model_cls()
+        self._model_args = {}  # type: Dict[str, Any]
+        self._training_args = {}  # type: Dict[str, Any]
+        self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-
         self._is_classification = False
-        self._is_regression = False
-        self._is_clustering = False
-        self._is_binary_classification = False
-        self._verbose_capture_option = False
-        self.dataset_path = None
-        self.add_dependency(["import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
-                             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-                             "from fedbiomed.common.data import DataManager",
-                             ])
+        self._batch_maxnum = 0
+        self.dataset_path: Optional[str] = None
+        self.add_dependency([
+            "import inspect",
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
+            "from fedbiomed.common.data import DataManager",
+        ])
+        self.add_dependency(list(self._model_dep))
 
-    def training_routine(self,
-                         epochs: int = 1,
-                         history_monitor = None,
-                         node_args: Union[dict, None] = None):
-        """
-        Method training_routine called in Round, to change only if you know what you are doing.
+    def post_init(
+            self,
+            model_args: Dict[str, Any],
+            training_args: Dict[str, Any]
+        ) -> None:
+        """Process model, training and optimizer arguments.
 
         Args:
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-        - history_monitor ([type], optional): [description]. Defaults to None.
-        - node_args (Union[dict, None]): command line arguments for node. Can include:
-            - gpu (bool): propose use a GPU device if any is available. Default False.
-            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-              GPU device if this GPU device is available. Default None.
-            - gpu_only (bool): force use of a GPU device if any available, even if researcher
-              doesnt request for using a GPU. Default False.
-                """
-        if self.model is None:
-            raise FedbiomedTrainingPlanError('model in None')
+            model_args: Model arguments.
+            training_args: Training arguments.
+        """
+        self._model_args = model_args
+        self._model_args.setdefault("verbose", 1)
+        self._training_args = training_args.pure_training_arguments()
+        self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
+        # Add dependencies
+        self._configure_dependencies()
+        # Override default model parameters based on `self._model_args`.
+        params = {
+            key: self._model_args.get(key, val)
+            for key, val in self._model.get_params().items()
+        }
+        self._model.set_params(**params)
+        # Set up additional parameters (normally created by `self._model.fit`).
+        self.set_init_params()
 
-        # Run preprocesses
-        self.__preprocess()
+    @abstractmethod
+    def set_init_params(self) -> None:
+        """Initialize the model's trainable parameters."""
 
+    def set_data_loaders(
+            self,
+            train_data_loader: Union[DataLoader, NPDataLoader, None],
+            test_data_loader: Union[DataLoader, NPDataLoader, None]
+        ) -> None:
+        """Sets data loaders
+
+        Args:
+            train_data_loader: Data loader for training routine/loop
+            test_data_loader: Data loader for validation routine
+        """
+        args = (train_data_loader, test_data_loader)
+        if not all(isinstance(data, NPDataLoader) for data in args):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
+                "NPDataLoader instances as training and testing data "
+                f"loaders, but received {type(train_data_loader)} "
+                f"and {type(test_data_loader)} respectively."
+            )
+            logger.error(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        self.training_data_loader = train_data_loader
+        self.testing_data_loader = test_data_loader
+
+    def model_args(self) -> Dict[str, Any]:
+        """Retrieve model arguments.
+
+        Returns:
+            Model arguments
+        """
+        return self._model_args
+
+    def training_args(self) -> Dict[str, Any]:
+        """Retrieve training arguments.
+
+        Returns:
+            Training arguments
+        """
+        return self._training_args
+
+    def model(self) -> BaseEstimator:
+        """Retrieve the wrapped scikit-learn model instance.
+
+        Returns:
+            Scikit-learn model instance
+        """
+        return self._model
+
+    def training_routine(
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None,
+            node_args: Optional[Dict[str, Any]] = None
+        ) -> None:
+        """Training routine, to be called once per round.
+
+        Args:
+            history_monitor: optional HistoryMonitor
+                instance, recording training metadata.
+            node_args: Command line arguments for node.
+                These arguments can specify GPU use; however, this is not
+                supported for scikit-learn models and thus will be ignored.
+        """
+        if not isinstance(self._model, BaseEstimator):
+            msg = (
+                f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
+                f"estimator, but is of type {type(self._model)}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        if not isinstance(self.training_data_loader, NPDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
+                "be trained without a NPDataLoader as `training_data_loader`."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        # Run preprocessing operations.
+        self._preprocess()
+        # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):
-            logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
-                           'does not support it. Training on CPU.')
-
+            logger.warning(
+                'Node would like to force GPU usage, but sklearn training '
+                'plan does not support it. Training on CPU.'
+            )
+        # Run the model-specific training routine.
         try:
-            self._training_routine_core_loop(epochs,
-                                             history_monitor)
-        except FedbiomedTrainingPlanError as e:
-            raise e
-
-    def _training_routine_core_loop(self,
-                                    epochs: int = 1,
-                                    history_monitor = None):
-        """
-        Training routine core
-        Args:
-        - model_hook: training_routine_hook of child class {FedSGDClassifier, FedSGDRegressor, FedPerceptron}
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-        - history_monitor ([type], optional): [description]. Defaults to None.
-        """
-        for epoch in range(epochs):
-            with _Capturer() as output:
-                # Fit model based on model type
-                try:
-                    self.training_routine_hook()
-                except Exception as e:
-                    msg = ErrorNumbers.FB605.value + \
-                          ": error while fitting the model - " + \
-                          str(e)
-                    logger.critical(msg)
-                    raise FedbiomedTrainingPlanError(msg)
-            # Logging training training outputs
-            if history_monitor is not None:
-                if self._verbose_capture_option:
-
-                    loss = self.evaluate_loss(output, epoch)
-
-                    loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
-                    # TODO: This part should be changed after mini-batch implementation is completed
-                    history_monitor.add_scalar(metric={loss_function: float(loss)},
-                                               iteration=1,
-                                               epoch=epoch,
-                                               train=True,
-                                               num_batches=1,
-                                               total_samples=len(self.data),
-                                               batch_samples=len(self.data))
-                else:
-                    # TODO: For clustering; passes inertia value as scalar. It should be implemented when
-                    #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
-                    #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
-                    pass
-
-    def _evaluate_loss_core(self, output: StringIO, epoch: int) -> list[float]:
-        """
-        Evaluate the loss when verbose option _verbose_capture_option is set to True.
-        Args:
-        - output: output of the scikit-learn models during training
-        - epoch: epoch number
-        Returns: list[float]: list of loss captured in the output
-        """
-        _loss_collector = []
-        for line in output:
-            if len(line.split("loss: ")) == 1:
-                continue
-            try:
-                loss = line.split("loss: ")[-1]
-                _loss_collector.append(float(loss))
-
-                # Logging loss values with global logger
-                logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch, float(loss)))
-            except ValueError as e:
-                logger.error("Value error during monitoring:" + str(e))
-            except Exception as e:
-                logger.error("Error during monitoring:" + str(e))
-        return _loss_collector
-
-    def testing_routine(self,
-                        metric: Union[MetricTypes, None],
-                        metric_args: Dict[str, Any],
-                        history_monitor,
-                        before_train: bool):
-        """
-        Validation routine for SGDSkLearnModel. This method is called by the Round class if validation
-        is activated for the Federated training round
-
-        Args:
-            metric (MetricType, None): The metric that is going to be used for validation. Should be
-                an instance of MetricTypes. If it is None and there is no `testing_step` is defined
-                by researcher method will raise an Exception. Defaults to ACCURACY.
-
-            history_monitor (HistoryMonitor): History monitor class of node side to send validation results
-                to researcher.
-
-            before_train (bool): If True, this means validation is going to be performed after loading model parameters
-              without training. Otherwise, after training.
-
-        """
-        # Use accuracy as default metric
-        if metric is None:
-            metric = MetricTypes.ACCURACY
-
-        if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
+            self._training_routine(history_monitor)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB605.value}: error while fitting "
+                f"the model: {exc}"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        # Check validation data loader is exists
-        data, target = self.testing_data_loader
+    @abstractmethod
+    def _training_routine(
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None
+        ) -> None:
+        """Model-specific training routine backend.
 
-        # At the first round model won't have classes_ attribute
-        if self._is_classification and not hasattr(self.model, 'classes_'):
+        Args:
+            history_monitor: optional HistoryMonitor
+                instance, recording the loss value during training.
+
+        This method needs to be implemented by SKLearnTrainingPlan
+        child classes, and is called as part of `training_routine`
+        (that notably enforces preprocessing and exception catching).
+        """
+        return None
+
+    def testing_routine(
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional['HistoryMonitor'],
+            before_train: bool
+        ) -> None:
+        """Evaluation routine, to be called once per round.
+
+        !!! info "Note"
+            If the training plan implements a `testing_step` method
+            (the signature of which is func(data, target) -> metrics)
+            then it will be used rather than the input metric.
+
+        Args:
+            metric: The metric used for validation.
+                If None, use MetricTypes.ACCURACY.
+            history_monitor: HistoryMonitor instance,
+                used to record computed metrics and communicate them to
+                the researcher (server).
+            before_train: Whether the evaluation is being performed
+                before local training occurs, of afterwards. This is merely
+                reported back through `history_monitor`.
+        """
+        # Check that the testing data loader is of proper type.
+        if not isinstance(self.testing_data_loader, NPDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot be "
+                "evaluated without a NPDataLoader as `testing_data_loader`."
+            )
+            logger.error(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        # If required, make up for the lack of specifications regarding target
+        # classification labels.
+        if self._is_classification and not hasattr(self._model, 'classes_'):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self.model, 'classes_', classes)
-
-        # Build metrics object
-        metric_controller = Metrics()
-        tot_samples = len(data)
-
-        # Use validation method defined by user
-        if hasattr(self, 'testing_step') and callable(self.testing_step):
-            try:
-                m_value = self.testing_step(data, target)
-            except Exception as err:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error - " + \
-                      str(err)
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
-            # If custom validation step returns None
-            if m_value is None:
-                msg = ErrorNumbers.FB605.value + \
-                      ": metric function has returned None"
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
-            metric_name = 'Custom'
-
-        # If metric is defined use pre-defined validation for Fed-BioMed
-        else:
-            if metric is None:
+            setattr(self._model, 'classes_', classes)
+        # If required, select the default metric (accuracy or mse).
+        if metric is None:
+            if self._is_classification:
                 metric = MetricTypes.ACCURACY
-                logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
-                            f"in the training arguments `: using default metric {metric.name}"
-                            " for model validation")
             else:
-                logger.info(
-                    f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                    " for model validation.")
+                metric = MetricTypes.MEAN_SQUARE_ERROR
+        # Delegate the actual evalation routine to the parent class.
+        super().testing_routine(
+            metric, metric_args, history_monitor, before_train
+        )
 
-            try:
-                pred = self.model.predict(data)
-            except Exception as e:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error during predicting validation data set - " + \
-                      str(e)
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+    def predict(
+            self,
+            data: Any,
+        ) -> np.ndarray:
+        """Return model predictions for a given batch of input features.
 
-            m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
-            metric_name = metric.name
+        This method is called as part of `testing_routine`, to compute
+        predictions based on which evaluation metrics are computed. It
+        will however be skipped if a `testing_step` method is attached
+        to the training plan, than wraps together a custom routine to
+        compute an output metric directly from a (data, target) batch.
 
-        metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
+        Args:
+            data: Array-like (or tensor) structure containing batched
+                input features.
 
-        # For logging in node console
-        logger.debug('Validation: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
-                                                                metric.name, m_value))
-
-        # Send scalar values via general/feedback topic
-        if history_monitor is not None:
-            history_monitor.add_scalar(metric=metric_dict,
-                                       iteration=1,  # since there is only one
-                                       epoch=None,  # no epoch
-                                       test=True,  # means that for sending validation metric
-                                       test_on_local_updates=False if before_train else True,
-                                       test_on_global_updates=before_train,
-                                       total_samples=tot_samples,
-                                       batch_samples=len(target),
-                                       num_batches=1)
+        Returns:
+            Output predictions, converted to a numpy array (as per the
+                `fedbiomed.common.metrics.Metrics` specs).
+        """
+        return self._model.predict(data)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
-        """
-        Method for getting all classes from validatino and target dataset. This action is required
-        in case of some class only exist in training subset or validation subset
+        """Return unique target labels from the training and testing datasets.
 
         Returns:
-            np.ndarray: numpy array containing unique values from the whole dataset (training + validation dataset)
+            Numpy array containing the unique values from the targets wrapped
+            in the training and testing NPDataLoader instances.
         """
+        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
 
-        target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
-        target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+    def save(
+            self,
+            filename: str,
+            params: Union[None, Dict[str, np.ndarray], Dict[str, Any]] = None
+        ) -> None:
+        """Save the wrapped model and its trainable parameters.
 
-        target_test_train = np.concatenate((target_test, target_train))
-
-        return np.unique(target_test_train)
-
-    def __preprocess(self) -> None:
-        """
-        Method for executing registered preprocess that are defined by user.
-        """
-
-        for (name, process) in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
-
-            if process_type == ProcessTypes.DATA_LOADER:
-                self.__process_data_loader(method=method)
-            else:
-                logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
-                             f"Preprocess will be ignored")
-
-    def __process_data_loader(self, method: Callable) -> None:
-        """Process handler for data loader kind processes.
+        This method is designed for parameter communication. It
+        uses the joblib.dump function, which in turn uses pickle
+        to serialize the model. Note that unpickling objects can
+        lead to arbitrary code execution; hence use with care.
 
         Args:
-          method (Callable) : Process method that is going to be executed
+            filename: Path to the output file.
+            params: Model parameters to enforce and save.
+                This may either be a {name: array} parameters dict, or a
+                nested dict that stores such a parameters dict under the
+                'model_params' key (in the context of the Round class).
 
-        Raises FedbiomedTrainingPlanError:
-          - raised when method doesn't have 2 positional arguments
-          - Raised if running method fails
-          - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
-          - if dataloaders contained in method output don't contain the same number of samples
-       """
-
-        argspec = get_method_spec(method)
-        if len(argspec) != 2:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process for type `PreprocessType.DATA_LOADER`" + \
-                  " should have two argument/parameter as inputs/data" + \
-                  " and target sets that will be used for training. "
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        try:
-            data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
-        except Exception as e:
-            msg = ErrorNumbers.FB605.value + \
-                  ": error while running process method -> " + \
-                  method.__name__ + \
-                  str(e)
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        # Debug after running preprocess
-        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
-
-        if isinstance(data_loader, tuple) \
-                and len(data_loader) == 2 \
-                and isinstance(data_loader[0], np.ndarray) \
-                and isinstance(data_loader[1], np.ndarray):
-
-            if len(data_loader[0]) == len(data_loader[1]):
-                self.training_data_loader = data_loader
-                logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
-                             f"`{method.__name__}` ")
-            else:
-                msg = ErrorNumbers.FB605.value + \
-                      ": process error " + \
-                      method.__name__ + \
-                      " : number of samples of inputs and target sets should be equal "
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
-
-        else:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process method " + \
-                  method.__name__ + \
-                  " should return tuple length of two as dataset and" + \
-                  " target and both should be and instance of np.ndarray."
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-    def _compute_support(self, targets: np.ndarray) -> np.ndarray:
+        Notes:
+            Save can be called from Job or Round.
+            * From Round it is called with params (as a complex dict).
+            * From Job it is called with no params in constructor, and
+                with params in update_parameters.
         """
-        Computes support, i.e. the number of items per
-        classes. It is designed from the way scikit learn linear model
-        `fit_binary` and `_prepare_fit_binary` have been implemented.
+        # Optionally overwrite the wrapped model's weights.
+        if params:
+            if isinstance(params.get('model_params'), dict):  # in a Round
+                params = params["model_params"]
+            for key, val in params.items():
+                setattr(self._model, key, val)
+        # Save the wrapped model (using joblib, hence pickle).
+        with open(filename, "wb") as file:
+            joblib.dump(self._model, file)
+
+    def load(
+            self,
+            filename: str,
+            to_params: bool = False
+        ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
+        """Load a scikit-learn model dump, overwriting the wrapped model.
+
+        This method uses the joblib.load function, which in turn uses
+        pickle to deserialize the model. Note that unpickling objects
+        can lead to arbitrary code execution; hence use with care.
+
+        This function updates the `_model` private attribute with the
+        loaded instance, and returns either that same model or a dict
+        wrapping its trainable parameters.
 
         Args:
-            targets (np.ndarray): targets that contain labels
-            used for training models
+            filename: The path to the pickle file to load.
+            to_params: Whether to return the model's parameters
+                wrapped as a dict rather than the model instance.
+
+        Notes:
+            Load can be called from a Job or Round:
+            * From Round it is called to return the model.
+            * From Job it is called with to return its parameters dict.
 
         Returns:
-            np.ndarray: support
+            Dictionary with the loaded parameters.
         """
-        support = np.zeros((len(self.model.classes_),))
+        # Deserialize the dump, type-check the instance and assign it.
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+        if not isinstance(model, self._model_cls):
+            msg = (
+                f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
+                f"to expectations: should be of type {self._model_cls}, not "
+                f"{type(model)}."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+        self._model = model
+        # Optionally return the model's pseudo state dict instead of it.
+        if to_params:
+            params = {k: getattr(self._model, k) for k in self._param_list}
+            return {"model_params": params}
+        return self._model
 
-        # to see how multi classification is done in sklearn, please visit:
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
-        for i, aclass in enumerate(self.model.classes_):
-            # in sklearn code, in `fit_binary1`, `i`` seems to be
-            # iterated over model.classes_
-            # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
-            # We cannot directly know for each loss that has been logged from scikit learn
-            #  which labels it corresponds to. This is our best guest
-            idx = targets == aclass
-            support[i] = np.sum(targets[targets.astype(int)[idx]])
-
-        return support
-
-    def save(self, filename: str, params: dict = None) -> None:
-        """
-        Save method for parameter communication, internally is used
-        dump and load joblib library methods.
-
-        Args:
-            filename: (string) name of the output file
-            params: (dictionary) model parameters to save
-
-        Save can be called from Job or Round.
-        From round is always called with params.
-        From job is called with no params in constructor and with params in update_parameters.
-
-        Torch state_dict has a model_params object. model_params tag is used in the code. This is why this tag is
-        used in sklearn case.
-        """
-        file = open(filename, "wb")
-        if params is None:
-            dump(self.model, file)
-        else:
-            if params.get('model_params') is not None:  # called in the Round
-                for p in params['model_params'].keys():
-                    setattr(self.model, p, params['model_params'][p])
-            else:
-                for p in params.keys():
-                    setattr(self.model, p, params[p])
-            dump(self.model, file)
-        file.close()
-
-    def load(self, filename: str, to_params: bool = False) -> Dict:
-        """Method to load the parameters of a scikit model
-
-        This function updates the `model` attribute with the loaded parameters.
-        Load can be called from Job or Round.
-        From round is called with no params
-        From job is called with  params
-
-        Args:
-            filename (string) the name of the file to load
-            to_params (boolean) to differentiate a pytorch from a sklearn
-
-        Returns:
-            dictionary with the loaded parameters
-        """
-        di_ret = {}
-        file = open(filename, "rb")
-        if not to_params:
-            self.model = load(file)
-            di_ret = self.model
-        else:
-            self.model = load(file)
-            di_ret['model_params'] = {key: getattr(self.model, key) for key in self.param_list}
-        file.close()
-        return di_ret
-
-    def get_model(self):
-        """Get the wrapped scikit-learn model
-            Returns:
-                the scikit model object (sklearn.base.BaseEstimator)
-        """
-        return self.model
-
-    def type(self):
+    def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
 
-    def after_training_params(self) -> Dict:
-        """
-        Provide a dictionary with the federated parameters you need to aggregate, refer to
-        scikit documentation for a detail of parameters
+    def after_training_params(self) -> Dict[str, np.ndarray]:
+        """Return the wrapped model's trainable parameters' current values.
+
+        This method returns a dict containing parameters that need
+        to be reported back and aggregated in a federated learning
+        setting.
 
         Returns:
-            the federated parameters (dictionary)
+            dict[str, np.ndarray]: the trained parameters to aggregate.
         """
-        return {key: getattr(self.model, key) for key in self.param_list}
+        return {key: getattr(self._model, key) for key in self._param_list}

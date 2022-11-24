@@ -21,12 +21,31 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
-class FedbiomedDatasetError(FedbiomedError):
+class FedbiomedDataLoadingPlanError(FedbiomedError):
     """
-    Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
+    Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
     """
     pass
 
+
+class FedbiomedDataLoadingPlanValueError(FedbiomedError):
+    """
+    Exceptions similar to Value Error for a DataLoadingPlan.
+    """
+    pass
+
+
+class FedbiomedDatasetError(FedbiomedError):
+    """
+    Generic exception for a Dataset class.
+    """
+    pass
+
+class FedbiomedDatasetValueError(FedbiomedError):
+    """
+    ValueErrors raised by any Dataset class.
+    """
+    pass
 
 class FedbiomedDataManagerError(FedbiomedError):
     """
@@ -42,6 +61,13 @@ class FedbiomedDatasetManagerError(FedbiomedError):
     pass
 
 
+class FedbiomedDPControllerError(FedbiomedError):
+    """
+    Exceptions specific for the class DPController
+    """
+    pass
+
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class.
@@ -52,6 +78,20 @@ class FedbiomedEnvironError(FedbiomedError):
 class FedbiomedExperimentError(FedbiomedError):
     """
     Exception specific to the Experiment class.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockError(FedbiomedError):
+    """
+    Exception specific to the DataLoadingBlock classes/subclasses.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockValueError(FedbiomedError):
+    """
+    Exception similar to ValueError for a DataLoadingBlock.
     """
     pass
 
@@ -86,9 +126,9 @@ class FedbiomedMetricError(FedbiomedError):
     pass
 
 
-class FedbiomedModelManagerError(FedbiomedError):
+class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
-    Exception specific to the ModelManager.
+    Exception specific to the TrainingPlanSecurityManager.
 
     (from fedbiomed.common.model_manager)
     """
@@ -111,7 +151,14 @@ class FedbiomedResponsesError(FedbiomedError):
 
 class FedbiomedRoundError(FedbiomedError):
     """
-    Exceptions specific for the class node round class.
+    Exceptions specific for the node round class.
+    """
+    pass
+
+
+class FedbiomedSecaggError(FedbiomedError):
+    """
+    Exceptions specific for the researcher secure aggregation class.
     """
     pass
 
@@ -166,8 +213,22 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     pass
 
 
+class FedbiomedTypeError(FedbiomedError, TypeError):
+    """
+    TypeError for Fed-BioMed
+    """
+    pass
+
+
 class FedbiomedUserInputError(FedbiomedError):
     """
     Exception raised then user input is invalid.
+    """
+    pass
+
+
+class FedbiomedValueError(FedbiomedError, ValueError):
+    """
+    ValueError for Fed-BioMed
     """
     pass
