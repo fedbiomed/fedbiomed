@@ -1,10 +1,10 @@
 import os
 
 from OpenSSL import crypto
-from typing import Dict
+from typing import Dict, List
+from tinydb import TinyDB, Query
 from validator import SchemeValidator, ValidateError
 from fedbiomed.common.exceptions import FedbiomedError
-
 
 CertificateDataValidator = SchemeValidator({
     "email": {"rules": [str], "required": False, "default": "fed@biomed"},
@@ -16,11 +16,98 @@ CertificateDataValidator = SchemeValidator({
 
 
 class CertificateManager:
+    """ Certificate manager to manage certificates of parties
 
-    # TODO: Add database CRUD operation here
+    Attrs:
+        _db: TinyDB database to store certificates
+    """
 
-    def __init__(self):
-        pass
+    def __init__(self, db: str):
+        """Constructs certificate manager
+
+        Args:
+            db: The name of the DB file to connect through TinyDB
+        """
+
+        self._db: TinyDB = TinyDB(db, 'Certificates')
+        self._query: Query = Query()
+
+    def insert(
+            self,
+            certificate:
+            str,
+            party_id: str,
+            component: str
+    ) -> int:
+        """ Inserts new certificate
+
+        Args:
+            certificate: Public-key for the FL parties
+            party_id: ID of the party
+            component: Node or researcher
+        """
+
+        return self._db.insert(dict(certificate=certificate,
+                                    party=party_id,
+                                    component=component
+                                    )
+                               )
+
+    def get(
+            self,
+            party_id
+    ) -> int:
+
+        """Gets certificate/public key  of given party
+
+        Args:
+            party_id: Party id
+        """
+
+        return self._db.get(self._query.party == party_id)
+
+    def delete(
+            self,
+            party_id
+    ) -> Dict:
+        """Deletes given party from table
+
+        Args:
+            party_id: Party id
+
+        Returns:
+
+        """
+
+        return self._db.remove(self._query.party_id == party_id)
+
+    def write_certificates_for_experiment(
+            self,
+            parties: List[str],
+            path: str
+    ) -> None:
+        """ Writes certificates into given directory respecting the order
+
+        Args:
+            parties:
+            path:
+
+        """
+        certificates = []
+
+        # Get certificate for each party
+        for party in parties:
+            party = self.get(party)
+            if not party:
+                raise FedbiomedError(
+                    f"Certificate for {party} is not existing. Aborting setup."
+                )
+            certificates.append(party.certificates)
+
+        # # Adds part number
+        # for certificate, index in enumerate(certificates):
+        #
+        #     with open(path)
 
     @staticmethod
     def generate_certificate(

@@ -601,7 +601,6 @@ class NodeEnviron(Environ):
             'public_key': pem_file
         }
 
-
     def info(self):
         """"""
         logger.info("type                = " + str(self._values['COMPONENT_TYPE']))
