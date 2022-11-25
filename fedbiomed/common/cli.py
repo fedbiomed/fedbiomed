@@ -70,7 +70,6 @@ class CommonCLI:
                                   nargs='?',
                                   help='Certificate path or certificate string')
 
-
         # Set db path that certificate manager will be using to store certificates
         self._certificate_manager.set_db(db_path=data["DP_PATH"])
 

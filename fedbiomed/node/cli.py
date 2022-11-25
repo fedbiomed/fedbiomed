@@ -241,20 +241,20 @@ def launch_cli():
     if cli.arguments.add:
         add_database()
     elif cli.arguments.add_mnist is not None:
-        add_database(interactive=False, path=args.add_mnist)
+        add_database(interactive=False, path=cli.arguments.add_mnist)
     elif cli.arguments.add_dataset_from_file is not None:
         print("Dataset description file provided: adding these data")
         try:
-            with open(args.add_dataset_from_file) as json_file:
+            with open(cli.arguments.add_dataset_from_file) as json_file:
                 data = json.load(json_file)
         except:
-            logger.critical("cannot read dataset json file: " + args.add_dataset_from_file)
+            logger.critical("cannot read dataset json file: " + cli.argumentsadd_dataset_from_file)
             sys.exit(-1)
 
         # verify that json file is complete
         for k in ["path", "data_type", "description", "tags", "name"]:
             if k not in data:
-                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file)
+                logger.critical("dataset json file corrupted: " + cli.arguments.add_dataset_from_file)
 
         # dataset path can be defined:
         # - as an absolute path -> take it as it is
