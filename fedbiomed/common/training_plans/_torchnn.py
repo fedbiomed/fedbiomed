@@ -494,9 +494,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # If Scaffold is used: apply corrections to the gradients
                 if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
                     for name, param in self._model.named_parameters():
-                        corr = self.correction_state.get(name)
-                        if corr is not None:
-                            param.grad.add_(corr.to(param.grad.device))
+                        correction = self.correction_state.get(name)
+                        if correction is not None:
+                            param.grad.add_(correction.to(param.grad.device))
 
                 # Have the optimizer collect, refine and apply gradients
                 self._optimizer.step()
