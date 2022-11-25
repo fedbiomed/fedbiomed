@@ -1166,9 +1166,15 @@ class TestNode(unittest.TestCase):
         ]
         dict_secagg_extra_msg = [
             f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
-            'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
-            'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
-            "ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
+            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
+            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
+            "ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
+        ]
+        dict_secagg_reply_type = [
+            "error",
+            "reply",
+            "reply",
+            "reply"
         ]
 
         class CustomFakeMessages(FakeMessages):
@@ -1181,13 +1187,26 @@ class TestNode(unittest.TestCase):
         for req in dict_secagg_requests:
             msg_secagg_request = CustomFakeMessages(req)
 
-            dict_secagg_reply = {
-                'command': 'error',
-                'extra_msg': dict_secagg_extra_msg.pop(0),
-                'node_id': environ['NODE_ID'],
-                'researcher_id': 'NOT_SET',
-                'errnum': ErrorNumbers.FB318
-            }
+            reply_type = dict_secagg_reply_type.pop(0)
+
+            if reply_type == 'error':
+                dict_secagg_reply = {
+                    'command': 'error',
+                    'extra_msg': dict_secagg_extra_msg.pop(0),
+                    'node_id': environ['NODE_ID'],
+                    'researcher_id': 'NOT_SET',
+                    'errnum': ErrorNumbers.FB318
+                }
+            else:
+                dict_secagg_reply = {
+                    'researcher_id': req['researcher_id'],
+                    'secagg_id': req['secagg_id'],
+                    'sequence': req['sequence'],
+                    'success': False,
+                    'node_id': environ['NODE_ID'],
+                    'msg': dict_secagg_extra_msg.pop(0),
+                    'command': 'secagg'
+                }
 
             # action
             self.n1.task_secagg(msg_secagg_request)
@@ -1220,11 +1239,13 @@ class TestNode(unittest.TestCase):
             }
             msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
             dict_secagg_reply = {
-                'command': 'error',
-                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'success': False,
                 'node_id': environ['NODE_ID'],
-                'researcher_id': 'NOT_SET',
-                'errnum': ErrorNumbers.FB318
+                'msg': f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: ",
+                'command': 'secagg'
             }
 
             secagg_servkey_patch.side_effect = Exception
@@ -1310,6 +1331,14 @@ class TestNode(unittest.TestCase):
         # prepare
         bad_message_values = [2, 18, 987]
         for bad_message_value in bad_message_values:
+
+            class FakeSecaggElementTypes(_BaseEnum):
+                DUMMY: int = bad_message_value
+            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
+            element_types_patch.__iter__.return_value = [
+                FakeSecaggElementTypes(bad_message_value)
+            ]
+
             dict_secagg_request = {
                 'researcher_id': 'my_test_researcher_id',
                 'secagg_id': 'my_dummy_secagg_id',
@@ -1321,19 +1350,14 @@ class TestNode(unittest.TestCase):
             }
             msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
             dict_secagg_reply = {
-                'command': 'error',
-                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'command': dict_secagg_request['command'],
                 'node_id': environ['NODE_ID'],
-                'researcher_id': 'NOT_SET',
-                'errnum': ErrorNumbers.FB318
+                'success': False,
+                'msg': f'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: no such element {FakeSecaggElementTypes(dict_secagg_request["element"]).name}'
             }
-
-            class FakeSecaggElementTypes(_BaseEnum):
-                DUMMY: int = bad_message_value
-            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
-            element_types_patch.__iter__.return_value = [
-                FakeSecaggElementTypes(bad_message_value)
-            ]
 
             # action
             self.n1.task_secagg(msg_secagg_request)

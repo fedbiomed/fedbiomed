@@ -208,7 +208,6 @@ class Node:
             )
 
         # 2. Instantiate secagg context element
-        error = ''
         element2class = {
             'SERVER_KEY': SecaggServkeySetup,
             'BIPRIME': SecaggBiprimeSetup
@@ -220,7 +219,8 @@ class Node:
                 secagg = element2class[element.name](researcher_id, secagg_id, job_id, sequence, parties)
             except Exception as e:
                 # bad secagg request
-                error = str(e)
+                errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request ' \
+                    f"received by {environ['NODE_ID']}: {str(e)}"
             else:
                 # 3. Execute
                 try:
@@ -230,33 +230,22 @@ class Node:
                 except Exception as e:
                     errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
                         f'{secagg.element()}: {e}'
-                    logger.error(errmess)
-                    return self.messaging.send_message(
-                        NodeMessages.reply_create(
-                            {
-                                'researcher_id': researcher_id,
-                                'secagg_id': secagg_id,
-                                'sequence': sequence,
-                                'success': False,
-                                'node_id': environ['NODE_ID'],
-                                'msg': errmess,
-                                'command': 'secagg'
-                            }
-                        ).get_dict()
-                    )
+        else:
+            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                f"received by {environ['NODE_ID']}: no such element {element.name}"
 
         # failed secagg request
-        errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
-            f"received by {environ['NODE_ID']}: {error}"
         logger.error(errmess)
         return self.messaging.send_message(
             NodeMessages.reply_create(
                 {
-                    'command': 'error',
-                    'extra_msg': errmess,
+                    'researcher_id': researcher_id,
+                    'secagg_id': secagg_id,
+                    'sequence': sequence,
+                    'success': False,
                     'node_id': environ['NODE_ID'],
-                    'researcher_id': 'NOT_SET',
-                    'errnum': ErrorNumbers.FB318
+                    'msg': errmess,
+                    'command': 'secagg'
                 }
             ).get_dict()
         )
