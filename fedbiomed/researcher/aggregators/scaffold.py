@@ -50,9 +50,9 @@ class Scaffold(Aggregator):
     Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
 
     Attributes:
-     aggregator_name (str) : name of the aggregator
-     server_lr (float) : value of the server learning rate
-     nodes_correction_states (Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]) : a nested dictionary
+     aggregator_name: name of the aggregator
+     server_lr: value of the server learning rate
+     nodes_correction_states: a nested dictionary
         of correction parameters obtained for each client, in the format {node id: node-wise corrections}. The
         node-wise corrections are a dictionary in the format {parameter name: correction value} where the
         model parameters are those contained in each node's model.named_parameters().
