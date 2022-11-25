@@ -22,29 +22,45 @@ class Scaffold(Aggregator):
     """
     Defines the Scaffold strategy
 
+    Despite being an algorithm of choice for federated learning, it is observed that FedAvg
+    suffers from `client-drift` when the data is heterogeneous (non-iid), resulting in unstable and slow
+    convergence. SCAFFOLD uses control variates (variance reduction) to correct for the `client-drift` in its local
+    updates.
+    Intuitively, SCAFFOLD estimates the update direction for the server model (c) and the update direction for each
+    client (c_i).
+    The difference (c - c_i) is then an estimate of the client-drift which is used to correct the local update.
+
+    Fed-BioMed implementation details
+    ---
+    Our implementation is heavily influenced by our design choice to prevent storing any state on the nodes between
+    FL rounds. In particular, this means that the computation of the control variates (i.e. the correction states)
+    needs to be performed centrally by the aggregator.
+    Roughly, our implementation follows these steps:
+
+    1. the server communicates the global model and the correction states to all clients
+    2. each client performs K updates of mini-batch SGD, applying the correction terms
+    3. each client communicates their updated model and their learning rate
+    4. the server updates the global model by averaging all clients' models
+    5. the server updates the global correction term
+    6. the server updates the correction states of each client
+
+    References:
+    [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
+    [TCT: Convexifying Federated Learning using Bootstrapped Neural
+    Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
+
     Attributes:
      aggregator_name (str) : name of the aggregator
      server_lr (float) : value of the server learning rate
-     nodes_correction_states (Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]) : corrections
-     parameters obtained for each client
+     nodes_correction_states (Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]) : a nested dictionary
+        of correction parameters obtained for each client, in the format {node id: node-wise corrections}. The
+        node-wise corrections are a dictionary in the format {parameter name: correction value} where the
+        model parameters are those contained in each node's model.named_parameters().
     """
 
     def __init__(self, server_lr: float = 1., fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
-
-        Despite being an algorithm of choice for federated learning, it is observed that FedAvg
-        suffers from `client-drift` when the data is heterogeneous (non-iid), resulting in unstable and slow
-        convergence. SCAFFOLD uses control variates (variance reduction) to correct for the `client-drift` in its local
-        updates.
-        Intuitively, SCAFFOLD estimates the update direction for the server model (c) and the update direction for each
-        client (c_i).
-        The difference (c - c_i) is then an estimate of the client-drift which is used to correct the local update.
-
-        References:
-        [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
-        [TCT: Convexifying Federated Learning using Bootstrapped Neural
-        Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
 
         Args:
             server_lr (float): server's (or Researcher's) learning rate. Defaults to 1..
@@ -106,8 +122,7 @@ class Scaffold(Aggregator):
             global_model (Mapping[str, Union[torch.Tensor, np.ndarray]]): global model,
                 ie aggregated model
             training_plan (BaseTrainingPlan): instance of TrainingPlan
-            node_ids (Iterable[str]): iterable containing node_id (string) participating to the current round.
-                its length should be lower or equal to
+            node_ids (Iterable[str]): iterable containing node_id (string) participating in the current round.
             n_updates (int, optional): number of updates (number of batch performed). Defaults to 1.
             n_round (int, optional): current round. Defaults to 0.
 
@@ -139,7 +154,7 @@ class Scaffold(Aggregator):
 
         Args:
             global_model (Mapping[str, Union[torch.Tensor, np.ndarray]]): aggregated model
-            node_ids (Iterator[str]): iterable that contains strings of nodes id that have particpated to
+            node_ids (Iterator[str]): iterable that contains strings of nodes id that have participated in
                 the round
 
         Returns:
@@ -266,14 +281,33 @@ class Scaffold(Aggregator):
                 model_params: Dict[str, Mapping[str, Union[np.ndarray, torch.Tensor]]],
                 global_model: Mapping[str, Union[np.ndarray, torch.Tensor]]
                 ) -> Mapping[str, Union[np.ndarray, torch.Tensor]]:
+        """Computes the aggregated model.
+
+        Let
+
+            - x = the global model from the previous aggregation round
+            - y_i = the local model after training for the i^th node
+            - eta_g = the global learning rate
+
+        Then this function computes the quantity `x (1 - eta_g) + eta_g / S * sum_i(y_i))`
+        Proof:
+            x <- x + eta_g * grad(x)
+            x <- x + eta_g / S * sum_i(y_i - x)
+            x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
+
+        Args:
+            model_params: dictionary of model parameters obtained after one round of federated training,
+                in the format {node id: {parameter name: parameter value}}.
+            global_model: dictionary representing the previous iteration of the global model,
+                in the format {parameter name: parameter value}. This corresponds to $\mathbf{x}$ in the notation
+                of the scaffold paper.
+
+        Returns:
+            A dictionary of aggregated parameters, in the format {parameter name: parameter value}, where the
+                parameter names are the same as those of the input global models
+        """
         aggregated_parameters = {}
         for key, val in global_model.items():
-            #     Computes quantity `x (1 - eta_g) + eta_g / S * sum_i(y_i))`
-            # Proof:
-            #     x <- x + eta_g * grad(x)
-            #     x <- x + eta_g / S * sum_i(y_i - x)
-            #     x <- x (1 - eta_g) + eta_g / S * sum_i(y_i)
-
             update = sum(params[key] for params in model_params.values()) / len(model_params)
             newval = (1 - self.server_lr) * val + self.server_lr * update
 
@@ -368,7 +402,7 @@ class Scaffold(Aggregator):
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
         """
         Overrides `set_training_plan_type` from parent class.
-        Checks the trainning plan type, and if it is SKlearnTrainingPlan,
+        Checks the training plan type, and if it is SKlearnTrainingPlan,
         raises an error. Otherwise, calls parent method.
 
         Args:
@@ -378,7 +412,7 @@ class Scaffold(Aggregator):
             FedbiomedAggregatorError: raised if training_plan type has been set to SKLearn training plan
 
         Returns:
-            TrainingPlans: trainijng plan type
+            TrainingPlans: training plan type
         """
         if training_plan_type == TrainingPlans.SkLearnTrainingPlan:
             raise FedbiomedAggregatorError("Aggregator SCAFFOLD not implemented for SKlearn")
@@ -390,7 +424,6 @@ class Scaffold(Aggregator):
     def save_state(self, training_plan: BaseTrainingPlan,
                    breakpoint_path: str,
                    global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
-        #aggregator_args_msg, aggregator_args_file = self.create_aggregator_args(global_model, self._fds.node_ids())
         # adding aggregator parameters to the breakpoint that wont be sent to nodes
         self._aggregator_args['server_lr'] = self.server_lr
         
@@ -417,4 +450,3 @@ class Scaffold(Aggregator):
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
 
             self.nodes_correction_states[node_id] = training_plan.load(arg_filename)
-            #self.nodes_correction_states[node_id].pop('aggregator_name')

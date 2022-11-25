@@ -46,6 +46,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
+        correction_state: an OrderedDict of {'parameter name': torch.Tensor} where the keys correspond to the names of
+            the model parameters contained in self._model.named_parameters(), and the values correspond to the
+            correction to be applied to that parameter.
     """
 
     def __init__(self):
