@@ -340,27 +340,26 @@ class Job:
 
             self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
 
-
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
                                args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
-        """
+        """Uploads aggregator metadata to the Repository and updates the mqtt message accordingly.
 
         Args:
-            args_thr_msg (Union[Dict[str, Dict[str, Any]], dict]):
-            args_thr_files (Union[Dict[str, Dict[str, Any]], dict]): _description_
+            args_thr_msg: dictionary containing metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
+                node_id, and sub-dictionary should be parameters to be sent through MQTT messaging system. This
+                dictionary may be modified by this function with additional metadata about other metadata
+                transferred via the Repository.
+            args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
+                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
+                aggregator_args_thr_msg .
 
         Returns:
-            Dict[str, Dict[str, Any]]: _description_
+            The updated dictionary with metadata to be introduced in the mqtt message.
         """
-        # upload training_args through file messaging system, if their size is too big to be transfered through
-        # MQTT (eg correction parameters in Scaffold aggregator)
-        # write the url down into training_args_thr_msg
-
         for node_id, aggr_params in args_thr_files.items():
-
             for arg_name, aggr_param in aggr_params.items():
-                #arg_name = aggr_param['arg_name']
                 if arg_name == 'aggregator_name':
                     continue
                 args_thr_msg[node_id][arg_name] = {}
@@ -369,23 +368,28 @@ class Job:
                 filename, url = self.update_parameters(aggr_param, None,
                                                        is_model_params=False,
                                                        variable_name=arg_name)
-                args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file, from which to extract the parameters
+                args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file with the parameters
                 args_thr_msg[node_id][arg_name]['url'] = url
 
         return args_thr_msg
 
-    def start_nodes_training_round(self, round: int, aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
+    def start_nodes_training_round(self,
+                                   round: int,
+                                   aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
                                    do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
-            round (int): current number of round the algorithm is performing (a round is considered to be all the
+            round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            aggregator_args_thr_msg (Dict[str, Dict[str, Any]]): dictionary containing some metadata about the aggregation
-                strategy, useful to transfer some data when it's required by am aggregator. First key should be the node_id
-                , and sub-dictionary sould be parameters to be sent through MQTT messaging system
-            do_training (bool): if False, skip training in this round (do only validation). Defaults to True.
+            aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
+                node_id, and sub-dictionary sould be parameters to be sent through MQTT messaging system
+            aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
+                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
+                aggregator_args_thr_msg .
+            do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
@@ -398,21 +402,16 @@ class Job:
         msg = {**headers, **self._repository_args}
         time_start = {}
 
-        # if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
-        #     client_correction_states_dict = self.init_first_correction_states()
-        self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)  # passes heavy aggregator params
-        #through file exchange system
+        # pass heavy aggregator params through file exchange system
+        self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
-            #if strategy_info.get('strategy') == 'Scaffold':
-                #if round == 0:
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
                 msg['aggregator_args'] = aggregator_args_thr_msg[cli]
-                # else:
-                #     msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
+
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
@@ -498,32 +497,36 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
-    def update_parameters(self, params: dict = {}, filename: str = None, is_model_params: bool = True,
+    def update_parameters(self,
+                          params: dict = None,
+                          filename: str = None,
+                          is_model_params: bool = True,
                           variable_name: str = 'aggregated_params') -> Tuple[str, str]:
         """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
         already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
         next training round. If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
-            params (dict): data structure containing the new version of the aggregated parameters for this job,
+            params: data structure containing the new version of the aggregated parameters for this job,
             defaults to empty dictionary {}
-            filename (str): path to the file containing the new version of the aggregated parameters for this job,
+            filename: path to the file containing the new version of the aggregated parameters for this job,
             defaults to None.
-            is_model_params (bool, optional): whether params are models parameters or another value that must be sent
+            is_model_params: whether params are models parameters or another value that must be sent
             through file exchange system. Defaults to True (argument are model parameters).
-            variable_name (str, optional):  name the filename with variable_name. Defaults to 'aggregated_prams'.
+            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
         
         Returns:
-            str: Name of the parameter file
-            str: URL of the uploaded file
+            the name of the parameter file
+            the URL of the uploaded file
         """
+        if params is None:
+            params = {}
         try:
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
                 self._training_plan.save(filename, params)
-
 
             repo_response = self.repo.upload_file(filename)
 
