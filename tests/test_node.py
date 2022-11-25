@@ -1125,12 +1125,13 @@ class TestNode(unittest.TestCase):
         # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
 
         # prepare
+        bad_element = 2
         dict_secagg_requests = [
             {
                 'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
-                'element': 2,
+                'element': bad_element,
                 'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
@@ -1162,66 +1163,12 @@ class TestNode(unittest.TestCase):
                 'parties': ['party1', 'party2'],
                 'command': 'secagg'
             },
-            {
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'my_test_researcher_id',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': 0,
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
         ]
         dict_secagg_extra_msg = [
-            'ErrorNumbers.FB318: received bad request message: incorrect message parameters',
+            f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
             'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
             'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
             "ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'researcher_id'",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'secagg_id'",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'sequence'",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'element'",
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'parties'",  
-            "ErrorNumbers.FB318: received bad request message: no such attribute 'job_id'",  
         ]
 
         class CustomFakeMessages(FakeMessages):
