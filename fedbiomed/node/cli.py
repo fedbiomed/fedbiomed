@@ -169,7 +169,9 @@ def launch_cli():
     cli = CommonCLI()
     cli.initialize_certificate_parser(data={'DP_PATH': environ["DB_PATH"]})
 
-    cli.parser.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
+    # Register description for CLI
+    cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
+
     cli.parser.add_argument('-a', '--add',
                             help='Add and configure local dataset (interactive)',
                             action='store_true')

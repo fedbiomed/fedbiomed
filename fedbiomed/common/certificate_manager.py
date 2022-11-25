@@ -1,5 +1,6 @@
 import os
 
+from functools import wraps
 from OpenSSL import crypto
 from typing import Dict, List, Union
 from tinydb import TinyDB, Query
@@ -40,6 +41,13 @@ class CertificateManager:
     def set_db(self, db_path: str) -> None:
         """Sets database """
         self._db = TinyDB(db_path, "Certificates")
+
+    @classmethod
+    def check_db(cls):
+
+
+        pass
+
 
     def insert(
             self,

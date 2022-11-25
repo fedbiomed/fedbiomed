@@ -18,8 +18,27 @@ CertificateDataValidator = SchemeValidator({
 class CommonCLI:
 
     def __init__(self):
-        self.parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-        self.certificate_manager = CertificateManager()
+        self._parser: argparse.ArgumentParser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+        self._certificate_manager: CertificateManager = CertificateManager()
+        self._description: str = ''
+
+    @property
+    def parser(self):
+        """Gets parser for CLI"""
+        return self._parser
+
+    @property
+    def description(self):
+        """Gets description of CLI"""
+        return self._description
+
+    @description.setter
+    def description(self, value) -> str:
+        """Sets description for parser """
+        self._description = value
+        self._parser.description = value
+
+        return self._description
 
     def initialize_certificate_parser(self, data: Dict):
         """Common arguments """
@@ -39,7 +58,11 @@ class CommonCLI:
                                  nargs='?',
                                  help='Certificate path or certificate string')
 
+        # Set db path that certificate manager will be using to store certificates
+        self._certificate_manager.set_db(db_path=data["DP_PATH"])
+
         args = self.parser.parse_args()
+
 
         print(args.certificate)
 

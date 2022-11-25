@@ -20,7 +20,7 @@ __intro__ = """
 def main():
     cli = CommonCLI()
     CommonCLI.parser.description = f"{__intro__}: A CLI app for fedbiomed researchers."
-    cli.initialize_certificate_parser()
+    cli.initialize_certificate_parser(data={"DB_PATH": environ["DB_PATH"]})
 
     print(__intro__)
     print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
