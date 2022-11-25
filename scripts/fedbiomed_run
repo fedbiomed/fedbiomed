@@ -280,6 +280,7 @@ function start_gui() {
 #
 case $1 in
 
+
     network)
         cd ./envs/development/docker
         #
@@ -392,6 +393,10 @@ case $1 in
 
 
     node)
+
+        # Save all parameters after indication of `node`
+        ALL_PARAMS=${@:2:$#}
+
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -434,6 +439,7 @@ case $1 in
                     usage node
                     ;;
                 *)
+
                     break
                 ;;
             esac
@@ -528,10 +534,18 @@ case $1 in
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
+
                 *)
+                  source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                  python -m fedbiomed.node.cli $ALL_PARAMS 2>&1
+                  if [ ! $? -eq 0 ]; then
                     echo "Bad node command '$2' : please run node with add or start option (full help with -h)"
-                    exit -1
-                    ;;
+                    python -m fedbiomed.node.cli -h
+                  else
+
+                    echo "$output"
+                  fi
+                  ;;
             esac
         else
             echo "INFO: no fedbiomed.node.cli yet in this version, skipping command"

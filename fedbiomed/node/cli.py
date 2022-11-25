@@ -232,19 +232,17 @@ def launch_cli():
                                  'request it (default: dont use GPU)',
                             action='store_true')
 
-    args = cli.parser.parse_args()
+    print(__intro__)
+    print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
 
-    if not any(args.__dict__.values()):
-        cli.parser.print_help()
-    else:
-        print(__intro__)
-        print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
+    # Parse CLI arguments after the arguments are ready
+    cli.parse_args()
 
-    if args.add:
+    if cli.arguments.add:
         add_database()
-    elif args.add_mnist is not None:
+    elif cli.arguments.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
-    elif args.add_dataset_from_file is not None:
+    elif cli.arguments.add_dataset_from_file is not None:
         print("Dataset description file provided: adding these data")
         try:
             with open(args.add_dataset_from_file) as json_file:
@@ -290,37 +288,37 @@ def launch_cli():
                      name=data["name"]
                      )
 
-    elif args.list:
+    elif cli.arguments.list:
         print('Listing your data available')
         data = dataset_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')
-    elif args.delete:
+    elif cli.arguments.delete:
         delete_database()
-    elif args.delete_all:
+    elif cli.arguments.delete_all:
         delete_all_database()
-    elif args.delete_mnist:
+    elif cli.arguments.delete_mnist:
         delete_database(interactive=False)
-    elif args.register_training_plan:
+    elif cli.arguments.register_training_plan:
         register_training_plan()
-    elif args.approve_training_plan:
+    elif cli.arguments.approve_training_plan:
         approve_training_plan()
-    elif args.reject_training_plan:
+    elif cli.arguments.reject_training_plan:
         reject_training_plan()
-    elif args.update_training_plan:
+    elif cli.arguments.update_training_plan:
         update_training_plan()
-    elif args.delete_training_plan:
+    elif cli.arguments.delete_training_plan:
         delete_training_plan()
-    elif args.list_training_plans:
+    elif cli.arguments.list_training_plans:
         tp_security_manager.list_training_plans(verbose=True)
-    elif args.view_training_plan:
+    elif cli.arguments.view_training_plan:
         view_training_plan()
-    elif args.start_node:
+    elif cli.arguments.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
-            'gpu': (args.gpu_num is not None) or (args.gpu is True) or (args.gpu_only is True),
-            'gpu_num': args.gpu_num,
-            'gpu_only': (args.gpu_only is True)
+            'gpu': (cli.arguments.gpu_num is not None) or (cli.arguments.gpu is True) or (cli.arguments.gpu_only is True),
+            'gpu_num': cli.arguments.gpu_num,
+            'gpu_only': (cli.arguments.gpu_only is True)
         }
         launch_node(node_args)
 
