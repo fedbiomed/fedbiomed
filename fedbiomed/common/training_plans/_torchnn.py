@@ -15,7 +15,6 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
-from fedbiomed.common.utils import compute_dot_product
 
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
@@ -483,14 +482,25 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
                 self._optimizer.zero_grad()
 
-                res = self.training_step(data, target)  # raises an exception if not provided
+                loss = self.training_step(data, target)  # raises an exception if not provided
 
+                # If FedProx is enabled: use regularized loss function
+                if self._fedprox_mu is not None:
+                    loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
-                corrected_loss = self.compute_corrected_loss(res)
-                corrected_loss.backward()
+                # Run the backward pass to compute parameters' gradients
+                loss.backward()
 
+                # If Scaffold is used: apply corrections to the gradients
+                if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+                    for name, param in self._model.named_parameters():
+                        corr = self.correction_state.get(name)
+                        if corr is not None:
+                            param.grad.add_(corr.to(param.grad.device))
+
+                # Have the optimizer collect, refine and apply gradients
                 self._optimizer.step()
-                    
+
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     batch_size = self.training_data_loader.batch_size
 
@@ -506,11 +516,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         num_samples_till_now,
                         _n_data_parsed,
                         100 * batch_ / _len_data_loader,
-                        res.item()))
+                        loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
-                        history_monitor.add_scalar(metric={'Loss': res.item()},
+                        history_monitor.add_scalar(metric={'Loss': loss.item()},
                                                    iteration=batch_,
                                                    epoch=epoch,
                                                    train=True,
@@ -650,7 +660,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 #setattr(self, arg_name, aggregator_arg)
                 # here we ae loading all args that have been sent from file exchange system
-                self.correction_state = self.load(aggregator_arg.get('param_path'), True)
+                self.correction_state = torch.load(aggregator_arg.get('param_path'))
 
     def after_training_params(self) -> dict:
         """Retrieve parameters after training is done
@@ -664,7 +674,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         # Check whether postprocess method exists, and use it
-        
+
         params = self._model.state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
@@ -676,36 +686,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         params = self._dp_controller.after_training(params)
         return params
-
-    def compute_corrected_loss(self, res: torch.Tensor) -> torch.Tensor:
-        """Corrects loss regarding the nature of the aggregator used.
-
-        Args:
-            res (torch.Tensor): loss value of the cost function
-
-        Returns:
-            torch.Tensor: corrected loss value
-        """
-        # write here specific loss computation for aggregators
-        if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
-            # if self.correction_state is None:
-
-            #     for i in self._model.state_dict():
-
-            #         self.correction_state[i] = 0
-            # compute corrected loss for Scaffold-like aggregation methods (NB: if correction_state equals 0, it is a plain fedavg)
-            dot_product = compute_dot_product(self._model.state_dict(), self.correction_state, self._device)
-            corrected_loss = res - dot_product
-
-        else:
-            # case where no correction is done (eg: fedavg)
-            corrected_loss = res
-
-        # If FedProx is enabled: use regularized loss function
-        if self._fedprox_mu is not None:
-            corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
-
-        return corrected_loss
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
