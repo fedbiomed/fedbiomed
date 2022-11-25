@@ -23,9 +23,9 @@ class Scaffold(Aggregator):
     Defines the Scaffold strategy
 
     Attributes:
-     - aggregator_name(str): name of the aggregator
-     - server_lr (float): value of the server learning rate
-     - nodes_correction_states(Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]): corrections
+     aggregator_name (str) : name of the aggregator
+     server_lr (float) : value of the server learning rate
+     nodes_correction_states (Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]]) : corrections
      parameters obtained for each client
     """
 
