@@ -1567,7 +1567,6 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # Ready to execute a training round using the job, strategy and aggregator
-        #if self.strategy_info["strategy"] == "Scaffold":
         if self._global_model is None:
             self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
 
@@ -1581,9 +1580,10 @@ class Experiment(object):
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
-        # Trigger training round on sampled nodes
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job._nodes)
+
+        # Trigger training round on sampled nodes
         _ = self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
@@ -1597,12 +1597,6 @@ class Experiment(object):
 
 
         # aggregate models from nodes to a global model
-        # --------------------------------------------
-        # here, we are passing all arguments that the aggregator may need, using named arguments
-        # if your aggregator requieres additional arguments, you can add those in the `aggregate` call, using named
-        # arguments. They will be ignored in the strategies already implemented in Fedbiomed (ie will be
-        # passed in the **kwargs arguments).
-
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
                                                        global_model = self._global_model,
