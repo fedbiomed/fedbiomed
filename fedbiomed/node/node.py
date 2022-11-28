@@ -81,7 +81,8 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        logger.debug('Message received: ' + str(msg))
+        msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
+        logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
@@ -273,6 +274,8 @@ class Node:
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
+        aggregator_args = msg.get_param('aggregator_args') or None
+        
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -321,6 +324,7 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
+                                             aggregator_args,
                                              self.node_args,
                                              dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
@@ -330,9 +334,10 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
-            logger.debug('[TASKS QUEUE] Item:' + str(item))
-
+            item_print = {key:value for key, value in item.items() if key != 'aggregator_args'}
+            logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
+                
                 item = NodeMessages.request_create(item)
                 command = item.get_param('command')
             except Exception as e:

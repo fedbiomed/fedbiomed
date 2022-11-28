@@ -206,6 +206,9 @@ class TestBaseTrainingPlan(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             self.tp.training_data()
 
+    def test_base_training_plan_08_get_learning_rate(self):
+        pass
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
