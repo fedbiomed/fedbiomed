@@ -307,15 +307,16 @@ class Job:
         """Updates training_args before sending it to nodes (all nodes or selected nodes).
 
         Updates the following parameters:
-        - num_updates (provided only if number of epochs has been passed by user: nb of epochs needed
-        computation will be based considering minimum number of samples available accross all nodes)
+
+        - num_updates: in the case where the researcher provided a number of epochs, it computes the
+            number of updates based on the dataset with the smallest number of samples in the federation.
 
         Args:
-            fds (FederatedDataSet): _description_
+            fds (FederatedDataSet): The representation of the federated data set used in the experiment.
             nodes (Optional[List[str]], optional): Node to be considered before sending values. Defaults to None.
 
         Raises:
-            FedbiomedError: _description_
+            FedbiomedError: if no nodes are participating in the experiment.
         """
         if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
             # compute number of updates from number of samples and batch_size (if not provided)
@@ -324,7 +325,6 @@ class Job:
             else:
                 node_present: List[str] = nodes
 
-            assert len(node_present)>0, "subset of nodes should be greater than 0"
             if not node_present:
                 raise FedbiomedError("No node have answered")
             # updating `num_updates` parameter:
