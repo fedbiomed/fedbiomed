@@ -187,23 +187,22 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         return self._model_args
 
     def get_learning_rate(self) -> List[float]:
-        """
-        Gets learning rate from  value set in optimizer (could be the default value,
-        or the )
+        """Gets learning rate from value set in optimizer.
+
+        !!! warning
+            This function gathers the base learning rate applied to the model weights,
+            including alterations due to any LR scheduler. However, it does not catch
+            any adaptive component, e.g. due to RMSProp, Adam or such.
 
         Returns:
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
         if self._optimizer is None:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call `init_optimizer` \
-                                             beforehand")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call "
+                                             f"`init_optimizer beforehand")
         learning_rates = []
-
-
-        # extract learning rate directly from optimizer
         params = self._optimizer.param_groups
-
         for param in params:
             learning_rates.append(param['lr'])
         return learning_rates
