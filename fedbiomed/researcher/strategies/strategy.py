@@ -81,12 +81,12 @@ class Strategy:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, **kwargs):
         """
         Method for loading strategy state from breakpoint state
 
         Args:
-            state: The state that will be leaded
+            state: The state that will be loaded
         """
         # fds may be modified and diverge from Experiment
         self._fds = FederatedDataSet(state.get('fds'))

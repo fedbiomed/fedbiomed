@@ -1,4 +1,5 @@
 import builtins
+import copy
 import inspect
 import logging
 import os
@@ -197,7 +198,8 @@ class TestRound(unittest.TestCase):
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
-            'node_id': environ['NODE_ID']
+            'node_id': environ['NODE_ID'],
+            'optimizer_args': {}
         }
 
         # define context managers for each model method
@@ -261,7 +263,7 @@ class TestRound(unittest.TestCase):
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def post_init(self, model_args, training_args):\n" + \
+            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):\n" + \
             "       pass\n" + \
             "   def load(self, *args, **kwargs):\n" + \
             "       pass \n" + \
@@ -274,6 +276,8 @@ class TestRound(unittest.TestCase):
             "       self.training_data_loader = True\n" + \
             "       pass\n" + \
             "   def set_dataset_path(self, *args, **kwargs):\n" + \
+            "       pass\n" + \
+            "   def optimizer_args(self):\n" + \
             "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
@@ -288,6 +292,7 @@ class TestRound(unittest.TestCase):
 
         # action
         msg_test = self.r1.run_model_training()
+        print("MESSAGE", msg_test)
         # checks
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
@@ -660,6 +665,46 @@ class TestRound(unittest.TestCase):
         training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
+
+
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
+        uuid_patch.return_value = FakeUuid()
+        
+        repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
+        success, _ = self.r1.download_aggregator_args()
+        self.assertEqual(success, True)
+        # if attribute `aggregator_args` is None, then do nothing
+        repository_download_patch.assert_not_called()
+
+        aggregator_args = {'var1': 1, 
+                            'var2': [1, 2, 3, 4],
+                            'var3': {'url': 'http://to/var/3',},
+                            'var4': {'url': 'http://to/var/4'}}
+        self.r1.aggregator_args = copy.deepcopy(aggregator_args)
+        
+        success, error_msg = self.r1.download_aggregator_args()
+        self.assertEqual(success, True)
+        self.assertEqual(error_msg, '')
+        
+        for var in ('var1', 'var2'):
+            self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
+        
+        for var in ('var3', 'var4'):
+            self.assertNotIn('url', self.r1.aggregator_args[var].keys())
+            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
+
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_11_download_file(self, uuid_patch, repository_download_patch):
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, "my_model")
+        file_path = 'path/to/my/downloaded/files'
+        success, param_path, msg = self.r1.download_file('http://some/url/to/some/files', file_path)
+        self.assertEqual(success, True)
+        self.assertEqual(param_path, 'my_model')
+        self.assertEqual(msg, '')
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -1,7 +1,9 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from cgitb import reset
+from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
+
 from copy import deepcopy
 
 import numpy as np
@@ -12,6 +14,8 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.metrics import Metrics
+
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
 
@@ -42,6 +46,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
+        correction_state: an OrderedDict of {'parameter name': torch.Tensor} where the keys correspond to the names of
+            the model parameters contained in self._model.named_parameters(), and the values correspond to the
+            correction to be applied to that parameter.
     """
 
     def __init__(self):
@@ -67,6 +74,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._log_interval = 10
         self._epochs = 1
         self._dry_run = False
+        self._num_updates = None
+
+        self.correction_state = OrderedDict()
+        self.aggregator_name = None
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -95,18 +106,23 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
-        """Set arguments for the model, training and the optimizer.
+        """Process model, training and optimizer arguments.
 
         Args:
-            model_args: Arguments defined by researcher to instantiate model/torch module
-            training_args: Arguments that are used in training routine such as epoch, dry_run etc.
+            model_args: Arguments defined to instantiate the wrapped model.
+            training_args: Arguments that are used in training routines
+                such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
 
         Raises:
-            FedbiomedTrainingPlanError: - If the arguments of spacial method do not match to expected arguments
-                - If return values of optimizer, model  and dependencies are not satisfied
+            FedbiomedTrainingPlanError: If the provided arguments do not
+                match expectations, or if the optimizer, model and dependencies
+                configuration goes wrong.
         """
 
         self._model_args = model_args
@@ -114,10 +130,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
-        self._fedprox_mu = self._training_args.get('fedprox_mu')
+
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
+        self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
+
+        # aggregator args
+        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        # TODO: put fedprox mu inside strategy_args
+        self._aggregator_args = aggregator_args or {}
+
+        self.set_aggregator_args(self._aggregator_args)
+        #self.aggregator_name = self._aggregator_args.get('aggregator_name')
+        # FIXME: we should have a AggregatorHandler that handles aggregator args
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
 
@@ -160,6 +186,47 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._model_args
 
+    def get_learning_rate(self) -> List[float]:
+        """Gets learning rate from value set in optimizer.
+
+        !!! warning
+            This function gathers the base learning rate applied to the model weights,
+            including alterations due to any LR scheduler. However, it does not catch
+            any adaptive component, e.g. due to RMSProp, Adam or such.
+
+        Returns:
+            List[float]: list of single learning rate or multiple learning rates
+                (as many as the number of the layers contained in the model)
+        """
+        if self._optimizer is None:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call "
+                                             f"`init_optimizer beforehand")
+        learning_rates = []
+        params = self._optimizer.param_groups
+        for param in params:
+            learning_rates.append(param['lr'])
+        return learning_rates
+
+    def update_optimizer_args(self) -> Dict:
+        """
+        Updates `_optimizer_args` variable. Can prove useful
+        to retrieve optimizer parameters after having trained a
+        model, parameters which may have changed during training (eg learning rate).
+
+        Updated arguments:
+         - learning_rate
+
+        Returns:
+            Dict: updated `_optimizer_args`
+        """
+        if self._optimizer_args is None:
+            self._optimizer_args = {}
+        self._optimizer_args['lr'] = self.get_learning_rate()
+        return self._optimizer_args
+
+    def get_model_params(self) -> OrderedDict:
+        return self._model.state_dict()
+
     def training_args(self) -> Dict:
         """Retrieves training args
 
@@ -174,6 +241,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Optimizer arguments
         """
+        self.update_optimizer_args()  # update `optimizer_args` (eg after training)
         return self._optimizer_args
 
     def initial_parameters(self) -> Dict:
@@ -189,7 +257,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         try:
             self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
         except AttributeError as e:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Invalid argument for default "
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}")
 
         return self._optimizer
@@ -225,7 +293,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Validate model
         if not isinstance(self._model, nn.Module):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Model should be an instance of `nn.Module`")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
@@ -241,7 +309,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Validate optimizer
         if not isinstance(self._optimizer, torch.optim.Optimizer):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Optimizer should torch base optimizer.")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -320,10 +388,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                              f'Data must be a torch Tensor or a list, tuple or dict '
                                              f'ultimately containing Tensors.')
 
-
     def training_routine(self,
                          history_monitor: Any = None,
-                         node_args: Union[dict, None] = None):
+                         node_args: Union[dict, None] = None,
+                         ):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for validation specified in the
         # training routine
@@ -358,16 +426,57 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Run preprocess when everything is ready before the training
         self._preprocess()
 
+        # Initialize training data that comes from Round class
+        # TODO: Decide whether it should attached to `self`
+        # self.data = data_loader
+
+        # initial aggregated model parameters
+        self._init_params = deepcopy(self._model.state_dict())
+
+        if self._num_updates is not None:
+            # compute num epochs and batches from num_updates
+            # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
+            # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
+            # the last epoch will have 0 iterations.
+
+            if self._batch_maxnum <= 0:
+                num_batches_per_epoch = len(self.training_data_loader)
+                num_epochs = self._num_updates // num_batches_per_epoch #+ 1
+            else:
+                # FIXME: we decided that batch_maxnum is the maximum number of batch an epoch can have
+                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates
+                # reaches num_updates
+                num_batches_per_epoch = min(self._batch_maxnum, len(self.training_data_loader))
+                self._num_updates_set = self._num_updates
+                self._num_updates = min(self._num_updates, self._batch_maxnum)
+                num_epochs = max(self._num_updates, self._num_updates_set) // num_batches_per_epoch
+
+            if self._num_updates % num_batches_per_epoch:
+                # increment self._num_updates // num_batches_per_epoch
+                num_epochs += 1
+            if self._batch_maxnum <= 0:
+                num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
+            else:
+                num_batches_in_last_epoch = self._num_updates_set - num_batches_per_epoch * (num_epochs - 1)
+
+        else:
+            num_epochs = self._epochs
+            num_batches_in_last_epoch = None
         # DP actions --------------------------------------------------------------------------------------------
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
-        for epoch in range(1, self._epochs + 1):
+        for epoch in range(1, num_epochs + 1):
+
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             num_samples_till_now = 0
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
+
+                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
+                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch and epoch == num_epochs:
+                    break
 
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
@@ -375,39 +484,57 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
                 self._optimizer.zero_grad()
 
-                res = self.training_step(data, target)  # raises an exception if not provided
+                loss = self.training_step(data, target)  # raises an exception if not provided
 
                 # If FedProx is enabled: use regularized loss function
                 if self._fedprox_mu is not None:
-                    res += float(self._fedprox_mu) / 2 * self.__norm_l2()
+                    loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
-                res.backward()
+                # Run the backward pass to compute parameters' gradients
+                loss.backward()
+
+                # If Scaffold is used: apply corrections to the gradients
+                if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+                    for name, param in self._model.named_parameters():
+                        correction = self.correction_state.get(name)
+                        if correction is not None:
+                            param.grad.add_(correction.to(param.grad.device))
+
+                # Have the optimizer collect, refine and apply gradients
                 self._optimizer.step()
 
-                num_samples_till_now += len(data)
+                if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
+                    batch_size = self.training_data_loader.batch_size
 
-                if batch_ % self._log_interval == 0 or self._dry_run:
+                    if self._num_updates is None:
+                        _len_data_loader = len(self.training_data_loader.dataset)
+                        _n_data_parsed = len(self.training_data_loader.dataset)
+                    else:
+                        _len_data_loader = self._num_updates
+                        _n_data_parsed = self._num_updates * batch_size
+                    num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
-                        len(self.training_data_loader.dataset),
-                        100 * batch_ / len(self.training_data_loader),
-                        res.item()))
+                        _n_data_parsed,
+                        100 * batch_ / _len_data_loader,
+                        loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
-                        history_monitor.add_scalar(metric={'Loss': res.item()},
+                        history_monitor.add_scalar(metric={'Loss': loss.item()},
                                                    iteration=batch_,
                                                    epoch=epoch,
                                                    train=True,
-                                                   num_batches=len(self.training_data_loader),
-                                                   total_samples=len(self.training_data_loader.dataset),
+                                                   num_batches=_len_data_loader,
+                                                   total_samples=_n_data_parsed,
                                                    batch_samples=len(data))
 
-                    if self._dry_run:
-                        self._model.to(self._device_init)
-                        torch.cuda.empty_cache()
-                        return
+
+                if self._dry_run:
+                    self._model.to(self._device_init)
+                    torch.cuda.empty_cache()
+                    return
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
@@ -419,6 +546,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
+
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
@@ -491,8 +619,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """Save the torch training parameters from this training plan or from given `params` to a file
 
         Args:
-            filename: Path to the destination file
-            params: Parameters to save to a file, should be structured as a torch state_dict()
+            filename (str): Path to the destination file
+            params (dict): Parameters to save to a file, should be structured as a torch state_dict()
 
         """
         if params is not None:
@@ -516,6 +644,26 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._model.load_state_dict(params)
         return params
 
+    def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
+        """Handles and loads aggregators arguments sent through MQTT and
+        file exchanged system. If sent through file exchanged system, loads the arguments.
+
+        Args:
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
+            'aggregator_correction' with correction states)
+        """
+        self.aggregator_name = aggregator_args.get('aggregator_name') or self.aggregator_name
+
+        for arg_name, aggregator_arg in aggregator_args.items():
+            if arg_name == 'aggregator_correction' and aggregator_arg.get('param_path', False):
+                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
+                # by an aggregator handler that contains all keys for all strategies implemented
+                # in fedbiomed
+
+                #setattr(self, arg_name, aggregator_arg)
+                # here we ae loading all args that have been sent from file exchange system
+                self.correction_state = torch.load(aggregator_arg.get('param_path'))
+
     def after_training_params(self) -> dict:
         """Retrieve parameters after training is done
 
@@ -528,9 +676,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         # Check whether postprocess method exists, and use it
-        logger.debug("running model.postprocess() method")
+
         params = self._model.state_dict()
         if hasattr(self, 'postprocess'):
+            logger.debug("running model.postprocess() method")
             try:
                 params = self.postprocess(self._model.state_dict())  # Post process
             except Exception as e:
