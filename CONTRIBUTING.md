@@ -39,7 +39,7 @@ The goal is to match the evolving needs of the stakeholders and the contributors
 
 ## Fed-BioMed Developer Certificate Of Origin (DCO)
 
-Fed-BioMed is using the [mechanism of the linux project](https://www.kernel.org/doc/html/latest/process/submitting-patches.html#sign-your-work-the-developer-s-certificate-of-origin) to track and secure all issues related to copyrights: the Developper Certificate of Origin (DCO). If you are contributing code or documentation to the Fed-BioMed project, and using the git signed-off-by mechanism, you are agreeing to this certificate.  This DCO essentially means that:
+Fed-BioMed is using the [mechanism of the linux project](https://www.kernel.org/doc/html/latest/process/submitting-patches.html#sign-your-work-the-developer-s-certificate-of-origin) to track and secure all issues related to copyrights: the Developper Certificate of Origin (DCO). If you are contributing code or documentation to the Fed-BioMed project, please use the git signed-off-by mechanism and thereby agree to this certificate.  This DCO essentially means that:
 
 - you offer the changes under the same license agreement as the project, and
 - you have the right to do that,
