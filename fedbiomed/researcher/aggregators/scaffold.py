@@ -54,7 +54,7 @@ class Scaffold(Aggregator):
     13. end parallel section on each client
     14. the server computes the node-wise average of corrected gradients \( \mathbf{ACG}_i = (\mathbf{x} - \mathbf{y}_i)/(\eta_iK) \)
     15. the server updates the global correction term \( \mathbf{c} = (1 - S/N)\mathbf{c} + 1/N\sum_{i \in S}\mathbf{ACG}_i \)
-    16. the server updates the correction states of each client \(\delta_i = \mathbf{c} - \mathbf{c}_i \)
+    16. the server updates the correction states of each client \(\delta_i = \mathbf{ACG}_i - \mathbf{c} - \delta_i \)
     17. the server updates the global model by average \( \mathbf{x} = (1-\eta)\mathbf{x} + \eta/S\sum_{i \in S} \mathbf{y}_i \)
     18. end foreach(round)
 
