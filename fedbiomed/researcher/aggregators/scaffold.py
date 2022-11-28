@@ -35,19 +35,34 @@ class Scaffold(Aggregator):
     Our implementation is heavily influenced by our design choice to prevent storing any state on the nodes between
     FL rounds. In particular, this means that the computation of the control variates (i.e. the correction states)
     needs to be performed centrally by the aggregator.
-    Roughly, our implementation follows these steps:
+    Roughly, our implementation follows these steps (following the notation of the original Scaffold
+    [paper](https://arxiv.org/abs/1910.06378)):
 
-    1. the server communicates the global model and the correction states to all clients
-    2. each client performs K updates of mini-batch SGD, applying the correction terms
-    3. each client communicates their updated model and their learning rate
-    4. the server updates the global model by averaging all clients' models
-    5. the server updates the global correction term
-    6. the server updates the correction states of each client
+    0. let \(\delta_i = \mathbf{c} - \mathbf{c}_i \)
+    1. foreach(round):
+    2. sample \( S \) nodes participating in this round out of \( N \) total
+    3. the server communicates the global model \( \mathbf{x} \) and the correction states \( \delta_i \) to all clients
+    4. parallel on each client
+    5. initialize local model \( \mathbf{y}_i = \mathbf{x} \)
+    6. foreach(update) until K updates have been performed
+    7. obtain a data batch
+    8. compute the gradients for this batch \( g(\mathbf{y}_i) \)
+    9. add correction term to gradients \( g(\mathbf{y}_i) += \delta_i \)
+    10. update model with one optimizer step \( \mathbf{y}_i += \eta_i g(\mathbf{y}_i) \)
+    11. end foreach(update)
+    12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
+    13. end parallel section on each client
+    14. the server computes the node-wise average of corrected gradients \( \mathbf{ACG}_i = (\mathbf{x} - \mathbf{y}_i)/(\eta_iK) \)
+    15. the server updates the global correction term \( \mathbf{c} = (1 - S/N)\mathbf{c} + 1/N\sum_{i \in S}\mathbf{ACG}_i \)
+    16. the server updates the correction states of each client \(\delta_i = \mathbf{c} - \mathbf{c}_i \)
+    17. the server updates the global model by average \( \mathbf{x} = (1-\eta)\mathbf{x} + \eta/S\sum_{i \in S} \mathbf{y}_i \)
+    18. end foreach(round)
 
     References:
-    [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
-    [TCT: Convexifying Federated Learning using Bootstrapped Neural
-    Tangent Kernels][https://arxiv.org/pdf/2207.06343.pdf]
+
+    - [Scaffold: Stochastic Controlled Averaging for Federated Learning](https://arxiv.org/abs/1910.06378)
+    - [TCT: Convexifying Federated Learning using Bootstrapped Neural
+    Tangent Kernels](https://arxiv.org/pdf/2207.06343.pdf)
 
     Attributes:
      aggregator_name: name of the aggregator
