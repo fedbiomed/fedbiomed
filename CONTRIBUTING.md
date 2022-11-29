@@ -1,6 +1,6 @@
 # Welcome
 
-Welcome to the **Fed-BioMed Community**! 
+Welcome to the **Fed-BioMed Community** ! 
 Here is a brief summary of how it is structured:
 
 - Fed-BioMed Users: people using Fed-BioMed for research and/or deployment in federated learning applications.
