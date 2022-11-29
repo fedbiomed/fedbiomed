@@ -98,8 +98,6 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        if self._ta.get('num_updates') is not None:
-            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except ValidateError as e:
@@ -172,7 +170,7 @@ class TrainingArgs:
     def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
         if val is None or isinstance(val, (float, int)):
             if val is not None:
-                if int(val) != float(val) or val < 0:
+                if int(val) != float(val) or val <= 0:
                     return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
             return True
         else:
@@ -268,7 +266,7 @@ class TrainingArgs:
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": None
+                "rules": [cls._num_update_validator_hook], "required": True, "default": None
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
