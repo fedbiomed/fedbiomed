@@ -902,13 +902,17 @@ class TestJob(unittest.TestCase):
         self.job.update_training_args(DummyFDS(data))
         self.assertEqual(self.job._training_args['num_updates'], 20//12 + 1)
 
-        data2 = {'node_1': [{'shape': [200, 10, 10, 10]}],
-                'node_2': [{'shape': [1000, 10, 10, 10]}],
-                'node_3': [{'shape': [400, 10, 10, 10]}]}
-        ta = TrainingArgs({'batch_size': 10, 'epochs': 5})
+        # Case 4: multiple epochs, batch_size divides the epochs*min_dataset_size
+        ta = TrainingArgs({'batch_size': 12, 'epochs': 3})
         self.job.training_args = ta
-        self.job.update_training_args(DummyFDS(data2))
-        self.assertEqual(self.job.training_args['num_updates'], 20*5)
+        self.job.update_training_args(DummyFDS(data))
+        self.assertEqual(self.job._training_args['num_updates'], (3*20)//12)
+
+        # Case 5: multiple epochs, batch_size does not divide the epochs*min_dataset_size
+        ta = TrainingArgs({'batch_size': 12, 'epochs': 5})
+        self.job.training_args = ta
+        self.job.update_training_args(DummyFDS(data))
+        self.assertEqual(self.job._training_args['num_updates'], (5*20)//12 + int((5*20) % 12 != 0))
 
 
 if __name__ == '__main__':  # pragma: no cover

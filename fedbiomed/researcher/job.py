@@ -346,21 +346,25 @@ class Job:
                 logger.error(msg)
                 raise FedbiomedValueError(msg)
             # now we know that epochs has been provided: compute num_updates from number of samples and batch_size
+            # Get researcher-specified values
+            batch_size = self._training_args['batch_size']
+            n_epochs = self._training_args['epochs']  # epochs was validated by TrainingArgs, hence it is an int > 0
+            # Get min number of samples among all datasets in the experiment
             node_present: List[str] = fds.node_ids() if nodes is None else nodes
             if not node_present:
                 raise FedbiomedError("No nodes have answered")
-            # updating `num_updates` parameter:
-            max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
-            batch_size = self._training_args['batch_size']
-            n_epochs = self._training_args['epochs']  # epochs was validated by TrainingArgs, hence it is an int > 0
+            max_n_samples_in_one_epoch = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
+            # Compute num_updates based on the total number of samples visited during training
+            total_samples = max_n_samples_in_one_epoch*n_epochs
+            total_num_updates = total_samples // batch_size
+            if total_samples % batch_size != 0:
+                total_num_updates += 1
+            # handle batch_maxnum
             batch_maxnum = self._training_args['batch_maxnum'] or 0
-            num_updates_for_one_epoch = max_n_samples // batch_size
-            if max_n_samples % batch_size:
-                num_updates_for_one_epoch += 1
             if batch_maxnum > 0:
-                num_updates_for_one_epoch = min(num_updates_for_one_epoch, batch_maxnum)
-
-            self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
+                total_num_updates = min(total_num_updates, batch_maxnum*n_epochs)
+            # update the training_args
+            self._training_args['num_updates'] = total_num_updates
 
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
