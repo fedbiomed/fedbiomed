@@ -51,6 +51,15 @@ class TestFederatedDataset(unittest.TestCase):
         sample_sizes = self.fds.sample_sizes()
         self.assertListEqual(sizes, sample_sizes, 'Provided sample sizes and result of sample_sizes do not match')
 
+        data = {
+            'node-1': [{'dataset_id': 'dataset-id-1',
+                        'shape': {'T1': [100, 100]}}],
+            'node-2': [{'dataset_id': 'dataset-id-2',
+                        'shape': {'T1': [120, 100], 'T2': [130, 130]},
+                        'test_ratio': .0}],
+        }
+        fds = FederatedDataSet(data)
+
     def test_federated_dataset_06_shapes(self):
         """ Testing shapes property of FederatedDataset """
 

@@ -914,6 +914,18 @@ class TestJob(unittest.TestCase):
         self.job.update_training_args(DummyFDS(data))
         self.assertEqual(self.job._training_args['num_updates'], (5*20)//12 + int((5*20) % 12 != 0))
 
+        # Case 6: shape is not an array, but a dict (e.g. as in MedicalFolderDataset)
+        data = {'node_1': [{'shape': {
+            'T1': [20, 10, 10, 10]
+        }}],
+                'node_2': [{'shape': {
+                    'T1': [100, 10, 10, 10]
+                }}]}
+        ta = TrainingArgs({'batch_size': 12, 'epochs': 5})
+        self.job.training_args = ta
+        self.job.update_training_args(DummyFDS(data))
+        self.assertEqual(self.job._training_args['num_updates'], (5*20)//12 + int((5*20) % 12 != 0))
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
