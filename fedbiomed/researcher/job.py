@@ -191,6 +191,10 @@ class Job:
                 assert validators.url(obj[f]), f'Url not valid: {f}'
 
     @property
+    def id(self):
+        return self._id
+
+    @property
     def training_plan_name(self):
         return self._training_plan_name
 

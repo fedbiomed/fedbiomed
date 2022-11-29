@@ -14,7 +14,7 @@ from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBipri
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, SecaggRequest
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -907,6 +907,7 @@ class TestNode(unittest.TestCase):
             "secagg_id": "my_test_secagg",
             "sequence": 2345,
             "element": 33,
+            "job_id": "my_job",
             "parties": [],
             "command": "secagg"
         }
@@ -1087,6 +1088,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_test_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
@@ -1104,12 +1106,14 @@ class TestNode(unittest.TestCase):
             secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
             secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1122,9 +1126,11 @@ class TestNode(unittest.TestCase):
 
             self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
             self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_servkey_patch.return_value.job_id(), dict_secagg_request['job_id'])
             self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
             self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
             self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
+            self.assertEqual(secagg_biprime_patch.return_value.job_id(), dict_secagg_request['job_id'])
             self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
 
             messaging_send_msg_patch.reset_mock()
@@ -1134,43 +1140,98 @@ class TestNode(unittest.TestCase):
             self,
             messaging_send_msg_patch):
         """Tests `task_secagg` with bad message values"""
+        # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
 
         # prepare
+        bad_element = 2
         dict_secagg_requests = [
             {
-                'researcher_id': 'my_test_researcher_id',
+                'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
-                'element': 2,
+                'element': bad_element,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': '',
+                'researcher_id': '',
+                'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             },
             {
-                'researcher_id': 'my_test_researcher_id',
+                'researcher_id': 'party1',
                 'secagg_id': '',
                 'sequence': 888,
                 'element': 0,
+                'job_id': 'job1',
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            },
+            {
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': 0,
+                'job_id': 'job1',
                 'parties': ['party1', 'party2'],
                 'command': 'secagg'
             },
         ]
+        dict_secagg_extra_msg = [
+            f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
+            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
+            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
+            "ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
+        ]
+        dict_secagg_reply_type = [
+            "error",
+            "reply",
+            "reply",
+            "reply"
+        ]
+
+        class CustomFakeMessages(FakeMessages):
+            def get_param(self, val: str) -> Any:
+                if val in self.msg:
+                    return self.msg.get(val)
+                else:
+                    raise AttributeError(f"no such attribute '{val}'")
 
         for req in dict_secagg_requests:
-            msg_secagg_request = NodeMessages.request_create(req)
+            msg_secagg_request = CustomFakeMessages(req)
+
+            reply_type = dict_secagg_reply_type.pop(0)
+
+            if reply_type == 'error':
+                dict_secagg_reply = {
+                    'command': 'error',
+                    'extra_msg': dict_secagg_extra_msg.pop(0),
+                    'node_id': environ['NODE_ID'],
+                    'researcher_id': 'NOT_SET',
+                    'errnum': ErrorNumbers.FB318
+                }
+            else:
+                dict_secagg_reply = {
+                    'researcher_id': req['researcher_id'],
+                    'secagg_id': req['secagg_id'],
+                    'sequence': req['sequence'],
+                    'success': False,
+                    'node_id': environ['NODE_ID'],
+                    'msg': dict_secagg_extra_msg.pop(0),
+                    'command': 'secagg'
+                }
 
             # action
             self.n1.task_secagg(msg_secagg_request)
 
             # check
-            messaging_send_msg_patch.assert_not_called()
+            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+            # messaging_send_msg_patch.assert_not_called()
             messaging_send_msg_patch.reset_mock()
 
     @patch('fedbiomed.node.node.SecaggBiprimeSetup')
@@ -1190,16 +1251,19 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
             msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
             dict_secagg_reply = {
-                'command': 'error',
-                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'success': False,
                 'node_id': environ['NODE_ID'],
-                'researcher_id': 'NOT_SET',
-                'errnum': ErrorNumbers.FB318
+                'msg': f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: ",
+                'command': 'secagg'
             }
 
             secagg_servkey_patch.side_effect = Exception
@@ -1230,6 +1294,7 @@ class TestNode(unittest.TestCase):
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
                 'element': el,
+                'job_id': 'my_job',
                 'parties': ['party1', 'party2', 'party3'],
                 'command': 'secagg'
             }
@@ -1250,6 +1315,7 @@ class TestNode(unittest.TestCase):
             secagg_servkey_patch.return_value = FakeSecaggServkeySetupError(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1260,6 +1326,7 @@ class TestNode(unittest.TestCase):
             secagg_biprime_patch.return_value = FakeSecaggBiprimeSetupError(
                 dict_secagg_request['researcher_id'],
                 dict_secagg_request['secagg_id'],
+                dict_secagg_request['job_id'],
                 dict_secagg_request['sequence'],
                 dict_secagg_request['parties']
             )
@@ -1282,22 +1349,6 @@ class TestNode(unittest.TestCase):
         # prepare
         bad_message_values = [2, 18, 987]
         for bad_message_value in bad_message_values:
-            dict_secagg_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': bad_message_value,
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            }
-            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-            dict_secagg_reply = {
-                'command': 'error',
-                'extra_msg': 'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
-                'node_id': environ['NODE_ID'],
-                'researcher_id': 'NOT_SET',
-                'errnum': ErrorNumbers.FB318
-            }
 
             class FakeSecaggElementTypes(_BaseEnum):
                 DUMMY: int = bad_message_value
@@ -1305,6 +1356,26 @@ class TestNode(unittest.TestCase):
             element_types_patch.__iter__.return_value = [
                 FakeSecaggElementTypes(bad_message_value)
             ]
+
+            dict_secagg_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': bad_message_value,
+                'job_id': 'my_job_id',
+                'parties': ['party1', 'party2', 'party3'],
+                'command': 'secagg'
+            }
+            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+            dict_secagg_reply = {
+                'researcher_id': dict_secagg_request['researcher_id'],
+                'secagg_id': dict_secagg_request['secagg_id'],
+                'sequence': dict_secagg_request['sequence'],
+                'command': dict_secagg_request['command'],
+                'node_id': environ['NODE_ID'],
+                'success': False,
+                'msg': f'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: no such element {FakeSecaggElementTypes(dict_secagg_request["element"]).name}'
+            }
 
             # action
             self.n1.task_secagg(msg_secagg_request)

@@ -41,11 +41,13 @@ class FedbiomedDatasetError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedDatasetValueError(FedbiomedError):
     """
     ValueErrors raised by any Dataset class.
     """
     pass
+
 
 class FedbiomedDataManagerError(FedbiomedError):
     """
