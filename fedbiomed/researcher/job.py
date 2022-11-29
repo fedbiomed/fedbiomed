@@ -15,8 +15,8 @@ from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
 import validators
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
+from fedbiomed.common.constants import TrainingPlanApprovalStatus, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError, FedbiomedValueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
@@ -309,7 +309,16 @@ class Job:
         Updates the following parameters:
 
         - num_updates: in the case where the researcher provided a number of epochs, it computes the
-            number of updates based on the dataset with the smallest number of samples in the federation.
+            number of updates based on the dataset with the smallest number of samples in the federation. Also
+            handles precedence rules between num_updates and epochs.
+
+        After this function's execution, the following statements hold true:
+
+        1. 'epochs', 'batch_maxnum' and 'num_updates' all exist as keys in self._training_args
+        2. EITHER 'num_updates' is not None, OR 'epochs' is not None
+        3. IF 'num_updates' is not None, THEN 'epochs' is None and 'batch_maxnum' is None
+        4. IF 'num_updates' is None, THEN 'epochs' is not None and 'batch_maxnum' is left to the value set by the
+            researcher
 
         Args:
             fds (FederatedDataSet): The representation of the federated data set used in the experiment.
@@ -317,21 +326,34 @@ class Job:
 
         Raises:
             FedbiomedError: if no nodes are participating in the experiment.
+            FedbiomedValueError: if researcher did not specify at least one of num_updates and epochs
         """
-        if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
-            # compute number of updates from number of samples and batch_size (if not provided)
-            if nodes is None:
-                node_present: List[str] = fds.node_ids()
-            else:
-                node_present: List[str] = nodes
-
+        # First, output some warnings in case of conflicting arguments
+        if self._training_args['num_updates'] is not None:
+            if self._training_args['epochs'] is not None:
+                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
+                               "`epochs` will be ignored.")
+                self._training_args['epochs'] = None
+            if self._training_args['batch_maxnum'] is not None:
+                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
+                               "`batch_maxnum` will be ignored.")
+                self._training_args['batch_maxnum'] = None
+        # Handle case where num_updates was not provided
+        else:
+            if self._training_args['epochs'] is None:
+                msg = f"{ErrorNumbers.FB410.value}. Please provide either `num_updates` or `epochs` in training " \
+                      f"arguments."
+                logger.error(msg)
+                raise FedbiomedValueError(msg)
+            # now we know that epochs has been provided: compute num_updates from number of samples and batch_size
+            node_present: List[str] = fds.node_ids() if nodes is None else nodes
             if not node_present:
-                raise FedbiomedError("No node have answered")
+                raise FedbiomedError("No nodes have answered")
             # updating `num_updates` parameter:
             max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
             batch_size = self._training_args['batch_size']
-            n_epochs = self._training_args.get('epochs', 0)
-            batch_maxnum = self._training_args.get('batch_maxnum', 0)
+            n_epochs = self._training_args['epochs']  # epochs was validated by TrainingArgs, hence it is an int > 0
+            batch_maxnum = self._training_args['batch_maxnum'] or 0
             num_updates_for_one_epoch = max_n_samples // batch_size
             if max_n_samples % batch_size:
                 num_updates_for_one_epoch += 1
