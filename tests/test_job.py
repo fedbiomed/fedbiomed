@@ -1,17 +1,23 @@
+import copy
 import inspect
 import os
 import shutil
 from typing import Dict, Any
 import unittest
 from unittest.mock import patch, MagicMock
+import uuid
 
 import numpy as np
+from fedbiomed.common import training_args
+from fedbiomed.researcher.datasets import FederatedDataSet
+from testsupport.fake_dataset import FederatedDataSetMock
 import torch
 
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
+from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.researcher.environ import environ
@@ -84,7 +90,8 @@ class TestJob(unittest.TestCase):
         self.model = MagicMock(return_value=None)
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
-        self.model.load = MagicMock(return_value={'model_params': True})
+        self.model.load = MagicMock(return_value={'model_params': True,
+                                                  'optimizer_args': True})
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
@@ -403,9 +410,10 @@ class TestJob(unittest.TestCase):
         responses = FakeResponses([response_1, response_2])
 
         mock_requests_get_responses.return_value = responses
-
+        aggregator_args = {node_id : {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
         # Test - 1
-        nodes = self.job.start_nodes_training_round(1)
+        nodes = self.job.start_nodes_training_round(1, aggregator_args_thr_msg=aggregator_args,
+                                                    aggregator_args_thr_files={})
         _ = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1', 'node-2'])
@@ -414,7 +422,8 @@ class TestJob(unittest.TestCase):
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_3])
         mock_requests_get_responses.return_value = responses
-        nodes = self.job.start_nodes_training_round(2)
+        nodes = self.job.start_nodes_training_round(2, aggregator_args_thr_msg=aggregator_args,
+                                                    aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
 
@@ -423,7 +432,8 @@ class TestJob(unittest.TestCase):
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
-        nodes = self.job.start_nodes_training_round(3)
+        nodes = self.job.start_nodes_training_round(3, aggregator_args_thr_msg=aggregator_args,
+                                                    aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 
@@ -436,8 +446,53 @@ class TestJob(unittest.TestCase):
         params = {'params': [1, 2, 3, 4]}
         # Test by passing all arguments
         result = self.job.update_parameters(params=params, filename='dummy/file/name/')
-        self.assertEqual(self.job._model_params_file, result)
+        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
+        self.assertEqual( self.job.repo.uploads_url , self.job._repository_args['params_url'])
         self.mock_upload_file.assert_called_once_with('dummy/file/name/')
+        
+        self.mock_upload_file.reset_mock()
+        file_url = 'http://some/file/uploaded'
+        self.mock_upload_file.return_value = {"file": file_url}
+        # case where arg is_model_params is False and filename is not defined
+        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+            
+            patch_uuid.return_value = FakeUuid()
+            result = self.job.update_parameters(params=params, filename=None, is_model_params=False)
+            filename = os.path.join(self.job._keep_files_dir, 'aggregated_params' + str(FakeUuid.VALUE) + '.pt')
+            self.mock_upload_file.assert_called_once_with(filename)
+            self.assertEqual(result, (filename, file_url))
+            self.assertNotEqual(result[1], self.job.repo.uploads_url)
+            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
+
+        self.mock_upload_file.reset_mock()
+        
+        # test with specified variable name
+        variable_name = "my_variable"
+        
+        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+            
+            patch_uuid.return_value = FakeUuid()
+            result = self.job.update_parameters(params=params, filename=None,
+                                                is_model_params=False, variable_name=variable_name)
+            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
+            self.mock_upload_file.assert_called_once_with(filename)
+            self.assertEqual(result, (filename, file_url))
+            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
+
+        # same test but with `is_model_params` set to True
+        self.mock_upload_file.reset_mock()
+            
+        variable_name = "my_variable"
+        
+        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+            
+            patch_uuid.return_value = FakeUuid()
+            result = self.job.update_parameters(params=params, filename=None,
+                                                is_model_params=False, variable_name=variable_name)
+            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
+            self.mock_upload_file.assert_called_once_with(filename)
+            self.assertEqual(result, (filename, file_url))
+            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
 
     def test_job_12_update_parameters_with_passing_params_only(self):
         """ Testing update_parameters by passing only params """
@@ -449,7 +504,7 @@ class TestJob(unittest.TestCase):
         # Test without passing filename
 
         result = self.job.update_parameters(params=params)
-        self.assertEqual(self.job._model_params_file, result)
+        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
         self.model.save.assert_called_once()
 
     def test_job_13_update_parameters_assert(self):
@@ -795,6 +850,57 @@ class TestJob(unittest.TestCase):
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
 
+    def test_job_19_upload_aggregator_args(self):
+        training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
+                                 'node-2': {'var1': 1, 'var2': [1, 2]}}
+        tensor = torch.tensor([[1, 2, 4], [2, 3, 4]])
+        arr = np.array([1, 4, 5])
+        training_args_thr_files = {'node-1':{ 'aggregator_name': 'my_aggregator',
+                                    'var4': {'params': tensor}, 'var5': {'params': arr}},
+                                   'node-2':{ 'aggregator_name': 'my_aggregator',
+                                             'var4': {'params': tensor.T}, 'var5': {'params':arr}}
+                                   }
+        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+            patch_uuid.return_value = FakeUuid()
+            t_a = self.job.upload_aggregator_args(copy.deepcopy(training_args_thr_msg), training_args_thr_files)
+            # first we check `training_args_thr_msg` are contained into `t_a` (be careful about references!)
+            self.assertEqual(training_args_thr_msg, t_a | training_args_thr_msg  )
+            print(t_a)
+            # then, check parameters are updated into `training_args_thr_msg`
+            for node_id in ('node-1', 'node-2'):
+                for var in ('var4', 'var5'):
+                    # check that `t_a` doesnot contain any params field
+                    self.assertIsNone(t_a[node_id][var].get('params'))
+                    filename = os.path.join(self.job._keep_files_dir, var + str(FakeUuid.VALUE) + '.pt')
+                    self.assertEqual(t_a[node_id][var]['filename'], filename)
+                    self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
+                    
+    def test_job_20_update_training_args(self):
+        """test_job_20_update_training_args: checks that num_updates are computed accordingly
+        """
+        data = {'node_1': [{'shape': [20, 10, 10, 10]}], 
+                'node_2': [{'shape': [100, 10, 10, 10]}]}
+
+        class DummyFDS(FederatedDataSetMock):
+            def node_ids(self):
+                return list(self._data.keys())
+            
+        # adding values to training_args
+        self.job.training_args
+        # case where nodes arg is None
+        self.job.update_training_args(DummyFDS(data))
+        self.assertEqual(self.job._training_args['num_updates'], 20 // 12 + 1,
+                         "num_updates should be equal to min(node dataset shapes) // batch_size + min(node dataset shapes)/%/ batch_size")
+        
+        data2 = {'node_1': [{'shape': [200, 10, 10, 10]}], 
+                'node_2': [{'shape': [1000, 10, 10, 10]}],
+                'node_3': [{'shape': [400, 10, 10, 10]}]}
+        ta = TrainingArgs({'batch_size': 10, 'epochs': 5})
+        self.job.training_args = ta
+        self.job.update_training_args(DummyFDS(data2))
+        
+        # we should perform (200 / 10) * 5 updates 
+        self.assertEqual(self.job.training_args['num_updates'], 20*5 )
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

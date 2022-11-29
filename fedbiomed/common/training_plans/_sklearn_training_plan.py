@@ -67,15 +67,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
-            model_args: Model arguments.
-            training_args: Training arguments.
+            model_args: Arguments defined to instantiate the wrapped model.
+            training_args: Arguments that are used in training routines
+                such as epoch, dry_run etc.
+                Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
         """
         self._model_args = model_args
+        self._aggregator_args = aggregator_args or {}
         self._model_args.setdefault("verbose", 1)
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
@@ -134,6 +140,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
+    def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
+        lr = self._model_args.get(lr_key)
+        if lr is None:
+            # get the default value
+            lr = self._model.__dict__.get(lr_key)
+        if lr is None:
+            raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
+        return [lr]
+
     def model(self) -> BaseEstimator:
         """Retrieve the wrapped scikit-learn model instance.
 
@@ -141,6 +156,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Scikit-learn model instance
         """
         return self._model
+
+    def get_model_params(self) -> Dict:
+        return self.after_training_params()
 
     def training_routine(
             self,
@@ -151,11 +169,17 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Args:
             history_monitor: optional HistoryMonitor
-                instance, recording training metadata.
-            node_args: Command line arguments for node.
+                instance, recording training metadata. Defaults to None.
+            node_args: command line arguments for node.
                 These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
         """
+        if self._model is None:
+            raise FedbiomedTrainingPlanError('model is None')
+
+        # Run preprocesses
+        self._preprocess()
+
         if not isinstance(self._model, BaseEstimator):
             msg = (
                 f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "

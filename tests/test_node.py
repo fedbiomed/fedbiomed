@@ -481,7 +481,8 @@ class TestNode(unittest.TestCase):
                                        dict_msg_2_datasets['params_url'],
                                        dict_msg_2_datasets['job_id'],
                                        dict_msg_2_datasets['researcher_id'],
-                                       unittest.mock.ANY,
+                                       unittest.mock.ANY,  # this is for HistoryMonitor
+                                       None,
                                        None,
                                        dlp_and_loading_block_metadata=None)
 
@@ -493,7 +494,9 @@ class TestNode(unittest.TestCase):
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
         # retrieve `HistoryMonitor` object
-        history_monitor_ref = round_patch.call_args_list[-1][0][-2]
+        history_monitor_ref = round_patch.call_args_list[-1][0][-3] 
+        # `-3` cause HistoryMonitor object is the third last object passed in `Round` class
+
         # check id retrieve object is a HistoryMonitor object
         self.assertIsInstance(history_monitor_ref, HistoryMonitor)
 
@@ -565,7 +568,8 @@ class TestNode(unittest.TestCase):
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
             'training_data': {environ['NODE_ID']: ['dataset_id_1234']},
-            'training': True
+            'training': True,
+            'aggregator_args': {}
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
@@ -590,6 +594,7 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history monitor object
                                             None,
+                                            None,
                                             dlp_and_loading_block_metadata=None
                                             )
 
@@ -612,7 +617,8 @@ class TestNode(unittest.TestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]},
+            'aggregator_args': {}
         }
 
         #
@@ -637,7 +643,7 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['job_id'],
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history_monitor object
-                                            None,
+                                            None, None,
                                             dlp_and_loading_block_metadata=None)
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
@@ -742,9 +748,12 @@ class TestNode(unittest.TestCase):
         """Tests case where `Node.parser_task_train` method raises an exception (SystemExit).
         """
         # defining patchers
+        tasks_queue_get_patch.return_value = {}
+        
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
+            "aggregator_args": {},
             "training": True,
             "training_plan_url": "https://link.to.somewhere.where.my.model",
             "training_plan_class": "my_test_training_plan",
@@ -808,9 +817,12 @@ class TestNode(unittest.TestCase):
         raises an exception (SystemExit).
         """
         # defining patchers
+        tasks_queue_get_patch.return_value = {}
+
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
+            "aggregator_args": {},
             "training": True,
             "training_plan_url": "https://link.to.somewhere.where.my.model",
             "training_plan_class": "my_test_training_plan",
@@ -845,9 +857,12 @@ class TestNode(unittest.TestCase):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method for train message"""
         # defining patchers
+        tasks_queue_get_patch.return_value = {}
+
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
+            "aggregator_args": {},
             "training": True,
             "training_plan_url": "https://link.to.somewhere.where.my.model",
             "training_plan_class": "my_test_training_plan",
@@ -961,9 +976,12 @@ class TestNode(unittest.TestCase):
         # of `task_manager`
 
         # defining patchers
+        tasks_queue_get_patch.return_value = {}
+
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
+            "aggregator_args": {},
             "training": True,
             "training_plan_url": "https://link.to.somewhere.where.my.model",
             "training_plan_class": "my_test_training_plan",
