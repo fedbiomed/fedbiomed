@@ -84,7 +84,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
-
+        # iterate over number of updates
         for idx, batch in enumerate(self.training_data_loader, start=1):
             if idx > num_updates:
                 break
@@ -221,6 +221,9 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
         for key, val in init_params.items():
             setattr(self._model, key, val)
 
+    def get_learning_rate(self) -> List[float]:
+        return self._model.eta0
+
 
 class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDClassifier models."""
@@ -257,6 +260,9 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
         setattr(self._model, "classes_", np.arange(n_classes))
+
+    def get_learning_rate(self) -> List[float]:
+        return self._model.eta0
 
     def _parse_batch_loss(
             self,

@@ -6,23 +6,23 @@ import sys
 import json
 import inspect
 import traceback
-
 from copy import deepcopy
 from re import findall
-from tabulate import tabulate
-from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
-from fedbiomed.common.metrics import MetricTypes
-from pathvalidate import sanitize_filename, sanitize_filepath
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
-from fedbiomed.common.logger import logger
+from pathvalidate import sanitize_filename, sanitize_filepath
+from tabulate import tabulate
+
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.utils import is_ipython
+
+from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
@@ -208,20 +208,29 @@ class Experiment(object):
         self._tags = None
         self._monitor = None
         self._experimentation_folder = None
+        self.aggregator_args = {}
+        self._aggregator = None
+        self._global_model = None
+
+        self._client_correction_states_dict = {}
+        self._client_states_dict = {}
+        self._server_state = None
+
+#        training_data: Union[FederatedDataSet, dict, None] = None,
+#        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+#        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+#        model_class: Union[Type_TrainingPlan, str, None] = None,
+#        model_args: dict = {},
+#        training_args: dict = {},
+#        save_breakpoints: bool = False,
+#        tensorboard: bool = False,
+#        experimentation_folder: Union[str, None] = None
 
         self._use_secagg = False
         self._secagg_servkey = None
         self._secagg_biprime = None
 
-        #        training_data: Union[FederatedDataSet, dict, None] = None,
-        #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-        #        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-        #        training_plan: Union[Type_TrainingPlan, str, None] = None,
-        #        model_args: dict = {},
-        #        training_args: dict = {},
-        #        save_breakpoints: bool = False,
-        #        tensorboard: bool = False,
-        #        experimentation_folder: Union[str, None] = None,
+
         #        use_secagg: bool = False,
         #        secagg_timeout: float = 0
 
@@ -851,6 +860,8 @@ class Experiment(object):
                          'you may need to update `node_selection_strategy`')
         if self._job is not None:
             logger.debug('Training data changed, you may need to update `job`')
+        if self._aggregator is not None:
+            logger.debug('Training data changed, you may need to update `aggregator`')
         if self._secagg_servkey is not None or self._secagg_biprime is not None:
             logger.debug('Training data changed, you may need to update `use_secagg`')
 
@@ -892,8 +903,11 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
         # at this point self._aggregator is (non-None) aggregator object
+        self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
+        if self._fds is not None:
+            self._aggregator.set_fds(self._fds)
+
         return self._aggregator
 
     @exp_exceptions
@@ -1171,7 +1185,7 @@ class Experiment(object):
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + ' `training_plan_path` : type(training_plan_path)'
+            msg = ErrorNumbers.FB410.value + f' `training_plan_path` must be string, but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1419,8 +1433,6 @@ class Experiment(object):
 
         return self._save_breakpoints
 
-    # Run experiment functions
-
     @exp_exceptions
     def set_tensorboard(self, tensorboard: bool) -> bool:
         """
@@ -1555,22 +1567,48 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # Ready to execute a training round using the job, strategy and aggregator
+        if self._global_model is None:
+            self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
 
+        self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
-        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
-        # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
+        self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
 
+        # check aggregator parameter(s) before starting a round
+        self._aggregator.check_values(n_updates=self._training_args['num_updates'],
+                                      training_plan=self._job.training_plan)
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
+
+        aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
+                                                                                        self._job._nodes)
+
+        # Trigger training round on sampled nodes
+        _ = self._job.start_nodes_training_round(round=self._round_current,
+                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
+                                                 aggregator_args_thr_files=aggr_args_thr_file,
+                                                 do_training=True)
+        
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
-        # aggregate model from nodes to a global model
+        self._aggregator.set_fds(self._fds)
+
+
+        # aggregate models from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
-                                                       weights)
+                                                       weights,
+                                                       global_model = self._global_model,
+                                                       training_plan=self._job.training_plan,
+                                                       training_replies=self._job.training_replies,
+                                                       node_ids=self._job.nodes,
+                                                       n_updates=self._training_args.get('num_updates'),
+                                                       n_round=self._round_current)
         # write results of the aggregated model in a temp file
-        aggregated_params_path = self._job.update_parameters(aggregated_params)
+
+        self._global_model = aggregated_params  # update global model
+        aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 
@@ -1589,7 +1627,12 @@ class Experiment(object):
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
-            self._job.start_nodes_training_round(round=self._round_current, do_training=False)
+            aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
+                                                                                            self._job._nodes)
+            self._job.start_nodes_training_round(round=self._round_current,
+                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
+                                                 aggregator_args_thr_files=aggr_args_thr_file,
+                                                 do_training=False)
 
         return 1
 
@@ -1864,7 +1907,7 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(),  # aggregator state
+            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1887,6 +1930,7 @@ class Experiment(object):
         )
 
         # save state into a json file.
+
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
             with open(breakpoint_file_path, 'w') as bkpt:
@@ -1916,7 +1960,7 @@ class Experiment(object):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object, user can then use `.run()` method to pursue model
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()` method to pursue model
                 training.
 
         Raises:
@@ -1961,16 +2005,13 @@ class Experiment(object):
 
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
-        # retrieve federator
-        bkpt_aggregator_args = saved_state.get("aggregator")
-        bkpt_aggregator = cls._create_object(bkpt_aggregator_args)
 
         # initializing experiment
 
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                         aggregator=bkpt_aggregator,
+                        # aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -1980,6 +2021,9 @@ class Experiment(object):
                          save_breakpoints=True,
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
+
+        # nota: we are initializing experiment with no aggregator: hence, by default,
+        # `loaded_exp` will be loaded with FedAverage.
 
         # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
@@ -1997,8 +2041,16 @@ class Experiment(object):
                 training_plan.load
             )
 
+        # retrieve and change federator
+        bkpt_aggregator_args = saved_state.get("aggregator")
+
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
+        loaded_exp.set_aggregator(bkpt_aggregator)
+
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
+
+
         # nota: exceptions should be handled in Job, when refactoring it
 
         # changing secagg attributes
@@ -2029,6 +2081,7 @@ class Experiment(object):
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
+            aggregated_params_init (dict): ???
             breakpoint_path: path to the directory where breakpoints files and links will be saved
 
         Returns:
@@ -2057,6 +2110,7 @@ class Experiment(object):
                     f'should be `dict` not {type(value)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
+
             params_path = create_unique_file_link(breakpoint_path,
                                                   value.get('params_path'))
             aggregated_params[key] = {'params_path': params_path}
@@ -2071,7 +2125,7 @@ class Experiment(object):
 
         Aggregated parameters structure from a breakpoint. It is identical to a classical `_aggregated_params`.
 
-        Args
+        Args:
             aggregated_params: JSON formatted aggregated_params extract from a breakpoint
             func_load_params: function for loading parameters from file to aggregated params data structure
 
@@ -2115,7 +2169,8 @@ class Experiment(object):
     # TODO: factorize code with Job and node
     @staticmethod
     @exp_exceptions
-    def _create_object(args: Dict[str, Any], **object_kwargs: dict) -> Any:
+    def _create_object(args: Dict[str, Any], training_plan: Optional[BaseTrainingPlan] = None,
+                       **object_kwargs: dict) -> Any:
         """
         Instantiate a class object from breakpoint arguments.
 
@@ -2187,7 +2242,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        object_instance.load_state(args)
+        object_instance.load_state(args, training_plan=training_plan)
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance

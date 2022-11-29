@@ -67,6 +67,8 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
+        
+        self._num_updates_unset = True
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -96,6 +98,8 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
+        if self._ta.get('num_updates') is not None:
+            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except ValidateError as e:
@@ -144,8 +148,7 @@ class TrainingArgs:
         Returns:
             Contains training argument for training routine
         """
-
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "num_updates", "use_gpu"]
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "use_gpu", "num_updates"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -163,6 +166,17 @@ class TrainingArgs:
             Contains key value peer of given keys
         """
         return {arg: self[arg] for arg in keys}
+
+    @staticmethod
+    @validator_decorator
+    def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
+        if val is None or isinstance(val, (float, int)):
+            if val is not None:
+                if int(val) != float(val) or val < 0:
+                    return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
+            return True
+        else:
+            return False, f"num_updates and epochs should be integer or None, but got {val}"
 
     @staticmethod
     @validator_decorator
@@ -244,11 +258,11 @@ class TrainingArgs:
             "batch_size": {
                 "rules": [int], "required": True, "default": 48
             },
-            "num_updates": {
-                "rules": [int], "required": True, "default": None
-            },
             "epochs": {
-                "rules": [int], "required": True, "default": None
+                "rules": [cls._num_update_validator_hook], "required": True, "default": None
+            },
+            "num_updates": {
+                "rules": [cls._num_update_validator_hook], "required": True, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
@@ -265,11 +279,9 @@ class TrainingArgs:
             "test_on_global_updates": {
                 "rules": [bool], "required": False, "default": False
             },
-
             "test_metric": {
                 "rules": [cls._metric_validation_hook], "required": False, "default": None
             },
-
             "test_metric_args": {
                 "rules": [dict], "required": False, "default": {}
             },

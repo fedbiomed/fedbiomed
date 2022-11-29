@@ -1,3 +1,6 @@
+import copy
+import itertools
+import types
 import unittest
 import os
 import logging
@@ -11,8 +14,9 @@ import numpy as np
 
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from torch.nn import Module
+from torch.optim.lr_scheduler import LambdaLR
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -592,6 +596,103 @@ class TestTorchnn(unittest.TestCase):
         tp.training_routine(None, None)
         self.assertEqual(tp._optimizer.step.call_count, 6)
 
+    def test_torch_training_plan_13_compute_corrected_loss(self):
+        """test_torch_nn_06_compute_corrected_loss: 
+        checks:
+            that fedavg and scaffold are equivalent if correction states are set to 0
+        """
+        def set_training_plan(model, aggregator_name:str, loss_value: float = .0):
+            """Configure a TorchTrainingPlan with a given model.
+            
+            Args:
+                model: a torch model
+                aggregator_name: name of the aggregator method
+                loss_value: value that is returned by mocked `training_Step` method
+            """
+            tp = TorchTrainingPlan()
+            tp._set_device = MagicMock()
+            tp._batch_maxnum = 0
+            
+            tp._model = copy.deepcopy(model)
+            tp._log_interval = 1
+            tp.training_data_loader = MagicMock()
+            tp._log_interval = 1000  # essentially disable logging
+            tp._dry_run = False
+            
+            tp.aggregator_name = aggregator_name
+            if aggregator_name == 'scaffold':
+                for name, param in tp._model.named_parameters():
+                    tp.correction_state[name] = torch.zeros_like(param)
+
+            def training_step(instance, data, target):
+                return torch.sum(instance.model().forward(data['modality1']))
+
+            tp.training_step = types.MethodType(training_step, tp)
+
+            custom_dataset = self.CustomDataset()
+            x_train = torch.Tensor(custom_dataset.X_train)
+            y_train = torch.Tensor(custom_dataset.Y_train)
+            num_batches = 1
+            batch_size = 5
+            dataset_size = num_batches * batch_size
+            fake_data = {'modality1': x_train}
+            fake_target = (y_train, y_train)
+            tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
+            tp.training_data_loader.__len__.return_value = num_batches
+            tp.training_data_loader.batch_size = batch_size
+            tp.training_data_loader.dataset.__len__.return_value = dataset_size
+            tp._num_updates = num_batches
+            
+            tp._optimizer_args = {"lr" : 1e-3}
+            tp._optimizer = torch.optim.Adam(tp._model.parameters(), **tp._optimizer_args)
+            tp._dp_controller = FakeDPController()
+            return tp
+        
+        model = torch.nn.Linear(3, 1)
+        tp_fedavg = set_training_plan(model, "fedavg", .1)
+        tp_fedavg.training_routine(None, None)
+        
+        tp_scaffold = set_training_plan(model, "scaffold", .1)
+        
+        tp_scaffold.training_routine(None, None)
+        
+        # test that model trained with scaffold is equivalent to model trained with fedavg
+        for (name, layer_fedavg), (name, layer_scaffold) in zip(tp_fedavg._model.state_dict().items(),
+                                                                tp_scaffold._model.state_dict().items()):
+            self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
+
+    def test_torch_training_plan_14_get_learning_rate(self):
+        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate 
+        learning rate
+        """
+        # first test wih basic optimizer (eg without learning rate scheduler)
+        tp = TorchTrainingPlan()
+        tp._model = torch.nn.Linear(2, 3)
+        lr = .1
+        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
+        target = torch.Tensor([1, 2, 2])
+        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
+        
+        lr_extracted = tp.get_learning_rate()
+        self.assertListEqual(lr_extracted, [lr])
+        
+        # last test using a pytorch scheduler
+        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
+        # this pytorch scheduler increase earning rate by twice its previous value
+        for e, (x,y) in enumerate(zip(dataset, target)):
+            # training a simple model in pytorch fashion
+            # `e` represents epoch
+            out = tp._model.forward(x)
+            tp._optimizer.zero_grad()
+            loss = torch.mean(out) - y
+            loss.backward()
+            tp._optimizer.step()
+            scheduler.step()
+            
+            # checks
+            lr_extracted = tp.get_learning_rate()
+            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+
 
 class TestSendToDevice(unittest.TestCase):
 
@@ -730,6 +831,20 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp.training_data_loader.batch_size = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
+        # Set training data loader ---------------------------------------------------------------------------
+        mock_dataset = MagicMock(spec=Dataset())
+        tp.training_data_loader = MagicMock( spec=DataLoader(mock_dataset),
+                                             batch_size=1,
+                                             dataset=[1,2]
+                                            )
+        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+                                                ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
+                                    )
+        tp.training_data_loader.__len__.return_value = 2  # otherwise, mocked training_data_loader equals 0
+        tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
+        # --------------------------------------------------------------------------------------------------
+        
+        tp._num_updates = 1
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader
