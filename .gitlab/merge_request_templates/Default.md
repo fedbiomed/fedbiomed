@@ -1,3 +1,19 @@
+**MR description**
+
+TO_BE_FILLED_BY_MR_CREATOR
+
+**Developer Certificate Of Origin (DCO)**
+
+By opening this merge request, you agree the
+[Developer Certificate of Origin (DCO)](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/CONTRIBUTING.md#fed-biomed-developer-certificate-of-origin-dco)
+
+This DCO essentially means that:
+
+- you offer the changes under the same license agreement as the project, and
+- you have the right to do that,
+- you did not steal somebody else’s work.
+
+
 **Guidelines for MR review**
 
 General:
