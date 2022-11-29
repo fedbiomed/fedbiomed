@@ -7,7 +7,10 @@ import json
 import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
-
+from fedbiomed.common import training_plans
+from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
@@ -24,12 +27,19 @@ from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.experiment import Experiment, TrainingPlan
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
+
+class FakeAggregator(Aggregator):
+    aggregator_name: str = 'dummy-aggregator'
+
+class FakeStrategy(Strategy):
+    pass
+        
 
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
@@ -478,7 +488,7 @@ class TestExperiment(unittest.TestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 2, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
 
         # Test when secagg is not None
         self.mock_logger_debug.reset_mock()
@@ -487,7 +497,7 @@ class TestExperiment(unittest.TestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 4, "Logger debug is called unexpected times")
 
     def test_experiment_05_set_aggregator(self):
         """Testing setter for aggregator attribute of Experiment class"""
@@ -1070,8 +1080,11 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
+    @patch('fedbiomed.researcher.job.Job.update_training_args')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
+    @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
@@ -1081,17 +1094,24 @@ class TestExperiment(unittest.TestCase):
                                     mock_job_updates_params,
                                     mock_job_training,
                                     mock_job_training_replies,
+                                    mock_job_training_plan_type,
                                     mock_strategy_refine,
+                                    mock_fedavg_create_aggregator_args,
                                     mock_fedavg_aggregate,
+                                    mock_job_update_training_args,
                                     mock_experiment_breakpoint):
         """ Testing run_once method of Experiment class """
-
+        training_plan = MagicMock()
+        training_plan.type = MagicMock()
         mock_job_init.return_value = None
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2])
         mock_fedavg_aggregate.return_value = None
-        mock_job_updates_params.return_value = None
+        mock_fedavg_create_aggregator_args.return_value = ({}, {})
+        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        mock_job_update_training_args.return_value = {'num_updates': 1}
         mock_experiment_breakpoint.return_value = None
 
         # Test invalid `increase` arguments
@@ -1398,7 +1418,7 @@ class TestExperiment(unittest.TestCase):
 
         # patch choose_bkpt_file create_unique_{file_}link  with minimal functions
         def side_bkpt_file(exp_folder, round):
-            # save directly in experiment folder to avoir creating additional dirs
+            # save directly in experiment folder to avoid creating additional dirs
             return self.experimentation_folder_path, bkpt_file
 
         patch_choose_bkpt_file.side_effect = side_bkpt_file
@@ -1418,7 +1438,8 @@ class TestExperiment(unittest.TestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self):
+            def save_state(self, training_plan: BaseTrainingPlan,
+                           breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
@@ -1457,11 +1478,17 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._round_current = round_current
 
         # build minimal Job object
-        class Job():
+        class DummyJob():
+            def __init__(self):
+                self._training_plan = None
             def save_state(self, breakpoint_path):
                 return job_state
+            
+            @property
+            def training_plan(self):
+                return self._training_plan
 
-        self.test_exp._job = Job()
+        self.test_exp._job = DummyJob()
         # patch Job training_plan / training_plan_file
         self.test_exp._job.training_plan_file = training_plan_file
         self.test_exp._job.training_plan_name = training_plan_class
@@ -1532,14 +1559,14 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
-    @patch('fedbiomed.researcher.experiment.Experiment._create_object')
+    #@patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
     def test_experiment_29_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
-                                                  patch_create_object,
+                                                  #patch_create_object,
                                                   patch_training_plan
                                                   ):
         """ test `load_breakpoint` :
@@ -1557,17 +1584,30 @@ class TestExperiment(unittest.TestCase):
         training_plan_class = 'ThisIsTheTrainingPlan'
         round_current = 1
         experimentation_folder = 'My_experiment_folder_258'
-        aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
-        strategy = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
+        aggregator_params = {'aggregator_name': 'dummy-aggregator',
+                      'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
+        strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
         aggregated_params = {
             '1': {'params_path': '/path/to/my/params_path_1.pt'},
             2: {'params_path': '/path/to/my/params_path_2.pt'}
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         use_secagg = True
-        secagg_servkey = {'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two']}
-        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        secagg_servkey = {'secagg_id': '1234',
+                          'researcher_id': '1234',
+                          'status': True, 
+                          'context': None,
+                          'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'],
+                          'class': 'FakeSecaggServkeyContext',
+                          'module': self.__module__}
+        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+                          'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
+        fake_aggregator = FakeAggregator()
+        fake_aggregator._aggregator_args = aggregator_params
+        
+        fake_strategy = FakeStrategy(data=training_args)
+        fake_strategy._parameters = strategy_params
         # breakpoint structure
         state = {
             'training_data': training_data,
@@ -1578,8 +1618,17 @@ class TestExperiment(unittest.TestCase):
             'round_current': round_current,
             'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
-            'aggregator': aggregator,
-            'node_selection_strategy': strategy,
+            'aggregator': {
+                            "class": 'FakeAggregator',
+                            "module": self.__module__,
+                            "parameters": aggregator_params
+                        },
+            'node_selection_strategy': {
+                            "class": 'FakeStrategy',
+                            "module": self.__module__,
+                            "parameters": strategy_params,
+                            "fds": training_data
+                        },
             'tags': self.tags,
             'aggregated_params': aggregated_params,
             'job': job,
@@ -1611,17 +1660,21 @@ class TestExperiment(unittest.TestCase):
                                                 '2': 243}]}
 
         final_training_args = TrainingArgs(only_required=False)
-        final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
+        final_aggregator = {'aggregator_name': 'dummy-aggregator',
+                            'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         final_use_secagg = True
-        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two']}
-        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four']}
+        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'],
+                                }
+        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+                                'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
-        def side_create_object(args, **kwargs):
-            return args
+        
+        # def side_create_object(args, **kwargs):
+        #     return args
 
-        patch_create_object.side_effect = side_create_object
+        # patch_create_object.side_effect = side_create_object
 
         class FakeModelInstance:
             def load(self, aggreg, to_params):
@@ -1668,6 +1721,7 @@ class TestExperiment(unittest.TestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test when everything is OK
+
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
         for p in patches_experiment:
@@ -1677,8 +1731,10 @@ class TestExperiment(unittest.TestCase):
         self.assertTrue(isinstance(loaded_exp, Experiment))
         self.assertEqual(loaded_exp._tags, final_tags)
         self.assertEqual(loaded_exp._fds.data(), final_training_data)
-        self.assertEqual(loaded_exp._aggregator, final_aggregator)
-        self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
+        self.assertEqual(loaded_exp._aggregator._aggregator_args, final_aggregator)
+        self.assertIsInstance(loaded_exp._aggregator, Aggregator)
+        self.assertEqual(loaded_exp._node_selection_strategy._parameters, final_strategy)
+        self.assertIsInstance(loaded_exp._node_selection_strategy, Strategy)
         self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
@@ -1691,8 +1747,8 @@ class TestExperiment(unittest.TestCase):
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
         self.assertEqual(loaded_exp._use_secagg, final_use_secagg)
-        self.assertEqual(loaded_exp._secagg_servkey, final_secagg_servkey)
-        self.assertEqual(loaded_exp._secagg_biprime, final_secagg_biprime)
+        self.assertEqual(loaded_exp._secagg_servkey.parties, final_secagg_servkey['parties'])
+        self.assertEqual(loaded_exp._secagg_biprime.parties, final_secagg_biprime['parties'])
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     def test_experiment_30_static_save_aggregated_params(self,
@@ -1788,7 +1844,7 @@ class TestExperiment(unittest.TestCase):
             "class TestClass:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def load_state(self, state :str):\n" + \
+            "   def load_state(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         class_source_exception = \
@@ -1796,7 +1852,7 @@ class TestExperiment(unittest.TestCase):
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       raise Exception()\n" + \
-            "   def load_state(self, state :str):\n" + \
+            "   def load_state(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         test_class_name = 'TestClass'

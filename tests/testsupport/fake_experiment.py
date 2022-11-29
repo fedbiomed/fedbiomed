@@ -50,6 +50,7 @@ class ExperimentMock():
         self._training_plan_path = training_plan_path
         self._model_args = model_args
         self._training_args = TrainingArgs(only_required=False)
+        self.aggregator_args = {}
         class Job:
             def load_state(self, saved_state):
                 self._saved_state = saved_state

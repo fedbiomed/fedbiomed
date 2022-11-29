@@ -30,6 +30,9 @@ class FakeSecaggContext:
         """
         self.success = success
 
+    def load_state(self, *arg, **kwargs):
+        pass
+
 
 class FakeSecaggServkeyContext(FakeSecaggContext):
     pass
