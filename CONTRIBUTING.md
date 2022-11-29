@@ -36,7 +36,9 @@ Fed-BioMed mid-term plans include moving to a public repository, setting up of a
 
 Governance setup may also include creating a consortium or joining an existing open-source software foundation.
 
-The goal is to match the evolving needs of the stakeholders and the contributors of the software, as the community grows and the codebase matures. 
+The goal is to match the evolving needs of the stakeholders and the contributors of the software, as the community grows and the codebase matures.
+
+Developer's Discord server is a good place to discuss these evolutions.
 
 
 ## Fed-BioMed Developer Certificate Of Origin (DCO)
