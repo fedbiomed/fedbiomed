@@ -464,7 +464,7 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(pec=Dataset)
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
 
-        mocked_loss_result = MagicMock()
+        mocked_loss_result = MagicMock(spec=torch.Tensor, return_value = torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
 
