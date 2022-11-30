@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# run a specific component of fedbiomed
+#
+
+# detect how the file is run
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
+
+
+# Color configuration -----------------------------------------------------------------------------------------
+RED='\033[1;31m' #red
+YLW='\033[1;33m' #yellow
+GRN='\033[1;32m' #green
+NC='\033[0m' #reset
+BOLD='\033[1m'
+
+function help() {
+
+  case $1 in
+    main)
+
+      ;;
+    register)
+
+      ;;
+    list)
+
+      ;;
+  esac
+}
+
+function error(){
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD}$1${NC}"
+    exit 1
+}
+
+function check_component(){
+    fedbiomed_env=$1
+    fedbiomed_envs=(node researcher)
+    # shellcheck disable=SC2076
+    if [[ ! " ${fedbiomed_envs[*]} " =~ " $fedbiomed_env " ]]; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD}Fed-BioMed component should be 'node' or 'researcher' but got '$fedbiomed_env'"
+      exit 1
+    fi
+}
+
+function unknown_argument(){
+    echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD}Unknown argument '$2'${NC}. \n \
+    \rPlease run 'fedbiomed_run [component] certificate --help' to see usage"
+    exit 1
+}
+
+# Case $1 should always represents the component
+check_component "$1"
+COM=$1
+
+
+case $2 in
+
+  register)
+      while [[ $# -gt 0 ]]; do
+        case $3 in
+          -pk|--public-key)
+            PK="$4"
+            shift # past argument
+            shift # past value
+            ;;
+          -pi|--party-id)
+            PI="$4"
+            shift # past argument
+            shift # past value
+            ;;
+          --upsert)
+            UPSERT="--upsert"
+            shift
+            shift
+            ;;
+          -h| --help)
+            help register
+            exit 0
+            ;;
+          *)
+            if [ -z  "$3" ]; then break; else unknown_argument 'register'; fi
+            ;;
+        esac
+      done
+
+      # Check if all the arguments are defined
+      if [[ -z "$PK" || -z "$PI" || -z "$COM" ]];then
+        error "Please make sure all arguments are defined. \n \
+              \rRun 'fedbiomed_run [component] certificate $2 --help' to see usage"
+      fi
+
+
+      python -m fedbiomed."$COM".cli certificate register -pk "$PK" -pi "$PI" $UPSERT
+    ;;
+
+  list)
+    echo "HERE"
+    # shellcheck disable=SC2086
+    python -m fedbiomed."$COM".cli certificate list $3
+    ;;
+
+  *)
+    echo "HERE"
+    ;;
+esac

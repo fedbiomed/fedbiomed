@@ -133,7 +133,9 @@ class CommonCLI:
     def parse_args(self):
         """"""
         self._args = self._parser.parse_args()
-        self._args.func(self._args)
+
+        if hasattr(self._args, 'func'):
+            self._args.func(self._args)
 
 
 if __name__ == '__main__':
