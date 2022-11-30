@@ -11,6 +11,7 @@ from typing import Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.logger import logger
 
 # Create certificate dict validator
 CertificateDataValidator = SchemeValidator({
@@ -75,9 +76,11 @@ class CommonCLI:
 
         register_parser = certificate_sub_parsers.add_parser('register')
         list_parser = certificate_sub_parsers.add_parser('list')
+        delete_parser = certificate_sub_parsers.add_parser('delete')
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
+        delete_parser.set_defaults(func=self._delete_certificate)
 
         register_parser.add_argument('-pk',
                                      '--public-key',
@@ -129,6 +132,27 @@ class CommonCLI:
         """ Lists saved certificates """
 
         self._certificate_manager.list(verbose=True)
+
+    def _delete_certificate(self, args):
+
+        certificates = self._certificate_manager.list(verbose=False)
+        options = [d['party_id'] for d in certificates]
+        msg = "Select the certificate to delete:\n"
+        msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+        msg += "\nSelect: "
+
+        while True:
+            try:
+                opt_idx = int(input(msg)) - 1
+                assert opt_idx in range(len(certificates))
+
+                party_id = certificates[opt_idx]['party_id']
+                self._certificate_manager.delete(party_id=party_id)
+                print(f"{GRN}Success!{NC}")
+                print(f"{BOLD}Certificate for '{party_id}' has been successfully removed {NC}")
+                return
+            except (ValueError, IndexError, AssertionError):
+                logger.error('Invalid option. Please, try again.')
 
     def parse_args(self):
         """"""

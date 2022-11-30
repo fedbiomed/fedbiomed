@@ -104,12 +104,17 @@ case $2 in
     ;;
 
   list)
-    echo "HERE"
+
     # shellcheck disable=SC2086
     python -m fedbiomed."$COM".cli certificate list $3
     ;;
 
+  delete)
+    # shellcheck disable=SC2086
+    python -m fedbiomed."$COM".cli certificate delete $3
+    ;;
+
   *)
-    echo "HERE"
+    error "Invalid options"
     ;;
 esac

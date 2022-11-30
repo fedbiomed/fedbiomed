@@ -536,14 +536,11 @@ case $1 in
                     ;;
 
                 certificate)
-                  echo "$PARAMS"
                   source "$basedir"/scripts/fedbiomed_environment node "$IP_ADDRESS"
                   "$basedir"/scripts/fedbiomed_certificate node $PARAMS
                 ;;
 
                 *)
-
-
                     echo -e "\n${RED}ERROR${NC}"
                     echo -e "Bad node command '$2' : please run node with add or start option (full help with -h)"
                 ;;

@@ -529,7 +529,7 @@ class NodeEnviron(Environ):
             os.mkdir(self._values['TRAINING_PLANS_DIR'])
 
         allow_dtp = self.from_config('security', 'allow_default_training_plans')
-        print(allow_dtp)
+
         self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS',
                                                                  allow_dtp) \
                                                            .lower() in ('true', '1', 't', True)
