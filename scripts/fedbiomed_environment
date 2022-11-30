@@ -108,6 +108,7 @@ activate_gui() {
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
 basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 
+
 # initialize development environment for....
 case $1 in
 
@@ -183,14 +184,14 @@ case $1 in
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
-        activate_node verbose
+        activate_node "$3"
         ;;
 
     researcher|r)
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
-        activate_researcher verbose
+        activate_researcher "$3"
         ;;
 
     gui)

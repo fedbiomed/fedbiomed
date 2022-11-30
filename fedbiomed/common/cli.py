@@ -5,6 +5,8 @@ This module includes common CLI methods and parser extension
 """
 
 import argparse
+import os
+import sys
 from typing import Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.validator import SchemeValidator, ValidateError
@@ -12,14 +14,23 @@ from fedbiomed.common.certificate_manager import CertificateManager
 
 # Create certificate dict validator
 CertificateDataValidator = SchemeValidator({
-    'DP_PATH': {"rules": [str], "required": True}
+    'DB_PATH': {"rules": [str], "required": True}
 })
+
+RED = '\033[1;31m'  # red
+YLW = '\033[1;33m'  # yellow
+GRN = '\033[1;32m'  # green
+NC = '\033[0m'  # no color
+BOLD = '\033[1m'
 
 
 class CommonCLI:
 
     def __init__(self):
-        self._parser: argparse.ArgumentParser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+        self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
+            prog='fedbiomed_run [ node | researcher | gui ] config [CONFIG_NAME] ',
+            formatter_class=argparse.RawTextHelpFormatter
+        )
         self._certificate_manager: CertificateManager = CertificateManager()
         self._description: str = ''
         self._args = None
@@ -46,8 +57,6 @@ class CommonCLI:
 
         return self._description
 
-
-
     def initialize_certificate_parser(self, data: Dict):
         """Common arguments """
 
@@ -59,39 +68,72 @@ class CommonCLI:
                 f"Inconvenient 'data' value. Certificate CLI manager can not be initialized. Error: {e}"
             )
 
-        self._parser.add_argument('-r',
-                                  '--register',
-                                  action='store_true')
+        subparsers = self._parser.add_subparsers(help='Certificate sub-commands', dest='certificate')
 
-        self._parser.add_argument('-c',
-                                  '--certificate',
-                                  metavar='CERTIFICATE',
-                                  type=str,
-                                  nargs='?',
-                                  help='Certificate path or certificate string')
+        certificate_parser = subparsers.add_parser('certificate', help='a help')
+        certificate_sub_parsers = certificate_parser.add_subparsers(help='Holala')
+
+        register_parser = certificate_sub_parsers.add_parser('register')
+        list_parser = certificate_sub_parsers.add_parser('list')
+
+        register_parser.set_defaults(func=self._register_certificate)
+        list_parser.set_defaults(func=self._list_certificates)
+
+        register_parser.add_argument('-pk',
+                                     '--public-key',
+                                     metavar='PUBLIC_KEY',
+                                     type=str,
+                                     nargs='?',
+                                     help='Certificate/key that will be registered')
+
+        register_parser.add_argument('-pi',
+                                     '--party-id',
+                                     metavar='PUBLIC_ID',
+                                     type=str,
+                                     nargs='?',
+                                     help="ID of the party to which the certificate is to be registered (component"
+                                          " ID)")
+
+        register_parser.add_argument('--upsert',
+                                     action="store_true",
+                                     help="Updates if certificate of given party id is already existing ")
 
         # Set db path that certificate manager will be using to store certificates
-        self._certificate_manager.set_db(db_path=data["DP_PATH"])
+        self._certificate_manager.set_db(db_path=data["DB_PATH"])
 
-        # args = self.parser.parse_args()
-        #
-        # if(args.help and args.register):
-        #     self._parser.print_help()
-        #
-        # print(args.register)
-        # print(args.certificate)
+    def _register_certificate(self, args):
+        """ Registers certificate with given parameters"""
 
-    def _register_certificate(self, certificate: str):
+        if not os.path.isfile(args.public_key):
+            print("'-pk | --public-key' should be a valid file.")
+            sys.exit(101)
 
-        pass
+        if not args.party_id:
+            print("'-pi | --party-id' is required.")
+            sys.exit(101)
 
+        try:
+            self._certificate_manager.register_certificate(
+                certificate_path=args.public_key,
+                party_id=args.party_id,
+                upsert=args.upsert
+            )
+        except FedbiomedError as exp:
+            print(exp)
+            sys.exit(101)
+        else:
+            print(f"{GRN}Success!{NC}")
+            print(f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}")
+
+    def _list_certificates(self, args):
+        """ Lists saved certificates """
+
+        self._certificate_manager.list(verbose=True)
 
     def parse_args(self):
         """"""
         self._args = self._parser.parse_args()
-
-        if self._args.register:
-             print('Tests')
+        self._args.func(self._args)
 
 
 if __name__ == '__main__':

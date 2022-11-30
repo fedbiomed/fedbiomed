@@ -459,27 +459,27 @@ case $1 in
             case $2 in
 
                 list|--list|-l)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
                 del-all|delete-all|--del-all|--delete-all|-da)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-all $PARAMS
                     ;;
 
                 delete-mnist|--delete-mnist|-dm)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
@@ -489,12 +489,12 @@ case $1 in
                     ;;
 
                 add-dataset-from-file|--add-dataset-from-file|-adff)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-training-plan|--register-training-plan|-rtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --register-training-plan $PARAMS
                     ;;
 
@@ -504,26 +504,26 @@ case $1 in
                     ;;
 
                 reject-training-plan|--reject-training-plan|-rjtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --reject-training-plan $PARAMS
                     ;;
                 update-training-plan|--update-training-plan|-utp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --update-training-plan $PARAMS
                     ;;
 
                 list-training-plans|--list-training-plans|-ltps)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list-training-plans $PARAMS
                     ;;
 
                 delete-training-plan|--delete-training-plan|-dtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-training-plan $PARAMS
                     ;;
 
                 view-training-plan|--view-training-plan|-vtp)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ./scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --view-training-plan $PARAMS
                     ;;
 
@@ -531,21 +531,22 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
 
-                *)
-                  source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
-                  python -m fedbiomed.node.cli $ALL_PARAMS 2>&1
-                  if [ ! $? -eq 0 ]; then
-                    echo "Bad node command '$2' : please run node with add or start option (full help with -h)"
-                    python -m fedbiomed.node.cli -h
-                  else
+                certificate)
+                  echo "$PARAMS"
+                  source "$basedir"/scripts/fedbiomed_environment node "$IP_ADDRESS"
+                  "$basedir"/scripts/fedbiomed_certificate node $PARAMS
+                ;;
 
-                    echo "$output"
-                  fi
-                  ;;
+                *)
+
+
+                    echo -e "\n${RED}ERROR${NC}"
+                    echo -e "Bad node command '$2' : please run node with add or start option (full help with -h)"
+                ;;
             esac
         else
             echo "INFO: no fedbiomed.node.cli yet in this version, skipping command"
@@ -568,28 +569,44 @@ case $1 in
                     shift
                     shift
                     ;;
-                help|-h|--help)
-                    usage researcher
-                    ;;
                 *)
                     break
                 ;;
             esac
         done
 
-        source ${basedir}/scripts/fedbiomed_environment researcher $IP_ADDRESS
-        cd notebooks
-
-        # Windows WSL and others cannot handle using redirect file for securing notebook launch
-        # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
-        NB_OPTS=
-        if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
-        # case if windows WSL is used
+        # pass remaining params to launched script
+        if [ $# -ge 2 ]
         then
-            NB_OPTS='--NotebookApp.use_redirect_file=false'
+            export PARAMS=${@:3:$#-2}
+        else
+            export PARAMS=
         fi
 
-        jupyter notebook $NB_OPTS
+        # Execution -------------------------------------------------------------------------------------------------
+        # Activate conda environment
+        source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
+        case $2 in
+            start)
+                cd notebooks
+                # Windows WSL and others cannot handle using redirect file for securing notebook launch
+                # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
+                NB_OPTS=
+                if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+                # case if windows WSL is used
+                then
+                    NB_OPTS='--NotebookApp.use_redirect_file=false'
+                fi
+
+                jupyter notebook $NB_OPTS
+            ;;
+            certificate)
+                 "$basedir"/scripts/fedbiomed_certificate researcher $PARAMS
+            ;;
+            help|-h|--help)
+                usage researcher
+            ;;
+        esac
         ;;
 
     help|-h|--help)

@@ -19,12 +19,14 @@ __intro__ = """
 
 def main():
     cli = CommonCLI()
-    CommonCLI.parser.description = f"{__intro__}: A CLI app for fedbiomed researchers."
+    CommonCLI.description = f"{__intro__}: A CLI app for fedbiomed researchers."
     cli.initialize_certificate_parser(data={"DB_PATH": environ["DB_PATH"]})
 
     print(__intro__)
-    print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
+    print('\t- 🆔 Your researcher ID:', environ['RESEARCHER_ID'], '\n')
 
+    # Parse CLI arguments after the arguments are ready
+    cli.parse_args()
 
 if __name__ == '__main__':
     main()

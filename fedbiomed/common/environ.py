@@ -299,7 +299,6 @@ class Environ(metaclass=SingletonABCMeta):
             'keep_alive': 60
         }
 
-    @staticmethod
     def _generate_certificate(
             self,
             component_id,
@@ -426,8 +425,6 @@ class ResearcherEnviron(Environ):
         # Setup environment variables
         self.setup_environment()
 
-        # display some information on the present environment
-        self.info()
 
     def default_config_file(self) -> str:
         """Sets config file path """
@@ -448,6 +445,8 @@ class ResearcherEnviron(Environ):
         self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(self._values['ROOT_DIR'], 'runs')
         self._values['EXPERIMENTS_DIR'] = os.path.join(self._values['VAR_DIR'], "experiments")
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
+        self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
+                                               f'db_{self._values["RESEARCHER_ID"]}.json')
 
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
@@ -475,7 +474,7 @@ class ResearcherEnviron(Environ):
         }
 
         # Generate self-signed certificates
-        key_file, pem_file = Environ._generate_certificate(researcher_id)
+        key_file, pem_file = self._generate_certificate(researcher_id)
 
         # Set public and private keys
         self._cfg['ssl'] = {
@@ -499,8 +498,6 @@ class NodeEnviron(Environ):
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
         # Setup environment variables
         self.setup_environment()
-        # display some information on the present environment
-        self.info()
 
     def default_config_file(self) -> str:
         """Sets config file path """
@@ -582,7 +579,7 @@ class NodeEnviron(Environ):
         }
 
         # Generate self-signed certificates
-        key_file, pem_file = Environ._generate_certificate(node_id)
+        key_file, pem_file = self._generate_certificate(node_id)
 
         # Security variables
         # Default hashing algorithm is SHA256

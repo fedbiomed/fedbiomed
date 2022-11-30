@@ -4,6 +4,7 @@ from functools import wraps
 from OpenSSL import crypto
 from typing import Dict, List, Union
 from tinydb import TinyDB, Query
+from tabulate import tabulate
 
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.constants import ComponentType
@@ -36,18 +37,11 @@ class CertificateManager:
         self._query: Query = Query()
 
         if db is not None:
-            self._db: TinyDB = TinyDB(db, 'Certificates')
+            self._db: TinyDB = TinyDB(db).table("Certificates")
 
     def set_db(self, db_path: str) -> None:
         """Sets database """
-        self._db = TinyDB(db_path, "Certificates")
-
-    @classmethod
-    def check_db(cls):
-
-
-        pass
-
+        self._db = TinyDB(db_path).table("Certificates")
 
     def insert(
             self,
@@ -65,7 +59,7 @@ class CertificateManager:
         """
 
         return self._db.insert(dict(certificate=certificate,
-                                    party=party_id,
+                                    party_id=party_id,
                                     component=component
                                     )
                                )
@@ -81,7 +75,7 @@ class CertificateManager:
             party_id: Party id
         """
 
-        return self._db.get(self._query.party == party_id)
+        return self._db.get(self._query.party_id == party_id)
 
     def delete(
             self,
@@ -98,29 +92,54 @@ class CertificateManager:
 
         return self._db.remove(self._query.party_id == party_id)
 
+    def list(self, verbose: bool = False):
+        """
+
+        """
+        certificates = self._db.all()
+
+        if verbose:
+            for doc in certificates:
+                doc.pop('certificate')
+            print(tabulate(certificates, headers='keys'))
+
+        return certificates
+
     def register_certificate(
             self,
-            certificate_path,
-            party_id
+            certificate_path: str,
+            party_id: str,
+            upsert: bool = False
     ) -> int:
 
         if not os.path.isfile(certificate_path):
-            raise FedbiomedError(f"Certificate path doe snot represents a file.")
+            raise FedbiomedError(f"Certificate path does not represents a file.")
 
         # Read certificate content
         with open(certificate_path) as file:
             certificate = file.read()
             file.close()
 
-        # Save certificate in database
-        component = ComponentType.NODE if party_id.startswith("node") else ComponentType.RESEARCHER
-        register = self.insert(
-            certificate=certificate,
-            party_id=party_id,
-            component=component
-        )
+        certificate = self.get(party_id=party_id)
 
-        return register
+        # Save certificate in database
+        component = ComponentType.NODE.name if party_id.startswith("node") else ComponentType.RESEARCHER.name
+
+        if not certificate:
+            return self.insert(
+                certificate=certificate,
+                party_id=party_id,
+                component=component
+            )
+
+        elif upsert:
+            return self._db.upsert(
+                dict(certificate=certificate, component=component, party_id=party_id),
+                self._query.party_id == party_id
+            )
+        else:
+            raise FedbiomedError(f"Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
+                                 f"option through CLI")
 
     def write_certificates_for_experiment(
             self,

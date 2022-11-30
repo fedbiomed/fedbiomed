@@ -167,7 +167,7 @@ def launch_cli():
     """
 
     cli = CommonCLI()
-    cli.initialize_certificate_parser(data={'DP_PATH': environ["DB_PATH"]})
+    cli.initialize_certificate_parser(data={'DB_PATH': environ["DB_PATH"]})
 
     # Register description for CLI
     cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
