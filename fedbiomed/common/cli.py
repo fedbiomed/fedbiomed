@@ -110,17 +110,34 @@ class CommonCLI:
             )
 
         # Add certificate sub parser (sub-command)
-        certificate_parser = self._subparsers.add_parser('certificate', help='a help')
+        certificate_parser = self._subparsers.add_parser(
+            'certificate',
+            prog="fedbiomed_run [ node | researcher ] [config [CONFIG_FILE]] "
+        )
 
         # Create sub parser under `certificate` command
         certificate_sub_parsers = certificate_parser.add_subparsers(
-            help='Certificate management commands. Please run [command] -h to see details of the commands'
+            help='Certificate management commands. Please run [command] -h to see details of the commands.'
         )
 
-        register_parser = certificate_sub_parsers.add_parser('register')  # command register
-        list_parser = certificate_sub_parsers.add_parser('list')  # command list
-        delete_parser = certificate_sub_parsers.add_parser('delete')  # command delete
-        generate = certificate_sub_parsers.add_parser('generate')  # command generate
+        register_parser = certificate_sub_parsers.add_parser(
+            'register',
+            help="Register certificate of specified party. Please run 'fedbiomed_run [COMPONENT SPECIFICATION] "
+                 "certificate register --help'"
+        )  # command register
+        list_parser = certificate_sub_parsers.add_parser(
+            'list',
+            help="Lists registered certificates"
+        )  # command list
+        delete_parser = certificate_sub_parsers.add_parser(
+            'delete',
+            help="Deletes specified certificate from database")  # command delete
+
+        # Command `certificate generate`
+        generate = certificate_sub_parsers.add_parser(
+            'generate',
+            help="Generates certificate for given component/party. Overwrites exisintg certificate ff '--path' option "
+                 "isn't specified ")
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
@@ -128,46 +145,56 @@ class CommonCLI:
         generate.set_defaults(func=self._generate_certificate)
 
         # Add arguments
-        register_parser.add_argument('-pk',
-                                     '--public-key',
-                                     metavar='PUBLIC_KEY',
-                                     type=str,
-                                     nargs='?',
-                                     required=True,
-                                     help='Certificate/key that will be registered')
+        register_parser.add_argument(
+            '-pk',
+            '--public-key',
+            metavar='PUBLIC_KEY',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Certificate/key that will be registered')
 
-        register_parser.add_argument('-pi',
-                                     '--party-id',
-                                     metavar='PUBLIC_ID',
-                                     type=str,
-                                     nargs='?',
-                                     required=True,
-                                     help="ID of the party to which the certificate is to be registered (component"
-                                          " ID)")
+        register_parser.add_argument(
+            '-pi',
+            '--party-id',
+            metavar='PUBLIC_ID',
+            type=str,
+            nargs='?',
+            required=True,
+            help="ID of the party to which the certificate is to be registered (component ID).")
 
-        register_parser.add_argument('--upsert',
-                                     action="store_true",
-                                     help="Updates if certificate of given party id is already existing ")
+        register_parser.add_argument(
+            '--upsert',
+            action="store_true",
+            help="Updates if certificate of given party id is already existing.")
 
-        generate.add_argument('--path',
-                              type=str,
-                              nargs='?',
-                              default=os.path.join(data["CERT_DIR"], f"cert_{data['COMPONENT_ID']}"))
+        generate.add_argument(
+            '--path',
+            type=str,
+            nargs='?',
+            default=os.path.join(data["CERT_DIR"], f"cert_{data['COMPONENT_ID']}"),
+            help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
-        generate.add_argument('--organization',
-                              type=str,
-                              nargs='?',
-                              default="Fed-BioMed")
+        generate.add_argument(
+            '--organization',
+            type=str,
+            nargs='?',
+            default="Fed-BioMed",
+            help="Organization name for CSR")
 
-        generate.add_argument('--email',
-                              type=str,
-                              nargs='?',
-                              default="fed@biomed")
+        generate.add_argument(
+            '--email',
+            type=str,
+            nargs='?',
+            default="fed@biomed",
+            help="E-mail address for CSR")
 
-        generate.add_argument('--country',
-                              type=str,
-                              nargs='?',
-                              default="FR")
+        generate.add_argument(
+            '--country',
+            type=str,
+            nargs='?',
+            default="FR",
+            help="Country for CSR")
 
         # Set db path that certificate manager will be using to store certificates
         self._certificate_manager.set_db(db_path=data["DB_PATH"])
