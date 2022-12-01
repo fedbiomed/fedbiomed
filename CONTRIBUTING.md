@@ -16,14 +16,14 @@ Here is a brief summary of how it is structured:
 
 Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https://fedbiomed.gitlabpages.inria.fr/latest/developer/usage_and_tools/).
 
-When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials: access to the gitlab repository, registration to developer mail lists, invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and projected contributions, to ask questions, etc.
+When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials: an account on `gitlab.inria.fr` with access to the gitlab repository, registration to developer mail lists, invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and projected contributions, to ask questions, etc.
 
 
 ## How to contribute
 
 If you are able to patch a bug or add the feature yourself – fantastic, you are ready to make a merge request with the code! But you can also participate in many other ways: review and extension of the documentation, or review of a pending merge request are also great contributions to the project.
 
-Please use the git signed-off-by (`git commit -s`) mechanism with all your commits.
+Use the git signed-off-by (`git commit -s`) mechanism for all your commits is encouraged.
 
 Be sure you have read any documents on contributing and you understand [the Fed-BioMed license](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/LICENSE.md). Once you have submitted a merge request the Reviewer can compare your branch to the existing one and decide whether or not to approve your changes.
 
