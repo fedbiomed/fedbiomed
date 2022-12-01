@@ -632,14 +632,15 @@ case $1 in
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
-
+                forward_command_to_python_cli researcher configuration create
                 jupyter notebook $NB_OPTS
+
             ;;
             help|-h|--help)
                 usage researcher
             ;;
             *)
-              forward_command_to_python_cli researcher $EXTRA_PARAMS $IP_ADDRESS
+              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
             ;;
         esac
         ;;

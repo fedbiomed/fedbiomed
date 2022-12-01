@@ -6,6 +6,11 @@ from typing import Dict, List, Union
 from tinydb import TinyDB, Query
 from tabulate import tabulate
 
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -101,6 +106,7 @@ class CertificateManager:
         if verbose:
             for doc in certificates:
                 doc.pop('certificate')
+
             print(tabulate(certificates, headers='keys'))
 
         return certificates
@@ -227,46 +233,42 @@ class CertificateManager:
             certificate_data, only_required=False
         )
 
+        # Generate our key
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+        )
+
+        # Generate a CSR
+        csr = x509.CertificateSigningRequestBuilder() \
+            .subject_name(
+            x509.Name([
+                # Provide various details about who we are.
+                x509.NameAttribute(NameOID.COUNTRY_NAME, certificate_data["country"]),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, certificate_data["organization"]),
+                x509.NameAttribute(NameOID.EMAIL_ADDRESS, certificate_data["email"]),
+            ])).sign(private_key, hashes.SHA256())
+
         # Certificate names
         key_file = os.path.join(certificate_path, "certificate.key")
         pem_file = os.path.join(certificate_path, "certificate.pem")
 
-        private_key = crypto.PKey()
-        private_key.generate_key(crypto.TYPE_RSA, 2048)
-
-        # create a self-signed cert
-        certificate = crypto.X509()
-        certificate.get_subject().C = certificate_data["country"]
-        certificate.get_subject().O = certificate_data["organization"]
-        certificate.get_subject().emailAddress = certificate_data["email"]
-        certificate.set_serial_number(0)
-        certificate.gmtime_adj_notBefore(0)
-        certificate.gmtime_adj_notAfter(certificate_data["validity"])
-        certificate.set_issuer(certificate.get_subject())
-        certificate.set_pubkey(private_key)
-
-        # Sign certificate SHA512
-        certificate.sign(private_key, 'sha512')
-
         try:
-            with open(pem_file, "w") as f:
-                f.write(
-                    str(crypto.dump_certificate(
-                        crypto.FILETYPE_PEM,
-                        certificate.decode("utf-8")
-                    ))
-                )
+            with open(key_file, "wb") as f:
+                f.write(private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.BestAvailableEncryption(b"passphrase"),
+                ))
+                f.close()
         except Exception as e:
             raise FedbiomedError(f"Can not write public key: {e}")
-        else:
-            try:
-                with open(key_file, "w") as f:
-                    f.write(
-                        str(crypto.dump_privatekey(
-                            crypto.FILETYPE_PEM,
-                            private_key).decode("utf-8"))
-                    )
-            except Exception as e:
-                raise FedbiomedError(f"Can not write public key: {e}")
-        finally:
-            return key_file, pem_file
+
+        try:
+            with open(pem_file, "wb") as f:
+                f.write(csr.public_bytes(serialization.Encoding.PEM))
+                f.close()
+        except Exception as e:
+            raise FedbiomedError(f"Can not write public key: {e}")
+
+        return key_file, pem_file

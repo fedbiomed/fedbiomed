@@ -17,16 +17,28 @@ __intro__ = """
 """
 
 
-def main():
-    cli = CommonCLI()
-    CommonCLI.description = f"{__intro__}: A CLI app for fedbiomed researchers."
-    cli.initialize_certificate_parser(data={"DB_PATH": environ["DB_PATH"]})
+class ResearcherCLI(CommonCLI):
 
-    print(__intro__)
-    print('\t- 🆔 Your researcher ID:', environ['RESEARCHER_ID'], '\n')
+    def __init__(self):
+        super().__init__()
+        self.description = f"{__intro__}: A CLI app for fedbiomed researchers."
 
-    # Parse CLI arguments after the arguments are ready
-    cli.parse_args()
+    def launch_cli(self):
+
+        self.initialize_certificate_parser(
+                data={'DB_PATH': environ["DB_PATH"],
+                      "CERT_DIR": environ["CERT_DIR"],
+                      "COMPONENT_ID": environ["RESEARCHER_ID"]
+                      }
+            )
+        self.create_configuration()
+
+        print(__intro__)
+        print('\t- 🆔 Your researcher ID:', environ['RESEARCHER_ID'], '\n')
+
+        # Parse CLI arguments after the arguments are ready
+        self.parse_args()
+
 
 if __name__ == '__main__':
-    main()
+    ResearcherCLI().launch_cli()

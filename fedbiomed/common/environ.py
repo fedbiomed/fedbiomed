@@ -136,7 +136,7 @@ class Environ(metaclass=SingletonABCMeta):
         self._initialize_common_variables()
 
         # Parse config file or create if not existing
-        self._parse_config_file()
+        self.parse_write_config_file()
 
         # Configuring network variables
         self._set_network_variables()
@@ -204,7 +204,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         self._values["CONFIG_FILE"] = config_file
 
-    def _parse_config_file(self):
+    def parse_write_config_file(self, new: bool = False):
         """Parses configuration file.
 
         Create new config file if it is not existing.
@@ -213,7 +213,7 @@ class Environ(metaclass=SingletonABCMeta):
         self.set_config_file()
 
         # Parse configuration if it is existing
-        if os.path.isfile(self._values["CONFIG_FILE"]):
+        if os.path.isfile(self._values["CONFIG_FILE"]) and not new:
             # get values from .ini file
             try:
                 self._cfg.read(self._values["CONFIG_FILE"])
@@ -224,6 +224,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         # Create new configuration file
         else:
+            print("HEREEE")
             # Create new config file
             self._set_component_specific_config_parameters()
 
