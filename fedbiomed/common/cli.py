@@ -32,7 +32,11 @@ class CommonCLI:
             prog='fedbiomed_run [ node | researcher | gui ] config [CONFIG_NAME] ',
             formatter_class=argparse.RawTextHelpFormatter
         )
+
+        self._subparsers = self._parser.add_subparsers()
+
         self._certificate_manager: CertificateManager = CertificateManager()
+
         self._description: str = ''
         self._args = None
 
@@ -69,24 +73,29 @@ class CommonCLI:
                 f"Inconvenient 'data' value. Certificate CLI manager can not be initialized. Error: {e}"
             )
 
-        subparsers = self._parser.add_subparsers(help='Certificate sub-commands', dest='certificate')
+        # Add certificate sub parser (sub-command)
+        certificate_parser = self._subparsers.add_parser('certificate', help='a help')
 
-        certificate_parser = subparsers.add_parser('certificate', help='a help')
-        certificate_sub_parsers = certificate_parser.add_subparsers(help='Holala')
+        # Create sub parser under `certificate` command
+        certificate_sub_parsers = certificate_parser.add_subparsers(
+            help='Certificate management commands. Please run [command] -h to see details of the commands'
+        )
 
-        register_parser = certificate_sub_parsers.add_parser('register')
-        list_parser = certificate_sub_parsers.add_parser('list')
-        delete_parser = certificate_sub_parsers.add_parser('delete')
+        register_parser = certificate_sub_parsers.add_parser('register') # command register
+        list_parser = certificate_sub_parsers.add_parser('list') # command list
+        delete_parser = certificate_sub_parsers.add_parser('delete') # commnda delete
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
         delete_parser.set_defaults(func=self._delete_certificate)
 
+        # Add arguments
         register_parser.add_argument('-pk',
                                      '--public-key',
                                      metavar='PUBLIC_KEY',
                                      type=str,
                                      nargs='?',
+                                     required=True,
                                      help='Certificate/key that will be registered')
 
         register_parser.add_argument('-pi',
@@ -94,6 +103,7 @@ class CommonCLI:
                                      metavar='PUBLIC_ID',
                                      type=str,
                                      nargs='?',
+                                     required=True,
                                      help="ID of the party to which the certificate is to be registered (component"
                                           " ID)")
 
@@ -106,14 +116,6 @@ class CommonCLI:
 
     def _register_certificate(self, args):
         """ Registers certificate with given parameters"""
-
-        if not os.path.isfile(args.public_key):
-            print("'-pk | --public-key' should be a valid file.")
-            sys.exit(101)
-
-        if not args.party_id:
-            print("'-pi | --party-id' is required.")
-            sys.exit(101)
 
         try:
             self._certificate_manager.register_certificate(
