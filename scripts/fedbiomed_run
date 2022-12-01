@@ -58,6 +58,11 @@ node      : a second argument is mandatory
             - approve-training-plan   | --approve-training-plan   | -atp    : Approve a training plan (requested, default or registered)
             - reject-training-plan    | --reject-training-plan    | -rjtp   : Reject a training plan (requested, default or registered)
 
+            Positional Arguments:
+
+            - certificate   : Option for certificate management. Please see details 'fedbiomed_run node certificate -h'
+
+            Optional Arguments:
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
@@ -79,6 +84,12 @@ EOF
             cat <<EOF
 
 researcher: launch a researcher notebook
+
+            Second argument mandatory:
+            - start       : Starts Fed-BioMed researcher component by launch a Jupyter notebook with activated
+                            conda environment.
+            - certificate : Option for certificate management.
+                            Please see details 'fedbiomed_run researcher certificate -h'
 
             an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
                 component instead of the default localhost
@@ -193,6 +204,36 @@ NC='\033[0m' #no color
 GUI_HOST="localhost"
 GUI_PORT="8484"
 GUI_DEBUG=False
+
+# Error function
+function error(){
+      echo -e "${RED}ERROR: ${NC}"
+      echo -e "${BOLD}$1${NC}"
+      exit 1
+}
+
+
+# Function forward given command to python cli for specified component
+function forward_command_to_python_cli(){
+
+    COMPONENT=$1
+    EXTRA_PARAMS=$2
+    IP_ADDRESS=$3
+
+    if [ -z "$EXTRA_PARAMS" ]; then
+      error "Please provide a command. See fedbiomed_run $COMPONENT -h"
+    fi
+
+    source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
+    echo "$EXTRA_PARAMS"
+
+    if ! python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS; then
+      error "Error while executing the command. Please see above error message"
+    fi
+
+}
+
+
 # Script for starting GUI
 function start_gui() {
     # Check config file status
@@ -394,9 +435,6 @@ case $1 in
 
     node)
 
-        # Save all parameters after indication of `node`
-        ALL_PARAMS=${@:2:$#}
-
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -452,6 +490,9 @@ case $1 in
         else
             export PARAMS=
         fi
+
+        # Get params starting from second
+        EXTRA_PARAMS=${@:2}
 
         # TODO : better test with python module loading attempt and try/except
         if [ -f "./fedbiomed/node/cli.py" ]
@@ -535,14 +576,9 @@ case $1 in
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
 
-                certificate)
-                  source "$basedir"/scripts/fedbiomed_environment node "$IP_ADDRESS"
-                  "$basedir"/scripts/fedbiomed_certificate node $PARAMS
-                ;;
-
                 *)
-                    echo -e "\n${RED}ERROR${NC}"
-                    echo -e "Bad node command '$2' : please run node with add or start option (full help with -h)"
+                  forward_command_to_python_cli "node" "$EXTRA_PARAMS" "$IP_ADDRESS"
+
                 ;;
             esac
         else
@@ -580,11 +616,13 @@ case $1 in
             export PARAMS=
         fi
 
+        EXTRA_PARAMS=${@:2}
+
         # Execution -------------------------------------------------------------------------------------------------
         # Activate conda environment
-        source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
         case $2 in
             start)
+                source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
                 cd notebooks
                 # Windows WSL and others cannot handle using redirect file for securing notebook launch
                 # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
@@ -597,11 +635,11 @@ case $1 in
 
                 jupyter notebook $NB_OPTS
             ;;
-            certificate)
-                 "$basedir"/scripts/fedbiomed_certificate researcher $PARAMS
-            ;;
             help|-h|--help)
                 usage researcher
+            ;;
+            *)
+              forward_command_to_python_cli researcher $EXTRA_PARAMS $IP_ADDRESS
             ;;
         esac
         ;;
@@ -618,6 +656,6 @@ case $1 in
 
     *)
         echo "Please specify the component you want to run between: network, node, researcher, gui"
-        exit -1
+        exit 1
         ;;
 esac
