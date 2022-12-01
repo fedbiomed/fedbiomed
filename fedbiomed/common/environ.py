@@ -425,7 +425,6 @@ class ResearcherEnviron(Environ):
         # Setup environment variables
         self.setup_environment()
 
-
     def default_config_file(self) -> str:
         """Sets config file path """
 
