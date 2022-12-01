@@ -17,7 +17,8 @@ from fedbiomed.common.logger import logger
 CertificateDataValidator = SchemeValidator({
     'DB_PATH': {"rules": [str], "required": True},
     'CERT_DIR': {"rules": [str], "required": True},
-    'COMPONENT_ID': {"rules": [str], "required": True}
+    'COMPONENT_ID': {"rules": [str], "required": True},
+    'CERTIFICATE_DIR': {"rules": [str], "required": True}
 })
 
 RED = '\033[1;31m'  # red
@@ -37,7 +38,7 @@ class CommonCLI:
 
         self._subparsers = self._parser.add_subparsers()
         self._certificate_manager: CertificateManager = CertificateManager()
-
+        self._environ = None
         self._description: str = ''
         self._args = None
 
@@ -62,6 +63,10 @@ class CommonCLI:
         self._parser.description = value
 
         return self._description
+
+    def set_environ(self, environ):
+        """Sets envrion object"""
+        self._environ = environ
 
     @staticmethod
     def error(message: str):
@@ -98,16 +103,9 @@ class CommonCLI:
 
         recreate.set_defaults(func=self._create_component_configuration)
 
-    def initialize_certificate_parser(self, data: Dict):
+    def initialize_certificate_parser(self):
         """Common arguments """
 
-        """ Validate data """
-        try:
-            CertificateDataValidator.validate(data)
-        except ValidateError as e:
-            raise FedbiomedError(
-                f"Inconvenient 'data' value. Certificate CLI manager can not be initialized. Error: {e}"
-            )
 
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
@@ -139,10 +137,16 @@ class CommonCLI:
             help="Generates certificate for given component/party. Overwrites exisintg certificate ff '--path' option "
                  "isn't specified ")
 
+        # Command `certificate generate`
+        prepare = certificate_sub_parsers.add_parser(
+            'prepare-my-certificate-for-email',
+            help="Prepare certificates of current component to send other FL participant through trusted channel.")
+
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
         delete_parser.set_defaults(func=self._delete_certificate)
         generate.set_defaults(func=self._generate_certificate)
+        prepare.set_defaults(func=self._prepare_my_certificate_for_email)
 
         # Add arguments
         register_parser.add_argument(
@@ -172,7 +176,7 @@ class CommonCLI:
             '--path',
             type=str,
             nargs='?',
-            default=os.path.join(data["CERT_DIR"], f"cert_{data['COMPONENT_ID']}"),
+            default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
         generate.add_argument(
@@ -197,7 +201,7 @@ class CommonCLI:
             help="Country for CSR")
 
         # Set db path that certificate manager will be using to store certificates
-        self._certificate_manager.set_db(db_path=data["DB_PATH"])
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
     def _create_component_configuration(self, args):
         """CLI Handler for creating configuration file for given component
@@ -284,6 +288,29 @@ class CommonCLI:
                 return
             except (ValueError, IndexError, AssertionError):
                 logger.error('Invalid option. Please, try again.')
+
+    def _prepare_my_certificate_for_email(self, args):
+
+        try:
+            with open(self._environ["CERTIFICATE_PEM"], 'r') as file:
+                certificate = file.read()
+                file.close()
+        except Exception as e:
+            CommonCLI.error(f"Error while reading certificate: {e}")
+
+        else:
+            print(f"Hi There! \n\n")
+            print("Please find following certificate to register \n")
+            print(certificate)
+
+            print(f"{BOLD}Please follow the instructions below to register this certificate:{NC}\n\n")
+
+            print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
+            print(" 2- Change your directory to 'fedbiomed' root")
+            print(f" 2- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [Path where "
+                  f"certificate is saved] -pi {self._environ['ID']} \" ")
+
+        pass
 
     def parse_args(self):
         """"""

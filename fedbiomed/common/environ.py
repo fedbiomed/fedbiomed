@@ -224,7 +224,6 @@ class Environ(metaclass=SingletonABCMeta):
 
         # Create new configuration file
         else:
-            print("HEREEE")
             # Create new config file
             self._set_component_specific_config_parameters()
 
@@ -261,6 +260,11 @@ class Environ(metaclass=SingletonABCMeta):
         mpspdz_port = self.from_config("mpspdz", "mpspdz_port")
         self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", mpspdz_ip)
         self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", mpspdz_port)
+
+        public_key = self.from_config("ssl", "public_key")
+        private_key = self.from_config("ssl", "private_key")
+        self._values["CERTIFICATE_KEY"] = os.getenv("SLL_PRIVATE_KEY", private_key)
+        self._values["CERTIFICATE_PEM"] = os.getenv("SLL_PUBLIC_KEY", public_key)
 
     def _get_uploads_url(self,
                          from_config: Union[None, str] = False
@@ -447,7 +451,6 @@ class ResearcherEnviron(Environ):
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
         self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
                                                f'db_{self._values["RESEARCHER_ID"]}.json')
-
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
             if not os.path.isdir(dir):

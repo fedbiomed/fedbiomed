@@ -22,15 +22,11 @@ class ResearcherCLI(CommonCLI):
     def __init__(self):
         super().__init__()
         self.description = f"{__intro__}: A CLI app for fedbiomed researchers."
+        self._environ = environ
 
     def launch_cli(self):
 
-        self.initialize_certificate_parser(
-                data={'DB_PATH': environ["DB_PATH"],
-                      "CERT_DIR": environ["CERT_DIR"],
-                      "COMPONENT_ID": environ["RESEARCHER_ID"]
-                      }
-            )
+        self.initialize_certificate_parser()
         self.create_configuration()
 
         print(__intro__)

@@ -167,12 +167,8 @@ def launch_cli():
     """
 
     cli = CommonCLI()
-    cli.initialize_certificate_parser(
-        data={'DB_PATH': environ["DB_PATH"],
-              "CERT_DIR": environ["CERT_DIR"],
-              "COMPONENT_ID": environ["NODE_ID"]
-              }
-    )
+    cli.set_environ(environ=environ)
+    cli.initialize_certificate_parser()
     cli.create_configuration()
 
     # Register description for CLI
