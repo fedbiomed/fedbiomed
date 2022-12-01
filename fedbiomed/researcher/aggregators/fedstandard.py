@@ -19,7 +19,8 @@ class FedStandard(Aggregator):
         super(FedStandard, self).__init__()
         self.aggregator_name = "FedStandard"
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
+    def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
+        
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 
@@ -30,4 +31,5 @@ class FedStandard(Aggregator):
         Returns:
             Aggregated parameters
         """
-        return federated_standardization(model_params, weights)
+        model_params_processed = [list(model_param.values())[0] for model_param in model_params]
+        return federated_standardization(model_params_processed, weights)
