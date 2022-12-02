@@ -77,6 +77,7 @@ class TestEnvironCommon(unittest.TestCase):
 
     def test_environ_00_bad_component(self):
         with self.assertRaises(FedbiomedEnvironError):
+            self.suppress_environ()
             from fedbiomed.common.environ import Environ
             env = Environ("==== bad input test")
 
@@ -175,8 +176,6 @@ class TestEnvironCommon(unittest.TestCase):
             os.remove(config_path)
 
     def test_environ_03_broker(self):
-
-        #import pdb; pdb.set_trace()
 
         config_path = os.path.join(self.config_dir, 'config_broker')
         os.environ['CONFIG_FILE'] = config_path

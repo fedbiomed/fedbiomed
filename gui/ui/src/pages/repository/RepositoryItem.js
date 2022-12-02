@@ -46,7 +46,6 @@ export const RepositoryItem = (props) => {
             return false
         }
     }
-    console.log(props.item)
     return (
         <div 
             className={`repository-item ${props.active ? 'active' : ''}`}

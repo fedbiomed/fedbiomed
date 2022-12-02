@@ -1,0 +1,58 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.constants import ProcessTypes
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torch.utils.data import Dataset
+import pandas as pd
+
+class MyTrainingPlan(TorchTrainingPlan):
+
+    # Model
+    def init_model(self, model_args):
+        model = self.Net(model_args)
+        return model
+
+
+    # Dependencies
+    def init_dependencies(self):
+        # Here we define the custom dependencies that will be needed by our custom Dataloader
+        # In this case, we need the torch Dataset and DataLoader classes
+        # We need pandas to read the local .csv file at the node side
+        deps = ["from torch.utils.data import Dataset",
+                "import pandas as pd"]
+
+        return deps
+
+    class Net(nn.Module):
+        def __init__(self, model_args):
+            super().__init__()
+            # should match the model arguments dict passed below to the experiment class
+            self.fc1 = nn.Linear(model_args['in_features'], 5)
+            self.fc2 = nn.Linear(5, model_args['out_features'])
+
+        def forward(self, x):
+            x = self.fc1(x)
+            x = F.relu(x)
+            x = self.fc2(x)
+            return x
+
+    def training_step(self, data, target):
+        output = self.model().forward(data).float()
+        criterion = torch.nn.MSELoss()
+        loss   = criterion(output, target.unsqueeze(1))
+        return loss
+
+    def training_data(self,  batch_size = 48):
+        df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
+        x_dim = self.model_args()['in_features']
+        x_train = df.iloc[:,:x_dim].values
+        y_train = df.iloc[:,-1].values
+        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+
+        data_manager = DataManager(dataset=x_train , target=y_train, **train_kwargs)
+
+        return data_manager

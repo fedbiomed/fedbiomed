@@ -7,7 +7,7 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_researcher_environ # noqa (remove flake8 false warning)
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
@@ -20,20 +20,27 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
-
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 
 # for test_request_13_model_approve
-class TrainingPlanGood(TorchTrainingPlan):
+class TrainingPlanGood(BaseFakeTrainingPlan):
     pass
+
 
 class TrainingPlanBad():
     pass
 
-class TrainingPlanCannotInstanciate(TorchTrainingPlan):
+
+class TrainingPlanCannotInstanciate(BaseFakeTrainingPlan):
     def __init__(self):
         x = unknown_method()
+
     pass
+
+class TrainingPlanCannotSave(BaseFakeTrainingPlan):
+     def save_code(self, path: str):
+         raise OSError
 
 
 class TestRequests(unittest.TestCase):
@@ -53,9 +60,10 @@ class TestRequests(unittest.TestCase):
         cls.msg_side_effect = msg_side_effect
         cls.responses_side_effect = responses_side_effect
 
-
     def setUp(self):
         """Setup Requests and patches for testing"""
+
+        self.tp_abstract_patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
 
         self.req_patcher1 = patch('fedbiomed.common.messaging.Messaging.__init__')
         self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
@@ -63,6 +71,8 @@ class TestRequests(unittest.TestCase):
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
         self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
         self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.reply_create')
+
+        self.tp_abstract_patcher.start()
 
         self.message_init = self.req_patcher1.start()
         self.message_start = self.req_patcher2.start()
@@ -91,9 +101,9 @@ class TestRequests(unittest.TestCase):
             del Requests._objects[Requests]
         self.requests = Requests()
 
-
     def tearDown(self):
 
+        self.tp_abstract_patcher.stop()
         self.req_patcher1.stop()
         self.req_patcher2.stop()
         self.req_patcher3.stop()
@@ -102,7 +112,6 @@ class TestRequests(unittest.TestCase):
         self.req_patcher6.stop()
 
         pass
-
 
     def test_request_01_constructor(self):
         """ Testing Request constructor """
@@ -130,14 +139,12 @@ class TestRequests(unittest.TestCase):
         self.assertIsInstance(req_2.messaging, Messaging, "Request constructor didn't create proper Messaging")
         self.assertIsInstance(req_2.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
 
-
     def test_request_02_get_messaging(self):
         """ Testing the method `get_messaging`
             TODO: Update this part when refactoring getters and setter for reqeust
         """
         messaging = self.requests.get_messaging()
         self.assertIsInstance(messaging, Messaging, "get_messaging() does not return proper Messaging object")
-
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
@@ -194,7 +201,6 @@ class TestRequests(unittest.TestCase):
             self.requests.on_message(msg_monitor)
             self.requests.on_message(topic='unknown/topic')
 
-
     @patch('fedbiomed.common.logger.logger.info')
     def test_request_04_print_node_log_message(self, mock_logger_info):
         """ Testing printing log messages that comes from node """
@@ -211,7 +217,6 @@ class TestRequests(unittest.TestCase):
             # testing what is happening when no argument are provided
             self.requests.print_node_log_message()
 
-
     @patch('fedbiomed.common.logger.logger.debug')
     def test_request_05_send_message(self, mock_logger_debug):
         """ Testing send message method of Request """
@@ -227,7 +232,6 @@ class TestRequests(unittest.TestCase):
         # Test invalid call of send_message
         with self.assertRaises(TypeError):
             self.requests.send_message()
-
 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.qsize')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
@@ -273,7 +277,6 @@ class TestRequests(unittest.TestCase):
         # check if output is a `Responses` object
         self.assertIsInstance(resp2, Responses)
 
-
     @patch('fedbiomed.researcher.requests.Requests.get_messages')
     @patch('fedbiomed.researcher.responses.Responses')
     def test_request_07_get_responses(self,
@@ -291,12 +294,19 @@ class TestRequests(unittest.TestCase):
         self.assertEqual(responses_1[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
-        # Test when `only_successful` is False
+        # Test when `only_successful` or `while_responses` is False
         mock_get_messages.side_effect = [test_response,
                                          FakeResponses([])]
 
         responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
         self.assertEqual(responses_2[0], test_response[0], 'Values of provided responses and values of result does not '
+                                                           'match')
+
+        mock_get_messages.side_effect = [test_response,
+                                         FakeResponses([])]
+
+        responses_2bis = self.requests.get_responses(look_for_commands='test', timeout=0.1, while_responses=False)
+        self.assertEqual(responses_2bis[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
         mock_get_messages.side_effect = [Exception()]
@@ -307,7 +317,6 @@ class TestRequests(unittest.TestCase):
         mock_get_messages.side_effect = [FakeResponses([{}])]
         responses_3 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
         self.assertEqual(len(responses_3), 0, 'The length of responses are more than 0')
-
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_request_08_ping_nodes(self, mock_get_responses):
@@ -323,7 +332,6 @@ class TestRequests(unittest.TestCase):
         self.message_send.assert_called_once()
         self.assertEqual(result[0], 'dummy-id-1', 'Ping result does not contain provided node id `dummy-id-1`')
         self.assertEqual(result[1], 'dummy-id-2', 'Ping result does not contain provided node id `dummy-id-2`')
-
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('fedbiomed.common.logger.logger.info')
@@ -380,7 +388,6 @@ class TestRequests(unittest.TestCase):
         self.assertDictEqual(search_result_3, {})
         self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
                                                          'times, expected: 2')
-
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('tabulate.tabulate')
@@ -463,7 +470,6 @@ class TestRequests(unittest.TestCase):
         self.assertTrue('node-1' in result, 'List result does not contain correct values')
         self.assertTrue('node-2' in result, 'List result does not contain correct values')
 
-
     @patch('fedbiomed.researcher.monitor.Monitor.__init__')
     @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
     @patch('fedbiomed.researcher.requests.Requests.add_monitor_callback')
@@ -481,7 +487,6 @@ class TestRequests(unittest.TestCase):
         self.requests.add_monitor_callback(monitor.on_message_handler)
         mock_monitor_callback.assert_called_once_with(monitor.on_message_handler)
 
-
     @patch('fedbiomed.researcher.monitor.Monitor.__init__')
     @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
     def test_request_12_remove_monitor_callback(self,
@@ -498,115 +503,120 @@ class TestRequests(unittest.TestCase):
         self.requests.remove_monitor_callback()
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
-
-
-
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_request_13_model_approve(self,
+    def test_request_13_training_plan_approve(self,
                                       mock_get_responses,
                                       mock_upload_file):
-        """ Testing model_approve method """
+        """ Testing training_plan_approve method """
 
         # ths should not work at all
         filename = 'X:/'
         for i in range(30):
             filename += random.choice(string.ascii_letters)
 
-        result = self.requests.model_approve(filename,
-                                             "this file does not exist",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+        result = self.requests.training_plan_approve(filename,
+                                                     "this file does not exist",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
 
         # this does not even send a message to the node
         # as this is not a python file
         filename = os.path.join(self.cwd,
                                 "README.md")
-        result = self.requests.model_approve(filename,
-                                             "this is not a python file !!",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+        result = self.requests.training_plan_approve(filename,
+                                                     "this is not a python file !!",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
 
         # bad argument
-        result = self.requests.model_approve(filename,
-                                             "this is not a python file !!",
-                                             timeout = 2,
-                                             nodes = "and not a list of UUIDs"
-                                             )
-        self.assertDictEqual( result, {} )
+        result = self.requests.training_plan_approve(filename,
+                                                     "this is not a python file !!",
+                                                     timeout=2,
+                                                     nodes="and not a list of UUIDs"
+                                                     )
+        self.assertDictEqual(result, {})
 
         # model is not a TrainingPlan
-        result = self.requests.model_approve(TrainingPlanBad,
-                                             "not a training plan !!",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+        result = self.requests.training_plan_approve(TrainingPlanBad,
+                                                     "not a training plan !!",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
 
         # another wrong model
-        result = self.requests.model_approve(TrainingPlanCannotInstanciate,
-                                             "cannot instanciate",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+        result = self.requests.training_plan_approve(TrainingPlanCannotInstanciate,
+                                                     "cannot instanciate",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
+
+       # model that cannot be save
+        result = self.requests.training_plan_approve(TrainingPlanCannotSave,
+                                                     "cannot save",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
+
 
         # provide a real python file but do not get an answer before timeout
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
-        result = self.requests.model_approve(filename,
-                                             "test-model-1",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
+        result = self.requests.training_plan_approve(filename,
+                                                     "test-training-plan-1",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
 
         # same, but with a node list -> different answer
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
-        result = self.requests.model_approve(filename,
-                                             "test-model-1",
-                                             timeout = 2,
-                                             nodes = [ "dummy-id-1" ]
-                                             )
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
+        result = self.requests.training_plan_approve(filename,
+                                                     "test-training-plan-1",
+                                                     timeout=2,
+                                                     nodes=["dummy-id-1"]
+                                                     )
         keys = list(result.keys())
-        self.assertTrue( len(keys), 1)
-        self.assertFalse( result[keys[0]] )
+        self.assertTrue(len(keys), 1)
+        self.assertFalse(result[keys[0]])
 
         # same, but with a fake wrong sequence
         mock_get_responses.return_value = [
             {'command': 'approval',
              'node_id': 'dummy-id-1',
              'success': False,
-             'sequence': -1 }
+             'sequence': -1}
         ]
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
-        result = self.requests.model_approve(filename,
-                                             "test-model-1",
-                                             timeout = 2
-                                             )
-        self.assertDictEqual( result, {} )
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
+        result = self.requests.training_plan_approve(filename,
+                                                     "test-training-plan-1",
+                                                     timeout=2
+                                                     )
+        self.assertDictEqual(result, {})
 
         # sequence is OK, but simulated node did not download the file correctly
         self.requests._sequence = 12345
@@ -614,24 +624,24 @@ class TestRequests(unittest.TestCase):
             {'command': 'approval',
              'node_id': 'dummy-id-1',
              'success': False,
-             'sequence': 12345 }
+             'sequence': 12345}
         ]
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
-        result = self.requests.model_approve(filename,
-                                             "test-model-1",
-                                             timeout = 2
-                                             )
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
+        result = self.requests.training_plan_approve(filename,
+                                                     "test-training-plan-1",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
-        self.assertTrue( len(keys), 1)
-        self.assertFalse( result[keys[0]] )
+        self.assertTrue(len(keys), 1)
+        self.assertFalse(result[keys[0]])
 
         # this time everything is OK
         self.requests._sequence = 54321
@@ -639,24 +649,23 @@ class TestRequests(unittest.TestCase):
             {'command': 'approval',
              'node_id': 'dummy-id-1',
              'success': True,
-             'sequence': 54321 }
+             'sequence': 54321}
         ]
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
         filename = os.path.join(self.cwd,
-                                "test-model",
-                                "test-model-1.txt")
-        result = self.requests.model_approve(filename,
-                                             "test-model-1",
-                                             timeout = 2
-                                             )
+                                "test-training-plan",
+                                "test-training-plan-1.txt")
+        result = self.requests.training_plan_approve(filename,
+                                                     "test-training-plan-1",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
-        self.assertTrue( result[keys[0]] )
-
+        self.assertTrue(result[keys[0]])
 
         # send a proper TrainingPlan
         model = TrainingPlanGood
@@ -665,20 +674,20 @@ class TestRequests(unittest.TestCase):
             {'command': 'approval',
              'node_id': 'dummy-id-1',
              'success': True,
-             'sequence': 112233 }
+             'sequence': 112233}
         ]
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
-        result = self.requests.model_approve(model,
-                                             "model is a TrainingPlan subclass",
-                                             timeout = 2
-                                             )
+        result = self.requests.training_plan_approve(model,
+                                                     "model is a TrainingPlan subclass",
+                                                     timeout=1
+                                                     )
         keys = list(result.keys())
-        self.assertTrue( result[keys[0]] )
+        self.assertTrue(result[keys[0]])
 
         # send an instance of TrainingPlan
         model = TrainingPlanGood()
@@ -687,20 +696,20 @@ class TestRequests(unittest.TestCase):
             {'command': 'approval',
              'node_id': 'dummy-id-1',
              'success': True,
-             'sequence': 112233 }
+             'sequence': 112233}
         ]
-        mock_upload_file.return_value={
+        mock_upload_file.return_value = {
             "node_id": "dummy-id-1",
             "url": "fake_url",
             "file": "fake_file",
             "success": True
         }
-        result = self.requests.model_approve(model,
-                                             "model is a TrainingPlan instance",
-                                             timeout = 2
-                                             )
+        result = self.requests.training_plan_approve(model,
+                                                     "model is a TrainingPlan instance",
+                                                     timeout=2
+                                                     )
         keys = list(result.keys())
-        self.assertTrue( result[keys[0]] )
+        self.assertTrue(result[keys[0]])
 
 
 if __name__ == '__main__':  # pragma: no cover

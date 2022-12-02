@@ -17,7 +17,7 @@ start_wireguard
 configure_wireguard
 
 COMMON_DIR="/fedbiomed/envs/common/"
-if [ -z "$(ls -A $COMMON_DIR)" ]; then
+if [ -z "$(ls -1 $COMMON_DIR)" ]; then
   # TODO: test with privilege drop
   # $SETUSER rsync -auxt "/fedbiomed/envs/common_reference/" "$COMMON_DIR"
   rsync -auxt "/fedbiomed/envs/common_reference/" "$COMMON_DIR"

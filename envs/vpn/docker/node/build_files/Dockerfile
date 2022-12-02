@@ -54,8 +54,10 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Configure conda env in context of alternate account
-RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml && \
+	pip cache purge && conda clean -a -y
+# need clean/purge to be in the same command line to shrink image
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

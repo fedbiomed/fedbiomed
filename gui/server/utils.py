@@ -1,12 +1,21 @@
-import os
-import shutil
-import datetime
 import configparser
-from cache import RepositoryCache
-from flask import jsonify, request
+import datetime
+import os
 from functools import wraps
+from hashlib import sha512
+from flask import jsonify, request
+
+from cache import RepositoryCache
 from schemas import Validator
 
+
+def set_password_hash(password: str) -> str:
+    """ Method for setting password hash 
+    Args: 
+
+        password (str): Password of the user
+    """
+    return sha512(password.encode('utf-8')).hexdigest()
 
 def get_node_id(config_file: str):
     """ This method parse given config file and returns node_id

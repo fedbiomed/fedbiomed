@@ -21,8 +21,8 @@ keep_alive = 60
 
 [security]
 hashing_algorithm = SHA256
-allow_default_models = True
-model_approval = False
+allow_default_training_plans = True
+training_plan_approval = False
 """
 
 
@@ -59,9 +59,9 @@ def download_file(url, filename):
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = 'https://md-datasets-cache-zipfiles-prod.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
+    url = 'https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
     zip_filename = os.path.join(root_folder, 'notebooks', 'data', '7kd5wj7v7p-3.zip')
-    data_folder = os.path.join(root_folder, 'notebooks', 'data' )
+    data_folder = os.path.join(root_folder, 'notebooks', 'data')
     extracted_folder = os.path.join(data_folder, '7kd5wj7v7p-3', 'IXI_sample')
 
     # Extract if ZIP exists but not folder
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     centralized_data_folder = download_and_extract_ixi_sample(root_folder)
 
     # Federated Dataset
-    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'UniCancer-Centers')
+    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'Hospital-Centers')
     shutil.rmtree(federated_data_folder, ignore_errors=True)
 
     csv_global = os.path.join(centralized_data_folder, 'participants.csv')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
-        print(f'Creating node at: {cfg_file}')
+        print(f'Creating node at: {cfg_file} (config file)')
         with open(cfg_file, 'w') as f:
             f.write(config_file.replace('CENTER_ID', center_name))
 
@@ -144,6 +144,9 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
+    print("Make sure Network component is running before launching Nodes: \t./scripts/fedbiomed_run network ")
+    print()
+
     print('Please add the data to your nodes executing and using the `bids-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')

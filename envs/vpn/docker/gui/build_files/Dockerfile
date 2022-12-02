@@ -55,8 +55,10 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Configure conda env in context of alternate account
-RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml && \
+	pip cache purge && conda clean -a -y
+# need clean/purge to be in the same command line to shrink image
  
 # `data-folder` and `config` are not used when doing `install-only`
 RUN ./scripts/fedbiomed_run gui data-folder /data config DUMMY install-only start

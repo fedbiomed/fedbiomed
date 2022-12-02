@@ -205,6 +205,9 @@ class FedLogger(metaclass=SingletonMeta):
         # name this logger
         self._logger = logging.getLogger("fedbiomed")
 
+        # Do not propagate (avoids log duplication when third party libraries uses logging module)
+        self._logger.propagate = False
+
         self._default_level = DEFAULT_LOG_LEVEL  # MANDATORY ! KEEP THIS PLEASE !!!
         self._default_level = self._internalLevelTranslator(level)
 

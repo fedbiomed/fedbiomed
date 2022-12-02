@@ -1,4 +1,5 @@
 import builtins
+import copy
 import inspect
 import logging
 import os
@@ -16,6 +17,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.constants import DatasetTypes
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
@@ -35,11 +37,11 @@ class TestRound(unittest.TestCase):
         cls.node_msg_side_effect = node_msg_side_effect
 
     @patch('fedbiomed.common.repository.Repository.__init__')
-    @patch('fedbiomed.node.model_manager.ModelManager.__init__')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.__init__')
     def setUp(self,
-              model_manager_patch,
+              tp_security_manager_patch,
               repository_patch):
-        model_manager_patch.return_value = None
+        tp_security_manager_patch.return_value = None
         repository_patch.return_value = None
 
         # instantiate logger (we will see if exceptions are logged)
@@ -47,8 +49,8 @@ class TestRound(unittest.TestCase):
         # logs messages
         logger.setLevel("ERROR")
         # instanciate Round class
-        self.r1 = Round(model_url='http://somewhere/where/my/model?is_stored=True',
-                        model_class='MyTrainingPlan',
+        self.r1 = Round(training_plan_url='http://somewhere/where/my/model?is_stored=True',
+                        training_plan_class='MyTrainingPlan',
                         params_url='https://url/to/model/params?ok=True',
                         training_kwargs={},
                         training=True
@@ -61,8 +63,8 @@ class TestRound(unittest.TestCase):
         dummy_monitor = MagicMock()
         self.r1.history_monitor = dummy_monitor
 
-        self.r2 = Round(model_url='http://a/b/c/model',
-                        model_class='another_training_plan',
+        self.r2 = Round(training_plan_url='http://a/b/c/model',
+                        training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
                         training=True)
@@ -75,17 +77,15 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('builtins.eval')
-    @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_01_run_model_training_normal_case(self,
                                                      uuid_patch,
                                                      repository_download_patch,
-                                                     model_manager_patch,
-                                                     builtin_exec_patch,
-                                                     builtin_eval_patch,
+                                                     tp_security_manager_patch,
+                                                     import_module_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
@@ -101,15 +101,18 @@ class TestRound(unittest.TestCase):
 
         # initalisation of side effect function
 
-        def repository_side_effect(model_url: str, model_name: str):
+        def repository_side_effect(training_plan_url: str, model_name: str):
             return 200, 'my_python_model'
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+            another_training_plan = FakeModel
 
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
-        model_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = FakeModel
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
+        import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (True, True)
@@ -148,17 +151,15 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('builtins.eval')
-    @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_02_run_model_training_correct_model_calls(self,
                                                              uuid_patch,
                                                              repository_download_patch,
-                                                             model_manager_patch,
-                                                             builtin_exec_patch,
-                                                             builtin_eval_patch,
+                                                             tp_security_manager_patch,
+                                                             import_module_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -173,15 +174,16 @@ class TestRound(unittest.TestCase):
         #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
-
         MODEL_NAME = "my_model"
         MODEL_PARAMS = [1, 2, 3, 4]
 
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, MODEL_NAME)
-        model_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = FakeModel
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
+        import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (True, True)
@@ -196,7 +198,8 @@ class TestRound(unittest.TestCase):
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
-            'node_id': environ['NODE_ID']
+            'node_id': environ['NODE_ID'],
+            'optimizer_args': {}
         }
 
         # define context managers for each model method
@@ -232,13 +235,13 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
                                                               repository_download_patch,
-                                                              model_manager_patch,
+                                                              tp_security_manager_patch,
                                                               repository_upload_patch,
                                                               node_msg_patch,
                                                               mock_split_train_and_test_data):
@@ -248,7 +251,7 @@ class TestRound(unittest.TestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (True, True)
@@ -260,6 +263,8 @@ class TestRound(unittest.TestCase):
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
+            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):\n" + \
+            "       pass\n" + \
             "   def load(self, *args, **kwargs):\n" + \
             "       pass \n" + \
             "   def save(self, *args, **kwargs):\n" + \
@@ -272,12 +277,14 @@ class TestRound(unittest.TestCase):
             "       pass\n" + \
             "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \
+            "   def optimizer_args(self):\n" + \
+            "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
 
 
         module_file_path = os.path.join(environ['TMP_DIR'],
-                                        'my_model_' + str(FakeUuid.VALUE) + '.py')
+                                        'training_plan_' + str(FakeUuid.VALUE) + '.py')
 
         # creating file for toring dummy training plan
         with open(module_file_path, "w") as f:
@@ -285,7 +292,7 @@ class TestRound(unittest.TestCase):
 
         # action
         msg_test = self.r1.run_model_training()
-
+        print("MESSAGE", msg_test)
         # checks
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
@@ -297,13 +304,13 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_rounds_04_run_model_training_bad_http_status(self,
                                                           uuid_patch,
                                                           repository_download_patch,
-                                                          model_manager_patch,
+                                                          tp_security_manager_patch,
                                                           repository_upload_patch,
                                                           node_msg_patch,
                                                           mock_split_train_and_test_data):
@@ -324,7 +331,7 @@ class TestRound(unittest.TestCase):
             for i in [200, 404]:
                 yield i
 
-        def repository_side_effect_test_1(model_url: str, model_name: str):
+        def repository_side_effect_test_1(training_plan_url: str, model_name: str):
             """Returns HTTP 404 error, mimicking an error happened during
             download process"""
             return 404, 'my_python_model'
@@ -334,7 +341,7 @@ class TestRound(unittest.TestCase):
 
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect_test_1
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
@@ -356,7 +363,7 @@ class TestRound(unittest.TestCase):
         # test 2: case where second call to `Repository.download` generates HTTP
         # status 404 (when downloading params_file)
         # overwriting side effect function for second test:
-        def repository_side_effect_2(model_url: str, model_name: str):
+        def repository_side_effect_2(training_plan_url: str, model_name: str):
             """Returns different values when called
             First call: returns (200, 'my_python_model') mimicking a first download
                 that happened without encoutering any issues
@@ -385,11 +392,11 @@ class TestRound(unittest.TestCase):
         # test 3: check if unknown exception is raised and caught during the download
         # files process
 
-        def repository_side_effect_3(model_url: str, model_name: str):
+        def repository_side_effect_3(training_plan_url: str, model_name: str):
             raise Exception('mimicking an error during download files process')
 
         repository_download_patch.side_effect = repository_side_effect_3
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
 
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
@@ -401,19 +408,19 @@ class TestRound(unittest.TestCase):
             msg_test_3.get('msg'))
         self.assertFalse(msg_test_3.get('success', True))
 
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_05_run_model_training_model_not_approved(self,
                                                             uuid_patch,
                                                             repository_download_patch,
-                                                            model_manager_patch):
+                                                            tp_security_manager_patch):
         FakeModel.SLEEPING_TIME = 0
 
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
-        model_manager_patch.return_value = (False, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (False, {'name': "model_name"})
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test = self.r1.run_model_training()
@@ -427,13 +434,13 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_06_run_model_training_import_error(self,
                                                       uuid_patch,
                                                       repository_download_patch,
-                                                      model_manager_patch,
+                                                      tp_security_manager_patch,
                                                       repository_upload_patch,
                                                       node_msg_patch,
                                                       mock_split_train_and_test_data):
@@ -444,7 +451,7 @@ class TestRound(unittest.TestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
@@ -541,13 +548,13 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_07_run_model_training_upload_file_fails(self,
                                                            uuid_patch,
                                                            repository_download_patch,
-                                                           model_manager_patch,
+                                                           tp_security_manager_patch,
                                                            repository_upload_patch,
                                                            node_msg_patch,
                                                            mock_split_train_and_test_data):
@@ -564,7 +571,7 @@ class TestRound(unittest.TestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.side_effect = upload_side_effect
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
@@ -588,13 +595,13 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_08_run_model_training_bad_training_argument(self,
                                                                uuid_patch,
                                                                repository_download_patch,
-                                                               model_manager_patch,
+                                                               tp_security_manager_patch,
                                                                builtin_exec_patch,
                                                                builtin_eval_patch,
                                                                repository_upload_patch,
@@ -606,25 +613,12 @@ class TestRound(unittest.TestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, "my_model")
-        model_manager_patch.return_value = (True, {'name': "model_name"})
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         builtin_exec_patch.return_value = None
         builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
-
-        # adding into `training_kwargs` node_side arguments
-        self.r1.training_kwargs = {'param': 1234,
-                                   'history_monitor': MagicMock(),
-                                   'node_args': [1, 2, 3, 4]}
-        # action!
-        _ = self.r1.run_model_training()
-
-        # check if 'history_monitor' and 'node_args' entries have been removed
-        #  in `training_kwargs` (for security reasons, see Round for further details)
-
-        self.assertFalse(self.r1.training_kwargs.get('history_monitor', False))
-        self.assertFalse(self.r1.training_kwargs.get('node_args', False))
 
     @patch('inspect.signature')
     def test_round_09_data_loading_plan(self,
@@ -638,6 +632,10 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, item):
                 return self.apply_dlb('orig-value', LoadingBlockTypesForTesting.MODIFY_GETITEM)
 
+            @staticmethod
+            def get_dataset_type() -> DatasetTypes:
+                return DatasetTypes.TEST
+
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 
         my_dataset = MyDataset()
@@ -650,8 +648,8 @@ class TestRound(unittest.TestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
-        r3.model = MagicMock()
-        r3.model.training_data.return_value = data_manager_mock
+        r3.training_plan = MagicMock()
+        r3.training_plan.training_data.return_value = data_manager_mock
 
         training_data_loader, _ = r3._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
@@ -661,12 +659,52 @@ class TestRound(unittest.TestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
-        r4.model = MagicMock()
-        r4.model.training_data.return_value = data_manager_mock
+        r4.training_plan = MagicMock()
+        r4.training_plan.training_data.return_value = data_manager_mock
 
         training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
+
+
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
+        uuid_patch.return_value = FakeUuid()
+        
+        repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
+        success, _ = self.r1.download_aggregator_args()
+        self.assertEqual(success, True)
+        # if attribute `aggregator_args` is None, then do nothing
+        repository_download_patch.assert_not_called()
+
+        aggregator_args = {'var1': 1, 
+                            'var2': [1, 2, 3, 4],
+                            'var3': {'url': 'http://to/var/3',},
+                            'var4': {'url': 'http://to/var/4'}}
+        self.r1.aggregator_args = copy.deepcopy(aggregator_args)
+        
+        success, error_msg = self.r1.download_aggregator_args()
+        self.assertEqual(success, True)
+        self.assertEqual(error_msg, '')
+        
+        for var in ('var1', 'var2'):
+            self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
+        
+        for var in ('var3', 'var4'):
+            self.assertNotIn('url', self.r1.aggregator_args[var].keys())
+            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
+
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_11_download_file(self, uuid_patch, repository_download_patch):
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, "my_model")
+        file_path = 'path/to/my/downloaded/files'
+        success, param_path, msg = self.r1.download_file('http://some/url/to/some/files', file_path)
+        self.assertEqual(success, True)
+        self.assertEqual(param_path, 'my_model')
+        self.assertEqual(msg, '')
 
 
 if __name__ == '__main__':  # pragma: no cover

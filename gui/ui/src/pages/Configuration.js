@@ -2,6 +2,8 @@ import React from 'react';
 import axios from 'axios';
 import  {TableInfo} from "../components/common/Tables"
 import {EP_CONFIG_NODE_ENVIRON} from '../constants'
+
+
 const Configuration = (props) => {
 
     const [config, setConfig] = React.useState(null)
@@ -25,8 +27,8 @@ const Configuration = (props) => {
                         alert(res.data.message)
                     }
                 })
-                .catch( (error, res) => {
-                    alert(error.response.data.message)
+                .catch( (error) => {
+                    console.log(error)
                 })
     }
 
@@ -43,7 +45,7 @@ const Configuration = (props) => {
         <React.Fragment>
             {
                 config ? (
-                    <TableInfo info={parse_config(config)}/>
+                    <TableInfo info={parse_config(config)} mode={true}/>
                 ) : null
             }
         </React.Fragment>

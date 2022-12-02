@@ -138,7 +138,7 @@ class TorchDataManager(object):
         inputs = next(iter(loader))[0].numpy()
         target = next(iter(loader))[1].numpy()
 
-        return SkLearnDataManager(inputs=inputs, target=target)
+        return SkLearnDataManager(inputs=inputs, target=target, **self._loader_arguments)
 
     def _subset_loader(self, subset: Subset, **kwargs) -> Union[DataLoader, None]:
         """Loads subset (train/validation) partition of as pytorch DataLoader.

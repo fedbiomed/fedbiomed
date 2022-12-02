@@ -5,6 +5,7 @@ Functions for managing Job/Experiment files.
 
 import os
 import re
+import shutil
 from typing import Tuple, List
 
 from fedbiomed.common.logger import logger
@@ -318,3 +319,10 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
         raise FileNotFoundError(message)
 
     return breakpoint_folder_path, state_file
+
+
+def copy_file(filepath: str, breakpoint_path: str) -> str:
+    filename = os.path.dirname(filepath)
+    file_copy_path = os.path.join( breakpoint_path, filename)
+    shutil.copy2(filepath, file_copy_path )
+    return file_copy_path

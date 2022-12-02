@@ -1,4 +1,6 @@
-import functools
+import io
+import sys
+
 import unittest
 import os
 import random
@@ -24,11 +26,10 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingB
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController,\
-                                  MedicalFolderLoadingBlocks, DataLoadingPlan, MapperBlock
+                                  MedicalFolderLoadingBlockTypes, DataLoadingPlan, MapperBlock
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
-
     def setUp(self) -> None:
         # Create fake dataset
 
@@ -37,7 +38,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.root = tempfile.mkdtemp()  # Creates and returns tempdir
         self._create_synthetic_dataset()
-
 
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
@@ -48,7 +48,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         # object, but the true goal of the test is to check that parameters
         # are accepted when initializing object
 
-        self.assertIsInstance(NIFTIFolderDataset(self.root), 
+        self.assertIsInstance(NIFTIFolderDataset(self.root),
                               NIFTIFolderDataset)
 
         self.assertIsInstance(
@@ -248,7 +248,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
                 self.sample_paths.append(Path(img_path).expanduser().resolve())
                 self.sample_class.append(self.class_names.index(class_name))
-
 
 
 def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: str):
@@ -512,7 +511,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             dataset.tabular_file = '/a/non/existing/file'
 
         # check error is triggered if a folder is passed instead of a file
-        temp_dir = tempfile.mkdtemp() 
+        temp_dir = tempfile.mkdtemp()
         with self.assertRaises(FedbiomedDatasetError):
             dataset.tabular_file = temp_dir
 
@@ -597,7 +596,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             with self.assertRaises(FedbiomedDatasetError):
                 df = dataset.demographics
         finally:
-            patcher.stop()   
+            patcher.stop()
 
     def test_medical_folder_dataset_09_demographics_setter(self):
         # check that it is not possible to set demographic attribute
@@ -630,11 +629,11 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_11_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
 
-        for i, ((images, demographics), targets) in enumerate(dataset): 
+        for i, ((images, demographics), targets) in enumerate(dataset):
             # test indexation
             self.assertTrue(images['T1'].dim() == 1)
             # test iteration
-            (images_indxed, _), _ = dataset[i] 
+            (images_indxed, _), _ = dataset[i]
             self.assertTrue(images_indxed['T1'].dim() == 1)
 
     def test_medical_folder_dataset_12_target_transform(self):
@@ -697,7 +696,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         """Asserts first batches correct types and lengths
 
         Args:
-            dataset (Dataset): a Dataset object that should have 
+            dataset (Dataset): a Dataset object that should have
                 correct types (dict, dict, torch.Tensor) and correct batch size
         Raises:
             AssertionError if test fails
@@ -728,11 +727,13 @@ class TestMedicalFolderDataset(unittest.TestCase):
         medical_folder_controller = MedicalFolderController(root=self.root)
         dlb = MapperBlock()
         dlb.map = modalities_to_folders
-        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb}))
+        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb}))
         dataset = medical_folder_controller.load_MedicalFolder()
         expected_subject_folders = [Path(self.root).joinpath('subj1'),
                                     Path(self.root).joinpath('subj2')]
-        self.assertEqual(dataset.subject_folders(), expected_subject_folders)
+        for p1, p2 in zip(dataset.subject_folders(), expected_subject_folders):
+            self.assertEqual(os.path.realpath(p1), os.path.realpath(p2))
+
         dataset._reader = MagicMock()
         dataset._reader.side_effect = lambda x: x
         images_dict = dataset.load_images(Path(self.root).joinpath('subj1'), ['T1', 'T2'])
@@ -760,7 +761,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             _ = dataset[0]
 
-        dataset.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb}))
+        dataset.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb}))
         (data, demographics), label = dataset[0]
         self.assertEqual(data, {'T1': Path('T1philips_test.nii').resolve(), 'T2': Path('T2_test.nii').resolve()})
         self.assertEqual(demographics.numel(), 0)
@@ -773,7 +774,8 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         dataset = medical_folder_controller.load_MedicalFolder()
         self.assertTrue(isinstance(dataset, MedicalFolderDataset))
-        self.assertEqual(dataset.root, Path(self.root))
+        self.assertEqual(os.path.realpath(dataset.root),
+                         os.path.realpath(self.root))
 
         # bad call, no root defined
         medical_folder_controller = MedicalFolderController()
@@ -823,15 +825,17 @@ class TestMedicalFolderBase(unittest.TestCase):
 
         self.medical_folder_base = MedicalFolderBase(root=self.root2)
         self.assertIsInstance(self.medical_folder_base.root, PosixPath)
-        self.assertEqual(str(self.medical_folder_base.root), self.root2,
+        self.assertEqual(os.path.realpath(self.medical_folder_base.root),
+                         os.path.realpath(self.root2),
                          "MedicalFolderBase root should not in empty initialization")
 
         # Setting root to a valid value with setter
         self.medical_folder_base.root = self.root
 
         self.assertIsInstance(self.medical_folder_base.root, PosixPath)
-        self.assertEqual(str(self.medical_folder_base.root), self.root,
-                         "MedicalFolderBase root should not in empty initialization")        
+        self.assertEqual(os.path.realpath(self.medical_folder_base.root),
+                         os.path.realpath(self.root),
+                         "MedicalFolderBase root should not in empty initialization")
 
         with self.assertRaises(FedbiomedDatasetError):
             self.medical_folder_base = MedicalFolderBase(root="unknown-folder-path")
@@ -888,7 +892,7 @@ class TestMedicalFolderBase(unittest.TestCase):
             shutil.rmtree(os.path.join(self.root, subject, modality_to_remove))
 
             # action
-            logical = self.medical_folder_base.is_modalities_existing(subject, 
+            logical = self.medical_folder_base.is_modalities_existing(subject,
                                                                       ['T1', 'T2', 'label'])
             # checks
             self.assertFalse(all(logical))
@@ -965,7 +969,7 @@ class TestMedicalFolderBase(unittest.TestCase):
         # with DataLoadingPlan
         dlb = MapperBlock()
         dlb.map = modalities_to_folders
-        medical_folder_base.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb}))
+        medical_folder_base.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb}))
 
         self.assertEqual(
             medical_folder_base._subject_modality_folder('subj1', 'T1'),
@@ -1044,7 +1048,7 @@ class TestMedicalFolderController(unittest.TestCase):
 
         dlb = MapperBlock()
         dlb.map = modalities_to_folders
-        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb}))
+        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb}))
         unique_modalities, modalities = medical_folder_controller.modalities()
         expected_unique_modalities = {'T1', 'T2', 'label'}
         self.assertEqual(set(unique_modalities), expected_unique_modalities)

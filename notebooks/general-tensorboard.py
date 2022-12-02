@@ -17,58 +17,65 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node add`
-# 3. Run the node using `./scripts/fedbiomed_run node add`. Wait until you get `Starting task manager`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
 
 
 # ## Create an experiment to train a model on the data found
 
 
 
-# Declare a torch.nn MyTrainingPlan class to send for training on the node
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
-from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
 
 # Here we define the model to be used. 
 # You can use any class name (here 'Net')
 class MyTrainingPlan(TorchTrainingPlan):
-    def __init__(self, model_args: dict = {}):
-        super(MyTrainingPlan, self).__init__(model_args)
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, 10)
-        
-        # Here we define the custom dependencies that will be needed by our custom Dataloader
-        # In this case, we need the torch DataLoader classes
-        # Since we will train on MNIST, we need datasets and transform from torchvision
+    
+    # Defines and return model 
+    def init_model(self, model_args):
+        return self.Net(model_args = model_args)
+    
+    # Defines and return optimizer
+    def init_optimizer(self, optimizer_args):
+        return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
+    
+    # Declares and return dependencies
+    def init_dependencies(self):
         deps = ["from torchvision import datasets, transforms"]
-        
-        self.add_dependency(deps)
+        return deps
+    
+    class Net(nn.Module):
+        def __init__(self, model_args):
+            super().__init__()
+            self.conv1 = nn.Conv2d(1, 32, 3, 1)
+            self.conv2 = nn.Conv2d(32, 64, 3, 1)
+            self.dropout1 = nn.Dropout(0.25)
+            self.dropout2 = nn.Dropout(0.5)
+            self.fc1 = nn.Linear(9216, 128)
+            self.fc2 = nn.Linear(128, 10)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        
-        
-        output = F.log_softmax(x, dim=1)
-        return output
+        def forward(self, x):
+            x = self.conv1(x)
+            x = F.relu(x)
+            x = self.conv2(x)
+            x = F.relu(x)
+            x = F.max_pool2d(x, 2)
+            x = self.dropout1(x)
+            x = torch.flatten(x, 1)
+            x = self.fc1(x)
+            x = F.relu(x)
+            x = self.dropout2(x)
+            x = self.fc2(x)
+
+
+            output = F.log_softmax(x, dim=1)
+            return output
 
     def training_data(self, batch_size = 48):
         # Custom torch Dataloader for MNIST data
@@ -79,7 +86,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         return DataManager(dataset=dataset1, **train_kwargs)
     
     def training_step(self, data, target):
-        output = self.forward(data)
+        output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
@@ -94,13 +101,14 @@ class MyTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 48,
-    'lr': 1e-3,
-    'epochs': 2,
-    'dry_run': False,
-    'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    'batch_size': 48, 
+    'optimizer_args': {
+        "lr" : 1e-3
+    },
+    'epochs': 1, 
+    'dry_run': False,  
+    'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
-
 
 #    Define an experiment
 #    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
@@ -114,16 +122,18 @@ tags =  ['#MNIST', '#dataset']
 rounds = 2
 
 exp = Experiment(tags=tags,
-                #nodes=None,
-                model_class=MyTrainingPlan,
-                # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
-                model_args=model_args,
-                training_args=training_args,
-                round_limit=rounds,
-                aggregator=FedAverage(),
-                node_selection_strategy=None,
-                tensorboard=True)
+                 model_args=model_args,
+                 training_plan_class=MyTrainingPlan,
+                 training_args=training_args,
+                 round_limit=rounds,
+                 aggregator=FedAverage(),
+                 node_selection_strategy=None,
+                 tensorboard=True
+                )
+
+exp.set_test_ratio(0.1)
+exp.set_test_on_local_updates(True)
+exp.set_test_on_global_updates(True)
 
 # TENSORBOARD
 # While you are running experiment with python scripts you should start tensorboard from terminal window.

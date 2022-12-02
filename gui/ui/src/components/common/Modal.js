@@ -1,4 +1,5 @@
 import React from 'react'
+import { EuiHorizontalRule } from '@elastic/eui';
 
 export const Modal = (props) => {
 
@@ -46,7 +47,7 @@ export const Header = (props) => {
     return (
         <div className="model-header">
              {props.children}
-             <hr/>
+             <EuiHorizontalRule />
         </div>
     )
 }

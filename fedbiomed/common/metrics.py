@@ -132,7 +132,6 @@ class Metrics(object):
             y_true, y_pred, _, _ = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'ACCURACY')
             return metrics.accuracy_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            print(e)
             msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
@@ -362,8 +361,13 @@ class Metrics(object):
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
 
+        if y_pred.ndim == 0:
+            y_pred = y_pred.reshape((1,))
+        if y_true.ndim == 0:
+            y_true = y_true.reshape((1,))
+
         if len(y_pred) != len(y_true):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions or true values should have"
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
                                        f"equal number of samples, {len(y_true)}, {len(y_pred)}")
 
         # Get shape of the prediction should be 1D or 2D array

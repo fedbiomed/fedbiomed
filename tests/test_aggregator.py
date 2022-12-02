@@ -1,5 +1,8 @@
 import unittest
+from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.training_plans import SKLearnTrainingPlan, TorchTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 
 class TestAggregator(unittest.TestCase):
@@ -65,9 +68,20 @@ class TestAggregator(unittest.TestCase):
             'parameters': {'param' : True}
         }
         self.aggregator.load_state(state)
-        self.assertDictEqual(self.aggregator._aggregator_params,
+        self.assertDictEqual(self.aggregator._aggregator_args,
                              state['parameters'],
                              'The state of the aggregator class has not been loaded correctly')
+
+    def test_3_set_training_plan_type(self):
+        self.aggregator.set_training_plan_type(TrainingPlans.SkLearnTrainingPlan)
+        self.assertEqual(self.aggregator._training_plan_type, TrainingPlans.SkLearnTrainingPlan)
+        self.aggregator.set_training_plan_type(TrainingPlans.TorchTrainingPlan)
+        self.assertEqual(self.aggregator._training_plan_type, TrainingPlans.TorchTrainingPlan)
+
+    def test_4_set_fds(self):
+        fds = FederatedDataSet({})
+        self.aggregator.set_fds(fds)
+        self.assertEqual(fds, self.aggregator._fds)
 
 
 if __name__ == '__main__':  # pragma: no cover

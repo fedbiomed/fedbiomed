@@ -18,7 +18,7 @@ plugins:
       handlers:
         python:
           import:
-            - https://docs.python-requests.org/en/master/objects.inv
+            - https://requests.readthedocs.io/en/master/objects.inv
             - https://numpy.org/doc/stable/objects.inv
             - https://docs.python.org/3/objects.inv
             - https://scikit-learn.org/stable/objects.inv

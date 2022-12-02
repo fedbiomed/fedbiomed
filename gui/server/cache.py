@@ -1,4 +1,5 @@
 from functools import wraps
+
 from cachelib import FileSystemCache
 from flask import request
 

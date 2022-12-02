@@ -21,57 +21,65 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config config1.ini list`, `./scripts/fedbiomed_run node config config2.ini list`, `./scripts/fedbiomed_run node config config3.ini list`
-# 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini run --gpu` so that the nodes offers GPU for training and uses the default device.
-# 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini run --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
-# 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini run` so that the nodes doesn't offers GPU for training (default behaviour).
+# 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini start --gpu` so that the nodes offers GPU for training and uses the default device.
+# 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini start --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
+# 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini start` so that the nodes doesn't offers GPU for training (default behaviour).
 # 6. Wait until you get `Starting task manager` for each node, it means you are online.
 
 # ## Define an experiment model and parameters
 
-# Declare a torch.nn MyTrainingPlan class to send for training on the node
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
 
 import torch
 import torch.nn as nn
-
-from torchvision import datasets, transforms
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
+from torchvision import datasets, transforms
 
-# you can use any class name eg:
-# class AlterTrainingPlan(TorchTrainingPlan):
+
+# Here we define the model to be used. 
+# You can use any class name (here 'Net')
 class MyTrainingPlan(TorchTrainingPlan):
-    def __init__(self, model_args: dict = {}):
-        super(MyTrainingPlan, self).__init__(model_args)
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, 10)
-        
-        # Here we define the custom dependencies that will be needed by our custom Dataloader
-        # In this case, we need the torch DataLoader classes
-        # Since we will train on MNIST, we need datasets and transform from torchvision
+    
+    # Defines and return model 
+    def init_model(self, model_args):
+        return self.Net(model_args = model_args)
+    
+    # Defines and return optimizer
+    def init_optimizer(self, optimizer_args):
+        return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
+    
+    # Declares and return dependencies
+    def init_dependencies(self):
         deps = ["from torchvision import datasets, transforms"]
-        
-        self.add_dependency(deps)
+        return deps
+    
+    class Net(nn.Module):
+        def __init__(self, model_args):
+            super().__init__()
+            self.conv1 = nn.Conv2d(1, 32, 3, 1)
+            self.conv2 = nn.Conv2d(32, 64, 3, 1)
+            self.dropout1 = nn.Dropout(0.25)
+            self.dropout2 = nn.Dropout(0.5)
+            self.fc1 = nn.Linear(9216, 128)
+            self.fc2 = nn.Linear(128, 10)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        
-        
-        output = F.log_softmax(x, dim=1)
-        return output
+        def forward(self, x):
+            x = self.conv1(x)
+            x = F.relu(x)
+            x = self.conv2(x)
+            x = F.relu(x)
+            x = F.max_pool2d(x, 2)
+            x = self.dropout1(x)
+            x = torch.flatten(x, 1)
+            x = self.fc1(x)
+            x = F.relu(x)
+            x = self.dropout2(x)
+            x = self.fc2(x)
+
+
+            output = F.log_softmax(x, dim=1)
+            return output
 
     def training_data(self, batch_size = 48):
         # Custom torch Dataloader for MNIST data
@@ -82,10 +90,9 @@ class MyTrainingPlan(TorchTrainingPlan):
         return DataManager(dataset=dataset1, **train_kwargs)
     
     def training_step(self, data, target):
-        output = self.forward(data)
+        output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
-
 
 # This group of arguments correspond respectively:
 # * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
@@ -93,17 +100,17 @@ class MyTrainingPlan(TorchTrainingPlan):
 #
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
-model_args = {
-        # Model wants to use GPU if available on node and proposed by node (default: False)
-        'use_gpu': True
-}
+model_args = {}
 
 training_args = {
-    'batch_size': 48,
-    'lr': 1e-3,
-    'epochs': 2,
-    'dry_run': False,
-    'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    'batch_size': 48, 
+    'optimizer_args': {
+        'lr': 1e-3
+    }, 
+    'use_gpu': True,
+    'epochs': 1, 
+    'dry_run': False,  
+    'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
 
@@ -119,19 +126,12 @@ tags =  ['#MNIST', '#dataset']
 rounds = 2
 
 exp = Experiment(tags=tags,
-                #nodes=None,
-                # 
-                # difference with a notebook : with a python script the `MyTrainingPlan``
-                # contains the model code, so you don't need to use a file (`model_path`)
-                # for passing the model to the experiment
-                model_class=MyTrainingPlan,
-                # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
-                model_args=model_args,
-                training_args=training_args,
-                round_limit=rounds,
-                aggregator=FedAverage(),
-                node_selection_strategy=None)
+                 model_args=model_args,
+                 training_plan_class=MyTrainingPlan,
+                 training_args=training_args,
+                 round_limit=rounds,
+                 aggregator=FedAverage(),
+                 node_selection_strategy=None)
 
 
 # Let's start the experiment.
