@@ -22,7 +22,8 @@ def add_database(interactive: bool = True,
                  name: str = None,
                  tags: str = None,
                  description: str = None,
-                 data_type: str = None):
+                 data_type: str = None,
+                 dataset_parameters: dict = None):
     """Adds a dataset to the node database.
 
     Also queries interactively the user on the command line (and file browser)
@@ -154,7 +155,7 @@ def add_database(interactive: bool = True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default', 'mednist', 'images' ]:
+        if data_type not in [ 'csv', 'default', 'mednist', 'images', 'medical-folder' ]:
             data_type = 'default'
 
         if not os.path.exists(path):

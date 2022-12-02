@@ -289,7 +289,8 @@ def launch_cli():
                      data_type=data["data_type"],
                      description=data["description"],
                      tags=data["tags"],
-                     name=data["name"]
+                     name=data["name"],
+                     dataset_parameters=data["dataset_parameters"]
                      )
 
     elif args.list:
