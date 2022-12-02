@@ -1,9 +1,8 @@
 import os
 
-from functools import wraps
-from OpenSSL import crypto
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 from tinydb import TinyDB, Query
+from tinydb.table import Document
 from tabulate import tabulate
 
 from cryptography.hazmat.primitives import serialization, hashes
@@ -21,6 +20,7 @@ CertificateDataValidator = SchemeValidator({
     "organization": {"rules": [str], "required": False, "default": "Fed-BioMed"},
     "validity": {"rules": [int], "required": False, "default": 10 * 365 * 24 * 60 * 60}
 })
+
 """Validator object for certificate data"""
 
 
@@ -42,16 +42,19 @@ class CertificateManager:
         self._query: Query = Query()
 
         if db is not None:
-            self._db: TinyDB = TinyDB(db).table("Certificates")
+            self._db: TinyDB.table = TinyDB(db).table("Certificates")
 
     def set_db(self, db_path: str) -> None:
-        """Sets database """
+        """Sets database
+
+        Args:
+            db_path: The path of DB file where `Certificates` table are stored
+        """
         self._db = TinyDB(db_path).table("Certificates")
 
     def insert(
             self,
-            certificate:
-            str,
+            certificate: str,
             party_id: str,
             component: str
     ) -> int:
@@ -61,6 +64,9 @@ class CertificateManager:
             certificate: Public-key for the FL parties
             party_id: ID of the party
             component: Node or researcher
+
+        Returns:
+            Document ID of inserted certificate
         """
 
         return self._db.insert(dict(certificate=certificate,
@@ -71,13 +77,15 @@ class CertificateManager:
 
     def get(
             self,
-            party_id
-    ) -> int:
-
+            party_id: str
+    ) -> Document:
         """Gets certificate/public key  of given party
 
         Args:
-            party_id: Party id
+            party_id: ID of the party which certificate will be retrieved from DB
+
+        Returns:
+            Certificate, dict like TinyDB document
         """
 
         return self._db.get(self._query.party_id == party_id)
@@ -85,28 +93,32 @@ class CertificateManager:
     def delete(
             self,
             party_id
-    ) -> Dict:
+    ) -> List[int]:
         """Deletes given party from table
 
         Args:
             party_id: Party id
 
         Returns:
-
+            The document IDs of deleted certificates
         """
 
         return self._db.remove(self._query.party_id == party_id)
 
-    def list(self, verbose: bool = False):
-        """
+    def list(self, verbose: bool = False) -> List[Document]:
+        """ Lists registered certificates.
 
+        Args:
+            verbose: Prints list of registered certificates in tabular format
+
+        Returns:
+            List of certificate objects registered in DB
         """
         certificates = self._db.all()
 
         if verbose:
             for doc in certificates:
                 doc.pop('certificate')
-
             print(tabulate(certificates, headers='keys'))
 
         return certificates
@@ -116,14 +128,29 @@ class CertificateManager:
             certificate_path: str,
             party_id: str,
             upsert: bool = False
-    ) -> int:
+    ) -> Union[int, List[int]]:
+        """ Registers certificate
+
+        Args:
+            certificate_path: Path where certificate/key file stored
+            party_id: ID of the FL party which the certificate will be registered
+            upsert: If `True` overwrites existing certificate for specified party. If `False` and the certificate for
+                the specified party already existing it raises error.
+
+        Raises:
+            FedbiomedCertificateError: - If `upsert` is `False` and the certificate is already existing.
+                - If certificate file is not existing in file system
+
+        Returns:
+            The document ID of registered certificated.
+        """
 
         if not os.path.isfile(certificate_path):
             raise FedbiomedError(f"Certificate path does not represents a file.")
 
         # Read certificate content
         with open(certificate_path) as file:
-            certificate = file.read()
+            certificate_content = file.read()
             file.close()
 
         certificate = self.get(party_id=party_id)
@@ -133,7 +160,7 @@ class CertificateManager:
 
         if not certificate:
             return self.insert(
-                certificate=certificate,
+                certificate=certificate_content,
                 party_id=party_id,
                 component=component
             )
@@ -154,11 +181,28 @@ class CertificateManager:
     ) -> List[str]:
         """ Writes certificates into given directory respecting the order
 
-        Args:
-            parties:
-            path:
+        !!! info "Certificate Naming Convention"
+                MP-SPDZ requires saving certificates respecting the naming convention `P<PARTY_ID>.pem`. Party ID should
+                be integer in the order of [0,1, ...].  Therefore, the order of parties are critical in the sense of
+                naming files in given folder path. Files will be named as `P[ORDER].pem` to make it compatible with MP-SPDZ.
 
+        Args:
+            parties: ID of the parties (nodes/researchers) will join FL experiment.y
+            path: The path where certificate files will be writen
+
+        Raises:
+            FedbiomedCertificateError: - If certificate for given party is not existing in the database
+                - If certificate files can not be writen in given path.
+                - If given path is not a directory
+
+        Returns:
+            List of writen certificates files (paths).
         """
+
+        if not os.path.isdir(path):
+            raise FedbiomedError(
+                "Specified `path` argument should be a directory. `path` is not a directory or it is not existing."
+            )
 
         # Files already writen into directory
         writen_certificates = []
@@ -195,7 +239,7 @@ class CertificateManager:
     def generate_certificate(
             certificate_path,
             certificate_data: Dict = {},
-    ) -> bool:
+    ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
         Args:

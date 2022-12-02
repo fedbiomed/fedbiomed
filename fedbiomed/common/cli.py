@@ -106,7 +106,6 @@ class CommonCLI:
     def initialize_certificate_parser(self):
         """Common arguments """
 
-
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
             'certificate',
@@ -251,11 +250,12 @@ class CommonCLI:
         """ Registers certificate with given parameters"""
 
         try:
-            self._certificate_manager.register_certificate(
+            t = self._certificate_manager.register_certificate(
                 certificate_path=args.public_key,
                 party_id=args.party_id,
                 upsert=args.upsert
             )
+            print(t)
         except FedbiomedError as exp:
             print(exp)
             sys.exit(101)
@@ -307,13 +307,18 @@ class CommonCLI:
 
             print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
             print(" 2- Change your directory to 'fedbiomed' root")
-            print(f" 2- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [Path where "
-                  f"certificate is saved] -pi {self._environ['ID']} \" ")
+            print(f" 2- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE "
+                  f"CERTIFICATE IS SAVED] -pi {self._environ['ID']} \" ")
 
         pass
 
     def parse_args(self):
-        """"""
+        """Parse arguments after adding the arguments
+
+        !!! warning "Attention"
+                Please make sure this method is called after all necessary arguments are set
+
+        """
         self._args = self._parser.parse_args()
 
         if hasattr(self._args, 'func'):
