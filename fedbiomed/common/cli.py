@@ -80,16 +80,19 @@ class CommonCLI:
 
     @staticmethod
     def success(message):
-        """
-
-        """
+        """"""
         print(f"{GRN}Operation successful! {NC}")
         print(f"{BOLD}{message}{NC}")
+
+    def initialize_magic_dev_environment_parsers(self):
+        """"""
+        magic = self._subparsers.add_parser('dev-magic', help="")
+        magic.set_defaults(func=self._create_magic_dev_environment)
 
     def create_configuration(self):
         """"""
 
-        configuration = self._subparsers.add_parser('configuration', help='a help')
+        configuration = self._subparsers.add_parser('configuration', help='Configuration')
 
         # Create sub parser under `configuration` command
         configuration_sub_parsers = configuration.add_subparsers(
@@ -201,6 +204,10 @@ class CommonCLI:
 
         # Set db path that certificate manager will be using to store certificates
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
+
+    def _create_magic_dev_environment(self):
+        """"""
+        pass
 
     def _create_component_configuration(self, args):
         """CLI Handler for creating configuration file for given component
