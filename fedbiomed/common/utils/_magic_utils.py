@@ -109,7 +109,7 @@ def get_component_certificate_from_config(
     except Exception as e:
         raise FedbiomedError(f"Error while reading certificate -> {certificate_path}. Error: {e}")
 
-    return {"id": component_id, "certificate": certificate, "component": component}
+    return {"party_id": component_id, "certificate": certificate, "component": component}
 
 
 def get_all_existing_certificates() -> List[Dict[str, str]]:
@@ -133,7 +133,7 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
 
 
 def get_existing_component_db_paths():
-    """"""
+    """Gets DB_PATHs of all existing components in Fed-BioMed root"""
     etc = os.path.join(get_fedbiomed_root(), 'etc', '')
     config_files = [file for file in glob.glob(f"{etc}*.ini")]
 

@@ -12,6 +12,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import get_existing_component_db_paths, get_all_existing_certificates, get_method_spec
+
 
 # Create certificate dict validator
 CertificateDataValidator = SchemeValidator({
@@ -207,7 +209,25 @@ class CommonCLI:
 
     def _create_magic_dev_environment(self):
         """"""
-        pass
+
+        db_paths = get_existing_component_db_paths()
+        certificates = get_all_existing_certificates()
+
+        for id_, db_path in db_paths.items():
+            print(f"Registering certificates for component {id_} ------------------")
+            # Sets DB
+            self._certificate_manager.set_db(db_path)
+
+            for certificate in certificates:
+
+                if certificate["party_id"] == id_:
+                    continue
+                try:
+                    self._certificate_manager.insert(**certificate, upsert=True)
+                except FedbiomedError as e:
+                    self.error(f"Can not register certificate for {certificate['party_id']}: {e}")
+
+                print(f"Certificate of {certificate['party_id']} has been registered.")
 
     def _create_component_configuration(self, args):
         """CLI Handler for creating configuration file for given component
@@ -329,10 +349,13 @@ class CommonCLI:
         self._args = self._parser.parse_args()
 
         if hasattr(self._args, 'func'):
-            self._args.func(self._args)
-
+            if get_method_spec(self._args.func):
+                self._args.func(self._args)
+            else:
+                self._args.func()
 
 if __name__ == '__main__':
-    print("ERROR:")
-    print("This is a submodule. You can not execute directly. Please import and extend CLI parser")
-    exit(2)
+    cli = CommonCLI()
+    cli.initialize_magic_dev_environment_parsers()
+    cli.parse_args()
+

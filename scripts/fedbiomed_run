@@ -656,7 +656,11 @@ case $1 in
         ;;
 
     *)
-        echo "Please specify the component you want to run between: network, node, researcher, gui"
-        exit 1
-        ;;
+      PARAMS=${@}
+      source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
+      echo $PARAMS
+      python -m fedbiomed.common.cli $PARAMS
+#      echo "Please specify the component you want to run between: network, node, researcher, gui"
+#      exit 1
+      ;;
 esac

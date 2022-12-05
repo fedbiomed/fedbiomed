@@ -56,24 +56,37 @@ class CertificateManager:
             self,
             certificate: str,
             party_id: str,
-            component: str
-    ) -> int:
+            component: str,
+            upsert: bool = False
+    ) -> List[int]:
         """ Inserts new certificate
 
         Args:
             certificate: Public-key for the FL parties
             party_id: ID of the party
-            component: Node or researcher
+            component: Node or researcher,
+            upsert:
 
         Returns:
             Document ID of inserted certificate
         """
+        certificate_ = self.get(party_id=party_id)
 
-        return self._db.insert(dict(certificate=certificate,
-                                    party_id=party_id,
-                                    component=component
-                                    )
-                               )
+        if not certificate_:
+            return self._db.insert(dict(
+                certificate=certificate,
+                party_id=party_id,
+                component=component
+            ))
+
+        elif upsert:
+            return self._db.upsert(
+                dict(certificate=certificate, component=component, party_id=party_id),
+                self._query.party_id == party_id
+            )
+        else:
+            raise FedbiomedError(f"Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
+                                 f"option through CLI")
 
     def get(
             self,
@@ -153,26 +166,15 @@ class CertificateManager:
             certificate_content = file.read()
             file.close()
 
-        certificate = self.get(party_id=party_id)
-
         # Save certificate in database
         component = ComponentType.NODE.name if party_id.startswith("node") else ComponentType.RESEARCHER.name
 
-        if not certificate:
-            return self.insert(
+        return self.insert(
                 certificate=certificate_content,
                 party_id=party_id,
-                component=component
+                component=component,
+                upsert=upsert
             )
-
-        elif upsert:
-            return self._db.upsert(
-                dict(certificate=certificate, component=component, party_id=party_id),
-                self._query.party_id == party_id
-            )
-        else:
-            raise FedbiomedError(f"Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
-                                 f"option through CLI")
 
     def write_certificates_for_experiment(
             self,
