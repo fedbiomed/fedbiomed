@@ -102,7 +102,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Aggregated model parameters
         self._init_params: List[torch.Tensor] = None
-        self._init_torch_model = None
 
     def post_init(
             self,
@@ -153,9 +152,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Configure model and optimizer
         self._configure_model_and_optimizer()
-
-        # Initial aggregated model parameters
-        #self._init_params = deepcopy(list(self._model.parameters()))
 
     @abstractmethod
     def init_model(self):
