@@ -19,6 +19,15 @@ Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https:
 When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials: an account on `gitlab.inria.fr` with access to the gitlab repository, registration to developer mail lists, invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and projected contributions, to ask questions, etc.
 
 
+## How to report issues
+
+
+If you find a bug and want to report it - great ! For that you can:
+
+- either send your report to `fedbiomed-support _at_ inria _dot_ fr` and a developer creates an issue to track it
+- or contact `fedbiomed _at_ inria _dot_ fr` to receive an account on `gitlab.inria.fr` with access to create issues
+
+
 ## How to contribute
 
 If you are able to patch a bug or add the feature yourself – fantastic, you are ready to make a merge request with the code! But you can also participate in many other ways: review and extension of the documentation, or review of a pending merge request are also great contributions to the project.
