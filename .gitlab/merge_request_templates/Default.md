@@ -13,6 +13,18 @@ This DCO essentially means that:
 - you have the right to do that,
 - you did not steal somebody else’s work.
 
+**License**
+
+Project code files should begin with these comment lines to help trace their origin:
+```
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+```
+
+Code files can be reused from another project with a compatible non-contaminating license.
+They shall retain the original license and copyright mentions.
+The `CREDIT.md` file and `credit/` directory shall be completed and updated accordingly.
+
 
 **Guidelines for MR review**
 
