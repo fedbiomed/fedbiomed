@@ -76,6 +76,22 @@ class DPController:
                 )
         return model, optimizer, loader
 
+    def return_batch_size(self,loader):
+        """Retrieve information concerning the batch size.
+        
+        Args:
+            loader: DPDataLoader
+        Returns:
+            batch_size: batch size of DPDataLoader, 
+            evaluated as the product between len(dataset) and the sample rate
+        """
+        if loader.batch_size is not None:
+            batch_size = loader.batch_size
+        else:
+            batch_size = int(len(loader.dataset)*loader.sample_rate)
+
+        return batch_size
+
     def after_training(self, params: Dict) -> Dict:
         """DP actions after the training.
 
