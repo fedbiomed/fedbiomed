@@ -63,8 +63,8 @@ class SecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
         if (len(entries) > 1):
-            errmess = f'{ErrorNumbers.FB318.value}: database table "{self._table}" is inconsistent: found {len(entries)} ' \
-                f'entries with unique `secagg_id` {secagg_id}'
+            errmess = f'{ErrorNumbers.FB318.value}: database table "{self._table}" is inconsistent: ' \
+                f'found {len(entries)} entries with unique `secagg_id` {secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)            
         elif (len(entries) == 1):
@@ -90,7 +90,7 @@ class SecaggManager(ABC):
         """
         if self.get(secagg_id) is not None:
             errmess = f'{ErrorNumbers.FB318.value}: error adding element in table "{self._table}": ' \
-                f' an entry already exists for `secagg_id` {secagg_id}'
+                f' an entry already exists for `secagg_id` "{secagg_id}"'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)              
 
@@ -106,6 +106,36 @@ class SecaggManager(ABC):
     @abstractmethod
     def add(self, secagg_id: str, parties: List[str], **kwargs):
         """Add a new data entry for a context element in node secagg element database"""
+
+    def remove(self, secagg_id: str) -> bool:
+        """Remove data entry for this `secagg_id` from database
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+
+        Returns:
+            True if an entry existed (and was removed) for this `secagg_id`,
+                False if no entry existed for this `secagg_id`
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+
+        # Rely on element found in database (rather than number of element removed)
+        if self.get(secagg_id) is None:
+            return False
+
+        try:
+            # we could also test number of elements deleted for double check
+            self._table.remove(
+                self._query.secagg_id.exists() &
+                (self._query.secagg_id == secagg_id)
+            )
+        except Exception as e:
+            errmess = f'{ErrorNumbers.FB318.value}: failed removing an entry from table "{self._table}" ' \
+                f'for secagg element "{secagg_id}" with error: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)    
+
+        return True
 
 
 class SecaggServkeyManager(SecaggManager):
