@@ -3,6 +3,10 @@
 from enum import Enum
 
 
+DB_FOLDER_NAME = "var"
+"""Directory/folder name where DB files are saved"""
+
+
 class _BaseEnum(Enum):
     """
     Parent class to pass default methods to enumeration classes
