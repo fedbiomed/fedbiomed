@@ -33,6 +33,9 @@ class SecaggSetup(ABC):
             job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         # check arguments
         self._v = Validator()
@@ -169,6 +172,9 @@ class SecaggServkeySetup(SecaggSetup):
             job_id: ID of the job to which this secagg context element is attached
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value 
         """
         super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
 
@@ -218,6 +224,9 @@ class SecaggBiprimeSetup(SecaggSetup):
             job_id: must be an empty string for a biprime context element (not attached to a job)
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
 

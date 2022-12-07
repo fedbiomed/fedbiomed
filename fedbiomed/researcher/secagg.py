@@ -29,7 +29,7 @@ class SecaggContext(ABC):
                 Empty string means the element is not attached to a specific job
 
         Raises:
-            FedbiomedSecaggError: bad parameter type
+            FedbiomedSecaggError: bad argument type or value
         """
         self._v = Validator()
         try:
@@ -90,9 +90,15 @@ class SecaggContext(ABC):
 
     def set_job_id(self, job_id: str) -> None:
         """Setter for secagg context element job_id
+
+        Args:
+            job_id: ID of the job to which this secagg context element is attached.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         try:
-            self._v.validate(job_id, str, None)
+            self._v.validate(job_id, str)
         except ValidatorError as e:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str: {e}'
             logger.error(errmess)
@@ -131,13 +137,13 @@ class SecaggContext(ABC):
             timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
                 or equals 0.
 
-        Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout
-            FedbiomedSecaggError: received a reply for a non-party to the negotiation
-
         Returns:
             True if secagg context element action could be done for all parties, False if at least
                 one of the parties could not do the context element action.
+
+        Raises:
+            FedbiomedSecaggError: some parties did not answer before timeout
+            FedbiomedSecaggError: received a reply for a non-party to the negotiation
         """
         # reset values in case `setup()` was already run (and fails during this new execution,
         # or this is a deletion)
@@ -224,6 +230,9 @@ class SecaggContext(ABC):
         Returns:
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
             timeout = float(timeout)    # accept int (and bool...)
@@ -254,6 +263,9 @@ class SecaggContext(ABC):
         Returns:
             True if secagg context element could be deleted for all parties, False if at least
                 one of the parties could not delete context element.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
             timeout = float(timeout)    # accept int (and bool...)
@@ -322,6 +334,9 @@ class SecaggServkeyContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(parties, job_id)
 
@@ -360,6 +375,9 @@ class SecaggBiprimeContext(SecaggContext):
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(parties, '')
 
