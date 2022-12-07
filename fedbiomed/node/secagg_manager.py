@@ -33,10 +33,10 @@ class SecaggManager(ABC):
         self._query = Query()
         self._table = None
 
-    def get(self, secagg_id: str) -> Union[dict, None]:
+    def _get_generic(self, secagg_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
-        There should be at most one entry with this unique secagg ID.
+        Check that there is at most one entry with this unique secagg ID.
 
         Args:
             secagg_id: secure aggregation ID key to search
@@ -49,8 +49,6 @@ class SecaggManager(ABC):
             FedbiomedSecaggError: failed to query the database
             FedbiomedSecaggError: more than one entry in database with this secagg ID
         """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-
         try:
             entries = self._table.search(
                 self._query.secagg_id.exists() &
@@ -74,6 +72,10 @@ class SecaggManager(ABC):
 
         return element
 
+    @abstractmethod
+    def get(self, secagg_id: str, *args):
+        """Search for a data entry in node secagg element database"""
+
     def _add_generic(self, secagg_id: str, parties: List[str], specific: dict):
         """Add a new data entry for this `secagg_id` in database
 
@@ -88,7 +90,7 @@ class SecaggManager(ABC):
             FedbiomedSecaggError: failed to insert in database
             FedbiomedSecaggError: an entry already exists for `secagg_id` in the table
         """
-        if self.get(secagg_id) is not None:
+        if self._get_generic(secagg_id) is not None:
             errmess = f'{ErrorNumbers.FB318.value}: error adding element in table "{self._table}": ' \
                 f' an entry already exists for `secagg_id` "{secagg_id}"'
             logger.error(errmess)
@@ -104,10 +106,10 @@ class SecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)    
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], **kwargs):
-        """Add a new data entry for a context element in node secagg element database"""
+    def add(self, secagg_id: str, parties: List[str], *args):
+        """Add a new data entry in node secagg element database"""
 
-    def remove(self, secagg_id: str) -> bool:
+    def _remove_generic(self, secagg_id: str) -> bool:
         """Remove data entry for this `secagg_id` from database
 
         Args:
@@ -117,10 +119,8 @@ class SecaggManager(ABC):
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
         """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-
         # Rely on element found in database (rather than number of element removed)
-        if self.get(secagg_id) is None:
+        if self._get_generic(secagg_id) is None:
             return False
 
         try:
@@ -137,6 +137,10 @@ class SecaggManager(ABC):
 
         return True
 
+    @abstractmethod
+    def remove(self, secagg_id: str, *args) -> bool:
+        """Remove a data entry from node secagg element database"""
+
 
 class SecaggServkeyManager(SecaggManager):
     """Manage the node server key secagg element database table
@@ -149,6 +153,35 @@ class SecaggServkeyManager(SecaggManager):
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggServkey', cache_size=0)
+
+    def get(self, secagg_id: str, job_id: str) -> Union[dict, None]:
+        """Search for data entry with given `secagg_id`
+
+        Check that there is at most one entry with this unique secagg ID.
+
+        If there is an entry for this `secagg_id`, check it is associated with job `job_id`
+
+        Args:
+            secagg_id: secure aggregation ID key to search
+            job_id: the job ID associated with the secagg entry
+
+        Returns:
+            A dict containing all values for the secagg element for this `secagg_id` if it exists,
+                or None if no element exists for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: the entry is associated with another job
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        element = self._get_generic(secagg_id)
+        if element is not None and element['job_id'] != job_id:
+            errmess = f'{ErrorNumbers.FB318.value}: error getting servkey element: ' \
+                f' an entry exists for `secagg_id` "{secagg_id}" but belongs to job ' \
+                f'"{element["secagg_id"]}" instead of current job "{job_id}"'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess) 
+
+        return element
 
     def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_chunk: str):
         """Add a new data entry for a context element in the servkey table 
@@ -168,6 +201,30 @@ class SecaggServkeyManager(SecaggManager):
             {'job_id': job_id, 'servkey_chunk': servkey_chunk }
         )
 
+    def remove(self, secagg_id: str, job_id: str) -> bool:
+        """Remove data entry for this `secagg_id` from the server key table
+
+        Check that the job ID for the table entry and the current job match  
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            job_id: job ID of the current job
+
+        Returns:
+            True if an entry existed (and was removed) for this `secagg_id`,
+                False if no entry existed for this `secagg_id`
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        element = self._get_generic(secagg_id)
+        if element is not None and element['job_id'] != job_id:
+            errmess = f'{ErrorNumbers.FB318.value}: error removing servkey element: ' \
+                f' an entry exists for `secagg_id` "{secagg_id}" but belongs to job ' \
+                f'"{element["secagg_id"]}" instead of current job "{job_id}"'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess) 
+
+        return self._remove_generic(secagg_id)
+
 
 class SecaggBiprimeManager(SecaggManager):
     """Manage the node biprime secagg element database table
@@ -180,6 +237,21 @@ class SecaggBiprimeManager(SecaggManager):
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggBiprime', cache_size=0)
+
+    def get(self, secagg_id: str) -> Union[dict, None]:
+        """Search for data entry with given `secagg_id` in the biprime table
+
+        Check that there is at most one entry with this unique secagg ID.
+
+        Args:
+            secagg_id: secure aggregation ID key to search
+
+        Returns:
+            A dict containing all values for the secagg element for this `secagg_id` if it exists,
+                or None if no element exists for this `secagg_id`
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        return self._get_generic(secagg_id)
 
     def add(self, secagg_id: str, parties: List[str], biprime: str):
         """Add a new data entry for a context element in the biprime table 
@@ -197,3 +269,16 @@ class SecaggBiprimeManager(SecaggManager):
             parties,
             {'biprime': biprime }
         )
+
+    def remove(self, secagg_id: str) -> bool:
+        """Remove data entry for this `secagg_id` from the biprime table
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+
+        Returns:
+            True if an entry existed (and was removed) for this `secagg_id`,
+                False if no entry existed for this `secagg_id`
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        return self._remove_generic(secagg_id)
