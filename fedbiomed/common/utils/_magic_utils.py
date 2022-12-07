@@ -112,6 +112,24 @@ def get_component_certificate_from_config(
     return {"party_id": component_id, "certificate": certificate, "component": component}
 
 
+def get_all_existing_config_files():
+    """"""
+    etc = os.path.join(get_fedbiomed_root(), 'etc', '')
+    return [file for file in glob.glob(f"{etc}*.ini")]
+
+
+def get_all_existing_component_ids():
+
+    config_files = get_all_existing_config_files()
+    config_ids = []
+    for config in config_files:
+
+        id_, *_ = get_component_config(config)
+        config_ids.append(id_)
+
+    return config_ids
+
+
 def get_all_existing_certificates() -> List[Dict[str, str]]:
     """Gets all existing certificates from Fed-BioMed `etc` directory.
 
@@ -122,8 +140,7 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
         (not path)  as `certificate`.
     """
 
-    etc = os.path.join(get_fedbiomed_root(), 'etc', '')
-    config_files = [file for file in glob.glob(f"{etc}*.ini")]
+    config_files = get_all_existing_config_files()
 
     certificates = []
     for config in config_files:
@@ -132,15 +149,15 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
     return certificates
 
 
-def get_existing_component_db_paths():
+def get_existing_component_db_names():
     """Gets DB_PATHs of all existing components in Fed-BioMed root"""
-    etc = os.path.join(get_fedbiomed_root(), 'etc', '')
-    config_files = [file for file in glob.glob(f"{etc}*.ini")]
 
-    db_paths = {}
+    config_files = get_all_existing_config_files()
+    db_names = {}
+
     for config in config_files:
         component_id, *_ = get_component_from_config(config)
-        db_path = f"{DB_PREFIX}{component_id}"
-        db_paths = {**db_paths, component_id: db_path}
+        db_name = f"{DB_PREFIX}{component_id}"
+        db_names = {**db_names, component_id: db_name}
 
-    return db_paths
+    return db_names
