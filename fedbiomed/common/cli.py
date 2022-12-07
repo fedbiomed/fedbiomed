@@ -11,8 +11,13 @@ from typing import Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.constants import DB_FOLDER_NAME
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import get_existing_component_db_paths, get_all_existing_certificates, get_method_spec
+from fedbiomed.common.utils import get_existing_component_db_names, \
+    get_all_existing_certificates, \
+    get_method_spec, \
+    get_fedbiomed_root, \
+    get_all_existing_component_ids
 
 
 # Create certificate dict validator
@@ -210,13 +215,19 @@ class CommonCLI:
     def _create_magic_dev_environment(self):
         """"""
 
-        db_paths = get_existing_component_db_paths()
+        db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
 
-        for id_, db_path in db_paths.items():
+        for id_, db_name in db_names.items():
             print(f"Registering certificates for component {id_} ------------------")
             # Sets DB
-            self._certificate_manager.set_db(db_path)
+            self._certificate_manager.set_db(
+                os.path.join(
+                    get_fedbiomed_root(),
+                    DB_FOLDER_NAME,
+                    db_name
+                )
+            )
 
             for certificate in certificates:
 
@@ -237,6 +248,9 @@ class CommonCLI:
             file will be automatically created. In future, it might be useful to generate configuration
             files.
         """
+
+        print(f"{GRN}Configuration has been created for component {self._environ['ID']}{NC}")
+
         pass
 
     @staticmethod
