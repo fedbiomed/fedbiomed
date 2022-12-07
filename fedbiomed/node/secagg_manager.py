@@ -1,10 +1,10 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Interfaces with the node secure aggregation element database table
+"""Interface with the node secure aggregation element database
 """
-from abc import ABC
-from typing import Union
+from abc import ABC, abstractmethod
+from typing import Union, List
 
 from tinydb import TinyDB, Query
 
@@ -15,17 +15,26 @@ from fedbiomed.node.environ import environ
 
 
 class SecaggManager(ABC):
-    """Manage a node secagg element database table
+    """Manage a node secagg element database
     """
     def __init__(self):
         """Constructor of the class
+
+        Raises:
+            FedbiomedSecaggError: failed to access the database
         """
-        self._db = TinyDB(environ['DB_PATH'])
+        try:
+            self._db = TinyDB(environ['DB_PATH'])
+        except Exception as e:
+            errmess = f'{ErrorNumbers.FB318.value}: failed to access the database with error: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess) 
+
         self._query = Query()
         self._table = None
 
-    def get_by_secagg_id(self, secagg_id: str) -> Union[dict, None]:
-        """Searches for data with given `secagg_id`
+    def get(self, secagg_id: str) -> Union[dict, None]:
+        """Search for data entry with given `secagg_id`
 
         There should be at most one entry with this unique secagg ID.
 
@@ -35,8 +44,12 @@ class SecaggManager(ABC):
         Returns:
             A dict containing all values for the secagg element for this `secagg_id` if it exists,
                 or None if no element exists for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: failed to query the database
+            FedbiomedSecaggError: more than one entry in database with this secagg ID
         """
-        # Trust argument check from `SecaggSetup``
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
 
         try:
             entries = self._table.search(
@@ -45,7 +58,7 @@ class SecaggManager(ABC):
             )
         except Exception as e:
             errmess = f'{ErrorNumbers.FB318.value}: failed searching the database table "{self._table}" ' \
-                f'for secagg element with error: {e}'
+                f'for secagg element "{secagg_id}" with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -61,6 +74,39 @@ class SecaggManager(ABC):
 
         return element
 
+    def _add_generic(self, secagg_id: str, parties: List[str], specific: dict):
+        """Add a new data entry for this `secagg_id` in database
+
+        Check that no entry exists yet for `secagg_id` in the table.
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            parties: list of parties participating in this secagg context element
+            specific: secagg data entry fields specific to this entry type 
+
+        Raises:
+            FedbiomedSecaggError: failed to insert in database
+            FedbiomedSecaggError: an entry already exists for `secagg_id` in the table
+        """
+        if self.get(secagg_id) is not None:
+            errmess = f'{ErrorNumbers.FB318.value}: error adding element in table "{self._table}": ' \
+                f' an entry already exists for `secagg_id` {secagg_id}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)              
+
+        specific.update({'secagg_id': secagg_id, 'parties': parties})
+        try:
+            self._table.insert(specific)
+        except Exception as e:
+            errmess = f'{ErrorNumbers.FB318.value}: failed adding an entry in table "{self._table}" ' \
+                f'for secagg element "{secagg_id}" with error: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)    
+
+    @abstractmethod
+    def add(self, secagg_id: str, parties: List[str], **kwargs):
+        """Add a new data entry for a context element in node secagg element database"""
+
 
 class SecaggServkeyManager(SecaggManager):
     """Manage the node server key secagg element database table
@@ -74,6 +120,24 @@ class SecaggServkeyManager(SecaggManager):
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggServkey', cache_size=0)
 
+    def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_chunk: str):
+        """Add a new data entry for a context element in the servkey table 
+
+        Check that no entry exists yet for this `secagg_id` in the table.
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            parties: list of parties participating in this secagg context element
+            job_id: ID of the job to which this secagg context element is attached
+            servkey_chunk: server key part held by this party
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        self._add_generic(
+            secagg_id,
+            parties,
+            {'job_id': job_id, 'servkey_chunk': servkey_chunk }
+        )
+
 
 class SecaggBiprimeManager(SecaggManager):
     """Manage the node biprime secagg element database table
@@ -86,3 +150,20 @@ class SecaggBiprimeManager(SecaggManager):
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggBiprime', cache_size=0)
+
+    def add(self, secagg_id: str, parties: List[str], biprime: str):
+        """Add a new data entry for a context element in the biprime table 
+
+        Check that no entry exists yet for this `secagg_id` in the table.
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            parties: list of parties participating in this secagg context element
+            biprime: the (full) biprime number shared with other parties
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        self._add_generic(
+            secagg_id,
+            parties,
+            {'biprime': biprime }
+        )
