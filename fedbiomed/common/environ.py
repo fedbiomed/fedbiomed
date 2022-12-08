@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 All environment/configuration variables are provided by the
 **Environ** dictionary.

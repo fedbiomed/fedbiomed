@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """HTTP file repository from which to upload and download files."""
 
 import os

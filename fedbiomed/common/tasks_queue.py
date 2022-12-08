@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """ Queue module that contains task queue class that is a wrapper to the persistqueue python library."""
 
 import persistqueue

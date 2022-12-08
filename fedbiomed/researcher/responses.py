@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import pandas as pd
 from typing import Any, TypeVar, Union, List, Dict
 from fedbiomed.common.exceptions import FedbiomedResponsesError
