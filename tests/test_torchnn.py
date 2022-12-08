@@ -109,10 +109,8 @@ class TestTorchnn(unittest.TestCase):
 
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer")
-    @patch("fedbiomed.common.training_plans._torchnn.deepcopy")
-    def test_torch_training_plan_02_post_init(self, mock_deepcopy, conf_optimizer_model, conf_deps):
+    def test_torch_training_plan_02_post_init(self, conf_optimizer_model, conf_deps):
 
-        mock_deepcopy.return_value = []
         conf_optimizer_model.return_value = None
         conf_deps.return_value = None
 
@@ -126,7 +124,6 @@ class TestTorchnn(unittest.TestCase):
 
         conf_optimizer_model.assert_called_once()
         conf_deps.assert_called_once()
-        mock_deepcopy.assert_called_once()
 
     @patch('fedbiomed.common.training_plans.BaseTrainingPlan.add_dependency')
     def test_torch_training_plan_03_configure_deps(self, add_dependency):
@@ -464,7 +461,7 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(pec=Dataset)
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
 
-        mocked_loss_result = MagicMock()
+        mocked_loss_result = MagicMock(spec=torch.Tensor, return_value = torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
 
