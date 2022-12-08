@@ -3,6 +3,7 @@
 from typing import Dict, Tuple, Union
 
 from opacus import PrivacyEngine
+from opacus.data_loader import DPDataLoader
 from opacus.validators import ModuleValidator
 from torch import randn_like
 from torch.nn import Module
@@ -34,7 +35,7 @@ class DPController:
     def before_training(self,
                         model: Module,
                         optimizer: Optimizer,
-                        loader: DataLoader) -> Tuple[Module, Optimizer, DataLoader]:
+                        loader: DataLoader) -> Tuple[Module, Optimizer, DPDataLoader]:
         """DP action before starting training.
 
         Args:
@@ -75,22 +76,6 @@ class DPController:
                     f"Error while running privacy engine: {e}"
                 )
         return model, optimizer, loader
-
-    def return_batch_size(self,loader):
-        """Retrieve information concerning the batch size.
-        
-        Args:
-            loader: DPDataLoader
-        Returns:
-            batch_size: batch size of DPDataLoader, 
-            evaluated as the product between len(dataset) and the sample rate
-        """
-        if loader.batch_size is not None:
-            batch_size = loader.batch_size
-        else:
-            batch_size = int(len(loader.dataset)*loader.sample_rate)
-
-        return batch_size
 
     def after_training(self, params: Dict) -> Dict:
         """DP actions after the training.

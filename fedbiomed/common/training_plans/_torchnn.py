@@ -1,7 +1,6 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from cgitb import reset
 from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
 
 from copy import deepcopy
@@ -507,9 +506,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 self._optimizer.step()
 
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
-                    batch_size = self.training_data_loader.batch_size
-                    batch_size = self._dp_controller.return_batch_size(self.training_data_loader)
-
+                    # Warning: batch_size can change from one update to another, especially
+                    # if using Opacus
+                    batch_size = len(data)
                     if self._num_updates is None:
                         _len_data_loader = len(self.training_data_loader.dataset)
                         _n_data_parsed = len(self.training_data_loader.dataset)
