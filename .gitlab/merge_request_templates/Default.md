@@ -1,3 +1,31 @@
+**MR description**
+
+TO_BE_FILLED_BY_MR_CREATOR
+
+**Developer Certificate Of Origin (DCO)**
+
+By opening this merge request, you agree the
+[Developer Certificate of Origin (DCO)](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/CONTRIBUTING.md#fed-biomed-developer-certificate-of-origin-dco)
+
+This DCO essentially means that:
+
+- you offer the changes under the same license agreement as the project, and
+- you have the right to do that,
+- you did not steal somebody else’s work.
+
+**License**
+
+Project code files should begin with these comment lines to help trace their origin:
+```
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+```
+
+Code files can be reused from another project with a compatible non-contaminating license.
+They shall retain the original license and copyright mentions.
+The `CREDIT.md` file and `credit/` directory shall be completed and updated accordingly.
+
+
 **Guidelines for MR review**
 
 General:
