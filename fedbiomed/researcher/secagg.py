@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Secure Aggregation management on the researcher"""
 import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
