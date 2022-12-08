@@ -53,6 +53,7 @@ import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
 import fedbiomed.node.round
 import fedbiomed.node.secagg
+import fedbiomed.node.secagg_manager
 import fedbiomed.researcher.__init__
 import fedbiomed.researcher.aggregators.__init__
 import fedbiomed.researcher.aggregators.aggregator

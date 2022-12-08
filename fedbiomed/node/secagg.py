@@ -6,6 +6,7 @@ from typing import List
 from abc import ABC, abstractmethod
 from enum import Enum
 import time
+import random
 
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -14,6 +15,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.node.environ import environ
+from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
 
 class SecaggSetup(ABC):
@@ -201,10 +203,22 @@ class SecaggServkeySetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        time.sleep(4)
-        logger.info(f"Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE, job_id='{self._job_id}'")
-        msg = self._create_secagg_reply('', True)
+        manager = SecaggServkeyManager()
+        # also checks that `context` is attached to the job `self._job_id`
+        context = manager.get(self._secagg_id, self._job_id)
 
+        if context is None:
+            logger.info("Generating a new context element !!!!")
+            # create a context if it does not exist yet
+            time.sleep(4)
+            servkey_chunk = str(random.randrange(10**6))
+            logger.info("Not implemented yet, PUT SECAGG SERVKEY GENERATION PAYLOAD HERE, "
+                        f"secagg_id='{self._secagg_id}'")
+
+            manager.add(self._secagg_id, self._parties, self._job_id, servkey_chunk)
+
+        logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        msg = self._create_secagg_reply('', True)
         return msg
 
 
@@ -252,8 +266,18 @@ class SecaggBiprimeSetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        time.sleep(6)
-        logger.info(f"Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE, job_id='{self._job_id}'")
-        msg = self._create_secagg_reply('', True)
+        manager = SecaggBiprimeManager()
+        context = manager.get(self._secagg_id)
 
+        if context is None:
+            # create a context if it does not exist yet
+            time.sleep(6)
+            biprime = str(random.randrange(10**12))
+            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
+                        f"secagg_id='{self._secagg_id}'")
+
+            manager.add(self._secagg_id, self._parties, biprime)
+
+        logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        msg = self._create_secagg_reply('', True)
         return msg
