@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
 This module defines message serializer and deserializer for sending / receiving / parsing messages through Messaging.
 
