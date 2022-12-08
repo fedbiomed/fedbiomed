@@ -208,7 +208,6 @@ class SecaggServkeySetup(SecaggSetup):
         context = manager.get(self._secagg_id, self._job_id)
 
         if context is None:
-            logger.info("Generating a new context element !!!!")
             # create a context if it does not exist yet
             time.sleep(4)
             servkey_chunk = str(random.randrange(10**6))

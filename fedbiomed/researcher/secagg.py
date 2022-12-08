@@ -309,7 +309,7 @@ class SecaggContext(ABC):
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, **kwargs):
         """
         Method for loading secagg state from breakpoint state
 
