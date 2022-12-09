@@ -290,7 +290,7 @@ class SecaggContext(ABC):
             return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
         else:
             self._context = None   # should already be the case
-            return True
+            return False
 
     def save_state(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints

@@ -176,8 +176,8 @@ class SecaggServkeyManager(SecaggManager):
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
             errmess = f'{ErrorNumbers.FB318.value}: error getting servkey element: ' \
-                f' an entry exists for `secagg_id` "{secagg_id}" but belongs to job ' \
-                f'"{element["secagg_id"]}" instead of current job "{job_id}"'
+                f'an entry exists for `secagg_id` "{secagg_id}" but does not belong to ' \
+                f'current job "{job_id}"'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess) 
 
@@ -218,8 +218,8 @@ class SecaggServkeyManager(SecaggManager):
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
             errmess = f'{ErrorNumbers.FB318.value}: error removing servkey element: ' \
-                f' an entry exists for `secagg_id` "{secagg_id}" but belongs to job ' \
-                f'"{element["secagg_id"]}" instead of current job "{job_id}"'
+                f'an entry exists for `secagg_id` "{secagg_id}" but does not belong to ' \
+                f'current job "{job_id}"'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess) 
 
