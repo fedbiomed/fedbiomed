@@ -180,12 +180,12 @@ class SecaggContext(ABC):
             for resp in responses.data():
                 # order of test matters !
                 if resp['researcher_id'] != self._researcher_id:
-                    break
+                    continue
                 if resp['secagg_id'] != self._secagg_id:
                     logger.debug(
                         f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
                         f" and received {resp['secagg_id']}")
-                    break
+                    continue
                 if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
                         'which is not a party of secagg "{self._secagg_id}"'
@@ -196,7 +196,7 @@ class SecaggContext(ABC):
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
                         f" and received {resp['sequence']}"
                     )
-                    break
+                    continue
 
                 # this answer belongs to current secagg context setup
                 status[resp['node_id']] = resp['success']
