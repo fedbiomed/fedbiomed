@@ -419,7 +419,7 @@ class Node:
             item_print = {key:value for key, value in item.items() if key != 'aggregator_args'}
             logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
-                
+
                 item = NodeMessages.request_create(item)
                 command = item.get_param('command')
             except Exception as e:
@@ -435,47 +435,47 @@ class Node:
                         }
                     ).get_dict()
                 )
-
-            if command == 'train':
-                try:
-                    self.parser_task_train(item)
-                    # once task is out of queue, initiate training rounds
-                    for round in self.rounds:
-                        # iterate over each dataset found
-                        # in the current round (here round refers
-                        # to a round to be done on a specific dataset).
-                        msg = round.run_model_training()
-                        self.messaging.send_message(msg)
-                except Exception as e:
-                    # send an error message back to network if something
-                    # wrong occured
+            else:
+                if command == 'train':
+                    try:
+                        self.parser_task_train(item)
+                        # once task is out of queue, initiate training rounds
+                        for round in self.rounds:
+                            # iterate over each dataset found
+                            # in the current round (here round refers
+                            # to a round to be done on a specific dataset).
+                            msg = round.run_model_training()
+                            self.messaging.send_message(msg)
+                    except Exception as e:
+                        # send an error message back to network if something
+                        # wrong occured
+                        self.messaging.send_message(
+                            NodeMessages.reply_create(
+                                {
+                                    'command': 'error',
+                                    'extra_msg': str(e),
+                                    'node_id': environ['NODE_ID'],
+                                    'researcher_id': 'NOT_SET',
+                                    'errnum': ErrorNumbers.FB300
+                                }
+                            ).get_dict()
+                        )
+                elif command == 'secagg':
+                    self._task_secagg(item)
+                else:
+                    errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
+                    logger.error(errmess)
                     self.messaging.send_message(
                         NodeMessages.reply_create(
                             {
                                 'command': 'error',
-                                'extra_msg': str(e),
+                                'extra_msg': errmess,
                                 'node_id': environ['NODE_ID'],
                                 'researcher_id': 'NOT_SET',
-                                'errnum': ErrorNumbers.FB300
+                                'errnum': ErrorNumbers.FB319
                             }
                         ).get_dict()
                     )
-            elif command == 'secagg':
-                self._task_secagg(item)
-            else:
-                errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
-                logger.error(errmess)
-                self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'command': 'error',
-                            'extra_msg': errmess,
-                            'node_id': environ['NODE_ID'],
-                            'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB319
-                        }
-                    ).get_dict()
-                )
 
             self.tasks_queue.task_done()
 

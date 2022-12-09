@@ -156,6 +156,8 @@ class TestNode(unittest.TestCase):
         # checks
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
 
+    @patch('fedbiomed.node.node.SecaggBiprimeManager.remove')
+    @patch('fedbiomed.node.node.SecaggServkeyManager.remove')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
@@ -163,18 +165,24 @@ class TestNode(unittest.TestCase):
             self,
             node_msg_request_patch,
             node_msg_reply_patch,
-            messaging_send_msg_patch
+            messaging_send_msg_patch,
+            secagg_servkey_manager_remove_patch,
+            secagg_biprime_manager_remove_patch,
     ):
         """Tests `on_message` method (normal case scenario), with secagg-delete command"""
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        secagg_servkey_manager_remove_patch.return_value = True
+        secagg_biprime_manager_remove_patch.return_value = True
 
         # defining arguments
         secagg_delete = {
             'command': 'secagg-delete',
             'researcher_id': 'researcher_id_1234',
             'secagg_id': 'my_test_secagg_id',
-            'sequence': 1234
+            'sequence': 1234,
+            'element': 0,
+            'job_id': 'a_dummy_job_id',
         }
 
         # action
@@ -185,6 +193,8 @@ class TestNode(unittest.TestCase):
                 'success': True,
                 'msg': ''
             })
+        del secagg_delete['job_id']
+        del secagg_delete['element']
         # checks
         messaging_send_msg_patch.assert_called_once_with(secagg_delete)
 
@@ -892,7 +902,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.node.node.Node.task_secagg')
+    @patch('fedbiomed.node.node.Node._task_secagg')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_23_task_manager_secagg_exception_raised_task_done(self,
                                                              tasks_queue_get_patch,
@@ -938,6 +948,8 @@ class TestNode(unittest.TestCase):
             "researcher_id": "researcher_id_1234",
             "secagg_id": "secagg_id_2345",
             "sequence": 33,
+            "element": 1,
+            "job_id": "my_test_job",
             "command": "secagg-delete",
         }
         mssging_send_msg_patch.return_value = None
@@ -1079,7 +1091,7 @@ class TestNode(unittest.TestCase):
             messaging_send_msg_patch,
             secagg_servkey_patch,
             secagg_biprime_patch):
-        """Tests `task_secagg` normal (successful) case"""
+        """Tests `_task_secagg` normal (successful) case"""
 
         for el in [0, 1]:
             # prepare
@@ -1119,7 +1131,7 @@ class TestNode(unittest.TestCase):
             )
 
             # action
-            self.n1.task_secagg(msg_secagg_request)
+            self.n1._task_secagg(msg_secagg_request)
 
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
@@ -1139,7 +1151,7 @@ class TestNode(unittest.TestCase):
     def test_node_30_task_secagg_badmessage(
             self,
             messaging_send_msg_patch):
-        """Tests `task_secagg` with bad message values"""
+        """Tests `_task_secagg` with bad message values"""
         # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
 
         # prepare
@@ -1212,7 +1224,7 @@ class TestNode(unittest.TestCase):
                     'command': 'error',
                     'extra_msg': dict_secagg_extra_msg.pop(0),
                     'node_id': environ['NODE_ID'],
-                    'researcher_id': 'NOT_SET',
+                    'researcher_id': req['researcher_id'],
                     'errnum': ErrorNumbers.FB318
                 }
             else:
@@ -1227,7 +1239,7 @@ class TestNode(unittest.TestCase):
                 }
 
             # action
-            self.n1.task_secagg(msg_secagg_request)
+            self.n1._task_secagg(msg_secagg_request)
 
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
@@ -1242,7 +1254,7 @@ class TestNode(unittest.TestCase):
             messaging_send_msg_patch,
             secagg_servkey_patch,
             secagg_biprime_patch):
-        """Tests `task_secagg` failing in secagg creation"""
+        """Tests `_task_secagg` failing in secagg creation"""
 
         for el in [0, 1]:
             # prepare
@@ -1270,7 +1282,7 @@ class TestNode(unittest.TestCase):
             secagg_biprime_patch.side_effect = Exception
 
             # action
-            self.n1.task_secagg(msg_secagg_request)
+            self.n1._task_secagg(msg_secagg_request)
 
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
@@ -1285,7 +1297,7 @@ class TestNode(unittest.TestCase):
             messaging_send_msg_patch,
             secagg_servkey_patch,
             secagg_biprime_patch):
-        """Tests `task_secagg` failing in `secagg.setup()`"""
+        """Tests `_task_secagg` failing in `secagg.setup()`"""
 
         for el in [0, 1]:
             # prepare
@@ -1332,7 +1344,7 @@ class TestNode(unittest.TestCase):
             )
 
             # action
-            self.n1.task_secagg(msg_secagg_request)
+            self.n1._task_secagg(msg_secagg_request)
 
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
@@ -1344,7 +1356,7 @@ class TestNode(unittest.TestCase):
             self,
             messaging_send_msg_patch,
             element_types_patch):
-        """Tests `task_secagg` failing with bad secagg element type"""
+        """Tests `_task_secagg` failing with bad secagg element type"""
 
         # prepare
         bad_message_values = [2, 18, 987]
@@ -1378,7 +1390,7 @@ class TestNode(unittest.TestCase):
             }
 
             # action
-            self.n1.task_secagg(msg_secagg_request)
+            self.n1._task_secagg(msg_secagg_request)
 
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
