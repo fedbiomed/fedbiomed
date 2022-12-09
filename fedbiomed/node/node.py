@@ -12,7 +12,7 @@ from typing import Optional, Union, Dict, Any
 from fedbiomed.common import json
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggRequest, TrainRequest
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -94,18 +94,7 @@ class Node:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'secagg-delete':
-                logger.info('Not implemented yet, PUT SECAGG DELETE PAYLOAD HERE')
-                self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'researcher_id': msg['researcher_id'],
-                            'secagg_id': msg['secagg_id'],
-                            'sequence': msg['sequence'],
-                            'success': True,
-                            'node_id': environ['NODE_ID'],
-                            'msg': '',
-                            'command': 'secagg-delete'
-                        }).get_dict())
+                self._task_secagg_delete(msg)
             elif command == 'ping':
                 self.messaging.send_message(
                     NodeMessages.reply_create(
@@ -177,8 +166,28 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def task_secagg(self, msg: SecaggRequest) -> None:
-        """Parses a given secagg setup task message and execute secagg task.
+    def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
+        """Parse a given secagg delete task message and execute secagg delete task.
+
+        Args:
+            msg: `SecaggDeleteRequest` message object to parse
+        """
+        logger.info(f'Not implemented yet, PUT SECAGG DELETE PAYLOAD HERE {msg}')
+        self.messaging.send_message(
+            NodeMessages.reply_create(
+                {
+                    'researcher_id': msg['researcher_id'],
+                    'secagg_id': msg['secagg_id'],
+                    'sequence': msg['sequence'],
+                    'success': True,
+                    'node_id': environ['NODE_ID'],
+                    'msg': '',
+                    'command': 'secagg-delete'
+                }).get_dict())
+
+
+    def _task_secagg(self, msg: SecaggRequest) -> None:
+        """Parse a given secagg setup task message and execute secagg task.
 
         Args:
             msg: `SecaggRequest` message object to parse
@@ -379,7 +388,7 @@ class Node:
                         ).get_dict()
                     )
             elif command == 'secagg':
-                self.task_secagg(item)
+                self._task_secagg(item)
             else:
                 errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                 logger.error(errmess)

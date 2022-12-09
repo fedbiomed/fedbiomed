@@ -283,6 +283,8 @@ class SecaggContext(ABC):
             msg = {
                 'researcher_id': self._researcher_id,
                 'secagg_id': self._secagg_id,
+                'element': self._element.value,
+                'job_id': self._job_id,
                 'command': 'secagg-delete',
             }
             return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
