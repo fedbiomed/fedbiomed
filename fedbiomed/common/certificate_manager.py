@@ -24,7 +24,8 @@ CertificateDataValidator = SchemeValidator({
     "email": {"rules": [str], "required": False, "default": "fed@biomed"},
     "country": {"rules": [str], "required": False, "default": "FR"},
     "organization": {"rules": [str], "required": False, "default": "Fed-BioMed"},
-    "validity": {"rules": [int], "required": False, "default": 365}
+    "validity": {"rules": [int], "required": False, "default": 365},
+    "common_name": {"rules": [str], "required": False, "default": "certificate"}
 })
 
 """Validator object for certificate data"""
@@ -64,7 +65,7 @@ class CertificateManager:
             party_id: str,
             component: str,
             upsert: bool = False
-    ) -> List[int]:
+    ) -> Union[int, list[int]]:
         """ Inserts new certificate
 
         Args:
@@ -244,8 +245,9 @@ class CertificateManager:
         return writen_certificates
 
     @staticmethod
-    def generate_certificate_inactive(
+    def generate_self_signed_certificate_cryptography(
             certificate_path,
+            certificate_name: str = "certificate",
             certificate_data: Dict = {},
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
@@ -349,15 +351,18 @@ class CertificateManager:
         return key_file, pem_file
 
     @staticmethod
-    def generate_certificate(
-            certificate_path,
+    def generate_self_signed_ssl_certificate(
+            certificate_folder,
+            certificate_name: str = "certificate",
             certificate_data: Dict = {},
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
         Args:
-            certificate_path: The path where certificate files `.pem` and `.key` will be saved. Path should be
+            certificate_folder: The path where certificate files `.pem` and `.key` will be saved. Path should be
                 absolute.
+            certificate_name: Name of the certificate file.
+
             certificate_data: Data for certificates to declare, `email`, `country`, `organization`, `validity`.
                 Certificate data should be dict where `email`, `country`, `organization` is string type and `validity`
                 boolean
@@ -375,11 +380,11 @@ class CertificateManager:
                 `certificate.pem` for public key.
         """
 
-        if not os.path.abspath(certificate_path):
-            raise FedbiomedError(f"Certificate path should be absolute: {certificate_path}")
+        if not os.path.abspath(certificate_folder):
+            raise FedbiomedError(f"Certificate path should be absolute: {certificate_folder}")
 
-        if not os.path.isdir(certificate_path):
-            raise FedbiomedError(f"Certificate path is not valid: {certificate_path}")
+        if not os.path.isdir(certificate_folder):
+            raise FedbiomedError(f"Certificate path is not valid: {certificate_folder}")
 
         try:
             CertificateDataValidator.validate(certificate_data)
@@ -395,7 +400,9 @@ class CertificateManager:
 
         x509 = crypto.X509()
         subject = x509.get_subject()
-        subject.commonName = socket.gethostname()
+        subject.commonName = certificate_data["common_name"]
+        subject.emailAddress = certificate_data["email"]
+        subject.countryName = certificate_data["country"]
         x509.set_issuer(subject)
         x509.gmtime_adj_notBefore(0)
         x509.gmtime_adj_notAfter(5 * 365 * 24 * 60 * 60)
@@ -414,8 +421,8 @@ class CertificateManager:
         x509.sign(pkey, 'SHA256')
 
         # Certificate names
-        key_file = os.path.join(certificate_path, "certificate.key")
-        pem_file = os.path.join(certificate_path, "certificate.pem")
+        key_file = os.path.join(certificate_folder, f"{certificate_name}.key")
+        pem_file = os.path.join(certificate_folder, f"{certificate_name}.pem")
 
         try:
             with open(key_file, "wb") as f:
