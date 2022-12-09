@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
@@ -101,7 +104,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                              ])
 
         # Aggregated model parameters
-        self._init_params = None
+        self._init_params: List[torch.Tensor] = None
 
     def post_init(
             self,
@@ -152,9 +155,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Configure model and optimizer
         self._configure_model_and_optimizer()
-
-        # Initial aggregated model parameters
-        self._init_params = deepcopy(self._model.state_dict())
 
     @abstractmethod
     def init_model(self):
@@ -431,28 +431,34 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self.data = data_loader
 
         # initial aggregated model parameters
-        self._init_params = deepcopy(self._model.state_dict())
+        self._init_params = deepcopy(list(self._model.parameters()))
 
-        # DP actions --------------------------------------------------------------------------------------------
+        # DP actions
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
         num_updates, num_batches_per_epoch = self.num_parameter_updates()
         for update_idx, (data, target) in enumerate(self.training_data_loader, start=1):
+            # Immediately exit if we have reached the total number of iterations
             if update_idx > num_updates:
                 break
 
+            # send data to device
             data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
+
+            # zero-out gradients
             self._optimizer.zero_grad()
 
+            # call researcher-defined training hook
             loss = self.training_step(data, target)  # raises an exception if not provided
 
             # If FedProx is enabled: use regularized loss function
+            corrected_loss = torch.clone(loss)
             if self._fedprox_mu is not None:
-                loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+                corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
             # Run the backward pass to compute parameters' gradients
-            loss.backward()
+            corrected_loss.backward()
 
             # If Scaffold is used: apply corrections to the gradients
             if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
@@ -464,6 +470,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             # Have the optimizer collect, refine and apply gradients
             self._optimizer.step()
 
+            # Handle monitoring training loss and other metrics
             if update_idx % self._log_interval == 0 or self._dry_run:
                 epoch = (update_idx-1) // num_batches_per_epoch + 1
                 logger.debug('Train Epoch: {} [{}/{} ({:.0f}%) samples]\tLoss: {:.6f}'.format(
@@ -483,10 +490,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                total_samples=num_updates*self.training_data_loader.batch_size,
                                                batch_samples=self.training_data_loader.batch_size)
 
-                if self._dry_run:
-                    self._model.to(self._device_init)
-                    torch.cuda.empty_cache()
-                    return
+            if self._dry_run:
+                self._model.to(self._device_init)
+                torch.cuda.empty_cache()
+                return
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -641,6 +648,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-        for key, val in self._model.state_dict().items():
-            norm += ((val - self._init_params[key]) ** 2).sum()
+        
+        for current_model, init_model in zip(self._model.parameters(), self._init_params):
+            norm += ((current_model - init_model) ** 2).sum()
         return norm

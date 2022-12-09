@@ -13,7 +13,7 @@ nosetests provide additional features:
 * setup the python environment
 
 ```
-source .../scripts/fedbiomed_environment researcher
+source ../scripts/fedbiomed_environment researcher
 ```
 
 * run all tests

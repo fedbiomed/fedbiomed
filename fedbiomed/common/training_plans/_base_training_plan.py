@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Base class defining the shared API of all training plans."""
 
 from abc import ABCMeta, abstractmethod

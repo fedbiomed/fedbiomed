@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Manage the training part of the experiment."""
 
 import atexit
@@ -189,6 +192,10 @@ class Job:
             assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
             if 'url' in f:
                 assert validators.url(obj[f]), f'Url not valid: {f}'
+
+    @property
+    def id(self):
+        return self._id
 
     @property
     def training_plan_name(self):

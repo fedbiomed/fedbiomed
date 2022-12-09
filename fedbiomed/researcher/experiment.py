@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Code of the researcher. Implements the experiment orchestration"""
 
 import functools
@@ -1380,6 +1383,8 @@ class Experiment(object):
             # a job is already defined, and it may also have run some rounds
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
+            # note:
+            # if self._secagg_servkey != None, then it should be redefined
 
         if self._training_plan_is_defined is not True:
             # training plan not properly defined yet
@@ -1496,14 +1501,16 @@ class Experiment(object):
             parties = [environ['RESEARCHER_ID']] + node_parties
 
             if not self._secagg_servkey:
-                self._secagg_servkey = SecaggServkeyContext(parties)
-            if not self._secagg_servkey.status():
+                # a secagg servkey element must be attached to a job_id
+                if self._job:
+                    self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
+            if self._secagg_servkey and not self._secagg_servkey.status():
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
             if not self._secagg_biprime.status():
                 self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey.status() and self._secagg_biprime.status():
+            if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
                 self._use_secagg = True
                 logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
             else:
@@ -2058,7 +2065,8 @@ class Experiment(object):
         if bkpt_secagg_servkey_args:
             loaded_exp._secagg_servkey = cls._create_object(
                 bkpt_secagg_servkey_args,
-                parties = bkpt_secagg_servkey_args['parties']
+                parties = bkpt_secagg_servkey_args['parties'],
+                job_id = bkpt_secagg_servkey_args['job_id']
             )
 
         bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")

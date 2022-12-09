@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """TrainingPlan definitions for the scikit-learn ML framework.
 
 This module implements the base class for all implementations of

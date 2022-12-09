@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Provide test metrics, both MetricTypes to use in TrainingArgs but also calculation routines.
 """
