@@ -210,11 +210,11 @@ class SecaggServkeySetup(SecaggSetup):
         if context is None:
             # create a context if it does not exist yet
             time.sleep(4)
-            servkey_chunk = str(random.randrange(10**6))
+            servkey_share = str(random.randrange(10**6))
             logger.info("Not implemented yet, PUT SECAGG SERVKEY GENERATION PAYLOAD HERE, "
                         f"secagg_id='{self._secagg_id}'")
 
-            manager.add(self._secagg_id, self._parties, self._job_id, servkey_chunk)
+            manager.add(self._secagg_id, self._parties, self._job_id, servkey_share)
 
         logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
         msg = self._create_secagg_reply('', True)

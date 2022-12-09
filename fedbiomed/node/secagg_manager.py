@@ -183,7 +183,7 @@ class SecaggServkeyManager(SecaggManager):
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_chunk: str):
+    def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_share: str):
         """Add a new data entry for a context element in the servkey table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -192,13 +192,13 @@ class SecaggServkeyManager(SecaggManager):
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
             job_id: ID of the job to which this secagg context element is attached
-            servkey_chunk: server key part held by this party
+            servkey_share: server key part held by this party
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         self._add_generic(
             secagg_id,
             parties,
-            {'job_id': job_id, 'servkey_chunk': servkey_chunk }
+            {'job_id': job_id, 'servkey_share': servkey_share }
         )
 
     def remove(self, secagg_id: str, job_id: str) -> bool:
