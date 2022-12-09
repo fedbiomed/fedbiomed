@@ -143,7 +143,7 @@ class CommonCLI:
         # Command `certificate generate`
         generate = certificate_sub_parsers.add_parser(
             'generate',
-            help="Generates certificate for given component/party. Overwrites exisintg certificate ff '--path' option "
+            help="Generates certificate for given component/party. Overwrites existing certificate ff '--path' option "
                  "isn't specified ")
 
         # Command `certificate generate`
@@ -187,6 +187,15 @@ class CommonCLI:
             nargs='?',
             default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
+
+        generate.add_argument(
+            '-mnof',
+            '--max-number-of-parties',
+            nargs='?',
+            type=int,
+            default=15,
+            help="Maximum number of nodes/researcher that can join federation. The default is 15"
+        )
 
         generate.add_argument(
             '--organization',
@@ -261,29 +270,30 @@ class CommonCLI:
             args: Arguments that are passed after `certificate generate` command
 
         """
+        for i in range(args.max_number_of_parties):
+            try:
+                CertificateManager.generate_self_signed_ssl_certificate(
+                    certificate_folder=args.path,
+                    certificate_data={
+                        "organization": args.organization,
+                        "country": args.country,
+                        "email": args.email,
+                        "common_name": f"P{i}"  # self._environ["ID"]
+                    },
+                    certificate_name=f"P{i}"  # self._environ["ID"]
+                )
+            except FedbiomedError as e:
+                CommonCLI.error(f"Can not generate certificate. Please see: {e}")
+                sys.exit(101)
 
-        try:
-            CertificateManager.generate_certificate(
-                certificate_path=args.path,
-                certificate_data={
-                    "organization": args.organization,
-                    "country": args.country,
-                    "email": args.email
-                })
-        except FedbiomedError as e:
-            CommonCLI.error(f"Can not generate certificate. Please see: {e}")
-            sys.exit(101)
+        CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
 
-        else:
-            CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
-
-            print(f"Add following lines into {os.getenv('CONFIG_FILE', 'component')} configuration file: \n\n"
-                  f"; -------------------------------------------------------------------------------------\n"
-                  f"; - SSL Configuration \n"
-                  f"; -------------------------------------------------------------------------------------\n"
-                  f"[ssl]\n"
-                  f"private_key = {args.path}/certificate.key \n"
-                  f"public_key = {args.path}/certificate.pem \n\n")
+        print(f"Add following lines into {os.getenv('CONFIG_FILE', 'component')} configuration file: \n\n"
+              f"; -------------------------------------------------------------------------------------\n"
+              f"; - SSL Configuration \n"
+              f"; -------------------------------------------------------------------------------------\n"
+              f"[ssl]\n"
+              f"Certificates are saved in:  {args.path} \n\n")
 
         pass
 
