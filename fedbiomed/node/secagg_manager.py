@@ -62,7 +62,7 @@ class SecaggManager(ABC):
 
         if (len(entries) > 1):
             errmess = f'{ErrorNumbers.FB318.value}: database table "{self._table}" is inconsistent: ' \
-                f'found {len(entries)} entries with unique `secagg_id` {secagg_id}'
+                f'found {len(entries)} entries with unique secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)            
         elif (len(entries) == 1):
@@ -92,7 +92,7 @@ class SecaggManager(ABC):
         """
         if self._get_generic(secagg_id) is not None:
             errmess = f'{ErrorNumbers.FB318.value}: error adding element in table "{self._table}": ' \
-                f' an entry already exists for `secagg_id` "{secagg_id}"'
+                f' an entry already exists for secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)              
 
@@ -101,7 +101,7 @@ class SecaggManager(ABC):
             self._table.insert(specific)
         except Exception as e:
             errmess = f'{ErrorNumbers.FB318.value}: failed adding an entry in table "{self._table}" ' \
-                f'for secagg element "{secagg_id}" with error: {e}'
+                f'for secagg element secagg_id={secagg_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)    
 
@@ -131,7 +131,7 @@ class SecaggManager(ABC):
             )
         except Exception as e:
             errmess = f'{ErrorNumbers.FB318.value}: failed removing an entry from table "{self._table}" ' \
-                f'for secagg element "{secagg_id}" with error: {e}'
+                f'for secagg element secagg_id={secagg_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)    
 
@@ -176,8 +176,8 @@ class SecaggServkeyManager(SecaggManager):
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
             errmess = f'{ErrorNumbers.FB318.value}: error getting servkey element: ' \
-                f'an entry exists for `secagg_id` "{secagg_id}" but does not belong to ' \
-                f'current job "{job_id}"'
+                f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
+                f'current job job_id={job_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess) 
 
@@ -218,8 +218,8 @@ class SecaggServkeyManager(SecaggManager):
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
             errmess = f'{ErrorNumbers.FB318.value}: error removing servkey element: ' \
-                f'an entry exists for `secagg_id` "{secagg_id}" but does not belong to ' \
-                f'current job "{job_id}"'
+                f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
+                f'current job job_id={job_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess) 
 
