@@ -115,7 +115,7 @@ class TestTorchnn(unittest.TestCase):
         conf_deps.return_value = None
 
         tp = TorchTrainingPlan()
-        tp._model = Module()we have 
+        tp._model = Module()
         tp.post_init({}, TestTorchnn.FakeTrainingArgs())
 
         self.assertEqual(tp._log_interval, 10)
