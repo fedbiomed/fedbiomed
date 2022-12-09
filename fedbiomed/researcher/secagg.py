@@ -314,7 +314,7 @@ class SecaggContext(ABC):
         Method for loading secagg state from breakpoint state
 
         Args:
-            state: The state that will be leaded
+            state: The state that will be loaded
         """
         self._secagg_id = state['secagg_id']
         self._parties = state['parties']
