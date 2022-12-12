@@ -1473,6 +1473,50 @@ class TestNode(unittest.TestCase):
             # messaging_send_msg_patch.assert_not_called()
             messaging_send_msg_patch.reset_mock()
 
+    @patch('fedbiomed.node.node.SecaggElementTypes')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_35_task_secagg_delete_fails_secagg_bad_secagg_element(
+            self,
+            messaging_send_msg_patch,
+            element_types_patch):
+        """Tests `_task_secagg_delete` failing with bad secagg element type"""
+
+        # prepare
+        bad_message_values = [2, 18, 987]
+        for bad_message_value in bad_message_values:
+
+            class FakeSecaggElementTypes(_BaseEnum):
+                DUMMY: int = bad_message_value
+            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
+            element_types_patch.__iter__.return_value = [
+                FakeSecaggElementTypes(bad_message_value)
+            ]
+
+            dict_secagg_delete_request = {
+                'researcher_id': 'my_test_researcher_id',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': bad_message_value,
+                'job_id': 'my_job_id',
+                'command': 'secagg-delete'
+            }
+            msg_secagg_delete_request = NodeMessages.request_create(dict_secagg_delete_request)
+            dict_secagg_delete_reply = {
+                'researcher_id': dict_secagg_delete_request['researcher_id'],
+                'secagg_id': dict_secagg_delete_request['secagg_id'],
+                'sequence': dict_secagg_delete_request['sequence'],
+                'command': dict_secagg_delete_request['command'],
+                'node_id': environ['NODE_ID'],
+                'success': False,
+                'msg': f'ErrorNumbers.FB321: bad secagg delete request message received by {environ["NODE_ID"]}: no such element {FakeSecaggElementTypes(dict_secagg_delete_request["element"]).name}'
+            }
+
+            # action
+            self.n1._task_secagg_delete(msg_secagg_delete_request)
+
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_delete_reply)
+            messaging_send_msg_patch.reset_mock()
 
 
 if __name__ == '__main__':  # pragma: no cover
