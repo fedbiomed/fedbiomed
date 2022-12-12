@@ -225,7 +225,6 @@ function forward_command_to_python_cli(){
     fi
 
     source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
-    echo "$EXTRA_PARAMS"
 
     if ! python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS; then
       error "Error while executing the command. Please see above error message"
@@ -658,7 +657,6 @@ case $1 in
     *)
       PARAMS=${@}
       source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
-      echo $PARAMS
       python -m fedbiomed.common.cli $PARAMS
 #      echo "Please specify the component you want to run between: network, node, researcher, gui"
 #      exit 1
