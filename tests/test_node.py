@@ -1357,45 +1357,59 @@ class TestNode(unittest.TestCase):
             self,
             messaging_send_msg_patch,
             element_types_patch):
-        """Tests `_task_secagg` failing with bad secagg element type"""
+        """Tests `_task_secagg` and `_task_secgg_delete` failing with bad secagg element type"""
 
         # prepare
         bad_message_values = [2, 18, 987]
+        test_setups = [
+            [
+                'secagg',
+                f'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                self.n1._task_secagg
+            ],
+            [
+                'secagg-delete',
+                f'ErrorNumbers.FB321: bad secagg delete request message received by {environ["NODE_ID"]}: ',
+                self.n1._task_secagg_delete
+            ],
+        ]
         for bad_message_value in bad_message_values:
 
-            class FakeSecaggElementTypes(_BaseEnum):
-                DUMMY: int = bad_message_value
-            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
-            element_types_patch.__iter__.return_value = [
-                FakeSecaggElementTypes(bad_message_value)
-            ]
+            for command, message, function in test_setups:
+                class FakeSecaggElementTypes(_BaseEnum):
+                    DUMMY: int = bad_message_value
+                element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
+                element_types_patch.__iter__.return_value = [
+                    FakeSecaggElementTypes(bad_message_value)
+                ]
 
-            dict_secagg_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': bad_message_value,
-                'job_id': 'my_job_id',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            }
-            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-            dict_secagg_reply = {
-                'researcher_id': dict_secagg_request['researcher_id'],
-                'secagg_id': dict_secagg_request['secagg_id'],
-                'sequence': dict_secagg_request['sequence'],
-                'command': dict_secagg_request['command'],
-                'node_id': environ['NODE_ID'],
-                'success': False,
-                'msg': f'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: no such element {FakeSecaggElementTypes(dict_secagg_request["element"]).name}'
-            }
+                dict_secagg_request = {
+                    'researcher_id': 'my_test_researcher_id',
+                    'secagg_id': 'my_dummy_secagg_id',
+                    'sequence': 888,
+                    'element': bad_message_value,
+                    'job_id': 'my_job_id',
+                    'command': command
+                }
+                if command == 'secagg':
+                    dict_secagg_request['parties'] = ['party1', 'party2', 'party3']
+                msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
+                dict_secagg_reply = {
+                    'researcher_id': dict_secagg_request['researcher_id'],
+                    'secagg_id': dict_secagg_request['secagg_id'],
+                    'sequence': dict_secagg_request['sequence'],
+                    'command': dict_secagg_request['command'],
+                    'node_id': environ['NODE_ID'],
+                    'success': False,
+                    'msg': f'{message}no such element {FakeSecaggElementTypes(dict_secagg_request["element"]).name}'
+                }
 
-            # action
-            self.n1._task_secagg(msg_secagg_request)
+                # action
+                function(msg_secagg_request)
 
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-            messaging_send_msg_patch.reset_mock()
+                # check
+                messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+                messaging_send_msg_patch.reset_mock()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     def test_node_34_task_secagg_delete_badmessage(
@@ -1418,7 +1432,7 @@ class TestNode(unittest.TestCase):
             # no such element in database
             {
                 'researcher_id': '',
-                'secagg_id': 'my_dummy_secagg_id',
+                'secagg_id': 'my_dummy_secagg_id_NOT_IN_DB',
                 'sequence': 888,
                 'element': 0,
                 'job_id': 'job1',
@@ -1427,7 +1441,7 @@ class TestNode(unittest.TestCase):
         ]
         dict_secagg_delete_extra_msg = [
             f'ErrorNumbers.FB321: received bad delete message: incorrect `element` {bad_element}',
-            f'ErrorNumbers.FB321: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id',
+            f'ErrorNumbers.FB321: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id_NOT_IN_DB',
         ]
         dict_secagg_delete_reply_type = [
             "error",
@@ -1473,50 +1487,57 @@ class TestNode(unittest.TestCase):
             # messaging_send_msg_patch.assert_not_called()
             messaging_send_msg_patch.reset_mock()
 
-    @patch('fedbiomed.node.node.SecaggElementTypes')
+    @patch('fedbiomed.node.node.SecaggBiprimeManager.remove')
+    @patch('fedbiomed.node.node.SecaggServkeyManager.remove')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_35_task_secagg_delete_fails_secagg_bad_secagg_element(
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    def test_node_35_task_secagg_delete_remove_error(
             self,
+            node_msg_request_patch,
+            node_msg_reply_patch,
             messaging_send_msg_patch,
-            element_types_patch):
-        """Tests `_task_secagg_delete` failing with bad secagg element type"""
+            secagg_servkey_manager_remove_patch,
+            secagg_biprime_manager_remove_patch,
+    ):
+        """Tests secagg-delete command with error in `remove` command"""
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        secagg_servkey_manager_remove_patch.side_effect = Exception
+        secagg_biprime_manager_remove_patch.side_effect = Exception
 
-        # prepare
-        bad_message_values = [2, 18, 987]
-        for bad_message_value in bad_message_values:
+        # defining arguments
+        secagg_delete = {
+            'command': 'secagg-delete',
+            'researcher_id': 'researcher_id_1234',
+            'secagg_id': 'my_test_secagg_id',
+            'sequence': 1234,
+            'element': 0,
+            'job_id': 'a_dummy_job_id',
+        }
+        secagg_delete_reply = {
+            'command': 'secagg-delete',
+            'researcher_id': 'researcher_id_1234',
+            'secagg_id': 'my_test_secagg_id',
+            'sequence': 1234,
+            'success': False,
+            'node_id': environ['NODE_ID'],
+            'msg': f'ErrorNumbers.FB321: error during secagg delete on node_id={environ["NODE_ID"]} secagg_id={secagg_delete["secagg_id"]}: ',
+        }
 
-            class FakeSecaggElementTypes(_BaseEnum):
-                DUMMY: int = bad_message_value
-            element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
-            element_types_patch.__iter__.return_value = [
-                FakeSecaggElementTypes(bad_message_value)
-            ]
+        class CustomFakeMessages(FakeMessages):
+            def get_param(self, val: str) -> Any:
+                if val in self.msg:
+                    return self.msg.get(val)
+                else:
+                    raise AttributeError(f"no such attribute '{val}'")
 
-            dict_secagg_delete_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': bad_message_value,
-                'job_id': 'my_job_id',
-                'command': 'secagg-delete'
-            }
-            msg_secagg_delete_request = NodeMessages.request_create(dict_secagg_delete_request)
-            dict_secagg_delete_reply = {
-                'researcher_id': dict_secagg_delete_request['researcher_id'],
-                'secagg_id': dict_secagg_delete_request['secagg_id'],
-                'sequence': dict_secagg_delete_request['sequence'],
-                'command': dict_secagg_delete_request['command'],
-                'node_id': environ['NODE_ID'],
-                'success': False,
-                'msg': f'ErrorNumbers.FB321: bad secagg delete request message received by {environ["NODE_ID"]}: no such element {FakeSecaggElementTypes(dict_secagg_delete_request["element"]).name}'
-            }
 
-            # action
-            self.n1._task_secagg_delete(msg_secagg_delete_request)
+        # action
+        self.n1._task_secagg_delete(CustomFakeMessages(secagg_delete))
 
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_delete_reply)
-            messaging_send_msg_patch.reset_mock()
+        # checks
+        messaging_send_msg_patch.assert_called_once_with(secagg_delete_reply)
 
 
 if __name__ == '__main__':  # pragma: no cover
