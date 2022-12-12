@@ -5,6 +5,7 @@ from copy import deepcopy
 import testsupport.mock_node_environ  ## noqa (remove flake8 false warning)
 
 from testsupport.fake_message import FakeMessages
+from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
 
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -212,10 +213,14 @@ class TestSecaggResearcher(unittest.TestCase):
 
 
     @patch('time.sleep')
+    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
+    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
     def test_secagg_03_setup(
             self,
             patch_reply_create,
+            patch_servkey_manager,
+            patch_biprime_manager,
             patch_time_sleep):
         """Setup secagg context elements
         """
@@ -224,6 +229,9 @@ class TestSecaggResearcher(unittest.TestCase):
         def reply_create_side_effect(msg):
             return FakeMessages(msg)
         patch_reply_create.side_effect = reply_create_side_effect
+
+        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
+        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         # prepare
         kwargs_servkey = {
