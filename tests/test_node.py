@@ -187,16 +187,17 @@ class TestNode(unittest.TestCase):
 
         # action
         self.n1.on_message(secagg_delete)
-        secagg_delete.update(
+        secagg_delete_reply = copy.deepcopy(secagg_delete)
+        secagg_delete_reply.update(
             {
                 'node_id': environ['NODE_ID'],
                 'success': True,
                 'msg': ''
             })
-        del secagg_delete['job_id']
-        del secagg_delete['element']
+        del secagg_delete_reply['job_id']
+        del secagg_delete_reply['element']
         # checks
-        messaging_send_msg_patch.assert_called_once_with(secagg_delete)
+        messaging_send_msg_patch.assert_called_once_with(secagg_delete_reply)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
@@ -1395,6 +1396,83 @@ class TestNode(unittest.TestCase):
             # check
             messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
             messaging_send_msg_patch.reset_mock()
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_34_task_secagg_delete_badmessage(
+            self,
+            messaging_send_msg_patch):
+        """Tests `_task_secagg_delete` with bad message values"""
+        # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
+
+        # prepare
+        bad_element = 2
+        dict_secagg_delete_requests = [
+            {
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': bad_element,
+                'job_id': 'job1',
+                'command': 'secagg-delete'
+            },
+            # no such element in database
+            {
+                'researcher_id': '',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': 0,
+                'job_id': 'job1',
+                'command': 'secagg-delete'
+            },
+        ]
+        dict_secagg_delete_extra_msg = [
+            f'ErrorNumbers.FB321: received bad delete message: incorrect `element` {bad_element}',
+            f'ErrorNumbers.FB321: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id',
+        ]
+        dict_secagg_delete_reply_type = [
+            "error",
+            "reply",
+        ]
+
+        class CustomFakeMessages(FakeMessages):
+            def get_param(self, val: str) -> Any:
+                if val in self.msg:
+                    return self.msg.get(val)
+                else:
+                    raise AttributeError(f"no such attribute '{val}'")
+
+        for req in dict_secagg_delete_requests:
+            msg_secagg_delete_request = CustomFakeMessages(req)
+
+            reply_type = dict_secagg_delete_reply_type.pop(0)
+
+            if reply_type == 'error':
+                dict_secagg_delete_reply = {
+                    'command': 'error',
+                    'extra_msg': dict_secagg_delete_extra_msg.pop(0),
+                    'node_id': environ['NODE_ID'],
+                    'researcher_id': req['researcher_id'],
+                    'errnum': ErrorNumbers.FB321
+                }
+            else:
+                dict_secagg_delete_reply = {
+                    'researcher_id': req['researcher_id'],
+                    'secagg_id': req['secagg_id'],
+                    'sequence': req['sequence'],
+                    'success': False,
+                    'node_id': environ['NODE_ID'],
+                    'msg': dict_secagg_delete_extra_msg.pop(0),
+                    'command': 'secagg-delete'
+                }
+
+            # action
+            self.n1._task_secagg_delete(msg_secagg_delete_request)
+
+            # check
+            messaging_send_msg_patch.assert_called_with(dict_secagg_delete_reply)
+            # messaging_send_msg_patch.assert_not_called()
+            messaging_send_msg_patch.reset_mock()
+
 
 
 if __name__ == '__main__':  # pragma: no cover
