@@ -39,7 +39,7 @@ def add_database(interactive: bool = True,
         data_type: Keyword for the data type of the dataset.
     """
 
-    dataset_parameters = None
+    dataset_parameters = dataset_parameters or None
     data_loading_plan = None
 
     # if all args are provided, just try to load the data
