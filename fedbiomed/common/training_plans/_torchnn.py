@@ -507,12 +507,15 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
                     # Warning: batch_size can change from one update to another, especially
                     # if using Opacus
+                    # FIXME: `batch_size` should not be computed that way, but rather by calling 
+                    # `batch_size` attribute from `training_data_loader`. Please refer to issue #422
+                    # for further details
                     if isinstance(data, dict):
                         # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
                         # compute length of the first modality
                         batch_size = len(list(data.values())[0])
                     else:
-                        # case `data` is a Tensor
+                        # case `data` is a Tensor or a list
                         batch_size = len(data)
                     if self._num_updates is None:
                         _len_data_loader = len(self.training_data_loader.dataset)
