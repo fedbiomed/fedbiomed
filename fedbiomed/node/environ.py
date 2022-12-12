@@ -125,7 +125,8 @@ class NodeEnviron(Environ):
         }
 
     def info(self):
-        """"""
+        """Print useful information at environment creation"""
+
         logger.info("type                           = " + str(self._values['COMPONENT_TYPE']))
         logger.info("training_plan_approval         = " + str(self._values['TRAINING_PLAN_APPROVAL']))
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))

@@ -64,6 +64,8 @@ class CertificateManager:
             certificate: str,
             party_id: str,
             component: str,
+            ip: str,
+            port: str,
             upsert: bool = False
     ) -> Union[int, list[int]]:
         """ Inserts new certificate
@@ -83,12 +85,20 @@ class CertificateManager:
             return self._db.insert(dict(
                 certificate=certificate,
                 party_id=party_id,
-                component=component
+                component=component,
+                ip=ip,
+                port=port
             ))
 
         elif upsert:
             return self._db.upsert(
-                dict(certificate=certificate, component=component, party_id=party_id),
+                dict(
+                    certificate=certificate,
+                    component=component,
+                    party_id=party_id,
+                    ip=ip,
+                    port=port
+                ),
                 self._query.party_id == party_id
             )
         else:
@@ -147,6 +157,8 @@ class CertificateManager:
             self,
             certificate_path: str,
             party_id: str,
+            ip: str,
+            port: int,
             upsert: bool = False
     ) -> Union[int, List[int]]:
         """ Registers certificate
@@ -154,6 +166,8 @@ class CertificateManager:
         Args:
             certificate_path: Path where certificate/key file stored
             party_id: ID of the FL party which the certificate will be registered
+            ip:  The IP address of the party where MP-SPDZ create communication
+            port:
             upsert: If `True` overwrites existing certificate for specified party. If `False` and the certificate for
                 the specified party already existing it raises error.
 
@@ -179,8 +193,10 @@ class CertificateManager:
         return self.insert(
             certificate=certificate_content,
             party_id=party_id,
+            ip=ip,
+            port=port,
             component=component,
-            upsert=upsert
+            upsert=upsert,
         )
 
     def write_certificates_for_experiment(

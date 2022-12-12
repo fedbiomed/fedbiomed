@@ -45,33 +45,6 @@ def get_component_config(
     return config
 
 
-def get_component_from_config(
-        config_path: str
-) -> Tuple[str, str, configparser.ConfigParser]:
-    """Gets component id, type and config object from config path
-
-    Args:
-        config_path: The path of config file
-
-    Returns:
-        component_id: The ID of the component.
-        component_type:
-        config:
-    """
-
-    config = get_component_config(config_path)
-    if config.has_option("default", "node_id"):
-        component_id = config["default"]["node_id"]
-        component = ComponentType.NODE.name
-    elif config.has_option("default", "researcher_id"):
-        component_id = config["default"]["researcher_id"]
-        component = ComponentType.RESEARCHER.name
-    else:
-        raise FedbiomedError(f"Component id is not existing in {config_path}")
-
-    return component_id, component, config
-
-
 def get_component_certificate_from_config(
         config_path: str
 ) -> Dict[str, str]:
@@ -91,14 +64,13 @@ def get_component_certificate_from_config(
             - If certificate file is not found or not readable
     """
 
-    component_id, component, config = get_component_from_config(config_path)
-
     config = get_component_config(config_path)
+    component_id = config.get("default", "id")
+    component_type = config.get("default", "component")
 
-    if not config.has_option("ssl", "public_key"):
-        raise FedbiomedError(f"Component {component_id} does not have certificate section in the config.")
-
-    certificate_path = config.get("ssl", "public_key")
+    ip = config.get("mpspdz", "mpspdz_ip")
+    port = config.get("mpspdz", "mpspdz_port")
+    certificate_path = config.get("mpspdz", "public_key")
 
     if not os.path.isfile(certificate_path):
         raise FedbiomedError(f"The certificate for component '{component_id}' not found in {certificate_path}")
@@ -109,7 +81,13 @@ def get_component_certificate_from_config(
     except Exception as e:
         raise FedbiomedError(f"Error while reading certificate -> {certificate_path}. Error: {e}")
 
-    return {"party_id": component_id, "certificate": certificate, "component": component}
+    return {
+        "party_id": component_id,
+        "certificate": certificate,
+        "ip": ip,
+        "port": port,
+        "component": component_type
+    }
 
 
 def get_all_existing_config_files():
@@ -156,7 +134,8 @@ def get_existing_component_db_names():
     db_names = {}
 
     for config in config_files:
-        component_id, *_ = get_component_from_config(config)
+        config = get_component_config(config)
+        component_id = config['default']['id']
         db_name = f"{DB_PREFIX}{component_id}"
         db_names = {**db_names, component_id: db_name}
 

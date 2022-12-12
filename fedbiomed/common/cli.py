@@ -177,6 +177,22 @@ class CommonCLI:
             help="ID of the party to which the certificate is to be registered (component ID).")
 
         register_parser.add_argument(
+            '--ip',
+            metavar='IP_ADDRESS',
+            type=str,
+            nargs='?',
+            required=True,
+            help="IP address of the component which the certificate will be saved.")
+
+        register_parser.add_argument(
+            '--port',
+            metavar='PORT',
+            type=int,
+            nargs='?',
+            required=True,
+            help="Port number of the component which the certificate will be saved.")
+
+        register_parser.add_argument(
             '--upsert',
             action="store_true",
             help="Updates if certificate of given party id is already existing.")
@@ -188,27 +204,6 @@ class CommonCLI:
             default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
-        generate.add_argument(
-            '--organization',
-            type=str,
-            nargs='?',
-            default="Fed-BioMed",
-            help="Organization name for CSR")
-
-        generate.add_argument(
-            '--email',
-            type=str,
-            nargs='?',
-            default="fed@biomed",
-            help="E-mail address for CSR")
-
-        generate.add_argument(
-            '--country',
-            type=str,
-            nargs='?',
-            default="FR",
-            help="Country for CSR")
-
         # Set db path that certificate manager will be using to store certificates
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
@@ -218,6 +213,12 @@ class CommonCLI:
         db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
 
+        if len(certificates) < 2:
+            print(f"\n{RED}Warning!{NC}")
+            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'dev-magic' you should have "
+                  f"at least 2 components created{NC}\n")
+            return
+
         for id_, db_name in db_names.items():
             print(f"Registering certificates for component {id_} ------------------")
             # Sets DB
@@ -225,7 +226,7 @@ class CommonCLI:
                 os.path.join(
                     get_fedbiomed_root(),
                     DB_FOLDER_NAME,
-                    db_name
+                    f"{db_name}.json"
                 )
             )
 
@@ -288,7 +289,9 @@ class CommonCLI:
             t = self._certificate_manager.register_certificate(
                 certificate_path=args.public_key,
                 party_id=args.party_id,
-                upsert=args.upsert
+                upsert=args.upsert,
+                ip=args.ip,
+                port=args.port
             )
             print(t)
         except FedbiomedError as exp:
@@ -343,7 +346,8 @@ class CommonCLI:
             print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
             print(" 2- Change your directory to 'fedbiomed' root")
             print(f" 2- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE "
-                  f"CERTIFICATE IS SAVED] -pi {self._environ['ID']} \" ")
+                  f"CERTIFICATE IS SAVED] -pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} "
+                  f"--port {self._environ['MPSPDZ_PORT']}\" ")
 
         pass
 
