@@ -1,8 +1,7 @@
-#!/usr/bin/env bats  -p
-#  /usr/bin/env bats --formatter junit  --report-formatter junit  --verbose-run
+#!/usr/bin/env bats --formatter junit  --report-formatter junit  --verbose-run --show-output-of-passing-tests 
 
 @test "notebook 101_getting-started.py" {
-  ./scripts/run_integration_test -s ./notebooks/101_getting-started.py  \
+  run ./scripts/run_integration_test -s ./notebooks/101_getting-started.py  \
                                  -d ./tests/datasets/mnist.json
 }
 # @test "flamby-integration-into-fedbiomed.py" {
