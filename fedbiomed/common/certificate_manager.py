@@ -177,11 +177,11 @@ class CertificateManager:
         component = ComponentType.NODE.name if party_id.startswith("node") else ComponentType.RESEARCHER.name
 
         return self.insert(
-                certificate=certificate_content,
-                party_id=party_id,
-                component=component,
-                upsert=upsert
-            )
+            certificate=certificate_content,
+            party_id=party_id,
+            component=component,
+            upsert=upsert
+        )
 
     def write_certificates_for_experiment(
             self,
@@ -245,116 +245,10 @@ class CertificateManager:
         return writen_certificates
 
     @staticmethod
-    def generate_self_signed_certificate_cryptography(
-            certificate_path,
-            certificate_name: str = "certificate",
-            certificate_data: Dict = {},
-    ) -> Tuple[str, str]:
-        """Creates self-signed certificates
-
-        Args:
-            certificate_path: The path where certificate files `.pem` and `.key` will be saved. Path should be
-                absolute.
-            certificate_data: Data for certificates to declare, `email`, `country`, `organization`, `validity`.
-                Certificate data should be dict where `email`, `country`, `organization` is string type and `validity`
-                boolean
-
-        Raises:
-            FedbiomedCertificateError: If certificate directory is invalid or an error occurs while writing certificate
-                files in given path.
-
-        Returns:
-            Status of the certificate creation.
-
-
-        !!! info "Certificate files"
-                Certificate files will be saved in the given directory as `certificates.key` for private key
-                `certificate.pem` for public key.
-        """
-
-        if not os.path.abspath(certificate_path):
-            raise FedbiomedError(f"Certificate path should be absolute: {certificate_path}")
-
-        if not os.path.isdir(certificate_path):
-            raise FedbiomedError(f"Certificate path is not valid: {certificate_path}")
-
-        try:
-            CertificateDataValidator.validate(certificate_data)
-        except ValidateError as e:
-            raise FedbiomedError(f"Certificate data is not valid: {e}")
-
-        certificate_data = CertificateDataValidator.populate_with_defaults(
-            certificate_data, only_required=False
-        )
-
-        # Generate our key
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        subject = issuer = x509.Name([
-                # Provide various details about who we are.
-                x509.NameAttribute(NameOID.COUNTRY_NAME, certificate_data["country"]),
-                x509.NameAttribute(NameOID.COMMON_NAME, socket.gethostname()),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, certificate_data["organization"]),
-                x509.NameAttribute(NameOID.EMAIL_ADDRESS, certificate_data["email"]),
-        ])
-
-        # Generate a CSR
-        csr = x509.CertificateBuilder() \
-            .subject_name(
-                subject
-            ).issuer_name(
-                issuer
-            ).public_key(
-                private_key.public_key()
-            ).serial_number(
-                x509.random_serial_number()
-            ).not_valid_before(
-                datetime.utcnow()
-            ).not_valid_after(
-                datetime.utcnow() + timedelta(days=certificate_data["validity"])
-            ).add_extension(
-                x509.SubjectAlternativeName([
-                    x509.DNSName(socket.gethostname()),
-                    x509.DNSName('*.%s' % socket.gethostname()),
-                    x509.DNSName('localhost'),
-                    x509.DNSName('*.localhost'),
-                ]), critical=False
-            ).add_extension(
-                x509.BasicConstraints(ca=False, path_length=None), critical=True
-            ).sign(private_key=private_key, algorithm=hashes.SHA256(), backend=default_backend())
-
-        # Certificate names
-        key_file = os.path.join(certificate_path, "certificate.key")
-        pem_file = os.path.join(certificate_path, "certificate.pem")
-
-        try:
-            with open(key_file, "wb") as f:
-                f.write(private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                ))
-                f.close()
-        except Exception as e:
-            raise FedbiomedError(f"Can not write public key: {e}")
-
-        try:
-            with open(pem_file, "wb") as f:
-                f.write(csr.public_bytes(serialization.Encoding.PEM))
-                f.close()
-        except Exception as e:
-            raise FedbiomedError(f"Can not write public key: {e}")
-
-        return key_file, pem_file
-
-    @staticmethod
     def generate_self_signed_ssl_certificate(
             certificate_folder,
             certificate_name: str = "certificate",
-            certificate_data: Dict = {},
+            component_id: str = "unknown",
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
@@ -363,9 +257,7 @@ class CertificateManager:
                 absolute.
             certificate_name: Name of the certificate file.
 
-            certificate_data: Data for certificates to declare, `email`, `country`, `organization`, `validity`.
-                Certificate data should be dict where `email`, `country`, `organization` is string type and `validity`
-                boolean
+            component_id: ID of the component
 
         Raises:
             FedbiomedCertificateError: If certificate directory is invalid or an error occurs while writing certificate
@@ -386,38 +278,19 @@ class CertificateManager:
         if not os.path.isdir(certificate_folder):
             raise FedbiomedError(f"Certificate path is not valid: {certificate_folder}")
 
-        try:
-            CertificateDataValidator.validate(certificate_data)
-        except ValidateError as e:
-            raise FedbiomedError(f"Certificate data is not valid: {e}")
-
-        certificate_data = CertificateDataValidator.populate_with_defaults(
-            certificate_data, only_required=False
-        )
-
         pkey = crypto.PKey()
         pkey.generate_key(crypto.TYPE_RSA, 2048)
 
         x509 = crypto.X509()
         subject = x509.get_subject()
-        subject.commonName = certificate_data["common_name"]
-        subject.emailAddress = certificate_data["email"]
-        subject.countryName = certificate_data["country"]
+        subject.commonName = '*'
+        subject.organizationName = component_id
         x509.set_issuer(subject)
         x509.gmtime_adj_notBefore(0)
         x509.gmtime_adj_notAfter(5 * 365 * 24 * 60 * 60)
         x509.set_pubkey(pkey)
         x509.set_serial_number(random.randrange(100000))
         x509.set_version(2)
-        x509.add_extensions([
-            crypto.X509Extension(b'subjectAltName', False,
-                                 ','.join([
-                                     'DNS:%s' % socket.gethostname(),
-                                     'DNS:*.%s' % socket.gethostname(),
-                                     'DNS:localhost',
-                                     'DNS:*.localhost']).encode()),
-            crypto.X509Extension(b"basicConstraints", True, b"CA:false")])
-
         x509.sign(pkey, 'SHA256')
 
         # Certificate names

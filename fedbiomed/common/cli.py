@@ -189,15 +189,6 @@ class CommonCLI:
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
         generate.add_argument(
-            '-mnof',
-            '--max-number-of-parties',
-            nargs='?',
-            type=int,
-            default=15,
-            help="Maximum number of nodes/researcher that can join federation. The default is 15"
-        )
-
-        generate.add_argument(
             '--organization',
             type=str,
             nargs='?',
@@ -262,29 +253,22 @@ class CommonCLI:
 
         pass
 
-    @staticmethod
-    def _generate_certificate(args):
+    def _generate_certificate(self, args):
         """Generates certificate using Certificate Manager
 
         Args:
             args: Arguments that are passed after `certificate generate` command
 
         """
-        for i in range(args.max_number_of_parties):
-            try:
-                CertificateManager.generate_self_signed_ssl_certificate(
-                    certificate_folder=args.path,
-                    certificate_data={
-                        "organization": args.organization,
-                        "country": args.country,
-                        "email": args.email,
-                        "common_name": f"P{i}"  # self._environ["ID"]
-                    },
-                    certificate_name=f"P{i}"  # self._environ["ID"]
-                )
-            except FedbiomedError as e:
-                CommonCLI.error(f"Can not generate certificate. Please see: {e}")
-                sys.exit(101)
+        try:
+            CertificateManager.generate_self_signed_ssl_certificate(
+                certificate_folder=args.path,
+                certificate_name="MPSDPZ_certificate",
+                component_id=self._environ["ID"]
+            )
+        except FedbiomedError as e:
+            CommonCLI.error(f"Can not generate certificate. Please see: {e}")
+            sys.exit(101)
 
         CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
 
