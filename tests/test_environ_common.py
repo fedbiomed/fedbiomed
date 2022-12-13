@@ -132,7 +132,7 @@ class TestEnviron(TestCase):
 
         ip, port = self.environ._retrieve_ip_and_port(increment_file)
         self.assertEqual(ip, 'localhost')
-        self.assertEqual(port, 14000)
+        self.assertEqual(port, 14001)
         file = open(increment_file, "r")
         inc = file.read()
         file.close()
@@ -150,6 +150,12 @@ class TestEnviron(TestCase):
         """Tests methods configure secure aggregation """
         increment_file = os.path.join(self.config_dir, "port_increment")
         self.environ._values["PORT_INCREMENT_FILE"] = increment_file
+
+        cert_folder = os.path.join(self.config_dir, "certs")
+        self.environ._values["CERT_DIR"] = cert_folder
+
+        self.environ._cfg["default"] = {"id": "test_component_id"}
+
         self.environ._configure_secure_aggregation()
 
         ip = self.environ._cfg.get("mpspdz", "mpspdz_ip")
@@ -212,15 +218,30 @@ class TestEnviron(TestCase):
         mpspdz_ip = "1.1.1.1"
         mpspdz_port = "1234"
         uploads_url = "http"
+        public_key = "text_public_key"
+        private_key = "test_private_key"
 
         self.environ._cfg["mqtt"] = {'broker_ip': broker_ip, 'port': broker_port}
-        self.environ._cfg["mpspdz"] = {'mpspdz_ip': mpspdz_ip, 'mpspdz_port': mpspdz_port}
+        self.environ._cfg["mpspdz"] = {
+            'mpspdz_ip': mpspdz_ip,
+            'mpspdz_port': mpspdz_port,
+            'public_key': public_key,
+            'private_key': private_key,
+            }
+
         self.environ._cfg["default"] = {'uploads_url': uploads_url}
 
-        del os.environ["UPLOADS_URL"]
-        del os.environ["UPLOADS_IP"]
-        del os.environ["MQTT_BROKER"]
-        del os.environ["MQTT_BROKER_PORT"]
+        if "UPLOADS_URL" in os.environ:
+            del os.environ["UPLOADS_URL"]
+
+        if "UPLOADS_IP" in os.environ:
+            del os.environ["UPLOADS_IP"]
+
+        if "MQTT_BROKER" in os.environ:
+            del os.environ["MQTT_BROKER"]
+
+        if "MQTT_BROKER_PORT" in os.environ:
+            del os.environ["MQTT_BROKER_PORT"]
 
         self.environ._set_network_variables()
         self.assertEqual(self.environ._values["TIMEOUT"], 5)
@@ -229,6 +250,8 @@ class TestEnviron(TestCase):
         self.assertEqual(self.environ._values["UPLOADS_URL"], uploads_url)
         self.assertEqual(self.environ._values["MQTT_BROKER"], broker_ip)
         self.assertEqual(self.environ._values["MQTT_BROKER_PORT"], broker_port)
+        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_KEY"], private_key)
+        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_PEM"], public_key)
 
     def test_environ_09_getters_and_setters(self):
         with self.assertRaises(FedbiomedEnvironError):
