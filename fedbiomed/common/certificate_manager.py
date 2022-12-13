@@ -19,7 +19,7 @@ class CertificateManager:
         _db: TinyDB database to store certificates
     """
 
-    def __init__(self, db: str = None):
+    def __init__(self, db_path: str = None):
         """Constructs certificate manager
 
         Args:
@@ -29,8 +29,8 @@ class CertificateManager:
         self._db: Union[TinyDB, None] = None
         self._query: Query = Query()
 
-        if db is not None:
-            self._db: TinyDB.table = TinyDB(db).table("Certificates")
+        if db_path is not None:
+            self._db: TinyDB.table = TinyDB(db_path).table("Certificates")
 
     def set_db(self, db_path: str) -> None:
         """Sets database
