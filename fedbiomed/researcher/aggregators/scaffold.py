@@ -221,8 +221,9 @@ class Scaffold(Aggregator):
                 has not been set.
              
         """
-        
-        if n_updates <= 0 or int(n_updates) != float(n_updates):
+        if n_updates is None:
+            raise FedbiomedAggregatorError("Can not perform Scaffold: missing 'n_updates' in the training_args")
+        elif n_updates <= 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(f"n_updates should be a positive non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
         if self._fds is None:
             raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`")

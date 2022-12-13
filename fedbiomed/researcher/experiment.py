@@ -1582,7 +1582,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         # check aggregator parameter(s) before starting a round
-        self._aggregator.check_values(n_updates=self._training_args['num_updates'],
+        self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
