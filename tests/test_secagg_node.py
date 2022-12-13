@@ -13,8 +13,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup
 
 
-class TestSecaggResearcher(unittest.TestCase):
-    """ Test for researcher's secagg module"""
+class TestSecaggNode(unittest.TestCase):
+    """ Test for node's secagg module"""
 
     @classmethod
     def setUpClass(cls) -> None:
