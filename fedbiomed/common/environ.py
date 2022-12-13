@@ -48,7 +48,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
-from fedbiomed.common.constants import ComponentType, HashingAlgorithms
+from fedbiomed.common.constants import MPSPDZ_certificate_prefix
 from fedbiomed.common.certificate_manager import CertificateManager
 
 
@@ -263,8 +263,8 @@ class Environ(metaclass=SingletonABCMeta):
 
         public_key = self.from_config("mpspdz", "public_key")
         private_key = self.from_config("mpspdz", "private_key")
-        self._values["CERTIFICATE_KEY"] = os.getenv("SLL_PRIVATE_KEY", private_key)
-        self._values["CERTIFICATE_PEM"] = os.getenv("SLL_PUBLIC_KEY", public_key)
+        self._values["MPSPDZ_CERTIFICATE_KEY"] = os.getenv("MPSPDZ_CERTIFICATE_KEY", private_key)
+        self._values["MPSPDZ_CERTIFICATE_PEM"] = os.getenv("MPSPDZ_CERTIFICATE_PEM", public_key)
 
     def _get_uploads_url(self,
                          from_config: Union[None, str] = False
@@ -335,7 +335,7 @@ class Environ(metaclass=SingletonABCMeta):
         try:
             key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=certificate_path,
-                certificate_name="MPSDPZ_certificate",
+                certificate_name=MPSPDZ_certificate_prefix,
                 component_id=component_id
             )
         except FedbiomedError as e:
