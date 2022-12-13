@@ -528,7 +528,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         epoch,
                         num_samples_till_now,
                         _n_data_parsed,
-                        100 * batch_ / _len_data_loader,
+                        100 * num_samples_till_now / max(_n_data_parsed, 1),  # max to avoid division by 0 (if any)
                         loss.item()))
 
                     # Send scalar values via general/feedback topic

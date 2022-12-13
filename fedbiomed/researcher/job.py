@@ -310,43 +310,6 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
-        """Updates training_args before sending it to nodes (all nodes or selected nodes).
-
-        Updates the following parameters:
-
-        - num_updates: in the case where the researcher provided a number of epochs, it computes the
-            number of updates based on the dataset with the smallest number of samples in the federation.
-
-        Args:
-            fds (FederatedDataSet): The representation of the federated data set used in the experiment.
-            nodes (Optional[List[str]], optional): Node to be considered before sending values. Defaults to None.
-
-        Raises:
-            FedbiomedError: if no nodes are participating in the experiment.
-        """
-        if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
-            # compute number of updates from number of samples and batch_size (if not provided)
-            if nodes is None:
-                node_present: List[str] = fds.node_ids()
-            else:
-                node_present: List[str] = nodes
-
-            if not node_present:
-                raise FedbiomedError("No node have answered")
-            # updating `num_updates` parameter:
-            max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
-            batch_size = self._training_args['batch_size']
-            n_epochs = self._training_args.get('epochs', 0)
-            batch_maxnum = self._training_args.get('batch_maxnum', 0)
-            num_updates_for_one_epoch = max_n_samples // batch_size
-            if max_n_samples % batch_size:
-                num_updates_for_one_epoch += 1
-            if batch_maxnum > 0:
-                num_updates_for_one_epoch = min(num_updates_for_one_epoch, batch_maxnum)
-
-            self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
-
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
                                args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
