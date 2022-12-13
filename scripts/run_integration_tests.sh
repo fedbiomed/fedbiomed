@@ -13,7 +13,7 @@ cat <<EOF >>${bats_file}
 EOF
 done
 
-bats --formatter tap --report-formatter tap --verbose-run --show-output-of-passing-tests ${bats_file} 
+bats --formatter tap13 --report-formatter tap13 --verbose-run --show-output-of-passing-tests ${bats_file} 
 
 # @test "flamby-integration-into-fedbiomed.py" {
 #   run ./scripts/run_integration_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
