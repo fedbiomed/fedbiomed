@@ -6,6 +6,7 @@ from enum import Enum
 DB_FOLDER_NAME = "var"
 """Directory/folder name where DB files are saved"""
 
+MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
 class _BaseEnum(Enum):
     """
