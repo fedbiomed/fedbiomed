@@ -466,8 +466,8 @@ class TestTorchnn(unittest.TestCase):
         tp.training_step = lambda x, y: mocked_loss_result
 
         custom_dataset = self.CustomDataset()
-        x_train = torch.Tensor(custom_dataset.X_train)
-        y_train = torch.Tensor(custom_dataset.Y_train)
+        x_train = torch.Tensor(custom_dataset.X_train[:batch_size])
+        y_train = torch.Tensor(custom_dataset.Y_train[:batch_size])
         
         dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}

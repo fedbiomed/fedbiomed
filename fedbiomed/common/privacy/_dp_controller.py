@@ -6,6 +6,7 @@
 from typing import Dict, Tuple, Union
 
 from opacus import PrivacyEngine
+from opacus.data_loader import DPDataLoader
 from opacus.validators import ModuleValidator
 from torch import randn_like
 from torch.nn import Module
@@ -37,7 +38,7 @@ class DPController:
     def before_training(self,
                         model: Module,
                         optimizer: Optimizer,
-                        loader: DataLoader) -> Tuple[Module, Optimizer, DataLoader]:
+                        loader: DataLoader) -> Tuple[Module, Optimizer, DPDataLoader]:
         """DP action before starting training.
 
         Args:
