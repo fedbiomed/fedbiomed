@@ -30,6 +30,7 @@ class FakeTable:
         self.entries = []
         self.exception_insert = False
         self.exception_search = False
+        self.exception_remove = False
 
     def insert(self, entry):
         if self.exception_insert:
@@ -42,6 +43,13 @@ class FakeTable:
             raise FedbiomedSecaggError('mocked exception')
         else:
             return self.entries
+
+    def remove(self, *args, **kwargs):
+        if self.exception_remove:
+            raise FedbiomedSecaggError('mocked exception')
+        else:
+            self.entries = []
+            return True
 
 
 class TestSecaggManager(unittest.TestCase):
@@ -127,8 +135,8 @@ class TestSecaggManager(unittest.TestCase):
                 # check
                 self.assertEqual(expected_entries, get_entries)
 
-    def test_secagg_manager_04_get_error_bad_input(self):
-        """Using `get()` method from SecaggManager fails with exception error because of bad arguments"""
+    def test_secagg_manager_04_get_remove_error_bad_input(self):
+        """Using `get()` and `remove()` methods from SecaggManager fails with exception error because of bad arguments"""
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
@@ -157,6 +165,10 @@ class TestSecaggManager(unittest.TestCase):
                 with self.assertRaises(FedbiomedSecaggError):
                     manager.get('my_secagg_id', **kwargs)
 
+                # action + check
+                with self.assertRaises(FedbiomedSecaggError):
+                    manager.remove('my_secagg_id', **kwargs)
+
     def test_secagg_manager_05_get_error_table_access_error(self):
         """Using `get()` method from SecaggManager fails with exception error because of table access error"""
         # preparation
@@ -184,8 +196,8 @@ class TestSecaggManager(unittest.TestCase):
                 with self.assertRaises(FedbiomedSecaggError):
                     manager.get('my_secagg_id', **kwargs)
 
-    def test_secagg_manager_06_add_ok(self):
-        """Using `add()` method from SecaggManager successfully"""
+    def test_secagg_manager_06_add_ok_remove_ok(self):
+        """Using `add()` and `remove()` methods from SecaggManager successfully"""
         # preparation
         # nota: type of inputs not checked by this class
         secagg_id_list = ['one', 'another', 222]
@@ -211,6 +223,22 @@ class TestSecaggManager(unittest.TestCase):
 
                     # check
                     self.assertEqual(expected_entries, get_entry)
+
+                    # action
+                    removed = manager.remove(secagg_id, **kwargs)
+                    get_entry = manager.get(secagg_id, **kwargs)
+
+                    # check
+                    self.assertEqual(removed, True)
+                    self.assertEqual(None, get_entry)
+
+                    # action
+                    removed = manager.remove(secagg_id, **kwargs)
+                    get_entry = manager.get(secagg_id, **kwargs)
+
+                    # check
+                    self.assertEqual(removed, False)
+                    self.assertEqual(None, get_entry)
 
     def test_secagg_manager_07_add_error_re_inserting(self):
         """Using `add()` method from SecaggManager with error re-inserting entry"""
@@ -275,6 +303,17 @@ class TestSecaggManager(unittest.TestCase):
                     # action + check
                     with self.assertRaises(FedbiomedSecaggError):
                         manager.add(secagg_id, parties, **specific)
+
+                    # preparation (continued)
+                    # should not be accessing private variable, but avoids writing a specific fake class
+                    # for each test
+                    manager._db.db_table.exception_insert = False
+                    manager._db.db_table.exception_remove = True
+                    manager.add(secagg_id, parties, **specific)
+
+                    # action + check
+                    with self.assertRaises(FedbiomedSecaggError):
+                        manager.remove('my_secagg_id', **kwargs)
 
 
 if __name__ == '__main__':  # pragma: no cover
