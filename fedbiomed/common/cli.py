@@ -11,7 +11,7 @@ from typing import Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import DB_FOLDER_NAME
+from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
@@ -264,7 +264,7 @@ class CommonCLI:
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=args.path,
-                certificate_name="MPSDPZ_certificate",
+                certificate_name=MPSPDZ_certificate_prefix,
                 component_id=self._environ["ID"]
             )
         except FedbiomedError as e:
