@@ -3,7 +3,7 @@
 bats_file=$(mktemp /tmp/run.bats.XXXXXX)
 echo ${bats_file}
 exec 3>"$bats_file" # file descriptor 3 
-for notebook in ./notebooks/*101*.py; do
+for notebook in ./notebooks/*.py; do
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "${notebook}" {
