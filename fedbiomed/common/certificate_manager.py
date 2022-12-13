@@ -1,34 +1,15 @@
 import os
-import socket
-
 import random
-from OpenSSL import crypto
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Union, Tuple
+from OpenSSL import crypto
+from typing import List, Union, Tuple
 from tinydb import TinyDB, Query
 from tinydb.table import Document
 from tabulate import tabulate
 
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-
-from fedbiomed.common.validator import SchemeValidator, ValidateError
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix
 from fedbiomed.common.exceptions import FedbiomedError
-
-CertificateDataValidator = SchemeValidator({
-    "email": {"rules": [str], "required": False, "default": "fed@biomed"},
-    "country": {"rules": [str], "required": False, "default": "FR"},
-    "organization": {"rules": [str], "required": False, "default": "Fed-BioMed"},
-    "validity": {"rules": [int], "required": False, "default": 365},
-    "common_name": {"rules": [str], "required": False, "default": "certificate"}
-})
-
-"""Validator object for certificate data"""
+from fedbiomed.common.utils import read_file
 
 
 class CertificateManager:
@@ -199,10 +180,15 @@ class CertificateManager:
             upsert=upsert,
         )
 
-    def write_certificates_for_experiment(
+    def write_mpc_certificates_for_experiment(
             self,
             parties: List[str],
-            path: str
+            path: str,
+            self_id: str,
+            self_ip: str,
+            self_port: int,
+            self_private_key: str,
+            self_public_key: str
     ) -> List[str]:
         """ Writes certificates into given directory respecting the order
 
@@ -214,10 +200,13 @@ class CertificateManager:
         Args:
             parties: ID of the parties (nodes/researchers) will join FL experiment.y
             path: The path where certificate files will be writen
-
+            self_id: ID of the component that will launch MP-SPDZ protocol
+            self_ip: IP of the component that will launch MP-SPDZ protocol
+            self_port: Port of the component that will launch MP-SPDZ protocol
+            self_private_key: Path to MPSPDZ public key
+            self_public_key: Path to MPSDPZ private key
         Raises:
             FedbiomedCertificateError: - If certificate for given party is not existing in the database
-                - If certificate files can not be writen in given path.
                 - If given path is not a directory
 
         Returns:
@@ -229,6 +218,11 @@ class CertificateManager:
                 "Specified `path` argument should be a directory. `path` is not a directory or it is not existing."
             )
 
+        path = os.path.abspath(path)
+        self_private_key = os.path.abspath(self_private_key)
+        self_public_key = os.path.abspath(self_public_key)
+
+        ip_addresses = os.path.join(path, "ip_addresses")
         # Files already writen into directory
         writen_certificates = []
 
@@ -236,34 +230,92 @@ class CertificateManager:
         def remove_writen_files():
             for wf in writen_certificates:
                 os.remove(wf)
+            if os.path.isfile(ip_addresses):
+                os.remove(ip_addresses)
+
+        if os.path.isfile(ip_addresses):
+            os.remove(ip_addresses)
 
         # Get certificate for each party
-        for index, party in enumerate(parties):
-            party = self.get(party)
-            if not party:
-                remove_writen_files()
-                raise FedbiomedError(
-                    f"Certificate for {party} is not existing. Aborting setup."
+        try:
+            for index, party in enumerate(parties):
+
+                # Self certificate requires to
+                if party == self_id:
+                    self_certificate_key = read_file(self_private_key)
+                    self_certificate_pem = read_file(self_public_key)
+
+                    key = os.path.join(path, f"P{index}.key")
+                    pem = os.path.join(path, f"P{index}.pem")
+
+                    self._write_certificate_file(key, self_certificate_key)
+                    self._write_certificate_file(pem, self_certificate_pem)
+                    self._append_new_ip_address(ip_addresses, self_ip, self_port, self_id)
+                    writen_certificates.extend([key, pem])
+
+                    continue
+
+                # Remote parties
+                party_object = self.get(party)
+                if not party:
+                    remove_writen_files()
+                    raise FedbiomedError(
+                        f"Certificate for {party} is not existing. Aborting setup."
+                    )
+
+                path_ = os.path.join(path, f"P{index}.pem")
+                self._write_certificate_file(path_, party_object["certificate"])
+                writen_certificates.append(path_)
+
+                self._append_new_ip_address(
+                    ip_addresses,
+                    party_object["ip"],
+                    party_object["port"],
+                    party_object["party_id"]
                 )
 
-            # Write certificate
-            try:
-                with open(os.path.join(path, f"P{index}.pem")) as file:
-                    file.write(party.certificate)
-                    file.close()
-            except Exception as e:
-                remove_writen_files()
-                raise FedbiomedError(
-                    f"Can not write certificate file for {party}. Aborting the operation. Please check raised "
-                    f"exception: {e}"
-                )
+        except FedbiomedError as e:
+            # Remove all writen file in case of an error
+            remove_writen_files()
+            raise FedbiomedError(e)
 
         return writen_certificates
 
     @staticmethod
+    def _write_certificate_file(path, certificate):
+        """
+
+        """
+        try:
+            with open(path, 'w') as file:
+                file.write(certificate)
+                file.close()
+        except Exception as e:
+            raise FedbiomedError(
+                f"Can not write certificate file {path}. Aborting the operation. Please check raised "
+                f"exception: {e}"
+            )
+
+    @staticmethod
+    def _append_new_ip_address(path, ip, port, party_id):
+        """
+
+        """
+        try:
+            with open(path, 'a') as file:
+                file.write(f"{ip}:{port}\n")
+                file.close()
+
+        except Exception as e:
+            raise FedbiomedError(
+                f"Can not write ip address of component: {party_id}. Aborting the operation. Please check raised "
+                f"exception: {e}"
+            )
+
+    @staticmethod
     def generate_self_signed_ssl_certificate(
             certificate_folder,
-            certificate_name: str = "certificate",
+            certificate_name: str = MPSPDZ_certificate_prefix,
             component_id: str = "unknown",
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
