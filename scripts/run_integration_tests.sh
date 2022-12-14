@@ -3,7 +3,7 @@
 bats_file=$(mktemp /tmp/run.bats.XXXXXX)
 echo ${bats_file}
 exec 3>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
-for notebook in ./notebooks/*.py; do
+for notebook in ./notebooks/*101*.py; do
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "$(basename ${notebook})" {
