@@ -14,7 +14,7 @@ EOF
 done
 
 rm -fr integration_tests_outputs/*
-bats --formatter tap13 --report-formatter tap13 --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in integration_tests_outputs ${bats_file}
+bats --formatter tap --report-formatter tap --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in integration_tests_outputs ${bats_file}
 
 # @test "flamby-integration-into-fedbiomed.py" {
 #   run ./scripts/run_integration_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
