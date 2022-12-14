@@ -4,7 +4,6 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from cgitb import reset
 from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
 
 from copy import deepcopy
@@ -104,7 +103,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                              ])
 
         # Aggregated model parameters
-        self._init_params = None
+        self._init_params: List[torch.Tensor] = None
 
     def post_init(
             self,
@@ -155,9 +154,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Configure model and optimizer
         self._configure_model_and_optimizer()
-
-        # Initial aggregated model parameters
-        self._init_params = deepcopy(self._model.state_dict())
 
     @abstractmethod
     def init_model(self):
@@ -434,7 +430,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self.data = data_loader
 
         # initial aggregated model parameters
-        self._init_params = deepcopy(self._model.state_dict())
+        self._init_params = deepcopy(list(self._model.parameters()))
+
 
         if self._num_updates is not None:
             # compute num epochs and batches from num_updates
@@ -490,11 +487,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 loss = self.training_step(data, target)  # raises an exception if not provided
 
                 # If FedProx is enabled: use regularized loss function
+                corrected_loss = torch.clone(loss)
                 if self._fedprox_mu is not None:
-                    loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+                    corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
 
                 # Run the backward pass to compute parameters' gradients
-                loss.backward()
+                corrected_loss.backward()
 
                 # If Scaffold is used: apply corrections to the gradients
                 if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
@@ -507,8 +505,18 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 self._optimizer.step()
 
                 if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
-                    batch_size = self.training_data_loader.batch_size
-
+                    # Warning: batch_size can change from one update to another, especially
+                    # if using Opacus
+                    # FIXME: `batch_size` should not be computed that way, but rather by calling 
+                    # `batch_size` attribute from `training_data_loader`. Please refer to issue #422
+                    # for further details
+                    if isinstance(data, dict):
+                        # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
+                        # compute length of the first modality
+                        batch_size = len(list(data.values())[0])
+                    else:
+                        # case `data` is a Tensor or a list
+                        batch_size = len(data)
                     if self._num_updates is None:
                         _len_data_loader = len(self.training_data_loader.dataset)
                         _n_data_parsed = len(self.training_data_loader.dataset)
@@ -699,6 +707,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-        for key, val in self._model.state_dict().items():
-            norm += ((val - self._init_params[key]) ** 2).sum()
+        
+        for current_model, init_model in zip(self._model.parameters(), self._init_params):
+            norm += ((current_model - init_model) ** 2).sum()
         return norm
