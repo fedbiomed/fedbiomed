@@ -7,8 +7,7 @@ for notebook in ./notebooks/*101*.py; do
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "$(basename ${notebook})" {
-# run ./scripts/run_integration_test -s ${notebook}  
-    ./scripts/run_integration_test -s ${notebook}  \
+    run ./scripts/run_integration_test -s ${notebook}  \
         -d ./tests/datasets/mnist.json
 }
 EOF
