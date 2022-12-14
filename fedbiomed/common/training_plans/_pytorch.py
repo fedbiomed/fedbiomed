@@ -139,6 +139,7 @@ class TorchTrainingPlan(TrainingPlan):
         target = target.to(self._device)
         super()._training_step(idx, inputs, target, record_loss)
 
+    
     def _select_device(
             self,
             node_args: Dict[str, Any],

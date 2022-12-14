@@ -11,7 +11,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 import declearn
-from declearn.model.api import NumpyVector
+from declearn.model.api import Vector
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
@@ -439,7 +439,7 @@ class Job:
             msg: Dict[str, Any]
         ) -> Tuple[
             Optional[str],
-            Optional[NumpyVector],
+            Optional[Vector],
             Optional[str],
             Optional[Dict[str, Any]]
         ]:

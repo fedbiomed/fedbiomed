@@ -2,7 +2,7 @@
 
 from typing import List
 
-from declearn.model.api import Model, NumpyVector
+from declearn.model.api import Model, Vector
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 
 
@@ -16,9 +16,9 @@ class FedAverage(Aggregator):
     def aggregate(
         self,
         global_model: Model,
-        local_model_params: List[NumpyVector],
+        local_model_params: List[Vector],
         weights: List[float],
-    ) -> NumpyVector:
+    ) -> Vector:
         """Aggregate local model parameters and update global model.
 
         Args:

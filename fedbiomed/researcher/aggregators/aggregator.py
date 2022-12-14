@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Union
 
-from declearn.model.api import Model, NumpyVector
+from declearn.model.api import Model, Vector
 from declearn.optimizer import Optimizer
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
@@ -52,9 +52,9 @@ class Aggregator(metaclass=ABCMeta):
     def aggregate(
         self,
         global_model: Model,
-        local_model_params: List[NumpyVector],
+        local_model_params: List[Vector],
         weights: List[float],
-    ) -> NumpyVector:
+    ) -> Vector:
         """Aggregate local model parameters and update global model.
 
         Args:

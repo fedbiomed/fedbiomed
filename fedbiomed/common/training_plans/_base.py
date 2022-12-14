@@ -377,7 +377,7 @@ class TrainingPlan(metaclass=ABCMeta):
             self,
             path: str,
             assign: bool = True,
-        ) -> declearn.model.api.NumpyVector:
+        ) -> declearn.model.api.Vector:
         """Reload the wrapped model's weights from a JSON file.
 
         Args:
@@ -394,7 +394,7 @@ class TrainingPlan(metaclass=ABCMeta):
                 weights = json.load(
                     file, object_hook=declearn.utils.json_unpack
                 )
-            if not isinstance(weights, declearn.model.api.NumpyVector):
+            if not isinstance(weights, declearn.model.api.Vector):
                 raise TypeError(
                     "Reloaded weights should be a declearn NumpyVector"
                 )
