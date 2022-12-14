@@ -13,7 +13,7 @@ cat <<EOF >>${bats_file}
 EOF
 done
 
-TEST_OUTPUT="integration_tests_outputs${BUILD_NUMBER}
+TEST_OUTPUT="integration_tests_outputs${BUILD_NUMBER}"
 
 rm -fr ${TEST_OUTPUT}/*
 bats --formatter tap --report-formatter tap --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
