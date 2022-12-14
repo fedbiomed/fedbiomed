@@ -1,13 +1,17 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 implementation of Round class of the node component
 '''
 
 import os
+import shutil
 import sys
 import time
 import inspect
 import importlib
-from typing import Union, Any, Optional, Tuple, List
+from typing import Dict, Iterable, Union, Any, Optional, Tuple, List
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
@@ -20,6 +24,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.researcher.strategies import strategy
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -39,6 +44,7 @@ class Round:
                  job_id: str = None,
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
+                 aggregator_args: dict = None,
                  node_args: Union[dict, None] = None,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
@@ -55,6 +61,7 @@ class Round:
             job_id: job id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
+            correction_state: correction state applied in case of SCAFFOLD aggregation strategy
             node_args: command line arguments for node. Can include:
                 - `gpu (bool)`: propose use a GPU device if any is available.
                 - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
@@ -70,6 +77,8 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
+        self.aggregator_args: Optional[Dict[str, Any]] = aggregator_args
+
         self.tp_security_manager = TrainingPlanSecurityManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
@@ -89,6 +98,65 @@ class Round:
         self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
+
+    def download_aggregator_args(self) -> Tuple[bool, str]:
+        """Retrieves aggregator arguments, that are sent through file exchange service
+
+        Returns:
+            Tuple[bool, str]: a tuple containing:
+                a bool that indicates the success of operation
+                a string containing the error message
+        """
+        # download heavy aggregator args (if any)
+
+        if self.aggregator_args is not None:
+            
+            for arg_name, aggregator_arg in self.aggregator_args.items():
+                if isinstance(aggregator_arg, dict):
+                    url = aggregator_arg.get('url', False)
+
+                    if any((url, arg_name)):
+                        # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                        # exchanged system
+                        success, param_path, error_msg = self.download_file(url, arg_name)
+                        
+                        if not success:
+                            return success, error_msg
+                        else:
+                            # FIXME: should we load parameters here or in the training plan
+                            self.aggregator_args[arg_name] = {'param_path': param_path, 
+                                                              #'params': training_plan.load(param_path, to_params=True)
+                                                              }
+            return True, ''
+        else:
+            return True, "no file downloads required for aggregator args"
+
+    def download_file(self, url: str, file_path: str) -> Tuple[bool, str, str]:
+        """Downloads file from file exchange system
+
+        Args:
+            url (str): url used to download file
+            file_path (str): file path used to store the downloaded content
+
+        Returns:
+            Tuple[bool, str, str]: tuple that contains:
+                bool that indicates the success of the download
+                str that returns the complete path file
+                str containing the error message (if any). Returns empty
+                string if operation successful.
+        """
+
+        status, params_path = self.repository.download_file(
+                                                            url,
+                                                            file_path + str(uuid.uuid4()) + '.pt')
+        
+        if (status != 200) or params_path is None:
+
+            error_message = f"Cannot download param file: {url}"
+            return False, '', error_message
+        else:
+
+            return True, params_path, ''
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
@@ -131,12 +199,14 @@ class Round:
                         logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
 
             if not is_failed:
-                status, params_path = self.repository.download_file(
-                    self.params_url,
-                    'training_plan_' + str(uuid.uuid4()) + '.pt')
-                if (status != 200) or params_path is None:
-                    error_message = f"Cannot download param file: {self.params_url}"
-                    return self._send_round_reply(success=False, message=error_message)
+
+                success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
+                if success:
+                    # retrieving arggegator args
+                    success, error_msg = self.download_aggregator_args()
+
+                if not success:
+                    return self._send_round_reply(success=False, message=error_msg)
 
         except Exception as e:
             is_failed = True
@@ -155,15 +225,18 @@ class Round:
             error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
-                                         training_args=self.training_arguments)
+                                         training_args=self.training_arguments,
+                                         aggregator_args=self.aggregator_args)
         except Exception as e:
             error_message = f"Can't initialize training plan with the arguments: {e}"
             return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the training plan instance
         try:
+
             self.training_plan.load(params_path, to_params=False)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
@@ -180,6 +253,12 @@ class Round:
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+        # training_kwargs_with_history = dict(history_monitor=self.history_monitor,
+        #                                     node_args=self.node_args,
+        #                                     aggregator_args=self.aggregator_args)
+        # training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
+        # logger.info(f'training with arguments {training_kwargs_print}')
+        
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
@@ -243,13 +322,16 @@ class Round:
             results['job_id'] = self.job_id
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
+            results['optimizer_args'] = self.training_plan.optimizer_args()
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
-                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
+                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + str(uuid.uuid4()) + '.pt')
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
+
+
             except Exception as e:
                 is_failed = True
                 error_message = f"Cannot upload results: {str(e)}"
@@ -275,7 +357,7 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
-                          timing: dict = {}):
+                          timing: dict = {}) -> NodeMessages:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
@@ -406,10 +488,10 @@ class Round:
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
         # self.testing_data will be equal to None
-        # self.testing_data will be equal to all samples
+        # self.training_data will be equal to all samples
         # If testing ratio is 1,
         # self.testing_data will be equal to all samples
-        # self.testing_data will be equal to None
+        # self.training_data will be equal to None
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)

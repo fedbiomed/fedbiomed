@@ -1,6 +1,11 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import pandas as pd
-from typing import Union, List, Dict
+from typing import Any, TypeVar, Union, List, Dict
 from fedbiomed.common.exceptions import FedbiomedResponsesError
+
+_R = TypeVar('Responses')
 
 
 class Responses:
@@ -14,14 +19,20 @@ class Responses:
         Args:
             data: input response
         """
+        self._map_node: Dict[str, int] = {}
         if isinstance(data, dict):
             self._data = [data]
+            self._update_map_node(data)
         elif isinstance(data, list):
             self._data = []
             # create a list containing unique fields
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
+                    self._update_map_node(d)
+                    
+        else:
+            raise FedbiomedResponsesError(f"data argument should be of type list or dict, not {type(data)}")
 
     def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index
@@ -75,7 +86,8 @@ class Responses:
             raise FedbiomedResponsesError(f'`data` argument should instance of list not {type(data)}')
 
         self._data = data
-
+        for datum in data:
+            self._update_map_node(datum)
         return self._data
 
     def dataframe(self) -> pd.DataFrame:
@@ -88,7 +100,7 @@ class Responses:
 
         return pd.DataFrame(self._data)
 
-    def append(self, response: Union[List, Dict]) -> list:
+    def append(self, response: Union[List[Dict], Dict, _R]) -> list:
         """ Appends new responses to existing responses
 
         Args:
@@ -100,8 +112,14 @@ class Responses:
         Raises:
             FedbiomedResponsesError: When `response` argument is not in valid type
         """
+
         if isinstance(response, List):
-            self._data = self._data + response
+            #self._data = self._data + response
+            for resp in response:
+                if isinstance(resp, (dict, self.__class__)):
+                    self.append(resp)
+                else:
+                    self._data = self._data + response
         elif isinstance(response, Dict):
             self._data = self._data + [response]
         elif isinstance(response, self.__class__):
@@ -110,4 +128,36 @@ class Responses:
             raise FedbiomedResponsesError(f'`The argument must be instance of List, '
                                           f'Dict or Responses` not {type(response)}')
 
+        self._update_map_node(response)
         return self._data
+
+    def _update_map_node(self, response: Union[Dict, _R]):
+        """
+        Updates an internal mapping, so one can get a specific node response index
+        of a list of nodes responses. 
+
+        Args:
+            response (Union[Dict, _R]): a response from a node,
+            that should contain a `'node_id'`argument
+
+        """
+        if isinstance(response, dict):
+            _tmp_node_id = response.get('node_id')
+            if _tmp_node_id is not None:
+                self._map_node[_tmp_node_id] = len(self._data) - 1
+        if isinstance(response, self.__class__):
+            self._map_node.update(response._map_node)
+
+    def get_index_from_node_id(self, node_id: str) -> Union[int, None]:
+        """
+        Helper that allows to retrieve the index of a given node_id,
+        assuming that all content of the object Responses are nodes' answers
+
+        Args:
+            node_id (str): id of the node
+
+        Returns:
+            Union[int, None]: returns the index of the corresponding
+            node_id. If not found, returns None
+        """
+        return self._map_node.get(node_id)

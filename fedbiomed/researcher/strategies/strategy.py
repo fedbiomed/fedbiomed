@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Top class for strategy implementation
 """
@@ -81,12 +84,12 @@ class Strategy:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, **kwargs):
         """
         Method for loading strategy state from breakpoint state
 
         Args:
-            state: The state that will be leaded
+            state: The state that will be loaded
         """
         # fds may be modified and diverge from Experiment
         self._fds = FederatedDataSet(state.get('fds'))

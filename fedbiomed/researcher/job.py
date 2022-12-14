@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Manage the training part of the experiment."""
 
 import atexit
@@ -11,17 +14,15 @@ import tempfile
 import time
 import uuid
 import importlib
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
+from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
+
 import validators
 
-from typing import Union, Callable, List, Dict, Type
-
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
@@ -77,6 +78,7 @@ class Job:
         self._model_params_file = None  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
         self._training_plan = None
+        self._aggregator_args = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -147,8 +149,8 @@ class Job:
         self._training_plan_name = self._training_plan.__class__.__name__
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
-
-        self._training_plan_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
+        
+        self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
@@ -192,6 +194,10 @@ class Job:
                 assert validators.url(obj[f]), f'Url not valid: {f}'
 
     @property
+    def id(self):
+        return self._id
+
+    @property
     def training_plan_name(self):
         return self._training_plan_name
 
@@ -206,6 +212,10 @@ class Job:
     @property
     def requests(self):
         return self._reqs
+
+    @property
+    def aggregator_args(self):
+        return self._aggregator_args
 
     @property
     def nodes(self):
@@ -300,12 +310,92 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def start_nodes_training_round(self, round: int, do_training: bool = True):
+    def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
+        """Updates training_args before sending it to nodes (all nodes or selected nodes).
+
+        Updates the following parameters:
+
+        - num_updates: in the case where the researcher provided a number of epochs, it computes the
+            number of updates based on the dataset with the smallest number of samples in the federation.
+
+        Args:
+            fds (FederatedDataSet): The representation of the federated data set used in the experiment.
+            nodes (Optional[List[str]], optional): Node to be considered before sending values. Defaults to None.
+
+        Raises:
+            FedbiomedError: if no nodes are participating in the experiment.
+        """
+        if self._training_args.get('num_updates') is None and self._training_args._num_updates_unset:
+            # compute number of updates from number of samples and batch_size (if not provided)
+            if nodes is None:
+                node_present: List[str] = fds.node_ids()
+            else:
+                node_present: List[str] = nodes
+
+            if not node_present:
+                raise FedbiomedError("No node have answered")
+            # updating `num_updates` parameter:
+            max_n_samples = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
+            batch_size = self._training_args['batch_size']
+            n_epochs = self._training_args.get('epochs', 0)
+            batch_maxnum = self._training_args.get('batch_maxnum', 0)
+            num_updates_for_one_epoch = max_n_samples // batch_size
+            if max_n_samples % batch_size:
+                num_updates_for_one_epoch += 1
+            if batch_maxnum > 0:
+                num_updates_for_one_epoch = min(num_updates_for_one_epoch, batch_maxnum)
+
+            self._training_args['num_updates'] = num_updates_for_one_epoch * n_epochs
+
+    def upload_aggregator_args(self,
+                               args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
+                               args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
+        """Uploads aggregator metadata to the Repository and updates the mqtt message accordingly.
+
+        Args:
+            args_thr_msg: dictionary containing metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
+                node_id, and sub-dictionary should be parameters to be sent through MQTT messaging system. This
+                dictionary may be modified by this function with additional metadata about other metadata
+                transferred via the Repository.
+            args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
+                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
+                aggregator_args_thr_msg .
+
+        Returns:
+            The updated dictionary with metadata to be introduced in the mqtt message.
+        """
+        for node_id, aggr_params in args_thr_files.items():
+            for arg_name, aggr_param in aggr_params.items():
+                if arg_name == 'aggregator_name':
+                    continue
+                args_thr_msg[node_id][arg_name] = {}
+                args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
+
+                filename, url = self.update_parameters(aggr_param, None,
+                                                       is_model_params=False,
+                                                       variable_name=arg_name)
+                args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file with the parameters
+                args_thr_msg[node_id][arg_name]['url'] = url
+
+        return args_thr_msg
+
+    def start_nodes_training_round(self,
+                                   round: int,
+                                   aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
+                                   aggregator_args_thr_files: Dict[str, Dict[str, Any]],
+                                   do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
+            aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
+                node_id, and sub-dictionary sould be parameters to be sent through MQTT messaging system
+            aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
+                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
+                aggregator_args_thr_msg .
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
@@ -313,21 +403,32 @@ class Job:
                    'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
-                   'command': 'train'}
+                   'command': 'train',
+                   'aggregator_args': {}}
+
         msg = {**headers, **self._repository_args}
         time_start = {}
 
+        # pass heavy aggregator params through file exchange system
+        self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
+
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+
+            if aggregator_args_thr_msg:
+                # add aggregator parameters to message header
+                msg['aggregator_args'] = aggregator_args_thr_msg[cli]
+
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
+                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args' and logger.level != "DEBUG" }
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '
                             f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
@@ -377,10 +478,13 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    params = self._training_plan.load(params_path, to_params=True)['model_params']
+                    loaded_model = self._training_plan.load(params_path, to_params=True)
+                    params = loaded_model['model_params']
+                    optimizer_args = loaded_model.get('optimizer_args')
                 else:
                     params_path = None
                     params = None
+                    optimizer_args = None
 
                 # TODO: could choose completely different name/structure for
                 timing = m['timing']
@@ -392,6 +496,7 @@ class Job:
                                'node_id': m['node_id'],
                                'params_path': params_path,
                                'params': params,
+                               'optimizer_args': optimizer_args,
                                'timing': timing})
 
                 self._training_replies[round].append(r)
@@ -399,36 +504,48 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
-    def update_parameters(self, params: dict = {}, filename: str = None) -> str:
+    def update_parameters(self,
+                          params: dict = None,
+                          filename: str = None,
+                          is_model_params: bool = True,
+                          variable_name: str = 'aggregated_params') -> Tuple[str, str]:
         """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
         already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
         next training round. If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
             params: data structure containing the new version of the aggregated parameters for this job,
+            defaults to empty dictionary {}
             filename: path to the file containing the new version of the aggregated parameters for this job,
-
+            defaults to None.
+            is_model_params: whether params are models parameters or another value that must be sent
+            through file exchange system. Defaults to True (argument are model parameters).
+            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
+        
         Returns:
-            Name of the parameter file
-
-        Raises:
-            ValueError: Bad arguments
+            the name of the parameter file
+            the URL of the uploaded file
         """
+        if params is None:
+            params = {}
         try:
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
+                filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
                 self._training_plan.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
-            self._repository_args['params_url'] = repo_response['file']
-            self._model_params_file = filename
+
+            if is_model_params:
+                # case where we are designing model parameter file
+                self._repository_args['params_url'] = repo_response['file']
+                self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
-        return self._model_params_file
+        return filename, repo_response['file']
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint. Includes creating links to files included

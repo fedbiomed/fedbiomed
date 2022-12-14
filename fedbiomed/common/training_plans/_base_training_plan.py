@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Base class defining the shared API of all training plans."""
 
 from abc import ABCMeta, abstractmethod
@@ -6,6 +9,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+
+from collections import OrderedDict
+
 from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
@@ -55,15 +61,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
-        """Set arguments for the model, training and the optimizer.
+        """Process model, training and optimizer arguments.
 
         Args:
             model_args: Arguments defined to instantiate the wrapped model.
             training_args: Arguments that are used in training routines
                 such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
         """
         return None
 
@@ -181,6 +190,36 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
+
+    def get_model_params(self) -> Union[OrderedDict, Dict]:
+        """
+        Retrieves parameters from a model defined in a training plan.
+        Output format depends on the nature of the training plan (OrderedDict for
+        a PyTorch training plan, np.ndarray for a sklearn training plan)
+
+        Returns:
+            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on
+            the nature of the TrainingPlan
+        """
+        msg = ErrorNumbers.FB303.value + ": get_model_parans method must be implemented in the TrainingPlan"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
+
+    def get_learning_rate(self) -> List[float]:
+        raise FedbiomedTrainingPlanError("method not implemented")
+
+    def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
+        raise FedbiomedTrainingPlanError("method not implemented and needed")
+
+    def optimizer_args(self) -> Dict:
+        """Retrieves optimizer arguments (to be overridden
+        by children classes)
+
+        Returns:
+            Empty dictionary: (to be overridden in children classes)
+        """
+        logger.warning("`optimizer_args` method not defined in training_plan!")
+        return {}
 
     def add_preprocess(
             self,

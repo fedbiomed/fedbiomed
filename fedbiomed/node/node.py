@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 Core code of the node component.
 '''
@@ -81,7 +84,8 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        logger.debug('Message received: ' + str(msg))
+        msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
+        logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
@@ -180,68 +184,22 @@ class Node:
             msg: `SecaggRequest` message object to parse
         """
         # 1. Parse message content
+
+        # we don't want to check (try/except) that msg is a properly formatted
+        # SecaggRequest message, we rely on Message() for that
         researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
         sequence = msg.get_param('sequence')
         element = msg.get_param('element')
+        job_id = msg.get_param('job_id')
         parties = msg.get_param('parties')
 
         if element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(element)
         else:
-            element = None
-
-        if not all([researcher_id, secagg_id, element, len(parties) >= 3]):
-            return None
-
-        element2class = {
-            'SERVER_KEY': SecaggServkeySetup,
-            'BIPRIME': SecaggBiprimeSetup
-        }
-
-        # 2. Instantiate secagg context element
-        try:
-            if element.name in element2class.keys():
-                # instantiate a `SecaggSetup` object
-                secagg = element2class[element.name](researcher_id, secagg_id, sequence, parties)
-            else:
-                # should not exist 
-                secagg = None
-            error = ''
-        except Exception as e:
-            # bad secagg request
-            error = e
-            secagg = None
-
-        # 3. Execute
-        if secagg:
-            try:
-                logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
-                msg = secagg.setup()
-                self.messaging.send_message(msg)
-            except Exception as e:
-                errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
-                    f'{secagg.element()}: {e}'
-                logger.error(errmess)
-                self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'researcher_id': secagg.researcher_id(),
-                            'secagg_id': secagg.secagg_id(),
-                            'sequence': secagg.sequence(),
-                            'success': False,
-                            'node_id': environ['NODE_ID'],
-                            'msg': errmess,
-                            'command': 'secagg'
-                        }
-                    ).get_dict()
-                )
-        else:
-            # bad secagg request, cannot reply as secagg
-            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
-                f"received by {environ['NODE_ID']}: {error}"
+            errmess = f'{ErrorNumbers.FB318}: received bad request message: incorrect `element` {element}'
             logger.error(errmess)
-            self.messaging.send_message(
+            return self.messaging.send_message(
                 NodeMessages.reply_create(
                     {
                         'command': 'error',
@@ -252,6 +210,49 @@ class Node:
                     }
                 ).get_dict()
             )
+
+        # 2. Instantiate secagg context element
+        element2class = {
+            'SERVER_KEY': SecaggServkeySetup,
+            'BIPRIME': SecaggBiprimeSetup
+        }
+
+        if element.name in element2class.keys():
+            try:
+                # instantiate a `SecaggSetup` object
+                secagg = element2class[element.name](researcher_id, secagg_id, job_id, sequence, parties)
+            except Exception as e:
+                # bad secagg request
+                errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request ' \
+                    f"received by {environ['NODE_ID']}: {str(e)}"
+            else:
+                # 3. Execute
+                try:
+                    logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
+                    msg = secagg.setup()
+                    return self.messaging.send_message(msg)
+                except Exception as e:
+                    errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
+                        f'{secagg.element()}: {e}'
+        else:
+            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
+                f"received by {environ['NODE_ID']}: no such element {element.name}"
+
+        # failed secagg request
+        logger.error(errmess)
+        return self.messaging.send_message(
+            NodeMessages.reply_create(
+                {
+                    'researcher_id': researcher_id,
+                    'secagg_id': secagg_id,
+                    'sequence': sequence,
+                    'success': False,
+                    'node_id': environ['NODE_ID'],
+                    'msg': errmess,
+                    'command': 'secagg'
+                }
+            ).get_dict()
+        )
 
 
     def parser_task_train(self, msg: TrainRequest):
@@ -273,6 +274,8 @@ class Node:
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
+        aggregator_args = msg.get_param('aggregator_args') or None
+        
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -321,6 +324,7 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
+                                             aggregator_args,
                                              self.node_args,
                                              dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
@@ -330,9 +334,10 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
-            logger.debug('[TASKS QUEUE] Item:' + str(item))
-
+            item_print = {key:value for key, value in item.items() if key != 'aggregator_args'}
+            logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
+                
                 item = NodeMessages.request_create(item)
                 command = item.get_param('command')
             except Exception as e:

@@ -1,3 +1,6 @@
+import copy
+import itertools
+import types
 import unittest
 import os
 import logging
@@ -5,12 +8,14 @@ import re
 
 import torch
 import torch.nn as nn
+from torch.autograd import Variable
 
 from abc import ABC
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from torch.nn import Module
+from torch.optim.lr_scheduler import LambdaLR
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
@@ -104,10 +109,8 @@ class TestTorchnn(unittest.TestCase):
 
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer")
-    @patch("fedbiomed.common.training_plans._torchnn.deepcopy")
-    def test_torch_training_plan_02_post_init(self, mock_deepcopy, conf_optimizer_model, conf_deps):
+    def test_torch_training_plan_02_post_init(self, conf_optimizer_model, conf_deps):
 
-        mock_deepcopy.return_value = []
         conf_optimizer_model.return_value = None
         conf_deps.return_value = None
 
@@ -121,7 +124,6 @@ class TestTorchnn(unittest.TestCase):
 
         conf_optimizer_model.assert_called_once()
         conf_deps.assert_called_once()
-        mock_deepcopy.assert_called_once()
 
     @patch('fedbiomed.common.training_plans.BaseTrainingPlan.add_dependency')
     def test_torch_training_plan_03_configure_deps(self, add_dependency):
@@ -440,36 +442,41 @@ class TestTorchnn(unittest.TestCase):
         """Test logging bug #313
 
         Create a DataLoader within a TrainingPlan with the following characteristics:
-        - batch size = 3
-        - total num samples = 5
-        - therefore, 2 batches will be processed
+        - batch size = 5
+        - total num samples = 15 (5*3 = batch_size * num_batches)
+        - therefore, 3 batches will be processed
 
-        The expected behaviour is that the first iteration should report a progress of 3/5 (60%),
-        while the second iteration should report a progress of 5/5 (100%).
+        The expected behaviour is that the first iteration should report a progress of 5/15 (33%),
+        while the second iteration should report a progress of 10/15 (66%). Last iteration should report
+        15/15 (100%). Only one epoch should be completed.
         """
 
 
         tp = TorchTrainingPlan()
-        tp._optimizer = MagicMock()
+        tp._optimizer = MagicMock(sepc=torch.optim.SGD)
         tp._model = torch.nn.Module()
         tp._log_interval = 1
-        tp.training_data_loader = MagicMock()
+        num_batches = 3
+        batch_size = 5
+        mock_dataset = MagicMock(pec=Dataset)
+        tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
 
-        mocked_loss_result = MagicMock()
+        mocked_loss_result = MagicMock(spec=torch.Tensor, return_value = torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
 
         custom_dataset = self.CustomDataset()
-        x_train = torch.Tensor(custom_dataset.X_train)
-        y_train = torch.Tensor(custom_dataset.Y_train)
-        num_batches = 3
-        batch_size = 5
+        x_train = torch.Tensor(custom_dataset.X_train[:batch_size])
+        y_train = torch.Tensor(custom_dataset.Y_train[:batch_size])
+        
         dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
+        #tp.training_data_loader.dataset = MagicMock()
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
+        tp._num_updates = num_batches
 
         tp._dp_controller = FakeDPController()
 
@@ -481,9 +488,179 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                self.assertEqual(logged_num_processed_samples, min((i+1)*len(fake_data), dataset_size))
+                self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
+
+        # TODO: do the same for `num_updates`
+        
+    def test_torchnn_05_num_updates(self):
+        """Test that num_updates parameter is respected correctly.
+e
+        In the following test, we make sure that no matter the dataset size, nor the batch size, we always perform the
+        number of updates requested by the researcher. Remember each update corresponds to one optimizer step, i.e.
+        one batch.
+        """
+        tp = TorchTrainingPlan()
+        tp._model = MagicMock()
+        tp._set_device = MagicMock()
+        tp._batch_maxnum = 0
+        tp._optimizer = MagicMock()
+        tp._optimizer.step = MagicMock()
+        tp.training_step = MagicMock(return_value=Variable(torch.Tensor([0]), requires_grad=True))
+        tp._log_interval = 1000  # essentially disable logging
+        tp._dry_run = False
+        tp._dp_controller = FakeDPController()
+
+        def setup_tp(tp, num_samples, batch_size, num_updates):
+            """Utility function to prepare the TrainingPlan test"""
+            tp._optimizer.step.reset_mock()
+            num_batches_per_epoch = num_samples // batch_size
+            tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)),
+                                                dataset=[1,2],
+                                                batch_size=batch_size)
+        
+            tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
+                (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
+            tp.training_data_loader.__len__.return_value = num_batches_per_epoch
+            tp._num_updates = num_updates
+            return tp
+
+        # Case where we do 1 single epoch with 1 batch
+        tp = setup_tp(tp, num_samples=5, batch_size=5, num_updates=1)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 1)
+
+        # Case where researcher asks for less updates than would be needed to complete even the first epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=2)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 2)
+
+        # Case where researcher asks for a num_updates that is not a multiple of the num batches per epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=7)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 7)
+
+        # Case where researcher asks for a num_updates that is a multiple of the num batches per epoch
+        tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=9)
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 9)
+
+        # Case where researcher also set batch_maxnum. In this case we still respect the num_updates, therefore
+        # more epochs (each one with only batch_maxnum iterations_ will be performed)
+        tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
+        tp._batch_maxnum = 1
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 3)
+
+        # Case where the batch_maxnum is the same as the num_updates
+        tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
+        tp._batch_maxnum = 3
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 3)
+
+        
+        tp = setup_tp(tp, num_samples=10, batch_size=5, num_updates=6)
+        tp._batch_maxnum = 3
+        tp.training_routine(None, None)
+        self.assertEqual(tp._optimizer.step.call_count, 6)
+
+    def test_torch_nn_06_compute_corrected_loss(self):
+        """test_torch_nn_06_compute_corrected_loss: 
+        checks:
+            that fedavg and scaffold are equivalent if correction states are set to 0
+        """
+        def set_training_plan(model, aggregator_name:str, loss_value: float = .0):
+            """Configure a TorchTrainingPlan with a given model.
+            
+            Args:
+                model: a torch model
+                aggregator_name: name of the aggregator method
+                loss_value: value that is returned by mocked `training_Step` method
+            """
+            tp = TorchTrainingPlan()
+            tp._set_device = MagicMock()
+            tp._batch_maxnum = 0
+            
+            tp._model = copy.deepcopy(model)
+            tp._log_interval = 1
+            tp.training_data_loader = MagicMock()
+            tp._log_interval = 1000  # essentially disable logging
+            tp._dry_run = False
+            
+            tp.aggregator_name = aggregator_name
+            if aggregator_name == 'scaffold':
+                for name, param in tp._model.named_parameters():
+                    tp.correction_state[name] = torch.zeros_like(param)
+
+            def training_step(instance, data, target):
+                return torch.sum(instance.model().forward(data['modality1']))
+
+            tp.training_step = types.MethodType(training_step, tp)
+
+            custom_dataset = self.CustomDataset()
+            x_train = torch.Tensor(custom_dataset.X_train)
+            y_train = torch.Tensor(custom_dataset.Y_train)
+            num_batches = 1
+            batch_size = 5
+            dataset_size = num_batches * batch_size
+            fake_data = {'modality1': x_train}
+            fake_target = (y_train, y_train)
+            tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
+            tp.training_data_loader.__len__.return_value = num_batches
+            tp.training_data_loader.batch_size = batch_size
+            tp.training_data_loader.dataset.__len__.return_value = dataset_size
+            tp._num_updates = num_batches
+            
+            tp._optimizer_args = {"lr" : 1e-3}
+            tp._optimizer = torch.optim.Adam(tp._model.parameters(), **tp._optimizer_args)
+            tp._dp_controller = FakeDPController()
+            return tp
+        
+        model = torch.nn.Linear(3, 1)
+        tp_fedavg = set_training_plan(model, "fedavg", .1)
+        tp_fedavg.training_routine(None, None)
+        
+        tp_scaffold = set_training_plan(model, "scaffold", .1)
+        
+        tp_scaffold.training_routine(None, None)
+        
+        # test that model trained with scaffold is equivalent to model trained with fedavg
+        for (name, layer_fedavg), (name, layer_scaffold) in zip(tp_fedavg._model.state_dict().items(),
+                                                                tp_scaffold._model.state_dict().items()):
+            self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
+
+    def test_torch_nn_07_get_learning_rate(self):
+        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate 
+        learning rate
+        """
+        # first test wih basic optimizer (eg without learning rate scheduler)
+        tp = TorchTrainingPlan()
+        tp._model = torch.nn.Linear(2, 3)
+        lr = .1
+        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
+        target = torch.Tensor([1, 2, 2])
+        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
+        
+        lr_extracted = tp.get_learning_rate()
+        self.assertListEqual(lr_extracted, [lr])
+        
+        # last test using a pytorch scheduler
+        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
+        # this pytorch scheduler increase earning rate by twice its previous value
+        for e, (x,y) in enumerate(zip(dataset, target)):
+            # training a simple model in pytorch fashion
+            # `e` represents epoch
+            out = tp._model.forward(x)
+            tp._optimizer.zero_grad()
+            loss = torch.mean(out) - y
+            loss.backward()
+            tp._optimizer.step()
+            scheduler.step()
+            
+            # checks
+            lr_extracted = tp.get_learning_rate()
+            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
 
 
 class TestSendToDevice(unittest.TestCase):
@@ -566,10 +743,13 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
+
+        tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)), batch_size=2, dataset=[1, 2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             (torch.Tensor([0]), torch.Tensor([1])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_data_loader.__len__.return_value = 2
+        tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
+
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -586,10 +766,15 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
+
+        mock_dataset = MagicMock(spec=Dataset())
+        tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=3)
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
             ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+
+        tp.training_data_loader.__len__.return_value = 3
+        tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
+        tp.training_data_loader.dataset.__len__.return_value = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
 
         class FakeDPController:
@@ -606,11 +791,21 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
-        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
-            ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
-        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
 
+        # Set training data loader ---------------------------------------------------------------------------
+        mock_dataset = MagicMock(spec=Dataset())
+        tp.training_data_loader = MagicMock( spec=DataLoader(mock_dataset),
+                                             batch_size=1,
+                                             dataset=[1,2]
+                                            )
+        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+                                                ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
+                                    )
+        tp.training_data_loader.__len__.return_value = 2  # otherwise, mocked training_data_loader equals 0
+        tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
+        # --------------------------------------------------------------------------------------------------
+        
+        tp._num_updates = 1
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader

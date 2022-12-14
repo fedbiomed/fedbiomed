@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 # coding: utf-8
 
 """SKLearnTrainingPlan subclasses for models implementing `partial_fit`."""
@@ -104,7 +107,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                     )
 
                 if 0 < self._batch_maxnum <= idx:
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
+                    logger.info(f'Reached {self._batch_maxnum} batches for this epoch, ignore remaining data')
                     break
         # Reset model verbosity to its initial value.
         if report:
@@ -223,6 +226,9 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
         for key, val in init_params.items():
             setattr(self._model, key, val)
 
+    def get_learning_rate(self) -> List[float]:
+        return self._model.eta0
+
 
 class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDClassifier models."""
@@ -259,6 +265,9 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
         setattr(self._model, "classes_", np.arange(n_classes))
+
+    def get_learning_rate(self) -> List[float]:
+        return self._model.eta0
 
     def _parse_batch_loss(
             self,

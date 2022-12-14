@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Provide a way to easily to manage training arguments.
 """
@@ -67,6 +70,8 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
+        
+        self._num_updates_unset = True
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -96,6 +101,8 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
+        if self._ta.get('num_updates') is not None:
+            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except ValidateError as e:
@@ -145,7 +152,7 @@ class TrainingArgs:
             Contains training argument for training routine
         """
 
-        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "use_gpu"]
+        keys = ["batch_maxnum", "fedprox_mu", "log_interval", "dry_run", "epochs", "use_gpu", "num_updates"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -163,6 +170,20 @@ class TrainingArgs:
             Contains key value peer of given keys
         """
         return {arg: self[arg] for arg in keys}
+
+    @staticmethod
+    @validator_decorator
+    def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
+        if val is None or isinstance(val, (float, int)):
+            if val is not None:
+                if int(val) != float(val) or val < 0:
+                    return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
+
+                    # maybe we should not validate case val == 0
+
+            return True
+        else:
+            return False, f"num_updates and epochs should be integer or None, but got {val}"
 
     @staticmethod
     @validator_decorator
@@ -245,7 +266,10 @@ class TrainingArgs:
                 "rules": [int], "required": True, "default": 48
             },
             "epochs": {
-                "rules": [int], "required": True, "default": 1
+                "rules": [cls._num_update_validator_hook], "required": False, "default": 1
+            },
+            "num_updates": {
+                "rules": [cls._num_update_validator_hook], "required": False, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False

@@ -20,9 +20,10 @@ class FakeModel:
         # For testing Job model_args
         self.model_args = model_args
         self.__type = 'DummyTrainingPlan'
+        self._optimizer_args = {}
         pass
 
-    def post_init(self, model_args, training_args):
+    def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):
         pass
 
     def type(self):
@@ -81,6 +82,9 @@ class FakeModel:
         """
         pass
 
+    def optimizer_args(self):
+        return self._optimizer_args
+
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally
         used for training the model. Passed arguments are unused.
@@ -91,7 +95,6 @@ class FakeModel:
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
-
 
     def after_training_params(self) -> List[int]:
         """Fakes `after_training_params` method of TrainingPlan classes.
