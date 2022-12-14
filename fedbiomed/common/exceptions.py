@@ -213,6 +213,13 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     pass
 
 
+class FedbiomedDataQualityCheckError(FedbiomedError):
+    """
+    Exception raised when facing uncompatibles datatypes accross nodes
+    """
+    pass
+
+
 class FedbiomedTypeError(FedbiomedError, TypeError):
     """
     TypeError for Fed-BioMed
