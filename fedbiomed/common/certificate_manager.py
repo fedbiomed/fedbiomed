@@ -1,10 +1,14 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+
 import os
 import random
 
 from OpenSSL import crypto
 from typing import List, Union, Tuple
 from tinydb import TinyDB, Query
-from tinydb.table import Document
+from tinydb.table import Document, Table
 from tabulate import tabulate
 
 from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix
@@ -26,11 +30,11 @@ class CertificateManager:
             db: The name of the DB file to connect through TinyDB
         """
 
-        self._db: Union[TinyDB, None] = None
+        self._db: Union[Table, None] = None
         self._query: Query = Query()
 
         if db_path is not None:
-            self._db: TinyDB.table = TinyDB(db_path).table("Certificates")
+            self._db: Table = TinyDB(db_path).table("Certificates")
 
     def set_db(self, db_path: str) -> None:
         """Sets database
@@ -55,13 +59,14 @@ class CertificateManager:
             certificate: Public-key for the FL parties
             party_id: ID of the party
             component: Node or researcher,
-            upsert:
+            ip: MP-SPDZ IP of the component which the certificate will be registered
+            port: MP-SPDZ Port of the component which the certificate will be registered
+            upsert: Update document with new data if it is existing
 
         Returns:
             Document ID of inserted certificate
         """
         certificate_ = self.get(party_id=party_id)
-
         if not certificate_:
             return self._db.insert(dict(
                 certificate=certificate,
@@ -147,14 +152,13 @@ class CertificateManager:
         Args:
             certificate_path: Path where certificate/key file stored
             party_id: ID of the FL party which the certificate will be registered
-            ip:  The IP address of the party where MP-SPDZ create communication
-            port:
+            ip:  MP-SPDZ IP address of the party where MP-SPDZ create communication
+            port: MP-SPDZ port of the party
             upsert: If `True` overwrites existing certificate for specified party. If `False` and the certificate for
                 the specified party already existing it raises error.
 
         Raises:
-            FedbiomedCertificateError: - If `upsert` is `False` and the certificate is already existing.
-                - If certificate file is not existing in file system
+            FedbiomedCertificateError: If certificate file is not existing in file system
 
         Returns:
             The document ID of registered certificated.
@@ -282,9 +286,15 @@ class CertificateManager:
         return writen_certificates
 
     @staticmethod
-    def _write_certificate_file(path, certificate):
-        """
+    def _write_certificate_file(path: str, certificate: str) -> None:
+        """ Writes certificate file
 
+        Args:
+            path: Filesystem path the file will be writen
+            certificate: Certificate that will be writen
+
+        Raises:
+            FedbiomedCertificateError: If certificate can not be writen into given path
         """
         try:
             with open(path, 'w') as file:
@@ -297,9 +307,17 @@ class CertificateManager:
             )
 
     @staticmethod
-    def _append_new_ip_address(path, ip, port, party_id):
-        """
+    def _append_new_ip_address(path: str, ip: str, port: int, party_id: str):
+        """Append new address to the file where the ip address of the parties are kept
 
+        Args:
+            path: Path to IP addresses file
+            ip: IP address
+            port: Port number
+            party_id: ID of the party corresponds to given IP and port
+
+        Raises:
+            FedbiomedCertificateError: If new ip address can not be appended into the given file path (file).
         """
         try:
             with open(path, 'a') as file:
@@ -324,7 +342,6 @@ class CertificateManager:
             certificate_folder: The path where certificate files `.pem` and `.key` will be saved. Path should be
                 absolute.
             certificate_name: Name of the certificate file.
-
             component_id: ID of the component
 
         Raises:
@@ -332,7 +349,8 @@ class CertificateManager:
                 files in given path.
 
         Returns:
-            Status of the certificate creation.
+            private_key: Private key file
+            public_key: Certificate file
 
 
         !!! info "Certificate files"
