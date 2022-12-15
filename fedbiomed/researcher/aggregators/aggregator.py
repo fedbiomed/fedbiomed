@@ -20,7 +20,7 @@ class Aggregator(metaclass=ABCMeta):
     ) -> None:
         """Instantiate the aggregator."""
         if isinstance(optim, Dict):
-            self.optim = Optimizer.from_config(optim)
+            self.optim = Optimizer(**optim)
         elif isinstance(optim, Optimizer):
             self.optim = optim
         elif not optim:
