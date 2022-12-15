@@ -2,7 +2,8 @@
 
 """Training Plan designed to wrap tensorflow `keras.Layer` models."""
 
-from typing import Any, Dict, Optional, Union
+from abc import ABCMeta, abstractmethod
+from typing import Any, Union
 
 import declearn
 import declearn.model.tensorflow
@@ -14,7 +15,7 @@ from fedbiomed.common.data import DataLoaderTypes
 from ._base import TrainingPlan
 
 
-class TensorflowTrainingPlan(TrainingPlan):
+class TensorflowTrainingPlan(TrainingPlan, metaclass=ABCMeta):
     """Base class for training plans wrapping `tf.keras.Layer` models.
 
     All concrete tensorflow training plans inheriting this class should
@@ -22,6 +23,13 @@ class TensorflowTrainingPlan(TrainingPlan):
         * the `training_data` method:
             to define how to set up the `fedbiomed.data.DataManager`
             wrapping the training (and, by split, validation) data
+        * the `init_model` method:
+            to build the model to be used, as a tensorflow.keras.Layer
+        * the `init_loss` method:
+            to build the keras loss object to be used
+        * (opt.) the `init_optim` method:
+            to build the optimizer that is to be used (by default,
+            use the optimizer config passed through training args)
         * (opt.) the `testing_step` method:
             to override the evaluation behavior and compute
             a batch-wise (set of) metric(s)
@@ -38,26 +46,25 @@ class TensorflowTrainingPlan(TrainingPlan):
     _model_cls=declearn.model.tensorflow.TensorflowModel
     _data_type=DataLoaderTypes.NUMPY  # FIXME: implement a dedicated data loader
 
-    def __init__(
-            self,
-            model: Union[tf.keras.layers.Layer, Dict[str, Any]],
-            optim: Union[declearn.optimizer.Optimizer, Dict[str, Any]],
-            loss: Optional[Union[str, tf.keras.losses.Loss]] = None,
-            **kwargs: Any
-        ) -> None:
-        """Construct the tensorflow training plan.
+    @abstractmethod
+    def init_loss(self) -> Union[str, tf.keras.losses.Loss]:
+        """Return the loss function to use, as a keras object or name of one.
 
-        Args:
-            model: Base `tf.keras.Layer` object to be interfaced using
-                a declearn `TensorflowModel`, or config dict of the latter.
-            optim: declearn.optimizer.Optimizer instance of config dict.
-            loss: Optional `tf.keras.losses.Loss` or name of one, defining
-                the model's loss (unused if `model` is a config dict).
-                If a function (name) is provided rather than an object, it
-                will be converted to a Loss instance, and an exception may
-                be raised if that fails.
+        Returns:
+            loss: Keras Loss instance, or name of one. If a function (name)
+                is provided, it will be converted to a Loss instance, and
+                an exception may be raised if that fails.
         """
-        super().__init__(model, optim, loss=loss, **kwargs)
+        return NotImplemented
+
+    def _wrap_base_model(
+            self,
+            model: Any,
+        ) -> declearn.model.api.Model:
+        if not isinstance(model, tf.keras.layers.Layer):
+            raise TypeError("The base model should be a keras Layer.")
+        loss = self.init_loss()
+        return self._model_cls(model, loss=loss)
 
     def predict(
             self,

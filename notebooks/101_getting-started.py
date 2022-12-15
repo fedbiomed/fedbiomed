@@ -22,6 +22,8 @@
 
 # Declare a TorchTrainingPlan subclass to send for training on the node
 
+from typing import Any, Dict
+
 import torch
 from torchvision import datasets, transforms
 
@@ -29,15 +31,64 @@ from fedbiomed.common.data import DataManager
 from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
-# This class enables using any torch module (hence model architecture),
-# and only specifies how to load and prepare the MNIST dataset.
 class MnistTorchTrainingPlan(TorchTrainingPlan):
-    """Custom torch training plan, implementing MNIST dataset loading."""
+    """Custom torch training plan, implementing MNIST dataset loading.
+
+    This class also overrides model-creation behaviour and training
+    plan saving behavior to lighten dump files, at the cost of being
+    way more verbose than its `MnistTorchTrainingPlan` counterpart.
+    """
+
+    def __init__(self) -> None:
+        """Instantiate the training plan."""
+        super().__init__()
+        # Record all dependencies of this class's source code.
+        self.add_dependency([
+            "from typing import Any, Dict",
+            "import torch",
+            "from torchvision import datasets, transforms",
+            "from fedbiomed.common.data import DataManager",
+            "from fedbiomed.common.training_plans import TorchTrainingPlan",
+        ])
+
+    @staticmethod
+    def init_model(model_args: Dict[str, Any]) -> torch.nn.Module:
+        """Set up the neural network that needs training."""
+        return torch.nn.Sequential(
+            torch.nn.Conv2d(1, 32, 3, 1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 64, 3, 1),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Dropout(0.25),
+            torch.nn.Flatten(),
+            torch.nn.Linear(9216, 128),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.5),
+            torch.nn.Linear(128, 10),
+            torch.nn.LogSoftmax(),
+        )
+
+    @staticmethod
+    def init_loss() -> torch.nn.Module:
+        """Set up the model's loss-computing module."""
+        return torch.nn.NLLLoss()
+
+    @staticmethod
+    def init_optim(optim_args: Dict[str, Any]) -> Dict[str, Any]:
+        """Set up the optimizer's configuration.
+
+        Use the input configuration, or a default Adam optimizer
+        if no parameters are actually input.
+        """
+        if not optim_args:
+            return {"lrate": 0.001, "modules": ["adam"]}
+        return optim_args
 
     def training_data(
             self,
             dataset_path: str,
-            batch_size: int = 48,
+            batch_size: int = 48
         ) -> DataManager:
         """Return a DataManager wrapping the MNIST dataset."""
         transform = transforms.Compose([
@@ -49,45 +100,6 @@ class MnistTorchTrainingPlan(TorchTrainingPlan):
         )
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         return DataManager(dataset=dataset, **train_kwargs)
-
-
-# Instantiation.
-# Write the torch module - as one would in a centralized context.
-module = torch.nn.Sequential(
-    torch.nn.Conv2d(1, 32, 3, 1),
-    torch.nn.ReLU(),
-    torch.nn.Conv2d(32, 64, 3, 1),
-    torch.nn.ReLU(),
-    torch.nn.MaxPool2d(2),
-    torch.nn.Dropout(0.25),
-    torch.nn.Flatten(),
-    torch.nn.Linear(9216, 128),
-    torch.nn.ReLU(),
-    torch.nn.Dropout(0.5),
-    torch.nn.Linear(128, 10),
-    torch.nn.LogSoftmax(),
-)
-
-# Set up an Adam optimizer with 0.001 learning rate for nodes to use.
-from declearn.optimizer import Optimizer
-from declearn.optimizer.modules import AdamModule, MomentumModule
-
-node_opt = Optimizer(lrate=0.001, modules=[AdamModule()])
-
-# Wrap up the torch module and Adam optimizer for federated training.
-training_plan = MnistTorchTrainingPlan(
-    model=module,
-    optim=node_opt,
-    loss=torch.nn.NLLLoss(),
-)
-
-# Add requirements: due to the `training_data` part only.
-training_plan.add_dependency([
-    "from torchvision import datasets, transforms",
-    "from fedbiomed.common.data import DataManager",
-    "from fedbiomed.common.training_plans import TorchTrainingPlan",
-])
-
 
 
 
@@ -124,7 +136,7 @@ res_opt = Optimizer(lrate=1., modules=[MomentumModule()])
 exp = Experiment(
     tags=tags,
     model_args=model_args,
-    training_plan=training_plan,
+    training_plan=MnistTorchTrainingPlan(),
     training_args=training_args,
     round_limit=rounds,
     aggregator=FedAverage(res_opt),

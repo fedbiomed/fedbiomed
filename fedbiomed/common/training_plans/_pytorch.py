@@ -3,7 +3,8 @@
 """Training Plan designed to wrap PyTorch `nn.Module` models."""
 
 import functools
-from typing import Any, Dict, Optional, Union
+from abc import ABCMeta, abstractmethod
+from typing import Any, Dict, Optional
 
 import declearn
 import declearn.model.torch
@@ -17,13 +18,20 @@ from fedbiomed.common.metrics import MetricTypes
 from ._base import TrainingPlan
 
 
-class TorchTrainingPlan(TrainingPlan):
+class TorchTrainingPlan(TrainingPlan, metaclass=ABCMeta):
     """Base class for training plans wrapping `torch.nn.Module` models.
 
     All concrete torch training plans inheriting this class should implement:
         * the `training_data` method:
             to define how to set up the `fedbiomed.data.DataManager`
             wrapping the training (and, by split, validation) data
+        * the `init_model` method:
+            to build the model to be used, as a torch.nn.Module
+        * the `init_loss` method:
+            to build the loss object to be used, as a torch.nn.Module
+        * (opt.) the `init_optim` method:
+            to build the optimizer that is to be used (by default,
+            use the optimizer config passed through training args)
         * (opt.) the `testing_step` method:
             to override the evaluation behavior and compute
             a batch-wise (set of) metric(s)
@@ -42,30 +50,40 @@ class TorchTrainingPlan(TrainingPlan):
 
     def __init__(
             self,
-            model: Union[torch.nn.Module, Dict[str, Any]],
-            optim: Union[declearn.optimizer.Optimizer, Dict[str, Any]],
-            loss: Optional[torch.nn.Module] = None,
-            **kwargs: Any
         ) -> None:
-        """Construct the torch training plan.
-
-        Args:
-            model: Base `torch.nn.Module` object to be interfaced using
-                a declearn `TorchModel`, or config dict of the latter.
-            optim: declearn.optimizer.Optimizer instance of config dict.
-            loss: Optional `torch.nn.Module` defining the model's loss
-                (unused if `model` is a config dict).
-        """
-        super().__init__(model, optim, loss=loss, **kwargs)
+        """Construct the torch training plan."""
+        super().__init__()
         self._device = "cpu"  # name of the device backing train computations
+
+    @abstractmethod
+    def init_loss(self) -> torch.nn.Module:
+        """Return the loss function to use, implemented as a torch Module.
+
+        Returns:
+            loss: Torch Module instance that defines the computation of
+                the model's loss based on predictions and target labels,
+                that is to be minimized through training.
+        """
+        return NotImplemented
+
+    def _wrap_base_model(
+            self,
+            model: Any,
+        ) -> declearn.model.api.Model:
+        if not isinstance(model, torch.nn.Module):
+            raise TypeError("The base model should be a torch Module.")
+        loss = self.init_loss()
+        return self._model_cls(model, loss=loss)
 
     def testing_routine(
             self,
-            metric: Optional[MetricTypes],
-            metric_args: Dict[str, Any],
-            history_monitor: Optional[HistoryMonitor],
-            before_train: bool
+            metric: Optional[MetricTypes] = None,
+            metric_args: Optional[Dict[str, Any]] = None,
+            history_monitor: Optional[HistoryMonitor] = None,
+            before_train: bool = False
         ) -> None:
+        if self.model is None:
+            self._raise_uninitialized("testing_routine")
         try:
             model = getattr(self.model, "_model")  # type: torch.nn.Module
             model.eval()  # pytorch switch for model inference-mode
@@ -139,7 +157,7 @@ class TorchTrainingPlan(TrainingPlan):
         target = target.to(self._device)
         super()._training_step(idx, inputs, target, record_loss)
 
-    
+
     def _select_device(
             self,
             node_args: Dict[str, Any],

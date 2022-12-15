@@ -3,6 +3,7 @@
 """Training Plan designed to wrap scikit-learn SGD Classifier/Regressor."""
 
 import functools
+from abc import ABCMeta
 from typing import Any, Dict, Optional, Union
 
 import declearn
@@ -16,7 +17,7 @@ from fedbiomed.common.logger import logger
 from ._base import TrainingPlan
 
 
-class SklearnSGDTrainingPlan(TrainingPlan):
+class SklearnSGDTrainingPlan(TrainingPlan, metaclass=ABCMeta):
     """Base class for training plans using sklearn SGD Classifier/Regressor.
 
     All concrete sklearn-sgd training plans inheriting this class
@@ -24,12 +25,18 @@ class SklearnSGDTrainingPlan(TrainingPlan):
         * the `training_data` method:
             to define how to set up the `fedbiomed.data.DataManager`
             wrapping the training (and, by split, validation) data
+        * (opt.) the `init_model` method:
+            to build the scikit-learn model to be used, in a more
+            restrictive manner than the default implemented here
+        * (opt.) the `init_optim` method:
+            to build the optimizer that is to be used (by default,
+            use the optimizer config passed through training args)
         * (opt.) the `testing_step` method:
             to override the evaluation behavior and compute
             a batch-wise (set of) metric(s)
 
     Attributes:
-        model: declearn Model instance wrapping the model being trained.
+        model: declearn SklearnSGDModel wrapping the model being trained.
         optim: declearn Optimizer in charge of node-side optimization.
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
@@ -40,21 +47,51 @@ class SklearnSGDTrainingPlan(TrainingPlan):
     _model_cls=declearn.model.sklearn.SklearnSGDModel
     _data_type=DataLoaderTypes.NUMPY
 
-    def __init__(
+    def init_model(
             self,
-            model: Union[SGDClassifier, SGDRegressor, Dict[str, Any]],
-            optim: Union[declearn.optimizer.Optimizer, Dict[str, Any]],
-            **kwargs: Any
-        ) -> None:
-        """Construct the torch training plan.
+            model_args: Dict[str, Any],
+        ) -> Union[SGDClassifier, SGDRegressor]:
+        """Build and return a scikit-learn SGDClassifier or SGDRegressor model.
+
+        !!! info "Note"
+            This method provides with a default builder for either a classifier
+            or regressor model. It may be overridden in user-defined subclasses
+            in order to restrict ~ automate the model kind and hyper-parameter
+            choices.
 
         Args:
-            model: Base `sklearn.linear_model.SGDClassifier` or `SGDRegressor`
-                object to be interfaced using a declearn `SklearnSGDModel`,
-                or config dict of the latter.
-            optim: declearn.optimizer.Optimizer instance of config dict.
+            model_args: Dict containing hyper-parameters to specify the model.
+                It should contain "kind" (either "classifier" or "regressor")
+                to specify the type of model, as well as any keyword argument
+                defined as part of the SGDClassifier or SGDRegressor API.
+
+        Returns:
+            model: sklearn SGDClassifier or SGDRegressor instance.
         """
-        super().__init__(model, optim, **kwargs)
+        # Gather the only required hyper-parameter: "kind".
+        kind = model_args.get("kind", None)
+        if kind is None:
+            raise KeyError("Missing required 'model_args' field: 'kind'.")
+        if kind not in ("classifier", "regressor"):
+            raise TypeError(
+                "'kind' field in 'model_args' should be 'classifier' "
+                f"or 'regressor', not '{kind}'"
+            )
+        # GAther all other supported keyword arguments.
+        names = {
+            "loss", "penalty", "alpha", "l1_ratio",
+            "epsilon", "fit_intercept", "n_jobs"
+        }
+        kwargs = {key: val for key, val in model_args.items() if key in names}
+        # SGDClassifier case.
+        if kind == "classifier":
+            sk_cls = SGDClassifier
+        # SGDRegressor case.
+        elif kind == "regressor":
+            kwargs.pop("n_jobs")  # unsupported for SGDRegressor
+            sk_cls = SGDRegressor
+        # Instantiate the sklearn model and return it.
+        return sk_cls(**kwargs,)
 
     def predict(
             self,

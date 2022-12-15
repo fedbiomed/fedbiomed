@@ -44,9 +44,14 @@ class TrainingPlan(metaclass=ABCMeta):
             to define the type of data loader expected
         * the `predict` method:
             to compute predictions over a given batch
+        * the `init_model` method:
+            to build the base model that is to be trained
         * the `training_data` method:
             to define how to set up the `fedbiomed.data.DataManager`
             wrapping the training (and, by split, validation) data
+        * (opt.) the `init_optim` method:
+            to build the optimizer that is to be used (by default,
+            use the optimizer config passed through training args)
         * (opt.) the `testing_step` method:
             to override the evaluation behavior and compute
             a batch-wise (set of) metric(s)
@@ -65,24 +70,11 @@ class TrainingPlan(metaclass=ABCMeta):
 
     def __init__(
             self,
-            model: Union[Any, Dict[str, Any]],
-            optim: Union[declearn.optimizer.Optimizer, Dict[str, Any]],
-            **kwargs: Any
         ) -> None:
-        """Construct the base training plan.
-
-        Args:
-            model: Base model object to be interfaced through a declearn
-                Model (the class of which is set by `self._model_cls`),
-                or config dict of the latter declearn Model class.
-            optim: declearn.optimizer.Optimizer instance of config dict.
-            **kwargs: Any additional keyword parameter to the declearn
-                Model class constructor. Unused if `model` is a dict.
-        """
-        self.model = self._build_model(model, **kwargs)
-        self.optim = self._build_optim(optim)
+        """Construct the base training plan."""
+        self.model = None  # type: Optional[declearn.model.api.Model]
+        self.optim = None  # type: Optional[declearn.optimizer.Optimizer]
         self._training_args: Optional[TrainingArgs] = None
-
         self._dependencies: List[str] = []
         self.pre_processes: Dict[
             str, Dict[str, Union[ProcessTypes, Callable[..., Any]]]
@@ -90,74 +82,10 @@ class TrainingPlan(metaclass=ABCMeta):
         self.training_data_loader: Optional[TypeDataLoader] = None
         self.testing_data_loader: Optional[TypeDataLoader] = None
 
-    def _build_model(
-            self,
-            model: Union[Any, Dict[str, Any]],
-            **kwargs: Any,
-        ) -> declearn.model.api.Model:
-        """Build a class-based declearn Model based on input arguments.
-
-        Args:
-            model: Base model object to be interfaced through a declearn
-                Model (the class of which is set by `self._model_cls`),
-                or config dict of the latter declearn Model class.
-            **kwargs: Any additional keyword parameter to the declearn
-                Model class constructor. Unused if `model` is a dict.
-
-        Raises:
-            FedbiomedTrainingPlanError: If the Model instantiation fails.
-        """
-        try:
-            if isinstance(model, dict):
-                model = self._model_cls.from_config(model)
-            else:
-                model = self._model_cls(model, **kwargs)
-        except Exception as exc:
-            msg = (
-                f"{ErrorNumbers.FB304.value}: failed to wrap up the provided "
-                f"model using {self._model_cls}: {exc}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg) from exc
-        # Return the instantiated model.
-        return model
-
-    def _build_optim(
-            self,
-            optim: Union[declearn.optimizer.Optimizer, Dict[str, Any]],
-        ) -> declearn.optimizer.Optimizer:
-        """Validate or build a declearn Optimizer.
-
-        Args:
-            optim: declearn.optimizer.Optimizer instance of config dict.
-
-        Raises:
-            FedbiomedTrainingPlanError: In case of type error of if the
-                Optimizer instantiation from config fails.
-        """
-        try:
-            if isinstance(optim, dict):
-                optim = declearn.optimizer.Optimizer.from_config(optim)
-            if not isinstance(optim, declearn.optimizer.Optimizer):
-                raise TypeError(
-                    "Wrong input type for training plan's 'optim': "
-                    f"expected declearn.optimizer.Optimizer, got {type(optim)}"
-                )
-        except Exception as exc:
-            msg = (
-                f"{ErrorNumbers.FB304.value}: failed to wrap up the provided "
-                f"optimizer: {exc}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg) from exc
-        # Return the instantiated model.
-        return optim
-
     def data_loader_type(self) -> DataLoaderTypes:
         """Getter for the type of DataLoader required by this TrainingPlan."""
         return self._data_type
 
-    # TODO-PAUL: merge this into `__init__`?
     def post_init(
             self,
             model_args: Dict[str, Any],
@@ -171,8 +99,52 @@ class TrainingPlan(metaclass=ABCMeta):
                 such as epoch, dry_run etc. Please see
                 [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
         """
+        self.model = self._build_model(model_args)
+        self.optim = self._build_optim(training_args.optimizer_arguments())
+        self._training_args = training_args
+
+    def _build_model(
+            self,
+            model_args: Dict[str, Any],
+        ) -> declearn.model.api.Model:
+        """Build a class-based declearn Model based on input arguments.
+
+        Args:
+            model_args: Dict containing arguments to be passed to the user-
+                defined `init_model` method and/or to the declearn model's
+                `initialize` method.
+
+        Raises:
+            FedbiomedTrainingPlanError: If the model instantiation fails.
+
+        Returns:
+            model: declearn.model.api.Model instance, the precise class
+                of which is `self._model_cls`.
+        """
+        # Build the base model using the `init_model` method.
         try:
-            self.model.initialize(model_args)
+            model = self.init_model(model_args)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB304.value}: failed to build the base "
+                f"model using `init_model`: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
+        # Wrap the model up as a declearn Model.
+        try:
+            declearn_model = self._wrap_base_model(model)
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB304.value}: failed to wrap up the provided "
+                f"model using {self._model_cls}: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
+        # If the declearn Model requires additional post-init arguments,
+        # expect them to be packaged as part of `model_args`.
+        try:
+            declearn_model.initialize(model_args)
         except Exception as exc:
             msg = (
                 f"{ErrorNumbers.FB304.value}: failed to initialize the "
@@ -180,7 +152,97 @@ class TrainingPlan(metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg) from exc
-        self._training_args = training_args
+        # Finally, return the built and ready-to-use declearn Model.
+        return declearn_model
+
+    @abstractmethod
+    def init_model(
+            self,
+            model_args: Dict[str, Any],
+        ) -> Any:
+        """Build and return a base model belonging to the target framework.
+
+        Args:
+            model_args: Dict containing arguments that may be required to
+                adjust the model's architecture or hyper-parameters.
+
+        Returns:
+            model: The base model object, that will be wrapped for training.
+        """
+        return NotImplemented
+
+    def _wrap_base_model(
+            self,
+            model: Any,
+        ) -> declearn.model.api.Model:
+        """Wrap up a base model into a declearn Model.
+
+        This method should be overridden by framework-specific TrainingPlan
+        subclasses in order to gather additional arguments required to set
+        up the declearn Model (e.g. the desired training loss function).
+        """
+        return self._model_cls(model)
+
+    def _build_optim(
+            self,
+            optim_args: Dict[str, Any],
+        ) -> declearn.optimizer.Optimizer:
+        """Build a declearn Optimizer to be used for training.
+
+        Args:
+            optim_args: Dict containing arguments that may be required to
+                adjust the optimizer's plug-ins and hyper-parameters.
+
+        Raises:
+            FedbiomedTrainingPlanError: In case of type error of if the
+                Optimizer instantiation from config fails.
+
+        Returns:
+            optim: declearn.optimizer.Optimizer instance to use for training.
+        """
+        try:
+            optim = self.init_optim(optim_args)
+            if isinstance(optim, dict):
+                optim = declearn.optimizer.Optimizer(**optim)
+            if not isinstance(optim, declearn.optimizer.Optimizer):
+                raise TypeError(
+                    "Wrong input type for training plan's 'optim': "
+                    f"expected declearn.optimizer.Optimizer, got {type(optim)}"
+                )
+        except Exception as exc:
+            msg = (
+                f"{ErrorNumbers.FB304.value}: failed to build the model's "
+                f"optimizer: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
+        # Return the instantiated Optimizer.
+        return optim
+
+    def init_optim(
+            self,
+            optim_args: Dict[str, Any],
+        ) -> Union[declearn.optimizer.Optimizer, Dict[str, Any]]:
+        """Build and return a declearn Optimizer to be used for training.
+
+        !!! info "Note"
+            By default, this method returns `optim_args` as-is, which may
+            therefore be used to fully define the desired optimizer (see
+            `declearn.optimizer.Optimizer` for details on the syntax and
+            expected arguments).
+            End-users may however override this method so as to hard-code
+            the kind of optimizer to be used and/or control how to parse
+            input arguments, that may therefore be set arbitrarily.
+
+        Args:
+            optim_args: Dict containing arguments that may be required to
+                adjust the optimizer's plug-ins and hyper-parameters.
+
+        Returns:
+            optim: the Optimizer object to use for training, or a dict
+                specifying its configuration.
+        """
+        return declearn.optimizer.Optimizer(**optim_args)
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -195,10 +257,10 @@ class TrainingPlan(metaclass=ABCMeta):
             if val not in self._dependencies:
                 self._dependencies.append(val)
 
-    #@abstractmethod
+    @abstractmethod
     def training_data(
             self,
-            dataset_path: str
+            dataset_path: str,
         ) -> DataManager:
         """Instantiate and return a DataManager suitable for this plan.
 
@@ -278,13 +340,11 @@ class TrainingPlan(metaclass=ABCMeta):
             "clsname": self.__class__.__name__,
             "source": source,
             "dependencies": self._dependencies,
-            "model": self.model.get_config(),
-            "optim": self.optim.get_config(),
         }
         # Write out the config dict to a JSON file.
         try:
             with open(path, "w", encoding="utf-8") as file:
-                json.dump(config, file, default=declearn.utils.json_pack)
+                json.dump(config, file)
             logger.debug("Model file has been saved: " + path)
         except (OSError, MemoryError, PermissionError) as exc:
             msg = (
@@ -301,9 +361,7 @@ class TrainingPlan(metaclass=ABCMeta):
         # Import the JSON-serialized config.
         try:
             with open(path, "r", encoding="utf-8") as file:
-                config = json.load(
-                    file, object_hook=declearn.utils.json_unpack
-                )
+                config = json.load(file)
         except Exception as exc:
             msg = (
                 f"{ErrorNumbers.FB304.value}: failed to load training plan "
@@ -350,7 +408,24 @@ class TrainingPlan(metaclass=ABCMeta):
                 "and source code is not a training plan subclass."
             )
             raise FedbiomedTrainingPlanError(msg)
-        return cls(model=config["model"], optim=config["optim"])
+        return cls()
+
+    @staticmethod
+    def _raise_uninitialized(name: str) -> None:
+        """Utility function to raise when model or optim is None.
+
+        Args:
+            name: Name of the method that triggered this exception.
+
+        Raises:
+            FedbiomedTrainingPlanError: documenting `name`, with FB304 code.
+        """
+        msg = (
+            f"{ErrorNumbers.FB304.value}: Cannot execute method {name}: "
+            f"this TrainingPlan's post-init has not been called yet."
+        )
+        logger.error(msg)
+        raise FedbiomedTrainingPlanError(msg) from exc
 
     def save_weights(
             self,
@@ -361,6 +436,8 @@ class TrainingPlan(metaclass=ABCMeta):
         Args:
             path: Path to the destination file.
         """
+        if self.model is None:
+            self._raise_uninitialized("save_weights")
         try:
             weights = self.model.get_weights()
             with open(path, "w", encoding="utf-8") as file:
@@ -386,9 +463,10 @@ class TrainingPlan(metaclass=ABCMeta):
                 the model, or merely load and return them.
 
         Returns:
-            weights: Reloaded weights, formatted as a declearn
-                NumpyVector.
+            weights: Reloaded weights, formatted as a declearn Vector.
         """
+        if self.model is None:
+            self._raise_uninitialized("load_weights")
         try:
             with open(path, "r", encoding="utf-8") as file:
                 weights = json.load(
@@ -532,6 +610,8 @@ class TrainingPlan(metaclass=ABCMeta):
                 for compatible model frameworks.
         """
         # Run training pre-checks.
+        if self.model is None or self.optim is None:
+            self._raise_uninitialized("training_routine")
         if not isinstance(self.training_data_loader, self._data_type.value):
             msg = (
                 f"{ErrorNumbers.FB310.value}: BaseTrainingPlan cannot "
@@ -707,6 +787,8 @@ class TrainingPlan(metaclass=ABCMeta):
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
+        if self.model is None:
+            self._raise_uninitialized("testing_routine")
         if self.testing_data_loader is None:
             msg = f"{ErrorNumbers.FB605.value}: no validation dataset was set."
             logger.critical(msg)
