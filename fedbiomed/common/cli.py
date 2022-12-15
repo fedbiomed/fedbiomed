@@ -273,12 +273,13 @@ class CommonCLI:
 
         CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
 
-        print(f"Add following lines into {os.getenv('CONFIG_FILE', 'component')} configuration file: \n\n"
-              f"; -------------------------------------------------------------------------------------\n"
-              f"; - SSL Configuration \n"
-              f"; -------------------------------------------------------------------------------------\n"
-              f"[ssl]\n"
-              f"Certificates are saved in:  {args.path} \n\n")
+        print(f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section [mpspdz] `public_key` "
+              f"and `private_key` has new generated certificate files : \n\n"
+              f"{BOLD}Certificates are saved in {NC}\n"
+              f"{args.path}{MPSPDZ_certificate_prefix}.key \n"
+              f"{args.path}{MPSPDZ_certificate_prefix}.pem \n\n"
+              f"{YLW}IMPORTANT:{NC}\n"
+              f"{BOLD}Since the certificate is renewed please ask other parties to register your new certificate.{NC}\n")
 
         pass
 
