@@ -16,10 +16,11 @@ import uuid
 import importlib
 from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
+
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
@@ -665,17 +666,24 @@ class Job:
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
-            assert len(set(data_types)) == 1, \
-                f'Different type of datasets has been loaded with same tag: {data_types}'
+            if len(set(data_types)) > 1:
+                raise FedbiomedDataQualityCheckError(
+                    f'Different type of datasets has been loaded with same tag: {data_types}'
+                )
 
             if data_types[0] == 'csv':
-                assert len(set([s[1] for s in shapes])) == 1, \
-                    f'Number of columns of federated datasets do not match {shapes}.'
+                if len(set([s[1] for s in shapes])) > 1:
+                    raise FedbiomedDataQualityCheckError(
+                        f'Number of columns of federated datasets do not match {shapes}.'
+                    )
 
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
-                    assert len(set(t)) == 1, \
-                        f'Variable data types do not match in federated datasets {dtypes}'
+                    if len(set(t)) > 1 and set(t) != {'float64', 'int64'}:
+                        # FIXME: specifying a specific use case (in the condition above) should be avoided 
+                        raise FedbiomedDataQualityCheckError(
+                            f'Variable data types do not match in federated datasets {dtypes}'
+                        )
 
             elif data_types[0] == 'images':
                 shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))

@@ -486,11 +486,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 loss = self.training_step(data, target)  # raises an exception if not provided
 
+                corrected_loss = torch.clone(loss)
                 # If FedProx is enabled: use regularized loss function
                 corrected_loss = torch.clone(loss)
                 if self._fedprox_mu is not None:
                     corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
-
                 # Run the backward pass to compute parameters' gradients
                 corrected_loss.backward()
 
