@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Common CLI Modules
 
 This module includes common CLI methods and parser extension
@@ -7,26 +10,15 @@ This module includes common CLI methods and parser extension
 import argparse
 import os
 import sys
-from typing import Dict
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
     get_method_spec, \
-    get_fedbiomed_root, \
-    get_all_existing_component_ids
+    get_fedbiomed_root
 
-
-# Create certificate dict validator
-CertificateDataValidator = SchemeValidator({
-    'DB_PATH': {"rules": [str], "required": True},
-    'CERT_DIR': {"rules": [str], "required": True},
-    'COMPONENT_ID': {"rules": [str], "required": True},
-    'CERTIFICATE_DIR': {"rules": [str], "required": True}
-})
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -367,8 +359,10 @@ class CommonCLI:
             else:
                 self._args.func()
 
+
 if __name__ == '__main__':
     cli = CommonCLI()
+    # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
     cli.parse_args()
 
