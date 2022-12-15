@@ -32,7 +32,7 @@ class SecaggContext(ABC):
                 Empty string means the element is not attached to a specific job
 
         Raises:
-            FedbiomedSecaggError: bad parameter type
+            FedbiomedSecaggError: bad argument type or value
         """
         self._v = Validator()
         try:
@@ -93,9 +93,15 @@ class SecaggContext(ABC):
 
     def set_job_id(self, job_id: str) -> None:
         """Setter for secagg context element job_id
+
+        Args:
+            job_id: ID of the job to which this secagg context element is attached.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         try:
-            self._v.validate(job_id, str, None)
+            self._v.validate(job_id, str)
         except ValidatorError as e:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str: {e}'
             logger.error(errmess)
@@ -134,13 +140,13 @@ class SecaggContext(ABC):
             timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
                 or equals 0.
 
-        Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout
-            FedbiomedSecaggError: received a reply for a non-party to the negotiation
-
         Returns:
             True if secagg context element action could be done for all parties, False if at least
                 one of the parties could not do the context element action.
+
+        Raises:
+            FedbiomedSecaggError: some parties did not answer before timeout
+            FedbiomedSecaggError: received a reply for a non-party to the negotiation
         """
         # reset values in case `setup()` was already run (and fails during this new execution,
         # or this is a deletion)
@@ -174,12 +180,12 @@ class SecaggContext(ABC):
             for resp in responses.data():
                 # order of test matters !
                 if resp['researcher_id'] != self._researcher_id:
-                    break
+                    continue
                 if resp['secagg_id'] != self._secagg_id:
                     logger.debug(
                         f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
                         f" and received {resp['secagg_id']}")
-                    break
+                    continue
                 if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
                         'which is not a party of secagg "{self._secagg_id}"'
@@ -190,7 +196,7 @@ class SecaggContext(ABC):
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
                         f" and received {resp['sequence']}"
                     )
-                    break
+                    continue
 
                 # this answer belongs to current secagg context setup
                 status[resp['node_id']] = resp['success']
@@ -227,6 +233,9 @@ class SecaggContext(ABC):
         Returns:
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
             timeout = float(timeout)    # accept int (and bool...)
@@ -257,6 +266,9 @@ class SecaggContext(ABC):
         Returns:
             True if secagg context element could be deleted for all parties, False if at least
                 one of the parties could not delete context element.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
             timeout = float(timeout)    # accept int (and bool...)
@@ -271,12 +283,14 @@ class SecaggContext(ABC):
             msg = {
                 'researcher_id': self._researcher_id,
                 'secagg_id': self._secagg_id,
+                'element': self._element.value,
+                'job_id': self._job_id,
                 'command': 'secagg-delete',
             }
             return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
         else:
             self._context = None   # should already be the case
-            return True
+            return False
 
     def save_state(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints
@@ -297,12 +311,12 @@ class SecaggContext(ABC):
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None):
+    def load_state(self, state: Dict[str, Any] = None, **kwargs):
         """
         Method for loading secagg state from breakpoint state
 
         Args:
-            state: The state that will be leaded
+            state: The state that will be loaded
         """
         self._secagg_id = state['secagg_id']
         self._parties = state['parties']
@@ -325,6 +339,9 @@ class SecaggServkeyContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(parties, job_id)
 
@@ -363,6 +380,9 @@ class SecaggBiprimeContext(SecaggContext):
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(parties, '')
 
