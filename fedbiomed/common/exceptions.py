@@ -237,3 +237,10 @@ class FedbiomedValueError(FedbiomedError, ValueError):
     ValueError for Fed-BioMed
     """
     pass
+
+
+class FedbiomedCertificateError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
