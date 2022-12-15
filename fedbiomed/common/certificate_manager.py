@@ -11,8 +11,8 @@ from tinydb import TinyDB, Query
 from tinydb.table import Document, Table
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
 
 
@@ -88,7 +88,7 @@ class CertificateManager:
                 self._query.party_id == party_id
             )
         else:
-            raise FedbiomedError(f"Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
+            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
                                  f"option through CLI")
 
     def get(
@@ -165,7 +165,7 @@ class CertificateManager:
         """
 
         if not os.path.isfile(certificate_path):
-            raise FedbiomedError(f"Certificate path does not represents a file.")
+            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file.")
 
         # Read certificate content
         with open(certificate_path) as file:
@@ -218,8 +218,9 @@ class CertificateManager:
         """
 
         if not os.path.isdir(path):
-            raise FedbiomedError(
-                "Specified `path` argument should be a directory. `path` is not a directory or it is not existing."
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Specified `path` argument should be a directory. `path` is not a "
+                f"directory or it is not existing."
             )
 
         path = os.path.abspath(path)
@@ -263,8 +264,8 @@ class CertificateManager:
                 party_object = self.get(party)
                 if not party:
                     remove_writen_files()
-                    raise FedbiomedError(
-                        f"Certificate for {party} is not existing. Aborting setup."
+                    raise FedbiomedCertificateError(
+                        f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Aborting setup."
                     )
 
                 path_ = os.path.join(path, f"P{index}.pem")
@@ -278,10 +279,18 @@ class CertificateManager:
                     party_object["party_id"]
                 )
 
-        except FedbiomedError as e:
+        except FedbiomedCertificateError as e:
             # Remove all writen file in case of an error
             remove_writen_files()
-            raise FedbiomedError(e)
+            raise FedbiomedCertificateError(e)
+
+        except FedbiomedError as e:
+            remove_writen_files()
+            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: {e}")
+
+        except Exception as e:
+            remove_writen_files()
+            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Undetermined error: {e}")
 
         return writen_certificates
 
@@ -301,9 +310,9 @@ class CertificateManager:
                 file.write(certificate)
                 file.close()
         except Exception as e:
-            raise FedbiomedError(
-                f"Can not write certificate file {path}. Aborting the operation. Please check raised "
-                f"exception: {e}"
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Can not write certificate file {path}. Aborting the operation. "
+                f"Please check raised exception: {e}"
             )
 
     @staticmethod
@@ -325,9 +334,9 @@ class CertificateManager:
                 file.close()
 
         except Exception as e:
-            raise FedbiomedError(
-                f"Can not write ip address of component: {party_id}. Aborting the operation. Please check raised "
-                f"exception: {e}"
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Can not write ip address of component: {party_id}. Aborting the "
+                f"operation. Please check raised exception: {e}"
             )
 
     @staticmethod
@@ -359,10 +368,14 @@ class CertificateManager:
         """
 
         if not os.path.abspath(certificate_folder):
-            raise FedbiomedError(f"Certificate path should be absolute: {certificate_folder}")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: {certificate_folder}"
+            )
 
         if not os.path.isdir(certificate_folder):
-            raise FedbiomedError(f"Certificate path is not valid: {certificate_folder}")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Certificate path is not valid: {certificate_folder}"
+            )
 
         pkey = crypto.PKey()
         pkey.generate_key(crypto.TYPE_RSA, 2048)
@@ -388,13 +401,17 @@ class CertificateManager:
                 f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
                 f.close()
         except Exception as e:
-            raise FedbiomedError(f"Can not write public key: {e}")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
+            )
 
         try:
             with open(pem_file, "wb") as f:
                 f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, x509))
                 f.close()
         except Exception as e:
-            raise FedbiomedError(f"Can not write public key: {e}")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
+            )
 
         return key_file, pem_file
