@@ -5,6 +5,7 @@ from copy import deepcopy
 import testsupport.mock_node_environ  ## noqa (remove flake8 false warning)
 
 from testsupport.fake_message import FakeMessages
+from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
 
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -12,8 +13,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup
 
 
-class TestSecaggResearcher(unittest.TestCase):
-    """ Test for researcher's secagg module"""
+class TestSecaggNode(unittest.TestCase):
+    """ Test for node's secagg module"""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -29,10 +30,18 @@ class TestSecaggResearcher(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_secagg_01_init_ok_and_getters(self):
+    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
+    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
+    def test_secagg_01_init_ok_and_getters(
+            self,
+            patch_servkey_manager,
+            patch_biprime_manager):
         """Instantiate secagg classes + read state via getters"""
 
         # prepare
+        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
+        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+
         kwargs_servkey = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
@@ -58,10 +67,19 @@ class TestSecaggResearcher(unittest.TestCase):
             self.assertEqual(secagg.sequence(), kwargs['sequence'])
             self.assertEqual(secagg.element(), element_type)
 
-    def test_secagg_02_init_badargs(self):
+    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
+    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
+    def test_secagg_02_init_badargs(
+            self,
+            patch_servkey_manager,
+            patch_biprime_manager,
+            ):
         """Instantiate secagg classes with bad arguments"""
 
         # prepare
+        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
+        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+
         job_id = 'my_job'
         kwargs_servkey_list = [
             {
@@ -212,10 +230,14 @@ class TestSecaggResearcher(unittest.TestCase):
 
 
     @patch('time.sleep')
+    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
+    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
     def test_secagg_03_setup(
             self,
             patch_reply_create,
+            patch_servkey_manager,
+            patch_biprime_manager,
             patch_time_sleep):
         """Setup secagg context elements
         """
@@ -224,6 +246,9 @@ class TestSecaggResearcher(unittest.TestCase):
         def reply_create_side_effect(msg):
             return FakeMessages(msg)
         patch_reply_create.side_effect = reply_create_side_effect
+
+        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
+        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         # prepare
         kwargs_servkey = {
@@ -253,10 +278,14 @@ class TestSecaggResearcher(unittest.TestCase):
             self.assertEqual(msg['success'], True)
             self.assertEqual(msg['command'], 'secagg')
 
+    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
+    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
     def test_secagg_04_create_secagg_reply(
             self,
-            patch_reply_create):
+            patch_reply_create,
+            patch_servkey_manager,
+            patch_biprime_manager):
         """Create a reply message for researcher
         """
         # patch
@@ -264,6 +293,9 @@ class TestSecaggResearcher(unittest.TestCase):
         def reply_create_side_effect(msg):
             return FakeMessages(msg)
         patch_reply_create.side_effect = reply_create_side_effect
+
+        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
+        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         # prepare
         kwargs_servkey = {

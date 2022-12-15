@@ -188,6 +188,7 @@ class ErrorNumbers(_BaseEnum):
     FB318 = "FB318: Secure aggregation setup error"
     FB319 = "FB319: Command not found error"
     FB320 = "FB320: bad model type"
+    FB321 = "FB321: Secure aggregation delete error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"

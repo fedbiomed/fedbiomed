@@ -459,6 +459,8 @@ class SecaggDeleteRequest(Message):
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
+        element: Type of secagg context element
+        job_id: Id of the Job to which this secagg context element is attached
         command: Request command string
 
     Raises:
@@ -467,6 +469,8 @@ class SecaggDeleteRequest(Message):
     researcher_id: str
     secagg_id: str
     sequence: int
+    element: int
+    job_id: str
     command: str
 
 @catch_dataclass_exception
