@@ -331,7 +331,7 @@ class CommonCLI:
     def _prepare_my_certificate_for_email(self, args):
 
         try:
-            with open(self._environ["CERTIFICATE_PEM"], 'r') as file:
+            with open(self._environ["MPSPDZ_CERTIFICATE_PEM"], 'r') as file:
                 certificate = file.read()
                 file.close()
         except Exception as e:
