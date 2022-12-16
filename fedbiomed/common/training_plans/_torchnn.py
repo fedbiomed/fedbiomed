@@ -4,11 +4,12 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
+from typing import Any, Dict, List, Optional, OrderedDict, Union
 
 from copy import deepcopy
 
 import numpy as np
+from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn
 
@@ -16,7 +17,6 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.metrics import Metrics
 
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
@@ -108,9 +108,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
+            training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
-        ) -> None:
+            ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -466,6 +466,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
+        _cumul_batch_size: int = 0
         for epoch in range(1, num_epochs + 1):
 
             # (below) sampling data (with `training_data` method defined on
@@ -488,7 +489,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 corrected_loss = torch.clone(loss)
                 # If FedProx is enabled: use regularized loss function
-                corrected_loss = torch.clone(loss)
                 if self._fedprox_mu is not None:
                     corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
                 # Run the backward pass to compute parameters' gradients
@@ -517,13 +517,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     else:
                         # case `data` is a Tensor or a list
                         batch_size = len(data)
+                    _cumul_batch_size += batch_size
                     if self._num_updates is None:
-                        _len_data_loader = len(self.training_data_loader.dataset)
+                        _len_data_loader = len(self.training_data_loader)
                         _n_data_parsed = len(self.training_data_loader.dataset)
                     else:
                         _len_data_loader = self._num_updates
-                        _n_data_parsed = self._num_updates * batch_size
-                    num_samples_till_now = min(batch_ * batch_size, len(self.training_data_loader.dataset))
+                        try:
+                            _n_data_parsed = self._num_updates * self._training_args['batch_size']
+                        except KeyError as e:
+                            raise FedbiomedTrainingPlanError(f"Error in training_args, missing 'batch_size' { self._training_args}") 
+                    num_samples_till_now = min(_cumul_batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         num_samples_till_now,
