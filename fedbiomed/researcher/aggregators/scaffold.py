@@ -203,7 +203,7 @@ class Scaffold(Aggregator):
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """
-        This method checks if all values/parameters are corrects and have been set before using aggregator.
+        This method checks if all values/parameters are correct and have been set before using aggregator.
         Raises error otherwise
         This can prove useful if user has set wrong hyperparameter values, so that user will
         have errors before performing first round of training
