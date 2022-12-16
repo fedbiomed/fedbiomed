@@ -1512,7 +1512,7 @@ class Experiment(object):
                 self._secagg_biprime.setup(timeout)
             if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
                 self._use_secagg = True
-                logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
+                logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:
                 logger.debug('Experiment not fully configured yet: no secure aggregation')
         else:
