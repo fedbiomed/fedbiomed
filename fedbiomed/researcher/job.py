@@ -561,7 +561,7 @@ class Job:
 
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
-                    if len(set(t)) > 1 and set(t) != {'float64', 'int64'}:
+                    if len(set(t)) > 1:
                         # FIXME: specifying a specific use case (in the condition above) should be avoided 
                         raise FedbiomedDataQualityCheckError(
                             f'Variable data types do not match in federated datasets {dtypes}'
