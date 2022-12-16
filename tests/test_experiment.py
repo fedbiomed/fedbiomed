@@ -24,6 +24,7 @@ from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
@@ -1197,7 +1198,53 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(mock_job_training.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
+    
+    @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
+    @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
+    @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
+    @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.job.Job.update_parameters')
+    @patch('fedbiomed.researcher.job.Job.__init__')  
+    def test_experiment_23_run_once_with_scaffold_and_training_args(self,
+                                                                    mock_job_init,
+                                                                    mock_job_updates_params,
+                                                                    mock_job_training,
+                                                                    mock_job_training_replies,
+                                                                    mock_job_training_plan_type,
+                                                                    mock_strategy_refine,
+                                                                    mock_scaffold_create_aggregator_args,
+                                                                    mock_scaffold_aggregate,
+                                                                    mock_experiment_breakpoint):
+        # try test with specific training_args
+        # related to regression due to Scaffold introduction applied on MedicalFolderDataset
+        training_plan = MagicMock()
+        training_plan.type = MagicMock()
+        mock_job_init.return_value = None
+        mock_job_training.return_value = None
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2])
+        mock_scaffold_aggregate.return_value = None
+        mock_scaffold_create_aggregator_args.return_value = ({}, {})
+        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        mock_experiment_breakpoint.return_value = None
 
+        # Set model class to be able to create Job
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        # Set default Job
+        self.test_exp.set_job()
+        # Set strategy
+        self.test_exp.set_strategy(None)
+        # set training_args
+        self.test_exp.set_training_args({'num_updates': 1000})
+        # set Scaffold aggregator
+        self.test_exp.set_aggregator(Scaffold(server_lr=.1))
+        
+        result = self.test_exp.run_once()
+        self.assertEqual(result, 1, "run_once did not successfully run the round")
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
     def test_experiment_24_run(self, mock_exp_run_once):
@@ -1285,7 +1332,6 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.set_test_on_global_updates(True)
         rounds = self.test_exp.run()
         self.assertEqual(rounds, 1)
-
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)

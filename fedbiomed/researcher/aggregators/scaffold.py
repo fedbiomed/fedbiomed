@@ -203,7 +203,7 @@ class Scaffold(Aggregator):
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """
-        This method checks if all values are correct and have been set before using aggregator.
+        This method checks if all values/parameters are corrects and have been set before using aggregator.
         Raises error otherwise
         This can prove useful if user has set wrong hyperparameter values, so that user will
         have errors before performing first round of training
@@ -215,6 +215,7 @@ class Scaffold(Aggregator):
                 triggers warning.
 
         Raises:
+            FedbiomedAggregatorError: triggered if `num_updates` entry is missing (needed for Scaffold aggregator)
             FedbiomedAggregatorError: triggered if any of the learning rate(s) equals 0
             FedbiomedAggregatorError: triggered if number of updates equals 0 or is not an integer
             FedbiomedAggregatorError: triggered if [FederatedDataset][fedbiomed.researcher.datasets.FederatedDataset]
@@ -222,7 +223,7 @@ class Scaffold(Aggregator):
              
         """
         if n_updates is None:
-            raise FedbiomedAggregatorError("Can not perform Scaffold: missing 'n_updates' in the training_args")
+            raise FedbiomedAggregatorError("Can not perform Scaffold: missing 'num_updates' entry in the training_args")
         elif n_updates <= 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(f"n_updates should be a positive non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
         if self._fds is None:
