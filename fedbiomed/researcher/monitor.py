@@ -309,7 +309,8 @@ class Monitor:
         metric_result = ''
         for key, val in metric_dict.items():
             metric_result += "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n".format(key, val)
-
+        _min_iteration = min(message['iteration'] * message['batch_samples'],
+                             message['total_samples'])
         # Loging fancy feedback for training
         logger.info("\033[1m{}\033[0m \n"
                     "\t\t\t\t\t NODE_ID: {} \n"
@@ -317,10 +318,9 @@ class Monitor:
                     "\t\t\t\t\t ---------".format(header.upper(),
                                                   message['node_id'],
                                                   '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
-                                                  min(message['iteration'] * message['batch_samples'],
-                                                      message['total_samples']),
+                                                  _min_iteration,
                                                   message['total_samples'],
-                                                  100 * message['iteration'] / message['num_batches'],
+                                                  100 * _min_iteration / message['total_samples'],
                                                   metric_result))
 
         if self._tensorboard:
