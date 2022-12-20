@@ -147,7 +147,7 @@ if __name__ == '__main__':
     print("Make sure Network component is running before launching Nodes: \t./scripts/fedbiomed_run network ")
     print()
 
-    print('Please add the data to your nodes executing and using the `bids-train` tag:')
+    print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
 
