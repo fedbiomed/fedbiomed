@@ -533,8 +533,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if self._training_args['batch_maxnum'] is not None:
                 logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
                                "`batch_maxnum` will be ignored.")
-                # update the value of num_batches_per_epoch following our precedence rules
-                # since this was a configuration mistake
+                # revert to correct value of num_batches_per_epoch following our precedence rules
+                # since this was a configuration mistake (both num_updates and batch_maxnum specified)
                 num_batches_per_epoch = len(self.training_data_loader)
             return self._training_args['num_updates'], num_batches_per_epoch
         # second scenario: researcher specified epochs -> compute number of updates ourselves
