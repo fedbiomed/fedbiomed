@@ -1512,7 +1512,7 @@ class Experiment(object):
                 self._secagg_biprime.setup(timeout)
             if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
                 self._use_secagg = True
-                logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
+                logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:
                 logger.debug('Experiment not fully configured yet: no secure aggregation')
         else:
@@ -1580,10 +1580,9 @@ class Experiment(object):
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
-        self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
 
         # check aggregator parameter(s) before starting a round
-        self._aggregator.check_values(n_updates=self._training_args['num_updates'],
+        self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 

@@ -4,12 +4,12 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from cgitb import reset
-from typing import Any, Dict, Callable, List, Optional, OrderedDict, Tuple, Union
+from typing import Any, Dict, List, Optional, OrderedDict, Union
 
 from copy import deepcopy
 
 import numpy as np
+from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn
 
@@ -17,7 +17,6 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.metrics import Metrics
 
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
@@ -109,9 +108,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
+            training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
-        ) -> None:
+            ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:

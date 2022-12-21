@@ -11,9 +11,7 @@
 # the dataset is loaded into local DB of the node
 # everything is cleaned at the end of the run.
 #
-# Arguments:
-# -s script     python script or a notebook to run
-# -d dataset    location of required dataset (directory)
+# Arguments: see usage() function
 #
 # the -d directive can be repeated to run more than one node
 #
@@ -57,8 +55,23 @@ Usage: ${0##*/} -s file -d dataset.json
   -t, --timeout <integer>     max execution time (default = $TEST_TIMEOUT)
   -d, --dataset <json-file>   dataset description
 
-Remark: only dataset availability is checked. Coherence between
+Remarks: 
+1. only dataset availability is checked. Coherence between
 provided script and dataset is not validated by this launcher
+2. the -d directive can be repeated to run more than one node
+3. multiple instances of this script cannot run at the same time because:
+   - it starts and stops the dockerized network component
+   - it runs a researcher
+
+Example:
+./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+                               -d ./tests/datasets/mnist.json
+
+This will run 3 nodes:
+./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+                               -d ./tests/datasets/mnist.json \
+                               -d ./tests/datasets/mnist.json \
+                               -d ./tests/datasets/mnist.json
 "
 }
 

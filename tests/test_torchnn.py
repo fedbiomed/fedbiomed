@@ -524,6 +524,7 @@ class TestTorchnn(unittest.TestCase):
         num_batches = 3
         batch_size = 5
         mock_dataset = MagicMock(pec=Dataset)
+        
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
         mocked_loss_result = MagicMock(spec=torch.Tensor, return_value=torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
@@ -531,8 +532,8 @@ class TestTorchnn(unittest.TestCase):
         tp._training_args = {'num_updates': num_batches, 'epochs': None, 'batch_maxnum': None, 'batch_size': batch_size}
 
         custom_dataset = self.CustomDataset()
-        x_train = torch.Tensor(custom_dataset.X_train)
-        y_train = torch.Tensor(custom_dataset.Y_train)
+        x_train = torch.Tensor(custom_dataset.X_train[:batch_size])
+        y_train = torch.Tensor(custom_dataset.Y_train[:batch_size])
         
         dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
@@ -555,10 +556,8 @@ class TestTorchnn(unittest.TestCase):
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
-    def test_torch_training_plan_13_compute_corrected_loss(self):
-        """test_torch_nn_06_compute_corrected_loss: 
-        checks:
-            that fedavg and scaffold are equivalent if correction states are set to 0
+    def test_torch_training_plan_13_scaffold_fedavg_comparison(self):
+        """Checks and scaffold are equivalent if correction states are set to 0
         """
         def set_training_plan(model, aggregator_name:str, loss_value: float = .0):
             """Configure a TorchTrainingPlan with a given model.
@@ -784,28 +783,18 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
              patch.object(tp, 'init_optimizer', new=lambda _: MagicMock(spec=torch.optim.Adam)):
             tp.post_init({}, TestTorchnn.FakeTrainingArgs())
         tp._dry_run = False
-        tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)), batch_size=1)
-        gen_data = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
-            ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
-        tp.training_data_loader.__iter__.return_value = gen_data
-        tp.training_data_loader.__len__.return_value = 1
-        tp.training_data_loader.batch_size = 1
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
-
         # Set training data loader ---------------------------------------------------------------------------
         mock_dataset = MagicMock(spec=Dataset())
-        tp.training_data_loader = MagicMock( spec=DataLoader(mock_dataset),
+        tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset),
                                              batch_size=1,
-                                             dataset=[1,2]
-                                            )
+                                             dataset=[1, 2]
+                                           )
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
                                                 ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
                                     )
         tp.training_data_loader.__len__.return_value = 2  # otherwise, mocked training_data_loader equals 0
         tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
-        # --------------------------------------------------------------------------------------------------
-        
-        tp._num_updates = 1
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader

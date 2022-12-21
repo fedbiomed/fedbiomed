@@ -18,8 +18,8 @@ from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
 import validators
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedError, FedbiomedValueError
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
@@ -309,69 +309,6 @@ class Job:
             nodes_done = set()
 
         return not nodes_done == set(self._nodes)
-
-    def update_training_args(self, fds: FederatedDataSet, nodes: Optional[List[str]] = None):
-        """Updates training_args before sending it to nodes (all nodes or selected nodes).
-
-        Updates the following parameters:
-
-        - num_updates: in the case where the researcher provided a number of epochs, it computes the
-            number of updates based on the dataset with the smallest number of samples in the federation. Also
-            handles precedence rules between num_updates and epochs.
-
-        After this function's execution, the following statements hold true:
-
-        1. 'epochs', 'batch_maxnum' and 'num_updates' all exist as keys in self._training_args
-        2. EITHER 'num_updates' is not None, OR 'epochs' is not None
-        3. IF 'num_updates' is not None, THEN 'epochs' is None and 'batch_maxnum' is None
-        4. IF 'num_updates' is None, THEN 'epochs' is not None and 'batch_maxnum' is left to the value set by the
-            researcher
-
-        Args:
-            fds (FederatedDataSet): The representation of the federated data set used in the experiment.
-            nodes (Optional[List[str]], optional): Node to be considered before sending values. Defaults to None.
-
-        Raises:
-            FedbiomedError: if no nodes are participating in the experiment.
-            FedbiomedValueError: if researcher did not specify at least one of num_updates and epochs
-        """
-        # First, output some warnings in case of conflicting arguments
-        if self._training_args['num_updates'] is not None:
-            if self._training_args['epochs'] is not None:
-                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
-                               "`epochs` will be ignored.")
-                self._training_args['epochs'] = None
-            if self._training_args['batch_maxnum'] is not None:
-                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
-                               "`batch_maxnum` will be ignored.")
-                self._training_args['batch_maxnum'] = None
-        # Handle case where num_updates was not provided
-        else:
-            if self._training_args['epochs'] is None:
-                msg = f"{ErrorNumbers.FB410.value}. Please provide either `num_updates` or `epochs` in training " \
-                      f"arguments."
-                logger.error(msg)
-                raise FedbiomedValueError(msg)
-            # now we know that epochs has been provided: compute num_updates from number of samples and batch_size
-            # Get researcher-specified values
-            batch_size = self._training_args['batch_size']
-            n_epochs = self._training_args['epochs']  # epochs was validated by TrainingArgs, hence it is an int > 0
-            # Get min number of samples among all datasets in the experiment
-            node_present: List[str] = fds.node_ids() if nodes is None else nodes
-            if not node_present:
-                raise FedbiomedError("No nodes have answered")
-            max_n_samples_in_one_epoch = min([fds.data()[node_id][0].get('shape')[0] for node_id in node_present])
-            # Compute num_updates based on the total number of samples visited during training
-            total_samples = max_n_samples_in_one_epoch*n_epochs
-            total_num_updates = total_samples // batch_size
-            if total_samples % batch_size != 0:
-                total_num_updates += 1
-            # handle batch_maxnum
-            batch_maxnum = self._training_args['batch_maxnum'] or 0
-            if batch_maxnum > 0:
-                total_num_updates = min(total_num_updates, batch_maxnum*n_epochs)
-            # update the training_args
-            self._training_args['num_updates'] = total_num_updates
 
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
@@ -691,17 +628,24 @@ class Job:
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
-            assert len(set(data_types)) == 1, \
-                f'Different type of datasets has been loaded with same tag: {data_types}'
+            if len(set(data_types)) > 1:
+                raise FedbiomedDataQualityCheckError(
+                    f'Different type of datasets has been loaded with same tag: {data_types}'
+                )
 
             if data_types[0] == 'csv':
-                assert len(set([s[1] for s in shapes])) == 1, \
-                    f'Number of columns of federated datasets do not match {shapes}.'
+                if len(set([s[1] for s in shapes])) > 1:
+                    raise FedbiomedDataQualityCheckError(
+                        f'Number of columns of federated datasets do not match {shapes}.'
+                    )
 
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
-                    assert len(set(t)) == 1, \
-                        f'Variable data types do not match in federated datasets {dtypes}'
+                    if len(set(t)) > 1:
+                        # FIXME: specifying a specific use case (in the condition above) should be avoided 
+                        raise FedbiomedDataQualityCheckError(
+                            f'Variable data types do not match in federated datasets {dtypes}'
+                        )
 
             elif data_types[0] == 'images':
                 shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
