@@ -6,7 +6,7 @@ Provide a way to easily to manage training arguments.
 """
 
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union, Tuple
+from typing import Any, Dict, TypeVar, Union, Tuple, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -179,18 +179,17 @@ class TrainingArgs:
         return {arg: self[arg] for arg in keys}
 
     @staticmethod
-    @validator_decorator
-    def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
-        if val is None or isinstance(val, (float, int)):
-            if val is not None:
-                if int(val) != float(val) or val < 0:
-                    return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
-
-                    # maybe we should not validate case val == 0
-
-            return True
-        else:
-            return False, f"num_updates and epochs should be integer or None, but got {val}"
+    def _nonnegative_integer_value_validator_hook(name: str) -> Callable:
+        @validator_decorator
+        def _named_nonnegative_integer_value_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
+            if val is None or isinstance(val, (float, int)):
+                if val is not None:
+                    if int(val) != float(val) or val < 0:
+                        return False, f"{name} should be a non-negative integer or None, but got {val}"
+                return True
+            else:
+                return False, f"{name} should be a non-negative integer or None, but got {val}"
+        return _named_nonnegative_integer_value_validator_hook
 
     @staticmethod
     @validator_decorator
@@ -270,19 +269,19 @@ class TrainingArgs:
                 "rules": [dict], "required": True, "default": {}
             },
             "batch_size": {
-                "rules": [int], "required": True, "default": 48
+                "rules": [int], "required": True, "default": 1
             },
             "epochs": {
-                "rules": [cls._num_update_validator_hook], "required": False, "default": 1
+                "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": False, "default": None
             },
             "num_updates": {
-                "rules": [cls._num_update_validator_hook], "required": False, "default": None
+                "rules": [cls._nonnegative_integer_value_validator_hook('num_updates')], "required": False, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": 0
+                "rules": [cls._nonnegative_integer_value_validator_hook('batch_maxnum')], "required": True, "default": 0
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0

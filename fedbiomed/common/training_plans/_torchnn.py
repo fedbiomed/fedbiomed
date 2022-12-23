@@ -425,72 +425,48 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Run preprocess when everything is ready before the training
         self._preprocess()
 
-        # Initialize training data that comes from Round class
-        # TODO: Decide whether it should attached to `self`
-        # self.data = data_loader
-
         # initial aggregated model parameters
         self._init_params = deepcopy(list(self._model.parameters()))
 
-
-        if self._num_updates is not None:
-            # compute num epochs and batches from num_updates
-            # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
-            # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
-            # the last epoch will have 0 iterations.
-
-            if self._batch_maxnum <= 0:
-                num_batches_per_epoch = len(self.training_data_loader)
-                num_epochs = self._num_updates // num_batches_per_epoch #+ 1
-            else:
-                # FIXME: we decided that batch_maxnum is the maximum number of batch an epoch can have
-                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates
-                # reaches num_updates
-                num_batches_per_epoch = min(self._batch_maxnum, len(self.training_data_loader))
-                self._num_updates_set = self._num_updates
-                self._num_updates = min(self._num_updates, self._batch_maxnum)
-                num_epochs = max(self._num_updates, self._num_updates_set) // num_batches_per_epoch
-
-            if self._num_updates % num_batches_per_epoch:
-                # increment self._num_updates // num_batches_per_epoch
-                num_epochs += 1
-            if self._batch_maxnum <= 0:
-                num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
-            else:
-                num_batches_in_last_epoch = self._num_updates_set - num_batches_per_epoch * (num_epochs - 1)
-
-        else:
-            num_epochs = self._epochs
-            num_batches_in_last_epoch = None
-        # DP actions --------------------------------------------------------------------------------------------
+        # DP actions
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
-        _cumul_batch_size: int = 0
-        for epoch in range(1, num_epochs + 1):
+        # set number of training loop iterations
+        num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
 
-            # (below) sampling data (with `training_data` method defined on
-            # researcher's notebook)
-            # training_data = self.training_data(batch_size=batch_size)
-            num_samples_till_now = 0
+        # setup accounting for monitoring the number of observed samples
+        total_n_samples_to_be_observed = self._training_args['batch_size']*(
+                num_epochs*num_batches_per_epoch + num_batches_in_last_epoch)
+        n_samples_observed_till_now: int = 0
+
+        # Training loop iterations
+        # we always iterate over one additional (possibly empty!) epoch to account for remainder batches
+        for epoch in range(1, num_epochs + 2):
             for batch_idx, (data, target) in enumerate(self.training_data_loader):
-
-                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch and epoch == num_epochs:
+                # Quick exit conditions: remainder batches in last epoch or batch_maxnum
+                if (batch_idx >= num_batches_in_last_epoch and epoch == num_epochs + 1) or \
+                        (batch_idx >= num_batches_per_epoch):
+                    logger.info('Reached {} batches for epoch {}. Iterations finished'.format(batch_idx+1, epoch))
                     break
 
-                # Plus one since batch_idx starts from 0
-                batch_ = batch_idx + 1
-
+                # handle training on accelerator devices
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
+
+                # update accounting for number of observed samples
+                n_samples_observed_till_now += self.__infer_batch_size(data)
+
+                # zer-out gradients
                 self._optimizer.zero_grad()
 
+                # compute loss
                 loss = self.training_step(data, target)  # raises an exception if not provided
-
                 corrected_loss = torch.clone(loss)
+
                 # If FedProx is enabled: use regularized loss function
                 if self._fedprox_mu is not None:
                     corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+
                 # Run the backward pass to compute parameters' gradients
                 corrected_loss.backward()
 
@@ -504,59 +480,33 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # Have the optimizer collect, refine and apply gradients
                 self._optimizer.step()
 
-                if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
-                    # Warning: batch_size can change from one update to another, especially
-                    # if using Opacus
-                    # FIXME: `batch_size` should not be computed that way, but rather by calling 
-                    # `batch_size` attribute from `training_data_loader`. Please refer to issue #422
-                    # for further details
-                    if isinstance(data, dict):
-                        # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
-                        # compute length of the first modality
-                        batch_size = len(list(data.values())[0])
-                    else:
-                        # case `data` is a Tensor or a list
-                        batch_size = len(data)
-                    _cumul_batch_size += batch_size
-                    if self._num_updates is None:
-                        _len_data_loader = len(self.training_data_loader)
-                        _n_data_parsed = len(self.training_data_loader.dataset)
-                    else:
-                        _len_data_loader = self._num_updates
-                        try:
-                            _n_data_parsed = self._num_updates * self._training_args['batch_size']
-                        except KeyError as e:
-                            raise FedbiomedTrainingPlanError(f"Error in training_args, missing 'batch_size' { self._training_args}") 
-                    num_samples_till_now = min(_cumul_batch_size, len(self.training_data_loader.dataset))
+                # Monitoring
+                if batch_idx % self._log_interval == 0 or self._dry_run:
+                    # The node sees the "real" total number of samples observed until now
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
-                        num_samples_till_now,
-                        _n_data_parsed,
-                        100 * num_samples_till_now / max(_n_data_parsed, 1),  # max to avoid division by 0 (if any)
+                        n_samples_observed_till_now,
+                        total_n_samples_to_be_observed,
+                        100 * n_samples_observed_till_now / total_n_samples_to_be_observed,
                         loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
+                        # the researcher only sees the average value of samples observed until now
                         history_monitor.add_scalar(metric={'Loss': loss.item()},
-                                                   iteration=batch_,
+                                                   iteration=(epoch-1)*num_batches_per_epoch + batch_idx + 1,
                                                    epoch=epoch,
                                                    train=True,
-                                                   num_batches=_len_data_loader,
-                                                   total_samples=_n_data_parsed,
-                                                   batch_samples=len(data))
+                                                   num_batches=num_batches_per_epoch*num_epochs +
+                                                                   num_batches_in_last_epoch,
+                                                   total_samples=total_n_samples_to_be_observed,
+                                                   batch_samples=self._training_args['batch_size'])
 
-
+                # Handle dry run mode
                 if self._dry_run:
                     self._model.to(self._device_init)
                     torch.cuda.empty_cache()
                     return
-
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
-                if (self._batch_maxnum > 0) and (batch_ >= self._batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
-                    break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -715,3 +665,25 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for current_model, init_model in zip(self._model.parameters(), self._init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
+
+    @staticmethod
+    def __infer_batch_size(data: Union[dict, torch.Tensor]) -> int:
+        """Utility function to guess batch size from data.
+
+        This function is a temporary fix needed to handle the case where
+        Opacus changes the batch_size dynamically, without communicating
+        it in any way.
+
+        This will be improved by issue #422.
+
+        Returns:
+            the batch size for the input data
+        """
+        if isinstance(data, dict):
+            # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
+            # compute length of the first modality
+            batch_size = len(list(data.values())[0])
+        else:
+            # case `data` is a Tensor
+            batch_size = len(data)
+        return batch_size
