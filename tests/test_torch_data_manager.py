@@ -85,13 +85,13 @@ class TestTorchDataManager(unittest.TestCase):
                              batch_size=48,
                              shuffle=True)
 
-    def test_torch_data_manager_01_dataset(self):
+    def test_torch_data_manager_02_dataset(self):
         """ Testing dataset getter method """
 
         result = self.torch_data_manager.dataset
         self.assertEqual(result, self.dataset, 'dataset() returns un expected torch Dataset object')
 
-    def test_torch_data_manager_02_split(self):
+    def test_torch_data_manager_03_split(self):
         """Testing split method of TorchDataManager class """
 
         # Test invalid ratio argument
@@ -128,7 +128,7 @@ class TestTorchDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_data_manager.split(0.3)
 
-    def test_torch_data_manager_05_split_results(self):
+    def test_torch_data_manager_04_split_results(self):
         """ Test splitting result """
 
         # Test with split
@@ -152,7 +152,7 @@ class TestTorchDataManager(unittest.TestCase):
         subset = self.torch_data_manager.subset_train()
         self.assertIsInstance(subset, Subset, 'Can not get proper subset object')
 
-    def test_torch_data_manager_05_subset_test(self):
+    def test_torch_data_manager_06_subset_test(self):
         """ Testing the method load train partition """
 
         # Test with split
@@ -160,7 +160,7 @@ class TestTorchDataManager(unittest.TestCase):
         subset = self.torch_data_manager.subset_test()
         self.assertIsInstance(subset, Subset, 'Can not get proper subset object')
 
-    def test_torch_data_manager_05_load_all_samples(self):
+    def test_torch_data_manager_07_load_all_samples(self):
         """ Testing the method load train partition """
 
         # Test with split
@@ -169,7 +169,7 @@ class TestTorchDataManager(unittest.TestCase):
         self.assertEqual(len(loader.dataset), len(self.dataset), 'Did not properly get loader for all samples')
 
     @patch('fedbiomed.common.data._torch_data_manager.DataLoader')
-    def test_torch_data_manager_06_create_torch_data_loader(self, data_loader):
+    def test_torch_data_manager_08_create_torch_data_loader(self, data_loader):
         """ Test function create torch data loader """
 
         self.torch_data_manager.split(0.5)
@@ -188,11 +188,31 @@ class TestTorchDataManager(unittest.TestCase):
         result = self.torch_data_manager._subset_loader(s)
         self.assertEqual(result, 'Data')
 
-    def test_torch_data_manager_07_to_sklearn(self):
+    def test_torch_data_manager_09_to_sklearn(self):
         """Test converting TorchDataManage to SkLearnDataManager"""
 
         result = self.torch_data_manager.to_sklearn()
         self.assertIsInstance(result, fedbiomed.common.data._sklearn_data_manager.SkLearnDataManager)
+
+    def test_torch_data_manager_10_cycling_iterations(self):
+        batch_size = 2
+        torch_data_manager = TorchDataManager(dataset=self.dataset, batch_size=batch_size)
+        train_loader, test_loader = torch_data_manager.split(0.5)
+        n_iter = 5
+        for i, (data, target) in enumerate(train_loader, start=1):
+            self.assertEqual(data.shape[0], batch_size)
+            self.assertEqual(target.shape[0], batch_size)
+            if i >= n_iter:
+                break
+        # Same with shuffle
+        torch_data_manager = TorchDataManager(dataset=self.dataset, batch_size=batch_size, shuffle=True)
+        train_loader, test_loader = torch_data_manager.split(0.5)
+        n_iter = 5
+        for i, (data, target) in enumerate(train_loader, start=1):
+            self.assertEqual(data.shape[0], batch_size)
+            self.assertEqual(target.shape[0], batch_size)
+            if i >= n_iter:
+                break
 
 
 if __name__ == '__main__':  # pragma: no cover

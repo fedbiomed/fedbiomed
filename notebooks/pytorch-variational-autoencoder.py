@@ -108,7 +108,7 @@ training_args = {
     'optimizer_args': {
         'lr': 1e-3
     },
-    'epochs': 1, 
+    'num_updates': 100,
     'dry_run': False,  
     'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }

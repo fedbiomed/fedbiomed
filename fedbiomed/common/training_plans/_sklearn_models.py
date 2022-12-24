@@ -71,6 +71,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             history_monitor (HistoryMonitor, None): optional HistoryMonitor
                 instance, recording the loss value during training.
         """
+        num_updates, num_batches_per_epoch = self.num_parameter_updates()
         # Gather reporting parameters.
         report = False
         if (history_monitor is not None) and hasattr(self._model, "verbose"):
@@ -81,34 +82,31 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
-                num_batches=len(self.training_data_loader),
-                total_samples=len(self.training_data_loader.dataset)
+                num_batches=num_updates,
+                total_samples=num_updates*self.training_data_loader.batch_size()
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
-        # Iterate over epochs.
-        for epoch in range(self._training_args.get("epochs", 1)):
-            # Iterate over data batches.
-            for idx, batch in enumerate(self.training_data_loader, start=1):
-                inputs, target = batch
-                loss = self._train_over_batch(inputs, target, report)
-                # Optionally report on the batch training loss.
-                if report and (idx % log_interval == 0) and not np.isnan(loss):
-                    record_loss(
-                        metric={loss_name: loss},
-                        iteration=idx,
-                        epoch=epoch,
-                        batch_samples=len(inputs)
-                    )
-                    logger.debug(
-                        f"Train Epoch: {epoch} "
-                        f"Batch: {idx}/{record_loss.keywords['num_batches']}"
-                        f"\tLoss: {loss:.6f}"
-                    )
-
-                if 0 < self._batch_maxnum <= idx:
-                    logger.info(f'Reached {self._batch_maxnum} batches for this epoch, ignore remaining data')
-                    break
+        # iterate over number of updates
+        for idx, batch in enumerate(self.training_data_loader, start=1):
+            if idx > num_updates:
+                break
+            inputs, target = batch
+            loss = self._train_over_batch(inputs, target, report)
+            # Optionally report on the batch training loss.
+            if report and (idx % log_interval == 0) and not np.isnan(loss):
+                epoch = (idx-1) // num_batches_per_epoch + 1
+                record_loss(
+                    metric={loss_name: loss},
+                    iteration=idx,
+                    epoch=epoch,
+                    batch_samples=len(inputs)
+                )
+                logger.debug(
+                    f"Train Epoch: {epoch} "
+                    f"Batch: {idx}/{record_loss.keywords['num_batches']}"
+                    f"\tLoss: {loss:.6f}"
+                )
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)

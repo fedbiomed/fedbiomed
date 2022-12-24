@@ -23,7 +23,7 @@ import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
 from sklearn.linear_model import SGDClassifier
@@ -207,6 +207,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
             training_plan._training_routine(history_monitor=None)
             self.assertEqual(mocked_train.call_count, 4)
 
+        # Assert reporting is correct
         history_monitor = MagicMock(spec=fedbiomed.node.history_monitor.HistoryMonitor)
         training_plan._training_args['log_interval'] = 1
         training_plan._batch_maxnum = 1
@@ -216,11 +217,11 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
             self.assertEqual(history_monitor.add_scalar.call_count, 1)
             history_monitor.add_scalar.assert_called_with(
                 train=True,
-                num_batches=4,
-                total_samples=4,
+                num_batches=1,  # equals num_updates
+                total_samples=1,  # total samples to be visited in this routine
                 metric={'Loss hinge': 0.},
                 iteration=1,
-                epoch=0,
+                epoch=1,
                 batch_samples=1
             )
 

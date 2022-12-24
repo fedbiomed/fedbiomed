@@ -234,6 +234,7 @@ class ErrorNumbers(_BaseEnum):
     FB616 = "FB616: differential privacy controller error"
     FB617 = "FB617: FLamby dataset error"
     FB618 = "FB618: FLamby data transformation error"
+    FB619 = "FB619: Bad training arguments"
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

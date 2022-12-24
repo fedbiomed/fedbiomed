@@ -16,7 +16,7 @@ from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -310,7 +310,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Numpy array containing the unique values from the targets wrapped
             in the training and testing NPDataLoader instances.
         """
-        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
+        from fedbiomed.common.data.loaders import _generate_roughly_one_epoch
+        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in _generate_roughly_one_epoch(loader)])
 
     def save(
             self,

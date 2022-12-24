@@ -177,7 +177,7 @@ class Experiment(object):
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
-                launching it: lr, epochs, batch_size...
+                launching it: lr, num_updates, batch_size...
             save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
                 resuming a crashed experiment.
             tensorboard: whether to save scalar values  for displaying in Tensorboard during training for each node.
@@ -1241,7 +1241,7 @@ class Experiment(object):
         Args:
             training_args (dict): contains training arguments passed to the `training_routine` of the
                 [`fedbiomed.common.training_plans`][fedbiomed.common.training_plans] when launching it:
-                lr, epochs, batch_size...
+                lr, num_updates, batch_size...
             reset (bool, optional): whether to reset the training_args (if previous training_args has already been
                 set), or to update them with training_args. Defaults to True.
 

@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.data.loaders import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
@@ -56,6 +56,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self._training_args = None
 
     @abstractmethod
     def post_init(
@@ -452,6 +453,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            # Immediately exit if max num iterations was reached.
+            if idx > n_batches:
+                break
             # Run the evaluation step; catch and raise exceptions.
             try:
                 m_value = evaluate(data, target)
@@ -503,3 +507,40 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 `fedbiomed.common.metrics.Metrics` specs).
         """
         return NotImplemented
+
+    def num_parameter_updates(self) -> Tuple[int, int]:
+        """Compute the number of parameter updates for a mini-batch training loop.
+
+        Handles precedence rules between num_updates and epochs.
+        Assumes that num_updates, epochs and batch_maxnum exist in the training args, and have been set with a
+        default value of None, unless specified by the researcher.
+
+        Returns:
+            the number of parameter updates (i.e. training iterations) to be performed
+            the number of batches per epoch, for reporting purposes
+        """
+        # get the number of batches per epochs
+        num_batches_per_epoch = len(self.training_data_loader)
+        # override number of batches per epoch if researcher specified batch_maxnum
+        if self._training_args['batch_maxnum'] is not None and self._training_args['batch_maxnum'] > 0:
+            num_batches_per_epoch = self._training_args['batch_maxnum']
+        # compute number of updates
+        # first scenario: researcher specified num_updates
+        if self._training_args['num_updates'] is not None:
+            if self._training_args['epochs'] is not None:
+                logger.warning("Both `num_updates` and `epochs` have been specified in training arguments."
+                               "`epochs` will be ignored.")
+            if self._training_args['batch_maxnum'] is not None:
+                logger.warning("Both `num_updates` and `batch_maxnum` have been specified in training arguments."
+                               "`batch_maxnum` will be ignored.")
+                # revert to correct value of num_batches_per_epoch following our precedence rules
+                # since this was a configuration mistake (both num_updates and batch_maxnum specified)
+                num_batches_per_epoch = len(self.training_data_loader)
+            return self._training_args['num_updates'], num_batches_per_epoch
+        # second scenario: researcher specified epochs -> compute number of updates ourselves
+        elif self._training_args['epochs'] is not None:
+            return self._training_args['epochs']*num_batches_per_epoch, num_batches_per_epoch
+        else:
+            msg = f"{ErrorNumbers.FB619}. Either `num_updates` or `epochs` must be specified in training arguments."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)

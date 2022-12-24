@@ -124,7 +124,10 @@ class TestSkLearnDataManager(unittest.TestCase):
         loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
         self.assertEqual(len(loader_test), 0)
 
+        n_iter = len(self.inputs)
         for i, (data, target) in enumerate(loader_train):
+            if i >= n_iter:
+                break
             self.assertNPArrayEqual(data, self.inputs[i, :])
             self.assertNPArrayEqual(target, self.target[i])
 
@@ -132,25 +135,19 @@ class TestSkLearnDataManager(unittest.TestCase):
         sklearn_data_manager = SkLearnDataManager(inputs=self.inputs,
                                                   target=self.target,
                                                   batch_size=batch_size,
-                                                  shuffle=False,
-                                                  drop_last=True)
+                                                  shuffle=False)
 
         loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
         self.assertEqual(len(loader_test), 0)
 
-        count_iter = 0
+        n_iter = 4
+        concatenated_inputs = np.concatenate(3*[self.inputs])
+        concatenated_target = np.concatenate(3*[self.target])
         for i, (data, target) in enumerate(loader_train):
-            self.assertNPArrayEqual(data, self.inputs[:batch_size, :])
-            self.assertNPArrayEqual(target, self.target[:batch_size])
-            count_iter += 1
-
-        self.assertEqual(count_iter, 1)  # assert that only one iteration was made because of drop_last=True
-
-
-
-
-
-
+            if i >= n_iter:
+                break
+            self.assertNPArrayEqual(data, concatenated_inputs[i*batch_size:(i+1)*batch_size, :])
+            self.assertNPArrayEqual(target, concatenated_target[i*batch_size:(i+1)*batch_size])
 
 
 if __name__ == '__main__':  # pragma: no cover

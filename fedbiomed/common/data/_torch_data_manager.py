@@ -13,6 +13,7 @@ from torch.utils.data import random_split
 
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data.loaders import CyclingRandomSampler, CyclingSequentialSampler
 
 from ._sklearn_data_manager import SkLearnDataManager
 
@@ -177,7 +178,14 @@ class TorchDataManager(object):
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = DataLoader(dataset, **kwargs)
+            shuffle = False
+            if 'shuffle' in kwargs:
+                shuffle = kwargs.pop('shuffle')
+            if not shuffle:
+                loader = DataLoader(dataset, sampler=CyclingSequentialSampler(dataset), **kwargs)
+            else:
+                generator = kwargs.get('generator')
+                loader = DataLoader(dataset, sampler=CyclingRandomSampler(dataset, generator=generator), **kwargs)
         except AttributeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}:  Error while creating Torch DataLoader due to undefined attribute"

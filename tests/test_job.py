@@ -99,7 +99,7 @@ class TestJob(unittest.TestCase):
 
         # Build Global Job that will be used in most of the tests
         self.job = Job(training_plan_class=self.model,
-                       training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                       training_args=TrainingArgs({"batch_size": 12, "num_updates": 1}, only_required=False),
                        data=self.fds)
 
     def tearDown(self) -> None:

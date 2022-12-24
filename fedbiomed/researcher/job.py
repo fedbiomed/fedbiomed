@@ -57,7 +57,7 @@ class Job:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
             training_plan_path: Path to file containing model class code
-            training_args: Contains training parameters; lr, epochs, batch_size.
+            training_args: Contains training parameters; lr, num_updates, batch_size.
             model_args: Contains output and input feature dimension
             data: Federated datasets
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
@@ -688,7 +688,7 @@ class localJob:
             dataset_path : The path where data is stored on local disk.
             training_plan_class: Name of the model class to use for training or model class.
             training_plan_path: path to file containing model code. Defaults to None.
-            training_args: contains training parameters: lr, epochs, batch_size...
+            training_args: contains training parameters: lr, num_updates, batch_size...
             model_args: contains output and input feature dimension.
         """
 

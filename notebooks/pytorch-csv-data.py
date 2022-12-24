@@ -96,7 +96,7 @@ training_args = {
     'optimizer_args': {
         'lr': 1e-3
     }, 
-    'epochs': 10, 
+    'num_updates': 500,
     'dry_run': False,  
 }
 

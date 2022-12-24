@@ -93,7 +93,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 # This group of arguments correspond respectively:
 # * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
-# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
+# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, num_updates, etc.). This will be passed to the routine on the node side.
 # 
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
@@ -102,7 +102,7 @@ training_args = {
     'optimizer_args': {
         'lr': 1e-3
     },
-    'epochs': 1, 
+    'num_updates': 200,
     'dry_run': False,  
     'batch_maxnum': 200 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
@@ -169,7 +169,7 @@ from fedbiomed.researcher.environ import environ
 rounds = 2
 
 # local train on same amount of data as federated with 1 node
-training_args['epochs'] *= rounds
+training_args['num_updates'] *= rounds
 
 local_job = localJob( dataset_path = local_mnist,
           training_plan_class=MyTrainingPlan,
