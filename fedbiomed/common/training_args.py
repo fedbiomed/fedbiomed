@@ -272,16 +272,18 @@ class TrainingArgs:
                 "rules": [int], "required": True, "default": 1
             },
             "epochs": {
-                "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": False, "default": None
+                "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": True, "default": None
             },
             "num_updates": {
-                "rules": [cls._nonnegative_integer_value_validator_hook('num_updates')], "required": False, "default": None
+                "rules": [cls._nonnegative_integer_value_validator_hook('num_updates')],
+                "required": True, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [cls._nonnegative_integer_value_validator_hook('batch_maxnum')], "required": True, "default": 0
+                "rules": [cls._nonnegative_integer_value_validator_hook('batch_maxnum')],
+                "required": True, "default": None
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
@@ -292,11 +294,9 @@ class TrainingArgs:
             "test_on_global_updates": {
                 "rules": [bool], "required": False, "default": False
             },
-
             "test_metric": {
                 "rules": [cls._metric_validation_hook], "required": False, "default": None
             },
-
             "test_metric_args": {
                 "rules": [dict], "required": False, "default": {}
             },

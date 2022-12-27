@@ -71,6 +71,11 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             history_monitor (HistoryMonitor, None): optional HistoryMonitor
                 instance, recording the loss value during training.
         """
+        # set number of training loop iterations
+        num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
+        # setup accounting for monitoring purposes
+        total_batches_to_be_observed: int = num_epochs*num_batches_per_epoch + num_batches_in_last_epoch
+        total_n_samples_to_be_observed: int = self._training_args['batch_size']*total_batches_to_be_observed
         # Gather reporting parameters.
         report = False
         if (history_monitor is not None) and hasattr(self._model, "verbose"):
@@ -81,34 +86,37 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
-                num_batches=len(self.training_data_loader),
-                total_samples=len(self.training_data_loader.dataset)
+                num_batches=total_batches_to_be_observed,
+                total_samples=total_n_samples_to_be_observed
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
         # Iterate over epochs.
-        for epoch in range(self._training_args.get("epochs", 1)):
+        for epoch in range(1, num_epochs + 2):
+            _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
+            training_iter: Iterator = iter(self.training_data_loader)
             # Iterate over data batches.
-            for idx, batch in enumerate(self.training_data_loader, start=1):
-                inputs, target = batch
+            for idx in range(1, _n_batches_in_this_epoch + 1):
+                inputs, target = next(training_iter)
                 loss = self._train_over_batch(inputs, target, report)
                 # Optionally report on the batch training loss.
-                if report and (idx % log_interval == 0) and not np.isnan(loss):
+                if report and \
+                        not np.isnan(loss) and \
+                        (idx % log_interval == 1 or
+                         idx >= _n_batches_in_this_epoch):
                     record_loss(
                         metric={loss_name: loss},
-                        iteration=idx,
+                        iteration=(epoch-1)*num_batches_per_epoch + idx,
                         epoch=epoch,
                         batch_samples=len(inputs)
                     )
+                    n_samples_observed_till_now = ((epoch-1)*num_batches_per_epoch + idx)*len(inputs)
                     logger.debug(
                         f"Train Epoch: {epoch} "
-                        f"Batch: {idx}/{record_loss.keywords['num_batches']}"
+                        f"[{n_samples_observed_till_now}/{total_n_samples_to_be_observed} "
+                        f"({100.*n_samples_observed_till_now/total_n_samples_to_be_observed:.0f}%)]"
                         f"\tLoss: {loss:.6f}"
                     )
-
-                if 0 < self._batch_maxnum <= idx:
-                    logger.info(f'Reached {self._batch_maxnum} batches for this epoch, ignore remaining data')
-                    break
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
@@ -311,7 +319,8 @@ class FedPerceptron(FedSGDClassifier):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
