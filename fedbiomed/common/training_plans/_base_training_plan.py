@@ -533,14 +533,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 raise FedbiomedUserInputError(msg)
         # second scenario: researcher specified num_updates
         else:
-            epochs = training_args['num_updates'] // num_batches_per_epoch
-            remainder_batches = training_args['num_updates'] % num_batches_per_epoch
             if training_args['epochs'] is not None:
                 logger.warning('Both epochs and num_updates specified. num_updates takes precedence.')
             if training_args['batch_maxnum'] is not None:
                 logger.warning('Both batch_maxnum and num_updates specified. batch_maxnum will be ignored.')
                 # revert num_batches_per_epoch to correct value, ignoring batch_maxnum
                 num_batches_per_epoch = len(self.training_data_loader)
+            epochs = training_args['num_updates'] // num_batches_per_epoch
+            remainder_batches = training_args['num_updates'] % num_batches_per_epoch
         return epochs, remainder_batches, num_batches_per_epoch
 
 
