@@ -47,7 +47,7 @@ class TrainingArgs:
     necessary to train/validate a TrainingPlan.
 
     It also permits to extend the TrainingArgs then testing new features
-    by supplying an extra_scheme at TraininfArgs instanciation.
+    by supplying an extra_scheme at TrainingArgs instantiation.
     """
 
     def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
@@ -71,7 +71,6 @@ class TrainingArgs:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
         
-        self._num_updates_unset = True
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -101,8 +100,6 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        if self._ta.get('num_updates') is not None:
-            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except ValidateError as e:
@@ -111,7 +108,7 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        # Validate DP arguments if it is existing in training arguments --------------------------------------------
+        # Validate DP arguments if it is existing in training arguments
         if self._ta["dp_args"] is not None:
             try:
                 self._ta["dp_args"] = DPArgsValidator.populate_with_defaults(self._ta["dp_args"], only_required=False)
