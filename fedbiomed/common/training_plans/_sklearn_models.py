@@ -102,8 +102,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 # Optionally report on the batch training loss.
                 if report and \
                         not np.isnan(loss) and \
-                        (idx % log_interval == 1 or
-                         idx >= _n_batches_in_this_epoch):
+                        (idx % log_interval == 0 or
+                         idx >= _n_batches_in_this_epoch or  # last batch
+                         idx == 1):  # first batch
                     record_loss(
                         metric={loss_name: loss},
                         iteration=(epoch-1)*num_batches_per_epoch + idx,

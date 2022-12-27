@@ -451,8 +451,6 @@ class TestTorchnn(unittest.TestCase):
         while the second iteration should report a progress of 10/15 (66%). Last iteration should report
         15/15 (100%). Only one epoch should be completed.
         """
-
-
         tp = TorchTrainingPlan()
         tp._optimizer = MagicMock(sepc=torch.optim.SGD)
         tp._model = torch.nn.Module()
@@ -462,8 +460,12 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(pec=Dataset)
         
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
-        tp._training_args = {'batch_size': batch_size, 'optimizer_args': {}, 'epochs': 1, 'batch_maxnum': None}
-        mocked_loss_result = MagicMock(spec=torch.Tensor, return_value = torch.Tensor([0.]))
+        tp._training_args = {'batch_size': batch_size,
+                             'optimizer_args': {},
+                             'epochs': 1,
+                             'batch_maxnum': None,
+                             'num_updates': None}
+        mocked_loss_result = MagicMock(spec=torch.Tensor, return_value=torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
 
@@ -476,7 +478,6 @@ class TestTorchnn(unittest.TestCase):
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
-        #tp.training_data_loader.dataset = MagicMock()
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
 
@@ -494,8 +495,6 @@ class TestTorchnn(unittest.TestCase):
                 self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
-        # TODO: do the same for `num_updates`
-        
     def test_torchnn_05_num_updates(self):
         """Test that num_updates parameter is respected correctly.
 e
@@ -526,8 +525,10 @@ e
             tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
             tp.training_data_loader.__len__.return_value = num_batches_per_epoch
-            tp._num_updates = num_updates
-            tp._training_args = {'batch_size': batch_size, 'batch_maxnum': None}
+            tp._training_args = {'batch_size': batch_size,
+                                 'batch_maxnum': None,
+                                 'num_updates': num_updates,
+                                 'epochs': None}
             return tp
 
         # Case where we do 1 single epoch with 1 batch
@@ -622,7 +623,8 @@ e
             tp._training_args = {'batch_size': batch_size,
                                  'optimizer_args': tp._optimizer_args,
                                  'epochs': 1,
-                                 'batch_maxnum': None}
+                                 'batch_maxnum': None,
+                                 'num_updates': None}
             return tp
         
         model = torch.nn.Linear(3, 1)
@@ -748,10 +750,11 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
 
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tensors(self, patch_tensor_backward):
+        batch_size = 1
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
+        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None, 'num_updates': 1}
 
         tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)), batch_size=2, dataset=[1, 2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
@@ -772,10 +775,11 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
 
     @patch('torch.Tensor.backward')
     def test_data_loader_returns_tuples(self, patch_tensor_backward):
+        batch_size = 1
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
+        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None, 'num_updates': 1}
 
         mock_dataset = MagicMock(spec=Dataset())
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=3)
@@ -802,7 +806,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
+        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None, 'num_updates': 1}
 
         # Set training data loader ---------------------------------------------------------------------------
         mock_dataset = MagicMock(spec=Dataset())
@@ -813,12 +817,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
                                                 ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
                                     )
-        tp.training_data_loader.__len__.return_value = 2  # otherwise, mocked training_data_loader equals 0
+        tp.training_data_loader.__len__.return_value = 1
         tp.training_data_loader.__iter__.return_value = gen_load_data_as_tuples
 
-        # --------------------------------------------------------------------------------------------------
-        
-        tp._num_updates = 1
         class FakeDPController:
             def before_training(self, model, optimizer, loader):
                 return tp._model, tp._optimizer, tp.training_data_loader

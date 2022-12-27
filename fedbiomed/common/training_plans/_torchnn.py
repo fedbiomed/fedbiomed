@@ -23,7 +23,6 @@ from fedbiomed.common.utils import get_method_spec
 
 from ._base_training_plan import BaseTrainingPlan
 
-
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
@@ -113,7 +112,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             model_args: Dict[str, Any],
             training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
-            ) -> None:
+    ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -147,7 +146,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._aggregator_args = aggregator_args or {}
 
         self.set_aggregator_args(self._aggregator_args)
-        #self.aggregator_name = self._aggregator_args.get('aggregator_name')
+        # self.aggregator_name = self._aggregator_args.get('aggregator_name')
         # FIXME: we should have a AggregatorHandler that handles aggregator args
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
@@ -438,8 +437,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
 
         # setup accounting for monitoring purposes
-        total_batches_to_be_observed: int = num_epochs*num_batches_per_epoch + num_batches_in_last_epoch
-        total_n_samples_to_be_observed: int = self._training_args['batch_size']*total_batches_to_be_observed
+        total_batches_to_be_observed: int = num_epochs * num_batches_per_epoch + num_batches_in_last_epoch
+        total_n_samples_to_be_observed: int = self._training_args['batch_size'] * total_batches_to_be_observed
         n_samples_observed_till_now: int = 0
 
         # Training loop iterations
@@ -461,9 +460,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 corrected_loss, loss = self._train_over_batch(data, target)
 
                 # Monitoring if log_interval or last batch in epoch
-                if batch_idx % self._log_interval == 1 or \
-                        self._dry_run or \
-                        batch_idx >= _n_batches_in_this_epoch:
+                if (batch_idx % self._log_interval == 0 or
+                        self._dry_run or
+                        batch_idx >= _n_batches_in_this_epoch or  # last batch
+                        batch_idx == 1):  # first batch
                     # The node sees the "real" total number of samples observed until now
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
@@ -476,7 +476,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     if history_monitor is not None:
                         # the researcher only sees the average value of samples observed until now
                         history_monitor.add_scalar(metric={'Loss': loss.item()},
-                                                   iteration=(epoch-1)*num_batches_per_epoch + batch_idx,
+                                                   iteration=(epoch - 1) * num_batches_per_epoch + batch_idx,
                                                    epoch=epoch,
                                                    train=True,
                                                    num_batches=total_batches_to_be_observed,
@@ -542,7 +542,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
             before_train: bool
-        ) -> None:
+    ) -> None:
         """Evaluation routine, to be called once per round.
 
         !!! info "Note"
@@ -579,7 +579,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def predict(
             self,
             data: Any,
-        ) -> np.ndarray:
+    ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -646,7 +646,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # by an aggregator handler that contains all keys for all strategies implemented
                 # in fedbiomed
 
-                #setattr(self, arg_name, aggregator_arg)
+                # setattr(self, arg_name, aggregator_arg)
                 # here we ae loading all args that have been sent from file exchange system
                 self.correction_state = torch.load(aggregator_arg.get('param_path'))
 
@@ -670,7 +670,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 params = self.postprocess(self._model.state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
-                                                 f"{e}" )
+                                                 f"{e}")
 
         params = self._dp_controller.after_training(params)
         return params
@@ -682,7 +682,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-        
+
         for current_model, init_model in zip(self._model.parameters(), self._init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
