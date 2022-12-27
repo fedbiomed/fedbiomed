@@ -462,7 +462,7 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(pec=Dataset)
         
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
-        tp._training_args = {'batch_size': batch_size, 'optimizer_args': {}}
+        tp._training_args = {'batch_size': batch_size, 'optimizer_args': {}, 'epochs': 1, 'batch_maxnum': None}
         mocked_loss_result = MagicMock(spec=torch.Tensor, return_value = torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
@@ -527,7 +527,7 @@ e
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
             tp.training_data_loader.__len__.return_value = num_batches_per_epoch
             tp._num_updates = num_updates
-            tp._training_args = {'batch_size': batch_size}
+            tp._training_args = {'batch_size': batch_size, 'batch_maxnum': None}
             return tp
 
         # Case where we do 1 single epoch with 1 batch
@@ -584,8 +584,7 @@ e
             """
             tp = TorchTrainingPlan()
             tp._set_device = MagicMock()
-            tp._batch_maxnum = 0
-            
+
             tp._model = copy.deepcopy(model)
             tp._log_interval = 1
             tp.training_data_loader = MagicMock()
@@ -620,6 +619,10 @@ e
             tp._optimizer_args = {"lr" : 1e-3}
             tp._optimizer = torch.optim.Adam(tp._model.parameters(), **tp._optimizer_args)
             tp._dp_controller = FakeDPController()
+            tp._training_args = {'batch_size': batch_size,
+                                 'optimizer_args': tp._optimizer_args,
+                                 'epochs': 1,
+                                 'batch_maxnum': None}
             return tp
         
         model = torch.nn.Linear(3, 1)
@@ -748,6 +751,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
+        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
 
         tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)), batch_size=2, dataset=[1, 2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
@@ -771,6 +775,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
+        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
 
         mock_dataset = MagicMock(spec=Dataset())
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=3)
@@ -797,7 +802,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = torch.nn.Module()
         tp._optimizer = MagicMock(spec=torch.optim.Adam)
-        tp._training_args = {'batch_size': batch_size}
+        tp._training_args = {'batch_size': batch_size, 'epochs': 1, 'batch_maxnum': None}
 
         # Set training data loader ---------------------------------------------------------------------------
         mock_dataset = MagicMock(spec=Dataset())

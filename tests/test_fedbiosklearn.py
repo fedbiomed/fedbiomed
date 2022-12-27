@@ -203,6 +203,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=1)
         training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
         training_plan._training_args['epochs'] = 1
+        training_plan._training_args['batch_maxnum'] = None
         with patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train:
             training_plan._training_routine(history_monitor=None)
             self.assertEqual(mocked_train.call_count, 4)
