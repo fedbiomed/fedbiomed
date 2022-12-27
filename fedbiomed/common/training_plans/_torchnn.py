@@ -4,7 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, OrderedDict, Union
+from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
 from copy import deepcopy
 
@@ -22,6 +22,9 @@ from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
 
 from ._base_training_plan import BaseTrainingPlan
+
+
+ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
 class TorchTrainingPlan(BaseTrainingPlan, ABC):
@@ -417,9 +420,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
-        self._set_device(self._use_gpu, node_args)
-
         # send all model to device, ensures having all the requested tensors
+        self._set_device(self._use_gpu, node_args)
         self._model.to(self._device)
 
         # Run preprocess when everything is ready before the training
@@ -435,20 +437,19 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # set number of training loop iterations
         num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
 
-        # setup accounting for monitoring the number of observed samples
-        total_n_samples_to_be_observed = self._training_args['batch_size']*(
-                num_epochs*num_batches_per_epoch + num_batches_in_last_epoch)
+        # setup accounting for monitoring purposes
+        total_batches_to_be_observed: int = num_epochs*num_batches_per_epoch + num_batches_in_last_epoch
+        total_n_samples_to_be_observed: int = self._training_args['batch_size']*total_batches_to_be_observed
         n_samples_observed_till_now: int = 0
 
         # Training loop iterations
         # we always iterate over one additional (possibly empty!) epoch to account for remainder batches
         for epoch in range(1, num_epochs + 2):
-            for batch_idx, (data, target) in enumerate(self.training_data_loader):
-                # Quick exit conditions: remainder batches in last epoch or batch_maxnum
-                if (batch_idx >= num_batches_in_last_epoch and epoch == num_epochs + 1) or \
-                        (batch_idx >= num_batches_per_epoch):
-                    logger.info('Reached {} batches for epoch {}. Iterations finished'.format(batch_idx+1, epoch))
-                    break
+            _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
+            training_iter: Iterator = iter(self.training_data_loader)
+            for batch_idx in range(1, _n_batches_in_this_epoch + 1):
+                # retrieve data and target
+                data, target = next(training_iter)
 
                 # handle training on accelerator devices
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
@@ -456,32 +457,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # update accounting for number of observed samples
                 n_samples_observed_till_now += self.__infer_batch_size(data)
 
-                # zer-out gradients
-                self._optimizer.zero_grad()
+                # train this batch
+                corrected_loss, loss = self._train_over_batch(data, target)
 
-                # compute loss
-                loss = self.training_step(data, target)  # raises an exception if not provided
-                corrected_loss = torch.clone(loss)
-
-                # If FedProx is enabled: use regularized loss function
-                if self._fedprox_mu is not None:
-                    corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
-
-                # Run the backward pass to compute parameters' gradients
-                corrected_loss.backward()
-
-                # If Scaffold is used: apply corrections to the gradients
-                if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
-                    for name, param in self._model.named_parameters():
-                        correction = self.correction_state.get(name)
-                        if correction is not None:
-                            param.grad.add_(correction.to(param.grad.device))
-
-                # Have the optimizer collect, refine and apply gradients
-                self._optimizer.step()
-
-                # Monitoring
-                if batch_idx % self._log_interval == 0 or self._dry_run:
+                # Monitoring if log_interval or last batch in epoch
+                if batch_idx % self._log_interval == 1 or \
+                        self._dry_run or \
+                        batch_idx >= _n_batches_in_this_epoch:
                     # The node sees the "real" total number of samples observed until now
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
@@ -494,11 +476,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     if history_monitor is not None:
                         # the researcher only sees the average value of samples observed until now
                         history_monitor.add_scalar(metric={'Loss': loss.item()},
-                                                   iteration=(epoch-1)*num_batches_per_epoch + batch_idx + 1,
+                                                   iteration=(epoch-1)*num_batches_per_epoch + batch_idx,
                                                    epoch=epoch,
                                                    train=True,
-                                                   num_batches=num_batches_per_epoch*num_epochs +
-                                                                   num_batches_in_last_epoch,
+                                                   num_batches=total_batches_to_be_observed,
                                                    total_samples=total_n_samples_to_be_observed,
                                                    batch_samples=self._training_args['batch_size'])
 
@@ -514,6 +495,46 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
+
+    def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Train the model over a single batch of data.
+
+        This function handles all the torch-specific logic concerning model training, including backward propagation,
+        aggregator-specific correction terms, and optimizer stepping.
+
+        Args:
+            data: the input data to the model
+            target: the training labels
+
+        Returns:
+            corrected loss: the loss value used for backward propagation, including any correction terms
+            loss: the uncorrected loss for reporting
+        """
+        # zero-out gradients
+        self._optimizer.zero_grad()
+
+        # compute loss
+        loss = self.training_step(data, target)  # raises an exception if not provided
+        corrected_loss = torch.clone(loss)
+
+        # If FedProx is enabled: use regularized loss function
+        if self._fedprox_mu is not None:
+            corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+
+        # Run the backward pass to compute parameters' gradients
+        corrected_loss.backward()
+
+        # If Scaffold is used: apply corrections to the gradients
+        if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+            for name, param in self._model.named_parameters():
+                correction = self.correction_state.get(name)
+                if correction is not None:
+                    param.grad.add_(correction.to(param.grad.device))
+
+        # Have the optimizer collect, refine and apply gradients
+        self._optimizer.step()
+
+        return corrected_loss, loss
 
     def testing_routine(
             self,
