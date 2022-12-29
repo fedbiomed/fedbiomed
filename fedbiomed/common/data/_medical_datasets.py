@@ -542,7 +542,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
-        self._demographics_transform = demographics_transform
+        self._demographics_transform = demographics_transform if demographics_transform is not None else lambda x: {}
 
         # Image loader
         self._reader = Compose([
