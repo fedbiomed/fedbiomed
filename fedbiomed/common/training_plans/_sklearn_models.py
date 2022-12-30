@@ -87,11 +87,13 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
         # Iterate over epochs.
+        num_training_samples_observed: int = 0
         for epoch in range(self._training_args.get("epochs", 1)):
             # Iterate over data batches.
             for idx, batch in enumerate(self.training_data_loader, start=1):
                 inputs, target = batch
                 loss = self._train_over_batch(inputs, target, report)
+                num_training_samples_observed += len(inputs)
                 # Optionally report on the batch training loss.
                 if report and (idx % log_interval == 0) and not np.isnan(loss):
                     record_loss(
@@ -112,6 +114,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
+        self.training_monitoring_info['num_training_samples_observed'] = num_training_samples_observed
 
     def _train_over_batch(
             self,
@@ -311,7 +314,8 @@ class FedPerceptron(FedSGDClassifier):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
