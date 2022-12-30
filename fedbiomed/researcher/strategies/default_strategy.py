@@ -134,8 +134,10 @@ class DefaultStrategy(Strategy):
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # so far, everything is OK
-        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
-        weights = [{key: val[0]["shape"][0] / totalrows} for (key, val) in self._fds.data().items()]
+        total_observed_samples = sum([tr['num_training_samples_observed'] for tr in training_replies])
+        weights = [
+            {node_id: tr['num_training_samples_observed']/total_observed_samples} for node_id, tr in training_replies
+        ]
         logger.info('Nodes that successfully reply in round ' +
                     str(round_i) + ' ' +
                     str(self._success_node_history[round_i]))
