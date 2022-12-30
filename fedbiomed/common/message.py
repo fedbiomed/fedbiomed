@@ -608,6 +608,7 @@ class TrainReply(Message):
     node_id: str
     dataset_id: str
     params_url: str
+    extra_data_url: str
     timing: dict
     msg: str
     command: str

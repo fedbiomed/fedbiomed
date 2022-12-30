@@ -13,6 +13,7 @@ import inspect
 import importlib
 from typing import Dict, Iterable, Union, Any, Optional, Tuple, List
 import uuid
+import joblib
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -322,18 +323,25 @@ class Round:
             results['job_id'] = self.job_id
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
-            results['optimizer_args'] = self.training_plan.optimizer_args()
-            results['num_training_samples_observed'] = \
-                self.training_plan.training_monitoring_info['num_training_samples_observed']
+
+            # Upload extra data
+            extra_data: Dict[str, Any] = {'researcher_id': self.researcher_id, 'job_id': self.job_id,
+                                          'node_id': environ['NODE_ID'],
+                                          'optimizer_args': self.training_plan.optimizer_args(),
+                                          'num_training_samples_observed': self.training_plan.training_monitoring_info[
+                                                'num_training_samples_observed']}
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
-                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + str(uuid.uuid4()) + '.pt')
+                file_id = str(uuid.uuid4())
+                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + file_id + '.pt')
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-
-
+                filename = os.path.join(environ['TMP_DIR'], 'extra_data_' + file_id + '.pt')
+                joblib.dump(extra_data, filename)
+                extra_data_res = self.repository.upload_file(filename)
+                logger.info("extra data uploaded successfully ")
             except Exception as e:
                 is_failed = True
                 error_message = f"Cannot upload results: {str(e)}"
@@ -350,7 +358,8 @@ class Round:
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
-                                          params_url=res['file'])
+                                          params_url=res['file'],
+                                          extra_data_url=extra_data_res['file'])
         else:
             # Only for validation
             return self._send_round_reply(success=True)
@@ -359,6 +368,7 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
+                          extra_data_url: Union[str, None] = '',
                           timing: dict = {}) -> NodeMessages:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
@@ -382,6 +392,7 @@ class Round:
                                           'success': success,
                                           'dataset_id': self.dataset['dataset_id'] if success else '',
                                           'params_url': params_url,
+                                          'extra_data_url': extra_data_url,
                                           'msg': message,
                                           'timing': timing}).get_dict()
 

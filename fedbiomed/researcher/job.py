@@ -14,6 +14,7 @@ import tempfile
 import time
 import uuid
 import importlib
+import joblib
 from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
 
 import validators
@@ -437,14 +438,17 @@ class Job:
                     try:
                         _, params_path = self.repo.download_file(m['params_url'],
                                                                  'node_params_' + str(uuid.uuid4()) + '.pt')
+                        _, extra_data_path = self.repo.download_file(m['extra_data_url'],
+                                                                     'extra_data_' + str(uuid.uuid4()) + '.pt')
                     except FedbiomedRepositoryError as err:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
                     loaded_model = self._training_plan.load(params_path, to_params=True)
                     params = loaded_model['model_params']
-                    optimizer_args = loaded_model.get('optimizer_args')
-                    num_training_samples_observed = loaded_model.get('num_training_samples_observed')
+                    extra_data = joblib.load(extra_data_path)
+                    optimizer_args = extra_data.get('optimizer_args')
+                    num_training_samples_observed = extra_data.get('num_training_samples_observed')
                 else:
                     params_path = None
                     params = None
