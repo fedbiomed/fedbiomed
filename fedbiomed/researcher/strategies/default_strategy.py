@@ -134,11 +134,19 @@ class DefaultStrategy(Strategy):
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # so far, everything is OK
-        total_observed_samples = sum([tr['num_training_samples_observed'] for tr in training_replies])
+        total_observed_samples = sum([self._n_observed_samples(tr) for tr in training_replies])
         weights = [
-            {node_id: tr['num_training_samples_observed']/total_observed_samples} for node_id, tr in training_replies
+            {tr['node_id']: self._n_observed_samples(tr)/total_observed_samples} for tr in training_replies
         ]
         logger.info('Nodes that successfully reply in round ' +
                     str(round_i) + ' ' +
                     str(self._success_node_history[round_i]))
         return models_params, weights
+
+    def _n_observed_samples(self, tr: Responses):
+        n_samples_from_response = tr.get('num_training_samples_observed')
+        if n_samples_from_response is not None:
+            return n_samples_from_response
+        else:
+            return self._fds.data()[tr['node_id']][0]['shape'][0]
+
