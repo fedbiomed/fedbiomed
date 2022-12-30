@@ -558,6 +558,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
                     break
 
+        self.training_monitoring_info['num_training_samples_observed'] = _cumul_batch_size
+
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes

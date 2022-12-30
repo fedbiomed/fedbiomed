@@ -56,6 +56,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.training_monitoring_info = {}
 
     @abstractmethod
     def post_init(
