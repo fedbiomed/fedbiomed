@@ -697,6 +697,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         This will be improved by issue #422.
 
+        Args:
+            data: Batch input data for training
+
         Returns:
             the batch size for the input data
         """
