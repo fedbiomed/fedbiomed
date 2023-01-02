@@ -6,6 +6,7 @@ from typing import List
 from abc import ABC, abstractmethod
 from enum import Enum
 import time
+import random
 
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -14,6 +15,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.node.environ import environ
+from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
 
 class SecaggSetup(ABC):
@@ -36,6 +38,9 @@ class SecaggSetup(ABC):
             job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         # check arguments
         self._v = Validator()
@@ -172,6 +177,9 @@ class SecaggServkeySetup(SecaggSetup):
             job_id: ID of the job to which this secagg context element is attached
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value 
         """
         super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
 
@@ -195,10 +203,21 @@ class SecaggServkeySetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        time.sleep(4)
-        logger.info(f"Not implemented yet, PUT SECAGG SERVKEY PAYLOAD HERE, job_id='{self._job_id}'")
-        msg = self._create_secagg_reply('', True)
+        manager = SecaggServkeyManager()
+        # also checks that `context` is attached to the job `self._job_id`
+        context = manager.get(self._secagg_id, self._job_id)
 
+        if context is None:
+            # create a context if it does not exist yet
+            time.sleep(4)
+            servkey_share = str(random.randrange(10**6))
+            logger.info("Not implemented yet, PUT SECAGG SERVKEY GENERATION PAYLOAD HERE, "
+                        f"secagg_id='{self._secagg_id}'")
+
+            manager.add(self._secagg_id, self._parties, self._job_id, servkey_share)
+
+        logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        msg = self._create_secagg_reply('', True)
         return msg
 
 
@@ -221,6 +240,9 @@ class SecaggBiprimeSetup(SecaggSetup):
             job_id: must be an empty string for a biprime context element (not attached to a job)
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
 
@@ -243,8 +265,18 @@ class SecaggBiprimeSetup(SecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        time.sleep(6)
-        logger.info(f"Not implemented yet, PUT SECAGG BIPRIME PAYLOAD HERE, job_id='{self._job_id}'")
-        msg = self._create_secagg_reply('', True)
+        manager = SecaggBiprimeManager()
+        context = manager.get(self._secagg_id)
 
+        if context is None:
+            # create a context if it does not exist yet
+            time.sleep(6)
+            biprime = str(random.randrange(10**12))
+            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
+                        f"secagg_id='{self._secagg_id}'")
+
+            manager.add(self._secagg_id, self._parties, biprime)
+
+        logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        msg = self._create_secagg_reply('', True)
         return msg

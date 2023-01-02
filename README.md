@@ -649,3 +649,4 @@ Fed-BioMed node and researcher components. The script for executing the protocol
 {FEDBIOMED_DIR}/scripts/fedbiomed_mpc shamir-server-key --help
 
 ```
+
