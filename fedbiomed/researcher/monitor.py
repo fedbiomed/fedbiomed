@@ -314,7 +314,7 @@ class Monitor:
         # Loging fancy feedback for training
         logger.info("\033[1m{}\033[0m \n"
                     "\t\t\t\t\t NODE_ID: {} \n"
-                    "\t\t\t\t\tRound {} {} Completed: {}/{} ({:.0f}%) \n {}"
+                    "\t\t\t\t\t Round {} {} Completed: {}/{} ({:.0f}%) \n {}"
                     "\t\t\t\t\t ---------".format(header.upper(),
                                                   message['node_id'],
                                                   self._round,
