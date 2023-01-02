@@ -508,7 +508,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """Computes the number of training iterations from the arguments given by researcher.
 
         This function assumes that a training dataloader has already been created.
-        If num_updates is specified, both epoch and batch_maxnum are ignored.
+        If `num_updates` is specified, both epoch and `batch_maxnum` are ignored.
+
+        Args:
+            training_args: Training arguments for one round training.
 
         Raises:
             FedbiomedUserInputError if neither num_updates nor epochs were specified.
