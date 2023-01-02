@@ -64,7 +64,7 @@ class CommonCLI:
         return self._description
 
     def set_environ(self, environ):
-        """Sets envrion object"""
+        """Sets envirion object"""
         self._environ = environ
 
     @staticmethod
@@ -85,7 +85,12 @@ class CommonCLI:
 
     def initialize_magic_dev_environment_parsers(self):
         """"""
-        magic = self._subparsers.add_parser('dev-magic', help="")
+        magic = self._subparsers.add_parser(
+            'certificate-setup',
+            help="Prepares development environment by registering certificates of each component created in a single "
+                 "clone of Fed-BioMed. Pares configuration files ends with '.ini' that are created in 'etc' directory. "
+                 "This setup requires to have one 'researcher' and at least 2 nodes."
+            )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
     def create_configuration(self):
@@ -140,8 +145,8 @@ class CommonCLI:
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
-            'prepare-my-certificate-for-email',
-            help="Prepare certificates of current component to send other FL participant through trusted channel.")
+            'certificate-registration',
+            help="Prepares certificate of current component to send other FL participant through trusted channel.")
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
