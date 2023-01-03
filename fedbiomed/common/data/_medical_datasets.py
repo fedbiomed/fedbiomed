@@ -778,7 +778,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         """
 
         # If demographics are present
-        if self._tabular_file and self._index_col:
+        if self._tabular_file and self._index_col is not None:
             complete_subject_folders = self.subjects_registered_in_demographics
         else:
             complete_subject_folders = self.subjects_has_all_modalities
@@ -806,7 +806,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
     def _get_from_demographics(self, subject_id):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
-        if self._tabular_file and self._index_col:
+        if self._tabular_file and self._index_col is not None:
             demographics = self.demographics.loc[subject_id].to_dict()
 
             # Extract only compatible types for torch
