@@ -451,7 +451,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 )
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
+        num_samples_observed_till_now: int = 0
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
                 m_value = evaluate(data, target)
@@ -465,6 +467,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Log the computed value.
             logger.debug(
                 f"Validation: Batch {idx}/{n_batches} "
+                f"| Samples {num_samples_observed_till_now}/{n_samples} "
                 f"| Metric[{metric_name}]: {m_value}"
             )
             # Further parse, and report it (provided a monitor is set).
@@ -478,7 +481,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     test_on_local_updates=(not before_train),
                     test_on_global_updates=before_train,
                     total_samples=n_samples,
-                    batch_samples=self._infer_batch_size(data),
+                    batch_samples=num_samples_observed_till_now,
                     num_batches=n_batches
                 )
 
