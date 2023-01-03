@@ -478,7 +478,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     test_on_local_updates=(not before_train),
                     test_on_global_updates=before_train,
                     total_samples=n_samples,
-                    batch_samples=len(target),
+                    batch_samples=self._infer_batch_size(data),
                     num_batches=n_batches
                 )
 
@@ -544,7 +544,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         return epochs, remainder_batches, num_batches_per_epoch
 
     @staticmethod
-    def _infer_batch_size(data: Union[dict, 'torch.Tensor', 'np.ndarray']) -> int:
+    def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
         """Utility function to guess batch size from data.
 
         This function is a temporary fix needed to handle the case where
@@ -559,11 +559,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if isinstance(data, dict):
             # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
             # compute length of the first modality
-            batch_size = len(list(data.values())[0])
+            return BaseTrainingPlan._infer_batch_size(next(iter(data.values())))
+        elif isinstance(data, (list, tuple)):
+            return BaseTrainingPlan._infer_batch_size(data[0])
         else:
-            # case `data` is a Tensor
+            # case `data` is a torch.Tensor or a np.ndarray
             batch_size = len(data)
-        return batch_size
+            return batch_size
 
 
 
