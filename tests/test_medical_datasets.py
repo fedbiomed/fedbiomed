@@ -448,8 +448,9 @@ class TestMedicalFolderDataset(unittest.TestCase):
         dataset = MedicalFolderDataset(self.root,
                                        tabular_file=self.tabular_file,
                                        index_col=self.index_col,
-                                       transform= Lambda(lambda x: 'this is a bad type for demographics '
-                                                         '( expecting a dict but passing a str)'),
+                                       demographics_transform= Lambda(
+                                           lambda x: 'this is a bad type for demographics'
+                                           ' ( expecting a dict but passing a str)'),
                                        )
         with self.assertRaises(FedbiomedDatasetError):
             dataset[0]
