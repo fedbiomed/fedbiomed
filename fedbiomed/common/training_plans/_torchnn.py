@@ -454,7 +454,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
 
                 # update accounting for number of observed samples
-                n_samples_observed_till_now += self.__infer_batch_size(data)
+                n_samples_observed_till_now += self._infer_batch_size(data)
 
                 # train this batch
                 corrected_loss, loss = self._train_over_batch(data, target)
@@ -687,24 +687,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
 
-    @staticmethod
-    def __infer_batch_size(data: Union[dict, torch.Tensor]) -> int:
-        """Utility function to guess batch size from data.
-
-        This function is a temporary fix needed to handle the case where
-        Opacus changes the batch_size dynamically, without communicating
-        it in any way.
-
-        This will be improved by issue #422.
-
-        Returns:
-            the batch size for the input data
-        """
-        if isinstance(data, dict):
-            # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
-            # compute length of the first modality
-            batch_size = len(list(data.values())[0])
-        else:
-            # case `data` is a Tensor
-            batch_size = len(data)
-        return batch_size

@@ -285,6 +285,37 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertEqual(remainder_batches, 0)
         self.assertEqual(num_batches_per_epoch, len_data_loader)
 
+    def test_base_training_plan_10_infer_batch_size(self):
+        """Test that the utility to infer batch size works correctly.
+
+        Supported data types are:
+            - torch tensor
+            - numpy array
+            - dict mapping {modality: tensor/array}
+        """
+        batch_size = 4
+        tp = SimpleTrainingPlan()
+
+        data = MagicMock(spec=torch.Tensor)
+        data.__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        data = MagicMock(spec=np.ndarray)
+        data.__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        data = {
+            'T1': MagicMock(spec=torch.Tensor)
+        }
+        data['T1'].__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        data = {
+            'T1': MagicMock(spec=np.ndarray)
+        }
+        data['T1'].__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

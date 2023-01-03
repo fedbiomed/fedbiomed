@@ -92,6 +92,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
         # Iterate over epochs.
+        n_samples_observed_till_now: int = 0
         for epoch in range(1, num_epochs + 2):
             _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
             training_iter: Iterator = iter(self.training_data_loader)
@@ -99,6 +100,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             for idx in range(1, _n_batches_in_this_epoch + 1):
                 inputs, target = next(training_iter)
                 loss = self._train_over_batch(inputs, target, report)
+                n_samples_observed_till_now += self._infer_batch_size(inputs)
                 # Optionally report on the batch training loss.
                 if report and \
                         not np.isnan(loss) and \
@@ -111,7 +113,6 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                         epoch=epoch,
                         batch_samples=len(inputs)
                     )
-                    n_samples_observed_till_now = ((epoch-1)*num_batches_per_epoch + idx)*len(inputs)
                     logger.debug(
                         f"Train Epoch: {epoch} "
                         f"[{n_samples_observed_till_now}/{total_n_samples_to_be_observed} "
