@@ -105,13 +105,15 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                         (idx % log_interval == 0 or
                          idx >= _n_batches_in_this_epoch or  # last batch
                          idx == 1):  # first batch
+
+                    n_samples_observed_till_now = ((epoch - 1) * num_batches_per_epoch + idx) * len(inputs)
                     record_loss(
                         metric={loss_name: loss},
                         iteration=(epoch-1)*num_batches_per_epoch + idx,
                         epoch=epoch,
-                        batch_samples=len(inputs)
+                        batch_samples=len(inputs),
+                        num_samples_trained=n_samples_observed_till_now
                     )
-                    n_samples_observed_till_now = ((epoch-1)*num_batches_per_epoch + idx)*len(inputs)
                     logger.debug(
                         f"Train Epoch: {epoch} "
                         f"[{n_samples_observed_till_now}/{total_n_samples_to_be_observed} "

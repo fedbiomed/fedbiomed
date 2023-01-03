@@ -446,6 +446,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for epoch in range(1, num_epochs + 2):
             _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
             training_iter: Iterator = iter(self.training_data_loader)
+
             for batch_idx in range(1, _n_batches_in_this_epoch + 1):
                 # retrieve data and target
                 data, target = next(training_iter)
@@ -454,7 +455,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
 
                 # update accounting for number of observed samples
-                n_samples_observed_till_now += self.__infer_batch_size(data)
+                batch_size = self.__infer_batch_size(data)
+                n_samples_observed_till_now += batch_size
 
                 # train this batch
                 corrected_loss, loss = self._train_over_batch(data, target)
@@ -464,6 +466,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         self._dry_run or
                         batch_idx >= _n_batches_in_this_epoch or  # last batch
                         batch_idx == 1):  # first batch
+
                     # The node sees the "real" total number of samples observed until now
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
@@ -479,9 +482,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                    iteration=(epoch - 1) * num_batches_per_epoch + batch_idx,
                                                    epoch=epoch,
                                                    train=True,
+                                                   num_samples_trained=n_samples_observed_till_now,
                                                    num_batches=total_batches_to_be_observed,
                                                    total_samples=total_n_samples_to_be_observed,
-                                                   batch_samples=self._training_args['batch_size'])
+                                                   batch_samples=batch_size)
 
                 # Handle dry run mode
                 if self._dry_run:
