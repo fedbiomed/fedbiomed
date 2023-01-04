@@ -1,8 +1,21 @@
-from typing import Tuple, Optional
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import Tuple, Optional, TypeVar
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 
+
+TTrainingIterationsAccountant = TypeVar(
+    "TTrainingIterationsAccountant",
+    bound="MiniBatchTrainingIterationsAccountant"
+)
+
+TBaseTrainingPlan = TypeVar(
+    "TBaseTrainingPlan",
+    bound="BaseTrainingPlan"
+)
 
 class MiniBatchTrainingIterationsAccountant:
     """Accounting class for keeping track of training iterations.
@@ -31,7 +44,7 @@ class MiniBatchTrainingIterationsAccountant:
         num_samples_observed_in_epoch: a counter for the number of samples observed in the current epoch, for reporting
         num_samples_observed_in_total: a counter for the number of samples observed total, for reporting
     """
-    def __init__(self, training_plan: 'BaseTrainingPlan'):
+    def __init__(self, training_plan: TBaseTrainingPlan):
         """Initialize the class.
 
         Arguments:
@@ -177,7 +190,7 @@ class MiniBatchTrainingIterationsAccountant:
         Attributes:
             _accountant: an instance of the class that created this iterator
         """
-        def __init__(self, accountant: 'MiniBatchTrainingIterationsAccountant'):
+        def __init__(self, accountant: TTrainingIterationsAccountant):
             self._accountant = accountant
 
         def __next__(self):
@@ -206,7 +219,7 @@ class MiniBatchTrainingIterationsAccountant:
         Attributes:
             _accountant: an instance of the class that created this iterator
         """
-        def __init__(self, accountant: 'MiniBatchTrainingIterationsAccountant'):
+        def __init__(self, accountant: TTrainingIterationsAccountant):
             self._accountant = accountant
 
         def __next__(self):
