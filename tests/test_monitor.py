@@ -149,6 +149,7 @@ class TestMonitor(unittest.TestCase):
             'batch_samples': 13,
             'num_batches': 1,
             'total_samples': 1000,
+            'num_samples_trained': 13,
             'iteration': 1,
             'epoch': 1,
             'command': 'add_scalar'
@@ -172,6 +173,7 @@ class TestMonitor(unittest.TestCase):
             'batch_samples': 13,
             'num_batches': 1,
             'total_samples': 1000,
+            'num_samples_trained': 13,
             'iteration': 2,
             'epoch': 1,
             'command': 'add_scalar'
@@ -193,6 +195,7 @@ class TestMonitor(unittest.TestCase):
             'batch_samples': 13,
             'num_batches': 1,
             'total_samples': 1000,
+            'num_samples_trained': 13,
             'iteration': 2,
             'epoch': 1,
             'command': 'add_scalar'

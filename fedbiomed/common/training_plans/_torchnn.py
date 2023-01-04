@@ -465,12 +465,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                         num_samples,
                         num_samples_max,
                         100. * num_samples / num_samples_max,
-                        loss))
+                        loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
                         # the researcher only sees the average value of samples observed until now
-                        history_monitor.add_scalar(metric={'Loss': loss},
+                        history_monitor.add_scalar(metric={'Loss': loss.item()},
                                                    iteration=num_iter,
                                                    epoch=epoch_to_report,
                                                    train=True,
