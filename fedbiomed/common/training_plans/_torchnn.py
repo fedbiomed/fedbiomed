@@ -17,6 +17,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.data import MFDatasetTensorCollate
 
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
@@ -376,6 +377,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         if isinstance(to_send, torch.Tensor):
             return to_send.to(device)
+        elif isinstance(to_send, MFDatasetTensorCollate):
+            return MFDatasetTensorCollate([self.send_to_device(d, device) for d in to_send])
         elif isinstance(to_send, dict):
             return {key: self.send_to_device(val, device) for key, val in to_send.items()}
         elif isinstance(to_send, tuple):

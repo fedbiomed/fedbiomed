@@ -124,8 +124,10 @@ class TorchDataManager(object):
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
 
-        loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
-                   self._subset_loader(self._subset_test, batch_size=len(self._subset_test)))
+        collate = self._dataset.collate if hasattr(self._dataset, 'collate') else None
+
+        loaders = (self._subset_loader(self._subset_train, collate_fn=collate, **self._loader_arguments),
+                   self._subset_loader(self._subset_test, collate_fn=collate, batch_size=len(self._subset_test)))
 
         return loaders
 
@@ -173,7 +175,6 @@ class TorchDataManager(object):
         Returns:
             Data loader for given dataset
         """
-
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples

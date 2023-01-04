@@ -120,7 +120,7 @@ class MFDatasetBatch(list):
 
         row_type = list(row_type.keys())[0]
 
-        if row_type not in (list, dict):
+        if row_type not in (list, dict, tuple):
             raise ValueError(f"MFDatasetBatch should contains lists or dicts not {row_type}")
 
         return row_type
@@ -374,6 +374,11 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             root = self.validate_MedicalFolder_root_folder(root)
 
         self._root = root
+        self._collate = medical_folder_dataset_batch_collate
+
+    @property
+    def collate(self):
+        return self._collate
 
     @property
     def root(self):
@@ -748,7 +753,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
                         f"in sample number {item} from dataset, error message is {e}.")
 
-        return (data, demographics), targets
+        return {"demographics": demographics, **data}, targets
 
     def __len__(self):
         """ Length method to get number of samples
