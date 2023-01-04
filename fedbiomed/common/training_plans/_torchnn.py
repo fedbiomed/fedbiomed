@@ -460,12 +460,16 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
                     epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                    logger.debug('Train {}[{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                        num_samples,
-                        num_samples_max,
-                        100. * num_samples / num_samples_max,
-                        loss.item()))
+                    logger.debug('Train {}| '
+                                 'Iteration {}/{} | '
+                                 'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
+                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                                    num_iter,
+                                    num_iter_max,
+                                    num_samples,
+                                    num_samples_max,
+                                    100. * num_iter / num_iter_max,
+                                    loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:

@@ -320,15 +320,17 @@ class Monitor:
         logger.info(
             "\033[1m{}\033[0m \n"
             "\t\t\t\t\t NODE_ID: {} \n"
-            "\t\t\t\t\t Round {}{} Completed: {}/{} ({:.0f}%) \n {}"
+            "\t\t\t\t\t Round {}{} Completed: {}/{} ({:.0f}%) Samples: {}/{}\n {}"
             "\t\t\t\t\t ---------".format(
                 header.upper(),
                 message['node_id'],
                 self._round,
                 '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
+                message["iteration"],
+                message["num_batches"],
+                100 * message["iteration"] / message["num_batches"],
                 message["num_samples_trained"] if message["num_samples_trained"] is not None else _min_iteration,
                 message['total_samples'],
-                100 * _min_iteration / message['total_samples'],
                 metric_result)
         )
 
