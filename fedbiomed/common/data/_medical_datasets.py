@@ -8,8 +8,9 @@ Provides classes managing dataset for common cases of use in healthcare:
 """
 from os import PathLike
 from pathlib import Path
-from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
+from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable, Any
 from enum import Enum
+from collections import Counter
 
 import torch
 import pandas as pd
@@ -19,6 +20,7 @@ from monai.data import ITKReader
 from monai.transforms import LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
+from torch.utils.data import default_collate
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
@@ -27,6 +29,134 @@ from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin
 
 class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
+
+
+class MFDatasetBatch(list):
+    """MFDatasetBatch for medical folder dataset batch representation.
+
+    This class extends built-in list class to provide property selection for batch of list or
+    dictionaries.
+
+    Attrs:
+        _collate: Function to collate data structure after selection.
+        _single_element_wrapper: Wraps single element selection in 2D list. It is selection
+            result itself by default.
+        _shape: Shape of batch.
+        _row_type: Indicates the type of single samples in a batch. It can only be [`dict`]
+            or [`list`].
+    """
+
+    def __init__(self, batch):
+        """Constructs MFDatasetBatch.
+
+        Args:
+            batch: Batch of medical folder dataset samples.
+        """
+
+        if not batch:
+            raise ValueError("MFDatasetBatch can not be empty.")
+
+        super().__init__(batch)
+
+        self._collate: Callable = lambda x: x
+        self._single_element_wrapper: Union[Callable, List, Tuple] = lambda x: x
+        self._row_type: type = self._get_row_type()
+        self._shape: Union[None, list] = self._get_shape()
+
+    @property
+    def shape(self):
+        """Gets shape of MFDatasetBatch"""
+        return self._shape
+
+    def __getitem__(
+            self,
+            item: Union[tuple[int], int, str]
+    ) -> Union[List, Dict, Any]:
+        """Overwrites default list __getitem__
+
+        Args:
+            item: Item to select
+        """
+
+        if isinstance(item, str):
+            return self._get_modality_by_key(row=slice(0, len(self)), key=item)
+
+        if isinstance(item, tuple):
+            if len(item) != 2:
+                raise KeyError()
+
+            row, key = item
+            return self._get_modality_by_key(row=row, key=key)
+
+        # Do not wrapp or collate
+        return list.__getitem__(self, item)
+
+    def _get_modality_by_key(
+            self,
+            row: Union[slice, int],
+            key: Union[int, str]
+    ) -> Union[List, Dict, Any]:
+
+        if isinstance(row, slice):
+            return self._collate([r[key] for r in self[row]])
+        elif isinstance(row, int):
+            return self._collate(
+                self._single_element_wrapper(self[row][key])
+            )
+        raise TypeError(f"Row index should be slice or int not {type(row)}")
+
+    def _get_row_type(self):
+        """Gets row type of the batch
+
+        Raises:
+            ValueError: If row types are not homogenous or not one of [`list`] or [`dict`]
+        """
+        row_type = Counter([type(row) for row in self])
+
+        if len(row_type) != 1:
+            raise ValueError(
+                f"Types for each element of MFDatasetBatch should be same, but got {list(row_type.keys())}"
+            )
+
+        row_type = list(row_type.keys())[0]
+
+        if row_type not in (list, dict):
+            raise ValueError(f"MFDatasetBatch should contains lists or dicts not {row_type}")
+
+        return row_type
+
+    def _get_shape(self):
+        """"""
+        second_dim = list(Counter([len(row) for row in self]).keys())
+
+        if len(second_dim) > 1:
+            raise ValueError(f"Expected element length is {second_dim[0]} but got {{second_dim[0]}}")
+
+        return len(self), second_dim[0]
+
+
+class MFDatasetTensorCollate(MFDatasetBatch):
+    """MFDatasetBatch extension to collate tensors after selection
+
+    Sets [default_collate][`torch.utils.data.default.collate`] as collate functions
+    and wraps single element selection result with tuple in order to avoid TypeError
+    for [default_collate][`torch.utils.data.default.collate`] function.
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._collate = default_collate
+        self._single_element_wrapper = tuple
+
+
+def medical_folder_dataset_batch_collate(
+        batch: tuple[list, Union[list, torch.Tensor]]
+) -> tuple:
+    """"""
+    # Batch should be tuple as (data , target)
+    batch = MFDatasetBatch(batch)
+
+    return MFDatasetTensorCollate(batch[:, 0]), default_collate(batch[:, 1])
 
 
 class NIFTIFolderDataset(Dataset):
@@ -311,7 +441,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         if not all([type(m) is str for m in modalities]):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, "
                                         f"but some modalities are "
-                                        f"{' '.join([ str(type(m) for m in modalities if type(m) != str)])}")
+                                        f"{' '.join([str(type(m) for m in modalities if type(m) != str)])}")
         are_modalities_existing = list()
         for modality in modalities:
             modality_folder = self._subject_modality_folder(subject, modality)
@@ -898,18 +1028,18 @@ class MedicalFolderController(MedicalFolderBase):
     #   - `self.modalities()[1]` needs to be different for this purpose: return a list of list
     #     [['label', 'T1'], ['label', 'T1', 'T2']] + check a modality exists in all sub-lists ?
 
-    #def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
+    # def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
     #    """Checks whether subject folders contains at least one common modality
-#
+    #
     #    Args:
     #        _raise: Flag to indicate whether function should raise in case of error. If `False` returns
     #            tuple contains respectively `False` and error message
-#
+    #
     #    Returns:
     #        status: True, if folders contain at least one common modality
     #        message: Error message if folder do not contain at least one common modality. If they do, error message
     #            will be empty string
-#
+    #
     #    Raises:
     #        FedbiomedDatasetError:
     #    """
@@ -921,7 +1051,7 @@ class MedicalFolderController(MedicalFolderBase):
     #            raise FedbiomedDatasetError(message)
     #        else:
     #            return False, message
-#
+    #
     #    return True, ""
 
     def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
