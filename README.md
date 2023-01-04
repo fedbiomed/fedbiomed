@@ -14,7 +14,7 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
 
 Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.0) aka the master branch.
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.1) aka the master branch.
 
 
 ## Install and run in development environment
@@ -24,9 +24,9 @@ It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
-Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v4.0/tutorials/installation/0-basic-software-installation/
+Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v4.1/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v4.0/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v4.1/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
