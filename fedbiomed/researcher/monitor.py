@@ -181,9 +181,14 @@ class MetricStore(dict):
 
     @staticmethod
     def _cumulative_iteration(rounds: dict) -> int:
-        """Calculates cumulative iteration for the received metric value. Cumulative iteration
-        should be calculated for each metric value received during training/validation to add it as next `step`
-        in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+        """Calculates cumulative iteration for the received metric value.
+
+        Cumulative iteration should be calculated for each metric value received during training/validation to
+        add it as next `step` in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+        There are two assumptions in this implementation:
+
+            - iterations need to be successive
+            - last iteration index for each epoch should be same except last epoch
 
         Args:
             rounds: The dictionary that includes all the rounds for a metric, node and the phase
