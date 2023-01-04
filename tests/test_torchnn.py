@@ -488,8 +488,8 @@ class TestTorchnn(unittest.TestCase):
             training_progress_messages = [x for x in captured.output if re.search('Train Epoch: 1', x)]
             self.assertEqual(len(training_progress_messages), num_batches)  # Double-check correct number of train iters
             for i, logging_message in enumerate(training_progress_messages):
-                logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
-                logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
+                logged_num_processed_samples = int(logging_message.split('Samples')[1].split('/')[0])
+                logged_total_num_samples = int(logging_message.split('Samples')[1].split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
                 self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
