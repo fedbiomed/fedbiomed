@@ -4,7 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, OrderedDict, Union
+from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
 from copy import deepcopy
 
@@ -17,11 +17,12 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 
-from ._base_training_plan import BaseTrainingPlan
+ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
 class TorchTrainingPlan(BaseTrainingPlan, ABC):
@@ -110,7 +111,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             model_args: Dict[str, Any],
             training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
-            ) -> None:
+    ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -144,7 +145,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._aggregator_args = aggregator_args or {}
 
         self.set_aggregator_args(self._aggregator_args)
-        #self.aggregator_name = self._aggregator_args.get('aggregator_name')
+        # self.aggregator_name = self._aggregator_args.get('aggregator_name')
         # FIXME: we should have a AggregatorHandler that handles aggregator args
 
         self._dp_controller = DPController(training_args.dp_arguments() or None)
@@ -417,146 +418,76 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
-        self._set_device(self._use_gpu, node_args)
-
         # send all model to device, ensures having all the requested tensors
+        self._set_device(self._use_gpu, node_args)
         self._model.to(self._device)
 
         # Run preprocess when everything is ready before the training
         self._preprocess()
 
-        # Initialize training data that comes from Round class
-        # TODO: Decide whether it should attached to `self`
-        # self.data = data_loader
-
         # initial aggregated model parameters
         self._init_params = deepcopy(list(self._model.parameters()))
 
-
-        if self._num_updates is not None:
-            # compute num epochs and batches from num_updates
-            # We *always* perform one more epoch than what would be needed, to account for the remainder num_updates
-            # requested by the researcher. However, in the case where the num_updates divides the num_batches_per_epoch,
-            # the last epoch will have 0 iterations.
-
-            if self._batch_maxnum <= 0:
-                num_batches_per_epoch = len(self.training_data_loader)
-                num_epochs = self._num_updates // num_batches_per_epoch #+ 1
-            else:
-                # FIXME: we decided that batch_maxnum is the maximum number of batch an epoch can have
-                # so if num_updates > batch_maxnum, more epochs are performed till the number of updates
-                # reaches num_updates
-                num_batches_per_epoch = min(self._batch_maxnum, len(self.training_data_loader))
-                self._num_updates_set = self._num_updates
-                self._num_updates = min(self._num_updates, self._batch_maxnum)
-                num_epochs = max(self._num_updates, self._num_updates_set) // num_batches_per_epoch
-
-            if self._num_updates % num_batches_per_epoch:
-                # increment self._num_updates // num_batches_per_epoch
-                num_epochs += 1
-            if self._batch_maxnum <= 0:
-                num_batches_in_last_epoch = self._num_updates - num_batches_per_epoch * (num_epochs - 1)
-            else:
-                num_batches_in_last_epoch = self._num_updates_set - num_batches_per_epoch * (num_epochs - 1)
-
-        else:
-            num_epochs = self._epochs
-            num_batches_in_last_epoch = None
-        # DP actions --------------------------------------------------------------------------------------------
+        # DP actions
         self._model, self._optimizer, self.training_data_loader = \
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
-        _cumul_batch_size: int = 0
-        for epoch in range(1, num_epochs + 1):
+        # set number of training loop iterations
+        iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
 
-            # (below) sampling data (with `training_data` method defined on
-            # researcher's notebook)
-            # training_data = self.training_data(batch_size=batch_size)
-            num_samples_till_now = 0
-            for batch_idx, (data, target) in enumerate(self.training_data_loader):
+        # Training loop iterations
+        for epoch in iterations_accountant.iterate_epochs():
+            training_data_iter: Iterator = iter(self.training_data_loader)
 
-                # Quick exit if we are in the last epoch, and we have reached the total remainder of batches
-                if self._num_updates is not None and batch_idx >= num_batches_in_last_epoch and epoch == num_epochs:
-                    break
+            for batch_idx in iterations_accountant.iterate_batches():
+                # retrieve data and target
+                data, target = next(training_data_iter)
 
-                # Plus one since batch_idx starts from 0
-                batch_ = batch_idx + 1
+                # update accounting for number of observed samples
+                batch_size = self._infer_batch_size(data)
+                iterations_accountant.increment_sample_counters(batch_size)
 
+                # handle training on accelerator devices
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
-                self._optimizer.zero_grad()
 
-                loss = self.training_step(data, target)  # raises an exception if not provided
+                # train this batch
+                corrected_loss, loss = self._train_over_batch(data, target)
 
-                corrected_loss = torch.clone(loss)
-                # If FedProx is enabled: use regularized loss function
-                if self._fedprox_mu is not None:
-                    corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
-                # Run the backward pass to compute parameters' gradients
-                corrected_loss.backward()
+                # Reporting
+                if iterations_accountant.should_log_this_batch():
+                    # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
+                    num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
+                    num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                    epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                # If Scaffold is used: apply corrections to the gradients
-                if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
-                    for name, param in self._model.named_parameters():
-                        correction = self.correction_state.get(name)
-                        if correction is not None:
-                            param.grad.add_(correction.to(param.grad.device))
-
-                # Have the optimizer collect, refine and apply gradients
-                self._optimizer.step()
-
-                if batch_  % self._log_interval == 0 or batch_ == 1 or self._dry_run:
-                    # Warning: batch_size can change from one update to another, especially
-                    # if using Opacus
-                    # FIXME: `batch_size` should not be computed that way, but rather by calling 
-                    # `batch_size` attribute from `training_data_loader`. Please refer to issue #422
-                    # for further details
-                    if isinstance(data, dict):
-                        # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
-                        # compute length of the first modality
-                        batch_size = len(list(data.values())[0])
-                    else:
-                        # case `data` is a Tensor or a list
-                        batch_size = len(data)
-                    _cumul_batch_size += batch_size
-                    if self._num_updates is None:
-                        _len_data_loader = len(self.training_data_loader)
-                        _n_data_parsed = len(self.training_data_loader.dataset)
-                    else:
-                        _len_data_loader = self._num_updates
-                        try:
-                            _n_data_parsed = self._num_updates * self._training_args['batch_size']
-                        except KeyError as e:
-                            raise FedbiomedTrainingPlanError(f"Error in training_args, missing 'batch_size' { self._training_args}") 
-                    num_samples_till_now = min(_cumul_batch_size, len(self.training_data_loader.dataset))
-                    logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch,
-                        num_samples_till_now,
-                        _n_data_parsed,
-                        100 * num_samples_till_now / max(_n_data_parsed, 1),  # max to avoid division by 0 (if any)
-                        loss.item()))
+                    logger.debug('Train {}| '
+                                 'Iteration {}/{} | '
+                                 'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
+                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                                    num_iter,
+                                    num_iter_max,
+                                    num_samples,
+                                    num_samples_max,
+                                    100. * num_iter / num_iter_max,
+                                    loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
+                        # the researcher only sees the average value of samples observed until now
                         history_monitor.add_scalar(metric={'Loss': loss.item()},
-                                                   iteration=batch_,
-                                                   epoch=epoch,
+                                                   iteration=num_iter,
+                                                   epoch=epoch_to_report,
                                                    train=True,
-                                                   num_batches=_len_data_loader,
-                                                   total_samples=_n_data_parsed,
-                                                   batch_samples=len(data))
+                                                   num_samples_trained=num_samples,
+                                                   num_batches=num_iter_max,
+                                                   total_samples=num_samples_max,
+                                                   batch_samples=batch_size)
 
-
+                # Handle dry run mode
                 if self._dry_run:
                     self._model.to(self._device_init)
                     torch.cuda.empty_cache()
                     return
-
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
-                if (self._batch_maxnum > 0) and (batch_ >= self._batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(self._batch_maxnum))
-                    break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -565,13 +496,53 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
 
+    def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Train the model over a single batch of data.
+
+        This function handles all the torch-specific logic concerning model training, including backward propagation,
+        aggregator-specific correction terms, and optimizer stepping.
+
+        Args:
+            data: the input data to the model
+            target: the training labels
+
+        Returns:
+            corrected loss: the loss value used for backward propagation, including any correction terms
+            loss: the uncorrected loss for reporting
+        """
+        # zero-out gradients
+        self._optimizer.zero_grad()
+
+        # compute loss
+        loss = self.training_step(data, target)  # raises an exception if not provided
+        corrected_loss = torch.clone(loss)
+
+        # If FedProx is enabled: use regularized loss function
+        if self._fedprox_mu is not None:
+            corrected_loss += float(self._fedprox_mu) / 2 * self.__norm_l2()
+
+        # Run the backward pass to compute parameters' gradients
+        corrected_loss.backward()
+
+        # If Scaffold is used: apply corrections to the gradients
+        if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+            for name, param in self._model.named_parameters():
+                correction = self.correction_state.get(name)
+                if correction is not None:
+                    param.grad.add_(correction.to(param.grad.device))
+
+        # Have the optimizer collect, refine and apply gradients
+        self._optimizer.step()
+
+        return corrected_loss, loss
+
     def testing_routine(
             self,
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
             before_train: bool
-        ) -> None:
+    ) -> None:
         """Evaluation routine, to be called once per round.
 
         !!! info "Note"
@@ -608,7 +579,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def predict(
             self,
             data: Any,
-        ) -> np.ndarray:
+    ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -675,7 +646,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # by an aggregator handler that contains all keys for all strategies implemented
                 # in fedbiomed
 
-                #setattr(self, arg_name, aggregator_arg)
+                # setattr(self, arg_name, aggregator_arg)
                 # here we ae loading all args that have been sent from file exchange system
                 self.correction_state = torch.load(aggregator_arg.get('param_path'))
 
@@ -699,7 +670,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 params = self.postprocess(self._model.state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
-                                                 f"{e}" )
+                                                 f"{e}")
 
         params = self._dp_controller.after_training(params)
         return params
@@ -711,7 +682,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-        
+
         for current_model, init_model in zip(self._model.parameters(), self._init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
+

@@ -19,6 +19,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import SKLearnTrainingPlan
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 
 
 __all__ = [
@@ -71,44 +72,56 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             history_monitor (HistoryMonitor, None): optional HistoryMonitor
                 instance, recording the loss value during training.
         """
+        # set number of training loop iterations
+        iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
         report = False
         if (history_monitor is not None) and hasattr(self._model, "verbose"):
             report = True
-            log_interval = self._training_args.get("log_interval", 10)
             loss_name = getattr(self._model, "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
-                num_batches=len(self.training_data_loader),
-                total_samples=len(self.training_data_loader.dataset)
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
         # Iterate over epochs.
-        for epoch in range(self._training_args.get("epochs", 1)):
+        for epoch in iterations_accountant.iterate_epochs():
+            training_data_iter: Iterator = iter(self.training_data_loader)
             # Iterate over data batches.
-            for idx, batch in enumerate(self.training_data_loader, start=1):
-                inputs, target = batch
+            for batch in iterations_accountant.iterate_batches():
+                inputs, target = next(training_data_iter)
+                batch_size = self._infer_batch_size(inputs)
+                iterations_accountant.increment_sample_counters(batch_size)
                 loss = self._train_over_batch(inputs, target, report)
                 # Optionally report on the batch training loss.
-                if report and (idx % log_interval == 0) and not np.isnan(loss):
+                if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
+                    # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
+                    num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
+                    num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                    epoch_to_report = iterations_accountant.reporting_on_epoch()
+
+                    logger.debug('Train {}| '
+                                 'Iteration {}/{} | '
+                                 'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
+                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                                    num_iter,
+                                    num_iter_max,
+                                    num_samples,
+                                    num_samples_max,
+                                    100. * num_iter / num_iter_max,
+                                    loss))
+
                     record_loss(
                         metric={loss_name: loss},
-                        iteration=idx,
-                        epoch=epoch,
-                        batch_samples=len(inputs)
+                        iteration=num_iter,
+                        epoch=epoch_to_report,
+                        num_samples_trained=num_samples,
+                        num_batches=num_iter_max,
+                        total_samples=num_samples_max,
+                        batch_samples=batch_size
                     )
-                    logger.debug(
-                        f"Train Epoch: {epoch} "
-                        f"Batch: {idx}/{record_loss.keywords['num_batches']}"
-                        f"\tLoss: {loss:.6f}"
-                    )
-
-                if 0 < self._batch_maxnum <= idx:
-                    logger.info(f'Reached {self._batch_maxnum} batches for this epoch, ignore remaining data')
-                    break
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
@@ -311,7 +324,8 @@ class FedPerceptron(FedSGDClassifier):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
