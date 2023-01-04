@@ -33,8 +33,7 @@ class MiniBatchTrainingIterationsAccountant:
                 self.num_batches_in_last_epoch
             total_n_samples_to_be_observed = \
                 self._training_plan.training_args()['batch_size'] * total_batches_to_be_observed
-            num_samples_max = total_n_samples_to_be_observed if \
-                self.cur_batch < self.num_batches_in_this_epoch() else num_samples
+            num_samples_max = total_n_samples_to_be_observed
         else:
             num_samples = self.num_samples_observed_in_epoch
             num_samples_max = self._training_plan.training_args()['batch_size']*self.num_batches_in_this_epoch() if \
@@ -44,7 +43,8 @@ class MiniBatchTrainingIterationsAccountant:
     def reporting_on_num_iter(self):
         if self._training_plan.training_args()['num_updates'] is not None:
             num_iter = (self.cur_epoch - 1) * self.num_batches_per_epoch + self.cur_batch
-            total_batches_to_be_observed = self.epochs * self.num_batches_per_epoch + self.num_batches_in_last_epoch
+            total_batches_to_be_observed = (self.epochs - 1) * self.num_batches_per_epoch + \
+                self.num_batches_in_last_epoch
             num_iter_max = total_batches_to_be_observed
         else:
             num_iter = self.cur_batch
@@ -102,7 +102,7 @@ class MiniBatchTrainingIterationsAccountant:
             if self._training_plan.training_args()['batch_maxnum'] is not None:
                 logger.warning('Both batch_maxnum and num_updates specified. batch_maxnum will be ignored.')
                 # revert num_batches_per_epoch to correct value, ignoring batch_maxnum
-                num_batches_per_epoch = len(self._training_data_loader)
+                num_batches_per_epoch = len(self._training_plan.training_data_loader)
             epochs = self._training_plan.training_args()['num_updates'] // num_batches_per_epoch
             num_batches_in_last_epoch = self._training_plan.training_args()['num_updates'] % num_batches_per_epoch
 

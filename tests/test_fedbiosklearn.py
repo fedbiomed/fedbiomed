@@ -224,6 +224,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
                 train=True,
                 num_batches=1,
                 total_samples=1,
+                num_samples_trained=1,
                 metric={'Loss hinge': 0.},
                 iteration=1,
                 epoch=1,

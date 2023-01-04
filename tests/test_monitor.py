@@ -127,6 +127,7 @@ class TestMonitor(unittest.TestCase):
             'total_samples': 1000,
             'iteration': 1,
             'epoch': 1,
+            'num_samples_trained': 13,
             'command': 'add_scalar'
         })
         mock_summary_writer.assert_called_once_with(header='VALIDATION ON GLOBAL UPDATES',
