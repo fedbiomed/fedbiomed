@@ -507,48 +507,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return NotImplemented
 
-    def _n_training_iterations(self, training_args: Dict[str, Any]) -> Tuple[int, int, int]:
-        """Computes the number of training iterations from the arguments given by researcher.
-
-        This function assumes that a training dataloader has already been created.
-        If `num_updates` is specified, both epoch and `batch_maxnum` are ignored.
-
-        Args:
-            training_args: Training arguments for one round training.
-
-        Raises:
-            FedbiomedUserInputError if neither num_updates nor epochs were specified.
-
-        Returns:
-            number of epochs
-            number of remainder batches
-            number of batches per epoch
-        """
-        num_batches_per_epoch = len(self.training_data_loader)
-        # override number of batches per epoch if researcher specified batch_maxnum
-        if training_args['batch_maxnum'] is not None and training_args['batch_maxnum'] > 0:
-            num_batches_per_epoch = training_args['batch_maxnum']
-        # first scenario: researcher specified epochs
-        if training_args['num_updates'] is None:
-            if training_args['epochs'] is not None:
-                epochs = training_args['epochs']
-                remainder_batches = 0
-            else:
-                msg = f'{ErrorNumbers.FB605.value}. Must specify one of num_updates or epochs.'
-                logger.critical(msg)
-                raise FedbiomedUserInputError(msg)
-        # second scenario: researcher specified num_updates
-        else:
-            if training_args['epochs'] is not None:
-                logger.warning('Both epochs and num_updates specified. num_updates takes precedence.')
-            if training_args['batch_maxnum'] is not None:
-                logger.warning('Both batch_maxnum and num_updates specified. batch_maxnum will be ignored.')
-                # revert num_batches_per_epoch to correct value, ignoring batch_maxnum
-                num_batches_per_epoch = len(self.training_data_loader)
-            epochs = training_args['num_updates'] // num_batches_per_epoch
-            remainder_batches = training_args['num_updates'] % num_batches_per_epoch
-        return epochs, remainder_batches, num_batches_per_epoch
-
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
         """Utility function to guess batch size from data.

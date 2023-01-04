@@ -17,11 +17,10 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
-
-from ._base_training_plan import BaseTrainingPlan
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
@@ -434,57 +433,50 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
 
         # set number of training loop iterations
-        num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
-
-        # setup accounting for monitoring purposes
-        total_batches_to_be_observed: int = num_epochs * num_batches_per_epoch + num_batches_in_last_epoch
-        total_n_samples_to_be_observed: int = self._training_args['batch_size'] * total_batches_to_be_observed
-        n_samples_observed_till_now: int = 0
+        iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
 
         # Training loop iterations
-        # we always iterate over one additional (possibly empty!) epoch to account for remainder batches
-        for epoch in range(1, num_epochs + 2):
-            _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
-            training_iter: Iterator = iter(self.training_data_loader)
+        for epoch in iterations_accountant.iterate_epochs():
+            training_data_iter: Iterator = iter(self.training_data_loader)
 
-            for batch_idx in range(1, _n_batches_in_this_epoch + 1):
+            for batch_idx in iterations_accountant.iterate_batches():
                 # retrieve data and target
-                data, target = next(training_iter)
+                data, target = next(training_data_iter)
+
+                # update accounting for number of observed samples
+                batch_size = self._infer_batch_size(data)
+                iterations_accountant.increment_sample_counters(batch_size)
 
                 # handle training on accelerator devices
                 data, target = self.send_to_device(data, self._device), self.send_to_device(target, self._device)
 
-                # update accounting for number of observed samples
-                batch_size = self.__infer_batch_size(data)
-                n_samples_observed_till_now += batch_size
-
                 # train this batch
                 corrected_loss, loss = self._train_over_batch(data, target)
 
-                # Monitoring if log_interval or last batch in epoch
-                if (batch_idx % self._log_interval == 0 or
-                        self._dry_run or
-                        batch_idx >= _n_batches_in_this_epoch or  # last batch
-                        batch_idx == 1):  # first batch
+                # Reporting
+                if iterations_accountant.should_log_this_batch():
+                    # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
+                    num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
+                    num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                    epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                    # The node sees the "real" total number of samples observed until now
-                    logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch,
-                        n_samples_observed_till_now,
-                        total_n_samples_to_be_observed,
-                        100 * n_samples_observed_till_now / total_n_samples_to_be_observed,
-                        loss.item()))
+                    logger.debug('Train {}[{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                        num_samples,
+                        num_samples_max,
+                        100. * num_samples / num_samples_max,
+                        loss))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
                         # the researcher only sees the average value of samples observed until now
-                        history_monitor.add_scalar(metric={'Loss': loss.item()},
-                                                   iteration=(epoch - 1) * num_batches_per_epoch + batch_idx,
-                                                   epoch=epoch,
+                        history_monitor.add_scalar(metric={'Loss': loss},
+                                                   iteration=num_iter,
+                                                   epoch=epoch_to_report,
                                                    train=True,
-                                                   num_samples_trained=n_samples_observed_till_now,
-                                                   num_batches=total_batches_to_be_observed,
-                                                   total_samples=total_n_samples_to_be_observed,
+                                                   num_samples_trained=num_samples,
+                                                   num_batches=num_iter_max,
+                                                   total_samples=num_samples_max,
                                                    batch_samples=batch_size)
 
                 # Handle dry run mode

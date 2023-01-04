@@ -19,6 +19,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import SKLearnTrainingPlan
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 
 
 __all__ = [
@@ -72,55 +73,50 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 instance, recording the loss value during training.
         """
         # set number of training loop iterations
-        num_epochs, num_batches_in_last_epoch, num_batches_per_epoch = self._n_training_iterations(self.training_args())
-        # setup accounting for monitoring purposes
-        total_batches_to_be_observed: int = num_epochs*num_batches_per_epoch + num_batches_in_last_epoch
-        total_n_samples_to_be_observed: int = self._training_args['batch_size']*total_batches_to_be_observed
+        iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
         report = False
         if (history_monitor is not None) and hasattr(self._model, "verbose"):
             report = True
-            log_interval = self._training_args.get("log_interval", 10)
             loss_name = getattr(self._model, "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
-                num_batches=total_batches_to_be_observed,
-                total_samples=total_n_samples_to_be_observed
             )
             verbose = self._model.get_params("verbose")
             self._model.set_params(verbose=1)
         # Iterate over epochs.
-        n_samples_observed_till_now: int = 0
-        for epoch in range(1, num_epochs + 2):
-            _n_batches_in_this_epoch: int = num_batches_per_epoch if epoch <= num_epochs else num_batches_in_last_epoch
-            training_iter: Iterator = iter(self.training_data_loader)
+        for epoch in iterations_accountant.iterate_epochs():
+            training_data_iter: Iterator = iter(self.training_data_loader)
             # Iterate over data batches.
-            for idx in range(1, _n_batches_in_this_epoch + 1):
-                inputs, target = next(training_iter)
+            for batch in iterations_accountant.iterate_batches():
+                inputs, target = next(training_data_iter)
+                batch_size = self._infer_batch_size(inputs)
+                iterations_accountant.increment_sample_counters(batch_size)
                 loss = self._train_over_batch(inputs, target, report)
-                n_samples_observed_till_now += self._infer_batch_size(inputs)
                 # Optionally report on the batch training loss.
-                if report and \
-                        not np.isnan(loss) and \
-                        (idx % log_interval == 0 or
-                         idx >= _n_batches_in_this_epoch or  # last batch
-                         idx == 1):  # first batch
+                if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
+                    # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
+                    num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
+                    num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                    epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                    n_samples_observed_till_now = ((epoch - 1) * num_batches_per_epoch + idx) * len(inputs)
+                    logger.debug('Train {}[{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                        num_samples,
+                        num_samples_max,
+                        100. * num_samples / num_samples_max,
+                        loss))
+
                     record_loss(
                         metric={loss_name: loss},
-                        iteration=(epoch-1)*num_batches_per_epoch + idx,
-                        epoch=epoch,
-                        batch_samples=len(inputs),
-                        num_samples_trained=n_samples_observed_till_now
-                    )
-                    logger.debug(
-                        f"Train Epoch: {epoch} "
-                        f"[{n_samples_observed_till_now}/{total_n_samples_to_be_observed} "
-                        f"({100.*n_samples_observed_till_now/total_n_samples_to_be_observed:.0f}%)]"
-                        f"\tLoss: {loss:.6f}"
+                        iteration=num_iter,
+                        epoch=epoch_to_report,
+                        num_samples_trained=num_samples,
+                        num_batches=num_iter_max,
+                        total_samples=num_samples_max,
+                        batch_samples=batch_size
                     )
         # Reset model verbosity to its initial value.
         if report:
