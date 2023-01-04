@@ -128,7 +128,7 @@ class MiniBatchTrainingIterationsAccountant:
                 self.cur_batch >= self.num_batches_in_this_epoch() or  # last batch
                 self.cur_batch == 1)  # first batch
 
-    def _n_training_iterations(self) -> Tuple[int, int, int]:
+    def _n_training_iterations(self):
         """Computes the number of training iterations from the training arguments given by researcher.
 
         This function assumes that a training plan's dataloader has already been created.
@@ -139,7 +139,7 @@ class MiniBatchTrainingIterationsAccountant:
 
         Returns:
             number of epochs
-            number of remainder batches
+            number of batches in last epoch
             number of batches per epoch
         """
         num_batches_per_epoch = len(self._training_plan.training_data_loader)
