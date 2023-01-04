@@ -756,7 +756,6 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=True,
-
             researcher_id='toto',
             node_id='titi',
             job_id='tutu',
@@ -770,6 +769,7 @@ class TestMessage(unittest.TestCase):
             total_samples=12,
             batch_samples=12,
             num_batches=12,
+            num_samples_trained=12,
             command='do_it')
 
         # bad param number
@@ -1818,6 +1818,7 @@ class TestMessage(unittest.TestCase):
             "total_samples": 12,
             "batch_samples": 12,
             "num_batches": 12,
+            "num_samples_trained": 12,
             "command": 'add_scalar'
         }
 

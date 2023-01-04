@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_class_source
@@ -451,7 +451,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 )
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
+        num_samples_observed_till_now: int = 0
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
                 m_value = evaluate(data, target)
@@ -465,6 +467,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Log the computed value.
             logger.debug(
                 f"Validation: Batch {idx}/{n_batches} "
+                f"| Samples {num_samples_observed_till_now}/{n_samples} "
                 f"| Metric[{metric_name}]: {m_value}"
             )
             # Further parse, and report it (provided a monitor is set).
@@ -478,7 +481,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     test_on_local_updates=(not before_train),
                     test_on_global_updates=before_train,
                     total_samples=n_samples,
-                    batch_samples=len(target),
+                    batch_samples=num_samples_observed_till_now,
                     num_batches=n_batches
                 )
 
@@ -503,3 +506,33 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 `fedbiomed.common.metrics.Metrics` specs).
         """
         return NotImplemented
+
+    @staticmethod
+    def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
+        """Utility function to guess batch size from data.
+
+        This function is a temporary fix needed to handle the case where
+        Opacus changes the batch_size dynamically, without communicating
+        it in any way.
+
+        This will be improved by issue #422.
+
+        Returns:
+            the batch size for the input data
+        """
+        if isinstance(data, dict):
+            # case `data` is a dict (eg {'modality1': data1, 'modality2': data2}):
+            # compute length of the first modality
+            return BaseTrainingPlan._infer_batch_size(next(iter(data.values())))
+        elif isinstance(data, (list, tuple)):
+            return BaseTrainingPlan._infer_batch_size(data[0])
+        else:
+            # case `data` is a torch.Tensor or a np.ndarray
+            batch_size = len(data)
+            return batch_size
+
+
+
+
+
+

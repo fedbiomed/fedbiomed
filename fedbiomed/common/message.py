@@ -158,6 +158,7 @@ class AddScalarReply(Message):
     total_samples: int
     batch_samples: int
     num_batches: int
+    num_samples_trained: (int, type(None))
     iteration: int
     command: str
 

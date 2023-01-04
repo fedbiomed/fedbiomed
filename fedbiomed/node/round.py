@@ -225,7 +225,6 @@ class Round:
             error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,

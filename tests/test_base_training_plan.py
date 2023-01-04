@@ -209,6 +209,66 @@ class TestBaseTrainingPlan(unittest.TestCase):
     def test_base_training_plan_08_get_learning_rate(self):
         pass
 
+    def test_base_training_plan_09_infer_batch_size(self):
+        """Test that the utility to infer batch size works correctly.
+
+        Supported data types are:
+            - torch tensor
+            - numpy array
+            - dict mapping {modality: tensor/array}
+            - tuple or list containing the above
+        """
+        batch_size = 4
+        tp = SimpleTrainingPlan()
+
+        # Test simple case: data is a tensor
+        data = MagicMock(spec=torch.Tensor)
+        data.__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        # Test simple case: data is an array
+        data = MagicMock(spec=np.ndarray)
+        data.__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        # Text complex case: data is a dict of tensors
+        data = {
+            'T1': MagicMock(spec=torch.Tensor)
+        }
+        data['T1'].__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        # Test complex case: data is a list of dicts of arrays
+        data = [{
+            'T1': MagicMock(spec=np.ndarray)
+        },
+            {
+            'T1': MagicMock(spec=np.ndarray)
+        }, ]
+        data[0]['T1'].__len__.return_value = batch_size
+        self.assertEqual(tp._infer_batch_size(data), batch_size)
+
+        # Test random arbitrarily-nested data
+        collection_types = ('list', 'tuple', 'dict')
+        leaf_types = (torch.Tensor, np.ndarray)
+        data_leaf_type = leaf_types[np.random.randint(low=0, high=len(leaf_types)-1, size=1)[0]]
+        data = MagicMock(spec=data_leaf_type)
+        data.__len__.return_value = batch_size
+        num_nesting_levels = np.random.randint(low=1, high=5, size=1)[0]
+        nesting_types = list()  # for record-keeping purposes
+        for _ in range(num_nesting_levels):
+            collection_type = collection_types[np.random.randint(low=0, high=len(collection_types)-1, size=1)[0]]
+            nesting_types.append(collection_type)
+            if collection_type == 'list':
+                data = [data, data]
+            elif collection_type == 'tuple':
+                data = (data, data)
+            else:
+                data = {'T1': data, 'T2': data}
+        self.assertEqual(tp._infer_batch_size(data), batch_size,
+                         f'Inferring batch size failed on arbitrary nested collection of {nesting_types[::-1]} '
+                         f'and leaf type {data_leaf_type.__name__}')
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

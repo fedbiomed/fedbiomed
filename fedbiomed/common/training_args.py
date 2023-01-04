@@ -6,7 +6,7 @@ Provide a way to easily to manage training arguments.
 """
 
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union, Tuple
+from typing import Any, Dict, TypeVar, Union, Tuple, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -47,7 +47,7 @@ class TrainingArgs:
     necessary to train/validate a TrainingPlan.
 
     It also permits to extend the TrainingArgs then testing new features
-    by supplying an extra_scheme at TraininfArgs instanciation.
+    by supplying an extra_scheme at TrainingArgs instantiation.
     """
 
     def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
@@ -71,7 +71,6 @@ class TrainingArgs:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
         
-        self._num_updates_unset = True
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -101,8 +100,6 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        if self._ta.get('num_updates') is not None:
-            self._num_updates_unset = False
         try:
             self._sc.validate(self._ta)
         except ValidateError as e:
@@ -111,7 +108,7 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        # Validate DP arguments if it is existing in training arguments --------------------------------------------
+        # Validate DP arguments if it is existing in training arguments
         if self._ta["dp_args"] is not None:
             try:
                 self._ta["dp_args"] = DPArgsValidator.populate_with_defaults(self._ta["dp_args"], only_required=False)
@@ -179,18 +176,17 @@ class TrainingArgs:
         return {arg: self[arg] for arg in keys}
 
     @staticmethod
-    @validator_decorator
-    def _num_update_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
-        if val is None or isinstance(val, (float, int)):
-            if val is not None:
-                if int(val) != float(val) or val < 0:
-                    return False, f"num_updates and epochs should be postive and non-zero integer, but got {val}"
-
-                    # maybe we should not validate case val == 0
-
-            return True
-        else:
-            return False, f"num_updates and epochs should be integer or None, but got {val}"
+    def _nonnegative_integer_value_validator_hook(name: str) -> Callable:
+        @validator_decorator
+        def _named_nonnegative_integer_value_validator_hook(val: Union[int, None]) -> Union[Tuple[bool, str], bool]:
+            if val is None or isinstance(val, (float, int)):
+                if val is not None:
+                    if int(val) != float(val) or val < 0:
+                        return False, f"{name} should be a non-negative integer or None, but got {val}"
+                return True
+            else:
+                return False, f"{name} should be a non-negative integer or None, but got {val}"
+        return _named_nonnegative_integer_value_validator_hook
 
     @staticmethod
     @validator_decorator
@@ -270,19 +266,21 @@ class TrainingArgs:
                 "rules": [dict], "required": True, "default": {}
             },
             "batch_size": {
-                "rules": [int], "required": True, "default": 48
+                "rules": [int], "required": True, "default": 1
             },
             "epochs": {
-                "rules": [cls._num_update_validator_hook], "required": False, "default": 1
+                "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": True, "default": None
             },
             "num_updates": {
-                "rules": [cls._num_update_validator_hook], "required": False, "default": None
+                "rules": [cls._nonnegative_integer_value_validator_hook('num_updates')],
+                "required": True, "default": None
             },
             "dry_run": {
                 "rules": [bool], "required": True, "default": False
             },
             "batch_maxnum": {
-                "rules": [int], "required": True, "default": 0
+                "rules": [cls._nonnegative_integer_value_validator_hook('batch_maxnum')],
+                "required": True, "default": None
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
@@ -293,11 +291,9 @@ class TrainingArgs:
             "test_on_global_updates": {
                 "rules": [bool], "required": False, "default": False
             },
-
             "test_metric": {
                 "rules": [cls._metric_validation_hook], "required": False, "default": None
             },
-
             "test_metric_args": {
                 "rules": [dict], "required": False, "default": {}
             },
