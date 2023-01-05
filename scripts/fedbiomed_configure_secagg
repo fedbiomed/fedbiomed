@@ -67,7 +67,7 @@ configure_linux() {
     if $cpu_info | grep -q avx2; then
       echo -e "${BOLD}CPU uses Advanced Vector Extension 2 'avx2'${NC}\n"
       cpu_arch=avx2
-    elif $cpu_info | grep -q avx2; then
+    elif test "$(uname -m)" = 'x86_64' ; then
       cpu_arch=amd64
       echo -e "${BOLD}CPU uses Advanced Micro Devices 64 'amd64'${NC}\n"
     else
