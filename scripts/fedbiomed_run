@@ -631,7 +631,7 @@ case $1 in
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
-                forward_command_to_python_cli researcher configuration create
+                forward_command_to_python_cli researcher "configuration create"
                 jupyter notebook $NB_OPTS
 
             ;;
