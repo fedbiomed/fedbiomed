@@ -6,7 +6,6 @@ monitor class to trap information sent during training and
 sned it to tensordboard
 '''
 
-
 import os
 import shutil
 import collections
@@ -43,6 +42,7 @@ class MetricStore(dict):
     - `iterations`: index of iterations stored
     - `values`: metric value
     """
+
     def add_iteration(self,
                       node: str,
                       train: bool,
@@ -181,9 +181,14 @@ class MetricStore(dict):
 
     @staticmethod
     def _cumulative_iteration(rounds: dict) -> int:
-        """Calculates cumulative iteration for the received metric value. Cumulative iteration
-        should be calculated for each metric value received during training/validation to add it as next `step`
-        in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+        """Calculates cumulative iteration for the received metric value.
+
+        Cumulative iteration should be calculated for each metric value received during training/validation to
+        add it as next `step` in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+        There are two assumptions in this implementation:
+
+            - iterations need to be successive
+            - last iteration index for each epoch should be same except last epoch
 
         Args:
             rounds: The dictionary that includes all the rounds for a metric, node and the phase
@@ -303,7 +308,7 @@ class Monitor:
             header = 'Training'
         else:
             header = 'Validation On Global Updates' if message['test_on_global_updates'] else 'Validation On Local ' \
-                                                                                           'Updates'
+                                                                                              'Updates'
 
         metric_dict = message['metric']
         metric_result = ''
@@ -312,16 +317,22 @@ class Monitor:
         _min_iteration = min(message['iteration'] * message['batch_samples'],
                              message['total_samples'])
         # Loging fancy feedback for training
-        logger.info("\033[1m{}\033[0m \n"
-                    "\t\t\t\t\t NODE_ID: {} \n"
-                    "\t\t\t\t\t{} Completed: {}/{} ({:.0f}%) \n {}"
-                    "\t\t\t\t\t ---------".format(header.upper(),
-                                                  message['node_id'],
-                                                  '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
-                                                  _min_iteration,
-                                                  message['total_samples'],
-                                                  100 * _min_iteration / message['total_samples'],
-                                                  metric_result))
+        logger.info(
+            "\033[1m{}\033[0m \n"
+            "\t\t\t\t\t NODE_ID: {} \n"
+            "\t\t\t\t\t Round {}{} Iteration: {}/{} ({:.0f}%) | Samples: {}/{}\n {}"
+            "\t\t\t\t\t ---------".format(
+                header.upper(),
+                message['node_id'],
+                self._round,
+                ' |' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
+                message["iteration"],
+                message["num_batches"],
+                100 * message["iteration"] / message["num_batches"],
+                message["num_samples_trained"] if message["num_samples_trained"] is not None else _min_iteration,
+                message['total_samples'],
+                metric_result)
+        )
 
         if self._tensorboard:
             # transfer data to tensorboard

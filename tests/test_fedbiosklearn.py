@@ -203,24 +203,31 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=1)
         training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
         training_plan._training_args['epochs'] = 1
+        training_plan._training_args['num_updates'] = None
+        training_plan._training_args['batch_size'] = train_data_loader.batch_size()
+
+        # First scenario: assert that number of training iterations is correct
+        training_plan._training_args['batch_maxnum'] = None
         with patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train:
             training_plan._training_routine(history_monitor=None)
             self.assertEqual(mocked_train.call_count, 4)
 
-        history_monitor = MagicMock(spec=fedbiomed.node.history_monitor.HistoryMonitor)
+        # Second scenario: assert that history monitor is given the correct reporting values
+        training_plan._training_args['batch_maxnum'] = 1
         training_plan._training_args['log_interval'] = 1
-        training_plan._batch_maxnum = 1
+        history_monitor = MagicMock(spec=fedbiomed.node.history_monitor.HistoryMonitor)
         with patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train:
             training_plan._training_routine(history_monitor=history_monitor)
             self.assertEqual(mocked_train.call_count, 1)
             self.assertEqual(history_monitor.add_scalar.call_count, 1)
             history_monitor.add_scalar.assert_called_with(
                 train=True,
-                num_batches=4,
-                total_samples=4,
+                num_batches=1,
+                total_samples=1,
+                num_samples_trained=1,
                 metric={'Loss hinge': 0.},
                 iteration=1,
-                epoch=0,
+                epoch=1,
                 batch_samples=1
             )
 
