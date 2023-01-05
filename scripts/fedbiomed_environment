@@ -50,7 +50,7 @@ development_env() {
     export IP_ADDRESS=${1:-localhost}
     # use the (if provided) UPLOADS_URL var env
     [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
-    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="localhost" ; }
+    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="${IP_ADDRESS}" ; }
     [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
 }
 
