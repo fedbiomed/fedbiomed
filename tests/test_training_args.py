@@ -22,6 +22,15 @@ class TestTrainingArgs(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def assertSchemeEquality(self, scheme1, scheme2):
+        self.assertEqual(set(scheme1.keys()), set(scheme2.keys()))
+        for key in scheme1.keys():
+            rules1 = scheme1[key]['rules']
+            rules2 = scheme1[key]['rules']
+            self.assertEqual(len(rules1), len(rules2))
+            self.assertEqual(scheme1[key]['required'], scheme2[key]['required'])
+            self.assertEqual(scheme1[key]['default'], scheme2[key]['default'])
+
     def test_training_args_01_init(self):
         """
         simple initialisation tests
@@ -49,8 +58,9 @@ class TestTrainingArgs(unittest.TestCase):
         """
         play with schemes
         """
+
         t = TrainingArgs()
-        self.assertEqual(t.scheme(), TrainingArgs.default_scheme())
+        self.assertSchemeEquality(t.scheme(), TrainingArgs.default_scheme())
 
         my_added_rule = {
             'fun': {

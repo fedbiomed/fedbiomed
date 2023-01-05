@@ -1,5 +1,23 @@
 # Fed-BioMed changelog
 
+## 2023-01-05 version 4.1
+
+- introduce Scaffold implementation for PyTorch
+- introduce training based on iteration number (`num_updates`) as an alternative to epochs
+- introduce provisions for including external contributors in the project
+- add nightly continuous integration test of selected notebooks
+- add documentations for network matrix and security model
+- update image segmentation notebook to match documentation tutorial
+- add round number in researcher side training progress message
+- fix MedicalFolderDataset with demographics file using column 0 as subject folder key
+- fix batch size display when using Opacus
+- fix loss display when using FedProx
+- fix default value of `batch_maxnum` to a reasonable value of 0
+- fix validation with custom metrics backend code and validation example notebook
+- fix image segmentation notebook typo
+- misc improve MedicalFolderDataset with a reasonable default value for `demographics_transform`
+- misc improve error message when dataset geometry does not meet researcher side quality check
+
 ## 2022-11-17 version 4.0
 
 - introduce IXI (image + CSV file) dataset support as MedicalFolderDataset
