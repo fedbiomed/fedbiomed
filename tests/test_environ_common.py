@@ -126,7 +126,7 @@ class TestEnviron(TestCase):
         file = open(increment_file, "r")
         inc = file.read()
         file.close()
-        self.assertEqual("localhost:14000", inc, "Port/IP is not writen in port increment file as expected")
+        self.assertEqual("14000", inc, "Port/IP is not writen in port increment file as expected")
         self.assertEqual(ip, "localhost")
         self.assertEqual(port, 14000)
 
@@ -136,7 +136,7 @@ class TestEnviron(TestCase):
         file = open(increment_file, "r")
         inc = file.read()
         file.close()
-        self.assertEqual("localhost:14001", inc, "Port/IP is not writen in port increment file as expected")
+        self.assertEqual("14001", inc, "Port/IP is not writen in port increment file as expected")
 
         ip, port = self.environ._retrieve_ip_and_port(increment_file, new=True)
         self.assertEqual(ip, 'localhost')

@@ -389,7 +389,7 @@ class Environ(metaclass=SingletonABCMeta):
             with open(increment_file, "r+") as file:
                 port_increment = file.read()
                 if port_increment != "":
-                    port = int(port_increment.split(":")[1]) + 1
+                    port = int(port_increment) + 1
                     file.truncate(0)
                     file.close()
 
@@ -399,13 +399,13 @@ class Environ(metaclass=SingletonABCMeta):
                         new=True,
                         increment=port)
                 else:
-                    ip, port = Environ._retrieve_ip_and_port(
+                    _, port = Environ._retrieve_ip_and_port(
                         increment_file,
                         new=True)
         else:
             with open(increment_file, "w") as file:
                 port = os.getenv('MPSPDZ_PORT', 14000) if increment is None else increment
-                file.write(f"{ip}:{port}")
+                file.write(f"{port}")
                 file.close()
 
         return ip, port
