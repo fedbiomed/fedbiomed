@@ -61,6 +61,7 @@ node      : a second argument is mandatory
             Positional Arguments:
 
             - certificate   : Option for certificate management. Please see details 'fedbiomed_run node certificate -h'
+            - configuration   : Option for configuration management. Please see details 'fedbiomed_run node configuration -h'
 
             Optional Arguments:
 
@@ -90,6 +91,8 @@ researcher: launch a researcher notebook
                             conda environment.
             - certificate : Option for certificate management.
                             Please see details 'fedbiomed_run researcher certificate -h'
+            - configuration : Option for configuration management.
+                            Please see details 'fedbiomed_run researcher configuration -h'
 
             an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
                 component instead of the default localhost
