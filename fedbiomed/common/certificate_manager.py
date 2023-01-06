@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-
-
+import copy
 import os
 import random
 
@@ -88,8 +87,9 @@ class CertificateManager:
                 self._query.party_id == party_id
             )
         else:
-            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. Please use `upsert=True` or '--upsert' "
-                                 f"option through CLI")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. Please use `upsert=True` or "
+                f"'--upsert' option through CLI")
 
     def get(
             self,
@@ -133,9 +133,11 @@ class CertificateManager:
         certificates = self._db.all()
 
         if verbose:
-            for doc in certificates:
+            to_print = copy.deepcopy(certificates)
+            for doc in to_print:
                 doc.pop('certificate')
-            print(tabulate(certificates, headers='keys'))
+
+            print(tabulate(to_print, headers='keys'))
 
         return certificates
 
@@ -165,7 +167,9 @@ class CertificateManager:
         """
 
         if not os.path.isfile(certificate_path):
-            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file.")
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file."
+            )
 
         # Read certificate content
         with open(certificate_path) as file:
@@ -262,7 +266,7 @@ class CertificateManager:
 
                 # Remote parties
                 party_object = self.get(party)
-                if not party:
+                if not party_object:
                     remove_writen_files()
                     raise FedbiomedCertificateError(
                         f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Aborting setup."
