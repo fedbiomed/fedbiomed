@@ -99,9 +99,7 @@ class CommonCLI:
         configuration = self._subparsers.add_parser('configuration', help='Configuration')
 
         # Create sub parser under `configuration` command
-        configuration_sub_parsers = configuration.add_subparsers(
-            help='Certificate management commands. Please run [command] -h to see details of the commands'
-        )
+        configuration_sub_parsers = configuration.add_subparsers()
 
         recreate = configuration_sub_parsers.add_parser(
             'create',
@@ -116,12 +114,14 @@ class CommonCLI:
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
             'certificate',
-            prog="fedbiomed_run [ node | researcher ] [config [CONFIG_FILE]] "
+            prog="fedbiomed_run [ node | researcher ] [config [CONFIG_FILE]] certificate",
+
         )
 
         # Create sub parser under `certificate` command
         certificate_sub_parsers = certificate_parser.add_subparsers(
-            help='Certificate management commands. Please run [command] -h to see details of the commands.'
+            description="Commands that can be used with the option `certificate`",
+            title="Subcommands"
         )
 
         register_parser = certificate_sub_parsers.add_parser(
@@ -129,6 +129,7 @@ class CommonCLI:
             help="Register certificate of specified party. Please run 'fedbiomed_run [COMPONENT SPECIFICATION] "
                  "certificate register --help'"
         )  # command register
+
         list_parser = certificate_sub_parsers.add_parser(
             'list',
             help="Lists registered certificates"
@@ -273,8 +274,8 @@ class CommonCLI:
         print(f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section [mpspdz] `public_key` "
               f"and `private_key` has new generated certificate files : \n\n"
               f"{BOLD}Certificates are saved in {NC}\n"
-              f"{args.path}{MPSPDZ_certificate_prefix}.key \n"
-              f"{args.path}{MPSPDZ_certificate_prefix}.pem \n\n"
+              f"{args.path}/{MPSPDZ_certificate_prefix}.key \n"
+              f"{args.path}/{MPSPDZ_certificate_prefix}.pem \n\n"
               f"{YLW}IMPORTANT:{NC}\n"
               f"{BOLD}Since the certificate is renewed please ask other parties to register your new certificate.{NC}\n")
 
