@@ -19,7 +19,6 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_method_spec, \
     get_fedbiomed_root
 
-
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
 GRN = '\033[1;32m'  # green
@@ -76,6 +75,7 @@ class CommonCLI:
         """
         print(f"{RED}ERROR:{NC}")
         print(f"{BOLD}{message}{NC}")
+        sys.exit(1)
 
     @staticmethod
     def success(message):
@@ -90,7 +90,7 @@ class CommonCLI:
             help="Prepares development environment by registering certificates of each component created in a single "
                  "clone of Fed-BioMed. Pares configuration files ends with '.ini' that are created in 'etc' directory. "
                  "This setup requires to have one 'researcher' and at least 2 nodes."
-            )
+        )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
     def create_configuration(self):
@@ -104,7 +104,7 @@ class CommonCLI:
         create = configuration_sub_parsers.add_parser(
             'create',
             help="Creates configuration file for the specified component if it does not exist. "
-                "If the configuration file exists, leave it unchanged"
+                 "If the configuration file exists, leave it unchanged"
         )
 
         create.set_defaults(func=self._create_component_configuration)
@@ -203,6 +203,13 @@ class CommonCLI:
             default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
+        generate.add_argument(
+            '-f',
+            '--force',
+            action="store_true",
+            help="Forces to overwrite certificate files"
+        )
+
         # Set db path that certificate manager will be using to store certificates
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
@@ -260,6 +267,13 @@ class CommonCLI:
             args: Arguments that are passed after `certificate generate` command
 
         """
+
+        if not args.force and (os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key") or
+                               os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key")):
+
+            self.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
+                       f"Please use -f | --force option to overwrite existing certificate.")
+
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=args.path,
@@ -372,4 +386,3 @@ if __name__ == '__main__':
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
     cli.parse_args()
-
