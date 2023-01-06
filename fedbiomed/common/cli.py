@@ -103,12 +103,13 @@ class CommonCLI:
             help='Certificate management commands. Please run [command] -h to see details of the commands'
         )
 
-        recreate = configuration_sub_parsers.add_parser(
+        create = configuration_sub_parsers.add_parser(
             'create',
-            help="Recreates configuration file for the specified component"
+            help="Creates configuration file for the specified component if it does not exist. "
+                "If the configuration file exists, leave it unchanged"
         )
 
-        recreate.set_defaults(func=self._create_component_configuration)
+        create.set_defaults(func=self._create_component_configuration)
 
     def initialize_certificate_parser(self):
         """Common arguments """
@@ -247,7 +248,7 @@ class CommonCLI:
             files.
         """
 
-        print(f"{GRN}Configuration has been created for component {self._environ['ID']}{NC}")
+        print(f"{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
 
         pass
 
