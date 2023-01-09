@@ -12,11 +12,13 @@ class FakeSecaggSetup:
             self,
             researcher_id: str,
             secagg_id: str,
+            job_id: str,
             sequence: int,
             parties: List[str]):
 
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
+        self._job_id = job_id
         self._sequence = sequence
         self._parties = parties
 
@@ -28,6 +30,9 @@ class FakeSecaggSetup:
 
     def secagg_id(self) -> str:
         return self._secagg_id
+
+    def job_id(self) -> str:
+        return self._job_id
 
     def sequence(self) -> str:
         return self._sequence

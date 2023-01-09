@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """ All the fedbiomed errors/Exceptions """
 
 
@@ -41,11 +44,13 @@ class FedbiomedDatasetError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedDatasetValueError(FedbiomedError):
     """
     ValueErrors raised by any Dataset class.
     """
     pass
+
 
 class FedbiomedDataManagerError(FedbiomedError):
     """
@@ -209,6 +214,13 @@ class FedbiomedTrainingError(FedbiomedError):
 class FedbiomedTrainingPlanError(FedbiomedError):
     """
     Exception specific to errors while getting source of the model class.
+    """
+    pass
+
+
+class FedbiomedDataQualityCheckError(FedbiomedError):
+    """
+    Exception raised when facing uncompatibles datatypes accross nodes
     """
     pass
 

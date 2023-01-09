@@ -219,6 +219,9 @@ class TestScaffold(unittest.TestCase):
             scaffold = Scaffold()
             # scaffold._fds = None
             scaffold.check_values(n_updates=1, training_plan=training_plan)
+        with self.assertRaises(FedbiomedAggregatorError):
+            scaffold = Scaffold()
+            scaffold.check_values(n_updates=None, training_plan=training_plan)
     
     def test_6_create_aggregator_args(self):
         agg = Scaffold()
@@ -349,20 +352,16 @@ class TestScaffold(unittest.TestCase):
                           for node_id in self.node_ids])
             for r in range(n_rounds)}
 
-        print("REPLIES", training_replies[0]._map_node, n_model_layer)
         #assert n_model_layer == len(lr), "error in test: n_model_layer must be equal to the length of list of learning rate"
         training_plan = MagicMock()
         get_model_params_mock = MagicMock()
 
         get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
         training_plan.get_model_params.return_value = get_model_params_mock
-        
-        
-        print("TEST MODK", len(training_plan.get_model_params()))
+
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
-            print("NODELR", training_replies[0].get_index_from_node_id('node_1'))
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan, 
                                                                       training_replies=training_replies,
                                                                       n_round=n_round)

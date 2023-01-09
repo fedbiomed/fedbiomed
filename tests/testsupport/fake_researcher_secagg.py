@@ -2,9 +2,11 @@ from typing import Union, List
 
 FAKE_CONTEXT_VALUE = "MY_CONTEXT"
 
+
 class FakeSecaggContext:
-    def __init__(self, parties: List[str]):
+    def __init__(self, parties: List[str], job_id: str):
         self.parties = parties
+        self.job_id = job_id
         self.stat = False
         self.cont = None
         self.success = True
@@ -39,4 +41,5 @@ class FakeSecaggServkeyContext(FakeSecaggContext):
 
 
 class FakeSecaggBiprimeContext(FakeSecaggContext):
-    pass
+    def __init__(self, parties: List[str]):
+        super().__init__(parties, '')

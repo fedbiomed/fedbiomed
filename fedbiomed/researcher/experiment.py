@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Code of the researcher. Implements the experiment orchestration"""
 
 import functools
@@ -1380,6 +1383,8 @@ class Experiment(object):
             # a job is already defined, and it may also have run some rounds
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
+            # note:
+            # if self._secagg_servkey != None, then it should be redefined
 
         if self._training_plan_is_defined is not True:
             # training plan not properly defined yet
@@ -1496,16 +1501,18 @@ class Experiment(object):
             parties = [environ['RESEARCHER_ID']] + node_parties
 
             if not self._secagg_servkey:
-                self._secagg_servkey = SecaggServkeyContext(parties)
-            if not self._secagg_servkey.status():
+                # a secagg servkey element must be attached to a job_id
+                if self._job:
+                    self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
+            if self._secagg_servkey and not self._secagg_servkey.status():
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
             if not self._secagg_biprime.status():
                 self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey.status() and self._secagg_biprime.status():
+            if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
                 self._use_secagg = True
-                logger.warning("SECURITY AGGREGATOR NOT IMPLEMENTED YET, DO NOTHING")
+                logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:
                 logger.debug('Experiment not fully configured yet: no secure aggregation')
         else:
@@ -1573,10 +1580,9 @@ class Experiment(object):
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
-        self._job.update_training_args(self._fds, self._job.nodes)  # convert epochs into num_updates
 
         # check aggregator parameter(s) before starting a round
-        self._aggregator.check_values(n_updates=self._training_args['num_updates'],
+        self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
@@ -2058,7 +2064,8 @@ class Experiment(object):
         if bkpt_secagg_servkey_args:
             loaded_exp._secagg_servkey = cls._create_object(
                 bkpt_secagg_servkey_args,
-                parties = bkpt_secagg_servkey_args['parties']
+                parties = bkpt_secagg_servkey_args['parties'],
+                job_id = bkpt_secagg_servkey_args['job_id']
             )
 
         bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")

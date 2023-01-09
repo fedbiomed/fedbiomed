@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """Common healthcare data manager
 
 Provides classes managing dataset for common cases of use in healthcare:
@@ -539,7 +542,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
-        self._demographics_transform = demographics_transform
+        self._demographics_transform = demographics_transform if demographics_transform is not None else lambda x: {}
 
         # Image loader
         self._reader = Compose([
@@ -775,7 +778,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         """
 
         # If demographics are present
-        if self._tabular_file and self._index_col:
+        if self._tabular_file and self._index_col is not None:
             complete_subject_folders = self.subjects_registered_in_demographics
         else:
             complete_subject_folders = self.subjects_has_all_modalities
@@ -803,7 +806,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
     def _get_from_demographics(self, subject_id):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
-        if self._tabular_file and self._index_col:
+        if self._tabular_file and self._index_col is not None:
             demographics = self.demographics.loc[subject_id].to_dict()
 
             # Extract only compatible types for torch

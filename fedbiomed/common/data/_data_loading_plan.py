@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import uuid
 from typing import Any, Dict, List, Tuple, TypeVar, Type, Union, Optional
 from abc import ABC, abstractmethod

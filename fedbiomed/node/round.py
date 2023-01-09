@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 implementation of Round class of the node component
 '''
@@ -221,7 +224,6 @@ class Round:
         except Exception as e:
             error_message = f"Cannot instantiate training plan object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
-
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,

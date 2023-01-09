@@ -24,6 +24,7 @@ from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
@@ -987,12 +988,14 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
+    @patch('fedbiomed.researcher.experiment.Job')
     @patch('fedbiomed.researcher.experiment.SecaggServkeyContext')
     @patch('fedbiomed.researcher.experiment.SecaggBiprimeContext')
     def test_experiment_21_set_use_secagg(
         self,
         mock_secaggbiprimecontext,
         mock_secaggservkeycontext,
+        mock_job,
     ):
         """ Test setter for use_secagg attr of experiment class """
 
@@ -1012,11 +1015,20 @@ class TestExperiment(unittest.TestCase):
             ['tag1', 'tag2'],
         ]
         parties = ['party1', 'party2', 'party3', 'party4']
+        job_id = 'my_test_job_id'
+
+        class FakeJob:
+            def __init__(self):
+                self.id = job_id
 
         for tags in tags_cases:
             exp = Experiment(tags=tags)
-            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
             mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
+            mock_job.return_value = FakeJob()
+            # we should not set directly exp._job (internal to exp) for unit tests
+            # but ...
+            exp._job = mock_job
 
             use_false = exp.set_use_secagg(False)
             context_false_servkey, context_false_biprime = exp.secagg_context()
@@ -1036,6 +1048,7 @@ class TestExperiment(unittest.TestCase):
             ['tag1', 'tag2'],
         ]
         parties = ['party1', 'party2', 'party3', 'party4']
+        job_id = 'my_test_job_id'
         setup_results = [
             [True, False],
             [False, True],
@@ -1045,10 +1058,14 @@ class TestExperiment(unittest.TestCase):
         for tags in tags_cases:
             for result in setup_results:
                 exp = Experiment(tags=tags)
-                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties)
+                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
                 mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
                 mock_secaggservkeycontext.return_value.set_setup_success(result[0])
                 mock_secaggbiprimecontext.return_value.set_setup_success(result[1])
+                mock_job.return_value = FakeJob()
+                # we should not set directly exp._job (internal to exp) for unit tests
+                # but ...
+                exp._job = mock_job
 
                 use_false = exp.set_use_secagg(False)
                 context_false_servkey, context_false_biprime = exp.secagg_context()
@@ -1080,7 +1097,6 @@ class TestExperiment(unittest.TestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
-    @patch('fedbiomed.researcher.job.Job.update_training_args')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
@@ -1098,7 +1114,6 @@ class TestExperiment(unittest.TestCase):
                                     mock_strategy_refine,
                                     mock_fedavg_create_aggregator_args,
                                     mock_fedavg_aggregate,
-                                    mock_job_update_training_args,
                                     mock_experiment_breakpoint):
         """ Testing run_once method of Experiment class """
         training_plan = MagicMock()
@@ -1111,7 +1126,6 @@ class TestExperiment(unittest.TestCase):
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
-        mock_job_update_training_args.return_value = {'num_updates': 1}
         mock_experiment_breakpoint.return_value = None
 
         # Test invalid `increase` arguments
@@ -1184,7 +1198,53 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(mock_job_training.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
+    
+    @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
+    @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
+    @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
+    @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.job.Job.update_parameters')
+    @patch('fedbiomed.researcher.job.Job.__init__')  
+    def test_experiment_23_run_once_with_scaffold_and_training_args(self,
+                                                                    mock_job_init,
+                                                                    mock_job_updates_params,
+                                                                    mock_job_training,
+                                                                    mock_job_training_replies,
+                                                                    mock_job_training_plan_type,
+                                                                    mock_strategy_refine,
+                                                                    mock_scaffold_create_aggregator_args,
+                                                                    mock_scaffold_aggregate,
+                                                                    mock_experiment_breakpoint):
+        # try test with specific training_args
+        # related to regression due to Scaffold introduction applied on MedicalFolderDataset
+        training_plan = MagicMock()
+        training_plan.type = MagicMock()
+        mock_job_init.return_value = None
+        mock_job_training.return_value = None
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2])
+        mock_scaffold_aggregate.return_value = None
+        mock_scaffold_create_aggregator_args.return_value = ({}, {})
+        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        mock_experiment_breakpoint.return_value = None
 
+        # Set model class to be able to create Job
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        # Set default Job
+        self.test_exp.set_job()
+        # Set strategy
+        self.test_exp.set_strategy(None)
+        # set training_args
+        self.test_exp.set_training_args({'num_updates': 1000})
+        # set Scaffold aggregator
+        self.test_exp.set_aggregator(Scaffold(server_lr=.1))
+        
+        result = self.test_exp.run_once()
+        self.assertEqual(result, 1, "run_once did not successfully run the round")
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
     def test_experiment_24_run(self, mock_exp_run_once):
@@ -1272,7 +1332,6 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.set_test_on_global_updates(True)
         rounds = self.test_exp.run()
         self.assertEqual(rounds, 1)
-
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
@@ -1598,10 +1657,12 @@ class TestExperiment(unittest.TestCase):
                           'status': True, 
                           'context': None,
                           'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'],
+                          'job_id': 'A JOB1 ID',
                           'class': 'FakeSecaggServkeyContext',
                           'module': self.__module__}
-        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
                           'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
+
 
         fake_aggregator = FakeAggregator()
         fake_aggregator._aggregator_args = aggregator_params
@@ -1665,9 +1726,9 @@ class TestExperiment(unittest.TestCase):
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         final_use_secagg = True
-        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'],
+        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'], 'job_id': 'A JOB1 ID',
                                 }
-        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'],
+        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
                                 'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
         

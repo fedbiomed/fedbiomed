@@ -2,7 +2,7 @@
 
 ### material
 
-tests are run with nosetests, which uses unittests as test framework.
+tests are run with [nosetests](https://nose.readthedocs.io/en/latest/testing.html), which uses unittests as test framework.
 nosetests provide additional features:
 - more assert capabilities
 - coverage report, which provides output integrated on our Continous Integration platform
@@ -13,7 +13,7 @@ nosetests provide additional features:
 * setup the python environment
 
 ```
-source .../scripts/fedbiomed_environment researcher
+source ../scripts/fedbiomed_environment researcher
 ```
 
 * run all tests
@@ -57,7 +57,7 @@ Remarks: **nose** could also be used to run the test (same test files as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
 
-Remarks: coverage is configured via the **.covergaerc** file situated at top directory. Documentation available here:
+Remarks: coverage is configured via the **.coveragerc** file situated at top directory. Documentation available here:
 https://coverage.readthedocs.io/en/stable/config.html
 
 ### How to write Unit Tests with `unittest` framework: coding conventions
@@ -92,7 +92,7 @@ https://docs.python.org/3/library/unittest.html
 
 * test coverage
 
-If you want to check the test coverge, you should use:
+If you want to check the test coverage, you should use:
 
 ```
 cd tests

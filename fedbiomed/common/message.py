@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 Definition of messages exchanged by the researcher and the nodes
 '''
@@ -155,6 +158,7 @@ class AddScalarReply(Message):
     total_samples: int
     batch_samples: int
     num_batches: int
+    num_samples_trained: (int, type(None))
     iteration: int
     command: str
 
@@ -456,6 +460,8 @@ class SecaggDeleteRequest(Message):
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
+        element: Type of secagg context element
+        job_id: Id of the Job to which this secagg context element is attached
         command: Request command string
 
     Raises:
@@ -464,6 +470,8 @@ class SecaggDeleteRequest(Message):
     researcher_id: str
     secagg_id: str
     sequence: int
+    element: int
+    job_id: str
     command: str
 
 @catch_dataclass_exception
@@ -501,6 +509,7 @@ class SecaggRequest(Message):
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
+        job_id: Id of the Job to which this secagg context element is attached
         parties: List of parties participating to the secagg context element setup
         command: Request command string
 
@@ -511,6 +520,7 @@ class SecaggRequest(Message):
     secagg_id: str
     sequence: int
     element: int
+    job_id: str
     parties: list
     command: str
 
