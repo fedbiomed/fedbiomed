@@ -8,7 +8,7 @@ This strategy is used then user does not provide its own
 """
 
 import uuid
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -17,6 +17,9 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies import Strategy
 from fedbiomed.researcher.responses import Responses
+
+
+NodeIDType = str
 
 
 class DefaultStrategy(Strategy):
@@ -134,9 +137,15 @@ class DefaultStrategy(Strategy):
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # so far, everything is OK
-        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
-        weights = [{key: val[0]["shape"][0] / totalrows} for (key, val) in self._fds.data().items()]
         logger.info('Nodes that successfully reply in round ' +
                     str(round_i) + ' ' +
                     str(self._success_node_history[round_i]))
+        weights = self.compute_weights_for_averaging()
         return models_params, weights
+
+    def compute_weights_for_averaging(self) -> List[Dict[NodeIDType, Any]]:
+        """Returns the weights used by averaging aggregators such as FedAvg, FedProx, etc... """
+        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
+        weights = [{key: val[0]["shape"][0] / totalrows} for (key, val) in self._fds.data().items()]
+        return weights
+
