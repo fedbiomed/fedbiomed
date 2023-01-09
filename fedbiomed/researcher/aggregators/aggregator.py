@@ -9,12 +9,11 @@ top class for all aggregators
 import os
 from typing import Dict, Any, List, Optional, Tuple
 
-from fedbiomed.common.constants  import ErrorNumbers, TrainingPlans
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
-
 
 
 class Aggregator:
@@ -53,7 +52,12 @@ class Aggregator:
         node id as key, and the weight as value.
         """
         list_of_weights = [x[node_id] for x in weights if node_id in x]
-        assert len(list_of_weights) == 1
+        if len(list_of_weights) != 1:
+            msg = f'{ErrorNumbers.FB401.value}. Could not get weights for node {node_id}.' \
+                  f'Expected exactly 1 entry with this id, instead got {len(list_of_weights)} entries.'
+            logger.debug(msg + f'\nThe full  list of node ids in the weights array is '
+                               f'{[list(w.keys()) for w in weights]}')
+            raise FedbiomedAggregatorError(msg)
         return list_of_weights[0]
 
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
