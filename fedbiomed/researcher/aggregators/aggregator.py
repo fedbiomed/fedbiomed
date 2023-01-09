@@ -45,6 +45,17 @@ class Aggregator:
             norm = [_w / _s for _w in weights]
         return norm
 
+    @staticmethod
+    def get_weights_from_node_id(node_id: str, weights: List[Dict[str, float]]) -> float:
+        """Gets the aggregation weights associated to a given node id.
+
+        weights is a list of single-item dictionaries, each dictionary has the
+        node id as key, and the weight as value.
+        """
+        list_of_weights = [x[node_id] for x in weights if node_id in x]
+        assert len(list_of_weights) == 1
+        return list_of_weights[0]
+
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
         """
         Strategy to aggregate models
