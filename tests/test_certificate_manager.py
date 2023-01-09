@@ -296,6 +296,85 @@ class TestCertificateManager(unittest.TestCase):
         with self.assertRaises(FedbiomedCertificateError):
             result = self.cm.write_mpc_certificates_for_experiment(**arguments)
 
+    def test_08_certificate_manager_write_certificate_file(self):
+        """ """
+
+        with patch("builtins.open") as mock_open:
+            self.cm._write_certificate_file("dummy/path", "Certificate")
+            mock_open.assert_called_once_with("dummy/path", "w")
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with("Certificate")
+            mock_open.return_value.__enter__.return_value.close.assert_called_once()
+
+            mock_open.side_effect = Exception
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm._write_certificate_file("dummy/path", "Certificate")
+
+    def test_09_certificate_manager_append_new_ip_address(self):
+        """Test method for adding new ip address into given path"""
+
+        with patch("builtins.open") as mock_open:
+            self.cm._append_new_ip_address("dummy/path", "localhost", 1234, "party-id")
+            mock_open.assert_called_once_with("dummy/path", "a")
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with("localhost:1234\n")
+            mock_open.return_value.__enter__.return_value.close.assert_called_once()
+
+            mock_open.side_effect = Exception
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm._append_new_ip_address("dummy/path", "localhost", 1234, "party-id")
+
+    @patch("os.path.abspath")
+    def test_10_certificate_generate_self_signed_ssl_certificate(self, mock_abspath):
+        """Tests method to generate self-signed ssl certificate"""
+
+        certificate_folder = "/dummy/folder"
+
+        with patch("builtins.open") as mock_open:
+
+            self.mock_isdir.return_value = True
+            self.cm.generate_self_signed_ssl_certificate(
+                certificate_folder=certificate_folder,
+                certificate_name="certificate",
+                component_id="component-id"
+            )
+            self.assertEqual(mock_open.call_args_list[0][0], ('/dummy/folder/certificate.key', 'wb'))
+            self.assertEqual(mock_open.call_args_list[1][0], ('/dummy/folder/certificate.pem', 'wb'))
+
+            self.assertEqual(mock_open.return_value.__enter__.return_value.write.call_count, 2)
+            self.assertEqual(mock_open.return_value.__enter__.return_value.close.call_count, 2)
+
+            mock_open.side_effect = Exception
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm.generate_self_signed_ssl_certificate(
+                    certificate_folder=certificate_folder,
+                    certificate_name="certificate",
+                    component_id="component-id"
+                )
+
+            # It didn't work: raising exception for the second call of `open`
+            mock_open.side_effect = [None, Exception]
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm.generate_self_signed_ssl_certificate(
+                    certificate_folder=certificate_folder,
+                    certificate_name="certificate",
+                    component_id="component-id"
+                )
+
+            mock_abspath.return_value = False
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm.generate_self_signed_ssl_certificate(
+                    certificate_folder=certificate_folder,
+                    certificate_name="certificate",
+                    component_id="component-id"
+                )
+
+            mock_abspath.return_value = True
+            self.mock_isdir.return_value = False
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm.generate_self_signed_ssl_certificate(
+                    certificate_folder=certificate_folder,
+                    certificate_name="certificate",
+                    component_id="component-id"
+                )
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
