@@ -28,7 +28,6 @@ class TestFedaverage(unittest.TestCase):
 
     def test_fed_average_01_torch(self):
         """ Testing aggregation for torch model """
-        print("MODELS", self.models)
         aggregated_params = self.aggregator.aggregate(self.models, self.weights)
         # ===============================================================
         # Assert Federated Average
@@ -83,6 +82,18 @@ class TestFedaverage(unittest.TestCase):
         self.assertDictEqual(self.aggregator._aggregator_args,
                              state['parameters'],
                              'The state of the aggregator class has not been loaded correctly')
+
+    def test_fed_average_06_order_of_weight_and_model_params(self):
+        """Tests bug #433 where weights and model params have scrambled order."""
+        weights = [
+            {'node_7ea1c779': 0.9},
+            {'node_02a6e376': 0.1},
+        ]
+        model_params = [{'node_02a6e376': {'coef_': np.array([0.])}},
+                        {'node_7ea1c779': {'coef_': np.array([10.])}}]
+        agg_params = self.aggregator.aggregate(model_params=model_params,
+                                               weights=weights)
+        self.assertEqual(agg_params['coef_'][0], 9.)
 
 
 if __name__ == '__main__':  # pragma: no cover
