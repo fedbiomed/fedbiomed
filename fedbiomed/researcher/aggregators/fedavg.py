@@ -6,6 +6,8 @@
 
 from typing import Dict
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 
@@ -40,7 +42,13 @@ class FedAverage(Aggregator):
         model_params_processed = list()
         weights_processed = list()
         for model_param in model_params:
-            node_id = next(iter(model_param.keys()))
+            node_id_list = list(model_param.keys())
+            if len(node_id_list) != 1:
+                msg = f'{ErrorNumbers.FB401.value}. Unexpected format for model parameters. '\
+                      f'Expected a dictionary with exactly 1 key, instead got {len(node_id_list)} keys.' \
+                      f'The full list of keys in model parameters is {[list(m.keys()) for m in model_params]}'
+                raise FedbiomedAggregatorError(msg)
+            node_id = node_id_list[0]  # guaranteed to be the one and only element of the list
             model_params_processed.append(list(model_param.values())[0])
             # we are reordering the model weights so list of parameters
             # matches list of weights
