@@ -50,6 +50,10 @@ class Aggregator:
 
         weights is a list of single-item dictionaries, each dictionary has the
         node id as key, and the weight as value.
+
+        Raises:
+            FedbiomedAggregatorError: if the number of weight entries corresponding
+                node id is 0 or larger than 1.
         """
         list_of_weights = [x[node_id] for x in weights if node_id in x]
         if len(list_of_weights) != 1:
