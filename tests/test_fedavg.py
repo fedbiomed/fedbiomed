@@ -1,5 +1,5 @@
 import copy
-from random import random
+from random import random, shuffle
 import unittest
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 
@@ -93,6 +93,8 @@ class TestFedaverage(unittest.TestCase):
 
     def test_fed_average_06_order_of_weight_and_model_params(self):
         """Tests bug #433 where weights and model params have scrambled order."""
+
+        # first we are testing with sklearn framework
         weights = [
             {'node_7ea1c779': 0.9},
             {'node_02a6e376': 0.1},
@@ -109,6 +111,18 @@ class TestFedaverage(unittest.TestCase):
         with self.assertRaises(FedbiomedAggregatorError):
             self.aggregator.aggregate(model_params=model_params,
                                       weights=weights)
+
+        # second we are testing with pytroch framework
+
+        # 1. compute ordered (sorted) aggregation result
+        ordered_agg_res = self.aggregator.aggregate(self.models, self.weights)
+        # 2. shuflle order of weights and then re-compute aggregation
+        shuffle(self.weights)  # FIXME: is there a chance that shuffle left list unchanged?
+        shuffled_agg_res = self.aggregator.aggregate(self.models, self.weights)
+
+        # check we get the same results, regardless of weigths order
+        for k, v in ordered_agg_res.items():
+            self.assertTrue(torch.isclose(v, shuffled_agg_res[k]).all())
 
 
 if __name__ == '__main__':  # pragma: no cover
