@@ -218,7 +218,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             Empty dictionary: (to be overridden in children classes)
         """
-        logger.warning("`optimizer_args` method not defined in training_plan!")
         return {}
 
     def add_preprocess(
