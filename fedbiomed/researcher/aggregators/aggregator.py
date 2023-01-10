@@ -48,8 +48,13 @@ class Aggregator:
     def get_weights_from_node_id(node_id: str, weights: List[Dict[str, float]]) -> float:
         """Gets the aggregation weights associated to a given node id.
 
-        weights is a list of single-item dictionaries, each dictionary has the
-        node id as key, and the weight as value.
+        Args:
+            node_id: string containing Node's id
+            weights: is a list of single-item dictionaries, each dictionary has the
+                node id as key, and the weight as value.
+        
+        Returns:
+            float: the aggregation weight related to the Node's id
         """
         list_of_weights = [x[node_id] for x in weights if node_id in x]
         if len(list_of_weights) != 1:
@@ -58,6 +63,8 @@ class Aggregator:
             logger.debug(msg + f'\nThe full  list of node ids in the weights array is '
                                f'{[list(w.keys()) for w in weights]}')
             raise FedbiomedAggregatorError(msg)
+        elif len(list_of_weights) < 1:
+            pass
         return list_of_weights[0]
 
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
