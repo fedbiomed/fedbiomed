@@ -44,6 +44,7 @@ class Aggregator:
             norm = [_w / _s for _w in weights]
         return norm
 
+    # FIXME: should this methob be part of functional.py module?
     @staticmethod
     def get_weights_from_node_id(node_id: str, weights: List[Dict[str, float]]) -> float:
         """Gets the aggregation weights associated to a given node id.
@@ -66,8 +67,7 @@ class Aggregator:
                   f'Expected exactly 1 entry with this id, instead got {len(list_of_weights)} entries.' \
                   f'The full  list of node ids in the weights array is {[list(w.keys()) for w in weights]}'
             raise FedbiomedAggregatorError(msg)
-        elif len(list_of_weights) < 1:
-            pass
+
         return list_of_weights[0]
 
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
