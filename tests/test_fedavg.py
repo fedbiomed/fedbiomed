@@ -117,7 +117,12 @@ class TestFedaverage(unittest.TestCase):
         # 1. compute ordered (sorted) aggregation result
         ordered_agg_res = self.aggregator.aggregate(self.models, self.weights)
         # 2. shuflle order of weights and then re-compute aggregation
-        shuffle(self.weights)  # FIXME: is there a chance that shuffle left list unchanged?
+        models_copy = copy.deepcopy(self.models)
+        shuffle(self.weights)
+        while models_copy == self.weights:
+            # this is done just in case shuffle has left item order unchanged
+            models_copy = copy.deepcopy(self.models)
+            shuffle(weights)
         shuffled_agg_res = self.aggregator.aggregate(self.models, self.weights)
 
         # check we get the same results, regardless of weigths order
