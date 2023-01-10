@@ -1,6 +1,7 @@
 import copy
 from random import random
 import unittest
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
 
 import torch
 from torch.nn import Linear
@@ -101,6 +102,13 @@ class TestFedaverage(unittest.TestCase):
         agg_params = self.aggregator.aggregate(model_params=model_params,
                                                weights=weights)
         self.assertEqual(agg_params['coef_'][0], 9.)
+
+        # test if missing node id triggers exception
+        model_params.append({'node_123abc': {'coef_': np.array([5.])}})
+
+        with self.assertRaises(FedbiomedAggregatorError):
+            self.aggregator.aggregate(model_params=model_params,
+                                      weights=weights)
 
 
 if __name__ == '__main__':  # pragma: no cover

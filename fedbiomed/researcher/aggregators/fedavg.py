@@ -42,6 +42,8 @@ class FedAverage(Aggregator):
         for model_param in model_params:
             node_id = next(iter(model_param.keys()))
             model_params_processed.append(list(model_param.values())[0])
+            # we are reordering the model weights so list of parameters
+            # matches list of weights
             weight = self.get_weights_from_node_id(node_id, weights)
             weights_processed.append(weight)
         weights_processed = self.normalize_weights(weights_processed)
