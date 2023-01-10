@@ -58,9 +58,8 @@ class Aggregator:
         list_of_weights = [x[node_id] for x in weights if node_id in x]
         if len(list_of_weights) != 1:
             msg = f'{ErrorNumbers.FB401.value}. Could not get weights for node {node_id}.' \
-                  f'Expected exactly 1 entry with this id, instead got {len(list_of_weights)} entries.'
-            logger.debug(msg + f'\nThe full  list of node ids in the weights array is '
-                               f'{[list(w.keys()) for w in weights]}')
+                  f'Expected exactly 1 entry with this id, instead got {len(list_of_weights)} entries.' \
+                  f'The full  list of node ids in the weights array is {[list(w.keys()) for w in weights]}'
             raise FedbiomedAggregatorError(msg)
         return list_of_weights[0]
 
