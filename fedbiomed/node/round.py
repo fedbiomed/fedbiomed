@@ -252,12 +252,6 @@ class Round:
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-        #                                     node_args=self.node_args,
-        #                                     aggregator_args=self.aggregator_args)
-        # training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
-        # logger.info(f'training with arguments {training_kwargs_print}')
-        
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
@@ -322,6 +316,8 @@ class Round:
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
+            results['sample_size'] = len(self.training_plan.training_data_loader.dataset)
+
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
@@ -329,7 +325,6 @@ class Round:
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-
 
             except Exception as e:
                 is_failed = True
@@ -409,6 +404,7 @@ class Round:
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)

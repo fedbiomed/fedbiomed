@@ -443,11 +443,13 @@ class Job:
                         return
                     loaded_model = self._training_plan.load(params_path, to_params=True)
                     params = loaded_model['model_params']
+                    sample_size = loaded_model.get('sample_size')
                     optimizer_args = loaded_model.get('optimizer_args')
                 else:
                     params_path = None
                     params = None
                     optimizer_args = None
+                    sample_size = None
 
                 # TODO: could choose completely different name/structure for
                 timing = m['timing']
@@ -460,6 +462,7 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'optimizer_args': optimizer_args,
+                               'sample_size': sample_size,
                                'timing': timing})
 
                 self._training_replies[round].append(r)

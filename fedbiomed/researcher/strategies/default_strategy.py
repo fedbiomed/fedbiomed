@@ -85,13 +85,12 @@ class DefaultStrategy(Strategy):
                 - If not all nodes successfully completes training
         """
         models_params = []
-        weights = []
 
         # check that all nodes answered
         cl_answered = [val['node_id'] for val in training_replies.data()]
 
         answers_count = 0
-        for cl in self.sample_nodes(round_i):
+        for cl in self._sampling_node_history[round_i]:
             if cl in cl_answered:
                 answers_count += 1
             else:
@@ -102,7 +101,7 @@ class DefaultStrategy(Strategy):
                              ")"
                              )
 
-        if len(self.sample_nodes(round_i)) != answers_count:
+        if len(self._sampling_node_history[round_i]) != answers_count:
             if answers_count == 0:
                 # none of the nodes answered
                 msg = ErrorNumbers.FB407.value
@@ -116,27 +115,27 @@ class DefaultStrategy(Strategy):
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
         all_success = True
+        model_params = {}
+        sample_sizes = {}
+        total_rows = 0
         for tr in training_replies:
             if tr['success'] is True:
-                model_params = {tr['node_id']: tr['params']}
-                models_params.append(model_params)
+
+                # TODO: Attach sample_size, weights and params in a single dict object
+                model_params[tr["node_id"]] = tr["params"]
+                sample_sizes[tr["node_id"]] = tr["sample_size"]
+
+                total_rows += tr['sample_size']
                 self._success_node_history[round_i].append(tr['node_id'])
             else:
-                # node did not succeed
                 all_success = False
-                logger.error(ErrorNumbers.FB409.value +
-                             " (node = " +
-                             tr['node_id'] +
-                             ")"
-                             )
+                logger.error(f"{ErrorNumbers.FB409.value} (node = {tr['node_id']} )")
 
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
-        # so far, everything is OK
-        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
-        weights = [{key: val[0]["shape"][0] / totalrows} for (key, val) in self._fds.data().items()]
-        logger.info('Nodes that successfully reply in round ' +
-                    str(round_i) + ' ' +
-                    str(self._success_node_history[round_i]))
-        return models_params, weights
+        weights = {node_id: sample_size / total_rows for node_id, sample_size in sample_sizes.items()}
+
+        logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
+
+        return model_params, weights
