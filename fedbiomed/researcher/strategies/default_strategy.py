@@ -9,6 +9,7 @@ This strategy is used then user does not provide its own
 
 import uuid
 from typing import List, Tuple
+from collections import OrderedDict
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -84,8 +85,6 @@ class DefaultStrategy(Strategy):
             FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
                 - If not all nodes successfully completes training
         """
-        models_params = []
-
         # check that all nodes answered
         cl_answered = [val['node_id'] for val in training_replies.data()]
 
