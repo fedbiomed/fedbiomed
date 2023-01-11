@@ -60,6 +60,10 @@ class FedAverage(Aggregator):
             model_params_processed.append(params)
             weights_processed.append(weight)
 
-        weights_processed = self.normalize_weights(weights_processed)
+        if sum(weights_processed) == 0:
+            raise FedbiomedAggregatorError(
+                f"{ErrorNumbers.FB401.value}. Aggregation aborted due to sum of the weights si equal 0 {weights}. "
+                f"Sample sizes received from nodes might be corrupted."
+            )
 
         return federated_averaging(model_params_processed, weights_processed)

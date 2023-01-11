@@ -26,24 +26,6 @@ class Aggregator:
         self._fds: FederatedDataSet = None
         self._training_plan_type: TrainingPlans = None
 
-    @staticmethod
-    def normalize_weights(weights: list) -> list:
-        """
-        Load list of weights assigned to each node and
-        normalize these weights so they sum up to 1
-
-        assuming that all values are >= 0.0
-        """
-        _l = len(weights)
-        if _l == 0:
-            return []
-        _s = sum(weights)
-        if _s == 0:
-            norm = [ 1.0 / _l ] * _l
-        else:
-            norm = [_w / _s for _w in weights]
-        return norm
-
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
         """
         Strategy to aggregate models
