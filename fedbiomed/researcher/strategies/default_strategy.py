@@ -59,7 +59,7 @@ class DefaultStrategy(Strategy):
             self,
             training_replies: Responses,
             round_i: int
-    ) -> Tuple[Dict[str, Dict[str: Union['torch.Tensor', 'np.ndarray']]], Dict[str, float]]:
+    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]], Dict[str, float]]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 

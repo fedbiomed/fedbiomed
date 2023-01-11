@@ -26,7 +26,7 @@ class FedAverage(Aggregator):
 
     def aggregate(
             self,
-            model_params: Dict[str, Dict[str: Union['torch.Tensor', 'np.ndarray']]],
+            model_params: Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
             weights: Dict[str, float],
             *args,
             **kwargs
