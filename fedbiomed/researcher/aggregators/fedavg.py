@@ -24,7 +24,7 @@ class FedAverage(Aggregator):
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
 
-    def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
+    def aggregate(self, model_params: Dict, weights: Dict, *args, **kwargs) -> Dict:
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 
@@ -41,19 +41,19 @@ class FedAverage(Aggregator):
         """
         model_params_processed = list()
         weights_processed = list()
-        for model_param in model_params:
-            node_id_list = list(model_param.keys())
-            if len(node_id_list) != 1:
-                msg = f'{ErrorNumbers.FB401.value}. Unexpected format for model parameters. '\
-                      f'Expected a dictionary with exactly 1 key, instead got {len(node_id_list)} keys.' \
-                      f'The full list of keys in model parameters is {[list(m.keys()) for m in model_params]}'
-                raise FedbiomedAggregatorError(msg)
-            node_id = node_id_list[0]  # guaranteed to be the one and only element of the list
-            model_params_processed.append(list(model_param.values())[0])
-            # we are reordering the model weights so list of parameters
-            # matches list of weights
-            weight = self.get_weights_from_node_id(node_id, weights)
+        for node_id, params in model_params.items():
+
+            if node_id not in weights:
+                raise FedbiomedAggregatorError(
+                    f"{ErrorNumbers.FB401.value}. Can not find corresponding calculated weight for the "
+                    f"node {node_id}. Aggregation is aborted."
+                )
+
+            weight = weights[node_id]
+
+            model_params_processed.append(params)
             weights_processed.append(weight)
+
         weights_processed = self.normalize_weights(weights_processed)
 
         return federated_averaging(model_params_processed, weights_processed)
