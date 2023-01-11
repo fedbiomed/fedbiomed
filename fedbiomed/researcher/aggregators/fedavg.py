@@ -4,7 +4,7 @@
 """
 """
 
-from typing import Dict
+from typing import Dict, Union, Mapping
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -24,7 +24,13 @@ class FedAverage(Aggregator):
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
 
-    def aggregate(self, model_params: Dict, weights: Dict, *args, **kwargs) -> Dict:
+    def aggregate(
+            self,
+            model_params: Dict[str, Dict[str: Union['torch.Tensor', 'np.ndarray']]],
+            weights: Dict[str, float],
+            *args,
+            **kwargs
+    ) -> Mapping[str, Union['torch.Tensor', 'np.ndarray']]:
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 

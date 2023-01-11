@@ -8,8 +8,7 @@ This strategy is used then user does not provide its own
 """
 
 import uuid
-from typing import List, Tuple
-from collections import OrderedDict
+from typing import List, Tuple, Dict, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -56,7 +55,11 @@ class DefaultStrategy(Strategy):
 
         return self._fds.node_ids()
 
-    def refine(self, training_replies: Responses, round_i: int) -> Tuple[List, List]:
+    def refine(
+            self,
+            training_replies: Responses,
+            round_i: int
+    ) -> Tuple[Dict[str, Dict[str: Union['torch.Tensor', 'np.ndarray']]], Dict[str, float]]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
