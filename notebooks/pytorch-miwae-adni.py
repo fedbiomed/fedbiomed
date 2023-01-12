@@ -49,6 +49,20 @@ if __name__ == '__main__':
                         help='Number of rounds')
     parser.add_argument('--Epochs', metavar='-e', type=int, default=10,
                         help='Number of epochs')
+    parser.add_argument('--data_folder', metavar='-d', type=str, default='Data/',
+                        help='Datasets folder')
+    parser.add_argument('--hidden', metavar='-h', type=int, default=256,
+                        help='Number of epochs')
+    parser.add_argument('--latent', metavar='-d', type=int, default=20,
+                        help='Number of epochs')
+    parser.add_argument('--K', metavar='-k', type=int, default=50,
+                        help='Number of epochs')
+    parser.add_argument('--L', metavar='-l', type=int, default=10000,
+                        help='Number of epochs')
+    parser.add_argument('--batch_size', metavar='-bs', type=int, default=32,
+                        help='Number of epochs')
+    parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
+                        help='Learning rate')
 
     args = parser.parse_args()
 
@@ -56,17 +70,7 @@ if __name__ == '__main__':
     method = args.method
     idx_Test_data = int(args.Test_id)
     tags = args.tags
-
-    ###########################################################
-    # Recover full dataset and test dataset for testing phase #
-    ###########################################################
-    #Number of partecipating clients
-    N_cl = 3
-
-    idx_clients=[*range(1,N_cl+2)]
-    idx_clients.remove(idx_Test_data)
-
-    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = databases(Split_type,idx_clients,idx_Test_data,N_cl)
+    data_folder = args.data_folder
 
     ###########################################################
     # Recover data size                                       #
@@ -80,9 +84,23 @@ if __name__ == '__main__':
     assert min(dataset_size)==max(dataset_size)
     data_size = dataset_size[0]
 
+    #Number of partecipating clients
+    N_cl = len(dataset_size)
+
+    ###########################################################
+    # Recover full dataset and test dataset for testing phase #
+    ###########################################################
+
+    idx_clients=[*range(1,N_cl+2)]
+    idx_clients.remove(idx_Test_data)
+
+    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl)
+
     ###########################################################
     # Recover global mean and std in a federated manner       #
     ###########################################################
+
+    fed_mean, fed_std = None, None
 
     if method not in ['FedProx_loc','Local']:
 
@@ -117,13 +135,13 @@ if __name__ == '__main__':
     #Define the hyperparameters for miwae                     #
     ###########################################################
 
-    h = 256 # number of hidden units in (same for all MLPs)
-    d = 20 # dimension of the latent space
-    K = 50 # number of IS during training
-    L = 10000 # for testing phase
+    h = args.hidden # number of hidden units in (same for all MLPs)
+    d = args.latent # dimension of the latent space
+    K = args.K # number of IS during training
+    L = args.L # for testing phase
 
     n_epochs=args.Epochs
-    batch_size = 32
+    batch_size = args.batch_size
     num_updates = int(np.ceil(min_n_samples/batch_size)*n_epochs)
     rounds = args.Rounds
 
@@ -141,7 +159,7 @@ if __name__ == '__main__':
         training_args = {
             'batch_size': batch_size, 
             'optimizer_args':
-            {'lr': 1e-3}, 
+            {'lr': args.learning_rate}, 
             'log_interval' : 1,
             'num_updates': num_updates, 
             'dry_run': False
@@ -187,12 +205,12 @@ if __name__ == '__main__':
         n_epochs_local = n_epochs*rounds
         n_epochs_centralized = n_epochs*rounds*len(Clients_missing)
 
-        bs = training_args.get('batch_size')
-        lr = training_args.get('lr')
+        bs = args.batch_size
+        lr = args.learning_rate
 
-        h = model_args.get('n_hidden') 
-        d = model_args.get('n_latent') 
-        K = model_args.get('n_samples') 
+        h = args.hidden
+        d = args.latent
+        K = args.K 
 
         Encoders_loc = []
         Decoders_loc = []
@@ -203,8 +221,8 @@ if __name__ == '__main__':
             n = Clients_data[cls].shape[0] # number of observations
             p = Clients_data[cls].shape[1] # number of features
 
-            xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                 recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
+            xmiss, mask, xhat_local_std, xfull_local_std =\
+                 recover_data(Clients_missing[cls], Clients_data[cls])
 
             xhat_cls = np.copy(xhat_local_std)
             xhat_0_cls = np.copy(xhat_local_std)
@@ -322,6 +340,7 @@ if __name__ == '__main__':
     ###########################################################
     #Testing phase                                            #
     ###########################################################
+    
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     if method != 'Local':
@@ -334,9 +353,10 @@ if __name__ == '__main__':
 
     # Testing on data used during training
     for cls in range(N_cl):
+        if ((fed_mean is None) and (fed_std is None)):
+            fed_mean, fed_std = mean_tot_missing, std_tot_missing
         xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                 recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
-
+                recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
         if method != 'Local':
             MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
             save_results(exp_id,Split_type,idx_clients,idx_clients[cls],
@@ -351,6 +371,7 @@ if __name__ == '__main__':
                     std_training,'global',MSE)
         elif method == 'Local':
             # centralized 
+            mean_tot_missing
             MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, d, L)
             save_results(exp_id,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
@@ -369,8 +390,10 @@ if __name__ == '__main__':
                 'Loc','local',MSE)
 
     # Testing on external dataset
+    if ((fed_mean is None) and (fed_std is None)):
+        fed_mean, fed_std = mean_tot_missing, std_tot_missing 
     xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                 recover_data(data_test_missing, data_test, fed_mean, fed_std)
+                recover_data(data_test_missing, data_test, fed_mean, fed_std)
     if method != 'Local':
         MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
         save_results(exp_id,Split_type,idx_clients,idx_Test_data,

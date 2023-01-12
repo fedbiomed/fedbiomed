@@ -8,7 +8,7 @@ import torch.distributions as td
 #Define the imputation and the MSE functions              #
 ###########################################################
 
-def miwae_impute(encoder,decoder,iota_x,mask,d,L):
+def miwae_impute(encoder,decoder,iota_x,mask,p,d,L):
 
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
 
@@ -76,7 +76,7 @@ def miwae_loss(encoder, decoder, iota_x, mask, d, p, K, batch_size):
 
     return neg_bound
 
-def recover_data(data_missing, data_full, fed_mean, fed_std):
+def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
 
     # TEST DATA: data_missing = data_test_missing; data_full = data_test
     # CLIENT i, i=0,1,2: data_missing = Clients_missing[i]; data_full = Clients_data[i]
@@ -88,15 +88,6 @@ def recover_data(data_missing, data_full, fed_mean, fed_std):
     mean = np.nanmean(xmiss,0)
     std = np.nanstd(xmiss,0)
 
-    # standardization with respect to the federated dataset
-    xmiss_global_std = np.copy(data_missing)
-    xmiss_global_std = (xmiss_global_std - fed_mean.numpy())/fed_std.numpy()
-    xhat_0_global_std = np.copy(xmiss_global_std)
-    xhat_0_global_std[np.isnan(xmiss_global_std)] = 0
-    xhat_global_std = np.copy(xhat_0_global_std) # This will be out imputed data matrix
-    xfull_global_std = np.copy(data_full)
-    xfull_global_std = (xfull_global_std - fed_mean.numpy())/fed_std.numpy()
-
     # local standardization
     xmiss_local_std = np.copy(data_missing)
     xmiss_local_std = (xmiss_local_std - mean)/std
@@ -106,7 +97,22 @@ def recover_data(data_missing, data_full, fed_mean, fed_std):
     xfull_local_std = np.copy(data_full)
     xfull_local_std = (xfull_local_std - mean)/std
 
-    return xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std
+    if ((fed_mean is not None) and (fed_std is not None)): 
+        if ((type(fed_mean) != np.ndarray) and (type(fed_std) != np.ndarray)):
+            fed_mean, fed_std = fed_mean.numpy(), fed_std.numpy()
+        # standardization with respect to the federated dataset
+        xmiss_global_std = np.copy(data_missing)
+        xmiss_global_std = (xmiss_global_std - fed_mean)/fed_std
+        xhat_0_global_std = np.copy(xmiss_global_std)
+        xhat_0_global_std[np.isnan(xmiss_global_std)] = 0
+        xhat_global_std = np.copy(xhat_0_global_std) # This will be out imputed data matrix
+        xfull_global_std = np.copy(data_full)
+        xfull_global_std = (xfull_global_std - fed_mean)/fed_std
+
+        return xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std
+    else:
+        return xmiss, mask, xhat_local_std, xfull_local_std
+        
 
 def testing_func(data_missing, data_full, mask, encoder,decoder,d,L):
 
@@ -114,7 +120,9 @@ def testing_func(data_missing, data_full, mask, encoder,decoder,d,L):
     xhat_0 = np.copy(data_missing)
     xfull = np.copy(data_full)
 
-    xhat[~mask] = miwae_impute(encoder = encoder,decoder = decoder,iota_x = torch.from_numpy(xhat_0).float(),mask = torch.from_numpy(mask).float(),d = d,L= L).cpu().data.numpy()[~mask]
+    p = data_full.shape[1] # number of features
+
+    xhat[~mask] = miwae_impute(encoder = encoder,decoder = decoder,iota_x = torch.from_numpy(xhat_0).float(),mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
     err = np.array([mse(xhat,xfull,mask)])
 
     return float(err)
@@ -123,6 +131,7 @@ def save_results(exp_id,Split_type,Train_data,Test_data,
                 perc_missing_train,perc_missing_test,model,
                 N_train_centers,Size,N_rounds,N_epochs,
                 std_training,std_testing,MSE):
+
     os.makedirs('results', exist_ok=True) 
     output_file_name = 'output_'+str(exp_id)+'_'+str(np.random.randint(9999, dtype=int))+'.csv'
     fieldnames=['Split_type', 'Train_data', 'Test_data', 'perc_missing_train', 
@@ -145,13 +154,11 @@ def save_results(exp_id,Split_type,Train_data,Test_data,
     with open('results/'+output_file_name, 'a') as output_file:
         dictwriter_object = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter = ';')
         dictwriter_object.writerow(dict_out)
-        dictwriter_object.writerow(dict_out)
         output_file.close()
 
-def databases(Split_type,idx_clients,idx_Test_data,N_cl):
+def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl):
     cwd = os.getcwd()
 
-    data_folder = 'Data/'
     if Split_type == 'notIID':
         data_folder += 'ADNI_notiid'
     elif Split_type == 'site_1':
@@ -183,4 +190,3 @@ def databases(Split_type,idx_clients,idx_Test_data,N_cl):
     data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test
-    
