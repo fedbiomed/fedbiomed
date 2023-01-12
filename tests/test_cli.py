@@ -20,9 +20,10 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2
 from fedbiomed.node.cli_utils import add_database
 from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
+from base_test_case import NodeTestCase
 
 
-class TestCli(unittest.TestCase):
+class TestCli(NodeTestCase):
     @staticmethod
     def mock_cli_input(x):
         """Requires that each test defines TestCli.inputs as a list"""
