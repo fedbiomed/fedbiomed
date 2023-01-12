@@ -6,7 +6,7 @@ import unittest
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 #############################################################
 
 from fedbiomed.researcher.environ import environ
@@ -39,9 +39,6 @@ class TestLocalJob(ResearcherTestCase):
 
         return tmp_dir_model
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
 
     def setUp(self):
 

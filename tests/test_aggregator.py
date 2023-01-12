@@ -1,4 +1,4 @@
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 
 import unittest
 from fedbiomed.common.constants import TrainingPlans

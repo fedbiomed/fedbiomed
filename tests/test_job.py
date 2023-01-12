@@ -12,7 +12,7 @@ import torch
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 #############################################################
 
 from testsupport.fake_training_plan import FakeModel
@@ -56,6 +56,8 @@ class TestJob(ResearcherTestCase):
     @classmethod
     def setUpClass(cls):
 
+        super().setUpClass()
+
         def msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)
             return fake_node_msg
@@ -68,9 +70,6 @@ class TestJob(ResearcherTestCase):
 
         cls.fake_responses_side_effect = fake_responses
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
 
     def setUp(self):
 
@@ -115,6 +114,7 @@ class TestJob(ResearcherTestCase):
 
         # Remove if there is dummy model file
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
+        print(tmp_dir)
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
 

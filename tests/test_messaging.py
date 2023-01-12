@@ -4,7 +4,7 @@ import time
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase, NodeTestCase
 #############################################################
 
 from fedbiomed.common.constants import ComponentType
@@ -15,7 +15,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.researcher.environ import environ
 
 
-class TestMessaging(ResearcherTestCase):
+class TestMessaging(unittest.TestCase):
     '''
     Test the Messaging class connect/disconnect
     '''
@@ -157,7 +157,7 @@ class TestMessaging(ResearcherTestCase):
         self._m.stop()
 
 
-class TestMessagingResearcher(unittest.TestCase):
+class TestMessagingResearcher(ResearcherTestCase):
     '''
     Test the Messaging class from the researcher point of view
     '''
@@ -168,6 +168,8 @@ class TestMessagingResearcher(unittest.TestCase):
         connect to the broker and setup a global variable
         used to skip the test is no broker is present
         '''
+
+        super().setUpClass()
 
         # verify that a broker is available
         try:
@@ -194,6 +196,8 @@ class TestMessagingResearcher(unittest.TestCase):
         '''
         disconnect to the broker if broker was present at init time
         '''
+        super().setUpClass()
+
         if not cls._broker_ok:
             cls._m.stop()
         pass
@@ -273,7 +277,7 @@ class TestMessagingResearcher(unittest.TestCase):
         time.sleep(1.0)
 
 
-class TestMessagingNode(unittest.TestCase):
+class TestMessagingNode(NodeTestCase):
     '''
     Test the Messaging class from the researcher point of view
     '''
@@ -284,7 +288,7 @@ class TestMessagingNode(unittest.TestCase):
         connect to the broker and setup a global variable
         used to skip the test is no broker is present
         '''
-
+        super().setUpClass()
         # verify that a broker is available
         try:
             print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
@@ -308,8 +312,10 @@ class TestMessagingNode(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         '''
-        disconnect from broker if broker was present at init time
+        disconnect to the broker if broker was present at init time
         '''
+        super().setUpClass()
+
         if not cls._broker_ok:
             cls._m.stop()
         pass

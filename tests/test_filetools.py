@@ -5,7 +5,7 @@ import shutil
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 #############################################################
 
 from fedbiomed.researcher.environ import environ

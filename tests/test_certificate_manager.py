@@ -30,8 +30,6 @@ class TestCertificateManager(unittest.TestCase):
         self.tiny_db_table_mock = self.tiny_db_table_patch.start()
         self.tiny_db_query_mock = self.tiny_db_query_patch.start()
 
-
-
         self.tiny_db_table_patch.return_value = None
         self.cm = CertificateManager(db_path="test-db")
 
@@ -44,7 +42,7 @@ class TestCertificateManager(unittest.TestCase):
         self.tiny_db_mock.reset_mock()
         self.tiny_db_query_mock.reset_mock()
 
-        self.patch_isfile.start()
+        self.patch_isfile.stop()
         self.patch_isdir.stop()
         self.tiny_db_patch.stop()
         self.tiny_db_table_patch.stop()

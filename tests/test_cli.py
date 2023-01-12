@@ -5,14 +5,14 @@ from pathlib import Path
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from base_case import NodeTestCase
+from testsupport.base_case import NodeTestCase
 #############################################################
 
 import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
-from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
+from fedbiomed.common.data import MapperBlock
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
 
@@ -90,7 +90,7 @@ class TestCli(NodeTestCase):
             # self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 
-class TestMedicalFolderCliUtils(unittest.TestCase):
+class TestMedicalFolderCliUtils(NodeTestCase):
     @staticmethod
     def mock_input(x):
         return TestMedicalFolderCliUtils.inputs.pop(0)

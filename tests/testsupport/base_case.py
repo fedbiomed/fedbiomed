@@ -1,8 +1,8 @@
-import copy
-
 import sys
+import os
 import shutil
 import unittest
+import glob
 import testsupport.fake_node_environ
 
 from testsupport.fake_node_environ import NodeRandomEnv
@@ -31,7 +31,10 @@ class BaseTestCase(unittest.TestCase):
                             "`setUpClass`. Please call super().setUpClass() at the very beginning of the method "
                             "`setUpClass`.")
 
-        shutil.rmtree(cls.env["ROOT_DIR"])
+        def ignore_error(func, filename, exc_info):
+            pass
+
+        shutil.rmtree(cls.env["ROOT_DIR"], onerror=ignore_error)
 
         cls.environ_patch.stop()
         cls.environ_set_patch.stop()
@@ -60,6 +63,7 @@ class ResearcherTestCase(BaseTestCase):
         cls.environ_set.side_effect = set_side_effect
 
 
+
 class NodeTestCase(BaseTestCase):
 
     @classmethod
@@ -83,6 +87,5 @@ class NodeTestCase(BaseTestCase):
         cls.environ_set.side_effect = set_side_effect
 
         pass
-
 
 

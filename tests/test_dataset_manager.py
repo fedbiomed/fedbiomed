@@ -17,7 +17,7 @@ from torchvision import transforms, datasets
 
 #############################################################
 # Import NodeTestCase before importing any FedBioMed Module
-from base_case import NodeTestCase
+from testsupport.base_case import NodeTestCase
 #############################################################
 
 # Test Support
@@ -113,6 +113,8 @@ class TestDatasetManager(NodeTestCase):
         del self.dataset_manager
         if os.path.isdir(environ['DB_PATH']):
             os.remove(environ['DB_PATH'])
+
+        shutil.rmtree(self.tempdir)
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """

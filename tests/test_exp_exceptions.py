@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 #############################################################
 
 import fedbiomed.researcher.experiment

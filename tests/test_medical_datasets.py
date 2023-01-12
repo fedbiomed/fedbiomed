@@ -40,6 +40,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self._create_synthetic_dataset()
 
     def tearDown(self) -> None:
+
         shutil.rmtree(self.root)
 
     def test_nifti_folder_dataset_01_instantiation_correct(self):

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from base_case import NodeTestCase
+from testsupport.base_case import NodeTestCase
 #############################################################
 
 

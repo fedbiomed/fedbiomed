@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock, PropertyMock
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 #############################################################
 
 
@@ -32,7 +32,7 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
-from fedbiomed.researcher.experiment import Experiment, TrainingPlan
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.strategies.strategy import Strategy

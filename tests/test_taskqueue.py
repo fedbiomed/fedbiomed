@@ -1,3 +1,5 @@
+import os.path
+
 import tempfile
 import shutil
 import unittest
@@ -18,8 +20,8 @@ class TestTasksQueue(unittest.TestCase):
 
     # after the tests
     def tearDown(self):
-        shutil.rmtree(self.queuename)
-        pass
+        if os.path.isfile(self.queuename) or os.path.isdir(self.queuename):
+            shutil.rmtree(self.queuename)
 
 
     def test_tasksqueue(self):

@@ -40,8 +40,6 @@ import fedbiomed.common.training_plans._torchnn
 import fedbiomed.common.utils
 import fedbiomed.common.validator
 import fedbiomed.node.__init__
-import fedbiomed.node.cli
-import fedbiomed.node.cli_utils.__init__
 import fedbiomed.node.cli_utils._database
 import fedbiomed.node.cli_utils._io
 import fedbiomed.node.cli_utils._medical_folder_dataset

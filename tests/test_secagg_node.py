@@ -4,7 +4,7 @@ from copy import deepcopy
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from base_case import NodeTestCase
+from testsupport.base_case import NodeTestCase
 #############################################################
 
 from testsupport.fake_message import FakeMessages

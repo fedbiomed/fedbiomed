@@ -1,4 +1,4 @@
-from base_case import ResearcherTestCase
+from testsupport.base_case import ResearcherTestCase
 
 import copy
 from random import random
