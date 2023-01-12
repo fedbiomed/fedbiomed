@@ -8,20 +8,13 @@ import inspect
 import shutil
 
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.singleton import SingletonMeta
-from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.logger import logger
 
 
-# class Environ(metaclass = SingletonMeta):
-class EnvironResearcher(metaclass=SingletonMeta):
+class ResearcherEnviron:
 
-    def __init__(self, component=None):
+    def __init__(self):
 
-        print("===== using fake environ:", component)
-
-        if component != ComponentType.RESEARCHER:
-            raise FedbiomedEnvironError("fake_researcher_environ: component type must be RESEARCHER")
 
         self.envdir = os.path.join(
             os.path.dirname(
@@ -78,4 +71,13 @@ class EnvironResearcher(metaclass=SingletonMeta):
         return value
 
 
-environ = EnvironResearcher(ComponentType.RESEARCHER)
+class ResearcherRandomEnv(ResearcherEnviron):
+    def __getitem__(self, item):
+        return self._values[item]
+
+    def __setitem__(self, key, value):
+        self._values[key] = value
+        return value
+
+
+environ = ResearcherEnviron()

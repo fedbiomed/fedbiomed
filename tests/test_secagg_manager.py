@@ -1,9 +1,15 @@
 import unittest
 from unittest.mock import patch
 import copy
+
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from base_case import NodeTestCase
+#############################################################
+
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
-from base_test_case import NodeTestCase
+
 
 class FakeTinyDB:
     def __init__(self, path):

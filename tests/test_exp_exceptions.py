@@ -1,15 +1,17 @@
 import unittest
 from unittest.mock import patch
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
 
-from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
-
-from fedbiomed.researcher.experiment import exp_exceptions
 import fedbiomed.researcher.experiment
+from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
+from fedbiomed.researcher.experiment import exp_exceptions
 
 
-class TestExpExceptions(unittest.TestCase):
+class TestExpExceptions(ResearcherTestCase):
     """ Test class for expriment.exp_exception """
 
     def setUp(self) -> None:

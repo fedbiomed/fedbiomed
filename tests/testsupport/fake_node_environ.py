@@ -9,22 +9,13 @@ import shutil
 import uuid
 
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-#from fedbiomed.common.singleton  import SingletonMeta
-from fedbiomed.common.constants  import ComponentType
-from fedbiomed.common.logger     import logger
-
-#class Environ(metaclass = SingletonMeta):
-#class EnvironNode(metaclass = SingletonMeta):
+from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.logger import logger
 
 
-class EnvironNode:
+class NodeEnviron:
 
-    def __init__(self, component=None):
-
-        print("===== using fake environ:", component)
-
-        if component != ComponentType.NODE :
-            raise FedbiomedEnvironError("fake_node_environ: component type must be NODE")
+    def __init__(self):
 
         self.envdir = os.path.join(
             os.path.dirname(
@@ -84,5 +75,13 @@ class EnvironNode:
         return value
 
 
-environ = EnvironNode(ComponentType.NODE)
+class NodeRandomEnv(NodeEnviron):
+    def __getitem__(self, item):
+        return self._values[item]
+
+    def __setitem__(self, key, value):
+        self._values[key] = value
+        return value
+
+environ = NodeEnviron()
 

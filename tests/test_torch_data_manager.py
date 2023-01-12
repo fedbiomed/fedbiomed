@@ -1,5 +1,4 @@
 import unittest
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 import fedbiomed.common.data._torch_data_manager  # noqa
 import numpy as np
 

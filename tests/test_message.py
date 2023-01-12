@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import sys
 import unittest
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus

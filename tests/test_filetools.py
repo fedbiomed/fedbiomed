@@ -3,12 +3,16 @@ from unittest.mock import patch
 import os
 import shutil
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
+
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher import filetools
 
 
-class TestFiletools(unittest.TestCase):
+class TestFiletools(ResearcherTestCase):
 
     def setUp(self):
 

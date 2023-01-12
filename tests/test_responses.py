@@ -1,12 +1,15 @@
 import unittest
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
 
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.exceptions import FedbiomedResponsesError
 
 
-class TestResponses(unittest.TestCase):
+class TestResponses(ResearcherTestCase):
     '''
     Test the Responses class
     '''

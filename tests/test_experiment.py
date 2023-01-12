@@ -7,11 +7,15 @@ import json
 import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.common import training_plans
-from fedbiomed.common.constants import TrainingPlans
+
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
+
+
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
-import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
+from fedbiomed.researcher.secagg import SecaggBiprimeContext
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
@@ -42,7 +46,7 @@ class FakeStrategy(Strategy):
     pass
         
 
-class TestExperiment(unittest.TestCase):
+class TestExperiment(ResearcherTestCase):
     """ Test for Experiment class """
 
     # For testing training_plan setter of Experiment
@@ -80,6 +84,8 @@ class TestExperiment(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+
+        super().setUpClass()
 
         # Create FakeAggregator that does not have subclass
         class FakeAggregator:

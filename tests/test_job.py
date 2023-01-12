@@ -8,12 +8,13 @@ from unittest.mock import patch, MagicMock
 import uuid
 
 import numpy as np
-from fedbiomed.common import training_args
-from fedbiomed.researcher.datasets import FederatedDataSet
-from testsupport.fake_dataset import FederatedDataSetMock
 import torch
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
+
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
@@ -27,7 +28,7 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.training_args import TrainingArgs
 
 
-class TestJob(unittest.TestCase):
+class TestJob(ResearcherTestCase):
 
     @classmethod
     def create_fake_model(cls, name: str):

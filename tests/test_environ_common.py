@@ -1,12 +1,9 @@
 import unittest
 import os
-import sys
 import tempfile
 import shutil
-from copy import copy
 
-# dont import fedbiomed.*.environ here
-from fedbiomed.common.constants import ComponentType
+
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from unittest import TestCase
 from unittest.mock import patch

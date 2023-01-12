@@ -2,9 +2,8 @@ import tempfile
 import shutil
 import unittest
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
-from fedbiomed.common.exceptions  import FedbiomedTaskQueueError
+from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.tasks_queue import TasksQueue
 
 

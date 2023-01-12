@@ -17,12 +17,10 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 import copy
 import random
 
-
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
-
+from base_case import ResearcherTestCase
 
 
-class TestScaffold(unittest.TestCase):
+class TestScaffold(ResearcherTestCase):
     '''
     Tests the Scaffold class
     '''

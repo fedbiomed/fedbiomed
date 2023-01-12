@@ -1,12 +1,14 @@
 import copy
-import json
 from json import decoder
-import json
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from base_case import NodeTestCase
+#############################################################
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
@@ -22,10 +24,14 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.dataset_manager import DatasetManager
 
 
-class TestNode(unittest.TestCase):
+class TestNode(NodeTestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Important to instantiate fake environ
+        super().setUpClass()
+        # --------------------------------------
+
         # defining common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)

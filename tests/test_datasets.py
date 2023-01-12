@@ -1,9 +1,14 @@
 import unittest
 
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from base_case import ResearcherTestCase
+#############################################################
+
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
-class TestFederatedDataset(unittest.TestCase):
+class TestFederatedDataset(ResearcherTestCase):
     """
     Test `FederatedDataset` class
     Args:

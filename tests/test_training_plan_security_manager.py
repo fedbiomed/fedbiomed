@@ -8,7 +8,11 @@ import unittest
 import inspect
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from base_case import NodeTestCase
+#############################################################
+
 
 from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError, \
@@ -20,7 +24,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
-class TestTrainingPlanSecurityManager(unittest.TestCase):
+class TestTrainingPlanSecurityManager(NodeTestCase):
     """
     Unit tests for class `TrainingPlanSecurityManager` (from fedbiomed.node.training_plan_security_manager)
     """
@@ -29,44 +33,27 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
     # Used for mocking, when you want to have an error on some function.
     raise_some_error = SystemError('my error message')
 
+
     # dummy class for testing typing of parameters
     class Dummy():
         pass
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.env_initial = copy.deepcopy(cls.env)
+
     # before the tests
     def setUp(self):
 
-        # This part important for setting fake values for environ -----------------
-        # and properly mocking values in environ Since environ is singleton,
-        # you should also mock environ objects that are called from modules e.g.
-        # fedbiomed.node.training_plan_security_manager.environ you should use another mock for
-        # the environ object used in test functions
-        self.values = copy.deepcopy(environ)
+        TestTrainingPlanSecurityManager.env = TestTrainingPlanSecurityManager.env_initial
 
-        def side_effect(arg):
-            return self.values[arg]
-
-        def side_effect_set_item(key, value):
-            self.values[key] = value
-
-        # self.environ_patch = patch('fedbiomed.node.environ.environ')
-        self.environ_training_plan_manager_patch = patch('fedbiomed.node.training_plan_security_manager.environ')
-
-        # self.environ = self.environ_patch.start()
-        self.environ_training_plan = self.environ_training_plan_manager_patch.start()
-
-        self.environ_training_plan.__getitem__.side_effect = side_effect
-        self.environ_training_plan.__setitem__.side_effect = side_effect_set_item
-
-        # patchers for causing database access errors
-        # need to be (de)activated only for some pieces of test code
         self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_all = patch('tinydb.table.Table.all', MagicMock(side_effect=self.raise_some_error))
-
         # ---------------------------------------------------------------------------
 
         # handle case where previous test did not properly clean
@@ -88,7 +75,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
     def tearDown(self):
         # DB should be removed after each test to
         # have clear database for tests
-        self.environ_training_plan_manager_patch.stop()
+        # self.environ_training_plan_manager_patch.stop()
 
         self.tp_security_manager._tinydb.drop_table('TrainingPlans')
         self.tp_security_manager._tinydb.close()
@@ -106,7 +93,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         for training_plan in default_training_plans:
 
             # set default hashing algorithm
-            self.values['HASHING_ALGORITHM'] = 'SHA256'
+            TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = 'SHA256'
             full_path = os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], training_plan)
 
             # Control return vlaues with default hashing algorithm
@@ -116,7 +103,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
             algorithms = HashingAlgorithms.list()
             for algo in algorithms:
-                self.values['HASHING_ALGORITHM'] = algo
+                TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo
                 hash, algortihm = self.tp_security_manager._create_hash(full_path)
                 self.assertIsInstance(hash, str, 'Hash creation is not successful')
                 self.assertEqual(algortihm, algo, 'Wrong hashing algorithm')
@@ -125,11 +112,14 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """Tests `create_hash` method is raising exception if hashing
         algorithm does not exist"""
         training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
-        self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
+        TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
 
         # action:
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager._create_hash(training_plan_path)
+
+        # Back to normal
+        TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = "SHA256"
 
     def test_training_plan_manager_03_create_hash_open_exceptions(self):
         """Tests `create_hash` method is raising appropriate exception if
@@ -186,7 +176,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # # Multiple test with different hashing algorithms
         algorithms = HashingAlgorithms.list()
         for algo in algorithms:
-            self.values['HASHING_ALGORITHM'] = algo
+            TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo
             self.tp_security_manager.register_update_default_training_plans()
             doc = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_type == "default")
             logger.info(doc)
@@ -229,7 +219,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # prepare: first select a hashing algorithm that is not the one set in ENVIRON
         # (first one that is different in the list)
 
-        algo_initial = self.values['HASHING_ALGORITHM']
+        algo_initial = TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM']
         for a in HashingAlgorithms.list():
             if a != algo_initial:
                 algo_tempo = a
@@ -259,10 +249,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 os.remove(new_default_training_plan_path)
             elif error == 'db_get-exists':
                 self.patcher_db_get.start()
-                self.values['HASHING_ALGORITHM'] = algo_tempo
+                TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo_tempo
             elif error == 'db_update-exists':
                 self.patcher_db_update.start()
-                self.values['HASHING_ALGORITHM'] = algo_tempo
+                TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo_tempo
 
             # test and check
             with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
@@ -277,10 +267,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 self.patcher_db_remove.stop()
             elif error == 'db_get-exists':
                 self.patcher_db_get.stop()
-                self.values['HASHING_ALGORITHM'] = algo_initial
+                TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo_initial
             elif error == 'db_update-exists':
                 self.patcher_db_update.stop()
-                self.values['HASHING_ALGORITHM'] = algo_initial
+                TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo_initial
 
             # check training plans where not modified by failed operation
             training_plans_after = self.tp_security_manager._db.all()
@@ -943,7 +933,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         mock_get_training_plan.return_value = {'training_plan_status': TrainingPlanApprovalStatus.REJECTED.value}
         messaging.reset_mock()
 
-        self.values["TRAINING_PLAN_APPROVAL"] = False
+        TestTrainingPlanSecurityManager.env["TRAINING_PLAN_APPROVAL"] = False
         test3_msg = 'This node does not require training plan approval (maybe for debugging purposes).'
         # action
         self.tp_security_manager.reply_training_plan_status_request(msg, messaging)
@@ -992,7 +982,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 'training_plan_url': 'file:/' + os.path.join(self.testdir, 'test-training-plan-1.txt'),
                 'command': 'training-plan-status'
             }
-            self.values["TRAINING_PLAN_APPROVAL"] = approval
+            TestTrainingPlanSecurityManager.env["TRAINING_PLAN_APPROVAL"] = approval
 
             mock_download.return_value = 200, None
             mock_get_training_plan.return_value = None
