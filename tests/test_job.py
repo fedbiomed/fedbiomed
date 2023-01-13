@@ -80,11 +80,14 @@ class TestJob(ResearcherTestCase):
         self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
+        self.patcher5 = patch('fedbiomed.researcher.job.atexit')
+
 
         self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
         self.mock_request_create = self.patcher4.start()
+        self.mock_atexit = self.patcher5.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = MagicMock(return_value=None)
@@ -108,13 +111,13 @@ class TestJob(ResearcherTestCase):
         self.patcher2.stop()
         self.patcher3.stop()
         self.patcher4.stop()
+        self.patcher5.stop()
 
         # shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
 
         # Remove if there is dummy model file
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
-        print(tmp_dir)
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
 

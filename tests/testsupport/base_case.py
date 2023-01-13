@@ -31,10 +31,17 @@ class BaseTestCase(unittest.TestCase):
                             "`setUpClass`. Please call super().setUpClass() at the very beginning of the method "
                             "`setUpClass`.")
 
-        def ignore_error(func, filename, exc_info):
-            pass
+        shutil.rmtree(cls.env["ROOT_DIR"])
 
-        shutil.rmtree(cls.env["ROOT_DIR"], onerror=ignore_error)
+        # for item in glob.glob(os.path.join('/tmp', "_res_*")):
+        #     if not os.path.isdir(item):
+        #         continue
+        #     shutil.rmtree(item)
+        #
+        # for item in glob.glob(os.path.join('/tmp', "_nod_*")):
+        #     if not os.path.isdir(item):
+        #         continue
+        #     shutil.rmtree(item)
 
         cls.environ_patch.stop()
         cls.environ_set_patch.stop()
