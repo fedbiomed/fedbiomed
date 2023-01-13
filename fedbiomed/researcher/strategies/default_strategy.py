@@ -92,9 +92,8 @@ class DefaultStrategy(Strategy):
         """
         # check that all nodes answered
         cl_answered = [val['node_id'] for val in training_replies.data()]
-        logger.critical('Here' + str(cl_answered))
         answers_count = 0
-        
+
         if self._sampling_node_history.get(round_i) is None:
             raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
         for cl in self._sampling_node_history[round_i]:
@@ -117,7 +116,7 @@ class DefaultStrategy(Strategy):
                 msg = ErrorNumbers.FB408.value
 
             logger.critical(msg)
-            #raise FedbiomedStrategyError(msg)
+            raise FedbiomedStrategyError(msg)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []

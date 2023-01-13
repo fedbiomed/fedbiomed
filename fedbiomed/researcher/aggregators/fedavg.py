@@ -62,7 +62,7 @@ class FedAverage(Aggregator):
 
         if sum(weights_processed) == 0:
             raise FedbiomedAggregatorError(
-                f"{ErrorNumbers.FB401.value}. Aggregation aborted due to sum of the weights si equal 0 {weights}. "
+                f"{ErrorNumbers.FB401.value}. Aggregation aborted due to sum of the weights is equal to 0 {weights}. "
                 f"Sample sizes received from nodes might be corrupted."
             )
 
