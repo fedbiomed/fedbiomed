@@ -30,7 +30,6 @@ environ = EnvironNode(ComponentType.NODE)
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
-
 class TestDatasetManager(unittest.TestCase):
     """
     Unit Tests for DatasetManager class.
@@ -68,6 +67,8 @@ class TestDatasetManager(unittest.TestCase):
         )
 
         # create an instance of DatasetManager
+        self.patcher_dataset_manager_environ = patch('fedbiomed.node.dataset_manager.environ', environ)
+        self.patcher_dataset_manager_environ.start()
         self.dataset_manager = DatasetManager()
 
         # fake arguments
@@ -111,6 +112,8 @@ class TestDatasetManager(unittest.TestCase):
         """
         after each test function
         """
+        self.patcher_dataset_manager_environ.stop()
+
         self.dataset_manager._db.close()
         del self.dataset_manager
         if os.path.isdir(environ['DB_PATH']):
