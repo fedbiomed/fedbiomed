@@ -46,6 +46,18 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         TestTrainingPlanSecurityManager.env = TestTrainingPlanSecurityManager.env_initial
 
+        def side_effect(arg):
+            return TestTrainingPlanSecurityManager.env[arg]
+
+        def side_effect_set_item(key, value):
+            TestTrainingPlanSecurityManager.env[key] = value
+
+        self.environ_training_plan_manager_patch = patch('fedbiomed.node.training_plan_security_manager.environ')
+        self.environ_training_plan = self.environ_training_plan_manager_patch.start()
+
+        self.environ_training_plan.__getitem__.side_effect = side_effect
+        self.environ_training_plan.__setitem__.side_effect = side_effect_set_item
+
         self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_some_error))
         self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_some_error))
@@ -77,8 +89,8 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
     def tearDown(self):
         # DB should be removed after each test to
         # have clear database for tests
-        # self.environ_training_plan_manager_patch.stop()
 
+        self.environ_training_plan_manager_patch.stop()
         self.tp_security_manager._tinydb.drop_table('TrainingPlans')
         self.tp_security_manager._tinydb.close()
         os.remove(environ['DB_PATH'])

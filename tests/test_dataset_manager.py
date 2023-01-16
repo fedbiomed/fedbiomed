@@ -51,7 +51,6 @@ class TestDatasetManager(NodeTestCase):
         def __getitem__(self, idx):
             return self._data[idx], self._labels[idx]
 
-    @patch('fedbiomed.node.dataset_manager.environ', new=environ)
     def setUp(self):
         """
         run this at the begining of each test
@@ -67,6 +66,8 @@ class TestDatasetManager(NodeTestCase):
         )
 
         # create an instance of DatasetManager
+        self.patcher_dataset_manager_environ = patch('fedbiomed.node.dataset_manager.environ', environ)
+        self.patcher_dataset_manager_environ.start()
         self.dataset_manager = DatasetManager()
 
         # fake arguments
@@ -110,6 +111,8 @@ class TestDatasetManager(NodeTestCase):
         """
         after each test function
         """
+        self.patcher_dataset_manager_environ.stop()
+
         self.dataset_manager._db.close()
         del self.dataset_manager
         if os.path.isdir(environ['DB_PATH']):

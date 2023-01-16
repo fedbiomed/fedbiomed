@@ -17,8 +17,9 @@ class TestCommonCLI(unittest.TestCase):
 
         self.cli.description = "My CLI"
 
-        self.assertEqual(self.description, "My CLI")
+        self.assertEqual(self.cli.description, "My CLI")
         self.assertEqual(self.cli.parser, self.cli._parser)
+
 
 if __name__ == "__main__":
     unittest.main()
