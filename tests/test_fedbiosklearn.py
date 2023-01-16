@@ -209,8 +209,13 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         # First scenario: assert that number of training iterations is correct
         training_plan._training_args['batch_maxnum'] = None
         with patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train:
-            training_plan._training_routine(history_monitor=None)
+            num_samples_observed = training_plan._training_routine(history_monitor=None)
             self.assertEqual(mocked_train.call_count, 4)
+            self.assertEqual(num_samples_observed,
+                             len(test_x) / training_plan._training_args['batch_size'] *
+                             training_plan._training_args['epochs'], "Training routine for SkLearnTrainingPlan"
+                                                                     " did not return correct number of samples "
+                                                                     "observed during the training")
 
         # Second scenario: assert that history monitor is given the correct reporting values
         training_plan._training_args['batch_maxnum'] = 1

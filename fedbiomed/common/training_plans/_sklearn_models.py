@@ -126,6 +126,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         if report:
             self._model.set_params(verbose=verbose)
 
+        return iterations_accountant.num_samples_observed_in_total
+
     def _train_over_batch(
             self,
             inputs: np.ndarray,

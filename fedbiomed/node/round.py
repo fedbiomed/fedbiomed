@@ -110,7 +110,7 @@ class Round:
         # download heavy aggregator args (if any)
 
         if self.aggregator_args is not None:
-            
+
             for arg_name, aggregator_arg in self.aggregator_args.items():
                 if isinstance(aggregator_arg, dict):
                     url = aggregator_arg.get('url', False)
@@ -119,13 +119,13 @@ class Round:
                         # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
                         # exchanged system
                         success, param_path, error_msg = self.download_file(url, arg_name)
-                        
+
                         if not success:
                             return success, error_msg
                         else:
                             # FIXME: should we load parameters here or in the training plan
-                            self.aggregator_args[arg_name] = {'param_path': param_path, 
-                                                              #'params': training_plan.load(param_path, to_params=True)
+                            self.aggregator_args[arg_name] = {'param_path': param_path,
+                                                              # 'params': training_plan.load(param_path, to_params=True)
                                                               }
             return True, ''
         else:
@@ -147,9 +147,9 @@ class Round:
         """
 
         status, params_path = self.repository.download_file(
-                                                            url,
-                                                            file_path + str(uuid.uuid4()) + '.pt')
-        
+            url,
+            file_path + str(uuid.uuid4()) + '.pt')
+
         if (status != 200) or params_path is None:
 
             error_message = f"Cannot download param file: {url}"
@@ -271,7 +271,10 @@ class Round:
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
-        #
+
+        # Define number of samples observed, default is None in case of test-only Round
+        num_samples_observed = None
+
         # If training is activated.
         if self.training:
             if self.training_plan.training_data_loader is not None:
@@ -279,9 +282,8 @@ class Round:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.training_plan.training_routine(history_monitor=self.history_monitor,
-                                                        node_args=self.node_args
-                                                        )
+                    num_samples_observed = self.training_plan.training_routine(history_monitor=self.history_monitor,
+                                                                               node_args=self.node_args)
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
@@ -317,8 +319,6 @@ class Round:
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
 
-            sample_size = len(self.training_plan.training_data_loader.dataset)
-
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
@@ -344,7 +344,7 @@ class Round:
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
                                           params_url=res['file'],
-                                          sample_size=sample_size)
+                                          sample_size=num_samples_observed)
         else:
             # Only for validation
             return self._send_round_reply(success=True)
