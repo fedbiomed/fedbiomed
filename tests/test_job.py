@@ -376,7 +376,8 @@ class TestJob(unittest.TestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
@@ -384,7 +385,8 @@ class TestJob(unittest.TestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
@@ -394,7 +396,8 @@ class TestJob(unittest.TestCase):
                       'msg': 'MSG',
                       'errnum': ErrorNumbers.FB100,
                       'extra_msg': 'this extra msg',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
@@ -404,13 +407,14 @@ class TestJob(unittest.TestCase):
                       'msg': 'MSG',
                       'extra_msg': False,
                       'errnum': ErrorNumbers.FB100,
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         responses = FakeResponses([response_1, response_2])
 
         mock_requests_get_responses.return_value = responses
-        aggregator_args = {node_id : {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
+        aggregator_args = {node_id: {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
         # Test - 1
         nodes = self.job.start_nodes_training_round(1, aggregator_args_thr_msg=aggregator_args,
                                                     aggregator_args_thr_files={})

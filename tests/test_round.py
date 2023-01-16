@@ -203,8 +203,7 @@ class TestRound(unittest.TestCase):
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
-            'optimizer_args': {},
-            'sample_size': len(FakeLoader.dataset)
+            'optimizer_args': {}
         }
 
         # define context managers for each model method

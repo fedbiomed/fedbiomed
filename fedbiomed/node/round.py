@@ -316,7 +316,8 @@ class Round:
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
-            results['sample_size'] = len(self.training_plan.training_data_loader.dataset)
+
+            sample_size = len(self.training_plan.training_data_loader.dataset)
 
             try:
                 # TODO : should validation status code but not yet returned
@@ -342,7 +343,8 @@ class Round:
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
-                                          params_url=res['file'])
+                                          params_url=res['file'],
+                                          sample_size=sample_size)
         else:
             # Only for validation
             return self._send_round_reply(success=True)
@@ -351,7 +353,8 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
-                          timing: dict = {}) -> NodeMessages:
+                          timing: dict = {},
+                          sample_size: Union[int, None] = None) -> NodeMessages:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
@@ -375,6 +378,7 @@ class Round:
                                           'dataset_id': self.dataset['dataset_id'] if success else '',
                                           'params_url': params_url,
                                           'msg': message,
+                                          'sample_size': sample_size,
                                           'timing': timing}).get_dict()
 
     def _set_training_testing_data_loaders(self):
