@@ -12,15 +12,13 @@ from unittest.mock import patch, MagicMock
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
 #############################################################
-
+from fedbiomed.node.environ import environ
 
 from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError, \
     FedbiomedTrainingPlanSecurityManagerError, \
     FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
-
-from fedbiomed.node.environ import environ
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -59,6 +57,10 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         # handle case where previous test did not properly clean
         if os.path.exists(environ['DB_PATH']):
             os.remove(environ['DB_PATH'])
+        #
+        # import nose.tools
+        # nose.tools.set_trace()
+
 
         # Build TrainingPlanSecurityManager
         self.tp_security_manager = TrainingPlanSecurityManager()
@@ -1395,6 +1397,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             'command': 'approval',
             'success': True
         })
+
         self.assertEqual(training_plan_before, None)
         self.assertTrue(isinstance(training_plan_after, dict))
         self.assertEqual(training_plan_after['description'], training_plan_description)

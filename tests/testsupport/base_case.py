@@ -10,11 +10,13 @@ from testsupport.fake_researcher_environ import ResearcherRandomEnv
 
 from unittest.mock import patch
 
+
 sys.modules['fedbiomed.node.environ'] = testsupport.fake_node_environ
 sys.modules['fedbiomed.researcher.environ'] = testsupport.fake_researcher_environ
 
 
 class BaseTestCase(unittest.TestCase):
+
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -60,6 +62,9 @@ class ResearcherTestCase(BaseTestCase):
         def set_side_effect(key, value):
             cls.env[key] = value
 
+        sys.modules['fedbiomed.node.environ'] = testsupport.fake_node_environ
+        sys.modules['fedbiomed.researcher.environ'] = testsupport.fake_researcher_environ
+
         cls.environ_patch = patch("testsupport.fake_researcher_environ.ResearcherEnviron.__getitem__")
         cls.environ_set_patch = patch("testsupport.fake_researcher_environ.ResearcherEnviron.__setitem__")
 
@@ -68,7 +73,6 @@ class ResearcherTestCase(BaseTestCase):
 
         cls.environ.side_effect = side_effect
         cls.environ_set.side_effect = set_side_effect
-
 
 
 class NodeTestCase(BaseTestCase):
@@ -93,6 +97,5 @@ class NodeTestCase(BaseTestCase):
         cls.environ.side_effect = side_effect
         cls.environ_set.side_effect = set_side_effect
 
-        pass
 
 

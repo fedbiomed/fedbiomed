@@ -260,5 +260,6 @@ class TestEnviron(TestCase):
         self.environ["This_is_a_new_key"] = 123
         self.assertEqual(self.environ["This_is_a_new_key"], 123)
 
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -1241,9 +1241,12 @@ class TestNode(NodeTestCase):
         ]
         dict_secagg_extra_msg = [
             f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
-            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
-            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
-            "ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
+            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
+            f'aggregation setup error: bad parameter `researcher_id` should not be empty string',
+            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
+            f'aggregation setup error: bad parameter `secagg_id` should not be empty string',
+            f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: FB318: Secure "
+            f"aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
         ]
         dict_secagg_reply_type = [
             "error",
@@ -1415,7 +1418,7 @@ class TestNode(NodeTestCase):
         test_setups = [
             [
                 'secagg',
-                'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                f'ErrorNumbers.FB318: bad secure aggregation request message received by {environ["NODE_ID"]}: ',
                 self.n1._task_secagg
             ],
             [

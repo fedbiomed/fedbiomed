@@ -51,6 +51,7 @@ class TestDatasetManager(NodeTestCase):
         def __getitem__(self, idx):
             return self._data[idx], self._labels[idx]
 
+    @patch('fedbiomed.node.dataset_manager.environ', new=environ)
     def setUp(self):
         """
         run this at the begining of each test

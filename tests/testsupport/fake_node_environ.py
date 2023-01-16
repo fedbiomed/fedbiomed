@@ -56,7 +56,7 @@ class NodeEnviron:
 
         # values specific to node
         self._values['MESSAGES_QUEUE_DIR'] = f"/tmp/{node}/var/queue_messages_XXX"
-        self._values['NODE_ID'] = "mock_node_XXX"
+        self._values['NODE_ID'] = f"mock_node_{node}_XXX"
         self._values['DB_PATH'] = f"/tmp/{node}/var/db_node_mock_node_XXX.json"
 
         self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = True
