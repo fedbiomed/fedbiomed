@@ -91,21 +91,9 @@ def get_component_certificate_from_config(
 
 
 def get_all_existing_config_files():
-    """"""
+    """Gets all existing config files from Fed-BioMed `etc` directory"""
     etc = os.path.join(get_fedbiomed_root(), 'etc', '')
     return [file for file in glob.glob(f"{etc}*.ini")]
-
-
-def get_all_existing_component_ids():
-
-    config_files = get_all_existing_config_files()
-    config_ids = []
-    for config in config_files:
-
-        id_, *_ = get_component_config(config)
-        config_ids.append(id_)
-
-    return config_ids
 
 
 def get_all_existing_certificates() -> List[Dict[str, str]]:
@@ -133,9 +121,10 @@ def get_existing_component_db_names():
     config_files = get_all_existing_config_files()
     db_names = {}
 
-    for config in config_files:
-        config = get_component_config(config)
+    for _config in config_files:
+        config = get_component_config(_config)
         component_id = config['default']['id']
+
         db_name = f"{DB_PREFIX}{component_id}"
         db_names = {**db_names, component_id: db_name}
 
