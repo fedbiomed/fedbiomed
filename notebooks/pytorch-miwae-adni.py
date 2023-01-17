@@ -49,7 +49,7 @@ if __name__ == '__main__':
                         help='Number of rounds')
     parser.add_argument('--Epochs', metavar='-e', type=int, default=10,
                         help='Number of epochs')
-    parser.add_argument('--data_folder', metavar='-d', type=str, default='Data/',
+    parser.add_argument('--data_folder', metavar='-d', type=str, default='data/',
                         help='Datasets folder')
     parser.add_argument('--hidden', metavar='-h', type=int, default=256,
                         help='Number of epochs')
@@ -350,12 +350,16 @@ if __name__ == '__main__':
         encoder = model.encoder
         decoder = model.decoder
         std_training = 'Loc' if method == 'FedProx_Loc' else 'Fed'
+    else:
+        fed_mean, fed_std = mean_tot_missing, std_tot_missing
 
     # Testing on data used during training
     for cls in range(N_cl):
         if ((fed_mean is None) and (fed_std is None)):
-            fed_mean, fed_std = mean_tot_missing, std_tot_missing
-        xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+            xmiss, mask, xhat_local_std, xfull_local_std =\
+                recover_data(Clients_missing[cls], Clients_data[cls])
+        else:
+            xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
                 recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
         if method != 'Local':
             MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
@@ -391,8 +395,10 @@ if __name__ == '__main__':
 
     # Testing on external dataset
     if ((fed_mean is None) and (fed_std is None)):
-        fed_mean, fed_std = mean_tot_missing, std_tot_missing 
-    xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+        xmiss, mask, xhat_local_std, xfull_local_std =\
+                recover_data(data_test_missing, data_test)
+    else:
+        xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
                 recover_data(data_test_missing, data_test, fed_mean, fed_std)
     if method != 'Local':
         MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
