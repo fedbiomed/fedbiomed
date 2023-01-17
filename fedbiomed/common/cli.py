@@ -86,7 +86,7 @@ class CommonCLI:
     def initialize_magic_dev_environment_parsers(self):
         """"""
         magic = self._subparsers.add_parser(
-            'certificate-setup',
+            'certificate-dev-setup',
             help="Prepares development environment by registering certificates of each component created in a single "
                  "clone of Fed-BioMed. Pares configuration files ends with '.ini' that are created in 'etc' directory. "
                  "This setup requires to have one 'researcher' and at least 2 nodes."
@@ -147,14 +147,14 @@ class CommonCLI:
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
-            'certificate-registration',
+            'registration-instructions',
             help="Prepares certificate of current component to send other FL participant through trusted channel.")
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
         delete_parser.set_defaults(func=self._delete_certificate)
         generate.set_defaults(func=self._generate_certificate)
-        prepare.set_defaults(func=self._prepare_my_certificate_for_email)
+        prepare.set_defaults(func=self._prepare_certificate_for_registration)
 
         # Add arguments
         register_parser.add_argument(
@@ -219,7 +219,7 @@ class CommonCLI:
         db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
 
-        if len(certificates) < 2:
+        if len(certificates) <= 2:
             print(f"\n{RED}Warning!{NC}")
             print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'dev-magic' you should have "
                   f"at least 2 components created{NC}\n")
@@ -307,7 +307,6 @@ class CommonCLI:
                 ip=args.ip,
                 port=args.port
             )
-            print(t)
         except FedbiomedError as exp:
             print(exp)
             sys.exit(101)
@@ -335,13 +334,12 @@ class CommonCLI:
 
                 party_id = certificates[opt_idx]['party_id']
                 self._certificate_manager.delete(party_id=party_id)
-                print(f"{GRN}Success!{NC}")
-                print(f"{BOLD}Certificate for '{party_id}' has been successfully removed {NC}")
+                CommonCLI.success(f"Certificate for '{party_id}' has been successfully removed")
                 return
             except (ValueError, IndexError, AssertionError):
-                logger.error('Invalid option. Please, try again.')
+                CommonCLI.error('Invalid option. Please, try again.')
 
-    def _prepare_my_certificate_for_email(self, args):
+    def _prepare_certificate_for_registration(self, args):
 
         try:
             with open(self._environ["MPSPDZ_CERTIFICATE_PEM"], 'r') as file:
