@@ -10,16 +10,15 @@ from testsupport.fake_researcher_environ import ResearcherRandomEnv
 
 from unittest.mock import patch
 
-
 sys.modules['fedbiomed.node.environ'] = testsupport.fake_node_environ
 sys.modules['fedbiomed.researcher.environ'] = testsupport.fake_researcher_environ
 
 
 class BaseTestCase(unittest.TestCase):
 
-
     @classmethod
     def setUpClass(cls) -> None:
+
         cls.env = None
         cls.mock_is_setup = True
         cls.environ_patch = None
