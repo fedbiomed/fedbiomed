@@ -456,7 +456,7 @@ class TestTorchnn(unittest.TestCase):
         tp._model = torch.nn.Module()
         num_batches = 3
         batch_size = 5
-        mock_dataset = MagicMock(pec=Dataset)
+        mock_dataset = MagicMock(spec=Dataset)
         
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
         tp._training_args = {'batch_size': batch_size,

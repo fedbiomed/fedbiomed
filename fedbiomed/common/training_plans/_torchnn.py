@@ -489,7 +489,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 if self._dry_run:
                     self._model.to(self._device_init)
                     torch.cuda.empty_cache()
-                    return
+                    return iterations_accountant.num_samples_observed_in_total
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
