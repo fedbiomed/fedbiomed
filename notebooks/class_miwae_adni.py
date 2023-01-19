@@ -118,7 +118,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
                             torch.nn.ReLU(),
                             torch.nn.Linear(n_hidden, n_hidden),
                             torch.nn.ReLU(),
-                            torch.nn.Linear(n_hidden, 2*n_latent),  
+                            torch.nn.Linear(n_hidden, 3*n_latent),  
                             )
             # the decoder will output both the mean, the scale, 
             # and the number of degrees of freedoms (hence the 3*p)
@@ -132,6 +132,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
 
             self.encoder.apply(self.weights_init)
             self.decoder.apply(self.weights_init)
+
+            self.iota = nn.Parameter(torch.zeros(1,n_features),requires_grad=True)
     
         def weights_init(self,layer):
             if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
@@ -140,23 +142,36 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         
         #SGD optimizer
         optimizer = torch.optim.SGD(list(self.model().encoder.parameters()) \
-                                    + list(self.model().decoder.parameters()),lr = optimizer_args['lr'])
+                                    + list(self.model().decoder.parameters())\
+                                    + [self.model().iota],lr = optimizer_args['lr'])
         
         return optimizer
         
         
-    def miwae_loss(self,iota_x,mask):
+    def miwae_loss(self,data,mask):
         # prior
         self.p_z = td.Independent(td.Normal(loc=torch.zeros(self.n_latent).to(self._device)\
                                     ,scale=torch.ones(self.n_latent).to(self._device)),1)
         
-        batch_size = iota_x.shape[0]
-        out_encoder = self.model().encoder(iota_x)
+        batch_size = data.shape[0]
         
-        q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :self.n_latent],\
-                                                scale=torch.nn.Softplus()\
-                                                (out_encoder[..., self.n_latent:\
-                                                            (2*self.n_latent)])),1)
+        tiledmask = torch.tile(mask,(self.n_samples,1))
+        mask_complement_float = torch.abs(mask-1)
+
+        tilediota = torch.tile(self.model().iota,(data.shape[0],1))
+        iotax = data + torch.mul(tilediota,mask_complement_float)
+        
+        out_encoder = self.model().encoder(iotax)
+        #out_encoder = self.model().encoder(iota_x)
+        
+        #q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :self.n_latent],\
+        #                                        scale=torch.nn.Softplus()\
+        #                                        (out_encoder[..., self.n_latent:\
+        #                                                    (2*self.n_latent)])),1)
+        q_zgivenxobs = td.Independent(td.StudentT(loc=out_encoder[..., :self.n_latent],\
+                                                scale=torch.nn.Softplus()(out_encoder[..., self.n_latent:(2*self.n_latent)]),\
+                                                df=torch.nn.Softplus()\
+                                                (out_encoder[..., (2*self.n_latent):(3*self.n_latent)]) + 3),1)
 
         zgivenx = q_zgivenxobs.rsample([self.n_samples])
         zgivenx_flat = zgivenx.reshape([self.n_samples*batch_size,self.n_latent])
@@ -168,8 +183,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         all_degfreedom_obs_model = torch.nn.Softplus()\
         (out_decoder[..., (2*self.n_features):(3*self.n_features)]) + 3
 
-        data_flat = torch.Tensor.repeat(iota_x,[self.n_samples,1]).reshape([-1,1])
-        tiledmask = torch.Tensor.repeat(mask,[self.n_samples,1])
+        data_flat = torch.Tensor.repeat(data,[self.n_samples,1]).reshape([-1,1])
+        #tiledmask = torch.Tensor.repeat(mask,[self.n_samples,1])
 
         all_log_pxgivenz_flat = torch.distributions.StudentT\
         (loc=all_means_obs_model.reshape([-1,1]),\
@@ -185,8 +200,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
 
         return neg_bound
 
-    def training_data(self,  batch_size = 48):
-        
+    def training_data(self):
+        batch_size=self._training_args.get('batch_size')
         df = pd.read_csv(self.dataset_path, sep=',', index_col=False)
         x_train = df.values.astype(np.float64)
         x_mask = np.isfinite(x_train)
@@ -218,5 +233,5 @@ class MIWAETrainingPlan(TorchTrainingPlan):
     def training_step(self, data, mask):
         self.model().encoder.zero_grad()
         self.model().decoder.zero_grad()
-        loss = self.miwae_loss(iota_x = data,mask = mask)
+        loss = self.miwae_loss(data = data,mask = mask)
         return loss

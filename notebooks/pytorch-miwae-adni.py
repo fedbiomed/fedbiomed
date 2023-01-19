@@ -29,6 +29,7 @@ import torch
 import torch.nn as nn
 import argparse
 from datetime import datetime
+import sys
 
 from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases
 from class_miwae_adni import FedMeanStdTrainingPlan, MIWAETrainingPlan
@@ -43,7 +44,7 @@ if __name__ == '__main__':
                         help='Methods for the running experiment')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
                         help='Id of the Test dataset (between 1 and 4)')
-    parser.add_argument('--tags', metavar='-t', type=str, default='adni_1',
+    parser.add_argument('--tags', metavar='-t', type=str, default='adni_1', choices = ['adni_1', 'adni_2', 'adni_notiid'],
                         help='Dataset tags')
     parser.add_argument('--Rounds', metavar='-r', type=int, default=200,
                         help='Number of rounds')
@@ -51,6 +52,8 @@ if __name__ == '__main__':
                         help='Number of epochs')
     parser.add_argument('--data_folder', metavar='-d', type=str, default='data/',
                         help='Datasets folder')
+    parser.add_argument('--result_folder', metavar='-rf', type=str, default='results', 
+                        help='Folder cotaining the results csv')
     parser.add_argument('--hidden', metavar='-h', type=int, default=256,
                         help='Number of epochs')
     parser.add_argument('--latent', metavar='-d', type=int, default=20,
@@ -71,6 +74,16 @@ if __name__ == '__main__':
     idx_Test_data = int(args.Test_id)
     tags = args.tags
     data_folder = args.data_folder
+
+    if ((Split_type=='site_1') and (tags!='adni_1')):
+        print('Split tipe and tags do not match:', Split_type,tags)
+        sys.exit()
+    elif ((Split_type=='site_2') and (tags!='adni_2')):
+        print('Split tipe and tags do not match:', Split_type,tags)
+        sys.exit()
+    elif ((Split_type=='notiid') and (tags!='adni_notiid')):
+        print('Split tipe and tags do not match:', Split_type,tags)
+        sys.exit()
 
     ###########################################################
     # Recover data size                                       #
@@ -214,7 +227,7 @@ if __name__ == '__main__':
 
         Encoders_loc = []
         Decoders_loc = []
-
+        Iota_loc = []
 
         for cls in range(N_cl):
             # Data
@@ -234,7 +247,7 @@ if __name__ == '__main__':
                 torch.nn.ReLU(),
                 torch.nn.Linear(h, h),
                 torch.nn.ReLU(),
-                torch.nn.Linear(h, 2*d),  # the encoder will output both the mean and the diagonal covariance
+                torch.nn.Linear(h, 3*d),  
             )
 
             decoder_cls = nn.Sequential(
@@ -245,7 +258,9 @@ if __name__ == '__main__':
                 torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
             )
 
-            optimizer_cls = torch.optim.Adam(list(encoder_cls.parameters()) + list(decoder_cls.parameters()),lr=1e-3)
+            iota_cls = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+            optimizer_cls = torch.optim.Adam(list(encoder_cls.parameters()) + list(decoder_cls.parameters()) + [iota_cls],lr=1e-3)
 
             def weights_init(layer):
                 if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
@@ -263,16 +278,18 @@ if __name__ == '__main__':
                     decoder_cls.zero_grad()
                     b_data = torch.from_numpy(batches_data[it]).float()
                     b_mask = torch.from_numpy(batches_mask[it]).float()
-                    loss = miwae_loss(encoder = encoder_cls,decoder = decoder_cls, iota_x = b_data,mask = b_mask, d = d, p = p, K = K, batch_size = bs)
+                    loss = miwae_loss(encoder = encoder_cls,decoder = decoder_cls, iota=iota_cls,
+                                    data = b_data,mask = b_mask, d = d, p = p, K = K)
                     loss.backward()
                     optimizer_cls.step()
                 if ep % rounds == 1:
                     print('Epoch %g' %ep)
-                    print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls, iota_x = torch.from_numpy(xhat_0_cls).float(),mask = torch.from_numpy(mask_cls).float(), d = d, p = p, K = K, batch_size = bs).cpu().data.numpy())) # Gradient step      
+                    print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, data = torch.from_numpy(xhat_0_cls).float(),mask = torch.from_numpy(mask_cls).float(), d = d, p = p, K = K).cpu().data.numpy())) # Gradient step      
                     print('Loss: {:.6f}'.format(loss.item()))
 
             Encoders_loc.append(encoder_cls)
             Decoders_loc.append(decoder_cls)
+            Iota_loc.append(iota_cls)
 
         # Centralized training
         xmiss_tot = np.concatenate(Clients_missing,axis=0)
@@ -298,7 +315,7 @@ if __name__ == '__main__':
             torch.nn.ReLU(),
             torch.nn.Linear(h, h),
             torch.nn.ReLU(),
-            torch.nn.Linear(h, 2*d),  # the encoder will output both the mean and the diagonal covariance
+            torch.nn.Linear(h, 3*d),  # the encoder will output both the mean and the diagonal covariance
         )
 
         decoder_cen = nn.Sequential(
@@ -309,7 +326,9 @@ if __name__ == '__main__':
             torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
         )
 
-        optimizer_cen = torch.optim.Adam(list(encoder_cen.parameters()) + list(decoder_cen.parameters()),lr=1e-3)
+        iota_cen = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+        optimizer_cen = torch.optim.Adam(list(encoder_cen.parameters()) + list(decoder_cen.parameters()) + [iota_cen],lr=1e-3)
 
         def weights_init(layer):
             if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
@@ -329,19 +348,18 @@ if __name__ == '__main__':
                 decoder_cen.zero_grad()
                 b_data = torch.from_numpy(batches_data[it]).float()
                 b_mask = torch.from_numpy(batches_mask[it]).float()
-                loss = miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota_x = b_data,mask = b_mask, d = d, p = p, K = K, batch_size = bs)
+                loss = miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota=iota_cls, data = b_data,mask = b_mask, d = d, p = p, K = K)
                 loss.backward()
                 optimizer_cen.step()
             if ep % rounds == 1:
                 print('Epoch %g' %ep)
-                print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota_x = torch.from_numpy(xhat_0_tot).float(),mask = torch.from_numpy(mask_tot).float(), d = d, p = p, K = K, batch_size = bs).cpu().data.numpy())) # Gradient step      
+                print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cls, data = torch.from_numpy(xhat_0_tot).float(),mask = torch.from_numpy(mask_tot).float(), d = d, p = p, K = K).cpu().data.numpy())) # Gradient step      
                 print('Loss: {:.6f}'.format(loss.item()))
 
     ###########################################################
     #Testing phase                                            #
     ###########################################################
-    
-    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    result_folder = args.result_folder
 
     if method != 'Local':
         # extract federated model into PyTorch framework
@@ -349,6 +367,7 @@ if __name__ == '__main__':
         model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
         encoder = model.encoder
         decoder = model.decoder
+        iota = model.iota
         std_training = 'Loc' if method == 'FedProx_Loc' else 'Fed'
     else:
         fed_mean, fed_std = mean_tot_missing, std_tot_missing
@@ -362,33 +381,33 @@ if __name__ == '__main__':
             xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
                 recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
         if method != 'Local':
-            MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
-            save_results(exp_id,Split_type,idx_clients,idx_clients[cls],
+            MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L)
+            save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                 Perc_missing,Perc_missing[cls],method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'local',MSE)
             if method != 'FedProx_loc':
-                MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, d, L)
-                save_results(exp_id,Split_type,idx_clients,idx_clients[cls],
+                MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L)
+                save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                     Perc_missing,Perc_missing[cls],method,
                     N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                     std_training,'global',MSE)
         elif method == 'Local':
             # centralized 
             mean_tot_missing
-            MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, d, L)
-            save_results(exp_id,Split_type,sum(idx_clients),idx_clients[cls],
+            MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','local',MSE)
-            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, d, L)
-            save_results(exp_id,Split_type,sum(idx_clients),idx_clients[cls],
+            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','global',MSE)
             # local
-            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], d, L)
-            save_results(exp_id,Split_type,idx_clients[cls],idx_clients[cls],
+            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+            save_results(result_folder,Split_type,idx_clients[cls],idx_clients[cls],
                 Perc_missing[cls],Perc_missing[cls],'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,
                 'Loc','local',MSE)
@@ -401,33 +420,33 @@ if __name__ == '__main__':
         xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
                 recover_data(data_test_missing, data_test, fed_mean, fed_std)
     if method != 'Local':
-        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, d, L)
-        save_results(exp_id,Split_type,idx_clients,idx_Test_data,
+        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L)
+        save_results(result_folder,Split_type,idx_clients,idx_Test_data,
             Perc_missing,Perc_missing_test,method,
             N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
             std_training,'local',MSE)
         if method != 'FedProx_loc':
-            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, d, L)
-            save_results(exp_id,Split_type,idx_clients,idx_Test_data,
+            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L)
+            save_results(result_folder,Split_type,idx_clients,idx_Test_data,
                 Perc_missing,Perc_missing_test,method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'global',MSE)
     elif method == 'Local':
         # centralized 
-        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, d, L)
-        save_results(exp_id,Split_type,sum(idx_clients),idx_Test_data,
+        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+        save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','local',MSE)
-        MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, d, L)
-        save_results(exp_id,Split_type,sum(idx_clients),idx_Test_data,
+        MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+        save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','global',MSE)
         # local
         for cls in range(N_cl):
-            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], d, L)
-            save_results(exp_id,Split_type,idx_clients[cls],idx_Test_data,
+            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+            save_results(result_folder,Split_type,idx_clients[cls],idx_Test_data,
                 Perc_missing[cls],Perc_missing_test,'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,
                 'Loc','local',MSE)

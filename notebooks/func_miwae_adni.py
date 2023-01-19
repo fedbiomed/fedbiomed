@@ -3,18 +3,30 @@ import numpy as np
 import torch
 import csv, os
 import torch.distributions as td
+from datetime import datetime
 
 ###########################################################
 #Define the imputation and the MSE functions              #
 ###########################################################
 
-def miwae_impute(encoder,decoder,iota_x,mask,p,d,L):
+def miwae_impute(encoder,decoder,iota,data,mask,p,d,L):
 
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
 
-    batch_size = iota_x.shape[0]
-    out_encoder = encoder(iota_x)
-    q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :d],scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)])),1)
+    batch_size = data.shape[0]
+    
+    tiledmask = torch.tile(mask,(L,1))
+    mask_complement_float = torch.abs(mask-1)
+
+    tilediota = torch.tile(iota,(data.shape[0],1))
+    iotax = data + torch.mul(tilediota,mask_complement_float)
+    
+    out_encoder = encoder(iotax)
+    #q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :d],scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)])),1)
+    q_zgivenxobs = td.Independent(td.StudentT(loc=out_encoder[..., :d],\
+                                                scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)]),\
+                                                df=torch.nn.Softplus()\
+                                                (out_encoder[..., (2*d):(3*d)]) + 3),1)
 
     zgivenx = q_zgivenxobs.rsample([L])
     zgivenx_flat = zgivenx.reshape([L*batch_size,d])
@@ -24,10 +36,12 @@ def miwae_impute(encoder,decoder,iota_x,mask,p,d,L):
     all_scales_obs_model = torch.nn.Softplus()(out_decoder[..., p:(2*p)]) + 0.001
     all_degfreedom_obs_model = torch.nn.Softplus()(out_decoder[..., (2*p):(3*p)]) + 3
 
-    data_flat = torch.Tensor.repeat(iota_x,[L,1]).reshape([-1,1])
-    tiledmask = torch.Tensor.repeat(mask,[L,1])
+    data_flat = torch.Tensor.repeat(data,[L,1]).reshape([-1,1])
+    #tiledmask = torch.Tensor.repeat(mask,[L,1])
 
-    all_log_pxgivenz_flat = torch.distributions.StudentT(loc=all_means_obs_model.reshape([-1,1]),scale=all_scales_obs_model.reshape([-1,1]),df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
+    all_log_pxgivenz_flat = torch.distributions.StudentT(loc=all_means_obs_model.reshape([-1,1]),\
+            scale=all_scales_obs_model.reshape([-1,1]),\
+            df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
     all_log_pxgivenz = all_log_pxgivenz_flat.reshape([L*batch_size,p])
 
     logpxobsgivenz = torch.sum(all_log_pxgivenz*tiledmask,1).reshape([L,batch_size])
@@ -47,12 +61,24 @@ def mse(xhat,xtrue,mask): # MSE function for imputations
     xtrue = np.array(xtrue)
     return np.mean(np.power(xhat-xtrue,2)[~mask])
 
-def miwae_loss(encoder, decoder, iota_x, mask, d, p, K, batch_size):
+def miwae_loss(encoder, decoder, iota, data, mask, d, p, K):
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
-    batch_size = iota_x.shape[0]
-    out_encoder = encoder(iota_x)
+    batch_size = data.shape[0]
+        
+    tiledmask = torch.tile(mask,(K,1))
+    mask_complement_float = torch.abs(mask-1)
 
-    q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :d],scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)])),1)
+    tilediota = torch.tile(iota,(data.shape[0],1))
+    iotax = data + torch.mul(tilediota,mask_complement_float)
+    
+    out_encoder = encoder(iotax)
+    #out_encoder = encoder(iota_x)
+    
+    #q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :d],scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)])),1)
+    q_zgivenxobs = td.Independent(td.StudentT(loc=out_encoder[..., :d],\
+                                            scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)]),\
+                                            df=torch.nn.Softplus()\
+                                            (out_encoder[..., (2*d):(3*d)]) + 3),1)
 
     zgivenx = q_zgivenxobs.rsample([K])
     zgivenx_flat = zgivenx.reshape([K*batch_size,d])
@@ -62,10 +88,12 @@ def miwae_loss(encoder, decoder, iota_x, mask, d, p, K, batch_size):
     all_scales_obs_model = torch.nn.Softplus()(out_decoder[..., p:(2*p)]) + 0.001
     all_degfreedom_obs_model = torch.nn.Softplus()(out_decoder[..., (2*p):(3*p)]) + 3
 
-    data_flat = torch.Tensor.repeat(iota_x,[K,1]).reshape([-1,1])
-    tiledmask = torch.Tensor.repeat(mask,[K,1])
+    data_flat = torch.Tensor.repeat(data,[K,1]).reshape([-1,1])
+    #tiledmask = torch.Tensor.repeat(mask,[K,1])
 
-    all_log_pxgivenz_flat = torch.distributions.StudentT(loc=all_means_obs_model.reshape([-1,1]),scale=all_scales_obs_model.reshape([-1,1]),df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
+    all_log_pxgivenz_flat = torch.distributions.StudentT(loc=all_means_obs_model.reshape([-1,1]),
+                            scale=all_scales_obs_model.reshape([-1,1]),
+                            df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
     all_log_pxgivenz = all_log_pxgivenz_flat.reshape([K*batch_size,p])
 
     logpxobsgivenz = torch.sum(all_log_pxgivenz*tiledmask,1).reshape([K,batch_size])
@@ -114,7 +142,7 @@ def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
         return xmiss, mask, xhat_local_std, xfull_local_std
         
 
-def testing_func(data_missing, data_full, mask, encoder,decoder,d,L):
+def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L):
 
     xhat = np.copy(data_missing)
     xhat_0 = np.copy(data_missing)
@@ -122,24 +150,25 @@ def testing_func(data_missing, data_full, mask, encoder,decoder,d,L):
 
     p = data_full.shape[1] # number of features
 
-    xhat[~mask] = miwae_impute(encoder = encoder,decoder = decoder,iota_x = torch.from_numpy(xhat_0).float(),mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
+    xhat[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
     err = np.array([mse(xhat,xfull,mask)])
 
     return float(err)
 
-def save_results(exp_id,Split_type,Train_data,Test_data,
+def save_results(result_folder, Split_type,Train_data,Test_data,
                 perc_missing_train,perc_missing_test,model,
                 N_train_centers,Size,N_rounds,N_epochs,
                 std_training,std_testing,MSE):
 
-    os.makedirs('results', exist_ok=True) 
+    os.makedirs(result_folder, exist_ok=True) 
+    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     output_file_name = 'output_'+str(exp_id)+'_'+str(np.random.randint(9999, dtype=int))+'.csv'
     fieldnames=['Split_type', 'Train_data', 'Test_data', 'perc_missing_train', 
                 'perc_missing_test', 'model', 
                 'N_train_centers', 'Size', 'N_rounds', 'N_epochs',
                 'std_training', 'std_testing', 'MSE']
-    if not os.path.exists('results/'+output_file_name):
-        output = open("results/"+output_file_name, "w")
+    if not os.path.exists(result_folder+'/'+output_file_name):
+        output = open(result_folder+'/'+output_file_name, "w")
         writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter = ';')
         writer.writeheader()
         output.close()
@@ -151,7 +180,7 @@ def save_results(exp_id,Split_type,Train_data,Test_data,
                 'N_rounds': N_rounds, 'N_epochs': N_epochs,
                 'std_training': std_training, 'std_testing': std_testing, 'MSE': MSE}
 
-    with open('results/'+output_file_name, 'a') as output_file:
+    with open(result_folder+'/'+output_file_name, 'a') as output_file:
         dictwriter_object = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter = ';')
         dictwriter_object.writerow(dict_out)
         output_file.close()
@@ -159,7 +188,7 @@ def save_results(exp_id,Split_type,Train_data,Test_data,
 def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl):
     cwd = os.getcwd()
 
-    if Split_type == 'notIID':
+    if Split_type == 'notiid':
         data_folder += 'ADNI_notiid'
     elif Split_type == 'site_1':
         data_folder += 'ADNI_site_1'
