@@ -10,6 +10,7 @@ from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.common import training_plans
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from testsupport.fake_dataset import FederatedDataSetMock
@@ -1151,7 +1152,7 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.set_job()
         # Set strategy again (it was removed)
         self.test_exp.set_strategy(None)
-
+        
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
         mock_job_training.assert_called_once()
@@ -1242,9 +1243,106 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.set_training_args({'num_updates': 1000})
         # set Scaffold aggregator
         self.test_exp.set_aggregator(Scaffold(server_lr=.1))
-        
+
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
+
+    @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
+    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.job.Job.update_parameters')
+    @patch('fedbiomed.researcher.job.Job.__init__')  
+    def test_experiment_24_strategy(self,
+                                    mock_job_init,
+                                    mock_job_updates_params,
+                                    mock_job_training,
+                                    mock_job_training_replies,
+                                    mock_job_training_plan_type,
+                                    mock_fedavg_aggregate):
+        """test_experiment_24_strategy: testing several case where strategy may fail"""
+        # FIXME: this is more of an integration test than a unit test
+        
+        # set up:
+        model_param = [1, 2, 3]
+        num_updates = 1000
+        node_ids = ['node-1', 'node-2']
+        node_sample_size = [10, 20]  # size of samples parsedby each node
+        
+        assert len(node_ids) == len(node_sample_size), "wrong setup for test: node_ids and node_sample_size should be" \
+            "of the same size"
+        
+        training_plan = MagicMock()
+        training_plan.type = MagicMock()
+        # mocking job 
+        mock_job_init.return_value = None
+        mock_job_training.return_value = None
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
+            Responses( [{ 'success': True,
+                         'msg': "this is a sucessful training",
+                             'dataset_id': 'dataset-id-123abc',
+                             'node_id': node_id,
+                             'params_path': '/path/to/my/file',
+                             'params': model_param,
+                             'sample_size': sample_size
+                             } for node_id, sample_size in zip(node_ids, node_sample_size)
+                        ])}
+        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        
+        # mocking aggregator
+        mock_fedavg_aggregate.return_value = None
+
+        # disable patchers (enabled in the test set up)
+        for _patch in self.patchers:
+            _patch.stop()
+        # Set model class to be able to create Job
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        # Set default Job
+        self.test_exp.set_job()
+        # Set strategy
+        self.test_exp.set_strategy(DefaultStrategy(data=FederatedDataSet({
+                                                    'node-1': [{'dataset_id': 'dataset-id-1',
+                                                                'shape': [100, 100]}],
+                                                    'node-2': [{'dataset_id': 'dataset-id-2',
+                                                                'shape': [120, 120], 
+                                                                'test_ratio': .0}],
+                                                })))
+        # set training_args
+        self.test_exp.set_training_args({'num_updates': num_updates})
+        self.test_exp.set_aggregator(FedAverage())
+        # removing breakpoints (otherwise test will fail)
+        self.test_exp.set_save_breakpoints(False)
+        result = self.test_exp.run_once()
+        
+        weigths = {node_id: sample_size/sum(node_sample_size) for node_id, sample_size in zip(node_ids,
+                                                                                              node_sample_size)}
+        model_params = {node_id: model_param for node_id in node_ids}
+        mock_fedavg_aggregate.assert_called_with(model_params, weigths,
+                                                 global_model=unittest.mock.ANY,
+                                                 training_plan=unittest.mock.ANY,
+                                                 training_replies=mock_job_training_replies(),
+                                                 node_ids=node_ids,
+                                                 n_updates=num_updates,
+                                                 n_round=0,)
+        
+        # repeat experiment but with a wrong sample_size
+        
+        node_sample_size = [10, None]
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
+            Responses( [{ 'success': True,
+                         'msg': "this is a sucessful training",
+                             'dataset_id': 'dataset-id-123abc',
+                             'node_id': node_id,
+                             'params_path': '/path/to/my/file',
+                             'params': model_param,
+                             'sample_size': sample_size
+                             } for node_id, sample_size in zip(node_ids, node_sample_size)
+                        ])}
+        
+        with self.assertRaises(SystemExit):
+            # should raise a FedbiomedStrategyError, describing the error
+            self.test_exp.run_once()
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
     def test_experiment_24_run(self, mock_exp_run_once):

@@ -89,6 +89,8 @@ class DefaultStrategy(Strategy):
         Raises:
             FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
                 - If not all nodes successfully completes training
+                - if a Node has not sent `sample_size` value in the TrainingReply, making it
+                impossible to compute aggregation weights.
         """
         # check that all nodes answered
         cl_answered = [val['node_id'] for val in training_replies.data()]
@@ -129,6 +131,13 @@ class DefaultStrategy(Strategy):
 
                 # TODO: Attach sample_size, weights and params in a single dict object
                 model_params[tr["node_id"]] = tr["params"]
+
+                if tr["sample_size"] is None:
+                    # if a Node `sample_size` is None, we cannot compute the weigths: in this case
+                    # return an error
+                    raise FedbiomedStrategyError(ErrorNumbers.FB402.value + f" : Node {tr['node_id']} did not return " +
+                                                 "any `sample_size` value (number of samples seen during one Round)," +
+                                                 " can not compute weigths for the aggregation. Aborting")
                 sample_sizes[tr["node_id"]] = tr["sample_size"]
 
                 total_rows += tr['sample_size']
