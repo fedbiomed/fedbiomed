@@ -1,4 +1,38 @@
 version: "3.7"
+
+#
+# node component template
+x-node:
+  &standard-node
+  container_name: fedbiomed-vpn-node
+  hostname: fedbiomed-vpn-node
+  build:
+    context: ../../..
+    dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+    args:
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+  image: fedbiomed/vpn-node
+  environment:
+  # enable overloading build-time id with a run-time id
+    - CONTAINER_UID
+    - CONTAINER_GID
+    - CONTAINER_USER
+    - CONTAINER_GROUP
+  cap_add:
+    - net_admin
+    - sys_module
+  devices:
+    - /dev/net/tun
+  volumes:
+    - ./node/run_mounts/config:/config # contains VPN configurations
+    - ./node/run_mounts/data:/data # datasets can be added here
+    - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+    - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+    - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
+
 services:
   #
   # intermediate step : image for building wireguard for base image
@@ -78,38 +112,6 @@ services:
       - ./vpnserver/run_mounts/config:/config # contains VPN configurations
     ports:
       - 51820:51820/udp # wireguard server
-  #
-  # node component
-  x-node:
-    &standard-node
-    container_name: fedbiomed-vpn-node
-    hostname: fedbiomed-vpn-node
-    build:
-      context: ../../..
-      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
-      args:
-        - CONTAINER_UID
-        - CONTAINER_GID
-        - CONTAINER_USER
-        - CONTAINER_GROUP
-    image: fedbiomed/vpn-node
-    environment:
-    # enable overloading build-time id with a run-time id
-      - CONTAINER_UID
-      - CONTAINER_GID
-      - CONTAINER_USER
-      - CONTAINER_GROUP
-    cap_add:
-      - net_admin
-      - sys_module
-    devices:
-      - /dev/net/tun
-    volumes:
-      - ./node/run_mounts/config:/config # contains VPN configurations
-      - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-      - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
 
   # not using gpu
   node:
