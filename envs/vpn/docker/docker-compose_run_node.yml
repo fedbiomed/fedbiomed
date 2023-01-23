@@ -1,36 +1,38 @@
 version: "3.7"
+
+#
+# Minimal configuration for only running a node component from a saved image
+#
+# Minimal dockerfile permits minimal file tree
+# because *all* files dependencies referenced in `docker-compose.yml`
+# (eg: `./*/build_files`, `./*/run_mounts/config/config.env`)
+# need to exist for *all* containers everytime we run a docker-compose command
+# thus we would have to copy file trees for vpnserver, researcher, etc. when only
+# running a node
+x-node:
+  &standard-node
+  container_name: fedbiomed-vpn-node
+  hostname: fedbiomed-vpn-node
+  image: fedbiomed/vpn-node
+  environment:
+    # enable overloading build-time id with a run-time id
+    - CONTAINER_UID
+    - CONTAINER_GID
+    - CONTAINER_USER
+    - CONTAINER_GROUP
+  cap_add:
+    - net_admin
+    - sys_module
+  devices:
+    - /dev/net/tun
+  volumes:
+    - ./node/run_mounts/config:/config # contains VPN configurations
+    - ./node/run_mounts/data:/data # datasets can be added here
+    - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+    - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+    - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans..
+
 services:
-  #
-  # Minimal configuration for only running a node component from a saved image
-  #
-  # Minimal dockerfile permits minimal file tree
-  # because *all* files dependencies referenced in `docker-compose.yml`
-  # (eg: `./*/build_files`, `./*/run_mounts/config/config.env`)
-  # need to exist for *all* containers everytime we run a docker-compose command
-  # thus we would have to copy file trees for vpnserver, researcher, etc. when only
-  # running a node
-  x-node:
-    &standard-node
-    container_name: fedbiomed-vpn-node
-    hostname: fedbiomed-vpn-node
-    image: fedbiomed/vpn-node
-    environment:
-      # enable overloading build-time id with a run-time id
-      - CONTAINER_UID
-      - CONTAINER_GID
-      - CONTAINER_USER
-      - CONTAINER_GROUP
-    cap_add:
-      - net_admin
-      - sys_module
-    devices:
-      - /dev/net/tun
-    volumes:
-      - ./node/run_mounts/config:/config # contains VPN configurations
-      - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-      - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans..
   # not using gpu
   node:
     << : *standard-node

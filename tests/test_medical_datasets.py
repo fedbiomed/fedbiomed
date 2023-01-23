@@ -221,7 +221,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         dataset = NIFTIFolderDataset(self.root)
         batch_size = len(dataset) // 2
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        img_batch, targets = iter(loader).next()
+        img_batch, targets = next(iter(loader))
 
         self.assertEqual(len(targets), batch_size)
         self.assertEqual(len(img_batch), batch_size)
@@ -704,7 +704,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             AssertionError if test fails
         """
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
-        (images, demographics), targets = iter(data_loader).next()  # get the first iteration of dataloader
+        (images, demographics), targets = next(iter(data_loader))  # get the first iteration of dataloader
 
         self.assertIsInstance(images, dict)
         self.assertIsInstance(targets, dict)
