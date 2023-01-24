@@ -239,9 +239,8 @@ function forward_command_to_python_cli(){
 
     source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
 
-    if ! python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS; then
-      error "Error while executing the command. Please see above error message"
-    fi
+    # dont write error message in this case, cli already does it
+    python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
 
 }
 

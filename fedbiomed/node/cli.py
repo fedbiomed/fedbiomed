@@ -162,7 +162,7 @@ def launch_node(node_args: Union[dict, None] = None):
         # (above) p.exitcode returns None if not finished yet
         logger.info('Exited with code ' + str(p.exitcode))
 
-        exit()
+        sys.exit(0)
 
 
 def launch_cli():

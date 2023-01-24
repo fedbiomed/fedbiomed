@@ -162,7 +162,6 @@ class TestCommonCLI(unittest.TestCase):
         mock_print.assert_called_once()
 
     @patch("fedbiomed.common.cli.CertificateManager.generate_self_signed_ssl_certificate")
-    @patch("fedbiomed.common.cli.CommonCLI.error")
     @patch("builtins.open")
     @patch("builtins.print")
     @patch("os.path.isfile")
@@ -170,7 +169,6 @@ class TestCommonCLI(unittest.TestCase):
                                                 mock_is_file,
                                                 mock_print,
                                                 mock_open,
-                                                mock_cli_error,
                                                 mock_generate_self_singed_certificate):
 
         mock_is_file.return_value = True
@@ -178,23 +176,23 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "generate", "--path", "dummy/path/" "-f"])
 
+        mock_cli_error = patch('fedbiomed.common.cli.CommonCLI.error', MagicMock(return_value=None))
+        mock_cli_error.start()
         self.cli._generate_certificate(args)
         mock_generate_self_singed_certificate.assert_called_once_with(certificate_folder='dummy/path/-f',
                                                                       certificate_name='MPSPDZ_certificate',
                                                                       component_id='node-id')
+        mock_cli_error.stop()
 
         mock_generate_self_singed_certificate.side_effect = FedbiomedError
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
 
-        mock_cli_error.reset_mock()
         mock_is_file.return_value = True
         args = self.cli.parser.parse_args(["certificate", "generate", "--path", "dummy/path/"])
 
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
-            mock_cli_error.assert_called_once()
-
 
     @patch("fedbiomed.common.cli.CertificateManager.register_certificate")
     @patch("builtins.open")

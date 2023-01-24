@@ -75,6 +75,7 @@ class CommonCLI:
         """
         print(f"{RED}ERROR:{NC}")
         print(f"{BOLD}{message}{NC}")
+        logger.critical(message)
         sys.exit(1)
 
     @staticmethod
@@ -223,8 +224,8 @@ class CommonCLI:
 
         if len(certificates) <= 2:
             print(f"\n{RED}Warning!{NC}")
-            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'certificate-dev-setup' you should have "
-                  f"at least 2 components created{NC}\n")
+            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'certificate-dev-setup' "
+                  f"you should have at least 2 components created{NC}\n")
             return
 
         for id_, db_name in db_names.items():
@@ -245,7 +246,7 @@ class CommonCLI:
                 try:
                     self._certificate_manager.insert(**certificate, upsert=True)
                 except FedbiomedError as e:
-                    self.error(f"Can not register certificate for {certificate['party_id']}: {e}")
+                    CommonCLI.error(f"Can not register certificate for {certificate['party_id']}: {e}")
 
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
@@ -273,8 +274,8 @@ class CommonCLI:
         if not args.force and (os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key") or
                                os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key")):
 
-            self.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
-                       f"Please use -f | --force option to overwrite existing certificate.")
+            CommonCLI.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
+                            f"Please use -f | --force option to overwrite existing certificate.")
 
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
@@ -284,7 +285,6 @@ class CommonCLI:
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
-            sys.exit(101)
 
         CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
 
@@ -294,7 +294,8 @@ class CommonCLI:
               f"{args.path}/{MPSPDZ_certificate_prefix}.key \n"
               f"{args.path}/{MPSPDZ_certificate_prefix}.pem \n\n"
               f"{YLW}IMPORTANT:{NC}\n"
-              f"{BOLD}Since the certificate is renewed please ask other parties to register your new certificate.{NC}\n")
+              f"{BOLD}Since the certificate is renewed please ask other parties "
+              f"to register your new certificate.{NC}\n")
 
         pass
 
@@ -302,7 +303,7 @@ class CommonCLI:
         """ Registers certificate with given parameters"""
 
         try:
-            t = self._certificate_manager.register_certificate(
+            self._certificate_manager.register_certificate(
                 certificate_path=args.public_key,
                 party_id=args.party_id,
                 upsert=args.upsert,
@@ -311,7 +312,7 @@ class CommonCLI:
             )
         except FedbiomedError as exp:
             print(exp)
-            sys.exit(101)
+            sys.exit(1)
         else:
             print(f"{GRN}Success!{NC}")
             print(f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}")
@@ -351,7 +352,7 @@ class CommonCLI:
             CommonCLI.error(f"Error while reading certificate: {e}")
 
         else:
-            print(f"Hi There! \n\n")
+            print("Hi There! \n\n")
             print("Please find following certificate to register \n")
             print(certificate)
 
