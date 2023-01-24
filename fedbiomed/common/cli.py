@@ -95,7 +95,7 @@ class CommonCLI:
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-    def create_configuration(self):
+    def initialize_create_configuration(self):
         """"""
 
         configuration = self._subparsers.add_parser('configuration', help='Configuration')

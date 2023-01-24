@@ -172,7 +172,7 @@ def launch_cli():
     cli = CommonCLI()
     cli.set_environ(environ=environ)
     cli.initialize_certificate_parser()
-    cli.create_configuration()
+    cli.initialize_create_configuration()
 
     # Register description for CLI
     cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
@@ -321,7 +321,8 @@ def launch_cli():
     elif cli.arguments.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
-            'gpu': (cli.arguments.gpu_num is not None) or (cli.arguments.gpu is True) or (cli.arguments.gpu_only is True),
+            'gpu': (cli.arguments.gpu_num is not None) or (cli.arguments.gpu is True) or
+                   (cli.arguments.gpu_only is True),
             'gpu_num': cli.arguments.gpu_num,
             'gpu_only': (cli.arguments.gpu_only is True)
         }

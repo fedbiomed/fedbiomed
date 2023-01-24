@@ -27,7 +27,7 @@ class ResearcherCLI(CommonCLI):
     def launch_cli(self):
 
         self.initialize_certificate_parser()
-        self.create_configuration()
+        self.initialize_create_configuration()
 
         print(__intro__)
         print('\t- 🆔 Your researcher ID:', environ['RESEARCHER_ID'], '\n')

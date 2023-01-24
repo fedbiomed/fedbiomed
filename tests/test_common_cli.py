@@ -50,8 +50,8 @@ class TestCommonCLI(unittest.TestCase):
         self.assertEqual(self.cli._subparsers.choices["certificate-dev-setup"]._defaults["func"].__func__.__name__,
                          '_create_magic_dev_environment')
 
-    def test_05_common_cli_create_configuration(self):
-        self.cli.create_configuration()
+    def test_05_common_cli_initialize_create_configuration(self):
+        self.cli.initialize_create_configuration()
         self.assertTrue('configuration' in self.cli._subparsers.choices)
         self.assertTrue('create' in self.cli._subparsers.choices["configuration"]._subparsers._group_actions[0].choices)
 
