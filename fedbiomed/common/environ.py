@@ -42,7 +42,6 @@ Common Global Variables:
 
 import configparser
 import os
-import uuid
 
 from abc import abstractmethod
 from typing import Any, Union, Tuple
@@ -327,8 +326,8 @@ class Environ(metaclass=SingletonABCMeta):
         certificate_path = os.path.join(self._values["CERT_DIR"], f"cert_{component_id}")
 
         if os.path.isdir(certificate_path) \
-                and (os.path.isfile(os.path.join(certificate_path, "certificate.key"))
-                     or os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
+                and (os.path.isfile(os.path.join(certificate_path, "certificate.key")) or
+                     os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
 
             raise FedbiomedEnvironError(f"Certificate generation is aborted. Directory {certificate_path} already "
                                         f"certificates. Please remove those files to regenerate")
@@ -416,7 +415,7 @@ class Environ(metaclass=SingletonABCMeta):
         # (only if the file does not exist)
 
         if "CONFIG_FILE" not in self._values:
-            raise FedbiomedEnvironError(f"Please set config file first!")
+            raise FedbiomedEnvironError("Please set config file first!")
 
         try:
             with open(self._values["CONFIG_FILE"], 'w') as f:

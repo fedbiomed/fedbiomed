@@ -67,15 +67,13 @@ class NodeEnviron(Environ):
 
         allow_dtp = self.from_config('security', 'allow_default_training_plans')
 
-        self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS',
-                                                                 allow_dtp) \
-                                                           .lower() in ('true', '1', 't', True)
+        self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', allow_dtp) \
+            .lower() in ('true', '1', 't', True)
 
         tp_approval = self.from_config('security', 'training_plan_approval')
 
-        self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL',
-                                                           tp_approval) \
-                                                     .lower() in ('true', '1', 't', True)
+        self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', tp_approval) \
+            .lower() in ('true', '1', 't', True)
 
         hashing_algorithm = self.from_config('security', 'hashing_algorithm')
         if hashing_algorithm in HashingAlgorithms.list():
