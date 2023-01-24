@@ -5,11 +5,15 @@
 
 from enum import Enum
 
-
-DB_FOLDER_NAME = "var"
 """Directory/folder name where DB files are saved"""
+DB_FOLDER_NAME = "var"
+
+"""Prefix for database files name"""
+DB_PREFIX = 'db_'
+
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+
 
 class _BaseEnum(Enum):
     """

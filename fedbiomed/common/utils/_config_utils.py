@@ -2,12 +2,10 @@ import glob
 import os
 import configparser
 
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.constants import ComponentType
-
-DB_PREFIX = "db_"
+from fedbiomed.common.constants import DB_PREFIX
 
 
 def get_fedbiomed_root() -> str:

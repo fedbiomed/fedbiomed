@@ -22,7 +22,7 @@ import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX
 from fedbiomed.common.environ import Environ
 
 
@@ -51,7 +51,7 @@ class NodeEnviron(Environ):
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'],
                                                           f'queue_manager_{self._values["NODE_ID"]}')
         self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
-                                               f'db_{self._values["NODE_ID"]}.json')
+                                               f'{DB_PREFIX}{self._values["NODE_ID"]}.json')
 
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = os.path.join(self._values['ROOT_DIR'],
                                                                   'envs', 'common', 'default_training_plans')
