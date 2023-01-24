@@ -131,6 +131,14 @@ gui       :
             - start: Launches the Node GUI with given options.
 EOF
         ;;
+
+        other)
+            cat <<EOF
+
+certificate-dev-setup : prepares development environment by registering certificates of each component created
+            in a single clone of Fed-BioMed.
+EOF
+        ;;
     esac
 }
 
@@ -182,8 +190,9 @@ usage: fedbiomed_run network (stop)
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
-        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
+       febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
                          (start)
+       fedbiomed_run certificate-dev-setup
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
@@ -192,6 +201,7 @@ EOF
             usage_body researcher
             usage_body node
             usage_body gui
+            usage_body other
     ;;
     esac
 
@@ -653,8 +663,12 @@ case $1 in
             researcher) usage researcher;;
             gui) usage gui;;
             network) usage network;;
+            certificate-dev-setup)
+                source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
+                python -m fedbiomed.common.cli $2 '-h' $PARAMS
+            ;;
+            *) usage;;
         esac
-        usage
         ;;
 
     *)

@@ -87,9 +87,11 @@ class CommonCLI:
         """"""
         magic = self._subparsers.add_parser(
             'certificate-dev-setup',
+            description="Prepares development environment by registering certificates of each component created in a "
+                        "single clone of Fed-BioMed. Parses configuration files ends with '.ini' that are created "
+                        "in 'etc' directory. This setup requires to have one 'researcher' and at least 2 nodes.",
             help="Prepares development environment by registering certificates of each component created in a single "
-                 "clone of Fed-BioMed. Pares configuration files ends with '.ini' that are created in 'etc' directory. "
-                 "This setup requires to have one 'researcher' and at least 2 nodes."
+                 "clone of Fed-BioMed."
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
@@ -221,7 +223,7 @@ class CommonCLI:
 
         if len(certificates) <= 2:
             print(f"\n{RED}Warning!{NC}")
-            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'dev-magic' you should have "
+            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'certificate-dev-setup' you should have "
                   f"at least 2 components created{NC}\n")
             return
 
