@@ -265,8 +265,14 @@ class Environ(metaclass=SingletonABCMeta):
 
         public_key = self.from_config("mpspdz", "public_key")
         private_key = self.from_config("mpspdz", "private_key")
-        self._values["MPSPDZ_CERTIFICATE_KEY"] = os.getenv("MPSPDZ_CERTIFICATE_KEY", private_key)
-        self._values["MPSPDZ_CERTIFICATE_PEM"] = os.getenv("MPSPDZ_CERTIFICATE_PEM", public_key)
+        self._values["MPSPDZ_CERTIFICATE_KEY"] = os.getenv(
+            "MPSPDZ_CERTIFICATE_KEY",
+            os.path.join(self._values["CONFIG_DIR"], private_key)
+        )
+        self._values["MPSPDZ_CERTIFICATE_PEM"] = os.getenv(
+            "MPSPDZ_CERTIFICATE_PEM",
+            os.path.join(self._values["CONFIG_DIR"], public_key)
+        )
 
     def _get_uploads_url(self,
                          from_config: Union[None, str] = False
@@ -358,8 +364,8 @@ class Environ(metaclass=SingletonABCMeta):
         )
 
         self._cfg['mpspdz'] = {
-            'private_key': key_file,
-            'public_key': pem_file,
+            'private_key': os.path.relpath(key_file, self._values["CONFIG_DIR"]),
+            'public_key': os.path.relpath(pem_file, self._values["CONFIG_DIR"]),
             'mpspdz_ip': ip,
             'mpspdz_port': port
         }

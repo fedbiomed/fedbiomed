@@ -150,6 +150,7 @@ class TestEnviron(TestCase):
 
         cert_folder = os.path.join(self.config_dir, "certs")
         self.environ._values["CERT_DIR"] = cert_folder
+        self.environ._values["CONFIG_DIR"] = self.config_dir
 
         self.environ._cfg["default"] = {"id": "test_component_id"}
 
@@ -218,6 +219,8 @@ class TestEnviron(TestCase):
         public_key = "text_public_key"
         private_key = "test_private_key"
 
+
+
         self.environ._cfg["mqtt"] = {'broker_ip': broker_ip, 'port': broker_port}
         self.environ._cfg["mpspdz"] = {
             'mpspdz_ip': mpspdz_ip,
@@ -240,15 +243,19 @@ class TestEnviron(TestCase):
         if "MQTT_BROKER_PORT" in os.environ:
             del os.environ["MQTT_BROKER_PORT"]
 
+        # MPSPDZ key paths requires CONFIG_DIR is set in values
+        self.environ._values["CONFIG_DIR"] = self.config_dir
+
         self.environ._set_network_variables()
+
         self.assertEqual(self.environ._values["TIMEOUT"], 5)
         self.assertEqual(self.environ._values["MPSPDZ_PORT"], mpspdz_port)
         self.assertEqual(self.environ._values["MPSPDZ_IP"], mpspdz_ip)
         self.assertEqual(self.environ._values["UPLOADS_URL"], uploads_url)
         self.assertEqual(self.environ._values["MQTT_BROKER"], broker_ip)
         self.assertEqual(self.environ._values["MQTT_BROKER_PORT"], broker_port)
-        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_KEY"], private_key)
-        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_PEM"], public_key)
+        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_KEY"], os.path.join(self.config_dir, private_key))
+        self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_PEM"], os.path.join(self.config_dir, public_key))
 
     def test_environ_09_getters_and_setters(self):
         with self.assertRaises(FedbiomedEnvironError):
