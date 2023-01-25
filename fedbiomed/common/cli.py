@@ -28,7 +28,7 @@ BOLD = '\033[1m'
 
 class CommonCLI:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
             prog='fedbiomed_run [ node | researcher | gui ] config [CONFIG_NAME] ',
             formatter_class=argparse.RawTextHelpFormatter
@@ -41,37 +41,57 @@ class CommonCLI:
         self._args = None
 
     @property
-    def parser(self):
-        """Gets parser for CLI"""
+    def parser(self) -> argparse.ArgumentParser:
+        """Gets parser for CLI
+
+        Returns:
+            Main argument parser object
+        """
         return self._parser
 
     @property
-    def description(self):
-        """Gets description of CLI"""
+    def description(self) -> str:
+        """Gets description of CLI
+
+        Returns:
+            Description (Intro) for the CLI
+        """
         return self._description
 
     @property
-    def arguments(self):
+    def arguments(self) -> argparse.Namespace:
+        """Gets global parser arguments
+
+        Returns:
+            Parser arguments
+        """
         return self._args
 
     @description.setter
-    def description(self, value) -> str:
-        """Sets description for parser """
+    def description(self, value: str) -> str:
+        """Sets description for parser
+
+        Args:
+            value: Description or Intro for the CLI
+
+        Returns:
+            The description set
+        """
         self._description = value
         self._parser.description = value
 
         return self._description
 
     def set_environ(self, environ):
-        """Sets envirion object"""
+        """Sets environ object"""
         self._environ = environ
 
     @staticmethod
-    def error(message: str):
+    def error(message: str) -> None:
         """Prints given error message
 
         Args:
-            message:
+            message: Error message
         """
         print(f"{RED}ERROR:{NC}")
         print(f"{BOLD}{message}{NC}")
@@ -79,13 +99,17 @@ class CommonCLI:
         sys.exit(1)
 
     @staticmethod
-    def success(message):
-        """"""
+    def success(message: str) -> None:
+        """Prints given message with success tag
+
+        Args:
+            message: Message to print as successful operation
+        """
         print(f"{GRN}Operation successful! {NC}")
         print(f"{BOLD}{message}{NC}")
 
-    def initialize_magic_dev_environment_parsers(self):
-        """"""
+    def initialize_magic_dev_environment_parsers(self) -> None:
+        """Initializes argument parser for the option to create development environment."""
         magic = self._subparsers.add_parser(
             'certificate-dev-setup',
             description="Prepares development environment by registering certificates of each component created in a "
@@ -96,8 +120,8 @@ class CommonCLI:
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-    def initialize_create_configuration(self):
-        """"""
+    def initialize_create_configuration(self) -> None:
+        """Initializes argument parser for creating configuration file."""
 
         configuration = self._subparsers.add_parser('configuration', help='Configuration')
 
@@ -217,7 +241,7 @@ class CommonCLI:
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
     def _create_magic_dev_environment(self):
-        """"""
+        """Creates development environment for MPSDPZ"""
 
         db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
@@ -263,12 +287,11 @@ class CommonCLI:
 
         pass
 
-    def _generate_certificate(self, args):
+    def _generate_certificate(self, args: argparse.Namespace):
         """Generates certificate using Certificate Manager
 
         Args:
             args: Arguments that are passed after `certificate generate` command
-
         """
 
         if not args.force and (os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key") or
@@ -299,8 +322,12 @@ class CommonCLI:
 
         pass
 
-    def _register_certificate(self, args):
-        """ Registers certificate with given parameters"""
+    def _register_certificate(self, args: argparse.Namespace):
+        """ Registers certificate with given parameters
+
+        Args:
+            args: Parser arguments
+        """
 
         try:
             self._certificate_manager.register_certificate(
@@ -317,12 +344,12 @@ class CommonCLI:
             print(f"{GRN}Success!{NC}")
             print(f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}")
 
-    def _list_certificates(self, args):
+    def _list_certificates(self, args: argparse.Namespace):
         """ Lists saved certificates """
 
         self._certificate_manager.list(verbose=True)
 
-    def _delete_certificate(self, args):
+    def _delete_certificate(self, args: argparse.Namespace):
 
         certificates = self._certificate_manager.list(verbose=False)
         options = [d['party_id'] for d in certificates]
@@ -342,7 +369,8 @@ class CommonCLI:
             except (ValueError, IndexError, AssertionError):
                 CommonCLI.error('Invalid option. Please, try again.')
 
-    def _prepare_certificate_for_registration(self, args):
+    def _prepare_certificate_for_registration(self, args: argparse.Namespace):
+        """Prints instruction to registration of the certificate by the other parties """
 
         try:
             with open(self._environ["MPSPDZ_CERTIFICATE_PEM"], 'r') as file:
