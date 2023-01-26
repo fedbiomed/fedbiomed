@@ -45,7 +45,7 @@ import configparser
 import os
 
 from abc import abstractmethod
-from typing import Any, Union, Tuple
+from typing import Any, Tuple, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
@@ -400,14 +400,15 @@ class Environ(metaclass=SingletonABCMeta):
     def _retrieve_ip_and_port(
             increment_file,
             new: bool = False,
-            increment: int = None
+            increment: Union[int, None] = None
     ) -> Tuple[str, int]:
         """Creates MPSDPZ IP and PORT based on increment file for ports
 
         Args:
             increment_file: Path to port increment file
             new: If `True`, ignores increment file and create new one
-            increment: Increment value (port number) that will be used if `new = True`.
+            increment: if not None, increment value (port number) that will be used if `new = True`.
+                If None, then use a default value (environment variable or last resort value)
 
         Returns:
             ip: The IP for the MPSDPZ
