@@ -4,6 +4,7 @@ import torch
 import csv, os
 import torch.distributions as td
 from datetime import datetime
+from pathlib import Path
 
 ###########################################################
 #Define the imputation and the MSE functions              #
@@ -185,8 +186,7 @@ def save_results(result_folder, Split_type,Train_data,Test_data,
         dictwriter_object.writerow(dict_out)
         output_file.close()
 
-def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl):
-    cwd = os.getcwd()
+def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir=None):
 
     if Split_type == 'notiid':
         data_folder += 'ADNI_notiid'
@@ -194,6 +194,10 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl):
         data_folder += 'ADNI_site_1'
     elif Split_type == 'site_2':
         data_folder += 'ADNI_site_2'
+
+    if root_dir is not None:
+        root_dir = Path.home() if root_dir == 'home' else Path.home().joinpath( 'Documents/INRIA_EPIONE/FedBioMed', 'fedbiomed' )
+        data_folder = root_dir.joinpath(data_folder)
      
     if Split_type == 'site_2':
         Perc_missing = [0.3,0.2,0.4,0.1]
@@ -206,16 +210,20 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl):
     Clients_data=[]
     Clients_missing=[]
     for i in idx_clients:
-        data_full_file = os.path.join(cwd, data_folder+"/dataset_full_"+str(i)+".csv")
+        data_full_file = os.path.join(str(data_folder), "dataset_full_"+str(i)+".csv")
+        #data_full_file = data_folder.joinpath("dataset_full_"+str(i)+".csv")
         data_full = pd.read_csv(data_full_file, sep=",",index_col=False)
         Clients_data.append(data_full)
-        data_file = os.path.join(cwd, data_folder+"/dataset_"+str(i)+".csv")
+        data_file = os.path.join(str(data_folder),"dataset_"+str(i)+".csv")
+        #data_file = data_folder.joinpath("dataset_"+str(i)+".csv")
         data = pd.read_csv(data_file, sep=",",index_col=False)
         Clients_missing.append(data)
 
-    test_file = os.path.join(cwd, data_folder+"/dataset_full_"+str(idx_Test_data)+".csv")
+    test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
+    #test_file = data_folder.joinpath("dataset_full_"+str(idx_Test_data)+".csv")
     data_test = pd.read_csv(test_file, sep=",",index_col=False)
-    test_missing_file = os.path.join(cwd, data_folder+"/dataset_"+str(idx_Test_data)+".csv")
+    test_missing_file = os.path.join(str(data_folder),"dataset_"+str(idx_Test_data)+".csv")
+    #test_missing_file = data_folder.joinpath("dataset_"+str(idx_Test_data)+".csv")
     data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test

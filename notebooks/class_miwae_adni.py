@@ -115,8 +115,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
             # the encoder will output both the mean and the diagonal covariance
             self.encoder=nn.Sequential(
                             torch.nn.Linear(n_features, n_hidden),
-                            torch.nn.ReLU(),
-                            torch.nn.Linear(n_hidden, n_hidden),
+                            #torch.nn.ReLU(),
+                            #torch.nn.Linear(n_hidden, n_hidden),
                             torch.nn.ReLU(),
                             torch.nn.Linear(n_hidden, 3*n_latent),  
                             )
@@ -124,8 +124,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
             # and the number of degrees of freedoms (hence the 3*p)
             self.decoder = nn.Sequential(
                             torch.nn.Linear(n_latent, n_hidden),
-                            torch.nn.ReLU(),
-                            torch.nn.Linear(n_hidden, n_hidden),
+                            #torch.nn.ReLU(),
+                            #torch.nn.Linear(n_hidden, n_hidden),
                             torch.nn.ReLU(),
                             torch.nn.Linear(n_hidden, 3*n_features),  
                             )

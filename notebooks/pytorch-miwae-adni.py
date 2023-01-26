@@ -28,7 +28,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import argparse
-from datetime import datetime
 import sys
 
 from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases
@@ -52,6 +51,8 @@ if __name__ == '__main__':
                         help='Number of epochs')
     parser.add_argument('--data_folder', metavar='-d', type=str, default='data/',
                         help='Datasets folder')
+    parser.add_argument('--root_data_folder', metavar='-rdf', type=str, default=None, choices=['fedbiomed','home'],
+                        help='Root directory for data')
     parser.add_argument('--result_folder', metavar='-rf', type=str, default='results', 
                         help='Folder cotaining the results csv')
     parser.add_argument('--hidden', metavar='-h', type=int, default=256,
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     idx_Test_data = int(args.Test_id)
     tags = args.tags
     data_folder = args.data_folder
+    root_dir = args.root_data_folder
 
     if ((Split_type=='site_1') and (tags!='adni_1')):
         print('Split tipe and tags do not match:', Split_type,tags)
@@ -107,7 +109,7 @@ if __name__ == '__main__':
     idx_clients=[*range(1,N_cl+2)]
     idx_clients.remove(idx_Test_data)
 
-    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl)
+    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir)
 
     ###########################################################
     # Recover global mean and std in a federated manner       #
@@ -244,16 +246,16 @@ if __name__ == '__main__':
 
             encoder_cls = nn.Sequential(
                 torch.nn.Linear(p, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, h),
+                #torch.nn.ReLU(),
+                #torch.nn.Linear(h, h),
                 torch.nn.ReLU(),
                 torch.nn.Linear(h, 3*d),  
             )
 
             decoder_cls = nn.Sequential(
                 torch.nn.Linear(d, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, h),
+                #torch.nn.ReLU(),
+                #torch.nn.Linear(h, h),
                 torch.nn.ReLU(),
                 torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
             )
@@ -312,16 +314,16 @@ if __name__ == '__main__':
 
         encoder_cen = nn.Sequential(
             torch.nn.Linear(p, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, h),
+            #torch.nn.ReLU(),
+            #torch.nn.Linear(h, h),
             torch.nn.ReLU(),
             torch.nn.Linear(h, 3*d),  # the encoder will output both the mean and the diagonal covariance
         )
 
         decoder_cen = nn.Sequential(
             torch.nn.Linear(d, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, h),
+            #torch.nn.ReLU(),
+            #torch.nn.Linear(h, h),
             torch.nn.ReLU(),
             torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
         )
