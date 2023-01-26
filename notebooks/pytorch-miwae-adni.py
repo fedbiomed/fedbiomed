@@ -370,7 +370,7 @@ if __name__ == '__main__':
         encoder = model.encoder
         decoder = model.decoder
         iota = model.iota
-        std_training = 'Loc' if method == 'FedProx_Loc' else 'Fed'
+        std_training = 'Loc' if method == 'FedProx_loc' else 'Fed'
     else:
         fed_mean, fed_std = mean_tot_missing, std_tot_missing
 
