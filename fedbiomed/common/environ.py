@@ -38,6 +38,7 @@ Common Global Variables:
 - MQTT_BROKER             : MQTT broker IP address
 - MQTT_BROKER_PORT        : MQTT broker port
 - UPLOADS_URL             : Upload URL for file repository
+- MPSPDZ_IP               : MPSPDZ endpoint IP of component
 '''
 
 import configparser
