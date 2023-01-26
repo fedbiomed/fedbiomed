@@ -71,7 +71,7 @@ def get_component_certificate_from_config(
 
     ip = config.get("mpspdz", "mpspdz_ip")
     port = config.get("mpspdz", "mpspdz_port")
-    certificate_path = config.get("mpspdz", "public_key")
+    certificate_path = os.path.join(os.path.dirname(config_path), config.get("mpspdz", "public_key"))
 
     if not os.path.isfile(certificate_path):
         raise FedbiomedError(f"The certificate for component '{component_id}' not found in {certificate_path}")
