@@ -73,10 +73,13 @@ class Environ(metaclass=SingletonABCMeta):
         self._cfg = configparser.ConfigParser()
         self._root_dir = root_dir
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> Any:
         """Override the `[]` get operator to control the Exception type
         Args:
-            key: The key of  environ variable
+            key: The key of environ variable
+
+        Returns:
+            The value of the environ variable
 
         Raises:
             FedbiomedEnvironError: If the key does not exist
@@ -87,12 +90,15 @@ class Environ(metaclass=SingletonABCMeta):
             raise FedbiomedEnvironError(_msg)
         return self._values[key]
 
-    def __setitem__(self, key: str, value: Any):
+    def __setitem__(self, key: str, value: Any) -> Any:
         """Override the `[] `set operator to control the Exception type
 
         Args:
             key: key
             value: value
+
+        Returns:
+            The value passed as argument
 
         Raises:
              FedbiomedEnvironError: If key the does not exist
@@ -122,8 +128,18 @@ class Environ(metaclass=SingletonABCMeta):
     def info(self):
         """Abstract method to return component information"""
 
-    def from_config(self, section, key):
-        """Gets values from config file"""
+    def from_config(self, section, key) -> Any:
+        """Gets values from config file
+        Args:
+            section: the section of the key
+            key: the name of the key
+
+        Returns:
+            The value of the key
+
+        Raises:
+            FedbiomedEnvironError: If the key does not exist in the configuration
+        """
         try:
             _cfg_value = self._cfg.get(section, key)
         except configparser.Error:
@@ -193,8 +209,6 @@ class Environ(metaclass=SingletonABCMeta):
                     logger.critical(_msg)
                     raise FedbiomedEnvironError(_msg)
 
-        pass
-
     def set_config_file(self):
         """Sets configuration file """
         config_file = os.getenv('CONFIG_FILE')
@@ -211,6 +225,12 @@ class Environ(metaclass=SingletonABCMeta):
         """Parses configuration file.
 
         Create new config file if it is not existing.
+
+        Args:
+            new: True if configuration file is not expected to exist
+
+        Raise:
+            FedbiomedEnvironError: cannot read configuration file
         """
         # Sets configuration file path
         self.set_config_file()
@@ -276,11 +296,15 @@ class Environ(metaclass=SingletonABCMeta):
         )
 
     def _get_uploads_url(self,
-                         from_config: Union[None, str] = False
+                         from_config: bool = False
                          ) -> str:
         """Gets uploads url from env
 
         # TODO: Get IP, port and end-point information separately
+
+        Args:
+            from_config: if True, use uploads URL value from config as default value, if False use last resort
+                default value.
 
         Returns:
             Uploads url
@@ -321,13 +345,14 @@ class Environ(metaclass=SingletonABCMeta):
 
         Args:
             component_id: ID of the component for which the certificate will be generated
-        Raises:
-            FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
-                `certificate.key` files generated.
 
         Returns:
             key_file: The path where private key file is saved
             pem_file: The path where public key file is saved
+
+        Raises:
+            FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
+                `certificate.key` files generated.
         """
 
         certificate_path = os.path.join(self._values["CERT_DIR"], f"cert_{component_id}")
