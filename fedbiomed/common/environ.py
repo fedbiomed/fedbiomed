@@ -364,7 +364,7 @@ class Environ(metaclass=SingletonABCMeta):
             raise FedbiomedEnvironError(f"Certificate generation is aborted. Directory {certificate_path} already "
                                         f"certificates. Please remove those files to regenerate")
         else:
-            os.makedirs(certificate_path)
+            os.makedirs(certificate_path, exist_ok=True)
 
         try:
             key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(

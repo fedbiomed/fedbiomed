@@ -169,8 +169,9 @@ class CommonCLI:
         # Command `certificate generate`
         generate = certificate_sub_parsers.add_parser(
             'generate',
-            help="Generates certificate for given component/party. Overwrites existing certificate ff '--path' option "
-                 "isn't specified ")
+            help="Generates certificate for given component/party if files don't exist yet. "
+                 "Overwrites existing certificate file if '--force' option is given. "
+                 "Uses an alternate directory if '--path DIRECTORY' is given")
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
