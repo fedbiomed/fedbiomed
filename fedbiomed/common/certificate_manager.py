@@ -65,6 +65,9 @@ class CertificateManager:
 
         Returns:
             Document ID of inserted certificate
+
+        Raises:
+            FedbiomedCertificateError: party is already registered
         """
         certificate_ = self.get(party_id=party_id)
         if not certificate_:
@@ -95,7 +98,7 @@ class CertificateManager:
     def get(
             self,
             party_id: str
-    ) -> Document:
+    ) -> dict:
         """Gets certificate/public key  of given party
 
         Args:
@@ -105,7 +108,8 @@ class CertificateManager:
             Certificate, dict like TinyDB document
         """
 
-        return self._db.get(self._query.party_id == party_id)
+        v = self._db.get(self._query.party_id == party_id)
+        return dict(v) if v else None
 
     def delete(
             self,
@@ -122,7 +126,7 @@ class CertificateManager:
 
         return self._db.remove(self._query.party_id == party_id)
 
-    def list(self, verbose: bool = False) -> List[Document]:
+    def list(self, verbose: bool = False) -> List[dict]:
         """ Lists registered certificates.
 
         Args:
@@ -131,7 +135,7 @@ class CertificateManager:
         Returns:
             List of certificate objects registered in DB
         """
-        certificates = self._db.all()
+        certificates = [ dict(c) for c in self._db.all() ]
 
         if verbose:
             to_print = copy.deepcopy(certificates)
@@ -204,7 +208,8 @@ class CertificateManager:
         !!! info "Certificate Naming Convention"
                 MP-SPDZ requires saving certificates respecting the naming convention `P<PARTY_ID>.pem`. Party ID should
                 be integer in the order of [0,1, ...].  Therefore, the order of parties are critical in the sense of
-                naming files in given folder path. Files will be named as `P[ORDER].pem` to make it compatible with MP-SPDZ.
+                naming files in given folder path. Files will be named as `P[ORDER].pem` to make it compatible with
+                MP-SPDZ.
 
         Args:
             parties: ID of the parties (nodes/researchers) will join FL experiment.y
@@ -214,12 +219,13 @@ class CertificateManager:
             self_port: Port of the component that will launch MP-SPDZ protocol
             self_private_key: Path to MPSPDZ public key
             self_public_key: Path to MPSDPZ private key
+
         Raises:
             FedbiomedCertificateError: - If certificate for given party is not existing in the database
                 - If given path is not a directory
 
         Returns:
-            List of writen certificates files (paths).
+            List of written certificates files (paths).
         """
 
         if not os.path.isdir(path):
@@ -358,14 +364,13 @@ class CertificateManager:
             certificate_name: Name of the certificate file.
             component_id: ID of the component
 
-        Raises:
-            FedbiomedCertificateError: If certificate directory is invalid or an error occurs while writing certificate
-                files in given path.
-
         Returns:
             private_key: Private key file
             public_key: Certificate file
 
+        Raises:
+            FedbiomedCertificateError: If certificate directory is invalid or an error occurs while writing certificate
+                files in given path.
 
         !!! info "Certificate files"
                 Certificate files will be saved in the given directory as `certificates.key` for private key
