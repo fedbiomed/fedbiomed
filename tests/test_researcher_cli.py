@@ -20,7 +20,11 @@ class TestResearcherCLI(ResearcherTestCase):
         self.assertEqual(ResearcherCLI.__base__, CommonCLI, 'ResearcherCLI should inherit from CommonCLI')
 
     @patch('builtins.print')
-    def test_02_researcher_cli_launch_cli(self, mock_print):
+    @patch('fedbiomed.common.cli.CommonCLI.parse_args')
+    def test_02_researcher_cli_launch_cli(self,
+                                          mock_parse_args,
+                                          mock_print
+                                          ):
         self.cli.launch_cli()
 
         # Tests certificate parser options
