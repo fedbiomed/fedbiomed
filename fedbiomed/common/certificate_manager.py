@@ -164,11 +164,11 @@ class CertificateManager:
             upsert: If `True` overwrites existing certificate for specified party. If `False` and the certificate for
                 the specified party already existing it raises error.
 
-        Raises:
-            FedbiomedCertificateError: If certificate file is not existing in file system
-
         Returns:
             The document ID of registered certificated.
+
+        Raises:
+            FedbiomedCertificateError: If certificate file is not existing in file system
         """
 
         if not os.path.isfile(certificate_path):
@@ -220,12 +220,12 @@ class CertificateManager:
             self_private_key: Path to MPSPDZ public key
             self_public_key: Path to MPSDPZ private key
 
+        Returns:
+            List of written certificates files (paths).
+
         Raises:
             FedbiomedCertificateError: - If certificate for given party is not existing in the database
                 - If given path is not a directory
-
-        Returns:
-            List of written certificates files (paths).
         """
 
         if not os.path.isdir(path):
