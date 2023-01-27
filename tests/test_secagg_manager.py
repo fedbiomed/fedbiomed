@@ -1,10 +1,13 @@
 import unittest
 from unittest.mock import patch
 import copy
+
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
+
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-
-import testsupport.mock_node_environ  ## noqa (remove flake8 false warning)
-
 from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
 
@@ -52,16 +55,8 @@ class FakeTable:
             return True
 
 
-class TestSecaggManager(unittest.TestCase):
+class TestSecaggManager(NodeTestCase):
     """Test for SecaggManager node side module"""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        pass
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        pass
 
     def setUp(self):
         self.patcher_db = patch('fedbiomed.node.secagg_manager.TinyDB', FakeTinyDB)
@@ -314,7 +309,6 @@ class TestSecaggManager(unittest.TestCase):
                     # action + check
                     with self.assertRaises(FedbiomedSecaggError):
                         manager.remove('my_secagg_id', **kwargs)
-
 
 
 if __name__ == '__main__':  # pragma: no cover

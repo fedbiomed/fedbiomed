@@ -7,7 +7,11 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
+
 
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
@@ -43,11 +47,14 @@ class TrainingPlanCannotSave(BaseFakeTrainingPlan):
          raise OSError
 
 
-class TestRequests(unittest.TestCase):
+class TestRequests(ResearcherTestCase):
     """ Test class for Request class """
 
     @classmethod
     def setUpClass(cls) -> None:
+
+        super().setUpClass()
+
         # defining common side effect functions
         def msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)

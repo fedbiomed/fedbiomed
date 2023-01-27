@@ -15,22 +15,21 @@ from PIL import Image
 import torch
 from torchvision import transforms, datasets
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing any FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
+
+# Test Support
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
-# WORKAROUND: For this test, we need to ensure a *dedicated* `environ` to avoid collisions
-# with other test files for `environ['DB_PATH']` access
-#
-# from fedbiomed.node.environ import environ
-from fedbiomed.node.environ import EnvironNode
-from fedbiomed.common.constants  import ComponentType
-environ = EnvironNode(ComponentType.NODE)
-
+from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
-class TestDatasetManager(unittest.TestCase):
+
+class TestDatasetManager(NodeTestCase):
     """
     Unit Tests for DatasetManager class.
     """
@@ -119,14 +118,7 @@ class TestDatasetManager(unittest.TestCase):
         if os.path.isdir(environ['DB_PATH']):
             os.remove(environ['DB_PATH'])
 
-    @classmethod
-    def tearDownClass(cls):
-        """
-        after all tests
-        """
-        # WORKAROUND: delete dir as this is a dedicated environ for this test class
-        shutil.rmtree(environ['ROOT_DIR'])
-
+        shutil.rmtree(self.tempdir)
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """

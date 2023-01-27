@@ -5,6 +5,18 @@
 
 from enum import Enum
 
+"""Directory/folder name where DB files are saved"""
+DB_FOLDER_NAME = "var"
+
+"""Prefix for database files name"""
+DB_PREFIX = 'db_'
+
+"""Prefix for node ID"""
+NODE_PREFIX = 'node_'
+
+
+MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+
 
 class _BaseEnum(Enum):
     """
@@ -234,7 +246,7 @@ class ErrorNumbers(_BaseEnum):
     FB616 = "FB616: differential privacy controller error"
     FB617 = "FB617: FLamby dataset error"
     FB618 = "FB618: FLamby data transformation error"
-
+    FB619 = "FB619: Certificate error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

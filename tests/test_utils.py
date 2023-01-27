@@ -8,6 +8,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 from unittest.mock import patch
 
 
+
 # Dummy Class for testing its source --------------------
 class TestClass:
     def __init__(self):
@@ -51,7 +52,7 @@ class TestUtils(unittest.TestCase):
         pass
 
     @patch('fedbiomed.common.utils.is_ipython')
-    @patch('fedbiomed.common.utils._get_ipython_class_file')
+    @patch('fedbiomed.common.utils.get_ipython_class_file')
     @patch('inspect.linecache.getlines')
     def test_utils_01_get_class_source(self,
                                        mock_get_lines,
@@ -88,7 +89,7 @@ class TestUtils(unittest.TestCase):
     def test_utils_02_is_ipython(self):
         """ Test the function is_ipython """
 
-        with patch.object(fedbiomed.common.utils, 'get_ipython', create=True) as mock_get_ipython:
+        with patch.object(fedbiomed.common.utils._utils, 'get_ipython', create=True) as mock_get_ipython:
             mock_get_ipython.side_effect = TestUtils.ZMQInteractiveShell
             result = fed_utils.is_ipython()
             self.assertTrue(result, f'`is_python` has returned {result}, while the expected is `True`')
@@ -109,17 +110,17 @@ class TestUtils(unittest.TestCase):
         """ Testing function that gets class source from ipython kernel"""
 
         # Test normal case
-        result = fed_utils._get_ipython_class_file(TestClass)
+        result = fed_utils.get_ipython_class_file(TestClass)
         self.assertTrue(os.path.isfile(result), 'The result of class_file is not a file')
 
-        with patch.object(fedbiomed.common.utils, 'hasattr') as mock_hasattr:
+        with patch.object(fedbiomed.common.utils._utils, 'hasattr') as mock_hasattr:
             mock_hasattr.return_value = False
             with self.assertRaises(FedbiomedError):
-                fed_utils._get_ipython_class_file(TestClass)
+                fed_utils.get_ipython_class_file(TestClass)
 
         with patch.object(sys, 'modules') as mock_sys_modules:
             mock_sys_modules.return_value = {}
-            result = fed_utils._get_ipython_class_file(TestClass)
+            result = fed_utils.get_ipython_class_file(TestClass)
             self.assertTrue(os.path.isfile(result), 'The result of class_file is not a file')
 
 

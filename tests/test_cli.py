@@ -2,27 +2,21 @@ import unittest
 import sys, io
 from unittest.mock import MagicMock, patch
 from pathlib import Path
-import shutil
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
-
-# WORKAROUND: For this test, we need to ensure a *dedicated* `environ` to avoid collisions
-# with other test files for `environ['DB_PATH']` access
-#
-# from fedbiomed.node.environ import environ
-from fedbiomed.node.environ import EnvironNode
-from fedbiomed.common.constants  import ComponentType
-environ = EnvironNode(ComponentType.NODE)
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
 
 import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
-from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
+from fedbiomed.common.data import MapperBlock
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
 
-class TestCli(unittest.TestCase):
+class TestCli(NodeTestCase):
     @staticmethod
     def mock_cli_input(x):
         """Requires that each test defines TestCli.inputs as a list"""
@@ -44,35 +38,27 @@ class TestCli(unittest.TestCase):
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
 
-    @classmethod
-    def tearDownClass(cls):
-        """
-        after all tests
-        """
-        # WORKAROUND: delete dir as this is a dedicated environ for this test class
-        shutil.rmtree(environ['ROOT_DIR'])
-
     def test_cli_01_add_database_medical_folder(self):
         database_inputs = ['test-db-name', 'test-tag1,test-tag2', '', 'test-dlp-name']
         medical_folder_inputs = ['y', '0', 'y', '1', '1', '2', '3', '0', 'Tnon-exist', 'y', '4']
 
         with patch('pathlib.Path.glob', new=TestCli.patch_modality_glob) as patched_glob, \
-             patch('pathlib.Path.is_dir', return_value=True) as patched_dir, \
-             patch('fedbiomed.common.data.MedicalFolderBase.demographics_column_names',
-                   return_value=['col1', 'col2']) as patched_column_names, \
-             patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder',
-                   return_value=Path('some/valid/path')) as patched_validate_root, \
-             patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input',
-                   return_value='some/valid/path') as patched_val_path_in, \
-             patch('fedbiomed.node.cli_utils._io.input', return_value='5') as patched_cli_input, \
-             patch('fedbiomed.node.cli_utils._database.input',
-                   new=lambda x: database_inputs.pop(0)) as patched_db_input, \
-             patch('fedbiomed.node.cli_utils._medical_folder_dataset.input',
-                   new=lambda x: medical_folder_inputs.pop(0)) as patched_medical_folder_input:
-
+                patch('pathlib.Path.is_dir', return_value=True) as patched_dir, \
+                patch('fedbiomed.common.data.MedicalFolderBase.demographics_column_names',
+                      return_value=['col1', 'col2']) as patched_column_names, \
+                patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder',
+                      return_value=Path('some/valid/path')) as patched_validate_root, \
+                patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input',
+                      return_value='some/valid/path') as patched_val_path_in, \
+                patch('fedbiomed.node.cli_utils._io.input', return_value='5') as patched_cli_input, \
+                patch('fedbiomed.node.cli_utils._database.input',
+                      new=lambda x: database_inputs.pop(0)) as patched_db_input, \
+                patch('fedbiomed.node.cli_utils._medical_folder_dataset.input',
+                      new=lambda x: medical_folder_inputs.pop(0)) as patched_medical_folder_input:
             # Need to override equality test to enable assert_called_once_with to function properly
             def test_mapper_eq(self, other):
                 return self.map == other.map
+
             MapperBlock.__eq__ = test_mapper_eq
 
             fedbiomed.node.cli_utils.dataset_manager.add_database = MagicMock()
@@ -80,11 +66,11 @@ class TestCli(unittest.TestCase):
 
             dlb = MapperBlock()
             dlb.map = {'T1': ['T1philips', 'T1siemens'],
-                      'T2': ['T2'], 'label': ['label'],
-                      'Tnon-exist': ['non-existing-modality']}
+                       'T2': ['T2'], 'label': ['label'],
+                       'Tnon-exist': ['non-existing-modality']}
 
             # TODO : test with DLP, when CLI DLP supported by future version
-            #fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
+            # fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
             #    name='test-db-name',
             #    tags=['test-tag1', 'test-tag2'],
             #    data_type='medical-folder',
@@ -95,16 +81,16 @@ class TestCli(unittest.TestCase):
             #        'index_col': 0
             #    },
             #    data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
-            #)
+            # )
 
             # TODO : test with DLP, when CLI DLP supported by future version
-            #dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
-            #self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
-            #self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
-            #self.assertEqual(dlp_arg.name, 'test-dlp-name')
+            # dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
+            # self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
+            # self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
+            # self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 
-class TestMedicalFolderCliUtils(unittest.TestCase):
+class TestMedicalFolderCliUtils(NodeTestCase):
     @staticmethod
     def mock_input(x):
         return TestMedicalFolderCliUtils.inputs.pop(0)
@@ -145,8 +131,8 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         TestMedicalFolderCliUtils.inputs = ['1', '0', 'Tmistake', 'n', 'Tnew', '', '4', '5', '1', '2']
         dlb = get_map_modalities2folders_from_cli(modality_folder_names)
         self.assertDictEqual(dlb.map, {'T1': ['Should map to T1', 'Should also map to T1'],
-                                      'Tnew': ['Should map to Tnew'],
-                                      'T2': ['Should map to T2']})
+                                       'Tnew': ['Should map to Tnew'],
+                                       'T2': ['Should map to T2']})
 
     @patch('fedbiomed.node.cli_utils._medical_folder_dataset.input', new=mock_input.__func__)
     @patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input', new=mock_validated_input.__func__)
@@ -172,12 +158,12 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         })
         # TODO : test with DLP, when CLI DLP supported by future version
         # self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp)
-        #self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
+        # self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
         #    'T1': ['T1philips', 'T1siemens'],
         #    'T2': ['T2'],
         #    'Tnon-exist': ['non-existing-modality'],
         #    'label': ['label']
-        #})
+        # })
 
         # Scenario 2:
         #    - no pre-existing dataset parameters or data loading plan

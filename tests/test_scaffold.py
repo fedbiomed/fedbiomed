@@ -3,7 +3,6 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -11,18 +10,15 @@ from fedbiomed.researcher.responses import Responses
 from testsupport.fake_uuid import FakeUuid
 import torch
 from torch.nn import Linear
-import numpy as np
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 import copy
 import random
 
-
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
-
+from testsupport.base_case import ResearcherTestCase
 
 
-class TestScaffold(unittest.TestCase):
+class TestScaffold(ResearcherTestCase):
     '''
     Tests the Scaffold class
     '''

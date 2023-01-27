@@ -158,29 +158,31 @@ Remark: a test file may implement more than one class (we may for example create
 
 We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a MQTT server in a setupMethod() if we include the two classes in a single test file.
 
-### how to mock environ in a test
+### How to mock environ in a test
 
-#### fake\_researcher\_environ
+Environ for the components are mocked by the classes `NodeTestCase` and `ResearcherTestCase`. 
+Please use `NodeTestCase` for the classes that uses `environ` on the node side adn `ResearcherTestCase`
+for the classes on researcher side. Your test class should inherit one of them. Example:
 
-If the test concern the **researcher** component, the test file should import the mock environment **before** fedbiomed.researcher.environ
+```python
 
-```
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import environ
-```
-
-Remark: the testsupport/fake\_researcher\_environ.py file **must not** be imported direclty (because it only create a Environ() class but does not instantiate it and does not mock the sys.module python environment.
-
-#### fake\_node\_environ
-
-If the test concern the **researcher** component, the test file should import the mock environment **before** fedbiomed.researcher.environ
-
-```
-import testsupport.mock_node_environ
-from fedbiomed.node.environ import environ
+class TestDatasetManager(NodeTestCase):
+  
+    #......
+    
+    
+if __name__ == '__main__':
+    unittest.main()
 ```
 
-Remark: the testsupport/fake\_node\_environ.py file **must not** be imported direclty (because it only create a Environ() class but does not instantiate it and does not mock the sys.module python environment.
+NodeTestCase or ResearcherTestCase should be imported before importing any other Fed-BioMed or test support modules.
+
+**Note:** `cls.env` can be used in order to modify/remove environ variable values.
+
+**IMPORTANT**: It is required to add `super().setUpClass()` in child's `setUpClass` method if it is added into test 
+class. Same for `tearDownClass()`
+
+
 
 #### test\_environ\_common.py
 
