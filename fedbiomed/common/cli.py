@@ -405,10 +405,7 @@ class CommonCLI:
         self._args = self._parser.parse_args()
 
         if hasattr(self._args, 'func'):
-            if get_method_spec(self._args.func):
-                self._args.func(self._args)
-            else:
-                self._args.func()
+            self._args.func(self._args)
 
 
 if __name__ == '__main__':

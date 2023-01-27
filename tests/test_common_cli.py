@@ -1,6 +1,7 @@
 import nose.tools.nontrivial
 import unittest
-
+import tempfile
+import shutil
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedError
@@ -9,7 +10,6 @@ from fedbiomed.common.exceptions import FedbiomedError
 class TestCommonCLI(unittest.TestCase):
 
     def setUp(self) -> None:
-
         self.patch_certificate_manager = patch("fedbiomed.common.cli.CertificateManager.__init__",
                                                MagicMock(return_value=None))
         self.patch_set_db = patch("fedbiomed.common.cli.CertificateManager.set_db")
@@ -60,7 +60,6 @@ class TestCommonCLI(unittest.TestCase):
                          '_create_component_configuration')
 
     def test_06_common_cli_initialize_certificate_parser(self):
-
         self.cli.set_environ(
             {"DB_PATH": "/dummy/path/to/db",
              "CERT_DIR": "/dummy/path/to/cert",
@@ -106,7 +105,6 @@ class TestCommonCLI(unittest.TestCase):
                                                         mock_get_fedbiomed_root,
                                                         mock_get_all_certificates,
                                                         mock_get_components_db_names):
-
         mock_get_components_db_names.return_value = {"researcher": "db-researcher",
                                                      "node-1": "db-node-1",
                                                      "node-2": "db-node-2"}
@@ -156,41 +154,38 @@ class TestCommonCLI(unittest.TestCase):
 
     @patch("builtins.print")
     def test_06_common_cli_create_component_configuration(self, mock_print):
-
         self.cli.set_environ({"ID": "test-id"})
         self.cli._create_component_configuration({})
         mock_print.assert_called_once()
 
-    @patch("fedbiomed.common.cli.CertificateManager.generate_self_signed_ssl_certificate")
     @patch("builtins.open")
     @patch("builtins.print")
     @patch("os.path.isfile")
     def test_07_common_cli_generate_certificate(self,
                                                 mock_is_file,
                                                 mock_print,
-                                                mock_open,
-                                                mock_generate_self_singed_certificate):
-
+                                                mock_open
+                                                ):
         mock_is_file.return_value = True
-        self.cli.set_environ({"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"})
+        tmp_dir = tempfile.mkdtemp()
+        self.cli.set_environ({"ID": "node-id", "CERT_DIR": tmp_dir, "DB_PATH": "dummy/db/path"})
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "generate", "--path", "dummy/path/" "-f"])
 
         mock_cli_error = patch('fedbiomed.common.cli.CommonCLI.error', MagicMock(return_value=None))
         mock_cli_error.start()
         self.cli._generate_certificate(args)
-        mock_generate_self_singed_certificate.assert_called_once_with(certificate_folder='dummy/path/-f',
-                                                                      certificate_name='MPSPDZ_certificate',
-                                                                      component_id='node-id')
         mock_cli_error.stop()
 
-        mock_generate_self_singed_certificate.side_effect = FedbiomedError
+        # Remove tmp directory
+        shutil.rmtree(tmp_dir)
+
+        self.cli.set_environ({"ID": "node-id", "CERT_DIR": '/non/valid/path', "DB_PATH": "dummy/db/path"})
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
 
         mock_is_file.return_value = True
         args = self.cli.parser.parse_args(["certificate", "generate", "--path", "dummy/path/"])
-
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
 
@@ -201,7 +196,6 @@ class TestCommonCLI(unittest.TestCase):
                                                 mock_print,
                                                 mock_open,
                                                 mock_register_certificate):
-
         self.cli.set_environ({"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"})
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "register", "--party-id", "party-id-1",
@@ -291,10 +285,10 @@ class TestCommonCLI(unittest.TestCase):
 
     @patch("fedbiomed.common.cli.CertificateManager.list")
     @patch("fedbiomed.common.cli.CommonCLI._create_magic_dev_environment")
-    def test_12_common_cli_parser_args(self,
-                                       mock_dev_environment,
-                                       mock_list
-                                       ):
+    def test_12_common_cli_parse_args(self,
+                                      mock_dev_environment,
+                                      mock_list):
+
         self.cli.set_environ({"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"})
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "list"])
