@@ -11,7 +11,7 @@ from tinydb import TinyDB, Query
 from tinydb.table import Table
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
 
@@ -98,7 +98,7 @@ class CertificateManager:
     def get(
             self,
             party_id: str
-    ) -> dict:
+    ) -> Union[dict, None]:
         """Gets certificate/public key  of given party
 
         Args:
@@ -182,7 +182,7 @@ class CertificateManager:
             file.close()
 
         # Save certificate in database
-        component = ComponentType.NODE.name if party_id.startswith("node") else ComponentType.RESEARCHER.name
+        component = ComponentType.NODE.name if party_id.startswith(NODE_PREFIX) else ComponentType.RESEARCHER.name
 
         return self.insert(
             certificate=certificate_content,

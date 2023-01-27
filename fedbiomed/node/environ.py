@@ -22,7 +22,7 @@ import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
 
 
@@ -105,7 +105,7 @@ class NodeEnviron(Environ):
         """Updates config file with Node specific parameters"""
 
         # TODO: We may remove node_id in the future (to simplify the code)
-        node_id = os.getenv('NODE_ID', 'node_' + str(uuid.uuid4()))
+        node_id = os.getenv('NODE_ID', NODE_PREFIX + str(uuid.uuid4()))
         uploads_url = self._get_uploads_url()
 
         self._cfg['default'] = {

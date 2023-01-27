@@ -11,6 +11,9 @@ DB_FOLDER_NAME = "var"
 """Prefix for database files name"""
 DB_PREFIX = 'db_'
 
+"""Prefix for node ID"""
+NODE_PREFIX = 'node_'
+
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
