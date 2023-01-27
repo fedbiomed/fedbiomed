@@ -28,6 +28,7 @@ class ResearcherEnviron:
         # TODO: use os.mktemp instead of /tmp
         self._values['ROOT_DIR'] = f"/tmp/{res}"
         self._values['CONFIG_DIR'] = f"/tmp/{res}/etc"
+        self._values['CERT_DIR'] = f"/tmp/{res}/etc/certs"
         self._values['VAR_DIR'] = f"/tmp/{res}/var"
         self._values['CACHE_DIR'] = f"/tmp/{res}/var/cache"
         self._values['TMP_DIR'] = f"/tmp/{res}/var/tmp"
@@ -54,6 +55,8 @@ class ResearcherEnviron:
         # values specific to researcher
         self._values['MESSAGES_QUEUE_DIR'] = f"/tmp/{res}/var/queue_messages"
         self._values['RESEARCHER_ID'] = f"mock_researcher_{res}_XXX"
+        self._values['ID'] = f"mock_researcher_{res}_XXX"
+        self._values['DB_PATH'] = f"/tmp/{res}/var/db_researcher_mock_node_XXX.json"
         self._values['EXPERIMENTS_DIR'] = f'/tmp/{res}/var/experiments'
         self._values['TENSORBOARD_RESULTS_DIR'] = f"/tmp/{res}/runs"
 
