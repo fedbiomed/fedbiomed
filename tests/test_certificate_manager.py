@@ -349,7 +349,9 @@ class TestCertificateManager(unittest.TestCase):
                 )
 
             # It didn't work: raising exception for the second call of `open`
-            mock_open.side_effect = [None, Exception]
+            mock_open.side_effect = [MagicMock(), Exception]
+            mock_abspath.return_value = True
+            self.mock_isdir.return_value = True
             with self.assertRaises(FedbiomedCertificateError):
                 self.cm.generate_self_signed_ssl_certificate(
                     certificate_folder=certificate_folder,
@@ -373,6 +375,7 @@ class TestCertificateManager(unittest.TestCase):
                     certificate_name="certificate",
                     component_id="component-id"
                 )
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
