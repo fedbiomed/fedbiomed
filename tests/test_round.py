@@ -7,11 +7,15 @@ from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
 
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_uuid import FakeUuid
+
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
@@ -21,7 +25,7 @@ from fedbiomed.common.constants import DatasetTypes
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
-class TestRound(unittest.TestCase):
+class TestRound(NodeTestCase):
 
     # values and attributes for dummy classes
     URL_MSG = 'http://url/where/my/file?is=True'
@@ -29,6 +33,11 @@ class TestRound(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Sets up values in the test once """
+
+        # Sets mock environ for the test -------------------
+        super().setUpClass()
+        # --------------------------------------------------
+
         # we define here common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)
@@ -71,8 +80,6 @@ class TestRound(unittest.TestCase):
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
-    def tearDown(self) -> None:
-        pass
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
