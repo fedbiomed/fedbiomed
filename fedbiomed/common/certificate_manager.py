@@ -8,7 +8,7 @@ import random
 from OpenSSL import crypto
 from typing import List, Union, Tuple
 from tinydb import TinyDB, Query
-from tinydb.table import Document, Table
+from tinydb.table import Table
 from tabulate import tabulate
 
 from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, ErrorNumbers
