@@ -396,7 +396,6 @@ if __name__ == '__main__':
                     std_training,'global',MSE)
         elif method == 'Local':
             # centralized 
-            mean_tot_missing
             MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
             save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
