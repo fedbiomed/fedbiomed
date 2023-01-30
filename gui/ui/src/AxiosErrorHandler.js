@@ -83,13 +83,11 @@ export const setupAxios = () => {
                       reject(error);
                     }
                   }else{
-                    alert("Please login again")
                     sessionStorage.removeItem('accessToken');
                     sessionStorage.removeItem('refreshToken');
                     window.location.href = '/login'
                   }
                 }else{
-                  alert("Please login")
                   sessionStorage.removeItem('accessToken');
                   sessionStorage.removeItem('refreshToken');
                   window.location.href = '/login'
