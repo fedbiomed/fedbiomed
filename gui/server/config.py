@@ -74,19 +74,19 @@ class Config:
 
         node_id = get_node_id(self.configuration['NODE_CONFIG_FILE_PATH'])
         # Set node NODE_DI
-        self.configuration['NODE_ID'] = node_id
+        self.configuration['ID'] = node_id
 
         # Set DB_PATH based on given node id
         self.configuration['NODE_DB_PATH'] = \
             os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
                          'var',
-                         'db_' + self.configuration['NODE_ID'] + '.json')
+                         'db_' + self.configuration['ID'] + '.json')
 
         # Set GUI_PATH based on given node id
         self.configuration['GUI_DB_PATH'] = \
             os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
                          'var',
-                         'gui_db_' + self.configuration['NODE_ID'] + '.json')
+                         'gui_db_' + self.configuration['ID'] + '.json')
 
         # Enable debug mode
         self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
@@ -108,7 +108,7 @@ class Config:
               f'{self.configuration["NODE_CONFIG_FILE"]} \n')
 
         print(f'INFO: Services are going to be configured for the node '
-              f'{self.configuration["NODE_ID"]} \n')
+              f'{self.configuration["ID"]} \n')
 
         return self.configuration
 
