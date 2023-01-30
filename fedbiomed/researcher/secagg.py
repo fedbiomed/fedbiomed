@@ -119,7 +119,7 @@ class SecaggContext(ABC):
         # abstract method may contain some code in the future, so let's keep this command
         pass
 
-    def _delete_payload(self) ->  Tuple[Union[dict, None], bool]:
+    def _delete_payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for secagg context element deletion
 
         Returns:

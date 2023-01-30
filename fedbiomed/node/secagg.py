@@ -37,7 +37,7 @@ class SecaggSetup(ABC):
             secagg_id: ID of secagg context element for this setup request
             job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
             sequence: unique sequence number of setup request
-            parties: List of parties participating to the secagg context element setup
+            parties: List of parties participating in the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -122,7 +122,7 @@ class SecaggSetup(ABC):
             secagg context element name
         """
 
-    def _create_secagg_reply(self, message: str = '', success: bool = False) -> SecaggReply:
+    def _create_secagg_reply(self, message: str = '', success: bool = False) -> dict:
         """Create reply message for researcher after secagg setup phase.
 
         Args:
