@@ -1,26 +1,19 @@
 import copy
-
 import unittest
 from unittest.mock import patch
 
-import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
-from testsupport.fake_requests import FakeRequests
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
 
+from testsupport.fake_requests import FakeRequests
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
 
-class TestSecaggResearcher(unittest.TestCase):
+class TestSecaggResearcher(ResearcherTestCase):
     """ Test for researcher's secagg module"""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        pass
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        pass
 
     def setUp(self):
         # Define patchers that are not modified during the test
@@ -32,6 +25,8 @@ class TestSecaggResearcher(unittest.TestCase):
 
         for patcher in self.patchers:
             patcher.start()
+
+        print(self.env["RESEARCHER_ID"])
 
     def tearDown(self) -> None:
         for patcher in self.patchers:
@@ -119,7 +114,7 @@ class TestSecaggResearcher(unittest.TestCase):
         """Setup then delete a secagg class"""
 
         # prepare
-        parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
+        parties = [self.env['RESEARCHER_ID'], 'party2', 'party3']
         job_id = 'JOB_ID'
 
         fake_requests = FakeRequests()
@@ -197,7 +192,7 @@ class TestSecaggResearcher(unittest.TestCase):
         """Timeout during secagg class setup"""
 
         # prepare
-        parties = [environ['RESEARCHER_ID'], 'party2', 'party3']
+        parties = [self.env['RESEARCHER_ID'], 'party2', 'party3']
         job_id = 'JOD ID'
 
         fake_requests = FakeRequests()
@@ -217,7 +212,7 @@ class TestSecaggResearcher(unittest.TestCase):
         """Try setup or delete a secagg class giving bad params"""
 
         # setup
-        parties = [ environ['RESEARCHER_ID'], 'party2', 'party3']
+        parties = [ self.env['RESEARCHER_ID'], 'party2', 'party3']
         job_id = 'JOB ID'
         contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
         values = ['2', '2.3', '', [2], {'3': 3}]
@@ -243,7 +238,7 @@ class TestSecaggResearcher(unittest.TestCase):
         # 1. Save breakpoint
 
         # prepare
-        parties = [environ['RESEARCHER_ID'], 'node1', 'node2', 'node3']
+        parties = [self.env['RESEARCHER_ID'], 'node1', 'node2', 'node3']
         job_id = 'JOB_ID'
 
         # time.sleep: just need a dummy patch to avoid waiting
@@ -266,7 +261,7 @@ class TestSecaggResearcher(unittest.TestCase):
                     'secagg_id': context.secagg_id(),
                     'job_id': job_id,
                     'parties': parties,
-                    'researcher_id': environ['RESEARCHER_ID'],
+                    'researcher_id': self.env['RESEARCHER_ID'],
                     'status': context.status(),
                     'context': context.context(),
                 }

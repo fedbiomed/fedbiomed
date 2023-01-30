@@ -1,3 +1,5 @@
+from testsupport.base_case import ResearcherTestCase
+
 import copy
 from random import random, shuffle
 import unittest
@@ -7,11 +9,12 @@ import torch
 from torch.nn import Linear
 import numpy as np
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
-class TestFedaverage(unittest.TestCase):
+
+class TestFedaverage(ResearcherTestCase):
     '''
     Test the FedAverage class
     '''
@@ -23,12 +26,14 @@ class TestFedaverage(unittest.TestCase):
         self.weights = {f'node_{i}': random() for i, _ in enumerate(self.models)}
         self.aggregator = FedAverage()
 
+
     # after the tests
     def tearDown(self):
         pass
 
     def test_fed_average_01_torch(self):
         """ Testing aggregation for torch model """
+
         aggregated_params = self.aggregator.aggregate(self.models, self.weights)
         # ===============================================================
         # Assert Federated Average

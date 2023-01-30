@@ -5,14 +5,12 @@ import unittest
 import os
 import logging
 import re
-from fedbiomed.common.training_args import TrainingArgs
 
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-from abc import ABC
-from unittest.mock import PropertyMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam, SGD
 from torch.nn import Module
@@ -39,6 +37,7 @@ class FakeDPController:
 
     def before_training(self, model, optimizer, loader):
         return model, optimizer, loader
+
 
 class TestTorchnn(unittest.TestCase):
     """

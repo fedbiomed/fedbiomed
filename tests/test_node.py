@@ -1,12 +1,14 @@
 import copy
-import json
 from json import decoder
-import json
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
@@ -22,10 +24,14 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.dataset_manager import DatasetManager
 
 
-class TestNode(unittest.TestCase):
+class TestNode(NodeTestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Important to instantiate fake environ
+        super().setUpClass()
+        # --------------------------------------
+
         # defining common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)
@@ -1235,9 +1241,12 @@ class TestNode(unittest.TestCase):
         ]
         dict_secagg_extra_msg = [
             f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
-            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `researcher_id` should not be empty string',
-            'ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `secagg_id` should not be empty string',
-            "ErrorNumbers.FB318: bad secure aggregation request received by mock_node_XXX: FB318: Secure aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
+            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
+            f'aggregation setup error: bad parameter `researcher_id` should not be empty string',
+            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
+            f'aggregation setup error: bad parameter `secagg_id` should not be empty string',
+            f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: FB318: Secure "
+            f"aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
         ]
         dict_secagg_reply_type = [
             "error",
@@ -1409,7 +1418,7 @@ class TestNode(unittest.TestCase):
         test_setups = [
             [
                 'secagg',
-                'ErrorNumbers.FB318: bad secure aggregation request message received by mock_node_XXX: ',
+                f'ErrorNumbers.FB318: bad secure aggregation request message received by {environ["NODE_ID"]}: ',
                 self.n1._task_secagg
             ],
             [

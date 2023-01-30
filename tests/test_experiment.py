@@ -7,12 +7,18 @@ import json
 import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.common import training_plans
-from fedbiomed.common.constants import TrainingPlans
+
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
+
+
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
-import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
+import testsupport.fake_researcher_environ  ## noqa (remove flake8 false warning)
+
 from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
@@ -29,7 +35,7 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
-from fedbiomed.researcher.experiment import Experiment, TrainingPlan
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -43,7 +49,7 @@ class FakeStrategy(Strategy):
     pass
         
 
-class TestExperiment(unittest.TestCase):
+class TestExperiment(ResearcherTestCase):
     """ Test for Experiment class """
 
     # For testing training_plan setter of Experiment
@@ -81,6 +87,8 @@ class TestExperiment(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+
+        super().setUpClass()
 
         # Create FakeAggregator that does not have subclass
         class FakeAggregator:

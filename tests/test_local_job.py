@@ -3,14 +3,19 @@ import os
 import inspect
 import unittest
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
+
 from fedbiomed.researcher.environ import environ
 from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.researcher.job import localJob
 from testsupport.fake_training_plan import FakeModel
 
 
-class TestLocalJob(unittest.TestCase):
+class TestLocalJob(ResearcherTestCase):
 
     @classmethod
     def create_fake_model(cls, name: str):
@@ -34,9 +39,6 @@ class TestLocalJob(unittest.TestCase):
 
         return tmp_dir_model
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
 
     def setUp(self):
 

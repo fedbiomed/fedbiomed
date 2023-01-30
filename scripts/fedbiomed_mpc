@@ -21,6 +21,8 @@ programs_dir=$mpspdz_basedir/Programs/Source
 # ---------------------------------------------------------------------------------------------------------------
 
 
+# TODO : remove conda env activation when integrating with `fedbiomed_run`
+#
 # Activate conda environment
 eval "$(conda shell.bash hook)"
 conda activate fedbiomed-researcher
@@ -214,6 +216,10 @@ function execute_shamir_server_key(){
   OUTPUT_FILE=$4
   INPUT_FILE=$5
   COMPILE=$6
+
+  if ! c_rehash "$mpspdz_basedir"/Player-Data; then
+      error "Certificate error"
+  fi
 
   if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ]; then
     error "There missing arguments. Please make sure that all the arguments are provided.\n\

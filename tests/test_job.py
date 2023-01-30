@@ -8,12 +8,13 @@ from unittest.mock import patch, MagicMock
 import uuid
 
 import numpy as np
-from fedbiomed.common import training_args
-from fedbiomed.researcher.datasets import FederatedDataSet
-from testsupport.fake_dataset import FederatedDataSetMock
 import torch
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
+
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
@@ -27,7 +28,7 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.training_args import TrainingArgs
 
 
-class TestJob(unittest.TestCase):
+class TestJob(ResearcherTestCase):
 
     @classmethod
     def create_fake_model(cls, name: str):
@@ -55,6 +56,8 @@ class TestJob(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
+        super().setUpClass()
+
         def msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeMessages(msg)
             return fake_node_msg
@@ -67,9 +70,6 @@ class TestJob(unittest.TestCase):
 
         cls.fake_responses_side_effect = fake_responses
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
 
     def setUp(self):
 
@@ -80,11 +80,14 @@ class TestJob(unittest.TestCase):
         self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
+        self.patcher5 = patch('fedbiomed.researcher.job.atexit')
+
 
         self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
         self.mock_request_create = self.patcher4.start()
+        self.mock_atexit = self.patcher5.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = MagicMock(return_value=None)
@@ -108,6 +111,7 @@ class TestJob(unittest.TestCase):
         self.patcher2.stop()
         self.patcher3.stop()
         self.patcher4.stop()
+        self.patcher5.stop()
 
         # shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
