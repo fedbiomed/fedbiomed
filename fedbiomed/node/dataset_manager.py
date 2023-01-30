@@ -134,6 +134,21 @@ class DatasetManager:
         """
         return self._dataset_table.search(self._database.tags.all(tags))
 
+    def search_conflicting_tags(self, tags: Union[tuple, list]) -> list:
+        """Searches for registered data that have conflicting tags with the given tags
+
+        Args:
+            tags:  List of tags
+
+        Returns:
+            The list of conflicting datasets
+        """
+        def _conflicting_tags(val):
+            return all(t in val for t in tags) or all(t in tags for t in val)
+
+
+        return self._dataset_table.search(self._database.tags.test(_conflicting_tags))
+
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
 
@@ -368,8 +383,13 @@ class DatasetManager:
         if path is not None:
             path = os.path.expanduser(path)
 
-        # Check that there are not existing databases with the same name
-        assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
+        # Check that there are not existing dataset with conflicting tags
+        conflicting = self.search_conflicting_tags(tags)
+        if len(conflicting) > 0:
+            msg = f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: " \
+                f" {' '.join([ c['name'] for c in conflicting ])}" 
+            logger.critical(msg)
+            raise FedbiomedDatasetManagerError(msg)            
 
         dtypes = []  # empty list for Image datasets
         data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
