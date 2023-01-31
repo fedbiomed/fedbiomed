@@ -179,13 +179,20 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
+    try:
+        dataset_manager.modify_database_info(
+            req['dataset_id'],
+            {
+                "tags": req["tags"],
+                "description": req["desc"],
+                "name": req["name"]
+            })
+    except Exception as e:
+        return error(str(e)), 400
+
+    # Get saved dataset document
     table = node_database.table_datasets()
     query = node_database.query()
-
-    table.update({"tags": req["tags"],
-                  "description": req["desc"],
-                  "name": req["name"]},
-                 query.dataset_id == req['dataset_id'])
     res = table.get(query.dataset_id == req['dataset_id'])
 
     return response(res), 200

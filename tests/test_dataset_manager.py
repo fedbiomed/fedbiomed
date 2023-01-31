@@ -14,6 +14,7 @@ import pathlib
 from PIL import Image
 import torch
 from torchvision import transforms, datasets
+from tinydb import Query
 
 #############################################################
 # Import NodeTestCase before importing any FedBioMed Module
@@ -586,11 +587,11 @@ class TestDatasetManager(NodeTestCase):
         self.assertFalse(self.fake_database.get('1', False))
 
 
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
     @patch('tinydb.table.Table.update')
-    @patch('tinydb.queries.Query.all')
     def test_dataset_manager_20_modify_database_info(self,
-                                                  query_all_patch,
-                                                  tinydb_update_patch):
+                                                  tinydb_update_patch,
+                                                  conflicting_tags_patch):
         """
         Tests modify_database_info (normal case scenario),
         where one replaces an existing dataset by another one
@@ -599,16 +600,14 @@ class TestDatasetManager(NodeTestCase):
         fake_database = copy.deepcopy(self.fake_database)
 
 
-        def tinydb_update_side_effect(new_dataset: dict, existing_dataset: List[int]):
+        def tinydb_update_side_effect(new_dataset: dict, existing_dataset):
             """
             side effect function that mimics the update of the database
             `fake_database`
 
             Args:
                 new_dataset (dict): the new dataset to update
-                existing_dataset (List[int]): unused, but should
-                be a list of doc ids that corresponds to the output
-                `Query.tags.all(tags)` dataset query.
+                existing_dataset unused, but is a QueryInstance/QueryImpl
             """
             fake_database['2'] = new_dataset
 
@@ -621,18 +620,17 @@ class TestDatasetManager(NodeTestCase):
                        "dataset_id": "dataset_9876",
                        "dtypes": ["int64", "float64"]}
 
-        tags = ['some', 'tags']
-        query_all_patch.return_value = [fake_database.get('2')]
+        dataset_id = fake_database.get('2')['dataset_id']
         tinydb_update_patch.side_effect = tinydb_update_side_effect
+        conflicting_tags_patch.return_value = []
 
         # action
-        self.dataset_manager.modify_database_info(tags, new_dataset)
+        self.dataset_manager.modify_database_info(dataset_id, new_dataset)
 
         # checks
         # check that correct calls are made
-        query_all_patch.assert_called_once_with(tags)
         tinydb_update_patch.assert_called_once_with(new_dataset,
-                                                    [self.fake_database.get('2')])
+                                                    Query().dataset_id == dataset_id)
         # check database status after updating
         # first entry in database should be left unchanged ...
         self.assertEqual(fake_database.get('1'), self.fake_database.get('1'))

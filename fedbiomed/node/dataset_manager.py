@@ -14,6 +14,7 @@ import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
+from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -531,15 +532,33 @@ class DatasetManager:
         self._dataset_table.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
-                             tags: Union[tuple, list],
+                             dataset_id: str,
                              modified_dataset: dict):
         """Modifies a dataset in the database.
 
         Args:
-            tags: Tags describing the dataset to modify.
+            dataset_id: ID of the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
+
+        Raises:
+            FedbiomedDatasetManagerError: conflicting tags with existing dataset
         """
-        self._dataset_table.update(modified_dataset, self._database.tags.all(tags))
+        # Check that there are not existing dataset with conflicting tags
+        if 'tags' in modified_dataset:
+            conflicting = self.search_conflicting_tags(modified_dataset['tags'])
+
+            conflicting_ids = [ c['dataset_id'] for c in conflicting ]
+            # the dataset to modify is ignored (can conflict with its previous tags)
+            if dataset_id in conflicting_ids:
+                conflicting_ids.remove(dataset_id)
+
+            if len(conflicting_ids) > 0:
+                msg = f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: " \
+                    f" {' '.join([ c['name'] for c in conflicting if c['dataset_id'] != dataset_id ])}"
+                logger.critical(msg)
+                raise FedbiomedDatasetManagerError(msg)
+
+        self._dataset_table.update(modified_dataset, self._database.dataset_id == dataset_id)
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
