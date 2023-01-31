@@ -12,6 +12,27 @@ import numpy as np
 from fedbiomed.common.exceptions import FedbiomedError
 
 
+def read_file(path):
+    """Read given file
+
+    Args:
+        path: Path to file to be read
+
+    Raises:
+        FedbiomedError: If the file is not existing or readable.
+    """
+    try:
+        with open(path, "r") as file:
+            content = file.read()
+            file.close()
+    except Exception as e:
+        raise FedbiomedError(
+            f"Can not read file {path}. Error: {e}"
+        )
+    else:
+        return content
+
+
 def get_class_source(cls: Callable) -> str:
     """Get source of the class.
 
@@ -35,7 +56,7 @@ def get_class_source(cls: Callable) -> str:
     status = is_ipython()
 
     if status:
-        file = _get_ipython_class_file(cls)
+        file = get_ipython_class_file(cls)
         codes = "".join(inspect.linecache.getlines(file))
         class_code = extract_symbols(codes, cls.__name__)[0][0]
         return class_code
@@ -62,7 +83,7 @@ def is_ipython() -> bool:
         return False
 
 
-def _get_ipython_class_file(cls: Callable) -> str:
+def get_ipython_class_file(cls: Callable) -> str:
     """Get source file/cell-id of the class which is defined in ZMQInteractiveShell or TerminalInteractiveShell
 
     Args:

@@ -1,6 +1,6 @@
 import unittest
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
     TestAbstractsBlock

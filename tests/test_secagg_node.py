@@ -2,7 +2,10 @@ import unittest
 from unittest.mock import patch
 from copy import deepcopy
 
-import testsupport.mock_node_environ  ## noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
 
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
@@ -13,22 +16,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup
 
 
-class TestSecaggNode(unittest.TestCase):
+class TestSecaggNode(NodeTestCase):
     """ Test for node's secagg module"""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        pass
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        pass
-
-    def setUp(self):
-        pass
-
-    def tearDown(self) -> None:
-        pass
 
     @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
     @patch('fedbiomed.node.secagg.SecaggServkeyManager')
@@ -329,7 +318,6 @@ class TestSecaggNode(unittest.TestCase):
                     self.assertEqual(msg['success'], reply_status)
                     self.assertEqual(msg['msg'], reply_message)
                     self.assertEqual(msg['command'], 'secagg')
-
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -1,20 +1,23 @@
 import unittest
 from unittest.mock import patch
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
+
 
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.common.messaging import Messaging
 
 
-class TestHistoryMonitor(unittest.TestCase):
+class TestHistoryMonitor(NodeTestCase):
     """
     Test `HistoryMonitor` class
     Args:
         unittest ([type]): [description]
     """
-
 
     # Setup HistoryMonitor with Mocking messaging
     @patch('fedbiomed.common.messaging.Messaging.__init__')

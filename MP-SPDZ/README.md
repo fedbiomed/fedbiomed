@@ -94,7 +94,7 @@ docker cp fedbiomed-mpspdz-dev:/usr/src/MP-SPDZ/bin/Linux-avx2/shamir-party.x ..
 
 ### Testing the Binaries
 
-The script `fedbiomed_congifure_secagg` should be run in order to reconfigure MP-SPDZ with new binaries and test them. 
+The script `fedbiomed_configure_secagg` should be run in order to reconfigure MP-SPDZ with new binaries and test them. 
 
 ```shell
 scripts/fedbiomed_configure_secagg node 

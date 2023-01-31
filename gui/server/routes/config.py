@@ -23,7 +23,7 @@ def node_id():
     """
 
     result = {
-        'node_id': app.config['NODE_ID']
+        'node_id': app.config['ID']
     }
 
     return response(result), 200
@@ -43,7 +43,7 @@ def fedbiomed_environ():
             message: The message for response
     """
     res = {}
-    confs = ['NODE_ID', 'DB_PATH', 'ROOT_DIR',
+    confs = ['ID', 'DB_PATH', 'ROOT_DIR',
              'CONFIG_DIR', 'DEFAULT_TRAINING_PLANS_DIR', 'MESSAGES_QUEUE_DIR',
              'MQTT_BROKER', 'MQTT_BROKER_PORT', 'UPLOADS_URL',
              'TRAINING_PLAN_APPROVAL', 'ALLOW_DEFAULT_TRAINING_PLANS', 'HASHING_ALGORITHM']
@@ -87,7 +87,7 @@ def fedbiomed_environ():
 #             app.config.update(
 #                 NODE_CONFIG_FILE=req['config-file'],
 #                 NODE_CONFIG_FILE_PATH=fullpath,
-#                 NODE_ID=node_id,
+#                 ID=node_id,
 #                 NODE_DB_PATH=os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + node_id + '.json')
 #             )
 #

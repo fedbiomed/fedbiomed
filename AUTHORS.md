@@ -26,6 +26,7 @@ Each author can mention his/her name only or give more information in the follow
 - Yann Fraboni
 - Thibaud Kloczko
 - Lena Le Quintrec
+- Nathan Lapel
 - Jonathan Levy
 - Marco Lorenzi
 - Riham Nehmeh
