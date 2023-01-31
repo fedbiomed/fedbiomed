@@ -267,7 +267,7 @@ class SecaggBiprimeManager(SecaggManager):
         self._add_generic(
             secagg_id,
             parties,
-            {'biprime': biprime }
+            {'biprime': biprime}
         )
 
     def remove(self, secagg_id: str) -> bool:

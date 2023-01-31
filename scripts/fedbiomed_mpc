@@ -299,6 +299,7 @@ function execute_shamir_server_key(){
           -N "$NUMBER_OF_PARTIES"
   fi
 
+  exit $?
 
 }
 
@@ -394,7 +395,6 @@ case $1 in
         -c|--compile)
           COMPILE=1
           shift # past argument
-          shift # past value
           ;;
         -h| --help)
           help shamir-server-key
@@ -413,6 +413,7 @@ case $1 in
     done
 
     execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$INPUT_FILE" "$COMPILE"
+
   ;;
   -h|--help)
     help main

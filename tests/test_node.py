@@ -63,15 +63,15 @@ class TestNode(NodeTestCase):
                             }
 
         # patchers
-        self.task_queue_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
+        self.messaging_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
                                       autospec=True,
                                       return_value=None)
-        self.task_patcher = self.task_queue_patch.start()
+        self.messaging_patcher = self.messaging_patch.start()
 
-        self.messaging_patch = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__',
+        self.task_queue_patch = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__',
                                      autospec=True,
                                      return_value=None)
-        self.messaging_patcher = self.messaging_patch.start()
+        self.task_patcher = self.task_queue_patch.start()
 
         # mocks
         mock_dataset_manager = DatasetManager()
@@ -1468,8 +1468,10 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
     @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.messaging.Messaging.send_error')
     def test_node_34_task_secagg_delete_badmessage(
             self,
+            messaging_send_error,
             messaging_send_msg_patch,
             patch_servkey_manager,
             patch_biprime_manager):
@@ -1501,8 +1503,8 @@ class TestNode(NodeTestCase):
             },
         ]
         dict_secagg_delete_extra_msg = [
-            f'ErrorNumbers.FB321: received bad delete message: incorrect `element` {bad_element}',
-            f'ErrorNumbers.FB321: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id_NOT_IN_DB',
+            f'{ErrorNumbers.FB321.value}: received bad delete message: incorrect `element` {bad_element}',
+            f'{ErrorNumbers.FB321.value}: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id_NOT_IN_DB',
         ]
         dict_secagg_delete_reply_type = [
             "error",
@@ -1544,7 +1546,9 @@ class TestNode(NodeTestCase):
             self.n1._task_secagg_delete(msg_secagg_delete_request)
 
             # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_delete_reply)
+            messaging_send_error.assert_called_with(errnum=ErrorNumbers.FB321,
+                                                    extra_msg=dict_secagg_delete_extra_msg.pop(0),
+                                                    researcher_id=req['researcher_id'])
             # messaging_send_msg_patch.assert_not_called()
             messaging_send_msg_patch.reset_mock()
 

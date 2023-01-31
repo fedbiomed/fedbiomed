@@ -2,23 +2,37 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+import shutil
 from typing import List
 from abc import ABC, abstractmethod
 from enum import Enum
 import time
 import random
 
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
-from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.common.message import NodeMessages, SecaggReply
+from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
+from fedbiomed.common.message import SecaggReply
 from fedbiomed.common.logger import logger
+from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
 
-class SecaggSetup(ABC):
+MPC = MPCController(
+    tmp_dir=environ["TMP_DIR"],
+    component_id=environ["ID"]
+)
+
+CManager = CertificateManager(
+    db_path=environ["DB_PATH"]
+)
+
+SKManager = SecaggServkeyManager()
+
+class BaseSecaggSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
@@ -51,11 +65,13 @@ class SecaggSetup(ABC):
                 errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{param}` should be a {type}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
+
         for param, name in [(researcher_id, 'researcher_id'), (secagg_id, 'secagg_id')]:
             if not param:
                 errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{name}` should not be empty string'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
+
         try:
             self._v.validate(parties, list)
             for p in parties:
@@ -137,8 +153,7 @@ class SecaggSetup(ABC):
         if not success:
             logger.error(message)
 
-        return NodeMessages.reply_create(
-            {
+        return {
                 'researcher_id': self._researcher_id,
                 'secagg_id': self._secagg_id,
                 'sequence': self._sequence,
@@ -147,7 +162,8 @@ class SecaggSetup(ABC):
                 'msg': message,
                 'command': 'secagg'
             }
-        ).get_dict()
+
+
 
     @abstractmethod
     def setup(self) -> SecaggReply:
@@ -158,7 +174,7 @@ class SecaggSetup(ABC):
         """
 
 
-class SecaggServkeySetup(SecaggSetup):
+class SecaggServkeySetup(BaseSecaggSetup):
     """
     Sets up a server key Secure Aggregation context element on the node side.
     """
@@ -197,31 +213,74 @@ class SecaggServkeySetup(SecaggSetup):
         """
         return SecaggElementTypes.SERVER_KEY
 
-    def setup(self) -> SecaggReply:
+    def setup(self) -> dict:
         """Set up the server key secagg context element.
 
         Returns:
             message to return to the researcher after the setup
         """
-        manager = SecaggServkeyManager()
+
         # also checks that `context` is attached to the job `self._job_id`
-        context = manager.get(self._secagg_id, self._job_id)
+        try:
+            context = SKManager.get(self._secagg_id, self._job_id)
+        except Exception as e:
+            logger.debug(f"Can not create secure aggreagation context due to database errror: {e}")
+            return self._create_secagg_reply('Can not create secure aggregation context', False)
 
         if context is None:
-            # create a context if it does not exist yet
-            time.sleep(4)
-            servkey_share = str(random.randrange(10**6))
-            logger.info("Not implemented yet, PUT SECAGG SERVKEY GENERATION PAYLOAD HERE, "
-                        f"secagg_id='{self._secagg_id}'")
+            try:
+                self._setup_server_key()
+            except FedbiomedError as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply(f'Can not apply secure aggregation it might be due to unregistered'
+                                                 f'certificate for the federated setup. Please see error: {e}', False)
+            except Exception as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply('Unexpected error occurred please report this to the node ower', False)
 
-            manager.add(self._secagg_id, self._parties, self._job_id, servkey_share)
+        return self._create_secagg_reply('Key share has been successfully created', True)
 
+    def _setup_server_key(self):
+        """
+
+        """
+
+        ip_file, _ = CManager.write_mpc_certificates_for_experiment(
+            path_certificates=MPC.mpc_data_dir,
+            path_ips=MPC.tmp_dir,
+            self_id=environ["ID"],
+            self_ip=environ["MPSPDZ_IP"],
+            self_port=environ["MPSPDZ_PORT"],
+            self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
+            self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
+            parties=self._parties
+        )
+
+        output = MPC.exec_shamir(
+            party_number=self._parties.index(environ["ID"]),
+            num_parties=len(self._parties),
+            ip_addresses=ip_file
+        )
+
+        # Read output
+        try:
+            with open(output, "r") as file:
+                key_share = file.read()
+                file.close()
+        except Exception as e:
+            logger.debug("Can not open key share file file written by MPC after executing MPC "
+                         f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}")
+
+            # Message for researcher
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
+            )
+
+        SKManager.add(self._secagg_id, self._parties, self._job_id, key_share)
         logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
-        msg = self._create_secagg_reply('', True)
-        return msg
 
 
-class SecaggBiprimeSetup(SecaggSetup):
+class SecaggBiprimeSetup(BaseSecaggSetup):
     """
     Sets up a biprime Secure Aggregation context element on the node side.
     """
@@ -280,3 +339,32 @@ class SecaggBiprimeSetup(SecaggSetup):
         logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
         msg = self._create_secagg_reply('', True)
         return msg
+
+
+class SecaggSetup:
+
+    element2class = {
+        'SERVER_KEY': SecaggServkeySetup,
+        'BIPRIME': SecaggBiprimeSetup
+    }
+
+    def __init__(self, element, **kwargs):
+
+        self._element = element
+        self.kwargs = kwargs
+
+    def __call__(self):
+
+        if self._element in [m.value for m in SecaggElementTypes]:
+            element = SecaggElementTypes(self._element)
+        else:
+            raise FedbiomedSecaggError(f"Received bad request message: incorrect `element` {self._element}")
+
+        element = SecaggElementTypes(element)
+
+        try:
+            return SecaggSetup.element2class[element.name](**self.kwargs)
+        except Exception as e:
+            raise FedbiomedSecaggError(
+                f"Can not instantiate secure aggregation setup with argument {self.kwargs}"
+            )

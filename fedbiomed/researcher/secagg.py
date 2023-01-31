@@ -2,18 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation management on the researcher"""
+import os
 import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.mpc_controller import MPCController
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
+
+MPC = MPCController(tmp_dir=environ["TMP_DIR"],
+                    component_id=environ["ID"])
+
+CManager = CertificateManager(
+    db_path=environ["DB_PATH"]
+)
 
 
 class SecaggContext(ABC):
@@ -45,7 +55,7 @@ class SecaggContext(ABC):
             raise FedbiomedSecaggError(errmess)
         if len(parties) < 3:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` : {parties} : need  ' \
-                'at least 3 parties for secure aggregation'
+                      'at least 3 parties for secure aggregation'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -55,7 +65,6 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
-
         self.set_job_id(job_id)
 
     def secagg_id(self) -> str:
@@ -117,6 +126,7 @@ class SecaggContext(ABC):
             a tuple of a `context`, and a boolean `status` for the context element.
         """
         # abstract method may contain some code in the future, so let's keep this command
+
         pass
 
     def _delete_payload(self) -> Tuple[Union[dict, None], bool]:
@@ -127,8 +137,8 @@ class SecaggContext(ABC):
         """
         return None, True
 
-
-    def _secagg_round(self, msg: dict, command: str, can_set_status: bool, payload: Callable, timeout: float = 0) -> bool:
+    def _secagg_round(self, msg: dict, command: str, can_set_status: bool, payload: Callable,
+                      timeout: float = 0) -> bool:
         """Negotiate secagg context element action with defined parties.
 
         Args:
@@ -181,16 +191,19 @@ class SecaggContext(ABC):
                 # order of test matters !
                 if resp['researcher_id'] != self._researcher_id:
                     continue
+
                 if resp['secagg_id'] != self._secagg_id:
                     logger.debug(
                         f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
                         f" and received {resp['secagg_id']}")
                     continue
+
                 if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
-                        'which is not a party of secagg "{self._secagg_id}"'
+                              'which is not a party of secagg "{self._secagg_id}"'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
+
                 if resp['sequence'] != sequence[resp['node_id']]:
                     logger.debug(
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
@@ -238,7 +251,7 @@ class SecaggContext(ABC):
             FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
+            timeout = float(timeout)  # accept int (and bool...)
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
@@ -254,6 +267,7 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         }
+
         return self._secagg_round(msg, 'secagg', True, self._payload, timeout)
 
     def delete(self, timeout: float = 0) -> bool:
@@ -271,7 +285,7 @@ class SecaggContext(ABC):
             FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
+            timeout = float(timeout)  # accept int (and bool...)
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
@@ -289,7 +303,7 @@ class SecaggContext(ABC):
             }
             return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
         else:
-            self._context = None   # should already be the case
+            self._context = None  # should already be the case
             return False
 
     def save_state(self) -> Dict[str, Any]:
@@ -358,14 +372,38 @@ class SecaggServkeyContext(SecaggContext):
         Returns:
             a tuple of a `context` and a `status` for the server key context element
         """
-        # start dummy payload
-        time.sleep(1)
-        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
-        context = { 'msg': 'Not implemented yet' }
-        status = True
-        # end dummy payload
 
-        return context, status
+        ip_file, _ = CManager.write_mpc_certificates_for_experiment(
+            path_certificates=MPC.mpc_data_dir,
+            path_ips=MPC.tmp_dir,
+            self_id=environ["ID"],
+            self_ip=environ["MPSPDZ_IP"],
+            self_port=environ["MPSPDZ_PORT"],
+            self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
+            self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
+            parties=self._parties
+        )
+
+        try:
+            output = MPC.exec_shamir(
+                party_number=0,  # 0 stands for server/aggregator
+                num_parties=len(self._parties),
+                ip_addresses=ip_file
+            )
+        except Exception as e:
+            raise FedbiomedSecaggError(f"Can not execute MPC protocol. {e}")
+
+        # Read output
+        try:
+            with open(output, "r") as file:
+                server_key = file.read()
+                file.close
+        except Exception as e:
+            raise FedbiomedSecaggError(
+                f"Can not read server key from created after MPC execution. {e}"
+            )
+
+        return server_key, True
 
 
 class SecaggBiprimeContext(SecaggContext):
@@ -397,7 +435,7 @@ class SecaggBiprimeContext(SecaggContext):
         # start dummy payload
         time.sleep(3)
         logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
-        context = { 'msg': 'Not implemented yet' }
+        context = {'msg': 'Not implemented yet'}
         status = True
         # end dummy payload
 
