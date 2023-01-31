@@ -388,9 +388,9 @@ class DatasetManager:
         conflicting = self.search_conflicting_tags(tags)
         if len(conflicting) > 0:
             msg = f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: " \
-                f" {' '.join([ c['name'] for c in conflicting ])}" 
+                f" {' '.join([ c['name'] for c in conflicting ])}"
             logger.critical(msg)
-            raise FedbiomedDatasetManagerError(msg)            
+            raise FedbiomedDatasetManagerError(msg)
 
         dtypes = []  # empty list for Image datasets
         data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
