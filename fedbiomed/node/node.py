@@ -357,7 +357,7 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
-        
+
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -373,42 +373,41 @@ class Node:
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
 
-        if environ['NODE_ID'] in msg.get_param('training_data'):
-            for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
-                data = self.dataset_manager.get_by_id(dataset_id)
-                if data is None or 'path' not in data.keys():
-                    # TODO: create a data structure for messaging
-                    # (ie an object creating a dict with field accordingly)
-                    # FIXME: 'the condition above depends on database model
-                    # if database model changes (ie `path` field removed/
-                    # modified);
-                    # condition above is likely to be false
-                    logger.error('Did not found proper data in local datasets ' +
-                                 f'on node={environ["NODE_ID"]}')
-                    self.messaging.send_message(NodeMessages.reply_create(
-                        {'command': "error",
-                         'node_id': environ['NODE_ID'],
-                         'researcher_id': researcher_id,
-                         'errnum': ErrorNumbers.FB313,
-                         'extra_msg': "Did not found proper data in local datasets"}
-                    ).get_dict())
-                else:
-                    dlp_and_loading_block_metadata = None
-                    if 'dlp_id' in data:
-                        dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-                    self.rounds.append(Round(model_kwargs,
-                                             training_kwargs,
-                                             training_status,
-                                             data,
-                                             training_plan_url,
-                                             training_plan_class,
-                                             params_url,
-                                             job_id,
-                                             researcher_id,
-                                             hist_monitor,
-                                             aggregator_args,
-                                             self.node_args,
-                                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
+        dataset_id = msg.get_param('dataset_id')
+        data = self.dataset_manager.get_by_id(dataset_id)
+        if data is None or 'path' not in data.keys():
+            # TODO: create a data structure for messaging
+            # (ie an object creating a dict with field accordingly)
+            # FIXME: 'the condition above depends on database model
+            # if database model changes (ie `path` field removed/
+            # modified);
+            # condition above is likely to be false
+            logger.error('Did not found proper data in local datasets ' +
+                         f'on node={environ["NODE_ID"]}')
+            self.messaging.send_message(NodeMessages.reply_create(
+                {'command': "error",
+                 'node_id': environ['NODE_ID'],
+                 'researcher_id': researcher_id,
+                 'errnum': ErrorNumbers.FB313,
+                 'extra_msg': "Did not found proper data in local datasets"}
+            ).get_dict())
+        else:
+            dlp_and_loading_block_metadata = None
+            if 'dlp_id' in data:
+                dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+            self.rounds.append(Round(model_kwargs,
+                                     training_kwargs,
+                                     training_status,
+                                     data,
+                                     training_plan_url,
+                                     training_plan_class,
+                                     params_url,
+                                     job_id,
+                                     researcher_id,
+                                     hist_monitor,
+                                     aggregator_args,
+                                     self.node_args,
+                                     dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
     def task_manager(self):
         """Manages training tasks in the queue.
@@ -416,7 +415,7 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
-            item_print = {key:value for key, value in item.items() if key != 'aggregator_args'}
+            item_print = {key: value for key, value in item.items() if key != 'aggregator_args'}
             logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
 

@@ -376,7 +376,9 @@ class Job:
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
         for cli in self._nodes:
-            msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+            # TODO: tempo while fixing 395
+            #msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+            msg['dataset_id'] = self._data.data()[cli][0]['dataset_id']
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header

@@ -456,7 +456,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+            'dataset_id': 'dataset_id_1234'
         })
 
         # action
@@ -486,7 +486,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234',
+            'dataset_id': {environ['NODE_ID']: ['dataset_id_1234',
                                                    'dataset_id_6789']}
         }
         msg_2_datasets = NodeMessages.request_create(dict_msg_2_datasets)
@@ -558,7 +558,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': resid,
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+            'dataset_id': 'dataset_id_1234'
         })
         # create tested object
 
@@ -599,7 +599,7 @@ class TestNode(NodeTestCase):
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']},
+            'dataset_id': 'dataset_id_1234',
             'training': True,
             'aggregator_args': {}
         }
@@ -649,7 +649,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]},
+            "dataset_id": "dataset_id_1234",
             'aggregator_args': {}
         }
 
@@ -704,7 +704,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': resid,
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+            'dataset_id': 'dataset_id_1234'
         }
         msg_without_training_plan_url = NodeMessages.request_create(dict_msg_without_training_plan_url)
 
@@ -793,7 +793,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "dataset_id": "dataset_id_1234"
         }
         node_parser_task_train_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task_train")  # noqa
 
@@ -826,7 +826,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "dataset_id": "dataset_id_1234"
         }
         request_create_patch.side_effect = Exception
         reply_create_patch.side_effect = SystemExit("mimicking an exception" + " coming from NodeMessages.request_create")  # noqa
@@ -862,7 +862,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "dataset_id": "dataset_id_1234"
         }
         node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
@@ -902,7 +902,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "dataset_id": "dataset_id_1234"
         }
         node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.return_value = None
@@ -1039,7 +1039,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+            "dataset_id": "dataset_id_1234"
         }
         node_parser_task_train_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None

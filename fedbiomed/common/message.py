@@ -561,12 +561,13 @@ class TrainRequest(Message):
         job_id: Id of the Job that is sent by researcher
         params_url: URL where model parameters are uploaded
         training_args: Arguments for training routine
-        training_data: Dataset meta-data for training
+        dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
         model_args: Arguments to initialize training plan class
         training_plan_url: URL where TrainingPlan is available
         training_plan_class: Class name of the training plan
         command: Reply command string
+        aggregator_args: ??
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -575,7 +576,7 @@ class TrainRequest(Message):
     job_id: str
     params_url: str
     training_args: dict
-    training_data: dict
+    dataset_id: str
     training: bool
     model_args: dict
     training_plan_url: str
