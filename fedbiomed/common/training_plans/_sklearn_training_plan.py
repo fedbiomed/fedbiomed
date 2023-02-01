@@ -207,7 +207,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             )
         # Run the model-specific training routine.
         try:
-            self._training_routine(history_monitor)
+            return self._training_routine(history_monitor)
         except Exception as exc:
             msg = (
                 f"{ErrorNumbers.FB605.value}: error while fitting "

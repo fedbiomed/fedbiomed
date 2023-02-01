@@ -455,7 +455,7 @@ class TestTorchnn(unittest.TestCase):
         tp._model = torch.nn.Module()
         num_batches = 3
         batch_size = 5
-        mock_dataset = MagicMock(pec=Dataset)
+        mock_dataset = MagicMock(spec=Dataset)
         
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
         tp._training_args = {'batch_size': batch_size,
@@ -483,7 +483,9 @@ class TestTorchnn(unittest.TestCase):
         tp._dp_controller = FakeDPController()
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
-            tp.training_routine()
+
+            num_samples_observed = tp.training_routine()
+            self.assertEqual(num_samples_observed, num_batches * batch_size)
             training_progress_messages = [x for x in captured.output if re.search('Train Epoch: 1', x)]
             self.assertEqual(len(training_progress_messages), num_batches)  # Double-check correct number of train iters
             for i, logging_message in enumerate(training_progress_messages):
@@ -773,7 +775,8 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
                 return tp._model, tp._optimizer, tp.training_data_loader
         tp._dp_controller = FakeDPController()
 
-        tp.training_routine()
+        num_samples_observed = tp.training_routine()
+        self.assertEqual(num_samples_observed, tp._training_args["num_updates"] * batch_size)
         tp.training_step.assert_called_once_with(torch.Tensor([0]), torch.Tensor([1]))
         patch_tensor_backward.assert_called_once()
 
@@ -801,7 +804,8 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
                 return tp._model, tp._optimizer, tp.training_data_loader
         tp._dp_controller = FakeDPController()
 
-        tp.training_routine()
+        num_samples_observed = tp.training_routine()
+        self.assertEqual(num_samples_observed, tp._training_args["num_updates"] * batch_size)
         tp.training_step.assert_called_once_with((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2]))
         patch_tensor_backward.assert_called_once()
 
@@ -832,7 +836,8 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp._dp_controller = FakeDPController()
 
         tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
-        tp.training_routine()
+        num_samples_observed = tp.training_routine()
+        self.assertEqual(num_samples_observed, tp._training_args["num_updates"] * batch_size)
         tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
         patch_tensor_backward.assert_called_once()
 

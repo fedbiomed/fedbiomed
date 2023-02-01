@@ -28,7 +28,7 @@ class TestScaffold(ResearcherTestCase):
         self.model = Linear(10, 3)
         self.n_nodes = 4
         self.node_ids = [f'node_{i}'for i in range(self.n_nodes)] 
-        self.models = [{node_id: Linear(10, 3).state_dict()} for i, node_id in enumerate(self.node_ids)]
+        self.models = {node_id: Linear(10, 3).state_dict() for i, node_id in enumerate(self.node_ids)}
         self.zero_model = copy.deepcopy(self.model)  # model where all parameters are equals to 0
         self.responses = Responses([])
         for node_id in self.node_ids:
@@ -44,16 +44,14 @@ class TestScaffold(ResearcherTestCase):
     # after the tests
     def tearDown(self):
         pass
-    
-    
+
     def test_1_scaling(self):
         agg = Scaffold(server_lr=.1)
         # boundary conditions
-        # if learning rate of server equals 0, scaled models equals inital model
+        # if learning rate of server equals 0, scaled models equals initial model
         agg.server_lr = 0
         
-        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in self.models}
-        
+        model_params = self.models
         scaled_models = agg.scaling(copy.deepcopy(model_params), self.model.state_dict())
         
         for k, v in scaled_models.items():
@@ -151,14 +149,13 @@ class TestScaffold(ResearcherTestCase):
 
         training_plan = MagicMock()
         training_plan.get_model_params = MagicMock(return_value = self.node_ids)
-        
-        
+
         agg = Scaffold(server_lr=.2)
         fds = FederatedDataSet({})
         agg.set_fds(fds)
         n_round = 0
         
-        weights = [{node_id: 1./self.n_nodes} for node_id in self.node_ids]
+        weights = {node_id: 1./self.n_nodes for node_id in self.node_ids}
         # assuming that global model has all its coefficients to 0
         aggregated_model_params_scaffold = agg.aggregate(copy.deepcopy(self.models),
                                                          weights,
@@ -167,7 +164,6 @@ class TestScaffold(ResearcherTestCase):
                                                          self.responses,
                                                          self.node_ids,
                                                          n_round=n_round)
- 
 
         aggregated_model_params_fedavg = FedAverage().aggregate(copy.deepcopy(self.models), weights)
         # we check that fedavg and scaffold give proportional results provided:
@@ -182,11 +178,11 @@ class TestScaffold(ResearcherTestCase):
             self.assertTrue(torch.isclose(v, v_i * .2).all())
             
         # check that at the end of aggregation, all correction states are non zeros (
-        for (k,v) in agg.nodes_correction_states.items():
+        for (k, v) in agg.nodes_correction_states.items():
             
             for layer in v.values():
                 self.assertFalse(torch.nonzero(layer).all())
-        # TODO: test methods when proportions are differents
+        # TODO: test methods when proportions are different
 
     def test_5_setting_scaffold_with_wrong_parameters(self):
         """test_5_setting_scaffold_with_wrong_parameters: tests that scaffold is

@@ -460,6 +460,7 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'optimizer_args': optimizer_args,
+                               'sample_size': m["sample_size"],
                                'timing': timing})
 
                 self._training_replies[round].append(r)
