@@ -410,7 +410,7 @@ class Job:
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
-                if 'errnum' in m:  # TODO: need a stronger filter
+                if 'command' not in m or m['command'] == 'error':
                     if m['extra_msg']:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)} "
                                     f"- {str(m['extra_msg'])}")
@@ -425,6 +425,7 @@ class Job:
                         continue
 
                     self._nodes.remove(faulty_node)
+                    continue
 
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or \
