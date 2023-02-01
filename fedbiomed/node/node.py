@@ -375,16 +375,23 @@ class Node:
             msg:
 
         """
+
         try:
             reply = NodeMessages.reply_create(
-                {'node_id': environ['NODE_ID'],
+                {'node_id': environ['ID'],
                  **msg}
             ).get_dict()
         except FedbiomedMessageError as e:
-            logger.error(e)
-            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"Can not reply due to incorrect message type {e}")
+            logger.error(f"{ErrorNumbers.FB601.value}: {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: Can not reply "
+                                                                 f"due to incorrect message type {e}.")
+        except Exception as e:
+            logger.error(f"{ErrorNumbers.FB601.value} Unexpected error while creating node reply message {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: "
+                                                                 f"Unexpected error occurred")
 
-        self.messaging.send_message(reply)
+        else:
+            self.messaging.send_message(reply)
 
     def send_error(
             self,

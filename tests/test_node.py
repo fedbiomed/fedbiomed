@@ -180,7 +180,6 @@ class TestNode(NodeTestCase):
     ):
         """Tests `on_message` method (normal case scenario), with secagg-delete command"""
 
-
         # defining arguments
         secagg_delete = {
             'command': 'secagg-delete',
@@ -1171,14 +1170,14 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg_delete(request)
 
         messaging_send_msg.assert_called_once_with({
-             'researcher_id': 'party1',
-             'secagg_id': 'my_dummy_secagg_id',
-             'sequence': 888,
-             'success': False,
-             'node_id': environ["ID"],
-             'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB321: '
-                    'Secure aggregation delete error: received bad delete message: incorrect `element` 11',
-             'command': 'secagg-delete'
+            'researcher_id': 'party1',
+            'secagg_id': 'my_dummy_secagg_id',
+            'sequence': 888,
+            'success': False,
+            'node_id': environ["ID"],
+            'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB321: '
+                   'Secure aggregation delete error: received bad delete message: incorrect `element` 11',
+            'command': 'secagg-delete'
         })
         messaging_send_msg.reset_mock()
 
@@ -1216,6 +1215,34 @@ class TestNode(NodeTestCase):
                        f'node_id={environ["ID"]} secagg_id=my_dummy_secagg_id',
                 'command': 'secagg-delete'
             })
+
+    @patch('fedbiomed.common.messaging.Messaging.send_error')
+    def test_node_31_reply(
+            self,
+            msg_send_error
+    ):
+
+        # Test faulty message data ---------------------------------------------
+        self.n1.reply({
+            'faulty_message': "faulty_value"
+        })
+
+        msg_send_error.assert_called_once_with(
+            errnum=ErrorNumbers.FB601,
+            extra_msg='FB601: message error: Can not reply due to incorrect '
+                      'message type FB601: message error: message type not '
+                      'specified.',
+            researcher_id='<unknown>')
+        msg_send_error.reset_mock()
+
+        # Test fualty type of message -----------------------------------------------
+        self.n1.reply({
+            'faulty_type'
+        })
+        msg_send_error.assert_called_once_with(
+            errnum=ErrorNumbers.FB601,
+            extra_msg='FB601: message error: Unexpected error occurred',
+            researcher_id='<unknown>')
 
 
 if __name__ == '__main__':  # pragma: no cover
