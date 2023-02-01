@@ -197,7 +197,7 @@ class CertificateManager:
             self,
             parties: List[str],
             path_certificates: str,
-            path_ips:str,
+            path_ips: str,
             self_id: str,
             self_ip: str,
             self_port: int,
