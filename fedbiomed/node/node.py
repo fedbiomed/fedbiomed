@@ -53,7 +53,6 @@ class Node:
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
-        self.rounds = []
 
         self.node_args = node_args
 
@@ -337,12 +336,16 @@ class Node:
         )
 
 
-    def parser_task_train(self, msg: TrainRequest):
+    def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
 
         Args:
             msg: `TrainRequest` message object to parse
+
+        Returns:
+            a `Round` object for the training to perform, or None if no training 
         """
+        round = None
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
@@ -370,14 +373,9 @@ class Node:
             str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
                   'and training routine in the repository'
 
-        self.rounds = []  # store here rounds associated to each dataset_id
-        # (so it is possible to train model on several dataset per round)
-
         dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
         if data is None or 'path' not in data.keys():
-            # TODO: create a data structure for messaging
-            # (ie an object creating a dict with field accordingly)
             # FIXME: 'the condition above depends on database model
             # if database model changes (ie `path` field removed/
             # modified);
@@ -395,19 +393,23 @@ class Node:
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-            self.rounds.append(Round(model_kwargs,
-                                     training_kwargs,
-                                     training_status,
-                                     data,
-                                     training_plan_url,
-                                     training_plan_class,
-                                     params_url,
-                                     job_id,
-                                     researcher_id,
-                                     hist_monitor,
-                                     aggregator_args,
-                                     self.node_args,
-                                     dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
+            round = Round(
+                model_kwargs,
+                training_kwargs,
+                training_status,
+                data,
+                training_plan_url,
+                training_plan_class,
+                params_url,
+                job_id,
+                researcher_id,
+                hist_monitor,
+                aggregator_args,
+                self.node_args,
+                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
+            )
+
+        return round
 
     def task_manager(self):
         """Manages training tasks in the queue.
@@ -437,9 +439,9 @@ class Node:
             else:
                 if command == 'train':
                     try:
-                        self.parser_task_train(item)
+                        round = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
-                        for round in self.rounds:
+                        if round is not None:
                             # iterate over each dataset found
                             # in the current round (here round refers
                             # to a round to be done on a specific dataset).
