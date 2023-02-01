@@ -4,13 +4,13 @@
 '''
 Core code of the node component.
 '''
-
+import copy
 from json import decoder
 
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
@@ -177,46 +177,35 @@ class Node:
 
         secagg_id = msg.get_param('secagg_id')
 
-        delete_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
+        reply = {
+            'researcher_id': msg.get_param('researcher_id'),
+            'secagg_id': secagg_id,
+            'sequence': msg.get_param('sequence'),
+            'command': 'secagg-delete'}
 
         try:
-            secagg_manager = SecaggManager(**delete_arguments)()
+            secagg_manager = SecaggManager(element=msg.get_param('element'))()
         except FedbiomedError as e:
-            errmess = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
-            logger.error(errmess)
-            return self.send_error(
-                errnum=ErrorNumbers.FB321,
-                extra_msg=errmess,
-                researcher_id=researcher_id
-            )
+            message = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
+            logger.error(message)
+            return self.reply({"success": False, "msg": message, **reply})
 
         try:
-            removed = secagg_manager.remove(secagg_id=delete_arguments.get('secagg_id'),
-                                            job_id=delete_arguments.get('job_id'))
+            status = secagg_manager.remove(secagg_id=msg.get_param('secagg_id'),
+                                           job_id=msg.get_param('job_id'))
             message = 'Delete request is successful'
+            # If delete status is not successful
         except Exception as e:
-            errmess = f"{ErrorNumbers.FB321}: error during secagg delete on node_id={environ['NODE_ID']} " \
+            message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
                       f'secagg_id={secagg_id}: {e}'
-            logger.error(errmess)
-            return self.send_error(
-                errnum=ErrorNumbers.FB321,
-                extra_msg=errmess,
-                researcher_id=researcher_id
-            )
+            logger.error(message)
+            status = False
 
-        # reply to delete request
-        if not removed:
-            message = f"{ErrorNumbers.FB321}: no such secagg context element in node database for " \
+        if not status:
+            message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
                       f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
 
-        return self.reply({
-                    'researcher_id': msg.get_param('researcher_id'),
-                    'secagg_id': secagg_id,
-                    'sequence': msg.get_param('sequence'),
-                    'success': removed,
-                    'msg': message,
-                    'command': 'secagg-delete'
-                })
+        return self.reply({"success": status, "msg": message, **reply})
 
     def _task_secagg(self, msg: SecaggRequest) -> None:
         """Parse a given secagg setup task message and execute secagg task.
@@ -230,9 +219,12 @@ class Node:
             secagg = SecaggSetup(**setup_arguments)()
         except FedbiomedError as error_message:
             logger.error(error_message)
-            return self.send_error(errnum=ErrorNumbers.FB321,
-                                   extra_msg=str(error_message),
-                                   researcher_id=setup_arguments.get("researcher_id"))
+            return self.reply({"researcher_id": msg.get_param('researcher_id'),
+                               "secagg_id": msg.get_param('secagg_id'),
+                               "msg": str(error_message),
+                               "sequence": msg.get_param('sequence'),
+                               "success": False,
+                               "command": "secagg"})
 
         msg = secagg.setup()
         return self.reply(msg)
@@ -389,7 +381,8 @@ class Node:
                  **msg}
             ).get_dict()
         except FedbiomedMessageError as e:
-            self.send_error(extra_msg=f"Can not reply due to incorrect message type {e}")
+            logger.error(e)
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"Can not reply due to incorrect message type {e}")
 
         self.messaging.send_message(reply)
 

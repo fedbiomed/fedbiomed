@@ -308,7 +308,7 @@ class SecaggManager:
     def __init__(self, element):
         self._element = element
 
-    def __call__(self, **kwargs):
+    def __call__(self):
 
         if self._element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(self._element)

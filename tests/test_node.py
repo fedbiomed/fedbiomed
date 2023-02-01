@@ -4,7 +4,6 @@ from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
@@ -18,6 +17,7 @@ from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecagg
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum
 from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -30,6 +30,7 @@ class TestNode(NodeTestCase):
     def setUpClass(cls):
         # Important to instantiate fake environ
         super().setUpClass()
+
         # --------------------------------------
 
         # defining common side effect functions
@@ -57,20 +58,20 @@ class TestNode(NodeTestCase):
         ]
 
         self.database_id = {
-                            'database_id': '1234',
-                            'path': '/path/to/my/dataset',
-                            'name': 'test_dataset1'
-                            }
+            'database_id': '1234',
+            'path': '/path/to/my/dataset',
+            'name': 'test_dataset1'
+        }
 
         # patchers
         self.messaging_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
-                                      autospec=True,
-                                      return_value=None)
+                                     autospec=True,
+                                     return_value=None)
         self.messaging_patcher = self.messaging_patch.start()
 
         self.task_queue_patch = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__',
-                                     autospec=True,
-                                     return_value=None)
+                                      autospec=True,
+                                      return_value=None)
         self.task_patcher = self.task_queue_patch.start()
 
         # mocks
@@ -170,31 +171,15 @@ class TestNode(NodeTestCase):
         # checks
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.node.node.SecaggBiprimeManager.remove')
-    @patch('fedbiomed.node.node.SecaggServkeyManager.remove')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.node.node.SecaggManager')
     def test_node_04_on_message_normal_case_scenario_secagg_delete(
             self,
-            node_msg_request_patch,
-            node_msg_reply_patch,
+            skm,
             messaging_send_msg_patch,
-            secagg_servkey_manager_remove_patch,
-            secagg_biprime_manager_remove_patch,
-            patch_servkey_manager,
-            patch_biprime_manager,
     ):
         """Tests `on_message` method (normal case scenario), with secagg-delete command"""
-        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
-        secagg_servkey_manager_remove_patch.return_value = True
-        secagg_biprime_manager_remove_patch.return_value = True
 
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         # defining arguments
         secagg_delete = {
@@ -206,14 +191,17 @@ class TestNode(NodeTestCase):
             'job_id': 'a_dummy_job_id',
         }
 
+        skm.return_value.return_value.remove.return_value = True
+
         # action
         self.n1.on_message(secagg_delete)
+
         secagg_delete_reply = copy.deepcopy(secagg_delete)
         secagg_delete_reply.update(
             {
                 'node_id': environ['NODE_ID'],
                 'success': True,
-                'msg': ''
+                'msg': 'Delete request is successful'
             })
         del secagg_delete_reply['job_id']
         del secagg_delete_reply['element']
@@ -308,7 +296,7 @@ class TestNode(NodeTestCase):
 
         # checks
         self.model_manager_mock.reply_training_plan_status_request.assert_called_once_with(model_status_msg,
-                                                                                   self.n1.messaging)
+                                                                                           self.n1.messaging)
 
     @patch('fedbiomed.node.node.Node.send_error')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
@@ -434,10 +422,10 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_node_12_parser_task_train_create_round(self,
-                                              node_msg_request_patch,
-                                              history_monitor_patch,
-                                              round_patch
-                                              ):
+                                                    node_msg_request_patch,
+                                                    history_monitor_patch,
+                                                    round_patch
+                                                    ):
         """Tests if rounds are created accordingly - running normal case scenario
         (in `parser_task_train` method)"""
 
@@ -526,7 +514,7 @@ class TestNode(NodeTestCase):
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
         # retrieve `HistoryMonitor` object
-        history_monitor_ref = round_patch.call_args_list[-1][0][-3] 
+        history_monitor_ref = round_patch.call_args_list[-1][0][-3]
         # `-3` cause HistoryMonitor object is the third last object passed in `Round` class
 
         # check id retrieve object is a HistoryMonitor object
@@ -537,11 +525,11 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_node_13_parser_task_train_no_dataset_found(self,
-                                                  node_msg_request_patch,
-                                                  history_monitor_patch,
-                                                  node_msg_reply_patch,
-                                                  messaging_patch,
-                                                  ):
+                                                        node_msg_request_patch,
+                                                        history_monitor_patch,
+                                                        node_msg_reply_patch,
+                                                        messaging_patch,
+                                                        ):
         """Tests parser_task_train method, case where no dataset has been found """
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -584,9 +572,9 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     def test_node_14_parser_task_train_create_round_deserializer_str_msg(self,
-                                                                   history_monitor_patch,
-                                                                   round_patch
-                                                                   ):
+                                                                         history_monitor_patch,
+                                                                         round_patch
+                                                                         ):
         """Tests if message is correctly deserialized if message is in string"""
 
         # defining arguments
@@ -633,9 +621,9 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     def test_node_15_parser_task_train_create_round_deserializer_bytes_msg(self,
-                                                                     history_monitor_patch,
-                                                                     round_patch
-                                                                     ):
+                                                                           history_monitor_patch,
+                                                                           round_patch
+                                                                           ):
         """Tests if message is correctly deserialized if message is in bytes"""
 
         # defining arguments
@@ -681,9 +669,9 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_node_16_parser_task_train_error_found(self,
-                                             node_msg_request_patch,
-                                             history_monitor_patch,
-                                             ):
+                                                   node_msg_request_patch,
+                                                   history_monitor_patch,
+                                                   ):
         """Tests correct raise of error (AssertionError) for missing/invalid
         entries in input arguments"""
 
@@ -775,13 +763,13 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_19_task_manager_train_exception_raised_parser_task_train(self,
-                                                               tasks_queue_get_patch,
-                                                               node_parser_task_train_patch):
+                                                                           tasks_queue_get_patch,
+                                                                           node_parser_task_train_patch):
         """Tests case where `Node.parser_task_train` method raises an exception (SystemExit).
         """
         # defining patchers
         tasks_queue_get_patch.return_value = {}
-        
+
         tasks_queue_get_patch.return_value = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
@@ -795,7 +783,8 @@ class TestNode(NodeTestCase):
             "command": "train",
             "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
         }
-        node_parser_task_train_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task_train")  # noqa
+        node_parser_task_train_patch.side_effect = SystemExit(
+            "mimicking an exception" + " coming from parser_task_train")  # noqa
 
         # action
         with self.assertRaises(SystemExit):
@@ -808,10 +797,10 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.node.NodeMessages.reply_create')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_20_task_manager_exception_raised(self,
-                                                               tasks_queue_get_patch,
-                                                               reply_create_patch,
-                                                               request_create_patch,
-                                                               mssging_send_msg_patch):
+                                                   tasks_queue_get_patch,
+                                                   reply_create_patch,
+                                                   request_create_patch,
+                                                   mssging_send_msg_patch):
         """Tests case where `NodeMessages.request_create` method raises an exception 
         and then the reply_create raises another exception(SystemExit).
         """
@@ -829,7 +818,8 @@ class TestNode(NodeTestCase):
             "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
         }
         request_create_patch.side_effect = Exception
-        reply_create_patch.side_effect = SystemExit("mimicking an exception" + " coming from NodeMessages.request_create")  # noqa
+        reply_create_patch.side_effect = SystemExit(
+            "mimicking an exception" + " coming from NodeMessages.request_create")  # noqa
         mssging_send_msg_patch.return_value = None
 
         # action
@@ -842,9 +832,9 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_21_task_manager_train_exception_raised_send_message(self,
-                                                                tasks_queue_get_patch,
-                                                                node_parser_task_train_patch,
-                                                                mssging_send_msg_patch):
+                                                                      tasks_queue_get_patch,
+                                                                      node_parser_task_train_patch,
+                                                                      mssging_send_msg_patch):
         """Tests case where `messaging.send_message` method
         raises an exception (SystemExit).
         """
@@ -865,7 +855,8 @@ class TestNode(NodeTestCase):
             "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
         }
         node_parser_task_train_patch.return_value = None
-        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
+        mssging_send_msg_patch.side_effect = SystemExit(
+            "Mimicking an exception happening in" + "`send_message` method")  # noqa
         # defining arguments and attributes
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -882,10 +873,10 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_22_task_manager_train_exception_raised_task_done(self,
-                                                             tasks_queue_get_patch,
-                                                             node_parser_task_train_patch,
-                                                             mssging_send_msg_patch,
-                                                             tasks_queue_task_done_patch):
+                                                                   tasks_queue_get_patch,
+                                                                   node_parser_task_train_patch,
+                                                                   mssging_send_msg_patch,
+                                                                   tasks_queue_task_done_patch):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method for train message"""
         # defining patchers
@@ -907,7 +898,8 @@ class TestNode(NodeTestCase):
         node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.return_value = None
 
-        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
+        tasks_queue_task_done_patch.side_effect = SystemExit(
+            "Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
         # defining arguments
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -951,7 +943,8 @@ class TestNode(NodeTestCase):
         task_secagg_patch.return_value = None
         mssging_send_msg_patch.return_value = None
 
-        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
+        tasks_queue_task_done_patch.side_effect = SystemExit(
+            "Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
 
         patch_servkey_manager.return_value = FakeSecaggServkeyManager()
         patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
@@ -964,18 +957,14 @@ class TestNode(NodeTestCase):
         # check that `Messaging.send_message` has not been called
         self.assertEqual(mssging_send_msg_patch.call_count, 0)
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
+    @patch('fedbiomed.common.messaging.Messaging.send_error')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_24_task_manager_badcommand_exception_raised_task_done(
             self,
             tasks_queue_get_patch,
-            mssging_send_msg_patch,
             tasks_queue_task_done_patch,
-            patch_servkey_manager,
-            patch_biprime_manager):
+            msg_send_error):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method for an unexpected type of message"""
         # defining patchers
@@ -987,12 +976,9 @@ class TestNode(NodeTestCase):
             "job_id": "my_test_job",
             "command": "secagg-delete",
         }
-        mssging_send_msg_patch.return_value = None
 
-        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
-
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+        tasks_queue_task_done_patch.side_effect = SystemExit(
+            "Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
 
         # action
         with self.assertRaises(SystemExit):
@@ -1000,7 +986,7 @@ class TestNode(NodeTestCase):
             self.n1.task_manager()
 
         # check that `Messaging.send_message` have been called once
-        self.assertEqual(mssging_send_msg_patch.call_count, 1)
+        self.assertEqual(msg_send_error.call_count, 1)
 
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
@@ -1008,11 +994,11 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.node.Node.parser_task_train')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_25_task_manager_train_exception_raised_twice_in_send_msg(self,
-                                                                     tasks_queue_get_patch,
-                                                                     node_parser_task_train_patch,
-                                                                     mssging_send_msg_patch,
-                                                                     tasks_queue_task_done_patch,
-                                                                     node_msg_reply_create_patch):
+                                                                           tasks_queue_get_patch,
+                                                                           node_parser_task_train_patch,
+                                                                           mssging_send_msg_patch,
+                                                                           tasks_queue_task_done_patch,
+                                                                           node_msg_reply_create_patch):
         """
         Tests `task_manager` method, check what happens if `Messaging.send_message`
         triggers an exception.
@@ -1121,473 +1107,115 @@ class TestNode(NodeTestCase):
         self.assertNotIn('path', database_info)
         self.assertNotIn('tabular_file', database_info['dataset_parameters'])
 
-    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
-    @patch('fedbiomed.node.node.SecaggServkeySetup')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_29_task_secagg_success(
+    def test_node_29_task_secagg(
             self,
-            messaging_send_msg_patch,
-            secagg_servkey_patch,
-            secagg_biprime_patch):
+            messaging_send_msg,
+    ):
         """Tests `_task_secagg` normal (successful) case"""
 
-        for el in [0, 1]:
-            # prepare
-            dict_secagg_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': el,
-                'job_id': 'my_test_job',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            }
-            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-            dict_secagg_reply = {
-                'researcher_id': dict_secagg_request['researcher_id'],
-                'secagg_id': dict_secagg_request['secagg_id'],
-                'sequence': dict_secagg_request['sequence'],
-                'command': dict_secagg_request['command'],
-                'node_id': environ['NODE_ID'],
-                'success': True,
-                'msg': ''
-            }
+        req = {'researcher_id': 'party1',
+               'secagg_id': 'my_dummy_secagg_id',
+               'sequence': 888,
+               'element': 0,
+               'job_id': 'my_test_job',
+               'parties': ['party1', 'party2', 'party3'],
+               'command': 'secagg'}
+        # Create request
+        request = NodeMessages.request_create(req)
 
-            secagg_servkey_patch.return_value = FakeSecaggServkeySetup(
-                dict_secagg_request['researcher_id'],
-                dict_secagg_request['secagg_id'],
-                dict_secagg_request['job_id'],
-                dict_secagg_request['sequence'],
-                dict_secagg_request['parties']
-            )
-            secagg_biprime_patch.return_value = FakeSecaggBiprimeSetup(
-                dict_secagg_request['researcher_id'],
-                dict_secagg_request['secagg_id'],
-                dict_secagg_request['job_id'],
-                dict_secagg_request['sequence'],
-                dict_secagg_request['parties']
-            )
+        # Test .setup()execution. It is normal the get result as success False since setup will fail
+        # due to not existing certificate files
+        self.n1._task_secagg(request)
+        messaging_send_msg.assert_called_once_with(
+            {'researcher_id': 'party1',
+             'secagg_id': 'my_dummy_secagg_id',
+             'sequence': 888,
+             'success': False,
+             'node_id': environ["ID"],
+             'msg': 'Can not create secure aggregation context',
+             'command': 'secagg'}
+        )
+        messaging_send_msg.reset_mock()
 
-            # action
-            self.n1._task_secagg(msg_secagg_request)
+        # Test setup error case ---------------------------------------------------------------
+        req["element"] = 12
+        request = NodeMessages.request_create(req)
 
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
+        self.n1._task_secagg(request)
+        messaging_send_msg.assert_called_once_with(
+            {'researcher_id': 'party1',
+             'secagg_id': 'my_dummy_secagg_id',
+             'sequence': 888,
+             'success': False,
+             'node_id': environ["ID"],
+             'msg': 'Received bad request message: incorrect `element` 12',
+             'command': 'secagg'}
+        )
 
-            self.assertEqual(secagg_servkey_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
-            self.assertEqual(secagg_servkey_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
-            self.assertEqual(secagg_servkey_patch.return_value.job_id(), dict_secagg_request['job_id'])
-            self.assertEqual(secagg_servkey_patch.return_value.sequence(), dict_secagg_request['sequence'])
-            self.assertEqual(secagg_biprime_patch.return_value.researcher_id(), dict_secagg_request['researcher_id'])
-            self.assertEqual(secagg_biprime_patch.return_value.secagg_id(), dict_secagg_request['secagg_id'])
-            self.assertEqual(secagg_biprime_patch.return_value.job_id(), dict_secagg_request['job_id'])
-            self.assertEqual(secagg_biprime_patch.return_value.sequence(), dict_secagg_request['sequence'])
-
-            messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_30_task_secagg_badmessage(
+    def test_node_30_task_secagg_delete(
             self,
-            messaging_send_msg_patch,
-            patch_servkey_manager,
-            patch_biprime_manager):
+            messaging_send_msg):
         """Tests `_task_secagg` with bad message values"""
-        # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
 
-        # prepare
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+        # Bad element type --------------------------------------------------------------------------
+        req = {'researcher_id': 'party1',
+               'secagg_id': 'my_dummy_secagg_id',
+               'sequence': 888,
+               'element': 11,
+               'job_id': 'my_test_job',
+               'command': 'secagg-delete'}
+        # Create request
+        request = NodeMessages.request_create(req)
+        self.n1._task_secagg_delete(request)
 
-        bad_element = 2
-        dict_secagg_requests = [
-            {
+        messaging_send_msg.assert_called_once_with({
+             'researcher_id': 'party1',
+             'secagg_id': 'my_dummy_secagg_id',
+             'sequence': 888,
+             'success': False,
+             'node_id': environ["ID"],
+             'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB321: '
+                    'Secure aggregation delete error: received bad delete message: incorrect `element` 11',
+             'command': 'secagg-delete'
+        })
+        messaging_send_msg.reset_mock()
+
+        #
+        # Test remove status ----------------------------------------------------------------
+        # status will be false since there is no registry in DB
+        req["element"] = 0
+        request = NodeMessages.request_create(req)
+        self.n1._task_secagg_delete(request)
+        messaging_send_msg.assert_called_once_with({
+            'researcher_id': 'party1',
+            'secagg_id': 'my_dummy_secagg_id',
+            'sequence': 888,
+            'success': False,
+            'node_id': environ["ID"],
+            'msg': 'FB321: Secure aggregation delete error: no such secagg context element in node database for '
+                   f'node_id={environ["ID"]} secagg_id=my_dummy_secagg_id',
+            'command': 'secagg-delete'
+        })
+        messaging_send_msg.reset_mock()
+
+        # # Test raising error
+        with patch("fedbiomed.node.node.SecaggManager") as skm:
+            skm.return_value.return_value.remove.side_effect = Exception
+            req["element"] = 0
+            request = NodeMessages.request_create(req)
+            self.n1._task_secagg_delete(request)
+            messaging_send_msg.assert_called_once_with({
                 'researcher_id': 'party1',
                 'secagg_id': 'my_dummy_secagg_id',
                 'sequence': 888,
-                'element': bad_element,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': '',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': '',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            },
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'parties': ['party1', 'party2'],
-                'command': 'secagg'
-            },
-        ]
-        dict_secagg_extra_msg = [
-            f'ErrorNumbers.FB318: received bad request message: incorrect `element` {bad_element}',
-            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
-            f'aggregation setup error: bad parameter `researcher_id` should not be empty string',
-            f'ErrorNumbers.FB318: bad secure aggregation request received by {environ["NODE_ID"]}: FB318: Secure '
-            f'aggregation setup error: bad parameter `secagg_id` should not be empty string',
-            f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: FB318: Secure "
-            f"aggregation setup error: bad parameter `parties` : ['party1', 'party2'] : need  at least 3 parties for secure aggregation",
-        ]
-        dict_secagg_reply_type = [
-            "error",
-            "reply",
-            "reply",
-            "reply"
-        ]
-
-        class CustomFakeMessages(FakeMessages):
-            def get_param(self, val: str) -> Any:
-                if val in self.msg:
-                    return self.msg.get(val)
-                else:
-                    raise AttributeError(f"no such attribute '{val}'")
-
-        for req in dict_secagg_requests:
-            msg_secagg_request = CustomFakeMessages(req)
-
-            reply_type = dict_secagg_reply_type.pop(0)
-
-            if reply_type == 'error':
-                dict_secagg_reply = {
-                    'command': 'error',
-                    'extra_msg': dict_secagg_extra_msg.pop(0),
-                    'node_id': environ['NODE_ID'],
-                    'researcher_id': req['researcher_id'],
-                    'errnum': ErrorNumbers.FB318
-                }
-            else:
-                dict_secagg_reply = {
-                    'researcher_id': req['researcher_id'],
-                    'secagg_id': req['secagg_id'],
-                    'sequence': req['sequence'],
-                    'success': False,
-                    'node_id': environ['NODE_ID'],
-                    'msg': dict_secagg_extra_msg.pop(0),
-                    'command': 'secagg'
-                }
-
-            # action
-            self.n1._task_secagg(msg_secagg_request)
-
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-            # messaging_send_msg_patch.assert_not_called()
-            messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
-    @patch('fedbiomed.node.node.SecaggServkeySetup')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_31_task_secagg_fails_secagg_create(
-            self,
-            messaging_send_msg_patch,
-            secagg_servkey_patch,
-            secagg_biprime_patch):
-        """Tests `_task_secagg` failing in secagg creation"""
-
-        for el in [0, 1]:
-            # prepare
-            dict_secagg_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': el,
-                'job_id': 'my_job',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            }
-            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-            dict_secagg_reply = {
-                'researcher_id': dict_secagg_request['researcher_id'],
-                'secagg_id': dict_secagg_request['secagg_id'],
-                'sequence': dict_secagg_request['sequence'],
                 'success': False,
-                'node_id': environ['NODE_ID'],
-                'msg': f"ErrorNumbers.FB318: bad secure aggregation request received by {environ['NODE_ID']}: ",
-                'command': 'secagg'
-            }
-
-            secagg_servkey_patch.side_effect = Exception
-            secagg_biprime_patch.side_effect = Exception
-
-            # action
-            self.n1._task_secagg(msg_secagg_request)
-
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-
-            messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.node.SecaggBiprimeSetup')
-    @patch('fedbiomed.node.node.SecaggServkeySetup')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_node_32_task_secagg_fails_secagg_setup(
-            self,
-            messaging_send_msg_patch,
-            secagg_servkey_patch,
-            secagg_biprime_patch):
-        """Tests `_task_secagg` failing in `secagg.setup()`"""
-
-        for el in [0, 1]:
-            # prepare
-            dict_secagg_request = {
-                'researcher_id': 'my_test_researcher_id',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': el,
-                'job_id': 'my_job',
-                'parties': ['party1', 'party2', 'party3'],
-                'command': 'secagg'
-            }
-            msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-            dict_secagg_reply = {
-                'researcher_id': dict_secagg_request['researcher_id'],
-                'secagg_id': dict_secagg_request['secagg_id'],
-                'sequence': dict_secagg_request['sequence'],
-                'command': dict_secagg_request['command'],
-                'node_id': environ['NODE_ID'],
-                'success': False,
-                'msg': f'ErrorNumbers.FB318: error during secagg setup for type {SecaggElementTypes(dict_secagg_request["element"])}: '
-            }
-
-            class FakeSecaggServkeySetupError(FakeSecaggServkeySetup):
-                def setup(self):
-                    raise Exception
-            secagg_servkey_patch.return_value = FakeSecaggServkeySetupError(
-                dict_secagg_request['researcher_id'],
-                dict_secagg_request['secagg_id'],
-                dict_secagg_request['job_id'],
-                dict_secagg_request['sequence'],
-                dict_secagg_request['parties']
-            )
-
-            class FakeSecaggBiprimeSetupError(FakeSecaggBiprimeSetup):
-                def setup(self):
-                    raise Exception
-            secagg_biprime_patch.return_value = FakeSecaggBiprimeSetupError(
-                dict_secagg_request['researcher_id'],
-                dict_secagg_request['secagg_id'],
-                dict_secagg_request['job_id'],
-                dict_secagg_request['sequence'],
-                dict_secagg_request['parties']
-            )
-
-            # action
-            self.n1._task_secagg(msg_secagg_request)
-
-            # check
-            messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-            messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.node.node.SecaggElementTypes')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.messaging.Messaging.send_error')
-    def test_node_33_task_secagg_fails_secagg_bad_secagg_element(
-            self,
-            messaging_send_error,
-            messaging_send_msg_patch,
-            element_types_patch,
-            patch_servkey_manager,
-            patch_biprime_manager):
-        """Tests `_task_secagg` and `_task_secgg_delete` failing with bad secagg element type"""
-
-        # prepare
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
-
-        bad_message_values = [2, 18, 987]
-        test_setups = [
-            [
-                'secagg',
-                f'ErrorNumbers.FB318: bad secure aggregation request message received by {environ["NODE_ID"]}: ',
-                self.n1._task_secagg
-            ],
-            [
-                'secagg-delete',
-                f'ErrorNumbers.FB321: bad secagg delete request message received by {environ["NODE_ID"]}: ',
-                self.n1._task_secagg_delete
-            ],
-        ]
-        for bad_message_value in bad_message_values:
-
-            for command, message, function in test_setups:
-                class FakeSecaggElementTypes(_BaseEnum):
-                    DUMMY: int = bad_message_value
-                element_types_patch.return_value = FakeSecaggElementTypes(bad_message_value)
-                element_types_patch.__iter__.return_value = [
-                    FakeSecaggElementTypes(bad_message_value)
-                ]
-
-                dict_secagg_request = {
-                    'researcher_id': 'my_test_researcher_id',
-                    'secagg_id': 'my_dummy_secagg_id',
-                    'sequence': 888,
-                    'element': bad_message_value,
-                    'job_id': 'my_job_id',
-                    'command': command
-                }
-                if command == 'secagg':
-                    dict_secagg_request['parties'] = ['party1', 'party2', 'party3']
-                msg_secagg_request = NodeMessages.request_create(dict_secagg_request)
-                dict_secagg_reply = {
-                    'researcher_id': dict_secagg_request['researcher_id'],
-                    'secagg_id': dict_secagg_request['secagg_id'],
-                    'sequence': dict_secagg_request['sequence'],
-                    'command': dict_secagg_request['command'],
-                    'node_id': environ['NODE_ID'],
-                    'success': False,
-                    'msg': f'{message}no such element {FakeSecaggElementTypes(dict_secagg_request["element"]).name}'
-                }
-
-                # action
-                function(msg_secagg_request)
-
-                # check
-                messaging_send_msg_patch.assert_called_with(dict_secagg_reply)
-                messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.messaging.Messaging.send_error')
-    def test_node_34_task_secagg_delete_badmessage(
-            self,
-            messaging_send_error,
-            messaging_send_msg_patch,
-            patch_servkey_manager,
-            patch_biprime_manager):
-        """Tests `_task_secagg_delete` with bad message values"""
-        # this is not pure unit test as we don't mock SecaggServkeySetup SecaggBiprimeSetup
-
-        # prepare
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
-
-        bad_element = 2
-        dict_secagg_delete_requests = [
-
-            # no such element in database
-            {
-                'researcher_id': '',
-                'secagg_id': 'my_dummy_secagg_id_NOT_IN_DB',
-                'sequence': 888,
-                'element': 0,
-                'job_id': 'job1',
-                'command': 'secagg-delete'
-            },
-        ]
-        dict_secagg_delete_extra_msg = [
-            f'{ErrorNumbers.FB321.value}: received bad delete message: incorrect `element` {bad_element}',
-            f'{ErrorNumbers.FB321.value}: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id_NOT_IN_DB',
-        ]
-
-
-        class CustomFakeMessages(FakeMessages):
-            def get_param(self, val: str) -> Any:
-                if val in self.msg:
-                    return self.msg.get(val)
-                else:
-                    raise AttributeError(f"no such attribute '{val}'")
-
-        msg_secagg_delete_request = CustomFakeMessages({
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': bad_element,
-                'job_id': 'job1',
+                'node_id': environ["ID"],
+                'msg': 'FB321: Secure aggregation delete error: no such secagg context element in node database for '
+                       f'node_id={environ["ID"]} secagg_id=my_dummy_secagg_id',
                 'command': 'secagg-delete'
             })
-
-        self.n1._task_secagg_delete(msg_secagg_delete_request)
-
-        # check
-        messaging_send_error.assert_called_with(errnum=ErrorNumbers.FB321,
-                                                extra_msg=dict_secagg_delete_extra_msg[0],
-                                                researcher_id=msg_secagg_delete_request.get_param('researcher_id'))
-
-
-        # messaging_send_msg_patch.assert_not_called()
-        messaging_send_msg_patch.reset_mock()
-
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.node.node.SecaggBiprimeManager.remove')
-    @patch('fedbiomed.node.node.SecaggServkeyManager.remove')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_35_task_secagg_delete_remove_error(
-            self,
-            node_msg_request_patch,
-            node_msg_reply_patch,
-            messaging_send_msg_patch,
-            secagg_servkey_manager_remove_patch,
-            secagg_biprime_manager_remove_patch,
-            patch_servkey_manager,
-            patch_biprime_manager
-    ):
-        """Tests secagg-delete command with error in `remove` command"""
-        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
-        secagg_servkey_manager_remove_patch.side_effect = Exception
-        secagg_biprime_manager_remove_patch.side_effect = Exception
-
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
-
-        # defining arguments
-        secagg_delete = {
-            'command': 'secagg-delete',
-            'researcher_id': 'researcher_id_1234',
-            'secagg_id': 'my_test_secagg_id',
-            'sequence': 1234,
-            'element': 0,
-            'job_id': 'a_dummy_job_id',
-        }
-        secagg_delete_reply = {
-            'command': 'secagg-delete',
-            'researcher_id': 'researcher_id_1234',
-            'secagg_id': 'my_test_secagg_id',
-            'sequence': 1234,
-            'success': False,
-            'node_id': environ['NODE_ID'],
-            'msg': f'ErrorNumbers.FB321: error during secagg delete on node_id={environ["NODE_ID"]} secagg_id={secagg_delete["secagg_id"]}: ',
-        }
-
-        class CustomFakeMessages(FakeMessages):
-            def get_param(self, val: str) -> Any:
-                if val in self.msg:
-                    return self.msg.get(val)
-                else:
-                    raise AttributeError(f"no such attribute '{val}'")
-
-
-        # action
-        self.n1._task_secagg_delete(CustomFakeMessages(secagg_delete))
-
-        # checks
-        messaging_send_msg_patch.assert_called_once_with(secagg_delete_reply)
 
 
 if __name__ == '__main__':  # pragma: no cover

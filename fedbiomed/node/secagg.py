@@ -224,7 +224,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
         try:
             context = SKManager.get(self._secagg_id, self._job_id)
         except Exception as e:
-            logger.debug(f"Can not create secure aggreagation context due to database errror: {e}")
+            logger.debug(f"Can not create secure aggregation context due to database errror: {e}")
             return self._create_secagg_reply('Can not create secure aggregation context', False)
 
         if context is None:
