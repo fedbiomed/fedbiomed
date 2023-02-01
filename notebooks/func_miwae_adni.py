@@ -5,6 +5,7 @@ import csv, os
 import torch.distributions as td
 from datetime import datetime
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 ###########################################################
 #Define the imputation and the MSE functions              #
@@ -227,3 +228,26 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir=Non
     data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test
+
+
+def generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,Loss_tot,Like_tot,MSE_tot,epochs_loc,epochs_tot,idx_clients):
+    figures_folder = result_folder+'/Figures'
+    os.makedirs(figures_folder, exist_ok=True)
+    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
+    for cl in range(len(idx_clients)):
+        file_name = exp_id+'Fig_client_'+str(idx_clients[cl])
+        save_plots(epochs_loc,Like_cls[cl],Loss_cls[cl],MSE_cls[cl],figures_folder,file_name)
+    file_name = exp_id+'Fig_centralized_'+str(idx_clients)
+    save_plots(epochs_tot,Like_tot,Loss_tot,MSE_tot,figures_folder,file_name)
+
+def save_plots(epochs,likelihood,loss,mse,fig_folder,file_name):
+    fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, sharex=True)
+    ax0.plot(range(1,epochs), likelihood)
+    ax0.set(ylabel='MIWAE likelihood bound')
+    ax1.plot(range(1,epochs), loss)
+    ax1.set(ylabel='Loss')
+    ax2.plot(range(1,epochs), mse)
+    ax2.set(xlabel='Epochs',ylabel='MSE')
+    plt.savefig(fig_folder + '/' + file_name)
+    plt.clf()
+    plt.close()

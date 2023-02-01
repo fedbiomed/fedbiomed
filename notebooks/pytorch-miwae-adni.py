@@ -30,7 +30,7 @@ import torch.nn as nn
 import argparse
 import sys
 
-from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases
+from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases, generate_save_plots
 from class_miwae_adni import FedMeanStdTrainingPlan, MIWAETrainingPlan
 
 from fedbiomed.researcher.experiment import Experiment
@@ -67,6 +67,8 @@ if __name__ == '__main__':
                         help='Number of epochs')
     parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
                         help='Learning rate')
+    parser.add_argument('--do_figures', metavar='-fig', default=True, action=argparse.BooleanOptionalAction,
+                        help='Generate and save figures during local training')
 
     args = parser.parse_args()
 
@@ -214,8 +216,14 @@ if __name__ == '__main__':
 
     ###########################################################
     #Local model                                              #
-    ###########################################################
+    ###########################################################    
     elif method == 'Local':
+
+        if args.do_figures==True:
+            Loss_cls = [[] for _ in range(N_cl)]
+            Like_cls = [[] for _ in range(N_cl)]
+            MSE_cls = [[] for _ in range(N_cl)]
+
         # Recall all hyperparameters
         n_epochs_local = n_epochs*rounds
         n_epochs_centralized = n_epochs*rounds*len(Clients_missing)
@@ -284,9 +292,15 @@ if __name__ == '__main__':
                                     data = b_data,mask = b_mask, d = d, p = p, K = K)
                     loss.backward()
                     optimizer_cls.step()
+                likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, data = torch.from_numpy(xhat_0_cls).float(),mask = torch.from_numpy(mask_cls).float(), d = d, p = p, K = K).cpu().data.numpy())
+                if args.do_figures==True:
+                    Loss_cls[cls].append(loss.item())
+                    Like_cls[cls].append(likelihood)
+                    mse_train = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cls, decoder_cls, iota_cls, d, 100)
+                    MSE_cls[cls].append(mse_train)
                 if ep % rounds == 1:
                     print('Epoch %g' %ep)
-                    print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, data = torch.from_numpy(xhat_0_cls).float(),mask = torch.from_numpy(mask_cls).float(), d = d, p = p, K = K).cpu().data.numpy())) # Gradient step      
+                    print('MIWAE likelihood bound  %g' %likelihood) # Gradient step      
                     print('Loss: {:.6f}'.format(loss.item()))
 
             Encoders_loc.append(encoder_cls)
@@ -294,6 +308,11 @@ if __name__ == '__main__':
             Iota_loc.append(iota_cls)
 
         # Centralized training
+        if args.do_figures==True:
+            Loss_tot = []
+            Like_tot = []
+            MSE_tot = []
+
         xmiss_tot = np.concatenate(Clients_missing,axis=0)
 
         n = xmiss_tot.shape[0] # number of observations
@@ -350,12 +369,18 @@ if __name__ == '__main__':
                 decoder_cen.zero_grad()
                 b_data = torch.from_numpy(batches_data[it]).float()
                 b_mask = torch.from_numpy(batches_mask[it]).float()
-                loss = miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota=iota_cls, data = b_data,mask = b_mask, d = d, p = p, K = K)
+                loss = miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota=iota_cen, data = b_data,mask = b_mask, d = d, p = p, K = K)
                 loss.backward()
                 optimizer_cen.step()
+            likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cen, data = torch.from_numpy(xhat_0_tot).float(),mask = torch.from_numpy(mask_tot).float(), d = d, p = p, K = K).cpu().data.numpy())
+            if args.do_figures==True:
+                Loss_tot.append(loss.item())
+                Like_tot.append(likelihood)
+                mse_train = testing_func(xhat_0_tot, xfull_tot, mask_tot, encoder_cen, decoder_cen, iota_cen, d, 100)
+                MSE_tot.append(mse_train)
             if ep % rounds == 1:
                 print('Epoch %g' %ep)
-                print('MIWAE likelihood bound  %g' %(-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cls, data = torch.from_numpy(xhat_0_tot).float(),mask = torch.from_numpy(mask_tot).float(), d = d, p = p, K = K).cpu().data.numpy())) # Gradient step      
+                print('MIWAE likelihood bound  %g' %likelihood) # Gradient step      
                 print('Loss: {:.6f}'.format(loss.item()))
 
     ###########################################################
@@ -373,6 +398,8 @@ if __name__ == '__main__':
         std_training = 'Loc' if method == 'FedProx_loc' else 'Fed'
     else:
         fed_mean, fed_std = mean_tot_missing, std_tot_missing
+        if args.do_figures==True:
+            generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,Loss_tot,Like_tot,MSE_tot,n_epochs_local,n_epochs_centralized,idx_clients)
 
     # Testing on data used during training
     for cls in range(N_cl):
