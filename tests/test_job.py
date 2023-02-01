@@ -380,7 +380,8 @@ class TestJob(ResearcherTestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'command': 'train'
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
@@ -388,27 +389,20 @@ class TestJob(ResearcherTestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'command': 'train'
                       }
 
         response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'errnum': ErrorNumbers.FB100,
                       'extra_msg': 'this extra msg',
-                      'dataset_id': '1234'
+                      'command': 'error'
                       }
 
         response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'extra_msg': False,
                       'errnum': ErrorNumbers.FB100,
-                      'dataset_id': '1234'
+                      'command': 'error'
                       }
 
         responses = FakeResponses([response_1, response_2])

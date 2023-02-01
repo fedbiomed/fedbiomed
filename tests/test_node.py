@@ -447,37 +447,9 @@ class TestNode(NodeTestCase):
 
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+
         # test 1: case where 1 dataset has been found
-        msg_1_dataset = NodeMessages.request_create({
-            'model_args': {'lr': 0.1},
-            'training_args': {'some_value': 1234},
-            'training_plan_url': 'https://link.to.somewhere.where.my.model',
-            'training_plan_class': 'my_test_training_plan',
-            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
-            'job_id': 'job_id_1234',
-            'researcher_id': 'researcher_id_1234',
-            'dataset_id': 'dataset_id_1234'
-        })
-
-        # action
-        self.n1.parser_task_train(msg_1_dataset)
-
-        # checks
-        # check that `Round` has been called once
-        self.assertEqual(round_patch.call_count, 1)
-        # check the attribute `rounds` of `Node` (should be a
-        # list containing `Round` objects)
-        self.assertEqual(len(self.n1.rounds), 1)
-        self.assertIsInstance(self.n1.rounds[0], Round)
-        # #####
-        # test 2: case where 2 dataset have been found (training on several dataset)
-        # reset mocks (for second test)
-        round_patch.reset_mock()
-        history_monitor_patch.reset_mock()
-        round_patch.return_value = None
-
-        # defining msg argument (case where 2 datasets are found)
-        dict_msg_2_datasets = {
+        dict_msg_1_dataset = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training': True,
@@ -486,43 +458,31 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
-            'dataset_id': {environ['NODE_ID']: ['dataset_id_1234',
-                                                   'dataset_id_6789']}
+            'dataset_id': 'dataset_id_1234'
         }
-        msg_2_datasets = NodeMessages.request_create(dict_msg_2_datasets)
+        msg_1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
 
         # action
-
-        self.n2.parser_task_train(msg_2_datasets)
+        round = self.n1.parser_task_train(msg_1_dataset)
 
         # checks
+        self.assertIsInstance(round, Round)
 
-        # FIXME: is this a good idea? Unit test may fail if
-        # parameters are passed using arg name,
-        # and if order change. Besides, it doesn't test
-        # if value passed is a `HistoryMonitor` object (could be everything, test will pass)
-        # see `sentinel` in unittests documentation
-        # (difficult to use since we are patching constructor)
-
-        round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
-                                       dict_msg_2_datasets['training_args'],
+        self.assertEqual(round_patch.call_count, 1)
+        round_patch.assert_called_with(dict_msg_1_dataset['model_args'],
+                                       dict_msg_1_dataset['training_args'],
                                        True,
                                        self.database_id,
-                                       dict_msg_2_datasets['training_plan_url'],
-                                       dict_msg_2_datasets['training_plan_class'],
-                                       dict_msg_2_datasets['params_url'],
-                                       dict_msg_2_datasets['job_id'],
-                                       dict_msg_2_datasets['researcher_id'],
+                                       dict_msg_1_dataset['training_plan_url'],
+                                       dict_msg_1_dataset['training_plan_class'],
+                                       dict_msg_1_dataset['params_url'],
+                                       dict_msg_1_dataset['job_id'],
+                                       dict_msg_1_dataset['researcher_id'],
                                        unittest.mock.ANY,  # this is for HistoryMonitor
                                        None,
                                        None,
                                        dlp_and_loading_block_metadata=None)
 
-        # check if object `Round()` has been called twice
-        self.assertEqual(round_patch.call_count, 2)
-        self.assertEqual(len(self.n2.rounds), 2)
-        # check if passed value is a `Round` object
-        self.assertIsInstance(self.n2.rounds[0], Round)
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
         # retrieve `HistoryMonitor` object
@@ -864,12 +824,11 @@ class TestNode(NodeTestCase):
             "command": "train",
             "dataset_id": "dataset_id_1234"
         }
-        node_parser_task_train_patch.return_value = None
         mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
-        # defining arguments and attributes
+
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
-        self.n1.rounds = [Round(), Round()]
+        node_parser_task_train_patch.return_value = Round
 
         # action
         with self.assertRaises(SystemExit):
@@ -904,14 +863,13 @@ class TestNode(NodeTestCase):
             "command": "train",
             "dataset_id": "dataset_id_1234"
         }
-        node_parser_task_train_patch.return_value = None
-        mssging_send_msg_patch.return_value = None
+        mssging_send_msg_patch.return_value = True
 
         tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
-        # defining arguments
+
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
-        self.n1.rounds = [Round(), Round()]
+        node_parser_task_train_patch.return_value = Round
 
         # action
         with self.assertRaises(SystemExit):
@@ -920,7 +878,7 @@ class TestNode(NodeTestCase):
 
         # check that `Messaging.send_message` have been called twice
         # (because 2 rounds have been set in `rounds` attribute)
-        self.assertEqual(mssging_send_msg_patch.call_count, 2)
+        self.assertEqual(mssging_send_msg_patch.call_count, 1)
 
     @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
     @patch('fedbiomed.node.secagg.SecaggServkeyManager')
@@ -1041,10 +999,13 @@ class TestNode(NodeTestCase):
             "command": "train",
             "dataset_id": "dataset_id_1234"
         }
-        node_parser_task_train_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None
         node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
         mssging_send_msg_patch.side_effect = [Exception('mimicking exceptions'), SystemExit]
+
+        Round = MagicMock()
+        Round.run_model_training = MagicMock(run_model_training=None)
+        node_parser_task_train_patch.return_value = Round
 
         # action
         with self.assertRaises(SystemExit):
