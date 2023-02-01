@@ -149,7 +149,8 @@ class DefaultStrategy(Strategy):
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
-        weights = {node_id: sample_size / total_rows for node_id, sample_size in sample_sizes.items()}
+        weights = {node_id: sample_size / total_rows if total_rows != 0 else 1 / len(sample_sizes)
+                   for node_id, sample_size in sample_sizes.items()}
 
         logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
 
