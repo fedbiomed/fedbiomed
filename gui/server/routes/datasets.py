@@ -128,62 +128,28 @@ def add_dataset():
             message : The message for response
 
     """
-    table = node_database.table_datasets()
-    query = node_database.query()
-
-    data_path_rw = app.config['DATA_PATH_RW']
     req = request.json
-
-    # Data path that the files will be read
-    data_path = os.path.join(data_path_rw, *req['path'])
 
     # Data path that will be saved in the DB
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
-
-    # Get image dataset information from data set manager
-    if req['type'] == 'images':
-        if not os.path.isdir(data_path):
-            return error('Provided path is not a directory. Please select the folder that '
-                         'includes sub folders of image dataset.'), 400
-        try:
-            shape = dataset_manager.load_images_dataset(data_path)
-            types = []
-        except Exception as e:
-            return error(str(e)), 400
-    # Get csv dataset information from dataset manager
-    elif req['type'] == 'csv':
-        accepted_ext = ['.csv', '.txt']
-        extension = os.path.splitext(data_path)[1]
-        if extension not in accepted_ext:
-            return error(f'Unsupported extension "{extension}" for CSV datasets. '
-                         f'Please select a "csv" or "txt" file.'), 400
-        try:
-            data = dataset_manager.load_csv_dataset(data_path)
-            shape = data.shape
-            types = dataset_manager.get_csv_data_types(data)
-        except Exception as e:
-            return error(str(e)), 400
-    else:
-        return error(f'Unknown dataset type "{req["type"]}"'), 400
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
 
     try:
-        table.insert({
-            "name": req['name'],
-            "path": data_path_save,
-            "data_type": req['type'],
-            "dtypes": types,
-            "shape": shape,
-            "tags": req['tags'],
-            "description": req['desc'],
-            "dataset_id": dataset_id
-        })
+        dataset_manager.add_database(
+            req['name'],
+            req['type'],
+            req['tags'],
+            req['desc'],
+            data_path_save,
+            dataset_id)
     except Exception as e:
         return error(str(e)), 400
 
     # Get saved dataset document
+    table = node_database.table_datasets()
+    query = node_database.query()
     res = table.get(query.dataset_id == dataset_id)
 
     return response(res), 200
@@ -213,13 +179,20 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
+    try:
+        dataset_manager.modify_database_info(
+            req['dataset_id'],
+            {
+                "tags": req["tags"],
+                "description": req["desc"],
+                "name": req["name"]
+            })
+    except Exception as e:
+        return error(str(e)), 400
+
+    # Get saved dataset document
     table = node_database.table_datasets()
     query = node_database.query()
-
-    table.update({"tags": req["tags"],
-                  "description": req["desc"],
-                  "name": req["name"]},
-                 query.dataset_id == req['dataset_id'])
     res = table.get(query.dataset_id == req['dataset_id'])
 
     return response(res), 200

@@ -67,7 +67,7 @@ configure_linux() {
     if $cpu_info | grep -q avx2; then
       echo -e "${BOLD}CPU uses Advanced Vector Extension 2 'avx2'${NC}\n"
       cpu_arch=avx2
-    elif $cpu_info | grep -q avx2; then
+    elif test "$(uname -m)" = 'x86_64' ; then
       cpu_arch=amd64
       echo -e "${BOLD}CPU uses Advanced Micro Devices 64 'amd64'${NC}\n"
     else
@@ -78,7 +78,7 @@ configure_linux() {
     # Link binaries to ${FEDBIOMED_DIR}/MP-SPDZ ---------------------------------------------------------------------
     echo -e "\n${YLW}Copying binary distributions... ${NC}"
     if ! ln -nsf "$basedir"/MP-SPDZ/$(uname)-$cpu_arch/*.x "$mpspdz_basedir"/; then
-      echo -e "\n${RED}ERROR${NC}: Can not copy binary files!\n"
+      echo -e "\n${RED}ERROR${NC}: Can not link binary files!\n"
       exit 1
     fi
     # -----------------------------------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ echo -e "${YLW}\nCreating temporary testing environment-------------------------
 
 # Create test certificates, input files and ip address -----------------------------------------------------------
 echo -e "\n${YLW}Creating temporary certificates and input files for testing${NC}"
-player_data="$basedir/modules/MP-SPDZ/Player-Data"
+player_data="$mpspdz_basedir/Player-Data"
 
 # Remove existing test assigned IP address for each test party
 if [ -f "$player_data/test_ip_assigned" ]; then
@@ -189,9 +189,9 @@ if [ -f "$player_data/test_ip_assigned" ]; then
 fi
 
 # Remove test input and outputs
-if [ -n "$(ls -a "$mpspdz_basedir"/Player-Data/ | grep Test-Output-*)" ]; then
+if [ -n "$(ls -a "$player_data"/ | grep Test-Output-*)" ]; then
   echo -e "\n${YLW}Removing previous test files${NC}"
-  rm "$mpspdz_basedir"/Player-Data/Test-Output*
+  rm "$player_data"/Test-Output*
 fi
 
 # Create data for two test party
@@ -201,7 +201,7 @@ for i in 0 1 2; do
   echo "localhost:1111$i" >> "$player_data/test_ip_assigned"
 done
 
-if ! c_rehash "$mpspdz_basedir"/Player-Data; then
+if ! c_rehash "$player_data"; then
     echo -e "\n${RED}ERROR${NC}:"
     echo -e "${BOLD} Can not execute 'c_rehash' to finish creation of certificates. Please check the logs above. ${NC}"
     exit 1
@@ -238,10 +238,10 @@ while [ $(IFS=+; echo "$((${wait[*]}))") -gt 0 ]; do
 
   echo -e "${BOLD}Checking the output of parties for testing  round $count out of $maxcount ------------------------------${NC}"
   for i in 0 1 2; do
-    if [ ! -f "$mpspdz_basedir/Player-Data/Test-Output-P$i-0" ]; then
+    if [ ! -f "$player_data/Test-Output-P$i-0" ]; then
       test_result=''
     else
-      test_result=$(cat "$mpspdz_basedir"/Player-Data/Test-Output-P"$i"-0 2>&1)
+      test_result=$(cat "$player_data"/Test-Output-P"$i"-0 2>&1)
     fi
 
     if [ -n "$test_result" -a "$test_result" != "" ]; then

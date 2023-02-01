@@ -3,7 +3,12 @@ import shutil
 import unittest
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+
+#############################################################
+# Import ResearcherTestCase before importing any FedBioMed Module
+from testsupport.base_case import ResearcherTestCase
+#############################################################
+
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.monitor import Monitor, MetricStore  # noqa
@@ -20,7 +25,7 @@ def create_file(file_name: str):
         f.write("this is a test. This file should be removed")
 
 
-class TestMonitor(unittest.TestCase):
+class TestMonitor(ResearcherTestCase):
     """
     Test `Monitor` class
     Args:

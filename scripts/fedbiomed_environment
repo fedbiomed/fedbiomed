@@ -50,7 +50,7 @@ development_env() {
     export IP_ADDRESS=${1:-localhost}
     # use the (if provided) UPLOADS_URL var env
     [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
-    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="localhost" ; }
+    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="${IP_ADDRESS}" ; }
     [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
 }
 
@@ -107,6 +107,7 @@ activate_gui() {
 [[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
 basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
+
 
 # initialize development environment for....
 case $1 in
@@ -183,14 +184,14 @@ case $1 in
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
-        activate_node verbose
+        activate_node "$3"
         ;;
 
     researcher|r)
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
-        activate_researcher verbose
+        activate_researcher "$3"
         ;;
 
     gui)

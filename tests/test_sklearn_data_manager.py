@@ -1,6 +1,5 @@
 import math
 import unittest
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 import numpy as np
 import pandas as pd
 
@@ -20,9 +19,6 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.target = np.array([5, 5, 1, 4])
         self.sklearn_data_manager = SkLearnDataManager(inputs=self.inputs,
                                                        target=self.target)
-
-    def tearDown(self):
-        pass
 
     def assertIterableEqual(self, it1, it2):
         self.assertListEqual([x for x in it1], [x for x in it2])

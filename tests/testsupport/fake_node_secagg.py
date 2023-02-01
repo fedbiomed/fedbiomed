@@ -1,7 +1,5 @@
 from typing import List
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
-
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.message import SecaggReply, NodeMessages

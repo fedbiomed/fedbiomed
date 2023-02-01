@@ -58,6 +58,12 @@ node      : a second argument is mandatory
             - approve-training-plan   | --approve-training-plan   | -atp    : Approve a training plan (requested, default or registered)
             - reject-training-plan    | --reject-training-plan    | -rjtp   : Reject a training plan (requested, default or registered)
 
+            Positional Arguments:
+
+            - certificate   : Option for certificate management. Please see details 'fedbiomed_run node certificate -h'
+            - configuration   : Option for configuration management. Please see details 'fedbiomed_run node configuration -h'
+
+            Optional Arguments:
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
@@ -79,6 +85,14 @@ EOF
             cat <<EOF
 
 researcher: launch a researcher notebook
+
+            Second argument mandatory:
+            - start       : Starts Fed-BioMed researcher component by launch a Jupyter notebook with activated
+                            conda environment.
+            - certificate : Option for certificate management.
+                            Please see details 'fedbiomed_run researcher certificate -h'
+            - configuration : Option for configuration management.
+                            Please see details 'fedbiomed_run researcher configuration -h'
 
             an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
                 component instead of the default localhost
@@ -115,6 +129,14 @@ gui       :
 
             Commands:
             - start: Launches the Node GUI with given options.
+EOF
+        ;;
+
+        other)
+            cat <<EOF
+
+certificate-dev-setup : prepares development environment by registering certificates of each component created
+            in a single clone of Fed-BioMed.
 EOF
         ;;
     esac
@@ -165,11 +187,12 @@ EOF
         *|'')
             cat <<EOF
 usage: fedbiomed_run network (stop)
-       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run researcher [ip_address IP_ADDRESS] start
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
-        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
+       febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
                          (start)
+       fedbiomed_run certificate-dev-setup
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
@@ -178,6 +201,7 @@ EOF
             usage_body researcher
             usage_body node
             usage_body gui
+            usage_body other
     ;;
     esac
 
@@ -193,6 +217,34 @@ NC='\033[0m' #no color
 GUI_HOST="localhost"
 GUI_PORT="8484"
 GUI_DEBUG=False
+
+# Error function
+function error(){
+      echo -e "${RED}ERROR: ${NC}"
+      echo -e "${BOLD}$1${NC}"
+      exit 1
+}
+
+
+# Function forward given command to python cli for specified component
+function forward_command_to_python_cli(){
+
+    COMPONENT=$1
+    EXTRA_PARAMS=$2
+    IP_ADDRESS=$3
+
+    if [ -z "$EXTRA_PARAMS" ]; then
+      error "Please provide a command. See fedbiomed_run $COMPONENT -h"
+    fi
+
+    source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
+
+    # dont write error message in this case, cli already does it
+    python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
+
+}
+
+
 # Script for starting GUI
 function start_gui() {
     # Check config file status
@@ -279,6 +331,7 @@ function start_gui() {
 # argument decoding
 #
 case $1 in
+
 
     network)
         cd ./envs/development/docker
@@ -392,6 +445,7 @@ case $1 in
 
 
     node)
+
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -434,6 +488,7 @@ case $1 in
                     usage node
                     ;;
                 *)
+
                     break
                 ;;
             esac
@@ -447,33 +502,36 @@ case $1 in
             export PARAMS=
         fi
 
+        # Get params starting from second
+        EXTRA_PARAMS=${@:2}
+
         # TODO : better test with python module loading attempt and try/except
         if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
 
                 list|--list|-l)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
                 del-all|delete-all|--del-all|--delete-all|-da)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-all $PARAMS
                     ;;
 
                 delete-mnist|--delete-mnist|-dm)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
@@ -483,12 +541,12 @@ case $1 in
                     ;;
 
                 add-dataset-from-file|--add-dataset-from-file|-adff)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-training-plan|--register-training-plan|-rtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --register-training-plan $PARAMS
                     ;;
 
@@ -498,26 +556,26 @@ case $1 in
                     ;;
 
                 reject-training-plan|--reject-training-plan|-rjtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --reject-training-plan $PARAMS
                     ;;
                 update-training-plan|--update-training-plan|-utp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --update-training-plan $PARAMS
                     ;;
 
                 list-training-plans|--list-training-plans|-ltps)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list-training-plans $PARAMS
                     ;;
 
                 delete-training-plan|--delete-training-plan|-dtp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-training-plan $PARAMS
                     ;;
 
                 view-training-plan|--view-training-plan|-vtp)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ./scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --view-training-plan $PARAMS
                     ;;
 
@@ -525,13 +583,14 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
+
                 *)
-                    echo "Bad node command '$2' : please run node with add or start option (full help with -h)"
-                    exit -1
-                    ;;
+                  forward_command_to_python_cli "node" "$EXTRA_PARAMS" "$IP_ADDRESS"
+
+                ;;
             esac
         else
             echo "INFO: no fedbiomed.node.cli yet in this version, skipping command"
@@ -554,28 +613,47 @@ case $1 in
                     shift
                     shift
                     ;;
-                help|-h|--help)
-                    usage researcher
-                    ;;
                 *)
                     break
                 ;;
             esac
         done
 
-        source ${basedir}/scripts/fedbiomed_environment researcher $IP_ADDRESS
-        cd notebooks
-
-        # Windows WSL and others cannot handle using redirect file for securing notebook launch
-        # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
-        NB_OPTS=
-        if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
-        # case if windows WSL is used
+        # pass remaining params to launched script
+        if [ $# -ge 2 ]
         then
-            NB_OPTS='--NotebookApp.use_redirect_file=false'
+            export PARAMS=${@:3:$#-2}
+        else
+            export PARAMS=
         fi
 
-        jupyter notebook $NB_OPTS
+        EXTRA_PARAMS=${@:2}
+
+        # Execution -------------------------------------------------------------------------------------------------
+        # Activate conda environment
+        case $2 in
+            start)
+                source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
+                cd notebooks
+                # Windows WSL and others cannot handle using redirect file for securing notebook launch
+                # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
+                NB_OPTS=
+                if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+                # case if windows WSL is used
+                then
+                    NB_OPTS='--NotebookApp.use_redirect_file=false'
+                fi
+                forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"
+                jupyter notebook $NB_OPTS
+
+            ;;
+            help|-h|--help)
+                usage researcher
+            ;;
+            *)
+              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
+            ;;
+        esac
         ;;
 
     help|-h|--help)
@@ -584,12 +662,19 @@ case $1 in
             researcher) usage researcher;;
             gui) usage gui;;
             network) usage network;;
+            certificate-dev-setup)
+                source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
+                python -m fedbiomed.common.cli $2 '-h' $PARAMS
+            ;;
+            *) usage;;
         esac
-        usage
         ;;
 
     *)
-        echo "Please specify the component you want to run between: network, node, researcher, gui"
-        exit -1
-        ;;
+      PARAMS=${@}
+      source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
+      python -m fedbiomed.common.cli $PARAMS
+#      echo "Please specify the component you want to run between: network, node, researcher, gui"
+#      exit 1
+      ;;
 esac

@@ -2,7 +2,7 @@ import unittest
 import torch
 
 from torch.nn import Module
-from torch.optim import Optimizer, Adam
+from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 
 from unittest.mock import patch, MagicMock

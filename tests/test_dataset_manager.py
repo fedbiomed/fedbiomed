@@ -14,24 +14,23 @@ import pathlib
 from PIL import Image
 import torch
 from torchvision import transforms, datasets
+from tinydb import Query
 
-import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+#############################################################
+# Import NodeTestCase before importing any FedBioMed Module
+from testsupport.base_case import NodeTestCase
+#############################################################
+
+# Test Support
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
-# WORKAROUND: For this test, we need to ensure a *dedicated* `environ` to avoid collisions
-# with other test files for `environ['DB_PATH']` access
-#
-# from fedbiomed.node.environ import environ
-from fedbiomed.node.environ import EnvironNode
-from fedbiomed.common.constants  import ComponentType
-environ = EnvironNode(ComponentType.NODE)
-
+from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 
-class TestDatasetManager(unittest.TestCase):
+class TestDatasetManager(NodeTestCase):
     """
     Unit Tests for DatasetManager class.
     """
@@ -68,6 +67,8 @@ class TestDatasetManager(unittest.TestCase):
         )
 
         # create an instance of DatasetManager
+        self.patcher_dataset_manager_environ = patch('fedbiomed.node.dataset_manager.environ', environ)
+        self.patcher_dataset_manager_environ.start()
         self.dataset_manager = DatasetManager()
 
         # fake arguments
@@ -111,19 +112,14 @@ class TestDatasetManager(unittest.TestCase):
         """
         after each test function
         """
+        self.patcher_dataset_manager_environ.stop()
+
         self.dataset_manager._db.close()
         del self.dataset_manager
         if os.path.isdir(environ['DB_PATH']):
             os.remove(environ['DB_PATH'])
 
-    @classmethod
-    def tearDownClass(cls):
-        """
-        after all tests
-        """
-        # WORKAROUND: delete dir as this is a dedicated environ for this test class
-        shutil.rmtree(environ['ROOT_DIR'])
-
+        shutil.rmtree(self.tempdir)
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """
@@ -591,63 +587,119 @@ class TestDatasetManager(unittest.TestCase):
         self.assertFalse(self.fake_database.get('1', False))
 
 
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
     @patch('tinydb.table.Table.update')
-    @patch('tinydb.queries.Query.all')
     def test_dataset_manager_20_modify_database_info(self,
-                                                  query_all_patch,
-                                                  tinydb_update_patch):
+                                                  tinydb_update_patch,
+                                                  conflicting_tags_patch):
         """
         Tests modify_database_info (normal case scenario),
         where one replaces an existing dataset by another one
         """
-        # defining a fake database
-        fake_database = copy.deepcopy(self.fake_database)
-
-
-        def tinydb_update_side_effect(new_dataset: dict, existing_dataset: List[int]):
+        def tinydb_update_side_effect(new_dataset: dict, existing_dataset):
             """
             side effect function that mimics the update of the database
             `fake_database`
 
             Args:
                 new_dataset (dict): the new dataset to update
-                existing_dataset (List[int]): unused, but should
-                be a list of doc ids that corresponds to the output
-                `Query.tags.all(tags)` dataset query.
+                existing_dataset unused, but is a QueryInstance/QueryImpl
             """
             fake_database['2'] = new_dataset
 
-        new_dataset = {"name": "anther_test",
-                       "data_type": "csv",
-                       "tags": [ "other_tags"],
-                       "description": "another_description",
-                       "shape": [2000, 2],
-                       "path": "/path/to/my/other/data",
-                       "dataset_id": "dataset_9876",
-                       "dtypes": ["int64", "float64"]}
+        def conflicting_tags_side_effect(tags):
+            if all(t in fake_database.get('2')['tags'] for t in tags):
+                return [{'dataset_id': dataset_id}]
+            else:
+                return []
 
-        tags = ['some', 'tags']
-        query_all_patch.return_value = [fake_database.get('2')]
         tinydb_update_patch.side_effect = tinydb_update_side_effect
+        conflicting_tags_patch.side_effect = conflicting_tags_side_effect
 
-        # action
-        self.dataset_manager.modify_database_info(tags, new_dataset)
+        new_dataset_list = [
+            {
+                "name": "anther_test",
+                "data_type": "csv",
+                "tags": [ "other_tags"],
+                "description": "another_description",
+                "shape": [2000, 2],
+                "path": "/path/to/my/other/data",
+                "dataset_id": "dataset_9876",
+                "dtypes": ["int64", "float64"]
+            },
+            {
+                "tags": self.fake_database['2']['tags']
+            },
+            {
+                "tags": self.fake_database['1']['tags'][:-1] + ['yet another tag']
+            },
+        ]
 
-        # checks
-        # check that correct calls are made
-        query_all_patch.assert_called_once_with(tags)
-        tinydb_update_patch.assert_called_once_with(new_dataset,
-                                                    [self.fake_database.get('2')])
-        # check database status after updating
-        # first entry in database should be left unchanged ...
-        self.assertEqual(fake_database.get('1'), self.fake_database.get('1'))
-        # ... whereas second entry should be updated with variable `new_dataset`
-        self.assertNotEqual(fake_database.get('2'), self.fake_database.get('2'))
-        self.assertEqual(fake_database.get('2'), new_dataset)
+        for new_dataset in new_dataset_list:
+            # defining a fake database
+            fake_database = copy.deepcopy(self.fake_database)
+            dataset_id = fake_database.get('2')['dataset_id']
+
+            # action
+            self.dataset_manager.modify_database_info(dataset_id, new_dataset)
+
+            # checks
+            # check that correct calls are made
+            tinydb_update_patch.assert_called_once_with(new_dataset,
+                                                        Query().dataset_id == dataset_id)
+            # check database status after updating
+            # first entry in database should be left unchanged ...
+            self.assertEqual(fake_database.get('1'), self.fake_database.get('1'))
+            # ... whereas second entry should be updated with variable `new_dataset`
+            self.assertNotEqual(fake_database.get('2'), self.fake_database.get('2'))
+            self.assertEqual(fake_database.get('2'), new_dataset)
+
+            tinydb_update_patch.reset_mock()
+
+
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
+    def test_dataset_manager_20_modify_database_info_errpr(self,
+                                                     conflicting_tags_patch):
+        """
+        Tests modify_database_info (error case scenario),
+        where one replaces an existing dataset by another one
+        """
+        def conflicting_tags_side_effect(tags):
+            return [{'dataset_id': 'one dataset is conflicting', 'name': 'fake dataset with conflicting tags'}]
+
+        conflicting_tags_patch.side_effect = conflicting_tags_side_effect
+
+        new_dataset_list = [
+            {
+                "name": "anther_test",
+                "data_type": "csv",
+                "tags": [ "other_tags"],
+                "description": "another_description",
+                "shape": [2000, 2],
+                "path": "/path/to/my/other/data",
+                "dataset_id": "dataset_9876",
+                "dtypes": ["int64", "float64"]
+            },
+            {
+                "tags": self.fake_database['2']['tags']
+            },
+            {
+                "tags": self.fake_database['1']['tags'][:-1] + ['yet another tag']
+            },
+        ]
+
+        for new_dataset in new_dataset_list:
+            # defining a fake database
+            fake_database = copy.deepcopy(self.fake_database)
+            dataset_id = fake_database.get('2')['dataset_id']
+
+            # action + check
+            with self.assertRaises(FedbiomedDatasetManagerError):
+                self.dataset_manager.modify_database_info(dataset_id, new_dataset)
 
 
     @patch('tinydb.table.Table.all')
-    def test_dataset_manager_21_list_my_data(self,
+    def test_dataset_manager_22_list_my_data(self,
                                              query_all_patch):
         """
         Checks `list_my_data` method in the normal case scenario
@@ -688,7 +740,7 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.load_default_database')
-    def test_dataset_manager_22_load_as_dataloader_default(self,
+    def test_dataset_manager_23_load_as_dataloader_default(self,
                                                         load_default_database_patch):
         """
         Tests `load_as_dataloader` method where  the input
@@ -718,7 +770,7 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.load_images_dataset')
-    def test_dataset_manager_23_load_as_dataloader_images(self, load_images_dataset_patch):
+    def test_dataset_manager_24_load_as_dataloader_images(self, load_images_dataset_patch):
         """
         Tests `load_as_dataloader` method where  the input
         dataset is a images dataset
@@ -749,7 +801,7 @@ class TestDatasetManager(unittest.TestCase):
     @patch('fedbiomed.node.dataset_manager.DatasetManager.read_csv')
     @patch('os.path.isfile')
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
-    def test_dataset_manager_24_load_data_file(self,
+    def test_dataset_manager_25_load_data_file(self,
                                             search_by_tags_patch,
                                             os_isfile_patch,
                                             read_csv_patch
@@ -816,7 +868,7 @@ class TestDatasetManager(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.path.isfile')
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
-    def test_dataset_manager_25_load_data_folder(self,
+    def test_dataset_manager_26_load_data_folder(self,
                                               search_by_tags_patch,
                                               os_isfile_patch,
                                               os_isdir_patch,
@@ -855,7 +907,7 @@ class TestDatasetManager(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.load_data(tags, mode='pandas')
 
-    def test_dataset_manager_26_load_data_exception(self):
+    def test_dataset_manager_27_load_data_exception(self):
         """
         Tests if an exception is raised when passing an
         unknown mode to `load_data` method
@@ -867,7 +919,7 @@ class TestDatasetManager(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.load_data(tags, mode='unknown_mode')
 
-    def test_dataset_manager_27_load_existing_mednist_dataset(self):
+    def test_dataset_manager_28_load_existing_mednist_dataset(self):
         """
         Tests case where one is loading mednist dataset without downloading it
         """
@@ -928,7 +980,7 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.urlretrieve')
-    def test_dataset_manager_28_download_extrat_mednist(self,
+    def test_dataset_manager_29_download_extrat_mednist(self,
                                                         urlretrieve_patch):
         """
         Tests the correct process of data download and extraction
@@ -969,7 +1021,7 @@ class TestDatasetManager(unittest.TestCase):
                 if i % 2 != 0:
                     label += 1
 
-    def test_dataset_manager_29_load_mednist_database_exception(self):
+    def test_dataset_manager_30_load_mednist_database_exception(self):
         """
         Tests if exception `FedbiomedDatasetManagerError` is triggered
         when mednist dataset folder is empty
@@ -984,7 +1036,7 @@ class TestDatasetManager(unittest.TestCase):
             # and checking if method raises FedbiomedDatasetManagerError
             self.dataset_manager.load_mednist_database(self.tempdir)
 
-    def test_dataset_manager_30_obfuscate_private_information(self):
+    def test_dataset_manager_31_obfuscate_private_information(self):
         """Tests if error is raised if dataset is not parsable when calling `obfuscate_privte_information"""
         metadata_with_private_info  = [{
             'path': 'private/info',
@@ -1008,7 +1060,7 @@ class TestDatasetManager(unittest.TestCase):
             _ = DatasetManager.obfuscate_private_information([*metadata_with_private_info, 'non-dict-like'])
 
     @patch('os.path.isdir')
-    def test_dataset_manager_31_data_loading_plan_save(self, patch_isdir):
+    def test_dataset_manager_32_data_loading_plan_save(self, patch_isdir):
         """Tests that DatasetManager correctly saves a DataLoadingPlan"""
         patch_isdir.return_value = True
         from test_data_loading_plan import LoadingBlockForTesting
