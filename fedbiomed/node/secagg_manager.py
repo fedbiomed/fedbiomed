@@ -8,13 +8,13 @@ from typing import Union, List
 
 from tinydb import TinyDB, Query
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.environ import environ
 
 
-class SecaggManager(ABC):
+class BaseSecaggManager(ABC):
     """Manage a node secagg element database
     """
     def __init__(self):
@@ -73,7 +73,7 @@ class SecaggManager(ABC):
         return element
 
     @abstractmethod
-    def get(self, secagg_id: str, *args):
+    def get(self, secagg_id: str, **kwargs):
         """Search for a data entry in node secagg element database"""
 
     def _add_generic(self, secagg_id: str, parties: List[str], specific: dict):
@@ -106,7 +106,7 @@ class SecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)    
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], *args):
+    def add(self, secagg_id: str, parties: List[str], context: str, **kwargs):
         """Add a new data entry in node secagg element database"""
 
     def _remove_generic(self, secagg_id: str) -> bool:
@@ -138,11 +138,11 @@ class SecaggManager(ABC):
         return True
 
     @abstractmethod
-    def remove(self, secagg_id: str, *args) -> bool:
+    def remove(self, secagg_id: str, **kwargs) -> bool:
         """Remove a data entry from node secagg element database"""
 
 
-class SecaggServkeyManager(SecaggManager):
+class SecaggServkeyManager(BaseSecaggManager):
     """Manage the node server key secagg element database table
     """
     def __init__(self):
@@ -154,7 +154,7 @@ class SecaggServkeyManager(SecaggManager):
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggServkey', cache_size=0)
 
-    def get(self, secagg_id: str, job_id: str) -> Union[dict, None]:
+    def get(self, secagg_id: str, **kwargs) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
         Check that there is at most one entry with this unique secagg ID.
@@ -172,6 +172,9 @@ class SecaggServkeyManager(SecaggManager):
         Raises:
             FedbiomedSecaggError: the entry is associated with another job
         """
+
+        job_id = kwargs.get("job_id")
+
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
@@ -183,7 +186,7 @@ class SecaggServkeyManager(SecaggManager):
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_share: str):
+    def add(self, secagg_id: str, parties: List[str], context: str, **kwargs):
         """Add a new data entry for a context element in the servkey table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -192,16 +195,18 @@ class SecaggServkeyManager(SecaggManager):
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
             job_id: ID of the job to which this secagg context element is attached
-            servkey_share: server key part held by this party
+            context: server key part held by this party
         """
+        job_id = kwargs.get('job_id')
+
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         self._add_generic(
             secagg_id,
             parties,
-            {'job_id': job_id, 'servkey_share': servkey_share }
+            {'job_id': job_id, 'servkey_share': context}
         )
 
-    def remove(self, secagg_id: str, job_id: str) -> bool:
+    def remove(self, secagg_id: str, **kwargs) -> bool:
         """Remove data entry for this `secagg_id` from the server key table
 
         Check that the job ID for the table entry and the current job match  
@@ -214,6 +219,8 @@ class SecaggServkeyManager(SecaggManager):
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
         """
+        job_id = kwargs.get('job_id')
+
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
@@ -226,7 +233,7 @@ class SecaggServkeyManager(SecaggManager):
         return self._remove_generic(secagg_id)
 
 
-class SecaggBiprimeManager(SecaggManager):
+class SecaggBiprimeManager(BaseSecaggManager):
     """Manage the node biprime secagg element database table
     """
     def __init__(self):
@@ -238,7 +245,7 @@ class SecaggBiprimeManager(SecaggManager):
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggBiprime', cache_size=0)
 
-    def get(self, secagg_id: str) -> Union[dict, None]:
+    def get(self, secagg_id: str, **kwargs) -> Union[dict, None]:
         """Search for data entry with given `secagg_id` in the biprime table
 
         Check that there is at most one entry with this unique secagg ID.
@@ -253,7 +260,13 @@ class SecaggBiprimeManager(SecaggManager):
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         return self._get_generic(secagg_id)
 
-    def add(self, secagg_id: str, parties: List[str], biprime: str):
+    def add(
+            self,
+            secagg_id: str,
+            parties: List[str],
+            context: str,
+            **kwargs,
+    ) -> None:
         """Add a new data entry for a context element in the biprime table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -261,13 +274,14 @@ class SecaggBiprimeManager(SecaggManager):
         Args:
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
-            biprime: the (full) biprime number shared with other parties
+            context: the (full) biprime number shared with other parties
+            job_id: Non-used
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         self._add_generic(
             secagg_id,
             parties,
-            {'biprime': biprime}
+            {'biprime': context}
         )
 
     def remove(self, secagg_id: str) -> bool:
@@ -282,3 +296,31 @@ class SecaggBiprimeManager(SecaggManager):
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         return self._remove_generic(secagg_id)
+
+
+class SecaggManager:
+
+    element2class = {
+        SecaggElementTypes.SERVER_KEY.name: SecaggServkeyManager,
+        SecaggElementTypes.BIPRIME.name: SecaggBiprimeManager
+    }
+
+    def __init__(self, element):
+        self._element = element
+
+    def __call__(self, **kwargs):
+
+        if self._element in [m.value for m in SecaggElementTypes]:
+            element = SecaggElementTypes(self._element)
+        else:
+            error_msg = f'{ErrorNumbers.FB321.value}: received bad delete message: ' \
+                        f'incorrect `element` {self._element}'
+            logger.error(error_msg)
+            raise FedbiomedSecaggError(error_msg)
+
+        try:
+            return SecaggManager.element2class[element.name]()
+        except Exception as e:
+            raise FedbiomedSecaggError(
+                f"Can not instantiate secure aggregation manager"
+            )

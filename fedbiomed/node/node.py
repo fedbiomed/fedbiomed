@@ -22,8 +22,8 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
-from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.node.secagg import SecaggSetup
+from fedbiomed.node.secagg_manager import SecaggManager
 
 import validators
 
@@ -174,20 +174,15 @@ class Node:
         Args:
             msg: `SecaggDeleteRequest` message object to parse
         """
-        # 1. Parse message content
 
-        # we don't want to check (try/except) that msg is a properly formatted
-        # SecaggRequest message, we rely on Message() for that
-        researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
-        sequence = msg.get_param('sequence')
-        element = msg.get_param('element')
-        job_id = msg.get_param('job_id')
 
-        if element in [m.value for m in SecaggElementTypes]:
-            element = SecaggElementTypes(element)
-        else:
-            errmess = f'{ErrorNumbers.FB321.value}: received bad delete message: incorrect `element` {element}'
+        delete_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
+
+        try:
+            secagg_manager = SecaggManager(**delete_arguments)()
+        except FedbiomedError as e:
+            errmess = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
             logger.error(errmess)
             return self.send_error(
                 errnum=ErrorNumbers.FB321,
@@ -195,58 +190,31 @@ class Node:
                 researcher_id=researcher_id
             )
 
-        # 2. Instantiate secagg manager for this context element & delete
-        element2class = {
-            'SERVER_KEY': SecaggServkeyManager,
-            'BIPRIME': SecaggBiprimeManager
-        }
+        try:
+            removed = secagg_manager.remove(secagg_id=delete_arguments.get('secagg_id'),
+                                            job_id=delete_arguments.get('job_id'))
+            message = 'Delete request is successful'
+        except Exception as e:
+            errmess = f"{ErrorNumbers.FB321}: error during secagg delete on node_id={environ['NODE_ID']} " \
+                      f'secagg_id={secagg_id}: {e}'
+            logger.error(errmess)
+            return self.send_error(
+                errnum=ErrorNumbers.FB321,
+                extra_msg=errmess,
+                researcher_id=researcher_id
+            )
 
-        if element.name in element2class.keys():
-            try:
-                # arguments depend on element type
-                args = {'secagg_id': secagg_id}
-                if element.name == 'SERVER_KEY':
-                    args['job_id'] = job_id
+        # reply to delete request
+        if not removed:
+            message = f"{ErrorNumbers.FB321}: no such secagg context element in node database for " \
+                      f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
 
-                # remove from database
-                secagg_manager = element2class[element.name]()
-                removed = secagg_manager.remove(**args)
-
-                # reply to delete request
-                if not removed:
-                    message = f"{ErrorNumbers.FB321}: no such secagg context element in node database for " \
-                              f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
-                    logger.error(message)
-                else:
-                    message = ''
-                return self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'researcher_id': researcher_id,
-                            'secagg_id': secagg_id,
-                            'sequence': sequence,
-                            'success': removed,
-                            'node_id': environ['NODE_ID'],
-                            'msg': message,
-                            'command': 'secagg-delete'
-                        }).get_dict())
-            except Exception as e:
-                # bad secagg delete request
-                errmess = f"{ErrorNumbers.FB321}: error during secagg delete on node_id={environ['NODE_ID']} " \
-                          f'secagg_id={secagg_id}: {e}'
-        else:
-            errmess = f'{ErrorNumbers.FB321}: bad secagg delete request message ' \
-                      f"received by {environ['NODE_ID']}: no such element {element.name}"
-
-        # failed secagg delete request
-        logger.error(errmess)
         return self.reply({
-                    'researcher_id': researcher_id,
+                    'researcher_id': msg.get_param('researcher_id'),
                     'secagg_id': secagg_id,
-                    'sequence': sequence,
-                    'success': False,
-                    'node_id': environ['NODE_ID'],
-                    'msg': errmess,
+                    'sequence': msg.get_param('sequence'),
+                    'success': removed,
+                    'msg': message,
                     'command': 'secagg-delete'
                 })
 
@@ -416,7 +384,10 @@ class Node:
 
         """
         try:
-            reply = NodeMessages.reply_create(msg).get_dict()
+            reply = NodeMessages.reply_create(
+                {'node_id': environ['NODE_ID'],
+                 **msg}
+            ).get_dict()
         except FedbiomedMessageError as e:
             self.send_error(extra_msg=f"Can not reply due to incorrect message type {e}")
 
@@ -439,4 +410,4 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum, extra_msg=extra_msg, researcher_id=researcher_id)
+        self.messaging.send_error(errnum=errnum, extra_msg=extra_msg, researcher_id=researcher_id)

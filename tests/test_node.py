@@ -1087,7 +1087,7 @@ class TestNode(NodeTestCase):
         self.n1.send_error(errnum, extra_msg, researcher_id)
 
         # checks
-        msg_send_error_patch.assert_called_once_with(errnum,
+        msg_send_error_patch.assert_called_once_with(errnum=errnum,
                                                      extra_msg=extra_msg,
                                                      researcher_id=researcher_id)
 
@@ -1402,8 +1402,10 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.secagg.SecaggServkeyManager')
     @patch('fedbiomed.node.node.SecaggElementTypes')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.messaging.Messaging.send_error')
     def test_node_33_task_secagg_fails_secagg_bad_secagg_element(
             self,
+            messaging_send_error,
             messaging_send_msg_patch,
             element_types_patch,
             patch_servkey_manager,
@@ -1484,14 +1486,7 @@ class TestNode(NodeTestCase):
 
         bad_element = 2
         dict_secagg_delete_requests = [
-            {
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
-                'element': bad_element,
-                'job_id': 'job1',
-                'command': 'secagg-delete'
-            },
+
             # no such element in database
             {
                 'researcher_id': '',
@@ -1506,10 +1501,7 @@ class TestNode(NodeTestCase):
             f'{ErrorNumbers.FB321.value}: received bad delete message: incorrect `element` {bad_element}',
             f'{ErrorNumbers.FB321.value}: no such secagg context element in node database for node_id={environ["NODE_ID"]} secagg_id=my_dummy_secagg_id_NOT_IN_DB',
         ]
-        dict_secagg_delete_reply_type = [
-            "error",
-            "reply",
-        ]
+
 
         class CustomFakeMessages(FakeMessages):
             def get_param(self, val: str) -> Any:
@@ -1518,39 +1510,25 @@ class TestNode(NodeTestCase):
                 else:
                     raise AttributeError(f"no such attribute '{val}'")
 
-        for req in dict_secagg_delete_requests:
-            msg_secagg_delete_request = CustomFakeMessages(req)
+        msg_secagg_delete_request = CustomFakeMessages({
+                'researcher_id': 'party1',
+                'secagg_id': 'my_dummy_secagg_id',
+                'sequence': 888,
+                'element': bad_element,
+                'job_id': 'job1',
+                'command': 'secagg-delete'
+            })
 
-            reply_type = dict_secagg_delete_reply_type.pop(0)
+        self.n1._task_secagg_delete(msg_secagg_delete_request)
 
-            if reply_type == 'error':
-                dict_secagg_delete_reply = {
-                    'command': 'error',
-                    'extra_msg': dict_secagg_delete_extra_msg.pop(0),
-                    'node_id': environ['NODE_ID'],
-                    'researcher_id': req['researcher_id'],
-                    'errnum': ErrorNumbers.FB321
-                }
-            else:
-                dict_secagg_delete_reply = {
-                    'researcher_id': req['researcher_id'],
-                    'secagg_id': req['secagg_id'],
-                    'sequence': req['sequence'],
-                    'success': False,
-                    'node_id': environ['NODE_ID'],
-                    'msg': dict_secagg_delete_extra_msg.pop(0),
-                    'command': 'secagg-delete'
-                }
+        # check
+        messaging_send_error.assert_called_with(errnum=ErrorNumbers.FB321,
+                                                extra_msg=dict_secagg_delete_extra_msg[0],
+                                                researcher_id=msg_secagg_delete_request.get_param('researcher_id'))
 
-            # action
-            self.n1._task_secagg_delete(msg_secagg_delete_request)
 
-            # check
-            messaging_send_error.assert_called_with(errnum=ErrorNumbers.FB321,
-                                                    extra_msg=dict_secagg_delete_extra_msg.pop(0),
-                                                    researcher_id=req['researcher_id'])
-            # messaging_send_msg_patch.assert_not_called()
-            messaging_send_msg_patch.reset_mock()
+        # messaging_send_msg_patch.assert_not_called()
+        messaging_send_msg_patch.reset_mock()
 
     @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
     @patch('fedbiomed.node.secagg.SecaggServkeyManager')

@@ -32,6 +32,7 @@ CManager = CertificateManager(
 
 SKManager = SecaggServkeyManager()
 
+
 class BaseSecaggSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
@@ -158,7 +159,6 @@ class BaseSecaggSetup(ABC):
                 'secagg_id': self._secagg_id,
                 'sequence': self._sequence,
                 'success': success,
-                'node_id': environ['NODE_ID'],
                 'msg': message,
                 'command': 'secagg'
             }
@@ -344,8 +344,8 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
 class SecaggSetup:
 
     element2class = {
-        'SERVER_KEY': SecaggServkeySetup,
-        'BIPRIME': SecaggBiprimeSetup
+        SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
+        SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup
     }
 
     def __init__(self, element, **kwargs):
@@ -359,8 +359,6 @@ class SecaggSetup:
             element = SecaggElementTypes(self._element)
         else:
             raise FedbiomedSecaggError(f"Received bad request message: incorrect `element` {self._element}")
-
-        element = SecaggElementTypes(element)
 
         try:
             return SecaggSetup.element2class[element.name](**self.kwargs)
