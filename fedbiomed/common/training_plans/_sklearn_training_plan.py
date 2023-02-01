@@ -9,6 +9,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from fedbiomed.common.models.model import SkLearnModel
 
 import joblib
 import numpy as np
@@ -50,7 +51,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model = self._model_cls()
+        self._model = SkLearnModel(self._model_cls)
         self._model_args = {}  # type: Dict[str, Any]
         self._training_args = {}  # type: Dict[str, Any]
         self._param_list = []  # type: List[str]
@@ -83,6 +84,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+
         self._model_args = model_args
         self._aggregator_args = aggregator_args or {}
         self._model_args.setdefault("verbose", 1)
@@ -97,11 +99,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         }
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
-        self.set_init_params()
+        self._model.set_init_params()
 
-    @abstractmethod
-    def set_init_params(self) -> None:
-        """Initialize the model's trainable parameters."""
+    # @abstractmethod
+    # def set_init_params(self) -> None:
+    #     """Initialize the model's trainable parameters."""
 
     def set_data_loaders(
             self,
@@ -158,7 +160,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Scikit-learn model instance
         """
-        return self._model
+        return self._model.model
 
     def get_model_params(self) -> Dict:
         return self.after_training_params()
@@ -407,4 +409,5 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             dict[str, np.ndarray]: the trained parameters to aggregate.
         """
-        return {key: getattr(self._model, key) for key in self._param_list}
+        #return {key: getattr(self._model, key) for key in self._param_list}
+        return self._model.get_weights()

@@ -20,6 +20,7 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.models.model import Model
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
 
@@ -56,6 +57,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.global_model: Model = None
 
     @abstractmethod
     def post_init(

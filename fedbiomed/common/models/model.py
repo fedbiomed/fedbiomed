@@ -9,8 +9,10 @@ from declearn.optimizer import Optimizer
 from fedbiomed.common.exceptions import FedbiomedModelError
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.neural_network import MLPClassifier
 import torch
 from declearn.model.torch import TorchVector
+
 
 
 class Model:
@@ -81,35 +83,60 @@ class TorchModel(Model):
         with torch.no_grad():
             pred = self.model(inputs) 
         return pred.numpy()
-    
-    
-class SkLearnModel(Model):
+
+
+
+class SkLearnModel():
+    def __init__(self, model):
+        
+        self._instance = Models[model.__name__](model())
+        
+     
+    def __getattr__(self, item: str):
+
+        """Wraps all functions/attributes of factory class members.
+
+        Args:
+             item: Requested item from class
+
+        Raises:
+            FedbiomedDataManagerError: If the attribute is not implemented
+
+        """
+
+        try:
+            return self._instance.__getattribute__(item)
+        except AttributeError:
+            raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
+        
+        
+class BaseSkLearnModel(Model):
     model = None
     default_lr_init: float = .1
     default_lr: str = 'constant'
     batch_size: int
-    _is_declearn_optim: bool
+    is_declearn_optim: bool
+    param_list: List[str] = NotImplemented
     def __init__(
         self,
         model: BaseEstimator,
-        param_list: List[str],
-        is_declearn_optim: bool
+
     ) -> None:
         """Instantiate the wrapper over a scikit-learn BaseEstimator."""
         if not isinstance(model, BaseEstimator):
-            raise FedbiomedModelError(f"invalid argument for `model`: expecting a BaseEstimator, but got {type(model)}")
+            raise FedbiomedModelError(f"invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}")
         self.model = model
-        if len(param_list) == 0:
-            raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
-        self.param_list = param_list
+        # if len(param_list) == 0:
+        #     raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
+        # self.param_list = param_list
         self.batch_size: int = 0
         
+    def init_training(self):
         self.param: Dict[str, np.ndarray] = {k: getattr(self._model, k) for k in self.param_list}
         self.grads: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
-        self._is_declearn_optim = is_declearn_optim
-        if is_declearn_optim:
-            self._set_raw_lrate()
+        if self.is_declearn_optim:
+            self.set_learning_rate()
         
 
     def get_weights(self, return_type: Callable = None) -> Any:
@@ -124,9 +151,9 @@ class SkLearnModel(Model):
             weights = return_type(weights)
         return weights
 
-    def apply_updates(self, updates: NumpyVector) -> None:
+    def apply_updates(self, updates: Union[NumpyVector, Dict[str, np.ndarray]]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
-        self.model.n_iter_ -= 1
+        
         for key, val in updates.coefs.items():
             setattr(self.model, key, val)
         self.model.n_iter_ += 1    
@@ -136,19 +163,20 @@ class SkLearnModel(Model):
         return self.model.predict(inputs)
     
     def train(self, inputs: np.ndarray, targets: np.ndarray):
+
         self.batch_size += inputs.shape[0]
         self.model.partial_fit(inputs, targets)
         for key in self.param_list:
             self.grads[key] += getattr(self.model, key)
             setattr(self.model, key, self.param[key])
-        
+        self.model.n_iter_ -= 1
     
     def get_gradients(self, return_type: Callable = None) -> Any:
         super().get_weights(return_type=return_type)
         self.model.n_iter_ -= 1
         gradients: Dict[str, np.ndarray] = {}
-        if self._is_declearn_optim:
-            adjust = self.batch_size * self._get_raw_lrate()
+        if self.is_declearn_optim:
+            adjust = self.batch_size * self.get_learning_rate()[0]
             for key in self.param_list:
                 gradients[key] = (self.get_weights() - self.grads[key]) / adjust
         else:
@@ -158,32 +186,98 @@ class SkLearnModel(Model):
         if return_type is not None:
             gradients = return_type(gradients)
         return gradients
-        
+    
+    
+    def get_params(self) -> Dict[str, Any]:
+        return self.model.get_params()
+
+    def set_params(self, params):
+        self.model.set_params(**params)
+
+    @abstractmethod
     def set_init_params(self):
-        # for multi classifiers
         pass
     
     @abstractmethod
-    def _get_raw_lrate(self):
+    def get_learning_rate(self) -> List[float]:
         pass
     
     @abstractmethod
-    def _set_raw_lrate(self):
+    def set_learning_rate(self):
         pass
 
-class SGDSkLearnModel(SkLearnModel):
-    def _get_raw_lrate(self):
-        return self.model.eta0
+
+# TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
+# TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
+
+# ---- toolbox classes for getting learning rate and setting initial model parameters
+class RegressorSkLearnModel(BaseSkLearnModel):
+    _is_regression: bool = True
+    def set_init_params(self, model_args: Dict[str, Any]):
+        """Initialize the model's trainable parameters."""
+        init_params = {
+            'intercept_': np.array([0.]),
+            'coef_': np.array([0.] * model_args['n_features'])
+        }
+        self.param_list = list(init_params.keys())
+        for key, val in init_params.items():
+            setattr(self.model, key, val)
+
+
+class ClassifierSkLearnModel(BaseSkLearnModel):
+    _is_classification: bool = True
+    def set_init_params(self, model_args: Dict[str, Any]) -> None:
+        """Initialize the model's trainable parameters."""
+        # Set up zero-valued start weights, for binary of multiclass classif.
+        n_classes = model_args["n_classes"]
+        if n_classes == 2:
+            init_params = {
+                "intercept_": np.zeros((1,)),
+                "coef_": np.zeros((1, model_args["n_features"]))
+            }
+        else:
+            init_params = {
+                "intercept_": np.zeros((n_classes,)),
+                "coef_": np.zeros((n_classes, model_args["n_features"]))
+            }
+        # Assign these initialization parameters and retain their names.
+        self.param_list = list(init_params.keys())
+        for key, val in init_params.items():
+            setattr(self.model, key, val)
+        # Also initialize the "classes_" slot with unique predictable labels.
+        # FIXME: this assumes target values are integers in range(n_classes).
+        setattr(self.model, "classes_", np.arange(n_classes))
+
+class SGDSkLearnModel(BaseSkLearnModel):
+    def get_learning_rate(self) -> List[float]:
+        return [self.model.eta0]
     
-    def _set_raw_lrate(self):
+    def set_learning_rate(self):
         self.model.eta0 = self.default_lr_init
         self.model.learning_rate = self.default_lr
 
-
-class MLPSklearnModel(SkLearnModel):  # just for sake of demo
-    def _get_raw_lrate(self):
-        return self.model.learning_rate_init
+class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
+    def get_learning_rate(self) -> List[float]:
+        return [self.model.learning_rate_init]
     
-    def _set_raw_lrate(self):
+    def set_learning_rate(self):
         self.model.learning_rate_init = self.default_lr_init
         self.model.learning_rate = self.default_lr
+        
+
+   
+class SGDClassiferSKLearnModel(ClassifierSkLearnModel, SGDSkLearnModel):
+    pass 
+
+class MLPClassfierSKLearnModel(ClassifierSkLearnModel, MLPSklearnModel):
+    pass
+
+class SGDRegressorSKLearnModel(RegressorSkLearnModel, SGDSkLearnModel):
+    pass
+
+
+Models = {
+    SGDClassifier.__name__: SGDClassiferSKLearnModel ,
+    MLPClassifier.__name__: MLPClassfierSKLearnModel,
+    SGDRegressor.__name__: SGDRegressorSKLearnModel
+}
