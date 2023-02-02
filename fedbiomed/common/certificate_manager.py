@@ -243,7 +243,6 @@ class CertificateManager:
                 f"directory or it is not existing. {path_ips}"
             )
 
-        print(parties)
 
         path_certificates = os.path.abspath(path_certificates)
         path_ips = os.path.abspath(path_ips)
