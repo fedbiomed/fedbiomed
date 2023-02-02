@@ -409,6 +409,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params_url='string_param',
             timing={"t0": 0.0, "t1": 1.0},
+            sample_size=123,
             msg='message_in_a_bottle',
             command='do_it')
 
@@ -485,6 +486,7 @@ class TestMessage(unittest.TestCase):
             params_url='string_param',
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
+            sample_size=None,
             command='do_it',
             extra_param='dont_know_what_to_do_with_you')
 
@@ -1662,6 +1664,7 @@ class TestMessage(unittest.TestCase):
             "params_url": 'string_param',
             "timing": {"t0": 0.0, "t1": 1.0},
             "msg": 'message_in_a_bottle',
+            "sample_size": 100,
             "command": 'train'}
 
         r = message.ResearcherMessages.reply_create(params)
