@@ -64,6 +64,12 @@ class NodeEnviron:
         self._values['TRAINING_PLAN_APPROVAL'] = True
         self._values['HASHING_ALGORITHM'] = 'SHA256'
 
+        self._values['MPSPDZ_IP'] = 'localhost'
+        self._values['MPSPDZ_PORT'] = 1111
+
+        self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
+        self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
+
     def __getitem__(self, key):
         return self._values[key]
 
