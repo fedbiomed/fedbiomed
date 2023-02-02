@@ -611,6 +611,7 @@ class TrainReply(Message):
     dataset_id: str
     params_url: str
     timing: dict
+    sample_size: (int, type(None))
     msg: str
     command: str
 

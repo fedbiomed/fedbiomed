@@ -26,35 +26,7 @@ class TestAggregator(ResearcherTestCase):
     def tearDown(self):
         pass
 
-    def test_aggregator_01_normalize_weights(self):
-
-        for i in range(0, len(self.weights)):
-
-            results = Aggregator.normalize_weights(self.weights[i])
-
-            # results has the same size than input
-            self.assertEqual(len(results), len(self.weights[i]))
-
-            # sum of results[] must be equal tu 1.0
-            sum = 0.0
-            for j in range(0, len(results)):
-                sum = sum + results[j];
-
-            # results is a normalized list of values
-            self.assertEqual(sum, 1.0)
-
-        # special case: empty list
-        weights = []
-        results = Aggregator.normalize_weights(weights)
-        self.assertEqual(len(results), 0)
-
-        # special case: null content
-        weights = [0.0, 0.0]
-        results = Aggregator.normalize_weights(weights)
-        self.assertEqual(len(results), len(weights))
-        self.assertEqual(results[0], 1.0 / len(weights))
-
-    def test_aggregator_02_save_state(self):
+    def test_aggregator_01_save_state(self):
 
         expected_state = {'class': 'Aggregator',
                           'module': 'fedbiomed.researcher.aggregators.aggregator',
@@ -63,7 +35,7 @@ class TestAggregator(ResearcherTestCase):
         state = self.aggregator.save_state()
         self.assertDictEqual(expected_state, state, 'State of aggregator has not been saved correctly')
 
-    def test_aggregator_03_load_state(self):
+    def test_aggregator_02_load_state(self):
 
         state = {
             'parameters': {'param' : True}
