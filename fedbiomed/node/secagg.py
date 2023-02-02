@@ -3,7 +3,7 @@
 
 """Secure Aggregation setup on the node"""
 import shutil
-from typing import List
+from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
 import time
@@ -31,6 +31,7 @@ CManager = CertificateManager(
 )
 
 SKManager = SecaggServkeyManager()
+BPrimeManager = SecaggBiprimeManager()
 
 
 class BaseSecaggSetup(ABC):
@@ -42,9 +43,10 @@ class BaseSecaggSetup(ABC):
             self,
             researcher_id: str,
             secagg_id: str,
-            job_id: str,
             sequence: int,
-            parties: List[str]):
+            parties: List[str],
+            job_id: Union[str, None] = None,
+    ):
         """Constructor of the class.
 
         Args:
@@ -59,7 +61,7 @@ class BaseSecaggSetup(ABC):
         """
         # check arguments
         self._v = Validator()
-        for param, type in [(researcher_id, str), (secagg_id, str), (job_id, str), (sequence, int)]:
+        for param, type in [(researcher_id, str), (secagg_id, str), (sequence, int)]:
             try:
                 self._v.validate(param, type)
             except ValidatorError as e:
@@ -98,7 +100,9 @@ class BaseSecaggSetup(ABC):
         self._job_id = job_id
         self._sequence = sequence
         self._parties = parties
+        self._element = None
 
+    @property
     def researcher_id(self) -> str:
         """Getter for `researcher_id`
 
@@ -107,6 +111,7 @@ class BaseSecaggSetup(ABC):
         """
         return self._researcher_id
 
+    @property
     def secagg_id(self) -> str:
         """Getter for `secagg_id`
 
@@ -115,6 +120,7 @@ class BaseSecaggSetup(ABC):
         """
         return self._secagg_id
 
+    @property
     def job_id(self) -> str:
         """Getter for `job_id`
 
@@ -123,6 +129,7 @@ class BaseSecaggSetup(ABC):
         """
         return self._job_id
 
+    @property
     def sequence(self) -> str:
         """ Getter for `sequence`
 
@@ -131,13 +138,16 @@ class BaseSecaggSetup(ABC):
         """
         return self._sequence
 
-    @abstractmethod
+    @property
     def element(self) -> Enum:
         """Getter for secagg context element type
 
         Returns:
             secagg context element name
         """
+
+        return self._element
+
 
     def _create_secagg_reply(self, message: str = '', success: bool = False) -> dict:
         """Create reply message for researcher after secagg setup phase.
@@ -163,8 +173,6 @@ class BaseSecaggSetup(ABC):
                 'command': 'secagg'
             }
 
-
-
     @abstractmethod
     def setup(self) -> SecaggReply:
         """Set up a secagg context element.
@@ -182,9 +190,10 @@ class SecaggServkeySetup(BaseSecaggSetup):
             self,
             researcher_id: str,
             secagg_id: str,
-            job_id: str,
             sequence: int,
-            parties: List[str]):
+            parties: List[str],
+            job_id: str,
+    ):
         """Constructor of the class.
 
         Args:
@@ -197,21 +206,14 @@ class SecaggServkeySetup(BaseSecaggSetup):
         Raises:
             FedbiomedSecaggError: bad argument type or value 
         """
-        super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
+        super().__init__(researcher_id, secagg_id,  sequence, parties, job_id)
 
-        if not self._job_id:
+        self._element = SecaggElementTypes.SERVER_KEY
+
+        if not self._job_id or not isinstance(self._job_id, str):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be a non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
-
-
-    def element(self) -> Enum:
-        """Getter for secagg context element type
-
-        Returns:
-            secagg context element name
-        """
-        return SecaggElementTypes.SERVER_KEY
 
     def setup(self) -> dict:
         """Set up the server key secagg context element.
@@ -288,9 +290,10 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             self,
             researcher_id: str,
             secagg_id: str,
-            job_id: str,
             sequence: int,
-            parties: List[str]):
+            parties: List[str],
+            job_id: Union[str, None] = None):
+
         """Constructor of the class.
 
         Args:
@@ -303,20 +306,12 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, job_id, sequence, parties)
+        super().__init__(researcher_id, secagg_id, sequence, parties, job_id)
 
-        if self._job_id:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be an empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+        self._element = SecaggElementTypes.BIPRIME
 
-    def element(self) -> Enum:
-        """Getter for secagg context element type
-
-        Returns:
-            secagg context element name
-        """
-        return SecaggElementTypes.BIPRIME
+        # Force Job id to be None
+        self._job_id = None
 
     def setup(self) -> SecaggReply:
         """Set up the biprime secagg context element.
@@ -324,8 +319,8 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         Returns:
             message to return to the researcher after the setup
         """
-        manager = SecaggBiprimeManager()
-        context = manager.get(self._secagg_id)
+
+        context = BPrimeManager.get(self._secagg_id)
 
         if context is None:
             # create a context if it does not exist yet
@@ -334,7 +329,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
                         f"secagg_id='{self._secagg_id}'")
 
-            manager.add(self._secagg_id, self._parties, biprime)
+            BPrimeManager.add(self._secagg_id, self._parties, biprime)
 
         logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
         msg = self._create_secagg_reply('', True)
@@ -364,5 +359,5 @@ class SecaggSetup:
             return SecaggSetup.element2class[element.name](**self.kwargs)
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"Can not instantiate secure aggregation setup with argument {self.kwargs}"
+                f"Can not instantiate secure aggregation setup with argument {self.kwargs}. Error: {e}"
             )
