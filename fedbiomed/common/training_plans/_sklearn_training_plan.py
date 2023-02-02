@@ -84,22 +84,24 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-
-        self._model_args = model_args
+        model_args.setdefault("verbose", 1)
+        self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
-        self._model_args.setdefault("verbose", 1)
+        
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
         # Add dependencies
         self._configure_dependencies()
         # Override default model parameters based on `self._model_args`.
         params = {
-            key: self._model_args.get(key, val)
+            key: model_args.get(key, val)
             for key, val in self._model.get_params().items()
         }
+        print("PARAMS", params )
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
-        self._model.set_init_params()
+        # TODO: raise error if 
+        self._model.set_init_params(model_args)
 
     # @abstractmethod
     # def set_init_params(self) -> None:
@@ -135,7 +137,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        return self._model_args
+        return self._model.model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.
@@ -146,7 +148,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         return self._training_args
 
     def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
-        lr = self._model_args.get(lr_key)
+        lr = self._model.model_args.get(lr_key)
         if lr is None:
             # get the default value
             lr = self._model.__dict__.get(lr_key)
@@ -184,11 +186,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run preprocesses
         self._preprocess()
-
-        if not isinstance(self._model, BaseEstimator):
+        #import remote_pdb; remote_pdb.set_trace()
+        if not isinstance(self.model(), BaseEstimator):
             msg = (
                 f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
-                f"estimator, but is of type {type(self._model)}"
+                f"estimator, but is of type {type(self.model())}"
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
@@ -335,19 +337,20 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Notes:
             Save can be called from Job or Round.
-            * From Round it is called with params (as a complex dict).
-            * From Job it is called with no params in constructor, and
+            * From [`Round`][fedbiomed.node.round.Round] it is called with params (as a complex dict).
+            * From [`Job`][fedbiomed.researcher.job.Job] it is called with no params in constructor, and
                 with params in update_parameters.
         """
         # Optionally overwrite the wrapped model's weights.
         if params:
             if isinstance(params.get('model_params'), dict):  # in a Round
                 params = params["model_params"]
-            for key, val in params.items():
-                setattr(self._model, key, val)
+            # for key, val in params.items():
+            #     setattr(self._model, key, val)
+            self._model.set_weights(params)
         # Save the wrapped model (using joblib, hence pickle).
         with open(filename, "wb") as file:
-            joblib.dump(self._model, file)
+            joblib.dump(self.model(), file)
 
     def load(
             self,
@@ -371,8 +374,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Notes:
             Load can be called from a Job or Round:
-            * From Round it is called to return the model.
-            * From Job it is called with to return its parameters dict.
+            * From [`Round`][fedbiomed.node.round.Round] it is called to return the model.
+            * From [`Job`][fedbiomed.researcher.job.Job] it is called with to return its parameters dict.
 
         Returns:
             Dictionary with the loaded parameters.
@@ -388,12 +391,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        self._model = model
+        self._model.model = model
         # Optionally return the model's pseudo state dict instead of it.
         if to_params:
-            params = {k: getattr(self._model, k) for k in self._param_list}
+            params = self._model.get_weights()
             return {"model_params": params}
-        return self._model
+        return self.model()
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type """

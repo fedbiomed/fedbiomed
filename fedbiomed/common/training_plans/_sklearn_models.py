@@ -76,7 +76,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
         report = False
-        if (history_monitor is not None) and hasattr(self._model, "verbose"):
+        if (history_monitor is not None) and self._model.verbose:
             report = True
             loss_name = getattr(self._model, "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
@@ -94,7 +94,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 inputs, target = next(training_data_iter)
                 batch_size = self._infer_batch_size(inputs)
                 iterations_accountant.increment_sample_counters(batch_size)
-                loss = self._train_over_batch(inputs, target, report)
+                loss = self._train_over_batch(inputs, target, batch_size, report)
                 # Optionally report on the batch training loss.
                 if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
                     # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
@@ -130,6 +130,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             self,
             inputs: np.ndarray,
             target: np.ndarray,
+            batch_size: int,
             report: bool
         ) -> float:
         """Perform gradient descent over a single data batch.
@@ -141,32 +142,41 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         Args:
             inputs: 2D-array of batched input features.
             target: 2D-array of batched target labels.
+            batch_size: size of the batch, usually length of inputs.
             report: Whether to capture and parse the training
                 loss printed out to the console by the scikit-learn
                 model. If False, or if parsing fails, return a nan.
         """
-        b_len = inputs.shape[0]
+        #b_len = inputs.shape[0]
+        b_len = batch_size
         # Gather start weights of the model and initialize zero gradients.
         param = {k: getattr(self._model, k) for k in self._param_list}
         grads = {k: np.zeros_like(v) for k, v in param.items()}
+        self._model.init_training()
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
         stdout = []  # type: List[List[str]]
         for idx in range(b_len):
             # Compute updated weights based on the sample. Capture loss prints.
-            with capture_stdout() as console:
-                self._model.partial_fit(inputs[idx:idx+1], target[idx])
-            stdout.append(console)
+            # with capture_stdout() as console:
+            #     self._model.partial_fit(inputs[idx:idx+1], target[idx])
+            # stdout.append(console)
             # Accumulate updated weights (weights + sum of gradients).
             # Reset the model's weights and iteration counter.
-            for key in self._param_list:
-                grads[key] += getattr(self._model, key)
-                setattr(self._model, key, param[key])
-            self._model.n_iter_ -= 1
+            # for key in self._param_list:
+            #     grads[key] += getattr(self._model, key)
+            #     setattr(self._model, key, param[key])
+            # self._model.n_iter_ -= 1
+            self._model.train(inputs[idx:idx+1], target[idx], stdout)
+        
         # Compute the batch-averaged updated weights and apply them.
         # Update the `param` values, and reset gradients to zero.
-        for key in self._param_list:
-            setattr(self._model, key, grads[key] / b_len)
-        self._model.n_iter_ += 1
+        # for key in self._param_list:
+        #     setattr(self._model, key, grads[key] / b_len)
+        # self._model.n_iter_ += 1
+        
+        # TODO: update the following with Optimizer class
+        gradients: Dict[str, np.ndarray] = self._model.get_gradients()
+        self._model.apply_updates(gradients)
         # Optionally report the training loss over this batch.
         if report:
             try:

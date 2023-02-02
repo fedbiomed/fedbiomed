@@ -1,7 +1,10 @@
 
 
 from abc import abstractmethod
-from typing import Any, Callable, Dict, List, Union
+from io import StringIO
+import sys
+from typing import Any, Callable, Dict, List, Union, Iterator
+from contextlib import contextmanager
 
 import numpy as np
 from declearn.model.sklearn import NumpyVector
@@ -28,6 +31,11 @@ class Model:
     @abstractmethod
     def load(self, path_file:str):
         pass
+    
+    @abstractmethod
+    def set_weights(self, weights: Any):
+        pass
+
     def get_weights(self, return_type: Callable = None):
         if not (return_type is None or callable(return_type)):
             raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
@@ -84,7 +92,26 @@ class TorchModel(Model):
             pred = self.model(inputs) 
         return pred.numpy()
 
+@contextmanager
+def capture_stdout() -> Iterator[List[str]]:
+    """Context manager to capture console outputs (stdout).
 
+    Returns:
+        A list, empty at first, that will be populated with the line-wise
+        strings composing the captured stdout upon exiting the context.
+    """
+    output = []  # type: List[str]
+    stdout = sys.stdout
+    str_io = StringIO()
+
+    # Capture stdout outputs into the StringIO. Return yet-empty list.
+    try:
+        sys.stdout = str_io
+        yield output
+    # Restore sys.stdout, then parse captured outputs for loss values.
+    finally:
+        sys.stdout = stdout
+        output.extend(str_io.getvalue().splitlines())
 
 class SkLearnModel():
     def __init__(self, model):
@@ -100,16 +127,16 @@ class SkLearnModel():
              item: Requested item from class
 
         Raises:
-            FedbiomedDataManagerError: If the attribute is not implemented
+            AttributeError: If the attribute is not implemented
 
         """
 
         try:
             return self._instance.__getattribute__(item)
         except AttributeError:
-            raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
+            raise AttributeError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
         
-        
+
 class BaseSkLearnModel(Model):
     model = None
     default_lr_init: float = .1
@@ -117,6 +144,9 @@ class BaseSkLearnModel(Model):
     batch_size: int
     is_declearn_optim: bool
     param_list: List[str] = NotImplemented
+    model_args: Dict[str, Any] = {}
+    verbose: bool = NotImplemented
+    grads: Dict[str, np.ndarray] = NotImplemented
     def __init__(
         self,
         model: BaseEstimator,
@@ -130,15 +160,25 @@ class BaseSkLearnModel(Model):
         #     raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
         # self.param_list = param_list
         self.batch_size: int = 0
+        self.is_declearn_optim = False  # TODO: to be changed when implementing declearn optimizers
+        
+        if hasattr(model, "verbose"):
+            self.verbose = True
+        else:
+            self.verbose = False
         
     def init_training(self):
-        self.param: Dict[str, np.ndarray] = {k: getattr(self._model, k) for k in self.param_list}
+        self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}
         self.grads: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
         if self.is_declearn_optim:
             self.set_learning_rate()
         
 
+    def set_weights(self, weights: Dict[str, np.ndarray]):
+        for key, val in weights.items():
+                setattr(self.model, key, val)
+        
     def get_weights(self, return_type: Callable = None) -> Any:
         
         """Return a NumpyVector wrapping the model's parameters."""
@@ -154,6 +194,8 @@ class BaseSkLearnModel(Model):
     def apply_updates(self, updates: Union[NumpyVector, Dict[str, np.ndarray]]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
         
+        if isinstance(updates, dict):
+            updates = NumpyVector(updates)
         for key, val in updates.coefs.items():
             setattr(self.model, key, val)
         self.model.n_iter_ += 1    
@@ -162,17 +204,21 @@ class BaseSkLearnModel(Model):
     def predict(self, inputs: np.ndarray) -> np.ndarray:
         return self.model.predict(inputs)
     
-    def train(self, inputs: np.ndarray, targets: np.ndarray):
-
+    def train(self, inputs: np.ndarray, targets: np.ndarray, stdout: List[str] = None):
+        if self.grads is NotImplemented:
+            raise FedbiomedModelError("Training has not been instantiated: please run `init_training` method beforehand")
         self.batch_size += inputs.shape[0]
-        self.model.partial_fit(inputs, targets)
+        with capture_stdout() as console:
+            self.model.partial_fit(inputs, targets)
+        if stdout is not None:
+            stdout.append(console)
         for key in self.param_list:
             self.grads[key] += getattr(self.model, key)
             setattr(self.model, key, self.param[key])
         self.model.n_iter_ -= 1
     
     def get_gradients(self, return_type: Callable = None) -> Any:
-        super().get_weights(return_type=return_type)
+        super().get_gradients(return_type=return_type)
         self.model.n_iter_ -= 1
         gradients: Dict[str, np.ndarray] = {}
         if self.is_declearn_optim:
@@ -188,10 +234,13 @@ class BaseSkLearnModel(Model):
         return gradients
     
     
-    def get_params(self) -> Dict[str, Any]:
-        return self.model.get_params()
+    def get_params(self, value: Any = None) -> Dict[str, Any]:
+        if value is not None:
+            return self.model.get_params(value)
+        else: 
+            return self.model.get_params()
 
-    def set_params(self, params):
+    def set_params(self, **params):
         self.model.set_params(**params)
 
     @abstractmethod
@@ -265,7 +314,7 @@ class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
         self.model.learning_rate = self.default_lr
         
 
-   
+# --------- Models with appropriate methods ----- 
 class SGDClassiferSKLearnModel(ClassifierSkLearnModel, SGDSkLearnModel):
     pass 
 
