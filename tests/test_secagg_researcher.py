@@ -6,274 +6,192 @@ from unittest.mock import patch
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
 #############################################################
+import fedbiomed.researcher.secagg
 
+from fedbiomed.researcher.environ import environ
 from testsupport.fake_requests import FakeRequests
 from fedbiomed.common.exceptions import FedbiomedSecaggError
+from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
+from fedbiomed.researcher.responses import Responses
 
+class BaseTestCaseSecaggContext(ResearcherTestCase):
 
-class TestSecaggResearcher(ResearcherTestCase):
-    """ Test for researcher's secagg module"""
+    def setUp(self) -> None:
+        self.patch_cm = patch.object(fedbiomed.researcher.secagg, "CManager")
+        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPC")
 
-    def setUp(self):
-        # Define patchers that are not modified during the test
-        self.patchers = [
-            patch('fedbiomed.researcher.requests.Requests.__init__',
-                  return_value=None),
-        ]
-        # Note: we could mock Validate, but we considered OK to use the real class
+        self.mock_cm = self.patch_cm.start()
+        self.mock_mpc = self.patch_mpc.start()
 
-        for patcher in self.patchers:
-            patcher.start()
-
-        print(self.env["RESEARCHER_ID"])
+        # Set MOCK variables
+        self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
+        self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
+        type(self.mock_mpc).mpc_data_dir = unittest.mock.PropertyMock(
+            return_value='dummy/path/to/output'
+        )
+        type(self.mock_mpc).tmp_dir = unittest.mock.PropertyMock(
+            return_value=environ["TMP_DIR"]
+        )
 
     def tearDown(self) -> None:
-        for patcher in self.patchers:
-            patcher.stop()
+        self.patch_cm.stop()
+        self.patch_mpc.stop()
 
-    def test_secagg_01_init(self):
-        """Instantiate secagg classes"""
 
-        # Correct secagg classes instantiations
+class TestBaseSecaggContext(ResearcherTestCase):
 
-        #
-        parties_set = [
-            [ '', '', ''],
-            [ 'party1', 'party2', 'party3'],
-            [ 'party1', 'party2', 'party3', 'party4'],
-            [ 'party1', 'party2', 'party3', 'party4', 'party5', 'party6', 'party7', 'party8', 'party9', 'party10'],
-        ]
-        job_ids = ['JOB_ID', 'another string but not empty']
-        for parties in parties_set:
-            for job_id in job_ids:
-                # test
-                servkey = SecaggServkeyContext(parties, job_id)
-                biprime = SecaggBiprimeContext(parties)
+    def setUp(self):
+        self.abstract_methods_patcher = patch.multiple(SecaggContext, __abstractmethods__=set())
+        self.abstract_methods_patcher.start()
 
-                # check
-                self.assertEqual(servkey.context(), None)
-                self.assertTrue(isinstance(servkey.secagg_id(), str))
-                self.assertFalse(servkey.status())
-                self.assertEqual(biprime.context(), None)
-                self.assertTrue(isinstance(biprime.secagg_id(), str))
-                self.assertFalse(biprime.status())
+        self.p_requests = patch.object(fedbiomed.researcher.secagg, "Requests")
 
-        # Bad secagg classes instantiations
+        self.m_requests = self.p_requests.start()
 
-        # prepare
-        parties_set = [
-            [],
-            [ 'party1'],
-            [ 'party1', 'party2'],
-            [ 'party1', 'party2', None],
-            [ 'party1', 'party2', True],
-            [ 'party1', 'party2', 3],
-            [ 'party1', 'party2', ['party3']],            
-        ]       
-        for parties in parties_set:
-            # check
-            with self.assertRaises(FedbiomedSecaggError):
-                SecaggServkeyContext(parties, 'JOB_ID')
-            with self.assertRaises(FedbiomedSecaggError):
-                SecaggBiprimeContext(parties)            
+        self.secagg_context = SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
+                                            job_id="job-id")
 
-        job_id_set = [
-            '',
-            ['not a string but an array'],
-            123,
-            None,
-            True,
-            {'not a string'},
-        ]
-        for job_id in job_id_set:
-            # check
-            with self.assertRaises(FedbiomedSecaggError):
-                SecaggServkeyContext(['p1', 'p2', 'p3'], job_id)            
+    def tearDown(self) -> None:
+        self.abstract_methods_patcher.stop()
+        self.p_requests.stop()
 
-    def test_secagg_02_dummy_abstract(self):
-        """Dummy test for abstract methods"""
+    def test_base_secagg_context_01_init(self):
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggContext(parties=['party1', 'party2', 'party3'],
+                          job_id="job-id")
 
-        # Want a dummy test for abstract method (unused) code to keep code coverage
-        patcher = patch.multiple(SecaggContext, __abstractmethods__=set())
-        patcher.start()
-        dummy = SecaggContext(['un', 'deux', 'trois'], 'JOB_ID')
-        dummy._payload()
-        patcher.stop()
+        # Less than 3 parties
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggContext(parties=[environ["ID"], 'party2'],
+                          job_id="job-id")
 
-        # no check, just for coverage
+        # Invalid type parties
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggContext(parties=[environ["ID"], 12, 12],
+                          job_id="job-id")
+
+        # Job id is not string
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
+                          job_id=111)
+
+    def test_secagg_context_02_getters_setters(self):
+        """Tests setters and getters """
+
+        self.assertEqual(self.secagg_context.job_id, "job-id")
+        self.assertIsInstance(self.secagg_context.secagg_id, str)
+        self.assertFalse(self.secagg_context.status)
+        self.assertIsNone(self.secagg_context.context)
+
+        self.secagg_context.job_id = "new-job-id"
+        self.assertEqual(self.secagg_context.job_id, "new-job-id")
+
+        with self.assertRaises(FedbiomedSecaggError):
+            self.secagg_context.job_id = 1111
 
     @patch('time.sleep')
-    @patch('fedbiomed.researcher.requests.Requests.send_message')
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_secagg_03_setup_delete(
+    def test_secagg_context_03_secagg_round(
             self,
-            patch_requests_get_responses,
-            patch_requests_send_message,
             patch_time_sleep):
         """Setup then delete a secagg class"""
 
-        # prepare
-        parties = [self.env['RESEARCHER_ID'], 'party2', 'party3']
-        job_id = 'JOB_ID'
+        reply = {'researcher_id': environ["ID"],
+                 'secagg_id': self.secagg_context.secagg_id,
+                 'sequence': 123,
+                 'success': True,
+                 'node_id': "party2",
+                 'msg': 'Fake request',
+                 'command': 'secagg'}
 
-        fake_requests = FakeRequests()
-        patch_requests_send_message.side_effect = fake_requests.send_message
-        patch_requests_get_responses.side_effect = fake_requests.get_responses
+        reply2 = copy.deepcopy(reply)
+        reply2["node_id"] = "party3"
 
-        #
-        # 1. Correctly setup and delete
-        #
+        # Patch response
+        self.m_requests.return_value.get_responses.return_value = Responses([reply, reply2])
+        self.m_requests.return_value.send_message.return_value = 123
+        self.secagg_context._element = SecaggElementTypes.SERVER_KEY
 
-        # time.sleep: just need a dummy patch to avoid waiting
+        with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
+            mock_payload.return_value = ("KEY", True)
+            result = self.secagg_context.setup(timeout=1)
+            self.assertTrue(result)
 
-        # test with no established context, then with already existing context
-        for i in range(2):
-            # test setup
-            secagg = SecaggServkeyContext(parties, job_id)
-            secagg.setup(timeout=5)
-            biprime = SecaggBiprimeContext(parties)
-            biprime.setup(timeout=5)
+            with self.assertRaises(FedbiomedSecaggError):
+                reply2["node_id"] = "party5"
+                self.secagg_context.setup(timeout=1)
 
-            # check setup
-            self.assertTrue(secagg.status())
-            self.assertEqual(secagg.context()['msg'], 'Not implemented yet')
-            self.assertTrue(biprime.status())
-            self.assertEqual(biprime.context()['msg'], 'Not implemented yet')
+            with self.assertRaises(FedbiomedSecaggError):
+                reply2["researcher_id"] = "party556"
+                self.secagg_context.setup(timeout=1)
 
-        # test on established context, then with no existing context
-        for i in range(2):
-            # test delete 
-            secagg.delete(timeout=1)
-            biprime.delete(timeout=1)
+            with self.assertRaises(FedbiomedSecaggError):
+                reply2["researcher_id"] = "party556"
+                self.secagg_context.setup(timeout="!23")
 
-            # check delete 
-            self.assertFalse(secagg.status())
-            self.assertEqual(secagg.context(), None)
-            self.assertFalse(biprime.status())
-            self.assertEqual(biprime.context(), None)
+            with self.assertRaises(FedbiomedSecaggError):
+                reply2["researcher_id"] = environ["ID"]
+                reply2["node_id"] = "party3"
+                reply2["sequence"] = 000
+                self.secagg_context.setup(timeout=1)
 
-        #
-        # 2. Setup and delete with errors
-        #
-
-        # prepare
-        customs = [
-            {'researcher_id': 'ANOTHER_RESEARCHER'},
-            {'secagg_id': 'ANOTHER_SECAGG'},
-            {'node_id': 'ANOTHER_NODE'},
-            {'sequence': 12345}
-        ]
-        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
-
-        # test and check, on non-established then on established context
-        for i in range(2):
-            for context in contexts:
-                if i == 1:
-                    fake_requests.set_replies_custom_fields({})
-                    context.setup()
-                for custom in customs:
-                    fake_requests.set_replies_custom_fields(custom)
-
-                    # delete can fail only if there is a context to delete
-                    if context.status():
-                        with self.assertRaises(FedbiomedSecaggError):
-                            context.delete(timeout=0.1)
-                    # need to delete before failed setup (else, status is False)
-                    with self.assertRaises(FedbiomedSecaggError):
-                        context.setup(timeout=0.1)
-
-    @patch('fedbiomed.researcher.requests.Requests.send_message')
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_secagg_04_setup_delete_timeout(
-            self,
-            patch_requests_get_responses,
-            patch_requests_send_message):
-        """Timeout during secagg class setup"""
-
-        # prepare
-        parties = [self.env['RESEARCHER_ID'], 'party2', 'party3']
-        job_id = 'JOD ID'
-
-        fake_requests = FakeRequests()
-        patch_requests_send_message.side_effect = fake_requests.send_message
-        patch_requests_get_responses.side_effect = fake_requests.get_responses
-
-        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
-        timeouts = [0.1, 0.2, 0.45]
-
-        # test and check
-        for t in timeouts:
-            for context in contexts:
-                with self.assertRaises(FedbiomedSecaggError):
-                    context.setup(timeout=t)
-
-    def test_secagg_05_setup_delete_badparams(self):
-        """Try setup or delete a secagg class giving bad params"""
-
-        # setup
-        parties = [ self.env['RESEARCHER_ID'], 'party2', 'party3']
-        job_id = 'JOB ID'
-        contexts = [SecaggServkeyContext(parties, job_id), SecaggBiprimeContext(parties)]
-        values = ['2', '2.3', '', [2], {'3': 3}]
-
-        # check and test
-        for context in contexts:
-            for value in values:
-                with self.assertRaises(FedbiomedSecaggError):
-                    context.setup(value)
-                with self.assertRaises(FedbiomedSecaggError):
-                    context.delete(value)
+            with self.assertRaises(FedbiomedSecaggError):
+                reply2["secagg_id"] = "non-id"
+                reply2["sequence"] = 123
+                self.secagg_context.setup(timeout=1)
 
     @patch('time.sleep')
-    @patch('fedbiomed.researcher.requests.Requests.send_message')
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_secagg_06_breakpoint(
+    def test_secagg_context_03_secagg_delete(
             self,
-            patch_requests_get_responses,
-            patch_requests_send_message,
             patch_time_sleep):
+        """Setup then delete a secagg class"""
+
+        reply = {'researcher_id': environ["ID"],
+                 'secagg_id': self.secagg_context.secagg_id,
+                 'sequence': 123,
+                 'success': True,
+                 'node_id': "party2",
+                 'msg': 'Fake request',
+                 'command': 'secagg-delete'}
+
+        reply2 = copy.deepcopy(reply)
+        reply2["node_id"] = "party3"
+
+        # Patch response
+        self.m_requests.return_value.get_responses.return_value = Responses([reply, reply2])
+        self.m_requests.return_value.send_message.return_value = 123
+        self.secagg_context._element = SecaggElementTypes.SERVER_KEY
+
+        with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
+            self.secagg_context._status = True
+            mock_payload.return_value = ("KEY", True)
+            result = self.secagg_context.delete(timeout=1)
+            self.assertTrue(result)
+
+            self.secagg_context._status = False
+            result = self.secagg_context.delete(timeout=1)
+            self.assertFalse(result)
+
+            with self.assertRaises(FedbiomedSecaggError):
+                self.secagg_context.delete(timeout="oops")
+
+    def test_secagg_06_breakpoint(
+            self):
         """Save and load breakpoint status for secagg class"""
 
-        # 1. Save breakpoint
+        expected_state = {
+            'class': type(self.secagg_context).__name__,
+            'module': self.secagg_context.__module__,
+            'secagg_id': self.secagg_context.secagg_id,
+            'job_id': self.secagg_context.job_id,
+            'parties': self.secagg_context.parties,
+            'researcher_id': self.env['RESEARCHER_ID'],
+            'status': self.secagg_context.status,
+            'context': self.secagg_context.context,
+        }
 
-        # prepare
-        parties = [self.env['RESEARCHER_ID'], 'node1', 'node2', 'node3']
-        job_id = 'JOB_ID'
-
-        # time.sleep: just need a dummy patch to avoid waiting
-
-        fake_requests = FakeRequests()
-        patch_requests_send_message.side_effect = fake_requests.send_message
-        patch_requests_get_responses.side_effect = fake_requests.get_responses
-
-        contexts = [
-            (SecaggServkeyContext(parties, job_id), False),
-            (SecaggBiprimeContext(parties), True)
-        ]
-
-        # test with no context, then with established context
-        for i in range(2):
-            for context, empty_job_id in contexts:
-                expected_state = {
-                    'class': type(context).__name__,
-                    'module': context.__module__,
-                    'secagg_id': context.secagg_id(),
-                    'job_id': job_id,
-                    'parties': parties,
-                    'researcher_id': self.env['RESEARCHER_ID'],
-                    'status': context.status(),
-                    'context': context.context(),
-                }
-                if empty_job_id:
-                    expected_state['job_id'] = ''
-
-                # test
-                state = context.save_state()
-                # check
-                self.assertEqual(state, expected_state)
-
-                context.setup()
+        state = self.secagg_context.save_state()
+        self.assertEqual(state, expected_state)
 
         # 2. Load complete breakpoint
         # nota: Cannot test content of complete state (not verified by function)
@@ -287,31 +205,94 @@ class TestSecaggResearcher(ResearcherTestCase):
             'status': False,
             'context': 'MY CONTEXT'
         }
-        contexts = [SecaggServkeyContext(parties, 'ANY_JOB_ID'), SecaggBiprimeContext(parties)]
 
-        # test with no context, then with established context
-        for i in range(2):
-            for context in contexts:
-                if range == 1:
-                    context.setup()
+        self.secagg_context.load_state(state)
 
-                # test
-                context.load_state(state)
-                # check
-                self.assertEqual(state['status'], context.status())
-                self.assertEqual(state['secagg_id'], context.secagg_id())
-                self.assertEqual(state['job_id'], context.job_id())
-                self.assertEqual(state['context'], context.context())
+        self.assertEqual(state['status'], self.secagg_context.status)
+        self.assertEqual(state['secagg_id'], self.secagg_context.secagg_id)
+        self.assertEqual(state['job_id'], self.secagg_context.job_id)
+        self.assertEqual(state['context'], self.secagg_context.context)
 
-        # 3. Load incomplete breakpoints
-        # nota: error not handled by Fed-BioMed for now
-        for context in contexts:
-            for k in state.keys():
-                tempo_state = copy.deepcopy(state)
-                del tempo_state[k]
 
-                with self.assertRaises(KeyError):
-                    context.load_state(tempo_state)
+class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
+                                                   job_id="job-id")
+        pass
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        pass
+
+    def test_servkey_context_01_payload(self):
+        """Tests failed init due to job id"""
+
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
+                                 job_id=None)
+
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
+                                 job_id="")
+
+    def test_servkey_context_02_payload(self):
+        with patch("builtins.open") as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = "key"
+
+            context, status = self.srvkey_context._payload()
+
+            self.mock_cm.write_mpc_certificates_for_experiment.assert_called_once_with(
+                path_certificates='dummy/path/to/output',
+                path_ips=environ["TMP_DIR"],
+                self_id=environ["ID"],
+                self_ip=environ["MPSPDZ_IP"],
+                self_port=environ["MPSPDZ_PORT"],
+                self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
+                self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
+                parties=[environ["ID"], 'party2', 'party3']
+            )
+
+            self.mock_mpc.exec_shamir.called_once_with(
+                party_number=0,
+                num_parties=3,
+                ip_addresses='dummy/ip'
+            )
+
+            self.assertEqual(context, "key")
+            self.assertEqual(status, True)
+
+            mock_open.side_effect = Exception
+            with self.assertRaises(FedbiomedSecaggError):
+                self.srvkey_context._payload()
+
+            self.mock_mpc.exec_shamir.side_effect = Exception
+            with self.assertRaises(FedbiomedSecaggError):
+                self.srvkey_context._payload()
+
+
+class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.biprime_context = SecaggBiprimeContext(
+            parties=[environ["ID"], 'party2', 'party3']
+        )
+
+        pass
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        pass
+
+    @patch("time.sleep")
+    def test_biprime_context_01_payload(self, mock_time):
+
+        context, status = self.biprime_context._payload()
+        self.assertDictEqual(context, {'msg': 'Not implemented yet'})
+        self.assertTrue(status)
+
 
 
 if __name__ == '__main__':  # pragma: no cover

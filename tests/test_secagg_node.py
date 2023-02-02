@@ -59,15 +59,15 @@ class TestBaseSecaggSetup(NodeTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             BaseSecaggSetup(**args)
 
-        # Invalid job_id type
-        args = deepcopy(self.args)
-        args["job_id"] = ["list"]
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
         # Invalid sequence
         args = deepcopy(self.args)
         args["sequence"] = "list"
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Invalid party
+        args = deepcopy(self.args)
+        args["parties"] = ["my researcher", "p2", 12]
         with self.assertRaises(FedbiomedSecaggError):
             BaseSecaggSetup(**args)
 
@@ -159,7 +159,20 @@ class TestSecaggServkey(SecaggTestCase):
     def tearDown(self) -> None:
         super().tearDown()
 
-    def test_secagg_servkey_setup_01_setup_server_key(self):
+    def test_secagg_servkey_setup_01_init(self):
+        """Tests failing due to job id"""
+
+        args = deepcopy(self.args)
+        args["job_id"] = None
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeySetup(**args)
+
+        args["job_id"] = ''
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeySetup(**args)
+
+
+    def test_secagg_servkey_setup_02_setup_server_key(self):
         """Test setup operation for servkey"""
 
         with patch("builtins.open") as mock_open:
@@ -187,7 +200,7 @@ class TestSecaggServkey(SecaggTestCase):
             with self.assertRaises(FedbiomedSecaggError):
                 self.secagg_servkey._setup_server_key()
 
-    def test_secagg_servkey_setup_02_setup(self):
+    def test_secagg_servkey_setup_03_setup(self):
 
         self.mock_skm.get.side_effect = Exception
         reply = self.secagg_servkey.setup()
@@ -296,8 +309,13 @@ class TestSecaggSetup(NodeTestCase):
         args["element"] = 2
         args["job_id"] = ""
         with self.assertRaises(FedbiomedSecaggError):
-            secagg_setup = SecaggSetup(**args)()
+            SecaggSetup(**args)()
 
+        # Raise element type
+        args["element"] = 0
+        args["job_id"] = 1234
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggSetup(**args)()
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

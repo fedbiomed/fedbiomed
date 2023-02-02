@@ -520,7 +520,7 @@ class SecaggRequest(Message):
     secagg_id: str
     sequence: int
     element: int
-    job_id: str
+    job_id: (str, type(None))
     parties: list
     command: str
 

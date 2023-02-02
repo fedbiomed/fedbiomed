@@ -88,6 +88,7 @@ class BaseSecaggSetup(ABC):
                 'at least 3 parties for secure aggregation'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+
         if researcher_id != parties[0]:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : ' \
                 'needs to be the same as the first secagg party'
