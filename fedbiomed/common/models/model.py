@@ -162,10 +162,10 @@ class BaseSkLearnModel(Model):
         self.batch_size: int = 0
         self.is_declearn_optim = False  # TODO: to be changed when implementing declearn optimizers
         
-        if hasattr(model, "verbose"):
-            self.verbose = True
-        else:
-            self.verbose = False
+        # if hasattr(model, "verbose"):
+        #     self.verbose = True
+        # else:
+        #     self.verbose = False
         
     def init_training(self):
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}

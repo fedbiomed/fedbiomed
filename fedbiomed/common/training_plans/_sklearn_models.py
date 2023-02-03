@@ -76,9 +76,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
         report = False
-        if (history_monitor is not None) and self._model.verbose:
+        if (history_monitor is not None) and hasattr(self.model(), "verbose"):
             report = True
-            loss_name = getattr(self._model, "loss", "")
+            loss_name = getattr(self.model(), "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
             record_loss = functools.partial(
                 history_monitor.add_scalar,
@@ -148,6 +148,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 model. If False, or if parsing fails, return a nan.
         """
         #b_len = inputs.shape[0]
+
         b_len = batch_size
         # Gather start weights of the model and initialize zero gradients.
         param = {k: getattr(self._model, k) for k in self._param_list}
@@ -204,6 +205,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             inputs: Batched input features.
             target: Batched target labels.
         """
+        #import remote_pdb; remote_pdb.set_trace()
         values = [self._parse_sample_losses(sample) for sample in stdout]
         losses = np.array(values)
         return float(np.mean(losses))
@@ -300,7 +302,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
-        if self._model_args["n_classes"] == 2:
+        if self._model.model_args["n_classes"] == 2:
             return super()._parse_batch_loss(stdout, inputs, target)
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.

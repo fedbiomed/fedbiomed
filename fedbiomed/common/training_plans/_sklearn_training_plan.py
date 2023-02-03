@@ -271,7 +271,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._is_classification and not hasattr(self._model, 'classes_'):
+        if self._is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self._model, 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
