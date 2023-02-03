@@ -14,7 +14,7 @@ import tempfile
 import time
 import uuid
 import importlib
-from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
+from typing import Any, Tuple, Union, Callable, List, Dict, Type
 
 import validators
 
@@ -376,9 +376,7 @@ class Job:
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
         for cli in self._nodes:
-            # TODO: tempo while fixing 395
-            #msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
-            msg['dataset_id'] = self._data.data()[cli][0]['dataset_id']
+            msg['dataset_id'] = self._data.data()[cli]['dataset_id']
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
