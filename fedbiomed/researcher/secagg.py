@@ -193,6 +193,8 @@ class SecaggContext(ABC):
         timeout = timeout or environ['TIMEOUT']
         start_time = time.time()
 
+        # FIXME: There are scenarios where key-share are calculated but it is lost on the
+        # researcher side
         sequence = {}
         for node in self._parties[1:]:
             sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
@@ -405,7 +407,7 @@ class SecaggServkeyContext(SecaggContext):
         """Researcher payload for server key secagg context element
 
         Returns:
-            a tuple of a `context` and a `status` for the server key context element
+            A tuple of a `context` and a `status` for the server key context element
         """
 
         ip_file, _ = CManager.write_mpc_certificates_for_experiment(

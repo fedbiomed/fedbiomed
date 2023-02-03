@@ -234,7 +234,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 self._setup_server_key()
             except FedbiomedError as e:
                 logger.debug(f"{e}")
-                return self._create_secagg_reply(f'Can not apply secure aggregation it might be due to unregistered'
+                return self._create_secagg_reply(f'Can not apply secure aggregation it might be due to unregistered '
                                                  f'certificate for the federated setup. Please see error: {e}', False)
             except Exception as e:
                 logger.debug(f"{e}")

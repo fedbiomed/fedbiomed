@@ -290,7 +290,7 @@ class CertificateManager:
                     remove_writen_files()
                     raise FedbiomedCertificateError(
                         f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Certificates  of "
-                        f"each federated training participant should be present. {self_id} should register certificate"
+                        f"each federated training participant should be present. {self_id} should register certificate "
                         f"of {party}."
                     )
 
