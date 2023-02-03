@@ -84,11 +84,11 @@ class TestBaseSecaggContext(ResearcherTestCase):
         self.assertFalse(self.secagg_context.status)
         self.assertIsNone(self.secagg_context.context)
 
-        self.secagg_context.job_id = "new-job-id"
+        self.secagg_context.set_job_id("new-job-id")
         self.assertEqual(self.secagg_context.job_id, "new-job-id")
 
         with self.assertRaises(FedbiomedSecaggError):
-            self.secagg_context.job_id = 1111
+            self.secagg_context.set_job_id(1111)
 
     @patch('time.sleep')
     def test_secagg_context_03_secagg_round(
