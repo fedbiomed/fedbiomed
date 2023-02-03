@@ -43,7 +43,10 @@ class FederatedDataSet:
                         # convert list of one dict to dict
                         data[node] = ds[0]
                     else:
-                        raise ValidatorError(f' {node} has {len(ds)} datasets instead of 1.')
+                        errmess = f'{ErrorNumbers.FB416.value}: {node} must have one unique dataset ' \
+                            f'but has {len(ds)} datasets.'
+                        logger.error(errmess)
+                        raise FedbiomedFederatedDataSetError(errmess)
         except ValidatorError as e:
             errmess = f'{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of ' \
                 f'(`list` of one) `dict`: {e}'
