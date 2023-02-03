@@ -149,7 +149,6 @@ class BaseSecaggSetup(ABC):
 
         return self._element
 
-
     def _create_secagg_reply(self, message: str = '', success: bool = False) -> dict:
         """Create reply message for researcher after secagg setup phase.
 
@@ -240,6 +239,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
             except Exception as e:
                 logger.debug(f"{e}")
                 return self._create_secagg_reply('Unexpected error occurred please report this to the node ower', False)
+        else:
+            logger.info(f"Node has key share for {self._secagg_id} is already existing for job {self._job_id}")
 
         return self._create_secagg_reply('Key share has been successfully created', True)
 
@@ -279,7 +280,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        SKManager.add(self._secagg_id, self._parties, self._job_id, key_share)
+        SKManager.add(self._secagg_id, self._parties, key_share, self._job_id)
         logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
