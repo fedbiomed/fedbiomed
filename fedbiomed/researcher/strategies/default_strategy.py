@@ -8,7 +8,7 @@ This strategy is used then user does not provide its own
 """
 
 import uuid
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -55,7 +55,11 @@ class DefaultStrategy(Strategy):
 
         return self._fds.node_ids()
 
-    def refine(self, training_replies: Responses, round_i: int) -> Tuple[List, List]:
+    def refine(
+            self,
+            training_replies: Responses,
+            round_i: int
+    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]], Dict[str, float]]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
@@ -66,7 +70,9 @@ class DefaultStrategy(Strategy):
                              'dataset_id': m['dataset_id'],
                              'node_id': m['node_id'],
                              'params_path': params_path,
-                             'params': params } )
+                             'params': params,
+                             'sample_size': sample_size
+                             } )
             round_i: Current round of experiment
 
         Returns:
@@ -83,15 +89,16 @@ class DefaultStrategy(Strategy):
         Raises:
             FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
                 - If not all nodes successfully completes training
+                - if a Node has not sent `sample_size` value in the TrainingReply, making it
+                impossible to compute aggregation weights.
         """
-        models_params = []
-        weights = []
-
         # check that all nodes answered
         cl_answered = [val['node_id'] for val in training_replies.data()]
-
         answers_count = 0
-        for cl in self.sample_nodes(round_i):
+
+        if self._sampling_node_history.get(round_i) is None:
+            raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
+        for cl in self._sampling_node_history[round_i]:
             if cl in cl_answered:
                 answers_count += 1
             else:
@@ -102,7 +109,7 @@ class DefaultStrategy(Strategy):
                              ")"
                              )
 
-        if len(self.sample_nodes(round_i)) != answers_count:
+        if len(self._sampling_node_history[round_i]) != answers_count:
             if answers_count == 0:
                 # none of the nodes answered
                 msg = ErrorNumbers.FB407.value
@@ -116,27 +123,35 @@ class DefaultStrategy(Strategy):
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
         all_success = True
+        model_params = {}
+        sample_sizes = {}
+        total_rows = 0
         for tr in training_replies:
             if tr['success'] is True:
-                model_params = {tr['node_id']: tr['params']}
-                models_params.append(model_params)
+
+                # TODO: Attach sample_size, weights and params in a single dict object
+                model_params[tr["node_id"]] = tr["params"]
+
+                if tr["sample_size"] is None:
+                    # if a Node `sample_size` is None, we cannot compute the weigths: in this case
+                    # return an error
+                    raise FedbiomedStrategyError(ErrorNumbers.FB402.value + f" : Node {tr['node_id']} did not return " +
+                                                 "any `sample_size` value (number of samples seen during one Round)," +
+                                                 " can not compute weigths for the aggregation. Aborting")
+                sample_sizes[tr["node_id"]] = tr["sample_size"]
+
+                total_rows += tr['sample_size']
                 self._success_node_history[round_i].append(tr['node_id'])
             else:
-                # node did not succeed
                 all_success = False
-                logger.error(ErrorNumbers.FB409.value +
-                             " (node = " +
-                             tr['node_id'] +
-                             ")"
-                             )
+                logger.error(f"{ErrorNumbers.FB409.value} (node = {tr['node_id']} )")
 
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
-        # so far, everything is OK
-        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
-        weights = [{key: val[0]["shape"][0] / totalrows} for (key, val) in self._fds.data().items()]
-        logger.info('Nodes that successfully reply in round ' +
-                    str(round_i) + ' ' +
-                    str(self._success_node_history[round_i]))
-        return models_params, weights
+        weights = {node_id: sample_size / total_rows if total_rows != 0 else 1 / len(sample_sizes)
+                   for node_id, sample_size in sample_sizes.items()}
+
+        logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
+
+        return model_params, weights

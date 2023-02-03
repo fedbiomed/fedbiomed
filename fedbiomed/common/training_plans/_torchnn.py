@@ -391,7 +391,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def training_routine(self,
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None,
-                         ):
+                         ) -> int:
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for validation specified in the
         # training routine
@@ -411,6 +411,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     GPU device if this GPU device is available. Default None.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
+        Returns:
+            Total number of samples observed during the training.
         """
 
         self._model.train()  # pytorch switch for training
@@ -487,7 +489,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 if self._dry_run:
                     self._model.to(self._device_init)
                     torch.cuda.empty_cache()
-                    return
+                    return iterations_accountant.num_samples_observed_in_total
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -495,6 +497,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._model.to(self._device_init)
         torch.cuda.empty_cache()
+
+        return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
         """Train the model over a single batch of data.

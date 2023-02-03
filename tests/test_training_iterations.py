@@ -178,6 +178,9 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
                 epoch_to_report = iter_accountant.reporting_on_epoch()
                 self.assertIsNone(epoch_to_report)
 
+        # testing the value of attribute (important since we need it for aggregator weights computation)
+        self.assertEqual(iter_accountant.num_samples_observed_in_total, tot_steps_counter * reference_batch_size)
+
         mock_training_plan.training_args.return_value = {
             'epochs': 2,
             'batch_maxnum': None,
@@ -200,6 +203,10 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
                 self.assertEqual(num_iter_max, reference_num_batches)
                 epoch_to_report = iter_accountant.reporting_on_epoch()
                 self.assertEqual(epoch, epoch_to_report)
+
+        # testing the value of attribute (important since we need it for aggregator weights computation)
+        self.assertEqual(iter_accountant.num_samples_observed_in_total, tot_steps_counter * reference_batch_size)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -148,7 +148,7 @@ $ ./scripts/fedbiomed_run node config another_config.ini start
 
 ```
 $ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
-$ ./scripts/fedbiomed_run researcher ip_address 192.168
+$ ./scripts/fedbiomed_run researcher ip_address 192.168 start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
@@ -160,7 +160,7 @@ If this option is given at the first launch or after a clean, it is saved in the
 * in a new terminal:
 
 ```
-$ ./scripts/fedbiomed_run researcher
+$ ./scripts/fedbiomed_run researcher start
 ```
 
 * this will launch a new jupyter notebook working in the **notebooks** repository. Some notebooks are available:

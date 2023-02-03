@@ -25,6 +25,11 @@ from fedbiomed.common.constants import DatasetTypes
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
+# Needed to access length of dataset from Round class
+class FakeLoader:
+    dataset = [1, 2, 3, 4, 5]
+
+
 class TestRound(NodeTestCase):
 
     # values and attributes for dummy classes
@@ -122,7 +127,7 @@ class TestRound(NodeTestCase):
         import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_split_test_train_data.return_value = (True, True)
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
 
         # test 1: case where argument `model_kwargs` = None
         # action!
@@ -193,7 +198,7 @@ class TestRound(NodeTestCase):
         import_module_patch.return_value = FakeModule
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_split_train_and_test_data.return_value = (True, True)
+        mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
 
         self.r1.training_kwargs = {}
         self.r1.dataset = {'path': 'my/dataset/path',
@@ -266,6 +271,7 @@ class TestRound(NodeTestCase):
         # create dummy_model
         dummy_training_plan_test = \
             "class MyTrainingPlan:\n" + \
+            "   dataset = [1,2,3,4]\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       self._kwargs = kwargs\n" + \
@@ -279,8 +285,8 @@ class TestRound(NodeTestCase):
             "   def training_routine(self, *args, **kwargs):\n" + \
             "       pass\n" + \
             "   def set_data_loaders(self, *args, **kwargs):\n" + \
-            "       self.testing_data_loader = True\n" + \
-            "       self.training_data_loader = True\n" + \
+            "       self.testing_data_loader = MyTrainingPlan\n" + \
+            "       self.training_data_loader = MyTrainingPlan\n" + \
             "       pass\n" + \
             "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \

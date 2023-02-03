@@ -187,7 +187,7 @@ EOF
         *|'')
             cat <<EOF
 usage: fedbiomed_run network (stop)
-       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run researcher [ip_address IP_ADDRESS] start
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]

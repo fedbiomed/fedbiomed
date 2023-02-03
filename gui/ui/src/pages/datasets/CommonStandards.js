@@ -118,7 +118,7 @@ export const CommonStandards = (props) => {
                 }
             }
         }else{
-            error = 'Please make sure all the fields has been field'
+            error = 'Please make sure all the fields has been filled'
         }
         return error
     }

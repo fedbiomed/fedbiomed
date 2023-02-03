@@ -17,6 +17,7 @@ def set_password_hash(password: str) -> str:
     """
     return sha512(password.encode('utf-8')).hexdigest()
 
+
 def get_node_id(config_file: str):
     """ This method parse given config file and returns node_id
         specified in the node config file.
@@ -36,7 +37,7 @@ def get_node_id(config_file: str):
             f'system {config_file}')
 
     # Get node id from config file 
-    node_id = cfg.get('default', 'node_id')
+    node_id = cfg.get('default', 'id')
 
     return node_id
 
