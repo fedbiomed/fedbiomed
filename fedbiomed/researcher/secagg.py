@@ -73,9 +73,10 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
+        self._job_id = None
 
         # set job ID using setter to validate
-        self.job_id = job_id
+        self.set_job_id(job_id)
 
     @property
     def parties(self) -> str:
@@ -123,8 +124,7 @@ class SecaggContext(ABC):
         """
         return self._context
 
-    @job_id.setter
-    def job_id(self, job_id: str) -> None:
+    def set_job_id(self, job_id: str) -> None:
         """Setter for secagg context element job_id
 
         Args:
