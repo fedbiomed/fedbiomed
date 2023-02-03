@@ -18,8 +18,10 @@ from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
-MPC = MPCController(tmp_dir=environ["TMP_DIR"],
-                    component_id=environ["ID"])
+MPC = MPCController(
+    tmp_dir=environ["TMP_DIR"],
+    component_id=environ["ID"]
+)
 
 CManager = CertificateManager(
     db_path=environ["DB_PATH"]
