@@ -371,8 +371,8 @@ class TestJob(ResearcherTestCase):
 
         self.job._nodes = ['node-1', 'node-2']
         self.fds.data = MagicMock(return_value={
-            'node-1': [{'dataset_id': '1234'}],
-            'node-2': [{'dataset_id': '12345'}]
+            'node-1': {'dataset_id': '1234'},
+            'node-2': {'dataset_id': '12345'}
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
