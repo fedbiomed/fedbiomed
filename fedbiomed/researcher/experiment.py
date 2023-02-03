@@ -1504,13 +1504,13 @@ class Experiment(object):
                 # a secagg servkey element must be attached to a job_id
                 if self._job:
                     self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
-            if self._secagg_servkey and not self._secagg_servkey.status():
+            if self._secagg_servkey and not self._secagg_servkey.status:
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
-            if not self._secagg_biprime.status():
+            if not self._secagg_biprime.status:
                 self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
+            if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:
                 self._use_secagg = True
                 logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:
