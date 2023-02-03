@@ -7,7 +7,7 @@ import fedbiomed.common.mpc_controller
 from unittest.mock import patch
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
-
+from fedbiomed.common.constants import ComponentType
 
 class TestMPCController(unittest.TestCase):
 
@@ -16,7 +16,8 @@ class TestMPCController(unittest.TestCase):
 
         self.mpc_controller = MPCController(
             tmp_dir=self.tmp_dir,
-            component_id="node-1"
+            component_type=ComponentType.NODE,
+            component_id="node-1",
         )
         pass
 

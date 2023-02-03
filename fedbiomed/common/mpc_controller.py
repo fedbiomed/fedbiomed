@@ -7,7 +7,7 @@ import subprocess
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.utils import get_fedbiomed_root
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ComponentType
 
 
 class MPCController:
@@ -15,6 +15,7 @@ class MPCController:
     def __init__(
             self,
             tmp_dir: str,
+            component_type: ComponentType,
             component_id: str,
     ) -> None:
         """
@@ -27,6 +28,7 @@ class MPCController:
 
         # Get root directory of fedbiomed
         self._root = get_fedbiomed_root()
+        self._component_type = component_type
 
         self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
         self._mpc_data_dir = os.path.join(self._root, 'modules', 'MP-SPDZ', 'Player-Data')
@@ -80,7 +82,8 @@ class MPCController:
         i_f_command = ["-if", input_file] if party_number != 0 else []
         o_f_command = ["-of", output_file] if party_number == 0 else []
 
-        command = ["shamir-server-key",
+        command = [self._component_type.name.lower(),
+                   "shamir-server-key",
                    "-pn", str(party_number),
                    "-nop", str(num_parties),
                    *i_f_command, *o_f_command,

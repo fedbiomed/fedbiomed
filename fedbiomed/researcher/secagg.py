@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 import time
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
@@ -20,6 +20,7 @@ from fedbiomed.researcher.requests import Requests
 
 MPC = MPCController(
     tmp_dir=environ["TMP_DIR"],
+    component_type=ComponentType.RESEARCHER,
     component_id=environ["ID"]
 )
 

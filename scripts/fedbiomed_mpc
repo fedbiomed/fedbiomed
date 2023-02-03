@@ -20,12 +20,39 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 programs_dir=$mpspdz_basedir/Programs/Source
 # ---------------------------------------------------------------------------------------------------------------
 
+fedbiomed_envs=(node researcher)
+fedbiomed_env=$1
+shift
+
+if [ -z "$fedbiomed_env" ]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_mpc node|researcher'"
+  exit 1
+fi
+
+# shellcheck disable=SC2076
+if [[ ! " ${fedbiomed_envs[*]} " =~ " $fedbiomed_env " ]]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}First argument of fedbiomed_mpc should be component type node|researcher. but got '$fedbiomed_env'"
+  exit 1
+fi
+
+
+# Activate conda environment ------------------------------------------------------------------------------------
+if ! eval "$(conda shell.bash hook)"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that 'conda' is installed and compatible with the current shell you are using"
+  exit 1
+fi
+
+if ! conda activate fedbiomed-"$fedbiomed_env"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that conda environment 'fedbiomed-$fedbiomed_env' is existing."
+  exit 1
+fi
 
 # TODO : remove conda env activation when integrating with `fedbiomed_run`
 #
-# Activate conda environment
-eval "$(conda shell.bash hook)"
-conda activate fedbiomed-researcher
 
 PROTOCOLS=(shamir-party)
 SCRIPTS=(server_key test_setup)
@@ -254,7 +281,7 @@ function execute_shamir_server_key(){
 
   # Compile server key MPC file --------------------------------------------------------------------------------------
   if [ -n "$COMPILE" ]; then
-    if ! "$basedir"/scripts/fedbiomed_mpc compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+    if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" compile --script server_key -N "$NUMBER_OF_PARTIES"; then
       error "Error while executing protocol '$PROTOCOL'. Please check the logs above"
     fi
   fi
@@ -284,7 +311,7 @@ function execute_shamir_server_key(){
 
   # If party is not zero it will have Input file
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
-      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
         -IF "$INPUT_FILE" \
         server_key \
@@ -292,7 +319,7 @@ function execute_shamir_server_key(){
 
   # If party is zero it should have Output file
   else
-      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
           -ip "$ASSIGNED_IPS" \
           -OF "$OUTPUT_FILE" \
           server_key \
@@ -306,6 +333,8 @@ function execute_shamir_server_key(){
 
 # Parsing arguments ---------------------------------------------------------------------------------------------
 case $1 in
+
+
 
   compile)
     while [[ $# -gt 0 ]]; do

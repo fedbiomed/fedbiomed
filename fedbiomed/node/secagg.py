@@ -10,7 +10,7 @@ import time
 import random
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.message import SecaggReply
 from fedbiomed.common.logger import logger
@@ -23,6 +23,7 @@ from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeMan
 
 MPC = MPCController(
     tmp_dir=environ["TMP_DIR"],
+    component_type=ComponentType.NODE,
     component_id=environ["ID"]
 )
 
