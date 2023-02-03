@@ -1132,7 +1132,10 @@ class TestNode(NodeTestCase):
              'sequence': 888,
              'success': False,
              'node_id': environ["ID"],
-             'msg': 'Can not create secure aggregation context',
+             'msg': 'Can not apply secure aggregation it might be due to unregistered certificate for the '
+                    'federated setup. Please see error: FB619: Certificate error: Certificate for party1 is '
+                    'not existing. Certificates  of each federated training participant should be present. '
+                    f'{environ["ID"]} should register certificate of party1.',
              'command': 'secagg'}
         )
         messaging_send_msg.reset_mock()
