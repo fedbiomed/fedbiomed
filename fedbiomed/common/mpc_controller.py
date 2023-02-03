@@ -1,6 +1,5 @@
 import os
 import subprocess
-from typing import Union
 
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.utils import get_fedbiomed_root
@@ -24,24 +23,28 @@ class MPCController:
         """
 
         # Get root directory of fedbiomed
-        root = get_fedbiomed_root()
+        self._root = get_fedbiomed_root()
 
-        self._mpc_script = os.path.join(root, 'scripts', 'fedbiomed_mpc')
-        self._mpc_data_dir = os.path.join(root, 'modules', 'MP-SPDZ', 'Player-Data')
+        self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
+        self._mpc_data_dir = os.path.join(self._root, 'modules', 'MP-SPDZ', 'Player-Data')
 
         if not os.path.isdir(self._mpc_data_dir):
             os.makedirs(self._mpc_data_dir)
 
         # Use tmp dir to write files
-        self.tmp_dir = os.path.join(tmp_dir, 'MPC', component_id)
+        self._tmp_dir = os.path.join(tmp_dir, 'MPC', component_id)
 
         # Create TMP dir for MPC logs if it is not existing
-        if not os.path.isdir(self.tmp_dir):
-            os.makedirs(self.tmp_dir)
+        if not os.path.isdir(self._tmp_dir):
+            os.makedirs(self._tmp_dir)
 
     @property
     def mpc_data_dir(self):
         return self._mpc_data_dir
+
+    @property
+    def tmp_dir(self):
+        return self._tmp_dir
 
     def exec_shamir(
             self,
@@ -49,36 +52,42 @@ class MPCController:
             num_parties: int,
             ip_addresses: str,
     ) -> str:
+        """Executes shamir protocol
+
+        Args:
+            party_number: The party number whose executing the protocol
+            num_parties: NUm of total parties participating to multi party computation
+            ip_addresses: The file path where IP addresses of the parties. This file is supposed
+                to respect the order of parties.
+
+        Returns:
+            Path to the file where the input value (key-share) of the parties or output value of the server(server key)
+                is written by the protocol.
         """
 
-        """
-
-        output_file = os.path.join(self.tmp_dir, f"Output")
-        input_file = os.path.join(self.tmp_dir, f"Input")
-
-        if party_number == 0 and output_file is None:
+        if not isinstance(num_parties, int) or num_parties < 3:
             raise FedbiomedMPCControllerError(
-                f"Party 0 (aggregator) should have input input and output file defined"
+                f"{ErrorNumbers.FB620}. Number of parties should be at least 3 but got "
+                f"{type(num_parties)} {num_parties}"
             )
 
-        if party_number != 0 and input_file is None:
-            raise FedbiomedMPCControllerError(
-                f"Nodes should have output file defined for multi party computation"
-            )
+        output_file = os.path.join(self._tmp_dir, f"Output")
+        input_file = os.path.join(self._tmp_dir, f"Input")
 
-        i_f_command = ["-if",  input_file] if input_file is not None else []
-        o_f_command = ["-of", output_file] if output_file is not None else []
+        i_f_command = ["-if", input_file] if party_number != 0 else []
+        o_f_command = ["-of", output_file] if party_number == 0 else []
 
         command = ["shamir-server-key",
                    "-pn", str(party_number),
                    "-nop", str(num_parties),
                    *i_f_command, *o_f_command,
                    "-aip", ip_addresses, "--compile"]
+        status, output = self._exec(command=command)
 
-        if not self._exec(command=command):
-            raise FedbiomedMPCControllerError(
-                f"{ErrorNumbers.FB620.value} MPC computation for is not successful."
-            )
+        if not status:
+            error_message = f"{ErrorNumbers.FB620.value}: MPC computation for is not successful."
+            logger.debug(f"{error_message}. Details: {output}")
+            raise FedbiomedMPCControllerError(error_message)
 
         return f"{output_file}-P{party_number}-0" if party_number == 0 else \
             f"{input_file}-P{party_number}-0"
@@ -87,6 +96,11 @@ class MPCController:
             self,
             command: list
     ) -> bool:
+
+        if not isinstance(command, list):
+            raise FedbiomedMPCControllerError(
+                f"{ErrorNumbers.FB620} Command should be presented as list where "
+                f"each element is an option or value")
 
         try:
             process = subprocess.Popen([self._mpc_script, *command],
@@ -99,7 +113,7 @@ class MPCController:
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")
             raise FedbiomedMPCControllerError(
-                f"{ErrorNumbers.FB620.value}: Unexpected error while executing MPC protocol"
+                f"{ErrorNumbers.FB620.value}: Unexpected error while executing MPC protocol. {e}"
             )
 
-        return status
+        return status, output
