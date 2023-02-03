@@ -199,8 +199,8 @@ class TestSecaggManager(NodeTestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'}, {'job_id': 'my_job_id_dummy'}],
-            [SecaggBiprimeManager, {'biprime': 'a_long_dummy_biprime'}, {}],
+            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
+            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action
@@ -245,14 +245,14 @@ class TestSecaggManager(NodeTestCase):
         specific_list = [
             [
                 SecaggServkeyManager,
-                {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'},
-                {'job_id': 'my_job__alternate_id_dummy', 'servkey_share': '987654321'},
+                {'job_id': 'my_job_id_dummy', 'context': '123456789'},
+                {'job_id': 'my_job__alternate_id_dummy', 'context': '987654321'},
                 {'job_id': 'my_job_id_dummy'}
             ],
             [
                 SecaggBiprimeManager,
-                {'biprime': 'a_long_dummy_biprime'},
-                {'biprime': 'a_long_dummy_alternate_biprime'},
+                {'context': 'a_long_dummy_biprime'},
+                {'context': 'a_long_dummy_alternate_biprime'},
                 {}
             ],
         ]
@@ -281,8 +281,8 @@ class TestSecaggManager(NodeTestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'}, {'job_id': 'my_job_id_dummy'}],
-            [SecaggBiprimeManager, {'biprime': 'a_long_dummy_biprime'}, {}],
+            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
+            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action

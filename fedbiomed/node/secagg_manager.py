@@ -203,7 +203,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         self._add_generic(
             secagg_id,
             parties,
-            {'job_id': job_id, 'servkey_share': context}
+            {'job_id': job_id, 'context': context}
         )
 
     def remove(self, secagg_id: str, **kwargs) -> bool:
@@ -281,7 +281,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
         self._add_generic(
             secagg_id,
             parties,
-            {'biprime': context}
+            {'context': context}
         )
 
     def remove(self, secagg_id: str) -> bool:
