@@ -1742,7 +1742,7 @@ class TestExperiment(ResearcherTestCase):
         # Prepare breakpoint data
         bkpt_file = 'file_4_breakpoint'
 
-        training_data = {'train_node1': [{'name': 'my_first_dataset', 2: 243}]}
+        training_data = {'train_node1': {'name': 'my_first_dataset', 2: 243}}
         training_args = TrainingArgs( only_required = False )
         model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
         training_plan_path = '/path/to/breakpoint_training_plan_file.py'
@@ -1823,8 +1823,8 @@ class TestExperiment(ResearcherTestCase):
         # target breakpoint element arguments
         final_tags = self.tags
         final_experimentation_folder = experimentation_folder
-        final_training_data = {'train_node1': [{'name': 'my_first_dataset',
-                                                '2': 243}]}
+        final_training_data = {'train_node1': {'name': 'my_first_dataset',
+                                                '2': 243}}
 
         final_training_args = TrainingArgs(only_required=False)
         final_aggregator = {'aggregator_name': 'dummy-aggregator',

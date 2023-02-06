@@ -371,8 +371,8 @@ class TestJob(ResearcherTestCase):
 
         self.job._nodes = ['node-1', 'node-2']
         self.fds.data = MagicMock(return_value={
-            'node-1': [{'dataset_id': '1234'}],
-            'node-2': [{'dataset_id': '12345'}]
+            'node-1': {'dataset_id': '1234'},
+            'node-2': {'dataset_id': '12345'}
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
@@ -381,6 +381,7 @@ class TestJob(ResearcherTestCase):
                       'success': True,
                       'msg': 'MSG',
                       'dataset_id': '1234',
+                      'command': 'train',
                       'sample_size': 100,
                       }
 
@@ -390,27 +391,22 @@ class TestJob(ResearcherTestCase):
                       'success': True,
                       'msg': 'MSG',
                       'dataset_id': '1234',
+                      'command': 'train',
                       'sample_size': 100,
                       }
 
         response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'errnum': ErrorNumbers.FB100,
                       'extra_msg': 'this extra msg',
+                      'command': 'error',
                       'dataset_id': '1234',
                       'sample_size': 100,
                       }
 
         response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'extra_msg': False,
                       'errnum': ErrorNumbers.FB100,
+                      'command': 'error',
                       'dataset_id': '1234',
                       'sample_size': 100,
                       }
@@ -457,13 +453,13 @@ class TestJob(ResearcherTestCase):
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
         self.assertEqual( self.job.repo.uploads_url , self.job._repository_args['params_url'])
         self.mock_upload_file.assert_called_once_with('dummy/file/name/')
-        
+
         self.mock_upload_file.reset_mock()
         file_url = 'http://some/file/uploaded'
         self.mock_upload_file.return_value = {"file": file_url}
         # case where arg is_model_params is False and filename is not defined
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None, is_model_params=False)
             filename = os.path.join(self.job._keep_files_dir, 'aggregated_params' + str(FakeUuid.VALUE) + '.pt')
@@ -473,12 +469,12 @@ class TestJob(ResearcherTestCase):
             self.assertNotEqual(result[1], self.job._repository_args['params_url'])
 
         self.mock_upload_file.reset_mock()
-        
+
         # test with specified variable name
         variable_name = "my_variable"
-        
+
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None,
                                                 is_model_params=False, variable_name=variable_name)
@@ -489,11 +485,11 @@ class TestJob(ResearcherTestCase):
 
         # same test but with `is_model_params` set to True
         self.mock_upload_file.reset_mock()
-            
+
         variable_name = "my_variable"
-        
+
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None,
                                                 is_model_params=False, variable_name=variable_name)
