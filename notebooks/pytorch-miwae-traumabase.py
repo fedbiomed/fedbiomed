@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
         standardization = {} if method == 'FedProx_loc' else {'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()}
 
-        model_args = {'n_features':data_size-num_covariates, 'n_cov': num_covariates, 'n_latent':d,'n_hidden':h,
+        model_args = {'n_features':data_size, 'n_cov': num_covariates, 'n_latent':d,'n_hidden':h,
                     'n_samples':K, 'use_gpu': True, 'standardization':standardization}
 
         training_args = {

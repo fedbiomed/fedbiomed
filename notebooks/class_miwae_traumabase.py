@@ -117,7 +117,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
 
             # the encoder will output both the mean and the diagonal covariance
             self.encoder=nn.Sequential(
-                            torch.nn.Linear(n_features+n_cov, n_hidden),
+                            torch.nn.Linear(n_features, n_hidden),
                             torch.nn.ReLU(),
                             torch.nn.Linear(n_hidden, n_hidden),
                             torch.nn.ReLU(),
@@ -136,7 +136,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
             self.encoder.apply(self.weights_init)
             self.decoder.apply(self.weights_init)
 
-            self.iota = nn.Parameter(torch.zeros(1,n_features),requires_grad=True)
+            self.iota = nn.Parameter(torch.zeros(1,n_features-n_cov),requires_grad=True)
     
         def weights_init(self,layer):
             if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
@@ -157,6 +157,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
                                     ,scale=torch.ones(self.n_latent).to(self._device)),1)
         
         batch_size = data.shape[0]
+        n_variables = self.n_features-self.n_cov
         
         tiledmask = torch.tile(mask,(self.n_samples,1))
         mask_complement_float = torch.abs(mask-1)
@@ -180,11 +181,11 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         out_decoder = self.model().decoder(torch.cat((zgivenx_flat,xcat.repeat(self.n_samples,1)),dim=1))
         ############################################################################
         
-        all_means_obs_model = out_decoder[..., :self.n_features]
-        all_scales_obs_model = torch.nn.Softplus()(out_decoder[..., self.n_features:\
-                                                            (2*self.n_features)]) + 0.001
+        all_means_obs_model = out_decoder[..., :n_variables]
+        all_scales_obs_model = torch.nn.Softplus()(out_decoder[..., n_variables:\
+                                                            (2*n_variables)]) + 0.001
         all_degfreedom_obs_model = torch.nn.Softplus()\
-        (out_decoder[..., (2*self.n_features):(3*self.n_features)]) + 3
+        (out_decoder[..., (2*n_variables):(3*n_variables)]) + 3
 
         data_flat = torch.Tensor.repeat(data,[self.n_samples,1]).reshape([-1,1])
 
@@ -192,7 +193,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         (loc=all_means_obs_model.reshape([-1,1]),\
         scale=all_scales_obs_model.reshape([-1,1]),\
         df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
-        all_log_pxgivenz = all_log_pxgivenz_flat.reshape([self.n_samples*batch_size,self.n_features])
+        all_log_pxgivenz = all_log_pxgivenz_flat.reshape([self.n_samples*batch_size,n_variables])
 
         logpxobsgivenz = torch.sum(all_log_pxgivenz*tiledmask,1).reshape([self.n_samples,batch_size])
         logpz = self.p_z.log_prob(zgivenx)
