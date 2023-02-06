@@ -408,7 +408,7 @@ class Job:
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
-                if 'command' not in m or m['command'] == 'error':
+                if m['command'] == 'error':
                     if m['extra_msg']:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)} "
                                     f"- {str(m['extra_msg'])}")
