@@ -783,12 +783,12 @@ class Experiment(object):
         """
 
         if isinstance(nodes, list):
-            self._nodes = nodes
             for node in nodes:
                 if not isinstance(node, str):
                     msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
+            self._nodes = nodes
         elif nodes is None:
             self._nodes = nodes
         else:
