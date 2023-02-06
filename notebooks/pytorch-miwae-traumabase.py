@@ -1,0 +1,494 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Fed-BioMed Researcher to train miwae with adni dataset
+
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
+#
+## Start the network and setting the node up
+# Before running this notebook, you shoud start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
+# Therefore, it is necessary to previously configure a node:
+# 1. `./scripts/fedbiomed_run node add`
+#   * Select option 1 to add a csv file to the node
+#   * Choose the name, tags and description of the dataset
+#     * use `#test_data`` for the tags
+#   * Pick the .csv file from your PC (here: pseudo_adni_mod.csv)
+#   * Data must have been added
+# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
+# 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
+
+
+# ## Create an experiment to train a model on the data found
+
+
+
+# Declare a torch training plan MyTrainingPlan class to send for training on the node
+import numpy as np
+import torch
+import torch.nn as nn
+import argparse
+import sys
+
+from func_miwae_traumabase import miwae_loss, recover_data, testing_func, save_results_imputation, databases, generate_save_plots
+from class_miwae_traumabase import FedMeanStdTrainingPlan, MIWAETrainingPlan
+
+from fedbiomed.researcher.experiment import Experiment
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Pipeline fed standardization, imputation, hemo shock prediction, Traumabase')
+    parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local'],
+                        help='Methods for the running experiment')
+    parser.add_argument('--task', metavar='-ts', type=str, default='imputation', choices = ['imputation', 'prediction'],
+                        help='Task to be performed with the pipeline')
+    parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
+                        help='Id of the Test dataset (between 1 and 4)')
+    parser.add_argument('--tags', metavar='-t', type=str, default='traumabase', help='Dataset tags')
+    parser.add_argument('--Rounds', metavar='-r', type=int, default=200,
+                        help='Number of rounds')
+    parser.add_argument('--Epochs', metavar='-e', type=int, default=10,
+                        help='Number of epochs')
+    parser.add_argument('--data_folder', metavar='-d', type=str, default='data/',
+                        help='Datasets folder')
+    parser.add_argument('--root_data_folder', metavar='-rdf', type=str, default=None, choices=['fedbiomed','home'],
+                        help='Root directory for data')
+    parser.add_argument('--result_folder', metavar='-rf', type=str, default='results', 
+                        help='Folder cotaining the results csv')
+    parser.add_argument('--hidden', metavar='-h', type=int, default=128,
+                        help='Number of epochs')
+    parser.add_argument('--latent', metavar='-d', type=int, default=2,
+                        help='Number of epochs')
+    parser.add_argument('--K', metavar='-k', type=int, default=50,
+                        help='Number of epochs')
+    parser.add_argument('--L', metavar='-l', type=int, default=10000,
+                        help='Number of epochs')
+    parser.add_argument('--batch_size', metavar='-bs', type=int, default=48,
+                        help='Number of epochs')
+    parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
+                        help='Learning rate')
+    parser.add_argument('--do_figures', metavar='-fig', default=True, action=argparse.BooleanOptionalAction,
+                        help='Generate and save figures during local training')
+
+    args = parser.parse_args()
+
+    method = args.method
+    task = args.task
+    idx_Test_data = int(args.Test_id)
+    tags = args.tags
+    data_folder = args.data_folder
+    root_dir = args.root_data_folder
+
+    ###########################################################
+    # Recover data size                                       #
+    ###########################################################
+
+    from fedbiomed.researcher.requests import Requests
+    req = Requests()
+    xx = req.list()
+    dataset_size = [xx[i][0]['shape'][1] for i in xx]
+    min_n_samples = min([xx[i][0]['shape'][0] for i in xx])
+    assert min(dataset_size)==max(dataset_size)
+    data_size = dataset_size[0]
+
+    num_covariates = 6 if task=='imputation' else 8
+
+    #Number of partecipating clients
+    N_cl = len(dataset_size)
+
+    ###########################################################
+    # Recover full dataset and test dataset for testing phase #
+    ###########################################################
+
+    idx_clients=[*range(1,N_cl+2)]
+    idx_clients.remove(idx_Test_data)
+
+    if task == 'imputation':
+        Clients_data, Clients_missing, Clients_mask, data_test, data_test_missing, test_mask = databases(data_folder,task,idx_clients,idx_Test_data,root_dir)
+    elif task == 'prediction':
+        Clients_data, Clients_label, data_test, test_label = databases(data_folder,task,idx_clients,idx_Test_data,root_dir)
+
+    ###########################################################
+    # Recover global mean and std in a federated manner       #
+    ###########################################################
+
+    fed_mean, fed_std = None, None
+
+    if method not in ['FedProx_loc','Local']:
+
+        from fedbiomed.researcher.aggregators.fedstandard import FedStandard
+
+        # NOTE: we need to perform only 1 round of 1 epoch to recover global mean and std
+        model_args = {'n_features': data_size, 'n_cov': num_covariates}
+
+        training_args = {
+            'batch_size': 48, 
+            'optimizer_args': {
+                'lr': 0
+            }, 
+            'log_interval' : 1,
+            'num_updates': 1, 
+            'dry_run': False,  
+        }
+
+        fed_mean_std = Experiment(tags=tags,
+                        model_args=model_args,
+                        training_plan_class=FedMeanStdTrainingPlan,
+                        training_args=training_args,
+                        round_limit=1,
+                        aggregator=FedStandard(),
+                        node_selection_strategy=None)
+
+        fed_mean_std.run()
+        fed_mean = fed_mean_std.aggregated_params()[0]['params']['fed_mean']
+        fed_std = fed_mean_std.aggregated_params()[0]['params']['fed_std']
+
+    ###########################################################
+    #First step: imputation of missing data                   #
+    ###########################################################
+
+    ###########################################################
+    #Define the hyperparameters for miwae                     #
+    ###########################################################
+
+    h = args.hidden # number of hidden units in (same for all MLPs)
+    d = args.latent # dimension of the latent space
+    K = args.K # number of IS during training
+    L = args.L # for testing phase
+
+    n_epochs=args.Epochs
+    batch_size = args.batch_size
+    num_updates = int(np.ceil(min_n_samples/batch_size)*n_epochs)
+    rounds = args.Rounds
+
+    ###########################################################
+    #Define the federated miwae model                         #
+    ###########################################################
+
+    if method != 'Local':
+
+        standardization = {} if method == 'FedProx_loc' else {'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()}
+
+        model_args = {'n_features':data_size-num_covariates, 'n_cov': num_covariates, 'n_latent':d,'n_hidden':h,
+                    'n_samples':K, 'use_gpu': True, 'standardization':standardization}
+
+        training_args = {
+            'batch_size': batch_size, 
+            'optimizer_args':
+            {'lr': args.learning_rate}, 
+            'log_interval' : 1,
+            'num_updates': num_updates, 
+            'dry_run': False
+        }
+            
+        ###########################################################
+        #Declare the experiment                                   #
+        ###########################################################
+
+        from fedbiomed.researcher.aggregators.fedavg import FedAverage
+        from fedbiomed.researcher.aggregators.scaffold import Scaffold
+
+        aggregator = Scaffold() if method == 'Scaffold' else FedAverage()
+
+        if 'fedprox_mu' in training_args:
+            del training_args['fedprox_mu']
+
+        exp = Experiment(tags=tags,
+                        model_args=model_args,
+                        training_plan_class=MIWAETrainingPlan,
+                        training_args=training_args,
+                        round_limit=rounds,
+                        aggregator=aggregator,
+                        node_selection_strategy=None)
+
+        exp.run_once()
+
+        if 'FedProx' in method:
+            # Starting from the second round, FedProx is used with mu=0.1
+            # We first update the training args
+            training_args.update(fedprox_mu = 0.1)
+
+            # Then update training args in the experiment
+            exp.set_training_args(training_args)
+
+        exp.run()
+
+    ###########################################################
+    #Local model                                              #
+    ###########################################################    
+    elif method == 'Local':
+
+        if args.do_figures==True:
+            Loss_cls = [[] for _ in range(N_cl)]
+            Like_cls = [[] for _ in range(N_cl)]
+            MSE_cls = [[] for _ in range(N_cl)]
+
+        # Recall all hyperparameters
+        n_epochs_local = n_epochs*rounds
+        n_epochs_centralized = n_epochs*rounds*len(Clients_missing)
+
+        bs = args.batch_size
+        lr = args.learning_rate
+
+        h = args.hidden
+        d = args.latent
+        K = args.K 
+
+        Encoders_loc = []
+        Decoders_loc = []
+        Iota_loc = []
+
+        for cls in range(N_cl):
+            # Data
+            n = Clients_data[cls].shape[0] # number of observations
+            p = Clients_data[cls].shape[1]-num_covariates # number of features
+
+            xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates)
+
+            mask_cls_test = np.copy(Clients_mask[cls])
+            xhat_cls = np.copy(xhat_local_std)
+            mask_cls = np.isfinite(xhat_cls)[:,num_covariates:]
+            xhat_0_cls = np.copy(xhat_local_std)[:,num_covariates:]
+            x_cat_cls = np.copy(xhat_local_std)[:,:num_covariates]
+            xfull_cls = np.copy(xfull_local_std)
+
+            encoder_cls = nn.Sequential(
+                torch.nn.Linear(p+num_covariates, h),
+                torch.nn.ReLU(),
+                torch.nn.Linear(h, h),
+                torch.nn.ReLU(),
+                torch.nn.Linear(h, 3*d),  
+            )
+
+            decoder_cls = nn.Sequential(
+                torch.nn.Linear(d+num_covariates, h),
+                torch.nn.ReLU(),
+                torch.nn.Linear(h, h),
+                torch.nn.ReLU(),
+                torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
+            )
+
+            iota_cls = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+            optimizer_cls = torch.optim.Adam(list(encoder_cls.parameters()) + list(decoder_cls.parameters()) + [iota_cls],lr=1e-3)
+
+            def weights_init(layer):
+                if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
+                    
+            encoder_cls.apply(weights_init)
+            decoder_cls.apply(weights_init)
+
+            for ep in range(1,n_epochs_local):
+                perm = np.random.permutation(n) # We use the "random reshuffling" version of SGD
+                batches_data = np.array_split(xhat_0_cls[perm,], n/bs)
+                batches_mask = np.array_split(mask_cls[perm,], n/bs)
+                batches_x_cat = np.array_split(x_cat_cls[perm,], n/bs)
+                for it in range(len(batches_data)):
+                    optimizer_cls.zero_grad()
+                    encoder_cls.zero_grad()
+                    decoder_cls.zero_grad()
+                    b_data = torch.from_numpy(batches_data[it]).float()
+                    b_mask = torch.from_numpy(batches_mask[it]).float()
+                    b_cat = torch.from_numpy(batches_x_cat[it]).float()
+                    loss = miwae_loss(encoder = encoder_cls,decoder = decoder_cls, iota=iota_cls,
+                                    data = b_data, xcat=b_cat, mask = b_mask, d = d, p = p, K = K)
+                    loss.backward()
+                    optimizer_cls.step()
+                likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, 
+                            data = torch.from_numpy(xhat_0_cls).float(), xcat=torch.from_numpy(x_cat_cls).float(), mask = torch.from_numpy(mask_cls).float(), 
+                            d = d, p = p, K = K).cpu().data.numpy())
+                if args.do_figures==True:
+                    Loss_cls[cls].append(loss.item())
+                    Like_cls[cls].append(likelihood)
+                    mse_train = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat_cls, 
+                                            mask_cls_test[:,num_covariates:], encoder_cls, decoder_cls, iota_cls, d, 100)
+                    MSE_cls[cls].append(mse_train)
+                if ep % rounds == 1:
+                    print('Epoch %g' %ep)
+                    print('MIWAE likelihood bound  %g' %likelihood) # Gradient step      
+                    print('Loss: {:.6f}'.format(loss.item()))
+
+            Encoders_loc.append(encoder_cls)
+            Decoders_loc.append(decoder_cls)
+            Iota_loc.append(iota_cls)
+
+        # Centralized training
+        if args.do_figures==True:
+            Loss_tot = []
+            Like_tot = []
+            MSE_tot = []
+
+        xmiss_tot = np.concatenate(Clients_missing,axis=0)
+        mask_tot_test = np.concatenate(Clients_mask,axis=0)
+        x_cat_tot = np.copy(xmiss_tot)[:,:num_covariates]
+
+        n = xmiss_tot.shape[0] # number of observations
+        p = xmiss_tot.shape[1]-num_covariates # number of features
+
+        mean_tot_missing = np.nanmean(xmiss_tot[:,num_covariates:],0)
+        std_tot_missing = np.nanstd(xmiss_tot[:,num_covariates:],0)
+        xmiss_tot = np.concatenate((x_cat_tot, (xmiss_tot[:,num_covariates:] - mean_tot_missing)/std_tot_missing), axis=1)
+        mask_tot = np.isfinite(xmiss_tot)[:,num_covariates:] # binary mask that indicates which values are missing
+        xhat_0_tot = np.copy(xmiss_tot)
+        xhat_0_tot[np.isnan(xmiss_tot)] = 0
+        xhat_0_tot = xhat_0_tot[:,num_covariates:]
+        xhat_tot = np.copy(xhat_0_tot) # This will be out imputed data matrix
+
+        xfull_tot = np.concatenate(Clients_data,axis=0)
+        xfull_tot = np.concatenate((x_cat_tot, (xfull_tot[:,num_covariates:] - mean_tot_missing)/std_tot_missing), axis=1)
+
+        # Model
+
+        encoder_cen = nn.Sequential(
+            torch.nn.Linear(p+num_covariates, h),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h, h),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h, 3*d),  # the encoder will output both the mean and the diagonal covariance
+        )
+
+        decoder_cen = nn.Sequential(
+            torch.nn.Linear(d+num_covariates, h),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h, h),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
+        )
+
+        iota_cen = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+        optimizer_cen = torch.optim.Adam(list(encoder_cen.parameters()) + list(decoder_cen.parameters()) + [iota_cen],lr=1e-3)
+
+        def weights_init(layer):
+            if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
+                
+        encoder_cen.apply(weights_init)
+        decoder_cen.apply(weights_init)
+
+        # Training loop
+
+        for ep in range(1,n_epochs_centralized):
+            perm = np.random.permutation(n) # We use the "random reshuffling" version of SGD
+            batches_data = np.array_split(xhat_0_tot[perm,], n/bs)
+            batches_mask = np.array_split(mask_tot[perm,], n/bs)
+            batches_x_cat = np.array_split(x_cat_tot[perm,], n/bs)
+            for it in range(len(batches_data)):
+                optimizer_cen.zero_grad()
+                encoder_cen.zero_grad()
+                decoder_cen.zero_grad()
+                b_data = torch.from_numpy(batches_data[it]).float()
+                b_mask = torch.from_numpy(batches_mask[it]).float()
+                b_cat = torch.from_numpy(batches_x_cat[it]).float()
+                loss = miwae_loss(encoder = encoder_cen,decoder = decoder_cen, iota=iota_cen, data = b_data, xcat=b_cat,mask = b_mask, d = d, p = p, K = K)
+                loss.backward()
+                optimizer_cen.step()
+            likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cen, 
+                        data = torch.from_numpy(xhat_0_tot).float(), xcat=torch.from_numpy(x_cat_tot).float(),
+                        mask = torch.from_numpy(mask_tot).float(), d = d, p = p, K = K).cpu().data.numpy())
+            if args.do_figures==True:
+                Loss_tot.append(loss.item())
+                Like_tot.append(likelihood)
+                mse_train = testing_func(xhat_0_tot, xfull_tot[:,num_covariates:], x_cat_tot, mask_tot_test[:,num_covariates:], 
+                                        encoder_cen, decoder_cen, iota_cen, d, 100)
+                MSE_tot.append(mse_train)
+            if ep % rounds == 1:
+                print('Epoch %g' %ep)
+                print('MIWAE likelihood bound  %g' %likelihood) # Gradient step      
+                print('Loss: {:.6f}'.format(loss.item()))
+
+    ###########################################################
+    #Second step: regression to predict choc_hemo             #
+    ###########################################################
+
+    # TO BE FILLED
+
+    ###########################################################
+    #Testing phase (imputation)                               #
+    ###########################################################
+    result_folder = args.result_folder
+
+    if task == 'imputation':
+        if method != 'Local':
+            # extract federated model into PyTorch framework
+            model = exp.training_plan().model()
+            model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
+            encoder = model.encoder
+            decoder = model.decoder
+            iota = model.iota
+            std_training = 'Loc' if method == 'FedProx_loc' else 'Fed'
+        else:
+            fed_mean, fed_std = mean_tot_missing, std_tot_missing
+            if args.do_figures==True:
+                generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,Loss_tot,Like_tot,
+                                    MSE_tot,n_epochs_local,n_epochs_centralized,idx_clients)
+                                    
+        # Testing on data used during training
+        for cls in range(N_cl):
+            if ((fed_mean is None) and (fed_std is None)):
+                xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates)
+            else:
+                xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+                    recover_data(Clients_missing[cls], Clients_data[cls], num_covariates, fed_mean, fed_std)
+            mask = np.copy(Clients_mask[cls])[:,num_covariates:]
+            x_cat = xhat_local_std[:,:num_covariates]
+            if method != 'Local':
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
+                save_results_imputation(result_folder,idx_clients,idx_clients[cls],method,
+                    N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
+                    std_training,'local',MSE)
+                if method != 'FedProx_loc':
+                    MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
+                    save_results_imputation(result_folder,idx_clients,idx_clients[cls],method,
+                        N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
+                        std_training,'global',MSE)
+            elif method == 'Local':
+                # centralized 
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+                save_results_imputation(result_folder,sum(idx_clients),idx_clients[cls],'Centralized',
+                    1,[len(xmiss_tot)],1,n_epochs_centralized,
+                    'Loc','local',MSE)
+                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+                save_results_imputation(result_folder,sum(idx_clients),idx_clients[cls],'Centralized',
+                    1,[len(xmiss_tot)],1,n_epochs_centralized,
+                    'Loc','global',MSE)
+                # local
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+                save_results_imputation(result_folder,idx_clients[cls],idx_clients[cls],'Local_cl'+str(idx_clients[cls]),
+                    1,[len(Clients_missing[cls])],1,n_epochs_local,
+                    'Loc','local',MSE)
+
+        # Testing on external dataset
+        if ((fed_mean is None) and (fed_std is None)):
+            xhat_local_std, xfull_local_std = recover_data(data_test_missing, data_test, num_covariates)
+        else:
+            xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+                    recover_data(data_test_missing, data_test, num_covariates, fed_mean, fed_std)
+        mask = np.copy(test_mask)[:,num_covariates:]
+        x_cat = xhat_local_std[:,:num_covariates]
+        if method != 'Local':
+            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
+            save_results_imputation(result_folder,idx_clients,idx_Test_data,method,
+                N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
+                std_training,'local',MSE)
+            if method != 'FedProx_loc':
+                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
+                save_results_imputation(result_folder,idx_clients,idx_Test_data,method,
+                    N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
+                    std_training,'global',MSE)
+        elif method == 'Local':
+            # centralized 
+            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            save_results_imputation(result_folder,sum(idx_clients),idx_Test_data,'Centralized',
+                1,[len(xmiss_tot)],1,n_epochs_centralized,
+                'Loc','local',MSE)
+            MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            save_results_imputation(result_folder,sum(idx_clients),idx_Test_data,'Centralized',
+                1,[len(xmiss_tot)],1,n_epochs_centralized,
+                'Loc','global',MSE)
+            # local
+            for cls in range(N_cl):
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+                save_results_imputation(result_folder,idx_clients[cls],idx_Test_data,'Local_cl'+str(idx_clients[cls]),
+                    1,[len(Clients_missing[cls])],1,n_epochs_local,
+                    'Loc','local',MSE)
+
+
