@@ -49,16 +49,15 @@ class DatasetManager:
         self._dataset_table = self._db.table(name='Datasets', cache_size=0)
         self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
-    def get_by_id(self, dataset_id: str) -> List[dict]:
-        """Searches for data with given dataset_id.
+    def get_by_id(self, dataset_id: str) -> Union[dict, None]:
+        """Searches for a dataset with given dataset_id.
 
         Args:
             dataset_id:  A dataset id
 
         Returns:
-            A list of dict of matching datasets, each dict
-                containing all the fields describing the matching datasets
-                stored in Tiny database.
+            A `dict` containing the dataset's description if a dataset with this `dataset_id`
+            exists in the database. `None` if no such dataset exists in the database. 
         """
         result = self._dataset_table.get(self._database.dataset_id == dataset_id)
 
