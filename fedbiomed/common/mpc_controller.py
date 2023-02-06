@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+from typing import Tuple
 
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.utils import get_fedbiomed_root
@@ -18,12 +19,15 @@ class MPCController:
             component_type: ComponentType,
             component_id: str,
     ) -> None:
-        """
+        """Multi Party Computation for negotiating cryptographic material with other parties.
 
         Args:
-            tmp_dir:
-            component_id:
+            tmp_dir: directory use as basedir for temporary files 
+            component_type: type of component (researcher or node) this 
+            component_id: unique ID of this component
 
+        Raises:
+            FedbiomedMPCControllerError: cannot create directory for temporary files or MPC files
         """
 
         # Get root directory of fedbiomed
@@ -34,21 +38,41 @@ class MPCController:
         self._mpc_data_dir = os.path.join(self._root, 'modules', 'MP-SPDZ', 'Player-Data')
 
         if not os.path.isdir(self._mpc_data_dir):
-            os.makedirs(self._mpc_data_dir)
+            try:
+                os.makedirs(self._mpc_data_dir)
+            except Exception as e:
+                raise FedbiomedMPCControllerError(
+                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
+                )
 
         # Use tmp dir to write files
         self._tmp_dir = os.path.join(tmp_dir, 'MPC', component_id)
 
         # Create TMP dir for MPC logs if it is not existing
         if not os.path.isdir(self._tmp_dir):
-            os.makedirs(self._tmp_dir)
+            try:
+                os.makedirs(self._tmp_dir)
+            except Exception as e:
+                raise FedbiomedMPCControllerError(
+                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC temporary files : {e}"
+                )
 
     @property
-    def mpc_data_dir(self):
+    def mpc_data_dir(self) -> str:
+        """Getter for MPC config data directory
+
+        Returns:
+            directory for MPC config data directory
+        """
         return self._mpc_data_dir
 
     @property
-    def tmp_dir(self):
+    def tmp_dir(self) -> str:
+        """Getter for MPC temporary files directory
+
+        Returns:
+            directory for MPC temporary files directory
+        """
         return self._tmp_dir
 
     def exec_shamir(
@@ -68,6 +92,9 @@ class MPCController:
         Returns:
             Path to the file where the input value (key-share) of the parties or output value of the server(server key)
                 is written by the protocol.
+
+        Raises:
+            FedbiomedMPCControllerError: MPC computation error, or bad parameters
         """
 
         if not isinstance(num_parties, int) or num_parties < 3:
@@ -76,8 +103,8 @@ class MPCController:
                 f"{type(num_parties)} {num_parties}"
             )
 
-        output_file = os.path.join(self._tmp_dir, f"Output")
-        input_file = os.path.join(self._tmp_dir, f"Input")
+        output_file = os.path.join(self._tmp_dir, "Output")
+        input_file = os.path.join(self._tmp_dir, "Input")
 
         i_f_command = ["-if", input_file] if party_number != 0 else []
         o_f_command = ["-of", output_file] if party_number == 0 else []
@@ -101,7 +128,19 @@ class MPCController:
     def _exec(
             self,
             command: list
-    ) -> bool:
+    ) -> Tuple[bool, str]:
+        """Execute the MPC script
+
+        Args:
+            command: command and parameters for the MPC script
+
+        Returns:
+            a tuple composed of a boolean (True if command successfully executed) and
+                a string (the output of the command)
+
+        Raises:
+            FedbiomedMPCControllerError: command execution error, or bad output
+        """
 
         if not isinstance(command, list):
             raise FedbiomedMPCControllerError(
@@ -115,6 +154,7 @@ class MPCController:
             process.wait()
             status = True if process.returncode == 0 else False
             output, _ = process.communicate()
+            output = str(output)
             logger.debug(f"MPC protocol output: {output}")
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")
