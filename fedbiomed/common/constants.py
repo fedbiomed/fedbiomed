@@ -220,6 +220,7 @@ class ErrorNumbers(_BaseEnum):
     FB413 = "FB413: cannot save or load breakpoint for experiment"
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
+    FB416 = "FB416: federated dataset error"
 
     # node problem detected by researcher
 
