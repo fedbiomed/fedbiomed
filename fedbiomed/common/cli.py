@@ -411,6 +411,7 @@ class CommonCLI:
             else:
                 self._args.func()
 
+
 if __name__ == '__main__':
     cli = CommonCLI()
     # Initialize only development magic parser
