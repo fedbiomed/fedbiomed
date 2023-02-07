@@ -97,12 +97,6 @@ class MPCController:
             FedbiomedMPCControllerError: MPC computation error, or bad parameters
         """
 
-        if not isinstance(num_parties, int) or num_parties < 3:
-            raise FedbiomedMPCControllerError(
-                f"{ErrorNumbers.FB620}. Number of parties should be at least 3 but got "
-                f"{type(num_parties)} {num_parties}"
-            )
-
         output_file = os.path.join(self._tmp_dir, "Output")
         input_file = os.path.join(self._tmp_dir, "Input")
 
@@ -141,11 +135,6 @@ class MPCController:
         Raises:
             FedbiomedMPCControllerError: command execution error, or bad output
         """
-
-        if not isinstance(command, list):
-            raise FedbiomedMPCControllerError(
-                f"{ErrorNumbers.FB620} Command should be presented as list where "
-                f"each element is an option or value")
 
         try:
             process = subprocess.Popen([self._mpc_script, *command],

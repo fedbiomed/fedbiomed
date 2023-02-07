@@ -34,10 +34,6 @@ class TestMPCController(unittest.TestCase):
     def test_mpc_controller_02_exec(self):
         """Tests exec method to execute commands"""
 
-        # Test wrong command
-        with self.assertRaises(FedbiomedMPCControllerError):
-            self.mpc_controller._exec("faulty types command")
-
         # Failing wrong typed option in command
         with self.assertRaises(FedbiomedMPCControllerError):
             self.mpc_controller._exec(["shamir-server-key", 12, "wrong-value"])
