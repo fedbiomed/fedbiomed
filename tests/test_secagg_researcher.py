@@ -20,9 +20,12 @@ class BaseTestCaseSecaggContext(ResearcherTestCase):
     def setUp(self) -> None:
         self.patch_cm = patch.object(fedbiomed.researcher.secagg, "CManager")
         self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPC")
+        self.patch_requests = patch("fedbiomed.researcher.secagg.Requests")
 
         self.mock_cm = self.patch_cm.start()
         self.mock_mpc = self.patch_mpc.start()
+        self.m_requests = self.patch_requests.start()
+
 
         # Set MOCK variables
         self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
@@ -37,24 +40,21 @@ class BaseTestCaseSecaggContext(ResearcherTestCase):
     def tearDown(self) -> None:
         self.patch_cm.stop()
         self.patch_mpc.stop()
+        self.patch_requests.stop()
 
 
-class TestBaseSecaggContext(ResearcherTestCase):
+class TestBaseSecaggContext(BaseTestCaseSecaggContext):
 
     def setUp(self):
+        super().setUp()
         self.abstract_methods_patcher = patch.multiple(SecaggContext, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
-
-        self.p_requests = patch.object(fedbiomed.researcher.secagg, "Requests")
-
-        self.m_requests = self.p_requests.start()
-
         self.secagg_context = SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
                                             job_id="job-id")
 
     def tearDown(self) -> None:
+        super().tearDown()
         self.abstract_methods_patcher.stop()
-        self.p_requests.stop()
 
     def test_base_secagg_context_01_init(self):
         with self.assertRaises(FedbiomedSecaggError):
