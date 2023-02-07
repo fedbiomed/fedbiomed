@@ -346,13 +346,13 @@ class Scaffold(Aggregator):
         c <- (1 - S/N) c + ACG_i , where ACG_i = sum_i( 1/ (K * eta_l)(x - y_i))
 
         where (according to Scaffold paper):
-        c: is the correction term
-        S: the number of nodes participating in the current round
-        N: the total number of node participating in the experiment
-        K: number of updates
-        eta_l: nodes' learning rate
-        x: global model before updates
-        y_i: local model updates
+            c: is the correction term
+            S: the number of nodes participating in the current round
+            N: the total number of node participating in the experiment
+            K: number of updates
+            eta_l: nodes' learning rate
+            x: global model before updates
+            y_i: local model updates
         
         Remark: 
         c^{t=0} = 0
