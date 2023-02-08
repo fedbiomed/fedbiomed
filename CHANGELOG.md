@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2023-02-08 version 4.2
+
+- add support for docker-compose v.2 file syntax
+- fix model weights computation occurring during aggregation, by sending dataset sample size from node to researcher
+- fix GUI regression failure, after merging MP-SPDZ certificate generation - such issue was freezing some web browsers
+- fix incoherent tag handling: make explicit the way datasets are tagged on nodes
+- fix unit tests failure, when launched from root directory, due to missing mocking facility
+- fix `fedbiomed_run` error: prevent launching researcher when no config file exists
+- misc improve make sure only one dataset per Node is selected during the training
+- misc remove uncorrect warning about `optimizer_args` when using SKlearn training plan
+
 ## 2023-01-05 version 4.1
 
 - introduce Scaffold implementation for PyTorch
