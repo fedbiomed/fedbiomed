@@ -494,7 +494,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] from a serialized version.
 
-        :warning: Calling this function will *clear* the contained
+        !!! warning "Calling this function will *clear* the contained"
             [DataLoadingBlockTypes]. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
 
