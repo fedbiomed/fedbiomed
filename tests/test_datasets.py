@@ -1,5 +1,8 @@
 import unittest
 
+from fedbiomed.common.validator import ValidatorError
+from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
+
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
@@ -31,6 +34,25 @@ class TestFederatedDataset(ResearcherTestCase):
     def tearDown(self):
         pass
 
+    def test_federated_dataset_01_create_error(self):
+        """ Testing creation with incorrect data
+        """
+        # prepare
+        data_list = [
+            3,
+            (2,),
+            [],
+            { 3: { 'dataset_id': 'my_dataset'}},
+            { 'my_node_with_no_dataset': []},
+            { 'my_node_with_2_datasets': [{}, {}]},
+        ]
+
+        for data in data_list:
+            # test + check
+            with self.assertRaises(FedbiomedFederatedDataSetError):
+                FederatedDataSet(data)
+
+
     def test_federated_dataset_02_data(self):
         """ Testing property .data()
         """
@@ -52,7 +74,7 @@ class TestFederatedDataset(ResearcherTestCase):
            FIXME: When refactoring properties as getters
        """
         # Nothing to do it is an empty method
-        sizes = [val[0]["shape"][0] for (_, val) in self.data.items()]
+        sizes = [val["shape"][0] for (_, val) in self.data.items()]
         sample_sizes = self.fds.sample_sizes()
         self.assertListEqual(sizes, sample_sizes, 'Provided sample sizes and result of sample_sizes do not match')
 
@@ -62,8 +84,8 @@ class TestFederatedDataset(ResearcherTestCase):
         node_1 = list(self.data.keys())[0]
         node_2 = list(self.data.keys())[1]
 
-        size_1 = self.data[node_1][0]['shape'][0]
-        size_2 = self.data[node_2][0]['shape'][0]
+        size_1 = self.data[node_1]['shape'][0]
+        size_2 = self.data[node_2]['shape'][0]
 
         shapes = self.fds.shapes()
         self.assertEqual(shapes[node_1], size_1)

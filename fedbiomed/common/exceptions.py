@@ -87,6 +87,13 @@ class FedbiomedExperimentError(FedbiomedError):
     pass
 
 
+class FedbiomedFederatedDataSetError(FedbiomedError):
+    """
+    Exception specific to the FederatedDataSetError class.
+    """
+    pass
+
+
 class FedbiomedLoadingBlockError(FedbiomedError):
     """
     Exception specific to the DataLoadingBlock classes/subclasses.

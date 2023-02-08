@@ -22,8 +22,8 @@ class TestFedaverage(ResearcherTestCase):
     # before the tests
     def setUp(self):
         self.model = Linear(10, 3)
-        self.models = [{f'node_{i}': copy.deepcopy(self.model).state_dict()} for i in range(4)]
-        self.weights = [{f'node_{i}': random()} for i, _ in enumerate(self.models)]
+        self.models = {f'node_{i}': copy.deepcopy(self.model).state_dict() for i in range(4)}
+        self.weights = {f'node_{i}': random() for i, _ in enumerate(self.models)}
         self.aggregator = FedAverage()
 
 
@@ -44,14 +44,15 @@ class TestFedaverage(ResearcherTestCase):
     def test_fed_average_02_sklearn_sgd_t1(self):
         """ Testing aggregation for sklearn sgd test 1"""
 
-        model_params = [{'node_1': {'coef_': np.array([3, 8, 8, 3, 1]), 'intercept_': np.array([4])}},
-                        {'node_2': {'coef_': np.array([0.4, 1.6, 2, 1, 0.1]), 'intercept_': np.array([1])}},
-                        {'node_3': {'coef_': np.array([2, 5, 5, 3, 1]), 'intercept_': np.array([6])}}]
-        weights = [
-            {'node_1': 0.2},
-            {'node_2': 0.2},
-            {'node_3': 0.6}
-        ]
+        model_params = {'node_1': {'coef_': np.array([3, 8, 8, 3, 1]), 'intercept_': np.array([4])},
+                        'node_2': {'coef_': np.array([0.4, 1.6, 2, 1, 0.1]), 'intercept_': np.array([1])},
+                        'node_3': {'coef_': np.array([2, 5, 5, 3, 1]), 'intercept_': np.array([6])}
+                        }
+        weights = {
+            'node_1': 0.2,
+            'node_2': 0.2,
+            'node_3': 0.6
+        }
 
         aggregated_params = self.aggregator.aggregate(model_params, weights)
         self.assertTrue(np.allclose(aggregated_params['coef_'], np.array([1.88, 4.92, 5., 2.6, 0.82])))
@@ -60,15 +61,17 @@ class TestFedaverage(ResearcherTestCase):
     def test_fed_average_03_sklearn_sgd_t2(self):
         """ Testing aggregation for sklearn sgd test 2"""
 
-        weights = [
-            {'node_1': 0.27941176470588236},
-            {'node_2': 0.7205882352941176}
-        ]
+        weights = {
+            'node_1': 0.27941176470588236,
+            'node_2': 0.7205882352941176
+        }
 
-        model_params = [{'node_1': {'coef_': np.array([-0.02629813, 0.04612957, -0.00321454, 0.08003535, 0.30818439]),
-                         'intercept_': np.array([0.161345])}},
-                        {'node_2': {'coef_': np.array([-0.02782622, 0.0145883, -0.01471519, -0.03673147, 0.45426254]),
-                         'intercept_': np.array([-0.00457364])}}]
+        model_params = {
+            'node_1': {'coef_': np.array([-0.02629813, 0.04612957, -0.00321454, 0.08003535, 0.30818439]),
+                       'intercept_': np.array([0.161345])},
+            'node_2': {'coef_': np.array([-0.02782622, 0.0145883, -0.01471519, -0.03673147, 0.45426254]),
+                       'intercept_': np.array([-0.00457364])}
+        }
 
         aggregated_params = self.aggregator.aggregate(model_params, weights)
         self.assertTrue(np.allclose(aggregated_params['coef_'],
@@ -100,39 +103,22 @@ class TestFedaverage(ResearcherTestCase):
         """Tests bug #433 where weights and model params have scrambled order."""
 
         # first we are testing with sklearn framework
-        weights = [
-            {'node_7ea1c779': 0.9},
-            {'node_02a6e376': 0.1},
-        ]
-        model_params = [{'node_02a6e376': {'coef_': np.array([0.])}},
-                        {'node_7ea1c779': {'coef_': np.array([10.])}}]
+        weights = {
+            'node_7ea1c779': 0.9,
+            'node_02a6e376': 0.1,
+        }
+        model_params = {'node_02a6e376': {'coef_': np.array([0.])},
+                        'node_7ea1c779': {'coef_': np.array([10.])}}
         agg_params = self.aggregator.aggregate(model_params=model_params,
                                                weights=weights)
         self.assertEqual(agg_params['coef_'][0], 9.)
 
         # test if missing node id triggers exception
-        model_params.append({'node_123abc': {'coef_': np.array([5.])}})
+        model_params['node_123abc'] = {'coef_': np.array([5.])}
 
         with self.assertRaises(FedbiomedAggregatorError):
             self.aggregator.aggregate(model_params=model_params,
                                       weights=weights)
-
-        # second we are testing with pytroch framework
-
-        # 1. compute ordered (sorted) aggregation result
-        ordered_agg_res = self.aggregator.aggregate(self.models, self.weights)
-        # 2. shuflle order of weights and then re-compute aggregation
-        models_copy = copy.deepcopy(self.models)
-        shuffle(self.weights)
-        while models_copy == self.weights:
-            # this is done just in case shuffle has left item order unchanged
-            models_copy = copy.deepcopy(self.models)
-            shuffle(weights)
-        shuffled_agg_res = self.aggregator.aggregate(self.models, self.weights)
-
-        # check we get the same results, regardless of weigths order
-        for k, v in ordered_agg_res.items():
-            self.assertTrue(torch.isclose(v, shuffled_agg_res[k]).all())
 
 
 if __name__ == '__main__':  # pragma: no cover

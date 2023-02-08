@@ -110,7 +110,7 @@ class Round:
         # download heavy aggregator args (if any)
 
         if self.aggregator_args is not None:
-            
+
             for arg_name, aggregator_arg in self.aggregator_args.items():
                 if isinstance(aggregator_arg, dict):
                     url = aggregator_arg.get('url', False)
@@ -119,13 +119,13 @@ class Round:
                         # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
                         # exchanged system
                         success, param_path, error_msg = self.download_file(url, arg_name)
-                        
+
                         if not success:
                             return success, error_msg
                         else:
                             # FIXME: should we load parameters here or in the training plan
-                            self.aggregator_args[arg_name] = {'param_path': param_path, 
-                                                              #'params': training_plan.load(param_path, to_params=True)
+                            self.aggregator_args[arg_name] = {'param_path': param_path,
+                                                              # 'params': training_plan.load(param_path, to_params=True)
                                                               }
             return True, ''
         else:
@@ -147,9 +147,9 @@ class Round:
         """
 
         status, params_path = self.repository.download_file(
-                                                            url,
-                                                            file_path + str(uuid.uuid4()) + '.pt')
-        
+            url,
+            file_path + str(uuid.uuid4()) + '.pt')
+
         if (status != 200) or params_path is None:
 
             error_message = f"Cannot download param file: {url}"
@@ -252,12 +252,6 @@ class Round:
                             f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
-        # training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-        #                                     node_args=self.node_args,
-        #                                     aggregator_args=self.aggregator_args)
-        # training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'aggregator_args'}
-        # logger.info(f'training with arguments {training_kwargs_print}')
-        
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
@@ -277,7 +271,7 @@ class Round:
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
-        #
+
         # If training is activated.
         if self.training:
             if self.training_plan.training_data_loader is not None:
@@ -286,8 +280,7 @@ class Round:
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
                     self.training_plan.training_routine(history_monitor=self.history_monitor,
-                                                        node_args=self.node_args
-                                                        )
+                                                        node_args=self.node_args)
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
@@ -322,6 +315,9 @@ class Round:
             results['model_params'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
+
+            sample_size = len(self.training_plan.training_data_loader.dataset)
+
             try:
                 # TODO : should validation status code but not yet returned
                 # by upload_file
@@ -329,7 +325,6 @@ class Round:
                 self.training_plan.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-
 
             except Exception as e:
                 is_failed = True
@@ -347,7 +342,8 @@ class Round:
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
-                                          params_url=res['file'])
+                                          params_url=res['file'],
+                                          sample_size=sample_size)
         else:
             # Only for validation
             return self._send_round_reply(success=True)
@@ -356,7 +352,8 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
-                          timing: dict = {}) -> NodeMessages:
+                          timing: dict = {},
+                          sample_size: Union[int, None] = None) -> NodeMessages:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
@@ -380,6 +377,7 @@ class Round:
                                           'dataset_id': self.dataset['dataset_id'] if success else '',
                                           'params_url': params_url,
                                           'msg': message,
+                                          'sample_size': sample_size,
                                           'timing': timing}).get_dict()
 
     def _set_training_testing_data_loaders(self):
@@ -409,6 +407,7 @@ class Round:
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)

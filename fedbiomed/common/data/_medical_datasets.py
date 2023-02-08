@@ -333,7 +333,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         - the modality folder names as returned by the DataLoadingPlan (or as inferred by the modality itself)
         - the first-level subfolders of the subject folder
 
-        :warning: this function will not work properly if the modality images are in nested subfolders!
+        !!! warning "This function will not work properly if the modality images are in nested subfolders!"
 
         Args:
             subject_or_folder: the Path to the subject folder, or the name of the subject as a str

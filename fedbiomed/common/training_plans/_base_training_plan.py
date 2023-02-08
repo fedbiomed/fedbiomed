@@ -21,6 +21,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanErr
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models.model import Model
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
 

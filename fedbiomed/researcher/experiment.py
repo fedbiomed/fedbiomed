@@ -783,12 +783,12 @@ class Experiment(object):
         """
 
         if isinstance(nodes, list):
-            self._nodes = nodes
             for node in nodes:
                 if not isinstance(node, str):
                     msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
+            self._nodes = nodes
         elif nodes is None:
             self._nodes = nodes
         else:
@@ -821,7 +821,7 @@ class Experiment(object):
                     searching for datasets with a query to the nodes using `tags` and `nodes`
                   - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
                     experiment is not fully initialized and cannot be launched)
-            from_tags: Specificities; If True, query nodes for datasets when no `training_data` is provided.
+            from_tags: If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
 
         Returns:
@@ -847,7 +847,6 @@ class Experiment(object):
         if isinstance(training_data, FederatedDataSet):
             self._fds = training_data
         elif isinstance(training_data, dict):
-            # TODO: FederatedDataSet constructor should verify typing and format
             self._fds = FederatedDataSet(training_data)
         elif training_data is not None:
             msg = ErrorNumbers.FB410.value + f' `training_data` has incorrect type: {type(training_data)}'
@@ -2001,10 +2000,6 @@ class Experiment(object):
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
-        # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
-        # in Experiment.__init__() applying some type checks.
-        # More checks to verify the structure/content of saved_state.get('training_data')
-        # should be added in FederatedDataSet.__init__() when refactoring it
         bkpt_fds = FederatedDataSet(bkpt_fds)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")

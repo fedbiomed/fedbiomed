@@ -101,8 +101,8 @@ class Scaffold(Aggregator):
         #self.update_aggregator_params()FedbiomedAggregatorError:
 
     def aggregate(self,
-                  model_params: list,
-                  weights: List[Dict[str, float]],
+                  model_params: Dict,
+                  weights: Dict[str, float],
                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
                   training_replies: Responses,
@@ -134,15 +134,15 @@ class Scaffold(Aggregator):
             y_i: node i 's local model parameters
 
         Args:
-            model_params (list): list of models parameters recieved from nodes
-            weights (List[Dict[str, float]]): weights depciting sample proportions available
+            model_params: list of models parameters received from nodes
+            weights: weights depicting sample proportions available
                 on each node. Unused for Scaffold.
-            global_model (Mapping[str, Union[torch.Tensor, np.ndarray]]): global model,
-                ie aggregated model
+            global_model: global model, ie aggregated model
             training_plan (BaseTrainingPlan): instance of TrainingPlan
-            node_ids (Iterable[str]): iterable containing node_id (string) participating in the current round.
-            n_updates (int, optional): number of updates (number of batch performed). Defaults to 1.
-            n_round (int, optional): current round. Defaults to 0.
+            training_replies: Training replies from each node that participates in the current round
+            node_ids: iterable containing node_id (string) participating in the current round.
+            n_updates: number of updates (number of batch performed). Defaults to 1.
+            n_round: current round. Defaults to 0.
 
         Returns:
             Dict: aggregated parameters, ie mapping of layer names and layer values.
@@ -150,11 +150,8 @@ class Scaffold(Aggregator):
 
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
-        
-        # Unpack input local model parameters to {node_id: {name: value, ...}, ...} format.
-        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
+
         # Compute the new aggregated model parameters.
-        
         aggregated_parameters = self.scaling(model_params, global_model)
         
         # At round 0, initialize zero-valued correction states.

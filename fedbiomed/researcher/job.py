@@ -14,7 +14,7 @@ import tempfile
 import time
 import uuid
 import importlib
-from typing import Any, Optional, Tuple, Union, Callable, List, Dict, Type
+from typing import Any, Tuple, Union, Callable, List, Dict, Type
 
 import validators
 
@@ -382,7 +382,7 @@ class Job:
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
         for cli in self._nodes:
-            msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+            msg['dataset_id'] = self._data.data()[cli]['dataset_id']
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
@@ -414,7 +414,7 @@ class Job:
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
-                if 'errnum' in m:  # TODO: need a stronger filter
+                if m['command'] == 'error':
                     if m['extra_msg']:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)} "
                                     f"- {str(m['extra_msg'])}")
@@ -429,6 +429,7 @@ class Job:
                         continue
 
                     self._nodes.remove(faulty_node)
+                    continue
 
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or \
@@ -466,6 +467,7 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'optimizer_args': optimizer_args,
+                               'sample_size': m["sample_size"],
                                'timing': timing})
 
                 self._training_replies[round].append(r)
