@@ -112,6 +112,7 @@ class TorchModel(Model):
         return iterator
 
     def predict(self, inputs)-> np.ndarray:
+        self.model().eval()  # pytorch switch for model inference-mode
         with torch.no_grad():
             pred = self.model(inputs) 
         return pred.numpy()
