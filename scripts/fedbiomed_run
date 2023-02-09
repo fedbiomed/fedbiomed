@@ -658,7 +658,7 @@ case $1 in
                 usage researcher
             ;;
             *)
-              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"]
+              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
             ;;
         esac
         ;;
