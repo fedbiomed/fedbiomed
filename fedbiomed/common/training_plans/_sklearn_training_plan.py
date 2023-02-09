@@ -147,14 +147,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
-    def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
-        lr = self._model.model_args.get(lr_key)
-        if lr is None:
-            # get the default value
-            lr = self._model.__dict__.get(lr_key)
-        if lr is None:
-            raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
-        return [lr]
+    # def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
+    #     lr = self._model.model_args.get(lr_key)
+    #     if lr is None:
+    #         # get the default value
+    #         lr = self._model.__dict__.get(lr_key)
+    #     if lr is None:
+    #         raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
+    #     return [lr]
 
     def model(self) -> BaseEstimator:
         """Retrieve the wrapped scikit-learn model instance.
@@ -186,14 +186,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run preprocesses
         self._preprocess()
-        #import remote_pdb; remote_pdb.set_trace()
-        if not isinstance(self.model(), BaseEstimator):
-            msg = (
-                f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
-                f"estimator, but is of type {type(self.model())}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+
+        # if not isinstance(self.model(), BaseEstimator):
+        #     msg = (
+        #         f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
+        #         f"estimator, but is of type {type(self.model())}"
+        #     )
+        #     logger.critical(msg)
+        #     raise FedbiomedTrainingPlanError(msg)
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
@@ -273,7 +273,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # classification labels.
         if self._is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self._model, 'classes_', classes)
+            setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
             if self._is_classification:
@@ -285,27 +285,27 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             metric, metric_args, history_monitor, before_train
         )
 
-    def predict(
-            self,
-            data: Any,
-        ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
+    # def predict(
+    #         self,
+    #         data: Any,
+    #     ) -> np.ndarray:
+    #     """Return model predictions for a given batch of input features.
 
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
+    #     This method is called as part of `testing_routine`, to compute
+    #     predictions based on which evaluation metrics are computed. It
+    #     will however be skipped if a `testing_step` method is attached
+    #     to the training plan, than wraps together a custom routine to
+    #     compute an output metric directly from a (data, target) batch.
 
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
+    #     Args:
+    #         data: Array-like (or tensor) structure containing batched
+    #             input features.
 
-        Returns:
-            Output predictions, converted to a numpy array (as per the
-                `fedbiomed.common.metrics.Metrics` specs).
-        """
-        return self._model.predict(data)
+    #     Returns:
+    #         Output predictions, converted to a numpy array (as per the
+    #             `fedbiomed.common.metrics.Metrics` specs).
+    #     """
+    #     return self._model.predict(data)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """Return unique target labels from the training and testing datasets.

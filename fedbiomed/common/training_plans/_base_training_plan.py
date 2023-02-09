@@ -445,7 +445,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output = self.predict(data)
+                output = self.model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
                 return metric_controller.evaluate(

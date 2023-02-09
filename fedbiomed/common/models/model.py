@@ -1,15 +1,18 @@
 
 
 from abc import abstractmethod
+from collections import OrderedDict
+from copy import deepcopy
 from io import StringIO
 import sys
-from typing import Any, Callable, Dict, List, Union, Iterator
+from typing import Any, Callable, Dict, List, Tuple, Union, Iterator
 from contextlib import contextmanager
 
 import numpy as np
 from declearn.model.sklearn import NumpyVector
 from declearn.optimizer import Optimizer
 from fedbiomed.common.exceptions import FedbiomedModelError
+from fedbiomed.common.logger import logger
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier
@@ -21,7 +24,7 @@ from declearn.model.torch import TorchVector
 class Model:
     
     model = None  #type = Union[nn.module, BaseEstimator]
-    
+    model_args: Dict[str, Any] = {}
     @abstractmethod
     def train(self, inputs: Any, targets: Any, loss_func: Callable = None) -> Any:
         pass
@@ -50,12 +53,15 @@ class Model:
         
 
 class TorchModel(Model):
-    model =  None
+    model: torch.nn.Module =  None
+    init_params: OrderedDict
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiate the wrapper over a torch Module instance."""
         if not isinstance(model, torch.nn.Module):
             raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
         self.model = model
+        # initial aggregated model parameters
+        self.init_params = deepcopy(list(self.model().parameters()))
 
     def get_gradients(self, return_type: Callable = None) -> Any:
         """Return a TorchVector wrapping the gradients attached to the model."""
@@ -80,17 +86,47 @@ class TorchModel(Model):
             parameters = return_type(parameters)
         return parameters
 
-    def apply_updates(self, updates: TorchVector) -> None:
+    def apply_updates(self, updates: Union[TorchVector, OrderedDict]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
+        iterator = self._get_iterator_model_params(updates)
         with torch.no_grad():
-            for name, update in updates.coefs.items():
+            for name, update in iterator:
                 param = self.model.get_parameter(name)
                 param.add_(update)
-                
+    
+    def apply_gradients(self, updates: torch.Tensor):
+        iterator = self._get_iterator_model_params(updates)
+
+        for name, update in iterator:
+            param = self.model.get_parameter(name)
+            param.grad.add_(update.to(param.grad.device))
+
+    def _get_iterator_model_params(self, model_params) -> Iterator[Tuple]:
+        if isinstance(model_params, TorchVector):
+            
+            iterator = model_params.coefs.items()
+        elif isinstance(model_params, dict):
+            iterator = model_params.items()
+        else:
+            raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
+        return iterator
+
     def predict(self, inputs)-> np.ndarray:
         with torch.no_grad():
             pred = self.model(inputs) 
         return pred.numpy()
+    
+    def send_to_device(self, device:torch.device):
+        """sends model to device"""
+        return self.model.to(device)
+    
+
+    def init_training(self):
+        self.model.train()  # pytorch switch for training
+        self.model.zero_grad()
+        
+    def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
+        pass
 
 @contextmanager
 def capture_stdout() -> Iterator[List[str]]:
@@ -144,7 +180,7 @@ class BaseSkLearnModel(Model):
     batch_size: int
     is_declearn_optim: bool
     param_list: List[str] = NotImplemented
-    model_args: Dict[str, Any] = {}
+    #model_args: Dict[str, Any] = {}
     verbose: bool = NotImplemented
     grads: Dict[str, np.ndarray] = NotImplemented
     def __init__(
@@ -154,7 +190,9 @@ class BaseSkLearnModel(Model):
     ) -> None:
         """Instantiate the wrapper over a scikit-learn BaseEstimator."""
         if not isinstance(model, BaseEstimator):
-            raise FedbiomedModelError(f"invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}")
+            err_msg = f"invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}"
+            logger.critical(err_msg)
+            raise FedbiomedModelError(err_msg)
         self.model = model
         # if len(param_list) == 0:
         #     raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
@@ -177,7 +215,7 @@ class BaseSkLearnModel(Model):
 
     def set_weights(self, weights: Dict[str, np.ndarray]):
         for key, val in weights.items():
-                setattr(self.model, key, val)
+            setattr(self.model, key, val)
         
     def get_weights(self, return_type: Callable = None) -> Any:
         
@@ -275,6 +313,7 @@ class RegressorSkLearnModel(BaseSkLearnModel):
 
 class ClassifierSkLearnModel(BaseSkLearnModel):
     _is_classification: bool = True
+    #classes_: np.ndarray = NotImplemented
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
         """Initialize the model's trainable parameters."""
         # Set up zero-valued start weights, for binary of multiclass classif.
@@ -296,6 +335,7 @@ class ClassifierSkLearnModel(BaseSkLearnModel):
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
         setattr(self.model, "classes_", np.arange(n_classes))
+        
 
 class SGDSkLearnModel(BaseSkLearnModel):
     def get_learning_rate(self) -> List[float]:
