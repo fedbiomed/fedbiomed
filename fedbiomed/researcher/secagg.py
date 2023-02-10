@@ -34,7 +34,7 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: str):
+    def __init__(self, parties: List[str], job_id: Union[str, None]):
         """Constructor of the class.
 
         Args:
@@ -42,7 +42,7 @@ class SecaggContext(ABC):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
-                Empty string means the element is not attached to a specific job
+                None means the element is not attached to a specific job
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -63,9 +63,9 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if environ['RESEARCHER_ID'] not in parties:
+        if environ['RESEARCHER_ID'] != parties[0]:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: researcher should be one of the party member.'
+                f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
             )
 
         self._secagg_id = 'secagg_' + str(uuid.uuid4())
@@ -98,11 +98,11 @@ class SecaggContext(ABC):
         return self._secagg_id
 
     @property
-    def job_id(self) -> str:
+    def job_id(self) -> Union[str, None]:
         """Getter for secagg context element job_id
 
         Returns:
-            secagg context element job_ib (or empty string if no job_id is attached to the element)
+            secagg context element job_ib (or None if no job_id is attached to the element)
         """
         return self._job_id
 
@@ -125,7 +125,7 @@ class SecaggContext(ABC):
         """
         return self._context
 
-    def set_job_id(self, job_id: str) -> None:
+    def set_job_id(self, job_id: Union[str, None]) -> None:
         """Setter for secagg context element job_id
 
         Args:
@@ -137,7 +137,7 @@ class SecaggContext(ABC):
 
         if not isinstance(job_id, (str, type(None))):
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str or None if the ' \
-                      f'context is set for Biprime.'
+                      f'context is set for biprime.'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -397,7 +397,7 @@ class SecaggServkeyContext(SecaggContext):
         """
         super().__init__(parties, job_id)
 
-        if not self._job_id or self.job_id is None:
+        if not self._job_id:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
