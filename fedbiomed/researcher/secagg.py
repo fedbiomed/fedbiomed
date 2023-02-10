@@ -441,7 +441,8 @@ class SecaggServkeyContext(SecaggContext):
                 f"Can not read server key from created after MPC execution. {e}"
             )
 
-        return server_key, True
+        context = {'server_key': server_key.strip()}
+        return context, True
 
 
 class SecaggBiprimeContext(SecaggContext):

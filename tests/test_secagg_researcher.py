@@ -260,7 +260,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 ip_addresses='dummy/ip'
             )
 
-            self.assertEqual(context, "key")
+            self.assertEqual(context['server_key'], "key")
             self.assertEqual(status, True)
 
             mock_open.side_effect = Exception
