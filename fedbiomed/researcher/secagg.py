@@ -18,13 +18,13 @@ from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
-MPC = MPCController(
+_MPC = MPCController(
     tmp_dir=environ["TMP_DIR"],
     component_type=ComponentType.RESEARCHER,
     component_id=environ["ID"]
 )
 
-CManager = CertificateManager(
+_CManager = CertificateManager(
     db_path=environ["DB_PATH"]
 )
 
@@ -411,9 +411,9 @@ class SecaggServkeyContext(SecaggContext):
             A tuple of a `context` and a `status` for the server key context element
         """
 
-        ip_file, _ = CManager.write_mpc_certificates_for_experiment(
-            path_certificates=MPC.mpc_data_dir,
-            path_ips=MPC.tmp_dir,
+        ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
+            path_certificates=_MPC.mpc_data_dir,
+            path_ips=_MPC.tmp_dir,
             self_id=environ["ID"],
             self_ip=environ["MPSPDZ_IP"],
             self_port=environ["MPSPDZ_PORT"],
@@ -423,7 +423,7 @@ class SecaggServkeyContext(SecaggContext):
         )
 
         try:
-            output = MPC.exec_shamir(
+            output = _MPC.exec_shamir(
                 party_number=0,  # 0 stands for server/aggregator
                 num_parties=len(self._parties),
                 ip_addresses=ip_file

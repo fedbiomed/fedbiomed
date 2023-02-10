@@ -114,8 +114,8 @@ class SecaggTestCase(NodeTestCase):
 
     def setUp(self) -> None:
         self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
-        self.patch_cm = patch.object(fedbiomed.node.secagg, "CManager")
-        self.patch_mpc = patch.object(fedbiomed.node.secagg, "MPC")
+        self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg, "_MPC")
         self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
 
 

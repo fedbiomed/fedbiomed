@@ -18,8 +18,8 @@ from fedbiomed.researcher.responses import Responses
 class BaseTestCaseSecaggContext(ResearcherTestCase):
 
     def setUp(self) -> None:
-        self.patch_cm = patch.object(fedbiomed.researcher.secagg, "CManager")
-        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPC")
+        self.patch_cm = patch.object(fedbiomed.researcher.secagg, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "_MPC")
         self.patch_requests = patch("fedbiomed.researcher.secagg.Requests")
 
         self.mock_cm = self.patch_cm.start()
