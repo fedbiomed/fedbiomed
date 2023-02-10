@@ -57,11 +57,11 @@ class TorchModel(Model):
     init_params: OrderedDict
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiate the wrapper over a torch Module instance."""
-        if not isinstance(model, torch.nn.Module):
-            raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
+        # if not isinstance(model, torch.nn.Module):
+        #     raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
         self.model = model
         # initial aggregated model parameters
-        self.init_params = deepcopy(list(self.model().parameters()))
+        #self.init_params = deepcopy(list(self.model().parameters()))
 
     def get_gradients(self, return_type: Callable = None) -> Any:
         """Return a TorchVector wrapping the gradients attached to the model."""
@@ -123,6 +123,8 @@ class TorchModel(Model):
     
 
     def init_training(self):
+        # initial aggregated model parameters
+        self.init_params = deepcopy(list(self.model.parameters()))
         self.model.train()  # pytorch switch for training
         self.model.zero_grad()
         

@@ -4,6 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
+import functools
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
 from copy import deepcopy
@@ -129,7 +130,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 configuration goes wrong.
         """
 
-        self._model.model_args = model_args
+        
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
@@ -155,7 +156,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._configure_dependencies()
 
         # Configure model and optimizer
-        self._configure_model_and_optimizer()
+        self._configure_model_and_optimizer(model_args)
 
     @abstractmethod
     def init_model(self):
@@ -267,7 +268,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """ Gets training plan type"""
         return self.__type
 
-    def _configure_model_and_optimizer(self):
+    def _configure_model_and_optimizer(self, model_args: Dict[str, Any]):
         """Configures model and optimizers before training """
 
         # Message to format for unexpected argument definitions in special methods
@@ -282,13 +283,15 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if not init_model_spec:
             model = self.init_model()
         elif len(init_model_spec.keys()) == 1:
-            model = self.init_model(self._model._model_args)
+            model = self.init_model(model_args)
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
                                                                  method="init_model",
                                                                  keys=list(init_model_spec.keys()),
                                                                  alternative="self.model_args()"))
+
         self._model = TorchModel(model)
+        self._model.model_args = model_args
         # Validate and fix model
         self._model.model = self._dp_controller.validate_and_fix_model(self._model.model)
 
@@ -417,7 +420,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         #self.model().train()  # pytorch switch for training
-
+        self._model.init_training()
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
@@ -617,7 +620,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return torch.save(self._model.state_dict(), filename)
+            return torch.save(self.model().state_dict(), filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -632,7 +635,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         params = torch.load(filename)
         if to_params is False:
-            self._model.load_state_dict(params)
+            self._model.model.load_state_dict(params)
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):

@@ -487,27 +487,27 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     num_batches=n_batches
                 )
 
-    @abstractmethod
-    def predict(
-            self,
-            data: Any,
-        ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
+    # @abstractmethod
+    # def predict(
+    #         self,
+    #         data: Any,
+    #     ) -> np.ndarray:
+    #     """Return model predictions for a given batch of input features.
 
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
+    #     This method is called as part of `testing_routine`, to compute
+    #     predictions based on which evaluation metrics are computed. It
+    #     will however be skipped if a `testing_step` method is attached
+    #     to the training plan, than wraps together a custom routine to
+    #     compute an output metric directly from a (data, target) batch.
 
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
-        Returns:
-            Output predictions, converted to a numpy array (as per the
-                `fedbiomed.common.metrics.Metrics` specs).
-        """
-        return NotImplemented
+    #     Args:
+    #         data: Array-like (or tensor) structure containing batched
+    #             input features.
+    #     Returns:
+    #         Output predictions, converted to a numpy array (as per the
+    #             `fedbiomed.common.metrics.Metrics` specs).
+    #     """
+    #     return NotImplemented
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
