@@ -26,7 +26,7 @@ shift
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
-  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_mpc node|researcher'"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_mpc (node | researcher)'"
   exit 1
 fi
 
@@ -68,7 +68,7 @@ MPC Controller
 
 Usage
 
-> fedbiomed_mpc [compile | exec | shamir-server-key]
+> fedbiomed_mpc (node | researcher) [compile | exec | shamir-server-key]
 
 compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
                       and more information
@@ -83,7 +83,7 @@ EOF
 Compiles MPC script
 
 Usage:
-> fedbiomed_mpc  compile --script [script-name] [extra arguments]
+> fedbiomed_mpc  (node | researcher) compile --script [script-name] [extra arguments]
 
 Script argument is mandatory
 
@@ -101,7 +101,7 @@ EOF
 Executes MPC protocols
 
 Usage
-> fedbiomed_mpc exec --protocol [protocol-name] [extra-arguments]
+> fedbiomed_mpc (node | researcher) exec --protocol [protocol-name] [extra-arguments]
 
 Protocol argument is mandatory
 
@@ -118,7 +118,7 @@ EOF
       cat <<EOF
 Executes Shamir protocol for computing server key for secure aggregation
 
-Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
+Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
                                           -of [OUTPUT_FILE] [-c|--compile] | [ ]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
@@ -250,7 +250,7 @@ function execute_shamir_server_key(){
 
   if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ]; then
     error "There missing arguments. Please make sure that all the arguments are provided.\n\
-            \rSee 'fedbiomed_mpc shamir-server-key --help'"
+            \rSee 'fedbiomed_mpc (node|researcher) shamir-server-key --help'"
   fi
 
   # Check output file if party number is 0 (server) -------------------------------------------------------------------
