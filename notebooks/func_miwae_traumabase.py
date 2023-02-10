@@ -16,6 +16,9 @@ def miwae_impute(encoder,decoder,iota,data,x_cat,mask,p,d,L):
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
 
     batch_size = data.shape[0]
+
+    if np.isnan(data).any():
+        data[np.isnan(data)] = 0
     
     tiledmask = torch.tile(mask,(L,1))
     mask_complement_float = torch.abs(mask-1)
@@ -137,7 +140,7 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
     if ((fed_mean is not None) and (fed_std is not None)): 
         if ((type(fed_mean) != np.ndarray) and (type(fed_std) != np.ndarray)):
             fed_mean, fed_std = fed_mean.numpy(), fed_std.numpy()
-            
+
         # standardization with respect to the federated dataset
         xmiss_cont_global = standardize_data(xmiss_cont, fed_mean, fed_std)
         xhat_global_std = np.concatenate((x_cov, xmiss_cont_global), axis=1)
@@ -149,6 +152,61 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
         return xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std
     else:
         return xhat_local_std, xfull_local_std
+
+def create_save_data_prediction(encoder, decoder, iota, data, n_cov, result_folder, filename, d, L, standard = False, mean = None, std = None):
+    
+    cwd = os.getcwd()
+    print(cwd)
+    folder = cwd+'/'+result_folder+'/clients_imputed'
+    os.makedirs(folder, exist_ok=True)
+    
+    col_names = list(data.columns)
+    data_np = np.copy(data)
+    mask = np.isfinite(data_np)[:,n_cov:]
+    data_cont = data_np[:,n_cov:] 
+    data_cov = data_np[:,:n_cov]
+    p = len(col_names)-n_cov
+
+    if standard:
+        if ((mean is None) and (std is None)):
+            mean, std = np.nanmean(data_cont,0), np.nanstd(data_cont,0)
+        if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
+            mean, std = mean.numpy(), std.numpy()
+        data_cont = standardize_data(data_cont, mean, std)
+    print(data_cont.shape,mask.shape,p)
+    data_cont[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(data_cont).float(), 
+                            x_cat = torch.from_numpy(data_cov).float(), mask = torch.from_numpy(mask).float(),p=p, d = d, L= L).cpu().data.numpy()[~mask]
+    if standard:
+        data_cont = data_cont*std + mean
+    data_np = np.concatenate((data_cov, data_cont), axis=1)
+
+    print('HERE',filename)
+    print(np.isnan(data_np).any(),data_np.shape)
+
+    data_df = pd.DataFrame(data_np, columns=col_names)
+    print(data_df.head())
+
+    data_df.to_csv(folder+'/'+filename+'.csv',index=False)
+
+def recover_data_prediction(data_full , n_cov, fed_mean = None, fed_std = None):
+
+    xfull = np.copy(data_full)
+    x_cov = xfull[:,:n_cov]
+    xfull_cont = xfull[:,n_cov:]
+
+    xfull_cont_local = standardize_data(xfull_cont)
+    xfull_local_std = np.concatenate((x_cov, xfull_cont_local), axis=1)
+
+    if ((fed_mean is not None) and (fed_std is not None)): 
+        if ((type(fed_mean) != np.ndarray) and (type(fed_std) != np.ndarray)):
+            fed_mean, fed_std = fed_mean.numpy(), fed_std.numpy()
+        xfull_cont_global = standardize_data(xfull_cont, fed_mean, fed_std)
+        xfull_global_std = np.concatenate((x_cov, xfull_cont_global), axis=1)
+
+        return xfull_global_std, xfull_local_std
+    else:
+        return xfull_local_std
+
         
 def standardize_data(data, fed_mean = None, fed_std = None):
     data_norm = np.copy(data)
@@ -200,35 +258,60 @@ def save_results_imputation(result_folder, Train_data,Test_data,model,
         dictwriter_object.writerow(dict_out)
         output_file.close()
 
-def databases(data_folder,task,idx_clients,idx_Test_data,root_dir=None):
+def save_results_prediction(result_folder, model, regressor, Epochs_reg, Rounds_reg, F1, precision, mse, accuraccy, conf_matr, tn, fp, fn, tp):
+    os.makedirs(result_folder, exist_ok=True) 
+    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    output_file_name = 'output_pred_'+str(exp_id)+'_'+str(np.random.randint(9999, dtype=int))+'.csv'
+    fieldnames=['model', 'regressor', 'N_rounds_reg', 'N_epochs_reg',
+                'F1', 'precision', 'mse', 'accuraccy', 'conf_matr', 'validation_err']
+    if not os.path.exists(result_folder+'/'+output_file_name):
+        output = open(result_folder+'/'+output_file_name, "w")
+        writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter = ';')
+        writer.writeheader()
+        output.close()
 
-    if task == 'imputation':
-        data_folder_miss = data_folder + 'clients_missing'
-        test_missing_file = os.path.join(str(data_folder_miss),"dataset_"+str(idx_Test_data)+".csv")
-        data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
-        test_mask_file = os.path.join(str(data_folder_miss),"mask_"+str(idx_Test_data)+".csv")
-        test_mask = pd.read_csv(test_mask_file, sep=",",index_col=False)
-        test_mask_np = np.copy(test_mask)
-        test_mask_np = np.invert(test_mask_np) 
-        Clients_missing=[]
-        Clients_mask = []
-    elif task == 'prediction':
-        test_label_file = os.path.join(str(data_folder),"Labels_"+str(idx_Test_data)+".csv")
-        test_label = pd.read_csv(test_label_file, sep=",",index_col=False)
-        Clients_label = []
-    
+    w0=5/6
+    w1=1/6
+    validation_err = (w0*fn+w1*fp)/(fn+fp)
+
+    # Dictionary to be added
+    dict_out={'model': model, 'regressor': regressor, 'N_rounds_reg': Rounds_reg, 'N_epochs_reg': Epochs_reg, 
+                'F1':F1, 'precision':precision, 'mse':mse, 'accuraccy':accuraccy, 
+                'conf_matr':conf_matr, 'validation_err':validation_err}
+
+    with open(result_folder+'/'+output_file_name, 'a') as output_file:
+        dictwriter_object = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter = ';')
+        dictwriter_object.writerow(dict_out)
+        output_file.close()
+
+def databases(data_folder,task,idx_clients,root_dir=None,idx_Test_data=None, inputed = False):
+
+    data_folder_miss = data_folder + 'clients_missing'
     data_folder += 'clients'
-
     if root_dir is not None:
         root_dir = Path.home() if root_dir == 'home' else Path.home().joinpath( 'Documents/INRIA_EPIONE/FedBioMed', 'fedbiomed' )
         data_folder = root_dir.joinpath(data_folder)
+
+    if task == 'imputation':
+        test_missing_file = os.path.join(str(data_folder_miss),"dataset_"+str(idx_Test_data)+".csv")
+        data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
+        if idx_Test_data is not None:
+            test_mask_file = os.path.join(str(data_folder_miss),"mask_"+str(idx_Test_data)+".csv")
+            test_mask = pd.read_csv(test_mask_file, sep=",",index_col=False)
+            test_mask_np = np.copy(test_mask)
+            test_mask_np = np.invert(test_mask_np) 
+        Clients_missing=[]
+        Clients_mask = []
+    elif task == 'prediction':
+        if idx_Test_data is not None:
+            test_label_file = os.path.join(str(data_folder),"Labels_"+str(idx_Test_data)+".csv")
+            test_label = pd.read_csv(test_label_file, sep=",",index_col=False)
+        Clients_label = []
 
     Clients_data=[]
     for i in idx_clients:
         if task == 'imputation':
             data_full_file = os.path.join(str(data_folder), "dataset_full_"+str(i)+".csv")
-            data_full = pd.read_csv(data_full_file, sep=",",index_col=False)
-            Clients_data.append(data_full)
             data_file = os.path.join(str(data_folder_miss),"dataset_"+str(i)+".csv")
             data = pd.read_csv(data_file, sep=",",index_col=False)
             Clients_missing.append(data)
@@ -238,30 +321,73 @@ def databases(data_folder,task,idx_clients,idx_Test_data,root_dir=None):
             mask_np = np.invert(mask_np) 
             Clients_mask.append(mask_np)
         elif task == 'prediction':
-            data_full_file = os.path.join(str(data_folder), "Client_"+str(i)+".csv")
-            data_full = pd.read_csv(data_full_file, sep=",",index_col=False)
-            Clients_data.append(data_full)
+            if inputed:
+                data_full_file = os.path.join(str(data_folder), "Client_inputed_"+str(i)+".csv") 
+            else:   
+                data_full_file = os.path.join(str(data_folder), "Client_"+str(i)+".csv")
             label_file = os.path.join(str(data_folder),"Labels_"+str(i)+".csv")
             label = pd.read_csv(label_file, sep=",",index_col=False)
             Clients_label.append(label)            
+        data_full = pd.read_csv(data_full_file, sep=",",index_col=False)
+        Clients_data.append(data_full)
 
-    test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
-    data_test = pd.read_csv(test_file, sep=",",index_col=False)
+    if idx_Test_data is not None:
+        if task == 'imputation':
+            test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
+            test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
+        elif task == 'prediction':
+            if inputed:
+                test_file = os.path.join(str(data_folder),"Client_inputed_"+str(idx_Test_data)+".csv")
+            else:
+                test_file = os.path.join(str(data_folder),"Client_"+str(idx_Test_data)+".csv")
+        data_test = pd.read_csv(test_file, sep=",",index_col=False)
 
     if task == 'imputation':
-        return Clients_data, Clients_missing, Clients_mask, data_test, data_test_missing, test_mask_np
+        if idx_Test_data is not None:
+            return Clients_data, Clients_missing, Clients_mask, data_test, data_test_missing, test_mask_np
+        else:
+            return Clients_data, Clients_missing, Clients_mask
     elif task == 'prediction':
-        return Clients_data, Clients_label, data_test, test_label
+        if idx_Test_data is not None:
+            return Clients_data, Clients_label, data_test, test_label
+        else:
+            return Clients_data, Clients_label
 
-def generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,Loss_tot,Like_tot,MSE_tot,epochs_loc,epochs_tot,idx_clients):
+def databases_pred(data_folder,idx_clients,root_dir=None, idx_Test_data=None, imputed = False):
+    if imputed:
+        data_folder += 'clients_imputed'
+    else:
+        data_folder += 'clients'
+    if root_dir is not None:
+        root_dir = Path.home() if root_dir == 'home' else Path.home().joinpath( 'Documents/INRIA_EPIONE/FedBioMed', 'fedbiomed' )
+        data_folder = root_dir.joinpath(data_folder)
+
+    Clients_data=[]
+    for i in idx_clients:
+        if imputed:
+                data_full_file = os.path.join(str(data_folder), "Client_imputed_"+str(i)+".csv") 
+        else:   
+            data_full_file = os.path.join(str(data_folder), "Client_"+str(i)+".csv")
+        data_full = pd.read_csv(data_full_file, sep=",",index_col=False)
+        Clients_data.append(data_full)
+    if imputed:
+        test_file = os.path.join(str(data_folder),"Client_imputed_"+str(idx_Test_data)+".csv")
+    else:
+        test_file = os.path.join(str(data_folder),"Client_"+str(idx_Test_data)+".csv")
+    data_test = pd.read_csv(test_file, sep=",",index_col=False)
+    return Clients_data, data_test
+
+def generate_save_plots(result_folder,Loss,Like,MSE,epochs,model,idx_clients):
     figures_folder = result_folder+'/Figures'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
-    for cl in range(len(idx_clients)):
-        file_name = exp_id+'Fig_client_'+str(idx_clients[cl])
-        save_plots(epochs_loc,Like_cls[cl],Loss_cls[cl],MSE_cls[cl],figures_folder,file_name)
-    file_name = exp_id+'Fig_centralized_'+str(idx_clients)
-    save_plots(epochs_tot,Like_tot,Loss_tot,MSE_tot,figures_folder,file_name)
+    if model == 'Local':
+        for cl in range(len(idx_clients)):
+            file_name = exp_id+'Fig_client_'+str(idx_clients[cl])
+            save_plots(epochs,Like[cl],Loss[cl],MSE[cl],figures_folder,file_name)
+    elif model == 'Centralized':
+        file_name = exp_id+'Fig_centralized_'+str(idx_clients)
+        save_plots(epochs,Like,Loss,MSE,figures_folder,file_name)
 
 def save_plots(epochs,likelihood,loss,mse,fig_folder,file_name):
     fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, sharex=True)
@@ -274,3 +400,31 @@ def save_plots(epochs,likelihood,loss,mse,fig_folder,file_name):
     plt.savefig(fig_folder + '/' + file_name)
     plt.clf()
     plt.close()
+
+def generate_save_plots_prediction(result_folder,testing_error,y_pred,y_test,model):
+    figures_folder = result_folder+'/Figures_pred'
+    os.makedirs(figures_folder, exist_ok=True)
+    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
+    
+    plt.plot(testing_error)
+    plt.title('FL testing loss')
+    plt.xlabel('FL round')
+    plt.ylabel('testing loss (MSE)')
+    filename = exp_id+'_Testing_error_'+model
+    plt.savefig(figures_folder + '/' + filename)
+    plt.clf()
+    plt.close()
+
+    #plt.scatter(y_pred, y_test, label='model prediction')
+    #plt.xlabel('predicted')
+    #plt.ylabel('target')
+    #plt.title('Federated model testing prediction')
+    #
+    #first_diag = np.arange(np.min(y_test.flatten()),
+    #                    np.max(y_test.flatten()+1))
+    #plt.scatter(first_diag, first_diag, label='correct Target')
+    #plt.legend()    
+    #filename = exp_id+'_Model_prediction_'+model
+    #plt.savefig(figures_folder + '/' + filename)
+    #plt.clf()
+    #plt.close()
