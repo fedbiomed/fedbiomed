@@ -298,13 +298,18 @@ class SecaggBiprimeManager(BaseSecaggManager):
         return self._remove_generic(secagg_id)
 
 
+# Instantiate one manager for each secagg element type
+SKManager = SecaggServkeyManager()
+BPrimeManager = SecaggBiprimeManager()
+
+
 class SecaggManager:
     """Wrapper class for instantiating any type of node secagg element database manager
     """
 
     element2class = {
-        SecaggElementTypes.SERVER_KEY.name: SecaggServkeyManager,
-        SecaggElementTypes.BIPRIME.name: SecaggBiprimeManager
+        SecaggElementTypes.SERVER_KEY.name: SKManager,
+        SecaggElementTypes.BIPRIME.name: BPrimeManager
     }
 
     def __init__(self, element: int):
@@ -328,7 +333,7 @@ class SecaggManager:
             raise FedbiomedSecaggError(error_msg)
 
         try:
-            return SecaggManager.element2class[element.name]()
+            return SecaggManager.element2class[element.name]
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"Can not instantiate secure aggregation manager: Error{e}"

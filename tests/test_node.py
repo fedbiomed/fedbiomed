@@ -111,8 +111,8 @@ class TestNode(NodeTestCase):
             task_queue_add_patcher.assert_called_once_with(node_msg_request_create_task)
             task_queue_add_patcher.reset_mock()
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
+    @patch('fedbiomed.node.secagg.BPrimeManager')
+    @patch('fedbiomed.node.secagg.SKManager')
     @patch('fedbiomed.node.node.Node.add_task')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_node_02_on_message_normal_case_scenario_train_secagg_reply(
@@ -872,8 +872,8 @@ class TestNode(NodeTestCase):
         # (because 2 rounds have been set in `rounds` attribute)
         self.assertEqual(mssging_send_msg_patch.call_count, 1)
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
+    @patch('fedbiomed.node.secagg.BPrimeManager')
+    @patch('fedbiomed.node.secagg.SKManager')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node._task_secagg')

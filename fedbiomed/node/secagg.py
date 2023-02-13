@@ -18,7 +18,7 @@ from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.validator import Validator, ValidatorError
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 
 
 _MPC = MPCController(
@@ -30,9 +30,6 @@ _MPC = MPCController(
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
 )
-
-SKManager = SecaggServkeyManager()
-BPrimeManager = SecaggBiprimeManager()
 
 
 class BaseSecaggSetup(ABC):
