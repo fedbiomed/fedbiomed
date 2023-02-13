@@ -123,7 +123,7 @@ class BaseSecaggSetup(ABC):
         return self._secagg_id
 
     @property
-    def job_id(self) -> str:
+    def job_id(self) -> Union[str, None]:
         """Getter for `job_id`
 
         Returns:
@@ -166,13 +166,13 @@ class BaseSecaggSetup(ABC):
             logger.error(message)
 
         return {
-                'researcher_id': self._researcher_id,
-                'secagg_id': self._secagg_id,
-                'sequence': self._sequence,
-                'success': success,
-                'msg': message,
-                'command': 'secagg'
-            }
+            'researcher_id': self._researcher_id,
+            'secagg_id': self._secagg_id,
+            'sequence': self._sequence,
+            'success': success,
+            'msg': message,
+            'command': 'secagg'
+        }
 
     @abstractmethod
     def setup(self) -> SecaggReply:
@@ -207,7 +207,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
         Raises:
             FedbiomedSecaggError: bad argument type or value 
         """
-        super().__init__(researcher_id, secagg_id,  sequence, parties, job_id)
+        super().__init__(researcher_id, secagg_id, sequence, parties, job_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
 
@@ -295,26 +295,28 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             secagg_id: str,
             sequence: int,
             parties: List[str],
-            job_id: Union[str, None] = None):
+            job_id: None = None):
 
         """Constructor of the class.
 
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
-            job_id: must be an empty string for a biprime context element (not attached to a job)
+            job_id: unused argument
             sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, sequence, parties, job_id)
+        super().__init__(researcher_id, secagg_id, sequence, parties, None)
 
         self._element = SecaggElementTypes.BIPRIME
 
-        # Force Job id to be None
-        self._job_id = None
+        if job_id is not None:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be None'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
     def setup(self) -> SecaggReply:
         """Set up the biprime secagg context element.

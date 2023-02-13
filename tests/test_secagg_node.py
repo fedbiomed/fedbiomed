@@ -237,7 +237,7 @@ class TestSecaggBiprime(SecaggTestCase):
         self.args = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
-            'job_id': '',
+            'job_id': None,
             'sequence': 123,
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
@@ -247,12 +247,12 @@ class TestSecaggBiprime(SecaggTestCase):
         super().tearDown()
 
     def test_secagg_biprime_setup_01_init(self):
-        """Tests init """
+        """Tests init with bad job_id"""
         args = deepcopy(self.args)
         args["job_id"] = "non-empty-string"
 
-        secagg = SecaggBiprimeSetup(**args)
-        self.assertIsNone(secagg.job_id)
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggBiprimeSetup(**args)
 
 
     def test_secagg_biprime_setup_02_setup(self):
@@ -298,12 +298,11 @@ class TestSecaggSetup(NodeTestCase):
         secagg_setup = SecaggSetup(**args)()
         self.assertIsInstance(secagg_setup, SecaggBiprimeSetup)
 
-        # Test forcing job_id None if Secagg setup is Biprime
+        # Test forcing checking job_id None if Secagg setup is Biprime
         args["element"] = 1
         args["job_id"] = 12
-        secagg_setup = SecaggSetup(**args)()
-        self.assertIsInstance(secagg_setup, SecaggBiprimeSetup)
-        self.assertIsNone(secagg_setup.job_id)
+        with self.assertRaises(FedbiomedSecaggError):
+            secagg_setup = SecaggSetup(**args)()
 
         # Raise element type
         args["element"] = 2

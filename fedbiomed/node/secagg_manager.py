@@ -74,7 +74,7 @@ class BaseSecaggManager(ABC):
         return element
 
     @abstractmethod
-    def get(self, secagg_id: str, job_id: str):
+    def get(self, secagg_id: str, job_id: Union[str, None]):
         """Search for a data entry in node secagg element database"""
 
     def _add_generic(self, secagg_id: str, parties: List[str], specific: dict):
@@ -198,7 +198,7 @@ class SecaggServkeyManager(BaseSecaggManager):
             context: server key part held by this party
         """
 
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        # Trust argument type and value check from calling class (`SecaggSetup`, but not `Node`)
         self._add_generic(
             secagg_id,
             parties,
@@ -219,7 +219,8 @@ class SecaggServkeyManager(BaseSecaggManager):
                 False if no entry existed for this `secagg_id`
         """
 
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
+        # Don't trust `Node` for `job_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
             errmess = f'{ErrorNumbers.FB318.value}: error removing servkey element: ' \
@@ -244,14 +245,14 @@ class SecaggBiprimeManager(BaseSecaggManager):
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggBiprime', cache_size=0)
 
-    def get(self, secagg_id: str, job_id: Union[str, None] = None) -> Union[dict, None]:
+    def get(self, secagg_id: str, job_id: None = None) -> Union[dict, None]:
         """Search for data entry with given `secagg_id` in the biprime table
 
         Check that there is at most one entry with this unique secagg ID.
 
         Args:
             secagg_id: secure aggregation ID key to search
-            job_id: This argument has not affect on Biprime setup default is None.
+            job_id: unused argument.
         Returns:
             A dict containing all values for the secagg element for this `secagg_id` if it exists,
                 or None if no element exists for this `secagg_id`
@@ -264,7 +265,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             secagg_id: str,
             parties: List[str],
             context: str,
-            job_id: Union[str, None] = None
+            job_id: None = None
     ) -> None:
         """Add a new data entry for a context element in the biprime table 
 
@@ -274,7 +275,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
             context: the (full) biprime number shared with other parties
-            job_id: This argument has not affect on Biprime setup default is None.
+            job_id: unused argument
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         self._add_generic(
@@ -283,13 +284,12 @@ class SecaggBiprimeManager(BaseSecaggManager):
             {'context': context}
         )
 
-    def remove(self, secagg_id: str, job_id: Union[str, None] = None) -> bool:
+    def remove(self, secagg_id: str, job_id: None = None) -> bool:
         """Remove data entry for this `secagg_id` from the biprime table
 
         Args:
             secagg_id: secure aggregation ID key of the entry
-            job_id: This argument has not affect on Biprime setup default is None.
-
+            job_id: unused argument
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
@@ -321,5 +321,5 @@ class SecaggManager:
             return SecaggManager.element2class[element.name]()
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"Can not instantiate secure aggregation manager"
+                f"Can not instantiate secure aggregation manager: Error{e}"
             )
