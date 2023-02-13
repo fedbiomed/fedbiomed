@@ -316,5 +316,6 @@ class TestSecaggSetup(NodeTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
 
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

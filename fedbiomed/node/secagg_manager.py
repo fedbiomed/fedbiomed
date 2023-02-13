@@ -299,15 +299,25 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
 
 class SecaggManager:
+    """Wrapper class for instantiating any type of node secagg element database manager
+    """
+
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeyManager,
         SecaggElementTypes.BIPRIME.name: SecaggBiprimeManager
     }
 
-    def __init__(self, element):
+    def __init__(self, element: int):
+        """Constructor of the class
+        """
         self._element = element
 
-    def __call__(self):
+    def __call__(self) -> BaseSecaggManager:
+        """Instantiate a node secagg element database manager object.
+
+        Returns:
+            a new secagg element database manager object
+        """
 
         if self._element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(self._element)

@@ -342,18 +342,26 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
 
 
 class SecaggSetup:
+    """Wrapper class for instantiating any type of node secagg context element setup class
+    """
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
         SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup
     }
 
-    def __init__(self, element, **kwargs):
-
+    def __init__(self, element: int, **kwargs):
+        """Constructor of the class
+        """
         self._element = element
         self.kwargs = kwargs
 
-    def __call__(self):
+    def __call__(self) -> BaseSecaggSetup:
+        """Instantiate a node secagg context element setup class.
+
+        Returns:
+            a new secagg context element object
+        """
 
         if self._element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(self._element)

@@ -4,12 +4,10 @@
 '''
 Core code of the node component.
 '''
-import copy
 from json import decoder
 
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union
 
-from fedbiomed.common import json
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 from fedbiomed.common.logger import logger
