@@ -97,7 +97,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             key: model_args.get(key, val)
             for key, val in self._model.get_params().items()
         }
-        print("PARAMS", params )
+
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
         # TODO: raise error if 

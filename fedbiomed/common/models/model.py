@@ -4,6 +4,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
 from io import StringIO
+import joblib
 import sys
 from typing import Any, Callable, Dict, List, Tuple, Union, Iterator
 from contextlib import contextmanager
@@ -25,6 +26,9 @@ class Model:
     
     model = None  #type = Union[nn.module, BaseEstimator]
     model_args: Dict[str, Any] = {}
+    @abstractmethod
+    def init_training(self):
+        pass
     @abstractmethod
     def train(self, inputs: Any, targets: Any, loss_func: Callable = None) -> Any:
         pass
@@ -131,6 +135,12 @@ class TorchModel(Model):
     def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
         pass
 
+    def load(self, filename: str):
+        # loads model from a file
+        params = torch.load(filename)
+        self.model.load_state_dict(params)
+
+
 @contextmanager
 def capture_stdout() -> Iterator[List[str]]:
     """Context manager to capture console outputs (stdout).
@@ -154,7 +164,6 @@ def capture_stdout() -> Iterator[List[str]]:
 
 class SkLearnModel():
     def __init__(self, model):
-        
         self._instance = Models[model.__name__](model())
         
      
@@ -295,7 +304,11 @@ class BaseSkLearnModel(Model):
     @abstractmethod
     def set_learning_rate(self):
         pass
-
+    
+    def load(self, filename: str):
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+            self.model = model
 
 # TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
 # TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
@@ -361,15 +374,11 @@ class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
 class SGDClassiferSKLearnModel(ClassifierSkLearnModel, SGDSkLearnModel):
     pass 
 
-class MLPClassfierSKLearnModel(ClassifierSkLearnModel, MLPSklearnModel):
-    pass
-
 class SGDRegressorSKLearnModel(RegressorSkLearnModel, SGDSkLearnModel):
     pass
 
 
 Models = {
     SGDClassifier.__name__: SGDClassiferSKLearnModel ,
-    MLPClassifier.__name__: MLPClassfierSKLearnModel,
     SGDRegressor.__name__: SGDRegressorSKLearnModel
 }
