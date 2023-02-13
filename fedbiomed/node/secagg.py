@@ -223,8 +223,12 @@ class SecaggServkeySetup(BaseSecaggSetup):
         # also checks that `context` is attached to the job `self._job_id`
         try:
             context = SKManager.get(self._secagg_id, self._job_id)
+        except FedbiomedError as e:
+            logger.debug(f"{e}")
+            return self._create_secagg_reply(
+                f'Can not create secure aggregation context due to database error: {e}', False)
         except Exception as e:
-            logger.debug(f"Can not create secure aggregation context due to database errror: {e}")
+            logger.debug(f"Can not create secure aggregation context due to database error: {e}")
             return self._create_secagg_reply('Can not create secure aggregation context', False)
 
         if context is None:
@@ -236,9 +240,11 @@ class SecaggServkeySetup(BaseSecaggSetup):
                                                  f'certificate for the federated setup. Please see error: {e}', False)
             except Exception as e:
                 logger.debug(f"{e}")
-                return self._create_secagg_reply('Unexpected error occurred please report this to the node ower', False)
+                return self._create_secagg_reply('Unexpected error occurred please report this to the node owner', False)
         else:
-            logger.info(f"Node has key share for {self._secagg_id} is already existing for job {self._job_id}")
+            message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
+            logger.info(message)
+            self._create_secagg_reply(message, True)
 
         return self._create_secagg_reply('Key share has been successfully created', True)
 
