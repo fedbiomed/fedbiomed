@@ -182,25 +182,24 @@ class Node:
 
         try:
             secagg_manager = SecaggManager(element=msg.get_param('element'))()
-        except FedbiomedError as e:
+        except Exception as e:
             message = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
             logger.error(message)
             return self.reply({"success": False, "msg": message, **reply})
 
         try:
-            status = secagg_manager.remove(secagg_id=msg.get_param('secagg_id'),
+            status = secagg_manager.remove(secagg_id=secagg_id,
                                            job_id=msg.get_param('job_id'))
-            message = 'Delete request is successful'
-            # If delete status is not successful
+            if status:
+                message = 'Delete request is successful'
+            else:
+                message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
+                    f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
         except Exception as e:
             message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
                       f'secagg_id={secagg_id}: {e}'
             logger.error(message)
             status = False
-
-        if not status:
-            message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
-                      f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
 
         return self.reply({"success": status, "msg": message, **reply})
 
@@ -214,7 +213,7 @@ class Node:
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
-        except FedbiomedError as error_message:
+        except Exception as error_message:
             logger.error(error_message)
             return self.reply({"researcher_id": msg.get_param('researcher_id'),
                                "secagg_id": msg.get_param('secagg_id'),

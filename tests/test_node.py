@@ -1089,15 +1089,15 @@ class TestNode(NodeTestCase):
         # due to not existing certificate files
         self.n1._task_secagg(request)
         messaging_send_msg.assert_called_once_with(
-            {'researcher_id': 'party1',
-             'secagg_id': 'my_dummy_secagg_id',
-             'sequence': 888,
+            {'researcher_id': req['researcher_id'],
+             'secagg_id': req['secagg_id'],
+             'sequence': req['sequence'],
              'success': False,
              'node_id': environ["ID"],
              'msg': 'Can not apply secure aggregation it might be due to unregistered certificate for the '
-                    'federated setup. Please see error: FB619: Certificate error: Certificate for party1 is '
+                    f'federated setup. Please see error: FB619: Certificate error: Certificate for {req["researcher_id"]} is '
                     'not existing. Certificates  of each federated training participant should be present. '
-                    f'{environ["ID"]} should register certificate of party1.',
+                    f'{environ["ID"]} should register certificate of {req["researcher_id"]}.',
              'command': 'secagg'}
         )
         messaging_send_msg.reset_mock()
@@ -1108,12 +1108,12 @@ class TestNode(NodeTestCase):
 
         self.n1._task_secagg(request)
         messaging_send_msg.assert_called_once_with(
-            {'researcher_id': 'party1',
-             'secagg_id': 'my_dummy_secagg_id',
-             'sequence': 888,
+            {'researcher_id': req['researcher_id'],
+             'secagg_id': req['secagg_id'],
+             'sequence': req['sequence'],
              'success': False,
              'node_id': environ["ID"],
-             'msg': 'Received bad request message: incorrect `element` 12',
+             'msg': f"Received bad request message: incorrect `element` {req['element']}",
              'command': 'secagg'}
         )
 
@@ -1135,13 +1135,13 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg_delete(request)
 
         messaging_send_msg.assert_called_once_with({
-            'researcher_id': 'party1',
-            'secagg_id': 'my_dummy_secagg_id',
-            'sequence': 888,
+            'researcher_id': req['researcher_id'],
+            'secagg_id': req['secagg_id'],
+            'sequence': req['sequence'],
             'success': False,
             'node_id': environ["ID"],
             'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB321: '
-                   'Secure aggregation delete error: received bad delete message: incorrect `element` 11',
+                   f'Secure aggregation delete error: received bad delete message: incorrect `element` {req["element"]}',
             'command': 'secagg-delete'
         })
         messaging_send_msg.reset_mock()
@@ -1153,9 +1153,9 @@ class TestNode(NodeTestCase):
         request = NodeMessages.request_create(req)
         self.n1._task_secagg_delete(request)
         messaging_send_msg.assert_called_once_with({
-            'researcher_id': 'party1',
-            'secagg_id': 'my_dummy_secagg_id',
-            'sequence': 888,
+            'researcher_id': req['researcher_id'],
+            'secagg_id': req['secagg_id'],
+            'sequence': req['sequence'],
             'success': False,
             'node_id': environ["ID"],
             'msg': 'FB321: Secure aggregation delete error: no such secagg context element in node database for '
@@ -1171,13 +1171,13 @@ class TestNode(NodeTestCase):
             request = NodeMessages.request_create(req)
             self.n1._task_secagg_delete(request)
             messaging_send_msg.assert_called_once_with({
-                'researcher_id': 'party1',
-                'secagg_id': 'my_dummy_secagg_id',
-                'sequence': 888,
+                'researcher_id': req['researcher_id'],
+                'secagg_id': req['secagg_id'],
+                'sequence': req['sequence'],
                 'success': False,
                 'node_id': environ["ID"],
-                'msg': 'FB321: Secure aggregation delete error: no such secagg context element in node database for '
-                       f'node_id={environ["ID"]} secagg_id=my_dummy_secagg_id',
+                'msg': 'FB321: Secure aggregation delete error: error during secagg delete on '
+                f'node_id={environ["ID"]} secagg_id={req["secagg_id"]}: ',
                 'command': 'secagg-delete'
             })
 
