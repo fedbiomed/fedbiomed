@@ -26,6 +26,7 @@ class Model:
     
     model = None  #type = Union[nn.module, BaseEstimator]
     model_args: Dict[str, Any] = {}
+    
     @abstractmethod
     def init_training(self):
         pass
@@ -194,7 +195,7 @@ class BaseSkLearnModel(Model):
     param_list: List[str] = NotImplemented
     #model_args: Dict[str, Any] = {}
     verbose: bool = NotImplemented
-    grads: Dict[str, np.ndarray] = NotImplemented
+    updates: Dict[str, np.ndarray] = NotImplemented  #replace `grads` from th poc
     def __init__(
         self,
         model: BaseEstimator,
@@ -219,16 +220,17 @@ class BaseSkLearnModel(Model):
         
     def init_training(self):
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}
-        self.grads: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
+        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
         if self.is_declearn_optim:
             self.set_learning_rate()
         
 
-    def set_weights(self, weights: Dict[str, np.ndarray]):
+    def set_weights(self, weights: Dict[str, np.ndarray]) -> BaseEstimator:
         for key, val in weights.items():
             setattr(self.model, key, val)
-        
+        return self.model
+
     def get_weights(self, return_type: Callable = None) -> Any:
         
         """Return a NumpyVector wrapping the model's parameters."""
@@ -255,7 +257,7 @@ class BaseSkLearnModel(Model):
         return self.model.predict(inputs)
     
     def train(self, inputs: np.ndarray, targets: np.ndarray, stdout: List[str] = None):
-        if self.grads is NotImplemented:
+        if self.updates is NotImplemented:
             raise FedbiomedModelError("Training has not been instantiated: please run `init_training` method beforehand")
         self.batch_size += inputs.shape[0]
         with capture_stdout() as console:
@@ -263,7 +265,8 @@ class BaseSkLearnModel(Model):
         if stdout is not None:
             stdout.append(console)
         for key in self.param_list:
-            self.grads[key] += getattr(self.model, key)
+            # cumulative grad
+            self.updates[key] += getattr(self.model, key)
             setattr(self.model, key, self.param[key])
         self.model.n_iter_ -= 1
     
@@ -274,10 +277,10 @@ class BaseSkLearnModel(Model):
         if self.is_declearn_optim:
             adjust = self.batch_size * self.get_learning_rate()[0]
             for key in self.param_list:
-                gradients[key] = (self.get_weights() - self.grads[key]) / adjust
+                gradients[key] = (self.get_weights() - self.updates[key]) / adjust
         else:
             for key in self.param_list:
-                gradients[key] = self.grads[key] / self.batch_size
+                gradients[key] = self.updates[key] / self.batch_size
         self.model.n_iter_ += 1
         if return_type is not None:
             gradients = return_type(gradients)
