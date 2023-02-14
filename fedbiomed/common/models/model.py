@@ -55,7 +55,14 @@ class Model:
     @abstractmethod
     def update_weigths(self):
         pass
+    @abstractmethod
+    def load(self, filenmae:str):
+        pass
         
+    @abstractmethod
+    def save(self, filename:str):
+        pass
+
 
 class TorchModel(Model):
     model: torch.nn.Module =  None
@@ -134,6 +141,7 @@ class TorchModel(Model):
         self.model.zero_grad()
         
     def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
+        # TODO: should we pass loss function?
         pass
 
     def load(self, filename: str) -> OrderedDict:
@@ -227,6 +235,8 @@ class BaseSkLearnModel(Model):
         #     self.verbose = False
         
     def init_training(self):
+        if self.param_list is NotImplemented:
+            raise FedbiomedModelError("Attribute `param_list` is not defined: please define it beforehand")
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         

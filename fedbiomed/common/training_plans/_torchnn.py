@@ -257,7 +257,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
+            self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}")

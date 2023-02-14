@@ -11,7 +11,6 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from fedbiomed.common.models.model import SkLearnModel
 
-import joblib
 import numpy as np
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
@@ -271,12 +270,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._is_classification and not hasattr(self.model(), 'classes_'):
+        if self._model._is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._is_classification:
+            if self._model._is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR

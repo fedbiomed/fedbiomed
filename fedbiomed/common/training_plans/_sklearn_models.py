@@ -248,7 +248,6 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
     def __init__(self) -> None:
         """Initialize the sklearn SGDRegressor training plan."""
         super().__init__()
-        self._is_regression = True
 
     # def set_init_params(self) -> None:
     #     """Initialize the model's trainable parameters."""
@@ -276,7 +275,6 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     def __init__(self) -> None:
         """Initialize the sklearn SGDClassifier training plan."""
         super().__init__()
-        self._is_classification = True
 
     # def set_init_params(self) -> None:
     #     """Initialize the model's trainable parameters."""
