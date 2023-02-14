@@ -7,7 +7,7 @@ name: fedbiomed-gui
 
 channels:
   - conda-forge
-  
+
 dependencies:
   # common
   - python >=3.9,<3.10
@@ -43,3 +43,5 @@ dependencies:
       - Flask-JWT-Extended == 4.4.2
       # FLamby
       - git+https://github.com/owkin/FLamby@main
+      # declearn
+      - declearn[torch] ~= 2.0.1
