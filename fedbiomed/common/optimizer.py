@@ -59,44 +59,23 @@ class Optimizer:
         """
         self._lr = lr
         self._decay = decay
-        self._weights = None  # type: Optional[Vector]
-        self._grads = None  # type: Optional[Vector]
         self._optimizer = DeclearnOptimizer(
             lrate=lr, w_decay=decay, modules=modules, regularizers=regularizers
         )
 
-    def set_weights(self, weights: Vector) -> Vector:
-        """Assign the weights that are to be used when `step` is called.
-
-        Args:
-            weights: Weights that are to be used when `step` is called,
-                wrapped into a declearn Vector structure.
-
-        Returns:
-            weights: input weights.
-        """
-        self._weights = weights
-        return weights
-
-    def set_grads(self, grads: Vector) -> Vector:
-        """Assign the gradients that are to be used when `step` is called.
-
-        Args:
-            grad: Gradients that are to be used when `step` is called,
-                wrapped into a declearn Vector structure.
-
-        Returns:
-            gradients: input gradients.
-        """
-        self._grads = grads
-        return grads
-
-    def step(self) -> Vector:
+    def step(self, grads: Vector, weights: Vector) -> Vector:
         """Run an optimization step to compute and return model weight updates.
 
         Use the pre-assigned `weights` and `grads` (set using the `set_weights`
         and `set_grads` methods) to compute weight updates, using the pipeline
         defined by this instance.
+
+        Args:
+            grads: Raw gradients based on which to compute weights updates,
+                wrapped into a declearn Vector structure.
+            weights: Current values of the weights with respect to which the
+                gradients were computed, wrapped into a declearn Vector with
+                the same concrete type as `grads`.
 
         Returns:
             updates: Vector
@@ -108,12 +87,8 @@ class Optimizer:
                 - adding a decoupled weight-decay term, if one is to be used;
                 - scaling the updates by the base learning rate.
                 The results are wrapped into a declearn Vector structure, the
-                concrete type of which is same as the weights and gradients.
+                concrete type of which is same as input `grads` and `weights`.
         """
-        grads = self._grads
-        weights = self._weights
-        assert grads is not None
-        assert weights is not None
         # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
         # Add loss-regularization terms' derivatives to the raw gradients.
         for reg in self._optimizer.regularizers:
@@ -182,9 +157,14 @@ class Optimizer:
 
         Returns:
             optimizer: Optimizer instance re-created from the `state` dict.
+
+        Raises:
+            FedbiomedOptimizerError: If the input `state` dict has improper keys
+                or fails to set up a declearn Optimizer and set back its state.
         """
-        if not state.keys == {"config", "states"}:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB620}: improper keys in `load_state` input dict.")
-        optim = DeclearnOptimizer.from_config(state["config"])
-        optim.set_state(state["states"])
+        try:
+            optim = DeclearnOptimizer.from_config(state["config"])
+            optim.set_state(state["states"])
+        except Exception as exc:
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB620}: `Optimizer.load_state`: {exc}") from exc
         return cls(lr=optim.lrate, decay=optim.w_decay, modules=optim.modules, regularizers=optim.regularizers)
