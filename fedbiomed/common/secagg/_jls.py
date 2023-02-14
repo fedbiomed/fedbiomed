@@ -18,7 +18,7 @@ import random
 
 from gmpy2 import mpz
 
-from fedbiomed.common.joye_libert_utils import getprimeover, invert, powmod
+from ._jls_utils import getprimeover, invert, powmod
 
 DEFAULT_KEY_SIZE = 2048
 
