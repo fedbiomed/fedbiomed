@@ -48,7 +48,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
     """
-
+    _model: Model
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -445,7 +445,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output = self.model.predict(data)
+                output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
                 return metric_controller.evaluate(

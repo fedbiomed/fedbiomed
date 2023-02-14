@@ -620,7 +620,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return torch.save(self.model().state_dict(), filename)
+            return self._model.save(filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -635,7 +635,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         params = torch.load(filename)
         if to_params is False:
-            self._model.model.load_state_dict(params)
+            self._model.load(filename)
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):

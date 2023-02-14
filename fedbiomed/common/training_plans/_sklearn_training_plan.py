@@ -349,8 +349,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             #     setattr(self._model, key, val)
             self._model.set_weights(params)
         # Save the wrapped model (using joblib, hence pickle).
-        with open(filename, "wb") as file:
-            joblib.dump(self.model(), file)
+        self._model.save(filename)
 
     def load(
             self,
@@ -381,17 +380,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Dictionary with the loaded parameters.
         """
         # Deserialize the dump, type-check the instance and assign it.
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-        if not isinstance(model, self._model_cls):
+        self._model.load(filename)
+        if not isinstance(self.model(), self._model_cls):
             msg = (
                 f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
                 f"to expectations: should be of type {self._model_cls}, not "
-                f"{type(model)}."
+                f"{type(self.model())}."
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        self._model.model = model
+
         # Optionally return the model's pseudo state dict instead of it.
         if to_params:
             params = self._model.get_weights()

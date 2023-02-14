@@ -117,7 +117,7 @@ class TorchModel(Model):
         return iterator
 
     def predict(self, inputs)-> np.ndarray:
-        self.model().eval()  # pytorch switch for model inference-mode
+        self.model.eval()  # pytorch switch for model inference-mode
         with torch.no_grad():
             pred = self.model(inputs) 
         return pred.numpy()
@@ -136,10 +136,14 @@ class TorchModel(Model):
     def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
         pass
 
-    def load(self, filename: str):
+    def load(self, filename: str) -> OrderedDict:
         # loads model from a file
         params = torch.load(filename)
         self.model.load_state_dict(params)
+        return params
+        
+    def save(self, filename: str):
+        torch.save(self.model.state_dict(), filename)
 
 
 @contextmanager
@@ -164,7 +168,7 @@ def capture_stdout() -> Iterator[List[str]]:
         output.extend(str_io.getvalue().splitlines())
 
 class SkLearnModel():
-    def __init__(self, model):
+    def __init__(self, model: BaseEstimator):
         self._instance = Models[model.__name__](model())
         
      
@@ -184,7 +188,11 @@ class SkLearnModel():
             return self._instance.__getattribute__(item)
         except AttributeError:
             raise AttributeError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
-        
+    # @classmethod
+    # def load(cls, filename: str):
+    #     with open(filename, "rb") as file:
+    #         model = joblib.load(file)
+    #     return cls(model)   
 
 class BaseSkLearnModel(Model):
     model = None
@@ -296,6 +304,16 @@ class BaseSkLearnModel(Model):
     def set_params(self, **params):
         self.model.set_params(**params)
 
+    def load(self, filename: str):
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+        self.model = model
+            
+    def save(self, filename: str):
+        with open(filename, "wb") as file:
+            joblib.dump(self.model, file)
+
+# ---- abstraction for sklearn models
     @abstractmethod
     def set_init_params(self):
         pass
@@ -308,11 +326,6 @@ class BaseSkLearnModel(Model):
     def set_learning_rate(self):
         pass
     
-    def load(self, filename: str):
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-            self.model = model
-
 # TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
 # TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
 
