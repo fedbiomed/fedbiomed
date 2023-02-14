@@ -49,7 +49,7 @@ def reverse_quantize(
     weight: List[int],
     clipping_range: Optional[float] = None,
     target_range: Optional[int] = None,
-) -> List[float]:
+) -> np.ndarray:
     """
     Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
     """
