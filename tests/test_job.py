@@ -524,8 +524,8 @@ class TestJob(ResearcherTestCase):
 
         # CSV - Check dataset when everything is okay
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         try:
             self.job.check_data_quality()
@@ -534,32 +534,32 @@ class TestJob(ResearcherTestCase):
 
         # CSV - Check when data types are different
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
-            'node-2': [{'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
+            'node-2': {'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # CSV - Check when dimensions are different
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # CSV - Check when dtypes do not match
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # Image Dataset - Check when datasets are OK
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
         }
         try:
             self.job.check_data_quality()
@@ -568,8 +568,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when color channels do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()
@@ -578,8 +578,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when dimensions do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()
@@ -588,8 +588,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when dimensions and color channels do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()
