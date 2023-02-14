@@ -258,3 +258,9 @@ class FedbiomedCertificateError(FedbiomedError):
     Certificate error
     """
     pass
+
+
+class FedbiomedEncryptionError(FedbiomedError):
+    """
+    Secure aggregation encryption error
+    """

@@ -2,7 +2,7 @@ import numpy as np
 
 
 from math import ceil, log2
-from typing import List
+from typing import List, Union
 from tinydb import TinyDB
 from gmpy2 import mpz
 
@@ -31,20 +31,19 @@ class VEParameters:
     VECTOR_SIZE: int = 1199882
 
 
-class ParameterEncrypter:
+class SecaggParameterController:
     """
-
 
     Attributes:
         _num_clients: Number of clients participating federated learning experiment/round
         _vector_encoder: Encodes given parameters vector
         _jls: Joye-Libert homomorphic encryption class
     """
-    def __init__(self, db: str) -> None:
+    def __init__(self) -> None:
         """Constructs ParameterEncrypter
 
         """
-        self._num_clients = None
+        self._num_nodes = None
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
             addops=None,
@@ -56,8 +55,7 @@ class ParameterEncrypter:
             VE=self._vector_encoder
         )
 
-
-    def set_num_clients(
+    def set_num_nodes(
             self,
             num_clients: int
     ) -> int:
@@ -72,11 +70,18 @@ class ParameterEncrypter:
         Returns:
             number of clients that is set in vector encoder
         """
+        self._num_nodes = num_clients
 
+        # Update vector encoder
         self._vector_encoder.addops = num_clients
+        self._vector_encoder.elementsize = self._vector_encoder.valuesize + ceil(log2(num_clients))
+
+        # Update JLS
+        # FIXME: currently `nusers` attribute has impact on nothing. It was only used for calculating
+        #  SerkeyKey and UserKey before
         self._jls.nusers = num_clients
 
-        return self._vector_encoder.addops
+        return self._num_clients
 
     @staticmethod
     def _setup_public_param() -> PublicParam:
@@ -88,6 +93,7 @@ class ParameterEncrypter:
 
         key_size = VEParameters.KEY_SIZE
 
+        # TODO: Used hard-coded/pre-saved Biprime
         p = mpz(
             7801876574383880214548650574033350741129913580793719706746361606042541080141291132224899113047934760791108387050756752894517232516965892712015132079112571
         )
@@ -102,15 +108,17 @@ class ParameterEncrypter:
 
     def encrypt(
             self,
+            num_nodes: int,
             current_round: int,
-            params: List,
+            params: List[float],
             key: int
-    ) -> dict:
+    ) -> List[int]:
         """Encrypts model parameters.
 
 
         Args:
-            current_round:
+            num_nodes: Number of nodes that is expected to encrypt parameters for aggregation
+            current_round: Current round of federated training
             params: List of flatten parameters
             key: Key to encrypt
         """
@@ -118,6 +126,9 @@ class ParameterEncrypter:
         # Make use the key is instance of
         if isinstance(key, int):
             raise FedbiomedEncryptionError(f"The argument key must be integer")
+
+        # Number of nodes should be set for vector encoder
+        self.set_num_nodes(num_nodes)
 
         clipping_range = self._get_clipping_value(params)
 
@@ -156,16 +167,34 @@ class ParameterEncrypter:
 
         return list(map(lambda encrypted_number: int(encrypted_number.ciphertext), params))
 
-    def decrypt(self, **kwargs):
+    def decrypt(self, num_clients, current_round, params, key: int):
+        """Decrypt given parameters
 
-        # TODO provide dynamicly created birpime
+        """
+        if len(params) != self._num_clients:
+            raise FedbiomedEncryptionError(f"Num of parameters that are received from node does not match the num of "
+                                           f"nodes has been set for the encrypter. There might be some nodes did "
+                                           f"not answered to training request or num of clients of "
+                                           f"`ParameterEncrypter` has not been set properly before train request.")
+
+        # TODO provide dynamically created biprime. Biprime that is used
+        #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param()
 
+        key = ServerKey(public_param, key)
 
-        pass
+        params = key.decrypt(params, current_round)
+
+        sum_of_weights = self._vector_encoder.decode(params)
+
+        aggregated_params = reverse_quantize(
+            self.quantized_divide(sum_of_weights, num_clients)
+        ).tolist()
+
+        return aggregated_params
 
     @staticmethod
-    def _get_clipping_value(params: List) -> int:
+    def _get_clipping_value(params: List, clipping: int = DEFAULT_CLIPPING) -> int:
         """Gets minimum clipping value by checking minimum value of the params list.
 
         Args:
@@ -175,9 +204,15 @@ class ParameterEncrypter:
             Clipping value for quantizing.
         """
 
-
         min_val = min(params)
-        if min_val < DEFAULT_CLIPPING:
-            return round(min + 1)
+        max_val = max(params)
+
+        if min_val < -clipping or max_val > clipping:
+            return SecaggParameterController._get_clipping_value(params, clipping+1)
         else:
-            return DEFAULT_CLIPPING
+            return clipping
+
+    @staticmethod
+    def quantized_divide(params: List, num_clients: int) -> List:
+
+        return [param / num_clients for param in params]
