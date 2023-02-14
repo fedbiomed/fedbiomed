@@ -249,8 +249,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
         return self._create_secagg_reply('Key share has been successfully created', True)
 
     def _setup_server_key(self):
-        """
-
+        """Service function for setting up the server key secagg context element.
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
@@ -321,7 +320,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def setup(self) -> SecaggReply:
+    def setup(self) -> dict:
         """Set up the biprime secagg context element.
 
         Returns:
