@@ -627,11 +627,10 @@ class Job:
             dtypes = []  # variable types for CSV datasets
 
             # Extract features into arrays for comparison
-            for data_list in data.items():
-                for feature in data_list[1]:
-                    data_types.append(feature["data_type"])
-                    dtypes.append(feature["dtypes"])
-                    shapes.append(feature["shape"])
+            for feature in data.values():
+                data_types.append(feature["data_type"])
+                dtypes.append(feature["dtypes"])
+                shapes.append(feature["shape"])
 
             if len(set(data_types)) > 1:
                 raise FedbiomedDataQualityCheckError(
