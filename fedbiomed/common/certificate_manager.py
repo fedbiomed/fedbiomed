@@ -196,13 +196,14 @@ class CertificateManager:
     def write_mpc_certificates_for_experiment(
             self,
             parties: List[str],
-            path: str,
+            path_certificates: str,
+            path_ips: str,
             self_id: str,
             self_ip: str,
             self_port: int,
             self_private_key: str,
             self_public_key: str
-    ) -> List[str]:
+    ) -> Tuple[str, List[str]]:
         """ Writes certificates into given directory respecting the order
 
         !!! info "Certificate Naming Convention"
@@ -213,7 +214,8 @@ class CertificateManager:
 
         Args:
             parties: ID of the parties (nodes/researchers) will join FL experiment.y
-            path: The path where certificate files will be writen
+            path_certificates: The path where certificate files will be writen
+            path_ips: Path where ip addresses will be saved
             self_id: ID of the component that will launch MP-SPDZ protocol
             self_ip: IP of the component that will launch MP-SPDZ protocol
             self_port: Port of the component that will launch MP-SPDZ protocol
@@ -221,6 +223,7 @@ class CertificateManager:
             self_public_key: Path to MPSDPZ private key
 
         Returns:
+            Path where ip addresses are saved
             List of written certificates files (paths).
 
         Raises:
@@ -228,24 +231,34 @@ class CertificateManager:
                 - If given path is not a directory
         """
 
-        if not os.path.isdir(path):
+        if not os.path.isdir(path_certificates):
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Specified `path` argument should be a directory. `path` is not a "
-                f"directory or it is not existing."
+                f"{ErrorNumbers.FB619.value}: Specified `path_certificates` argument should be a directory. "
+                f"`path_certificates` is not a directory or it is not existing. {path_certificates}"
             )
 
-        path = os.path.abspath(path)
+        if not os.path.isdir(path_ips):
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Specified `path_ips` argument should be a directory. `path_ips` is not a "
+                f"directory or it is not existing. {path_ips}"
+            )
+
+
+        path_certificates = os.path.abspath(path_certificates)
+        path_ips = os.path.abspath(path_ips)
         self_private_key = os.path.abspath(self_private_key)
         self_public_key = os.path.abspath(self_public_key)
 
-        ip_addresses = os.path.join(path, "ip_addresses")
+        ip_addresses = os.path.join(path_ips, "ip_addresses")
         # Files already writen into directory
         writen_certificates = []
 
         # Function remove writen files in case of error
         def remove_writen_files():
             for wf in writen_certificates:
-                os.remove(wf)
+                if os.path.isfile(wf):
+                    os.remove(wf)
+
             if os.path.isfile(ip_addresses):
                 os.remove(ip_addresses)
 
@@ -261,8 +274,8 @@ class CertificateManager:
                     self_certificate_key = read_file(self_private_key)
                     self_certificate_pem = read_file(self_public_key)
 
-                    key = os.path.join(path, f"P{index}.key")
-                    pem = os.path.join(path, f"P{index}.pem")
+                    key = os.path.join(path_certificates, f"P{index}.key")
+                    pem = os.path.join(path_certificates, f"P{index}.pem")
 
                     self._write_certificate_file(key, self_certificate_key)
                     self._write_certificate_file(pem, self_certificate_pem)
@@ -276,10 +289,12 @@ class CertificateManager:
                 if not party_object:
                     remove_writen_files()
                     raise FedbiomedCertificateError(
-                        f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Aborting setup."
+                        f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Certificates  of "
+                        f"each federated training participant should be present. {self_id} should register certificate "
+                        f"of {party}."
                     )
 
-                path_ = os.path.join(path, f"P{index}.pem")
+                path_ = os.path.join(path_certificates, f"P{index}.pem")
                 self._write_certificate_file(path_, party_object["certificate"])
                 writen_certificates.append(path_)
 
@@ -303,7 +318,7 @@ class CertificateManager:
             remove_writen_files()
             raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Undetermined error: {e}")
 
-        return writen_certificates
+        return ip_addresses, writen_certificates
 
     @staticmethod
     def _write_certificate_file(path: str, certificate: str) -> None:
