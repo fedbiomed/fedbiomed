@@ -225,6 +225,11 @@ containers_clean() {
     /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
     /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
 
+    /bin/rm -rf ./node2/run_mounts/data/* 2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/etc/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/var/*  2> /dev/null
+
     # specific to researcher
     /bin/rm -rf ./researcher/run_mounts/data/*     2> /dev/null
     /bin/rm -rf ./researcher/run_mounts/etc/*      2> /dev/null
@@ -238,7 +243,8 @@ containers_clean() {
         docker-compose rm -sf $i >/dev/null
     done
 
-    for i in ${ALL_VPN_CONTAINERS[@]}
+    # TODO: fully integrate node2 in this script
+    for i in ${ALL_VPN_CONTAINERS[@]} node2
     do
         docker-compose rm -sf $i >/dev/null
         [[ "$i" = "gui" ]] && { continue ; } # gui container does not use wireguard
