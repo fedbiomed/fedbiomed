@@ -10,7 +10,7 @@ from gmpy2 import mpz
 from fedbiomed.common.exceptions import FedbiomedEncryptionError
 
 
-from ._jls import JLS, EncryptedNumber, ServerKey, UserKey, FDH, DEFAULT_KEY_SIZE, PublicParam
+from ._jls import JLS, EncryptedNumber as EN, ServerKey, UserKey, FDH, DEFAULT_KEY_SIZE, PublicParam
 from ._jls_utils import quantize, reverse_quantize
 from ._vector_encoding import VES
 
@@ -31,7 +31,19 @@ class VEParameters:
     VECTOR_SIZE: int = 1199882
 
 
-class SecaggParameterController:
+class EncryptedNumber(EN):
+    """Extends EncryptedNumber class to be able to `sum` functionality"""
+
+    def __radd__(self, value: Union[EN, mpz]):
+        """Allows summing parameters using built-in `sum` method
+
+        Args:
+            value: Value to add. It can be an instance of `mpz` or EncryptedNumber
+        """
+        return super().__add__(value)
+
+
+class SecaggCrypter:
     """
 
     Attributes:
@@ -167,15 +179,26 @@ class SecaggParameterController:
 
         return list(map(lambda encrypted_number: int(encrypted_number.ciphertext), params))
 
-    def decrypt(self, num_clients, current_round, params, key: int):
+    def decrypt(self, current_round, params, key: int):
         """Decrypt given parameters
 
+        Args:
+            current_round: The round that the aggregation will be done
+            params: Aggregated/Summed encrypted parameters
+            key: The key that will be used for decryption
+
         """
-        if len(params) != self._num_clients:
-            raise FedbiomedEncryptionError(f"Num of parameters that are received from node does not match the num of "
-                                           f"nodes has been set for the encrypter. There might be some nodes did "
-                                           f"not answered to training request or num of clients of "
-                                           f"`ParameterEncrypter` has not been set properly before train request.")
+
+        num_nodes = len(params)
+
+        self.set_num_nodes(num_nodes)
+
+        # TODO: This check should be done before executing this method
+        # if len(params) != self._num_nodes:
+        #     raise FedbiomedEncryptionError(f"Num of parameters that are received from node does not match the num of "
+        #                                    f"nodes has been set for the encrypter. There might be some nodes did "
+        #                                    f"not answered to training request or num of clients of "
+        #                                    f"`ParameterEncrypter` has not been set properly before train request.")
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
@@ -188,7 +211,7 @@ class SecaggParameterController:
         sum_of_weights = self._vector_encoder.decode(params)
 
         aggregated_params = reverse_quantize(
-            self.quantized_divide(sum_of_weights, num_clients)
+            self.quantized_divide(sum_of_weights, num_nodes)
         ).tolist()
 
         return aggregated_params
@@ -208,11 +231,35 @@ class SecaggParameterController:
         max_val = max(params)
 
         if min_val < -clipping or max_val > clipping:
-            return SecaggParameterController._get_clipping_value(params, clipping+1)
+            return SecaggCrypter._get_clipping_value(params, clipping+1)
         else:
             return clipping
 
     @staticmethod
     def quantized_divide(params: List, num_clients: int) -> List:
+        """Average
 
+        Args:
+            params: List of aggregated/summed parameters
+            num_clients: Number of clients/nodes
+
+        Returns:
+            Averaged parameters
+        """
         return [param / num_clients for param in params]
+
+    def convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
+        """Converts encrypted integers to EncryptedNumber
+
+        Args:
+            params: A list containing list of encrypted integers for each node
+        """
+
+        # Set public params
+        public_param = self._setup_public_param()
+
+        encrypted_number = []
+        for parameters in params:
+            encrypted_number.append([EncryptedNumber(public_param, mpz(param)) for param in parameters])
+
+        return encrypted_number
