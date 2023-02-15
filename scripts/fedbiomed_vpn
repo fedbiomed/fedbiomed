@@ -225,6 +225,11 @@ containers_clean() {
     /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
     /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
 
+    /bin/rm -rf ./node2/run_mounts/data/* 2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/etc/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/var/*  2> /dev/null
+
     # specific to researcher
     /bin/rm -rf ./researcher/run_mounts/data/*     2> /dev/null
     /bin/rm -rf ./researcher/run_mounts/etc/*      2> /dev/null
