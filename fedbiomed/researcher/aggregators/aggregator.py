@@ -5,7 +5,6 @@
 top class for all aggregators
 """
 
-
 import os
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -13,6 +12,8 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
+
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
@@ -21,10 +22,42 @@ class Aggregator:
     Defines methods for aggregating strategy
     (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
+
     def __init__(self):
         self._aggregator_args: dict = None
         self._fds: FederatedDataSet = None
         self._training_plan_type: TrainingPlans = None
+        self._secagg_crypter = SecaggCrypter()
+
+    def secure_aggregation(self, params, aggregation_round, training_plan):
+        """ Apply aggregation for encrypted model parameters
+
+        Args:
+            params: List containing list of encrypted parameters of each node
+            aggregation_round: The round of the aggregation.
+            training_plan:
+        """
+
+        encrypted_params: List[List[EncryptedNumber]] = \
+            self._secagg_crypter.convert_to_encrypted_number(params)
+
+        # Aggregation--------------------------------------------------------------------
+        sum_of_params: List[EncryptedNumber] = [sum(ep) for ep in zip(*encrypted_params)]
+
+        # TODO: Use server key here
+        key = -(len(params) * 10)
+
+        aggregated_params = self._secagg_crypter.decrypt(current_round=aggregation_round,
+                                                         params=sum_of_params,
+                                                         key=key)
+        averaged_params = self._secagg_crypter.quantized_divide(
+            params=aggregated_params,
+            num_clients=len(params))
+
+        # Convert model params
+        model_params = training_plan.convert_vector_to_parameters(averaged_params)
+
+        return model_params
 
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:
         """
@@ -38,7 +71,7 @@ class Aggregator:
             FedbiomedAggregatorError: If the method is not defined by inheritor
         """
         msg = ErrorNumbers.FB401.value + \
-            ": aggreate method should be overloaded by the choosen strategy"
+              ": aggreate method should be overloaded by the choosen strategy"
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
 
@@ -48,7 +81,7 @@ class Aggregator:
     def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
         self._fds = fds
         return self._fds
-    
+
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
         self._training_plan_type = training_plan_type
         return self._training_plan_type
@@ -81,19 +114,19 @@ class Aggregator:
             if self._aggregator_args is None:
                 self._aggregator_args = {}
             self._aggregator_args.update(aggregator_args_thr_msg)
-            #aggregator_args = copy.deepcopy(self._aggregator_args)
+            # aggregator_args = copy.deepcopy(self._aggregator_args)
             if breakpoint_path is not None and aggregator_args_thr_files:
                 for node_id, node_arg in aggregator_args_thr_files.items():
                     if isinstance(node_arg, dict):
 
                         for arg_name, aggregator_arg in node_arg.items():
-                            if arg_name != 'aggregator_name': # do not save `aggregator_name` as a file
+                            if arg_name != 'aggregator_name':  # do not save `aggregator_name` as a file
                                 filename = self._save_arg_to_file(training_plan, breakpoint_path,
                                                                   arg_name, node_id, aggregator_arg)
                                 self._aggregator_args.setdefault(arg_name, {})
-                                    
 
-                                self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
+                                self._aggregator_args[arg_name][
+                                    node_id] = filename  # replacing value by a path towards a file
                     else:
                         filename = self._save_arg_to_file(training_plan, breakpoint_path, arg_name, node_id, node_arg)
                         self._aggregator_args[arg_name] = filename
@@ -106,7 +139,7 @@ class Aggregator:
 
     def _save_arg_to_file(self, training_plan: BaseTrainingPlan, breakpoint_path: str, arg_name: str,
                           node_id: str, arg: Any) -> str:
-        
+
         filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
         training_plan.save(filename, arg)
         return filename

@@ -1592,7 +1592,8 @@ class Experiment(object):
         _ = self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=True)
+                                                 do_training=True,
+                                                 secagg_id='dummy-test-id')
         
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1604,12 +1605,14 @@ class Experiment(object):
         # aggregate models from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
-                                                       global_model = self._global_model,
+                                                       global_model=self._global_model,
                                                        training_plan=self._job.training_plan,
                                                        training_replies=self._job.training_replies,
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
-                                                       n_round=self._round_current)
+                                                       n_round=self._round_current,
+                                                       secure_aggregation=True)
+
         # write results of the aggregated model in a temp file
 
         self._global_model = aggregated_params  # update global model
