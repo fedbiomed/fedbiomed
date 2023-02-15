@@ -1113,7 +1113,7 @@ class TestNode(NodeTestCase):
              'sequence': req['sequence'],
              'success': False,
              'node_id': environ["ID"],
-             'msg': f"Received bad request message: incorrect `element` {req['element']}",
+             'msg': f"FB318: Secure aggregation setup error: Received bad request message: incorrect `element` {req['element']}",
              'command': 'secagg'}
         )
 

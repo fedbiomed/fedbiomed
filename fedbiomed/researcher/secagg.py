@@ -430,7 +430,7 @@ class SecaggServkeyContext(SecaggContext):
                 ip_addresses=ip_file
             )
         except Exception as e:
-            raise FedbiomedSecaggError(f"Can not execute MPC protocol. {e}")
+            raise FedbiomedSecaggError(f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}")
 
         # Read output
         try:
@@ -439,7 +439,7 @@ class SecaggServkeyContext(SecaggContext):
                 file.close
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"Can not read server key from created after MPC execution. {e}"
+                f"{ErrorNumbers.FB415.value}: Can not read server key from created after MPC execution. {e}"
             )
 
         context = {'server_key': server_key.strip()}

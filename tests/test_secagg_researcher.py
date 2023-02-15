@@ -162,18 +162,19 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         self.m_requests.return_value.send_message.return_value = 123
         self.secagg_context._element = SecaggElementTypes.SERVER_KEY
 
-        with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
+        with patch("fedbiomed.researcher.secagg.SecaggContext._delete_payload") as mock_payload:
             self.secagg_context._status = True
             mock_payload.return_value = ("KEY", True)
             result = self.secagg_context.delete(timeout=1)
             self.assertTrue(result)
 
             self.secagg_context._status = False
+            mock_payload.return_value = ("KEY", False)
             result = self.secagg_context.delete(timeout=1)
             self.assertFalse(result)
 
-            with self.assertRaises(FedbiomedSecaggError):
-                self.secagg_context.delete(timeout="oops")
+        with self.assertRaises(FedbiomedSecaggError):
+            self.secagg_context.delete(timeout="oops")
 
     def test_secagg_06_breakpoint(
             self):

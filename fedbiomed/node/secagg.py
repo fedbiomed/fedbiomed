@@ -367,11 +367,13 @@ class SecaggSetup:
         if self._element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(self._element)
         else:
-            raise FedbiomedSecaggError(f"Received bad request message: incorrect `element` {self._element}")
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB318.value}: Received bad request message: incorrect `element` {self._element}")
 
         try:
             return SecaggSetup.element2class[element.name](**self.kwargs)
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"Can not instantiate secure aggregation setup with argument {self.kwargs}. Error: {e}"
+                f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation setup with argument "
+                f"{self.kwargs}. Error: {e}"
             )
