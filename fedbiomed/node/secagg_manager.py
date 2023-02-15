@@ -327,7 +327,7 @@ class SecaggManager:
         if self._element in [m.value for m in SecaggElementTypes]:
             element = SecaggElementTypes(self._element)
         else:
-            error_msg = f'{ErrorNumbers.FB321.value}: received bad delete message: ' \
+            error_msg = f'{ErrorNumbers.FB318.value}: received bad message: ' \
                         f'incorrect `element` {self._element}'
             logger.error(error_msg)
             raise FedbiomedSecaggError(error_msg)
@@ -336,5 +336,5 @@ class SecaggManager:
             return SecaggManager.element2class[element.name]
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"Can not instantiate secure aggregation manager: Error{e}"
+                f'{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation manager: Error{e}'
             )
