@@ -4,6 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict as ODict
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
 from copy import deepcopy
@@ -654,7 +655,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # here we ae loading all args that have been sent from file exchange system
                 self.correction_state = torch.load(aggregator_arg.get('param_path'))
 
-    def after_training_params(self) -> dict:
+    def after_training_params(self, vector: bool = False) -> dict:
         """Retrieve parameters after training is done
 
         Call the user defined postprocess function:
@@ -677,7 +678,28 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                  f"{e}")
 
         params = self._dp_controller.after_training(params)
+
+        if vector:
+            params = torch.nn.utils.parameters_to_vector(self._model.parameters()).tolist()
+
         return params
+
+    def convert_vector_to_parameters(self, vec: List[float]):
+        """Converts given float vector to torch model parameters
+
+        Args:
+            vec:
+        """
+        parameters = deepcopy(self._model.parameters())
+        vector = torch.as_tensor(vec).type(torch.DoubleTensor)
+        torch.nn.utils.vector_to_parameters(vector, parameters)
+
+        state_dict = ODict({key: param
+                            for (key, _), param in
+                            zip(self._model.named_parameters(), parameters)
+                            })
+
+        return state_dict
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
