@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation management on the researcher"""
-import os
 import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
@@ -175,8 +174,9 @@ class SecaggContext(ABC):
             can_set_status: `True` if this action can result in a valid secagg context
             payload: function that holds researcher side payload for this round. Needs to return
                 a tuple of `context` and `status` for this action
-            timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
-                or equals 0.
+            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
+                It does not include the time for the local setup payload.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element action could be done for all parties, False if at least
@@ -192,7 +192,6 @@ class SecaggContext(ABC):
         self._status = False
         self._context = None
         timeout = timeout or environ['TIMEOUT']
-        start_time = time.time()
 
         # FIXME: There are scenarios where key-share are calculated but it is lost on the
         # researcher side
@@ -203,6 +202,9 @@ class SecaggContext(ABC):
 
         # basic implementation: synchronous payload on researcher, then read answers from other parties
         context, status[self._researcher_id] = payload()
+
+        # `timeout` covers only the time waiting for answers from other nodes
+        start_time = time.time()
 
         while True:
             # wait at most until `timeout` by chunks <= 1 second
@@ -271,8 +273,9 @@ class SecaggContext(ABC):
         """Setup secagg context element on defined parties.
 
         Args:
-            timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']` if unset
-                or equals 0.
+            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
+                It does not include the time for the local setup payload.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element could be setup for all parties, False if at least
@@ -327,18 +330,16 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if self._status:
-            msg = {
-                'researcher_id': self._researcher_id,
-                'secagg_id': self._secagg_id,
-                'element': self._element.value,
-                'job_id': self._job_id,
-                'command': 'secagg-delete',
-            }
-            return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
-        else:
-            self._context = None  # should already be the case
-            return False
+        self._status = False
+        self._context = None
+        msg = {
+            'researcher_id': self._researcher_id,
+            'secagg_id': self._secagg_id,
+            'element': self._element.value,
+            'job_id': self._job_id,
+            'command': 'secagg-delete',
+        }
+        return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
 
     def save_state(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints
@@ -472,7 +473,7 @@ class SecaggBiprimeContext(SecaggContext):
             a tuple of a `context` and a `status` for the biprime context element
         """
         # start dummy payload
-        time.sleep(3)
+        time.sleep(6)
         logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
         context = {'msg': 'Not implemented yet'}
         status = True

@@ -193,8 +193,9 @@ class Experiment(object):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             use_secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-            secagg_timeout: when `use_secagg` is `True`, maximum duration for the setup phase of each
-                secagg context element (server key and biprime), thus total secagg setup is twice the `timeout`.
+            secagg_timeout: when `use_secagg` is `True`, maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
@@ -1468,8 +1469,9 @@ class Experiment(object):
         Args:
             use_secagg: if `True` sets secure aggregation to be used for next rounds and
                 establish secagg context if it doesn't exist
-            timeout: maximum duration for the setup phase of each secagg context element
-                (server key and biprime), thus total secagg setup is twice the `timeout`.
+            timeout:  maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:

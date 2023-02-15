@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
-import shutil
 from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum

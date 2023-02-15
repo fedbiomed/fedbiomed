@@ -112,7 +112,8 @@ class MPCController:
         status, output = self._exec(command=command)
 
         if not status:
-            error_message = f"{ErrorNumbers.FB620.value}: MPC computation for is not successful."
+            error_message = f"{ErrorNumbers.FB620.value}: MPC computation for {self._component_type.name} " \
+                "is not successful."
             logger.debug(f"{error_message}. Details: {output}")
             raise FedbiomedMPCControllerError(error_message)
 
