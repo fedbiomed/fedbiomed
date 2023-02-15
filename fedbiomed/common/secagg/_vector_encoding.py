@@ -56,10 +56,10 @@ class VES(object):
     def __init__(self, ptsize, addops, valuesize, vectorsize) -> None:
         super().__init__()
         self.ptsize = ptsize
-        self.addops = addops
+        self.addops = addops if addops is not None else 2
         self.valuesize = valuesize
         self.vectorsize = vectorsize
-        self.elementsize = valuesize + ceil(log2(addops))
+        self.elementsize = valuesize + ceil(log2(self.addops))
         self.compratio = floor(ptsize / self.elementsize)
         self.numbatches = ceil(self.vectorsize / self.compratio)
 
