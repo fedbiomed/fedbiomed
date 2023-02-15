@@ -55,6 +55,8 @@ class Node:
         self.tp_security_manager = tp_security_manager
 
         self.node_args = node_args
+        self._secagg_servkey_manager = SecaggServkeyManager()
+
 
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
@@ -360,6 +362,7 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
+        round_number = msg.get_param('round') or 0
 
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
@@ -394,6 +397,7 @@ class Node:
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
             round = Round(
+                self._secagg_servkey_manager,
                 model_kwargs,
                 training_kwargs,
                 training_status,
@@ -406,6 +410,7 @@ class Node:
                 hist_monitor,
                 aggregator_args,
                 self.node_args,
+                round_number=round_number,
                 dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
             )
 

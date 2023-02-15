@@ -25,7 +25,9 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.researcher.strategies import strategy
+from fedbiomed.node.secagg_manager import SecaggServkeyManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.common.secagg import SecaggCrypter
 
 
 class Round:
@@ -34,6 +36,7 @@ class Round:
     """
 
     def __init__(self,
+                 sk_manager: SecaggServkeyManager,
                  model_kwargs: dict = None,
                  training_kwargs: dict = None,
                  training: bool = True,
@@ -46,6 +49,8 @@ class Round:
                  history_monitor: HistoryMonitor = None,
                  aggregator_args: dict = None,
                  node_args: Union[dict, None] = None,
+                 secagg_id: Union[str, None] = None,
+                 round_number: int = 0,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
         """Constructor of the class
@@ -91,6 +96,10 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
+        self._secagg_id = secagg_id
+        self._sk_manager = sk_manager
+        self._secagg_crypter = SecaggCrypter()
+        self._round = round_number
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -158,7 +167,13 @@ class Round:
 
             return True, params_path, ''
 
-    def run_model_training(self) -> dict[str, Any]:
+    def _configure_secagg(self):
+
+        if environ["SECURE_AGGREGATION"] and self._secagg_id is None:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
+                                      f"is not set. Node requires to apply secure aggregation")
+
+    def run_model_training(self, secagg_id: Union[str, None]) -> dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
 
@@ -166,6 +181,8 @@ class Round:
             Returns the corresponding node message, training reply instance
         """
         is_failed = False
+
+        self._configure_secagg()
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -310,9 +327,17 @@ class Round:
                         f"dataset please make sure that test_ratio has been set correctly")
 
             # Upload results
+            model_params = self.training_plan.after_training_params(vector=environ["SECURE_AGGREGATION"])
+            if environ["SECURE_AGGREGATION"]:
+                model_params = self._secagg_crypter.encrypt(
+                    num_nodes=2,
+                    current_round=self._round,
+                    params=model_params)
+
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = self.training_plan.after_training_params()
+            results["encrypted"] = environ["SECURE_AGGREGATION"]
+            results['model_params'] = model_params
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
 
