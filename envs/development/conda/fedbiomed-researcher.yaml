@@ -57,6 +57,8 @@ dependencies:
       # for nbconvert
       - jupyter_contrib_nbextensions
       - pathvalidate
+            # declearn
+      - declearn[torch] ~= 2.0.1
       # FLamby
       - git+https://github.com/owkin/FLamby@main
 #### Notebook-specific packages ####

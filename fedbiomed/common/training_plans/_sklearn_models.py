@@ -91,7 +91,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 history_monitor.add_scalar,
                 train=True,
             )
-            verbose = self._model.get_params("verbose")
+            verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
             self._model.set_params(verbose=1)
         # Iterate over epochs.
         for epoch in iterations_accountant.iterate_epochs():
