@@ -347,7 +347,8 @@ class Job:
                                    round: int,
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
-                                   do_training: bool = True):
+                                   do_training: bool = True,
+                                   secagg_id: Union[str, None] = None):
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -366,6 +367,8 @@ class Job:
                    'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
+                   'round': round,
+                   'secagg_id': secagg_id,
                    'command': 'train',
                    'aggregator_args': {}}
 

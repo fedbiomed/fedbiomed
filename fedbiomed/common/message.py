@@ -582,6 +582,8 @@ class TrainRequest(Message):
     training_plan_url: str
     training_plan_class: str
     command: str
+    secagg_id: (str, type(None))
+    round: int
     aggregator_args: dict
 
 
