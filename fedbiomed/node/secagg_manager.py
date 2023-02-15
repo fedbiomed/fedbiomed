@@ -336,5 +336,5 @@ class SecaggManager:
             return SecaggManager.element2class[element.name]
         except Exception as e:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation manager: Error{e}'
+                f'{ErrorNumbers.FB318.value}: Missing secure aggregation component for this element type: Error{e}'
             )

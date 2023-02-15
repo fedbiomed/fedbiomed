@@ -202,9 +202,10 @@ class TestSecaggServkey(SecaggTestCase):
 
     def test_secagg_servkey_setup_03_setup(self):
 
-        self.mock_skm.get.side_effect = Exception
-        reply = self.secagg_servkey.setup()
-        self.assertEqual(reply["success"], False)
+        for e in (Exception, FedbiomedError):
+            self.mock_skm.get.side_effect = e
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], False)
 
         self.mock_skm.get.side_effect = None
         self.mock_skm.get.return_value = "context"

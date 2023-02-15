@@ -9,6 +9,7 @@ from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.constants import ComponentType
 
+
 class TestMPCController(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -79,6 +80,24 @@ class TestMPCController(unittest.TestCase):
                                                 num_parties=3,
                                                 ip_addresses="dummy/path/to/files")
 
+    def test_mpc_controller_03_init_errors(self):
+        """Test instantiation errors"""
+
+        with self.assertRaises(FedbiomedMPCControllerError):
+            MPCController(
+                tmp_dir='/not/a/path',
+                component_type=ComponentType.NODE,
+                component_id="node-1",
+            )
+
+        with patch('fedbiomed.common.mpc_controller.get_fedbiomed_root') as patch_gfr:
+            patch_gfr.return_value = '/not/valid/path'
+            with self.assertRaises(FedbiomedMPCControllerError):
+                MPCController(
+                    tmp_dir=self.tmp_dir,
+                    component_type=ComponentType.NODE,
+                    component_id="node-1",
+                )
 
 if __name__ == "__main__":
     unittest.main()
