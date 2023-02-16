@@ -167,9 +167,9 @@ class Round:
 
             return True, params_path, ''
 
-    def _configure_secagg(self):
+    def _configure_secagg(self, secagg_id):
 
-        if environ["SECURE_AGGREGATION"] and self._secagg_id is None:
+        if environ["SECURE_AGGREGATION"] and secagg_id is None:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
                                       f"is not set. Node requires to apply secure aggregation")
 
@@ -182,7 +182,7 @@ class Round:
         """
         is_failed = False
 
-        self._configure_secagg()
+        self._configure_secagg(secagg_id=secagg_id)
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -253,7 +253,7 @@ class Round:
         # import model params into the training plan instance
         try:
 
-            self.training_plan.load(params_path, to_params=False)
+            self.training_plan.load(params_path)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: f{str(e)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -332,7 +332,9 @@ class Round:
                 model_params = self._secagg_crypter.encrypt(
                     num_nodes=2,
                     current_round=self._round,
-                    params=model_params)
+                    params=model_params,
+                    key=10
+                )
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
