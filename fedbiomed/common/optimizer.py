@@ -1,4 +1,5 @@
-# coding: utf-8
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
 
 """Optimizer class wrapping the declearn-issued Optimizer."""
 
@@ -131,8 +132,10 @@ class Optimizer:
         """
         try:
             self._optimizer.process_aux_var(aux)
-        except KeyError as exc:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB620}: `Optimizer.set_aux`: {exc}") from exc
+        except (AttributeError, KeyError, TypeError) as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: `Optimizer.set_aux`: {exc}"
+            ) from exc
 
     def save_state(self) -> Dict[str, Any]:
         """Return the configuration and current states of this Optimizer.
@@ -166,5 +169,12 @@ class Optimizer:
             optim = DeclearnOptimizer.from_config(state["config"])
             optim.set_state(state["states"])
         except Exception as exc:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB620}: `Optimizer.load_state`: {exc}") from exc
-        return cls(lr=optim.lrate, decay=optim.w_decay, modules=optim.modules, regularizers=optim.regularizers)
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: `Optimizer.load_state`: {exc}"
+            ) from exc
+        return cls(
+            lr=optim.lrate,
+            decay=optim.w_decay,
+            modules=optim.modules,
+            regularizers=optim.regularizers,
+        )
