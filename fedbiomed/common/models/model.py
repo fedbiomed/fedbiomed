@@ -209,6 +209,7 @@ class BaseSkLearnModel(Model):
     batch_size: int
     is_declearn_optim: bool
     param_list: List[str] = NotImplemented
+    _gradients: Dict[str, np.ndarray] = NotImplemented
     #model_args: Dict[str, Any] = {}
     verbose: bool = NotImplemented
     updates: Dict[str, np.ndarray] = NotImplemented  #replace `grads` from th poc
@@ -235,10 +236,17 @@ class BaseSkLearnModel(Model):
         #     self.verbose = False
         
     def init_training(self):
+        """Initialises the training
+
+        Raises:
+            FedbiomedModelError: _description_
+        """
         if self.param_list is NotImplemented:
             raise FedbiomedModelError("Attribute `param_list` is not defined: please define it beforehand")
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
+        
+        self.batch_size = 0 
         
         if self.is_declearn_optim:
             self.set_learning_rate()
@@ -261,15 +269,14 @@ class BaseSkLearnModel(Model):
             weights = return_type(weights)
         return weights
 
-    def apply_updates(self, updates: Union[NumpyVector, Dict[str, np.ndarray]]) -> None:
+    def apply_updates(self, updates: Dict[str, np.ndarray]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
         
-        if isinstance(updates, dict):
-            updates = NumpyVector(updates)
-        for key, val in updates.coefs.items():
-            setattr(self.model, key, val)
+        w = self.get_weights()
+        for key, val in updates.items():
+            setattr(self.model, key, val + w[key])
         self.model.n_iter_ += 1    
-        self.batch_size = 0 
+        
         
     def predict(self, inputs: np.ndarray) -> np.ndarray:
         return self.model.predict(inputs)
@@ -283,23 +290,42 @@ class BaseSkLearnModel(Model):
         if stdout is not None:
             stdout.append(console)
         for key in self.param_list:
-            # cumulative grad
+            # cumul grad
             self.updates[key] += getattr(self.model, key)
-            setattr(self.model, key, self.param[key])
+            setattr(self.model, key, self.param[key])  #resetting parameter to initial values
+        
         self.model.n_iter_ -= 1
-    
-    def get_gradients(self, return_type: Callable = None) -> Any:
-        super().get_gradients(return_type=return_type)
-        self.model.n_iter_ -= 1
-        gradients: Dict[str, np.ndarray] = {}
+        
+        # compute gradients
+        w = self.get_weights()
+        self._gradients: Dict[str, np.ndarray] = {}
         if self.is_declearn_optim:
             adjust = self.batch_size * self.get_learning_rate()[0]
+            
             for key in self.param_list:
-                gradients[key] = (self.get_weights() - self.updates[key]) / adjust
+                self._gradients[key] = ( w[key] * (1 - adjust) - self.updates[key]) / adjust
         else:
             for key in self.param_list:
-                gradients[key] = self.updates[key] / self.batch_size
-        self.model.n_iter_ += 1
+                self._gradients[key] = self.updates[key] / self.batch_size - w[key]
+    
+    def get_gradients(self, return_type: Callable = None) -> Any:
+        """_summary_
+
+        Args:
+            return_type (Callable, optional): _description_. Defaults to None.
+
+        Raises:
+            FedbiomedModelError: _description_
+
+        Returns:
+            Any: _description_
+        """
+        super().get_gradients(return_type=return_type)
+        if self._gradients is NotImplemented:
+            raise FedbiomedModelError("Error, cannot get gradients if model hasnot been trained beforehand!")
+
+        gradients: Dict[str, np.ndarray] = self._gradients
+        
         if return_type is not None:
             gradients = return_type(gradients)
         return gradients
@@ -326,14 +352,24 @@ class BaseSkLearnModel(Model):
 # ---- abstraction for sklearn models
     @abstractmethod
     def set_init_params(self):
+        """Zeroes scikit learn model parameters. Should be used before any training,
+        as it sets the scikit learn model parameters and makes them accessible.
+        Mode parameters will depend on the scikit learn model
+        """
         pass
     
     @abstractmethod
     def get_learning_rate(self) -> List[float]:
+        """Retrieves learning rate of the model. Method implementation will
+        depend on the attribute used to set up these arbitrary arguments"""
         pass
     
     @abstractmethod
     def set_learning_rate(self):
+        """Sets arbitrary learning rate parameters to the scikit learn model, 
+        in order to then compute its gradients. Method implementation will
+        depend on the attribute used to set up these arbitrary arguments
+        """
         pass
     
 # TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense

@@ -1,12 +1,38 @@
 import unittest
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 from fedbiomed.common.logger import logger
-from fedbiomed.common.models.model import SGDClassiferSKLearnModel, SGDRegressorSKLearnModel, SkLearnModel, capture_stdout
+from fedbiomed.common.models.model import BaseSkLearnModel, SGDClassiferSKLearnModel, SGDRegressorSKLearnModel, SkLearnModel, capture_stdout
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 import numpy as np
 
 
+
+class TestSkLearnModel(unittest.TestCase):
+    def setUp(self):
+        logging.disable(logging.CRITICAL)
+        self.sgdclass_model = SkLearnModel(SGDClassifier)
+        self.sgdregressor_model = SkLearnModel(SGDRegressor)
+        
+    def tearDown(self) -> None:
+        logging.disable(logging.NOTSET)
+    
+    def test_sklearnmodel_method_01_save(self):
+        saved_params = []
+        def mocked_joblib_dump(obj, *args, **kwargs):
+            saved_params.append(obj)
+        
+        self.sgdclass_model.set_weights({'coef_': 0.42, 'intercept_': 0.42})
+        with patch('fedbiomed.common.models.model.joblib.dump',
+                   side_effect=mocked_joblib_dump), \
+                patch('builtins.open', mock_open()):
+            self.sgdclass_model.save('filename')
+            self.assertEqual(saved_params[-1].coef_, 0.42)
+            self.assertEqual(saved_params[-1].intercept_, 0.42)
+            
+    def test_sklearnmodel_method_02_load(self):
+        pass
+        
 class TestSklearnTrainingPlansClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
     model_args = {

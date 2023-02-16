@@ -160,8 +160,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         b_len = batch_size
         # Gather start weights of the model and initialize zero gradients.
-        param = {k: getattr(self._model, k) for k in self._param_list}
-        grads = {k: np.zeros_like(v) for k, v in param.items()}
+
         self._model.init_training()
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
         stdout = []  # type: List[List[str]]
