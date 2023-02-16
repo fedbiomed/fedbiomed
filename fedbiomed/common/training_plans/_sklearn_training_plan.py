@@ -10,7 +10,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import joblib
+import json
 import numpy as np
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
@@ -44,7 +44,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
 
-    _model_cls: Type[BaseEstimator]        # wrapped model class
+    _model_cls: Type[BaseEstimator]  # wrapped model class
     _model_dep: Tuple[str, ...] = tuple()  # model-specific dependencies
 
     def __init__(self) -> None:
@@ -72,7 +72,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
-        ) -> None:
+    ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -107,7 +107,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self,
             train_data_loader: Union[DataLoader, NPDataLoader, None],
             test_data_loader: Union[DataLoader, NPDataLoader, None]
-        ) -> None:
+    ) -> None:
         """Sets data loaders
 
         Args:
@@ -149,7 +149,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             # get the default value
             lr = self._model.__dict__.get(lr_key)
         if lr is None:
-            raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
+            raise FedbiomedTrainingPlanError(
+                "Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
         return [lr]
 
     def model(self) -> BaseEstimator:
@@ -167,7 +168,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self,
             history_monitor: Optional['HistoryMonitor'] = None,
             node_args: Optional[Dict[str, Any]] = None
-        ) -> None:
+    ) -> None:
         """Training routine, to be called once per round.
 
         Args:
@@ -220,7 +221,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def _training_routine(
             self,
             history_monitor: Optional['HistoryMonitor'] = None
-        ) -> None:
+    ) -> None:
         """Model-specific training routine backend.
 
         Args:
@@ -239,7 +240,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
             before_train: bool
-        ) -> None:
+    ) -> None:
         """Evaluation routine, to be called once per round.
 
         !!! info "Note"
@@ -284,7 +285,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def predict(
             self,
             data: Any,
-        ) -> np.ndarray:
+    ) -> np.ndarray:
         """Return model predictions for a given batch of input features.
 
         This method is called as part of `testing_routine`, to compute
@@ -315,8 +316,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def save(
             self,
             filename: str,
-            params: Union[None, Dict[str, np.ndarray], Dict[str, Any]] = None
-        ) -> None:
+            params: Union[None, List[float], Dict[str, np.ndarray]] = None
+    ) -> None:
         """Save the wrapped model and its trainable parameters.
 
         This method is designed for parameter communication. It
@@ -337,21 +338,24 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             * From Job it is called with no params in constructor, and
                 with params in update_parameters.
         """
-        # Optionally overwrite the wrapped model's weights.
-        if params:
-            if isinstance(params.get('model_params'), dict):  # in a Round
-                params = params["model_params"]
-            for key, val in params.items():
-                setattr(self._model, key, val)
+
+        if params is None:
+            params_to_save = {"model_params": self.after_training_params()}
+        elif 'model_params' not in params:
+            params = {key: param.astype(float).tolist() for key, param in params.items()}
+            params_to_save = {"model_params": params}
+        else:
+            params_to_save = params
+
         # Save the wrapped model (using joblib, hence pickle).
-        with open(filename, "wb") as file:
-            joblib.dump(self._model, file)
+        with open(filename, "w", encoding='utf-8') as file:
+            json.dump(params_to_save, file, ensure_ascii=False, indent=4)
 
     def load(
             self,
             filename: str,
-            to_params: bool = False
-        ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
+            update_model: bool = True
+    ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
         """Load a scikit-learn model dump, overwriting the wrapped model.
 
         This method uses the joblib.load function, which in turn uses
@@ -364,10 +368,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Args:
             filename: The path to the pickle file to load.
-            to_params: Whether to return the model's parameters
-                wrapped as a dict rather than the model instance.
+            update_model: Whether to return the model's parameters wrapped as a dict rather than the
+                model instance.
 
-        Notes:
+        !!! info 'Notes'
             Load can be called from a Job or Round:
             * From Round it is called to return the model.
             * From Job it is called with to return its parameters dict.
@@ -376,35 +380,71 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Dictionary with the loaded parameters.
         """
         # Deserialize the dump, type-check the instance and assign it.
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-        if not isinstance(model, self._model_cls):
-            msg = (
-                f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
-                f"to expectations: should be of type {self._model_cls}, not "
-                f"{type(model)}."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-        self._model = model
-        # Optionally return the model's pseudo state dict instead of it.
-        if to_params:
-            params = {k: getattr(self._model, k) for k in self._param_list}
-            return {"model_params": params}
-        return self._model
+        with open(filename, "r") as file:
+            content = file.read()
+            params = json.loads(content)
+            file.close()
+
+        if update_model:
+            model_params = params["model_params"]
+
+            if set(model_params.keys()) != set(self._param_list):
+                raise FedbiomedTrainingPlanError(
+                    f"{ErrorNumbers.FB310}: Trying to load model parameters that does not match model parameters."
+                )
+
+            for key in self._param_list:
+                setattr(self._model, key, np.array(model_params[key]))
+
+        return params
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
 
-    def after_training_params(self) -> Dict[str, np.ndarray]:
+    def after_training_params(self, vector: bool = False) -> Union[List[float], Dict[str, np.ndarray]]:
         """Return the wrapped model's trainable parameters' current values.
 
         This method returns a dict containing parameters that need
         to be reported back and aggregated in a federated learning
         setting.
 
+        Args:
+
+
         Returns:
-            dict[str, np.ndarray]: the trained parameters to aggregate.
+            params: the trained parameters to aggregate.
+            vector: Returns the vectorized parameters ff the vector argument is `True`
         """
-        return {key: getattr(self._model, key) for key in self._param_list}
+
+        model_params = {key: getattr(self._model, key) for key in self._param_list}
+
+        if vector:
+            params = []
+            for key, param in model_params.items():
+                params.extend(param.flatten().astype(float).tolist())
+        else:
+            params = {key: param.astype(float).tolist() for key, param in model_params.items()}
+
+        return params
+
+    def convert_vector_to_parameters(self, vec: List[float]):
+        """Converts given float vector to numpy typed params
+
+        Args:
+            vec: List of flatten model parameters
+        """
+
+        vector = np.array(vec)
+
+        params = {key: getattr(self._model, key) for key in self._param_list}
+        pointer = 0
+
+        for key, param in params.items():
+            num_param = param.size
+            params[key] = vector[pointer: pointer + num_param].reshape(param.shape)
+
+            pointer += num_param
+
+        print(params)
+        return params
