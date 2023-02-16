@@ -4,8 +4,8 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict as ODict
-from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
+from collections import OrderedDict
+from typing import Any, Dict, List, Tuple, Optional, Union, Iterator
 
 from copy import deepcopy
 
@@ -466,13 +466,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                     logger.debug('Train {}| '
                                  'Iteration {}/{} | '
                                  'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
-                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                                    num_iter,
-                                    num_iter_max,
-                                    num_samples,
-                                    num_samples_max,
-                                    100. * num_iter / num_iter_max,
-                                    loss.item()))
+                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                        num_iter,
+                        num_iter_max,
+                        num_samples,
+                        num_samples_max,
+                        100. * num_iter / num_iter_max,
+                        loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
@@ -620,19 +620,21 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             return torch.save(self._model.state_dict(), filename)
 
     # provided by fedbiomed
-    def load(self, filename: str, to_params: bool = False) -> dict:
+    def load(self, filename: str, update_model: bool = True) -> dict:
         """Load the torch training parameters to this training plan or to a data structure from a file
 
         Args:
             filename: path to the source file
-            to_params: if False, load params to this pytorch object; if True load params to a data structure
+            update_model: if False, load params to this pytorch object; if True load params to a data structure
 
         Returns:
             Contains parameters
         """
         params = torch.load(filename)
-        if to_params is False:
+
+        if update_model is True:
             self._model.load_state_dict(params)
+
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
@@ -681,7 +683,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         if vector:
             params = torch.nn.utils.parameters_to_vector(self._model.parameters()).tolist()
-
+            print(len(params))
         return params
 
     def convert_vector_to_parameters(self, vec: List[float]):
@@ -690,16 +692,20 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Args:
             vec:
         """
-        parameters = deepcopy(self._model.parameters())
+
+        # Copy model to make sure global model parameters won't be overwritten
+        model = deepcopy(self._model)
         vector = torch.as_tensor(vec).type(torch.DoubleTensor)
-        torch.nn.utils.vector_to_parameters(vector, parameters)
 
-        state_dict = ODict({key: param
-                            for (key, _), param in
-                            zip(self._model.named_parameters(), parameters)
-                            })
+        # Following operation updates model parameters
+        torch.nn.utils.vector_to_parameters(vector, model.parameters())
 
-        return state_dict
+        # Create state dict manually or use model.state_dict()
+        # state_dict = OrderedDict(
+        # {key: param for (key, _),
+        # param in zip(model.named_parameters(), model.parameters())})
+
+        return model.state_dict()
 
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
@@ -712,4 +718,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for current_model, init_model in zip(self._model.parameters(), self._init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
-
