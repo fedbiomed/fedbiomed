@@ -83,13 +83,13 @@ EOF
 Compiles MPC script
 
 Usage:
-> fedbiomed_mpc  (node | researcher) compile --script [script-name] [extra arguments]
+> fedbiomed_mpc  (node | researcher) compile --script [SCRIPT_NAME] [EXTRA_ARGUMENTS]
 
 Script argument is mandatory
 
--s | --script : The name of the MPC script. available scripts -> [test_setup | server_key]
+-s | --script : The SCRIPT_NAME of the MPC script. available scripts -> [test_setup | server_key]
 
-Pass other extra arguments for the compilation. These arguments may very based on MPC script. If the arguments are not
+Pass other EXTRA_ARGUMENTS for the compilation. These arguments may very based on MPC script. If the arguments are not
 supported compile operation will fail. E.g '--script server_key -N 2'
 
 EOF
@@ -101,13 +101,13 @@ EOF
 Executes MPC protocols
 
 Usage
-> fedbiomed_mpc (node | researcher) exec --protocol [protocol-name] [extra-arguments]
+> fedbiomed_mpc (node | researcher) exec --protocol [PROTOCOL_NAME] [EXTRA_ARGUMENTS]
 
 Protocol argument is mandatory
 
--p | --protocol : The name of the MPC protocol. Should be one of available protocols are [shamir-party,]
+-p | --protocol : The PROTOCOL_NAME of the MPC protocol. Should be one of available protocols are [shamir-party,]
 
-Extra arguments to pass to the protocol script. The arguments should be supported by the protocol. Otherwise, script
+EXTRA_ARGUMENTS to pass to the protocol script. The arguments should be supported by the protocol. Otherwise, script
 will exit from the execution.
 
 
@@ -119,7 +119,7 @@ EOF
 Executes Shamir protocol for computing server key for secure aggregation
 
 Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
-                                          -of [OUTPUT_FILE] [-c|--compile] | [ ]
+                                          -of [OUTPUT_FILE] [-c|--compile]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
 
@@ -127,7 +127,7 @@ Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -no
                           the format: '<ip-address>:<port>' as each line represents different party respecting the
                           order of party numbers.
 
--pn|--party-number      : Party number that represents the number where the protocol is executed
+-pn|--party-number      : Party number PART_NUMBER that represents the number where the protocol is executed
 
 -of|--output-file       : File path where the output of the calculation will be saved for party 0. The will will
                           automatically add P0-0 at the end of the file name specified. It will be created by the script
