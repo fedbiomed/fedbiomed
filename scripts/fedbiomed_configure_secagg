@@ -24,7 +24,7 @@ fedbiomed_env=$1
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
-  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_configure_secagg node|researcher'"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_configure_secagg (node|researcher)'"
   exit 1
 fi
 
@@ -211,7 +211,7 @@ echo -e "${BOLD}Done! ${NC}"
 # Run configuration test-----------------------------------------------------------------------------------------------
 
 # Compiles test setup mpc file
-if ! "$basedir"/scripts/fedbiomed_mpc compile --script test_setup; then
+if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" compile --script test_setup; then
     echo -e "\n${RED}ERROR${NC}:"
     echo -e "${BOLD} Error while compiling 'test_setup' ${NC}"
     exit 1
@@ -219,7 +219,7 @@ fi
 
 # Starts parties for MPC
 for i in 0 1 2; do
-  "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party $i \
+  "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party $i \
       -ip Player-Data/test_ip_assigned \
       -IF Player-Data/Test-Input \
       -OF Player-Data/Test-Output \

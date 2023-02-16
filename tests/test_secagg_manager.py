@@ -7,8 +7,9 @@ import copy
 from testsupport.base_case import NodeTestCase
 #############################################################
 
+from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager, SecaggManager
 
 
 class FakeTinyDB:
@@ -55,7 +56,7 @@ class FakeTable:
             return True
 
 
-class TestSecaggManager(NodeTestCase):
+class TestBaseSecaggManager(NodeTestCase):
     """Test for SecaggManager node side module"""
 
     def setUp(self):
@@ -199,8 +200,8 @@ class TestSecaggManager(NodeTestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'}, {'job_id': 'my_job_id_dummy'}],
-            [SecaggBiprimeManager, {'biprime': 'a_long_dummy_biprime'}, {}],
+            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
+            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action
@@ -245,14 +246,14 @@ class TestSecaggManager(NodeTestCase):
         specific_list = [
             [
                 SecaggServkeyManager,
-                {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'},
-                {'job_id': 'my_job__alternate_id_dummy', 'servkey_share': '987654321'},
+                {'job_id': 'my_job_id_dummy', 'context': '123456789'},
+                {'job_id': 'my_job__alternate_id_dummy', 'context': '987654321'},
                 {'job_id': 'my_job_id_dummy'}
             ],
             [
                 SecaggBiprimeManager,
-                {'biprime': 'a_long_dummy_biprime'},
-                {'biprime': 'a_long_dummy_alternate_biprime'},
+                {'context': 'a_long_dummy_biprime'},
+                {'context': 'a_long_dummy_alternate_biprime'},
                 {}
             ],
         ]
@@ -281,8 +282,8 @@ class TestSecaggManager(NodeTestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'servkey_share': '123456789'}, {'job_id': 'my_job_id_dummy'}],
-            [SecaggBiprimeManager, {'biprime': 'a_long_dummy_biprime'}, {}],
+            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
+            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action
@@ -310,6 +311,40 @@ class TestSecaggManager(NodeTestCase):
                     with self.assertRaises(FedbiomedSecaggError):
                         manager.remove('my_secagg_id', **kwargs)
 
+
+class TestSecaggManager(NodeTestCase):
+
+    def setUp(self) -> None:
+        pass
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_secagg_manager_01_initialization(self):
+
+        # Test server key manager
+        secagg_setup = SecaggManager(0)()
+        self.assertIsInstance(secagg_setup, SecaggServkeyManager)
+
+        # Test biprime manager
+        secagg_setup = SecaggManager(1)()
+        self.assertIsInstance(secagg_setup, SecaggBiprimeManager)
+
+        # Raise element type erro
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggManager(2)()
+
+        # Raise missing component for element type error
+        with patch('fedbiomed.node.secagg_manager.SecaggElementTypes') as element_types_patch:
+            class FakeSecaggElementTypes(_BaseEnum):
+                DUMMY: int = 0
+            element_types_patch.return_value = FakeSecaggElementTypes(0)
+            element_types_patch.__iter__.return_value = [
+                FakeSecaggElementTypes(0)
+            ]
+
+            with self.assertRaises(FedbiomedSecaggError):
+                SecaggManager(0)()        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

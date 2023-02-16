@@ -645,7 +645,7 @@ case $1 in
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
 
-                if ! forward_command_to_python_cli researcher configuration create "$IP_ADDRESS"; then
+                if ! forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"; then
                     echo -e "${RED}ERROR:${NC}"
                     echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for researcher"
                     exit 1
@@ -658,7 +658,7 @@ case $1 in
                 usage researcher
             ;;
             *)
-              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"]
+              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
             ;;
         esac
         ;;

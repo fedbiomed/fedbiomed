@@ -53,6 +53,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.constants import MPSPDZ_certificate_prefix
 from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.utils import get_fedbiomed_root
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -172,15 +173,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         # guess the fedbiomed package top dir if no root dir is given
         if self._root_dir is None:
-            # locate the top dir from the file location (got up twice)
-            root_dir = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(
-                        os.path.abspath(__file__)),
-                    '..',
-                    '..'
-                )
-            )
+            root_dir = get_fedbiomed_root()
         else:
             root_dir = self._root_dir
 

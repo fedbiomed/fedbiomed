@@ -7,317 +7,315 @@ from copy import deepcopy
 from testsupport.base_case import NodeTestCase
 #############################################################
 
+import fedbiomed.node.secagg
+
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
 
+
 from fedbiomed.common.constants import SecaggElementTypes
-from fedbiomed.common.exceptions import FedbiomedSecaggError
+from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup
+from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, BaseSecaggSetup, SecaggSetup
 
 
-class TestSecaggNode(NodeTestCase):
-    """ Test for node's secagg module"""
+class TestBaseSecaggSetup(NodeTestCase):
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    def test_secagg_01_init_ok_and_getters(
-            self,
-            patch_servkey_manager,
-            patch_biprime_manager):
-        """Instantiate secagg classes + read state via getters"""
+    def setUp(self) -> None:
+        self.abstract_methods_patcher = patch.multiple(BaseSecaggSetup, __abstractmethods__=set())
+        self.abstract_methods_patcher.start()
 
-        # prepare
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+        self.args = {
+                'researcher_id': 'my researcher',
+                'secagg_id': "my secagg",
+                'job_id': '123345',
+                'sequence': 123,
+                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+        }
 
-        kwargs_servkey = {
+        self.base_secagg_setup = BaseSecaggSetup(**self.args)
+
+    def tearDown(self) -> None:
+        self.abstract_methods_patcher.stop()
+
+    def test_base_secagg_setup_01_init_bad_args(self):
+        """Tests bad init arguments """
+
+        # Faulty typed researcher id
+        args = deepcopy(self.args)
+        args["researcher_id"] = None
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Invalid secagg ID
+        args = deepcopy(self.args)
+        args["secagg_id"] = None
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Empty string secagg ID
+        args = deepcopy(self.args)
+        args["secagg_id"] = ""
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Invalid sequence
+        args = deepcopy(self.args)
+        args["sequence"] = "list"
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Invalid party
+        args = deepcopy(self.args)
+        args["parties"] = ["my researcher", "p2", 12]
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Invalid number of parties
+        args = deepcopy(self.args)
+        args["parties"] = ["my researcher", "p2"]
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+        # Unmatch self id and parties
+        args = deepcopy(self.args)
+        args["researcher_id"] = "opss different researcher"
+        with self.assertRaises(FedbiomedSecaggError):
+            BaseSecaggSetup(**args)
+
+    def test_base_secagg_setup_02_getters(self):
+        """Tests getters properties"""
+
+        self.assertEqual(self.base_secagg_setup.researcher_id, self.args["researcher_id"])
+        self.assertEqual(self.base_secagg_setup.secagg_id, self.args["secagg_id"])
+        self.assertEqual(self.base_secagg_setup.job_id, self.args["job_id"])
+        self.assertEqual(self.base_secagg_setup.sequence, self.args["sequence"])
+        self.assertEqual(self.base_secagg_setup.element, None)
+
+    def test_base_secagg_setup_03_create_secagg_reply(self):
+        """Tests reply creation """
+
+        reply = self.base_secagg_setup._create_secagg_reply(
+            message="Test message",
+            success=False
+        )
+
+        self.assertDictEqual(reply, {
+                            'researcher_id': self.args["researcher_id"],
+                            'secagg_id': self.args["secagg_id"],
+                            'sequence': self.args["sequence"],
+                            'success': False,
+                            'msg': "Test message",
+                            'command': 'secagg'
+        })
+
+
+class SecaggTestCase(NodeTestCase):
+
+    def setUp(self) -> None:
+        self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
+        self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg, "_MPC")
+        self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
+
+
+
+        self.mock_skm = self.patch_skm.start()
+        self.mock_cm = self.patch_cm.start()
+        self.mock_mpc = self.patch_mpc.start()
+        self.mock_bpm = self.patch_bpm.start()
+
+        # Set MOCK variables
+        self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
+        self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
+        type(self.mock_mpc).mpc_data_dir = unittest.mock.PropertyMock(
+            return_value='dummy/path/to/output'
+        )
+        type(self.mock_mpc).tmp_dir = unittest.mock.PropertyMock(
+            return_value=environ["TMP_DIR"]
+        )
+
+    def tearDown(self) -> None:
+        self.patch_skm.stop()
+        self.patch_cm.stop()
+        self.patch_mpc.stop()
+        self.patch_bpm.stop()
+
+
+class TestSecaggServkey(SecaggTestCase):
+
+    def setUp(self) -> None:
+
+        super().setUp()
+        self.args = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'job_id': 'my_job_id',
             'sequence': 123,
-            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
-        kwargs_biprime = deepcopy(kwargs_servkey)
-        kwargs_biprime['job_id'] = ''
-        secagg_setups = [
-            [SecaggServkeySetup, SecaggElementTypes.SERVER_KEY, kwargs_servkey],
-            [SecaggBiprimeSetup, SecaggElementTypes.BIPRIME, kwargs_biprime],
-        ]
+        self.secagg_servkey = SecaggServkeySetup(**self.args)
 
-        for secagg_setup, element_type, kwargs in secagg_setups :
-            # test
-            secagg = secagg_setup(**kwargs)
+    def tearDown(self) -> None:
+        super().tearDown()
 
-            # check
-            self.assertEqual(secagg.researcher_id(), kwargs['researcher_id'])
-            self.assertEqual(secagg.secagg_id(), kwargs['secagg_id'])
-            self.assertEqual(secagg.job_id(), kwargs['job_id'])
-            self.assertEqual(secagg.sequence(), kwargs['sequence'])
-            self.assertEqual(secagg.element(), element_type)
+    def test_secagg_servkey_setup_01_init(self):
+        """Tests failing due to job id"""
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    def test_secagg_02_init_badargs(
-            self,
-            patch_servkey_manager,
-            patch_biprime_manager,
-            ):
-        """Instantiate secagg classes with bad arguments"""
+        args = deepcopy(self.args)
+        args["job_id"] = None
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeySetup(**args)
 
-        # prepare
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
-
-        job_id = 'my_job'
-        kwargs_servkey_list = [
-            {
-                'researcher_id': None,
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 234,
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': "",
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': None,
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': 12345,
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': ['not a string'],
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': 999,
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': '',
-                'sequence': 123,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': None,
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 'sequence is not a string',
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': ['sequence is not a list'],
-                'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': None,
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': 'need to be a list',
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': [None, None],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': [654, 321],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['need to be same as researcher_id', 'my node2', 'my node3'],
-            },
-            {
-                'researcher_id': 'my researcher',
-                'secagg_id': "my secagg",
-                'job_id': job_id,
-                'sequence': 123,
-                'parties': ['my researcher', 'need 3+ parties'],
-            },
-        ]
-        kwargs_biprime_list = deepcopy(kwargs_servkey_list)
-        # normal case for servkey (non empty `job_id` string) is the error case for biprime (and vice verse)
-        for kwargs in kwargs_biprime_list:
-            if kwargs['job_id'] == job_id:
-                kwargs['job_id'] = ''
-            elif kwargs['job_id'] == '':
-                kwargs['job_id'] = job_id
-
-        secaggs = [
-            (SecaggServkeySetup, kwargs_servkey_list),
-            (SecaggBiprimeSetup, kwargs_biprime_list)
-        ]
-
-        for secagg_setup, kwargs_list in secaggs :
-            for kwargs in kwargs_list:
-                # test
-                with self.assertRaises(FedbiomedSecaggError):
-                    secagg_setup(**kwargs)
+        args["job_id"] = ''
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeySetup(**args)
 
 
-    @patch('time.sleep')
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
-    def test_secagg_03_setup(
-            self,
-            patch_reply_create,
-            patch_servkey_manager,
-            patch_biprime_manager,
-            patch_time_sleep):
-        """Setup secagg context elements
-        """
-        # patch
-        # nota: dont need to patch time.sleep (dummy function is ok)
-        def reply_create_side_effect(msg):
-            return FakeMessages(msg)
-        patch_reply_create.side_effect = reply_create_side_effect
+    def test_secagg_servkey_setup_02_setup_server_key(self):
+        """Test setup operation for servkey"""
 
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
+        with patch("builtins.open") as mock_open:
+            self.secagg_servkey._setup_server_key()
 
-        # prepare
-        kwargs_servkey = {
+            self.mock_cm.write_mpc_certificates_for_experiment.assert_called_once_with(
+                path_certificates='dummy/path/to/output',
+                path_ips=environ["TMP_DIR"],
+                self_id=environ["ID"],
+                self_ip=environ["MPSPDZ_IP"],
+                self_port=environ["MPSPDZ_PORT"],
+                self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
+                self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
+                parties=['my researcher', environ["ID"], 'my node2',
+                         'my node3']
+            )
+
+            self.mock_mpc.exec_shamir.called_once_with(
+                party_number=self.args["parties"].index(environ["ID"]),
+                num_parties=len(self.args["parties"]),
+                ip_addresses='dummy/ip'
+            )
+
+            mock_open.side_effect = Exception
+            with self.assertRaises(FedbiomedSecaggError):
+                self.secagg_servkey._setup_server_key()
+
+    def test_secagg_servkey_setup_03_setup(self):
+
+        for e in (Exception, FedbiomedError):
+            self.mock_skm.get.side_effect = e
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], False)
+
+        self.mock_skm.get.side_effect = None
+        self.mock_skm.get.return_value = "context"
+        reply = self.secagg_servkey.setup()
+        self.assertEqual(reply["success"], True)
+
+        with patch("builtins.open") as mock_open:
+            self.mock_skm.get.return_value = None
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], True)
+
+        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_server_key") as mock_:
+
+            mock_.side_effect = Exception
+            self.mock_skm.get.return_value = None
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], False)
+
+            mock_.side_effect = FedbiomedError
+            self.mock_skm.get.return_value = None
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], False)
+
+
+class TestSecaggBiprime(SecaggTestCase):
+
+    def setUp(self) -> None:
+
+        super().setUp()
+        self.args = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
-            'job_id': "my_job",
+            'job_id': None,
             'sequence': 123,
-            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+            'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
-        kwargs_biprime = deepcopy(kwargs_servkey)
-        kwargs_biprime['job_id'] = ''
-        secagg_setups = [
-            (SecaggServkeySetup, kwargs_servkey),
-            (SecaggBiprimeSetup, kwargs_biprime),
-        ]
+        self.secagg_bprime = SecaggBiprimeSetup(**self.args)
 
-        for secagg_setup, kwargs in secagg_setups :
-            # test
-            secagg = secagg_setup(**kwargs)
-            msg = secagg.setup()
+    def tearDown(self) -> None:
+        super().tearDown()
 
-            # check
-            self.assertEqual(msg['researcher_id'], kwargs['researcher_id'])
-            self.assertEqual(msg['secagg_id'], kwargs['secagg_id'])
-            self.assertEqual(msg['sequence'], kwargs['sequence'])
-            self.assertEqual(msg['node_id'], environ['NODE_ID'])
-            self.assertEqual(msg['success'], True)
-            self.assertEqual(msg['command'], 'secagg')
+    def test_secagg_biprime_setup_01_init(self):
+        """Tests init with bad job_id"""
+        args = deepcopy(self.args)
+        args["job_id"] = "non-empty-string"
 
-    @patch('fedbiomed.node.secagg.SecaggBiprimeManager')
-    @patch('fedbiomed.node.secagg.SecaggServkeyManager')
-    @patch('fedbiomed.node.secagg.NodeMessages.reply_create')
-    def test_secagg_04_create_secagg_reply(
-            self,
-            patch_reply_create,
-            patch_servkey_manager,
-            patch_biprime_manager):
-        """Create a reply message for researcher
-        """
-        # patch
-        # nota: dont need to patch time.sleep (dummy function is ok)
-        def reply_create_side_effect(msg):
-            return FakeMessages(msg)
-        patch_reply_create.side_effect = reply_create_side_effect
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggBiprimeSetup(**args)
 
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
-        # prepare
-        kwargs_servkey = {
-            'researcher_id': "my researcher",
-            'secagg_id': "my secagg",
-            'job_id': "my_job",
-            'sequence': 123,
-            'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
+    def test_secagg_biprime_setup_02_setup(self):
+        """Tests init """
+
+        self.mock_bpm.get.return_value = True
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], True)
+
+        with patch('time.sleep'):
+            self.mock_bpm.get.return_value = None
+            reply = self.secagg_bprime.setup()
+            self.assertEqual(reply["success"], True)
+
+
+class TestSecaggSetup(NodeTestCase):
+
+    def setUp(self) -> None:
+        pass
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_secagg_setup_01_initialization(self):
+
+        args = {
+            "researcher_id": "r-1",
+            "job_id": "job-id",
+            "sequence": 1,
+            "element": 0,
+            "secagg_id": "secagg-id",
+            "parties": ["r-1", "node-1", "node-2"]
+
         }
-        kwargs_biprime = deepcopy(kwargs_servkey)
-        kwargs_biprime['job_id'] = ''
-        secagg_setups = [
-            (SecaggServkeySetup, kwargs_servkey),
-            (SecaggBiprimeSetup, kwargs_biprime),
-        ]
-        reply_message_list = [ '', 'custom reply message']
-        reply_status_list = [False, True]
 
-        for secagg_setup, kwargs in secagg_setups :
-            for reply_message in reply_message_list:
-                for reply_status in reply_status_list:
-                    # test
-                    secagg = secagg_setup(**kwargs)
-                    msg = secagg._create_secagg_reply(reply_message, reply_status)
+        # Test server key setup
+        secagg_setup = SecaggSetup(**args)()
+        self.assertIsInstance(secagg_setup, SecaggServkeySetup)
 
-                    # check
-                    self.assertEqual(msg['researcher_id'], kwargs['researcher_id'])
-                    self.assertEqual(msg['secagg_id'], kwargs['secagg_id'])
-                    self.assertEqual(msg['sequence'], kwargs['sequence'])
-                    self.assertEqual(msg['node_id'], environ['NODE_ID'])
-                    self.assertEqual(msg['success'], reply_status)
-                    self.assertEqual(msg['msg'], reply_message)
-                    self.assertEqual(msg['command'], 'secagg')
+        # Test biprime setup
+        args["element"] = 1
+        del args["job_id"]
+        secagg_setup = SecaggSetup(**args)()
+        self.assertIsInstance(secagg_setup, SecaggBiprimeSetup)
+
+        # Test forcing checking job_id None if Secagg setup is Biprime
+        args["element"] = 1
+        args["job_id"] = 12
+        with self.assertRaises(FedbiomedSecaggError):
+            secagg_setup = SecaggSetup(**args)()
+
+        # Raise element type
+        args["element"] = 2
+        args["job_id"] = ""
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggSetup(**args)()
+
+        # Raise element type
+        args["element"] = 0
+        args["job_id"] = 1234
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggSetup(**args)()
 
 
 if __name__ == '__main__':  # pragma: no cover
