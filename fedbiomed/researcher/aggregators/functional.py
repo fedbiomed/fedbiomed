@@ -11,10 +11,11 @@ import numpy as np
 def initialize(val: Union[torch.Tensor, np.ndarray]) -> Tuple[str, Union[torch.Tensor, np.ndarray]]:
     """Initialize tensor or array vector. """
     if isinstance(val, torch.Tensor):
-        return ('tensor' , torch.zeros_like(val).float())
-    elif isinstance(val, np.ndarray) or isinstance(val, list):
-        
-        return ('array' , np.zeros(val.shape, dtype = float))
+        return 'tensor', torch.zeros_like(val).float()
+
+    if isinstance(val, (list, np.ndarray)):
+        val = np.array(val)
+        return 'array', np.zeros(val.shape, dtype = float)
 
 
 def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
@@ -57,6 +58,7 @@ def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
 
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
+
     if t == 'tensor':
         for model, weight in zip(model_params, proportions):
             for key in avg_params.keys():
