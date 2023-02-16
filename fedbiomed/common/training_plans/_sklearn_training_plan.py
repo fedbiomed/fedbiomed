@@ -51,11 +51,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
         self._model = SkLearnModel(self._model_cls)
-        self._model_args = {}  # type: Dict[str, Any]
+        #self._model_args = {}  # type: Dict[str, Any]
         self._training_args = {}  # type: Dict[str, Any]
-        self._param_list = []  # type: List[str]
+        #self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-        self._is_classification = False
+        #self._is_classification = False
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self.add_dependency([

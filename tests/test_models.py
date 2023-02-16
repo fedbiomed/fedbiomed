@@ -31,13 +31,23 @@ class TestSkLearnModel(unittest.TestCase):
             self.assertEqual(saved_params[-1].intercept_, 0.42)
             
     def test_sklearnmodel_method_02_load(self):
+        with patch.object(self.sgdclass_model, 'param_list', ['coef_', 'intercept_']), \
+                patch.object(self.sgdclass_model.model, 'coef_', 0.42), \
+                patch.object(self.sgdclass_model.model, 'intercept_', 0.42), \
+                patch('fedbiomed.common.models.model.joblib.load',
+                      return_value=self.sgdclass_model.model), \
+                patch('builtins.open', mock_open()):
+            params = self.sgdclass_model.load('filename', to_params=True)
+            self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
+
+    def test_sklearnmodel_03_set_init_params(self):
+        # self.assertEqual(training_plan._model.n_iter_, 1)
         pass
         
 class TestSklearnTrainingPlansClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
     model_args = {
         SGDClassifier: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
-        
     }
     expected_params_list = {
         SGDClassifier: ['intercept_', 'coef_'],

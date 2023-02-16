@@ -188,14 +188,14 @@ class SkLearnModel():
              item: Requested item from class
 
         Raises:
-            AttributeError: If the attribute is not implemented
+            FedbiomedModelError: If the attribute is not implemented
 
         """
 
         try:
             return self._instance.__getattribute__(item)
         except AttributeError:
-            raise AttributeError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
+            raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
     # @classmethod
     # def load(cls, filename: str):
     #     with open(filename, "rb") as file:
@@ -377,6 +377,7 @@ class BaseSkLearnModel(Model):
 
 # ---- toolbox classes for getting learning rate and setting initial model parameters
 class RegressorSkLearnModel(BaseSkLearnModel):
+    _is_classification: bool = False
     _is_regression: bool = True
     def set_init_params(self, model_args: Dict[str, Any]):
         """Initialize the model's trainable parameters."""
@@ -391,6 +392,7 @@ class RegressorSkLearnModel(BaseSkLearnModel):
 
 class ClassifierSkLearnModel(BaseSkLearnModel):
     _is_classification: bool = True
+    _is_regression: bool = False
     #classes_: np.ndarray = NotImplemented
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
         """Initialize the model's trainable parameters."""
