@@ -156,6 +156,7 @@ class Job:
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
+
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._training_plan_file)
 
@@ -445,12 +446,12 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    loaded_model = self._training_plan.load(params_path, to_params=True)
-                    params = loaded_model['model_params']
-                    optimizer_args = loaded_model.get('optimizer_args')
+                    params = self._training_plan.load(params_path, update_model=False)
+                    model_params = params['model_params']
+                    optimizer_args = params.get('optimizer_args')
                 else:
                     params_path = None
-                    params = None
+                    model_params = None
                     optimizer_args = None
 
                 # TODO: could choose completely different name/structure for
@@ -462,7 +463,7 @@ class Job:
                                'dataset_id': m['dataset_id'],
                                'node_id': m['node_id'],
                                'params_path': params_path,
-                               'params': params,
+                               'params': model_params,
                                'optimizer_args': optimizer_args,
                                'sample_size': m["sample_size"],
                                'timing': timing})
