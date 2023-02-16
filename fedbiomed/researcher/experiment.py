@@ -1593,7 +1593,7 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_id='dummy-test-id')
+                                                 secagg_id=None)
         
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1611,7 +1611,7 @@ class Experiment(object):
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current,
-                                                       secure_aggregation=True)
+                                                       secure_aggregation=False)
 
         # write results of the aggregated model in a temp file
 
