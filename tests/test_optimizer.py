@@ -1,0 +1,194 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+"""Unit tests for the declearn-interfacing Optimizer class."""
+
+import json
+import unittest
+from unittest import mock
+
+import declearn
+import numpy as np
+from declearn.model.api import Vector
+from declearn.optimizer import Optimizer as DeclearnOptimizer
+from declearn.optimizer.modules import OptiModule
+from declearn.optimizer.regularizers import Regularizer
+
+from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.optimizer import Optimizer
+
+
+class TestOptimizer(unittest.TestCase):
+    """Unit tests for the declearn-interfacing Optimizer class."""
+
+    def test_init(self) -> None:
+        """Test that Optimizer instantiation works as expected.
+
+        Note: additional syntaxes to pass actual modules or regularizers
+        specifications are not tested here, as they belong to the domain
+        of the declearn dependency (which runs such tests itself).
+        """
+        modules = [mock.create_autospec(OptiModule, instance=True)]
+        regularizers = [mock.create_autospec(Regularizer, instance=True)]
+        optim = Optimizer(
+            lr=1e-3,
+            decay=1e-4,
+            modules=modules,
+            regularizers=regularizers,
+        )
+        assert optim._lr == 1e-3
+        assert optim._decay == 1e-4
+        assert isinstance(optim._optimizer, DeclearnOptimizer)
+        assert optim._optimizer.modules == modules
+        assert optim._optimizer.regularizers == regularizers
+
+    def test_step(self) -> None:
+        """Test that the `Optimizer.step` performs expected computations.
+
+        Note: this code is mostly redundant with that of the declearn unit
+        tests for `declearn.optimizer.Optimizer` that is distributed under
+        Apache-2.0 license.
+        """
+        # Set up an optimizer with mock attributes.
+        lrate = mock.MagicMock()
+        decay = mock.MagicMock()
+        modules = [
+            mock.create_autospec(OptiModule, instance=True) for _ in range(3)
+        ]
+        regularizers = [
+            mock.create_autospec(Regularizer, instance=True) for _ in range(2)
+        ]
+        optim = Optimizer(
+            lr=lrate,
+            decay=decay,
+            modules=modules,
+            regularizers=regularizers,
+        )
+        # Set up mock Vector inputs. Run them through the Optimizer.
+        grads = mock.create_autospec(Vector, instance=True)
+        weights = mock.create_autospec(Vector, instance=True)
+        updates = optim.step(grads, weights)
+        # Check that the inputs went through the expected plug-ins pipeline.
+        inputs = grads  # initial inputs
+        for reg in regularizers:
+            reg.run.assert_called_once_with(inputs, weights)
+            inputs = reg.run.return_value
+        for mod in modules:
+            mod.run.assert_called_once_with(inputs)
+            inputs = mod.run.return_value
+        # Check that the learning rate was properly applied.
+        lrate.__neg__.assert_called_once()  # -1 * lrate
+        lrate.__neg__.return_value.__mul__.assert_called_once_with(inputs)
+        output = lrate.__neg__.return_value.__mul__.return_value
+        # Check that the weight-decay term was properly applied.
+        decay.__mul__.assert_called_once_with(weights)
+        output.__isub__.assert_called_once_with(decay.__mul__.return_value)
+        # Check that the outputs match the expected ones.
+        assert updates is output.__isub__.return_value
+
+    def test_get_aux_none(self) -> None:
+        """Test `Optimizer.get_aux` when there are no aux-var to share."""
+        optim = Optimizer(lr=0.001)
+        assert optim.get_aux() == {}
+
+    def test_get_aux_scaffold(self) -> None:
+        """Test `Optimizer.get_aux` when there are Scaffold aux-var to share."""
+        optim = Optimizer(lr=0.001, modules=["scaffold-client"])
+        # Run an optimizer step (required for Scaffold to produce aux-vars).
+        grads = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        weights = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        optim.step(grads, weights)
+        # Access the auxiliary variables and verify their formatting.
+        aux = optim.get_aux()
+        assert isinstance(aux, dict) and aux.keys() == {"scaffold"}
+        assert isinstance(aux["scaffold"], dict)
+
+    def test_set_aux_none(self) -> None:
+        """Test `Optimizer.set_aux` when there are no aux-var to share."""
+        optim = Optimizer(lr=0.001)
+        assert optim.set_aux({}) is None
+
+    def test_set_aux_fails(self) -> None:
+        """Test `Optimizer.set_aux` exception-catching."""
+        optim = Optimizer(lr=0.001)
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.set_aux({"missing": {}})
+
+    def test_set_aux_scaffold(self) -> None:
+        """Test `Optimizer.set_aux` when there are Scaffold aux-var to share."""
+        # Set up an Optimizer with a server-side Scaffold module.
+        optim = Optimizer(lr=0.001, modules=["scaffold-server"])
+        # Set up random-valued client-emitted Scaffold auxiliary variables.
+        state = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        aux = {"scaffold": {"client": {"state": state}}}
+        # Test that these can be input into the server-side Optimizer.
+        optim.set_aux(aux)
+
+    def test_save_state_mock(self) -> None:
+        """Test that `Optimizer.save_state` returns a dict and calls modules."""
+        module = mock.create_autospec(OptiModule, instance=True)
+        optim = Optimizer(lr=0.001, modules=[module])
+        state = optim.save_state()
+        assert isinstance(state, dict)
+        module.get_config.assert_called_once()
+        module.get_state.assert_called_once()
+
+    def test_save_state_json(self) -> None:
+        """Test that `Optimizer.save_state` is declearn-JSON-serializable.
+
+        Use a practical case to test so, with an Adam module and a FedProx
+        regularizer.
+        """
+        # Set up an Optimizer and run a step to build Vector states.
+        optim = Optimizer(lr=0.001, modules=["adam"], regularizers=["fedprox"])
+        grads = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        weights = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        optim.step(grads, weights)
+        # Check that states can be accessed, dumped to JSON and reloaded.
+        state = optim.save_state()
+        sdump = json.dumps(state, default=declearn.utils.json_pack)
+        assert isinstance(sdump, str)
+        sload = json.loads(sdump, object_hook=declearn.utils.json_unpack)
+        assert isinstance(sload, dict) and sload.keys() == state.keys()
+
+    def test_load_state_mock(self) -> None:
+        """Test that `Optimizer.load_state` works properly.
+
+        Use a practical case to test so, with an Adam module and a FedProx
+        regularizer.
+        """
+        # Set up an Optimizer and run a step to build Vector states.
+        optim = Optimizer(lr=0.001, modules=["adam"], regularizers=["fedprox"])
+        grads = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        weights = Vector.build({
+            "kernel": np.random.normal(size=(8, 4)),
+            "bias": np.random.normal(size=(4,))
+        })
+        optim.step(grads, weights)
+        # Gather the state of that Optimizer and build a new one from it.
+        state = optim.save_state()
+        opt_b = Optimizer.load_state(state)
+        # Check that the loaded Optimizer is the same as the original one.
+        assert isinstance(opt_b, Optimizer)
+        assert opt_b.save_state() == state
+        upd_a = optim.step(grads, weights)
+        upd_b = opt_b.step(grads, weights)
+        assert upd_a == upd_b
