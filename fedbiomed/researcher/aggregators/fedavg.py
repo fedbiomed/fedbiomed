@@ -72,7 +72,7 @@ class FedAverage(Aggregator):
 
         if secure_aggregation:
             agg_params = self.secure_aggregation(
-                params=weights_processed,
+                params=model_params_processed,
                 aggregation_round=kwargs.get('n_round'),
                 training_plan=kwargs.get('training_plan')
             )
