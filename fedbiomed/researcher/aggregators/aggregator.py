@@ -38,6 +38,9 @@ class Aggregator:
             training_plan:
         """
 
+        # TODO: verify with secagg context number of parties
+        num_nodes = len(params)
+
         encrypted_params: List[List[EncryptedNumber]] = \
             self._secagg_crypter.convert_to_encrypted_number(params)
 
@@ -49,13 +52,11 @@ class Aggregator:
 
         aggregated_params = self._secagg_crypter.decrypt(current_round=aggregation_round,
                                                          params=sum_of_params,
+                                                         num_nodes=num_nodes,
                                                          key=key)
-        averaged_params = self._secagg_crypter.quantized_divide(
-            params=aggregated_params,
-            num_clients=len(params))
 
         # Convert model params
-        model_params = training_plan.convert_vector_to_parameters(averaged_params)
+        model_params = training_plan.convert_vector_to_parameters(aggregated_params)
 
         return model_params
 
