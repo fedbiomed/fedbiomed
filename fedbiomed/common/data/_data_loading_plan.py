@@ -432,10 +432,10 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
-    [DataLoadingBlock] represents a customization to the way data is loaded and
-    presented to the researcher. These customizations are defined by the node,
-    but they operate on a Dataset class, which is defined by the library and
-    instantiated by the researcher.
+    [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+    represents a customization to the way data is loaded and presented to the researcher.
+    These customizations are defined by the node, but they operate on a Dataset class,
+    which is defined by the library and instantiated by the researcher.
 
     To exploit this functionality, a Dataset must be modified to accept the
     customizations provided by the DataLoadingPlan. To simplify this process,
