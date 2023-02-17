@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.distributions as td
+from sklearn.utils.class_weight import compute_class_weight
 from typing import Any, Dict, Optional
 
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -45,6 +46,14 @@ class FedMeanStdTrainingPlan(TorchTrainingPlan):
             ### Implementing with np.nanmean, np.nanstd
             self.size += torch.Tensor([N - np.count_nonzero(np.isnan(data_np[:,dim]))\
                                     for dim in range(self.n_features-self.n_cov)])
+            ###########################################################
+            ##Fill nan values with mean
+            #col_mean = np.nanmean(data_np,0)
+            ##Find indices that you need to replace
+            #inds = np.where(np.isnan(data_np))
+            ##Place column means in the indices. Align the arrays using take
+            #data_np[inds] = np.take(col_mean, inds[1])
+            ###########################################################
             self.mean += torch.from_numpy(np.nanmean(data_np,0))
             self.std += torch.from_numpy(np.nanstd(data_np,0))
             
@@ -116,7 +125,6 @@ class MIWAETrainingPlan(TorchTrainingPlan):
             n_variables = n_features-n_cov
             n_latent=model_args['n_latent']
             n_hidden=model_args['n_hidden']
-            n_samples=model_args['n_samples']
 
             # the encoder will output both the mean and the diagonal covariance
             self.encoder=nn.Sequential(
@@ -223,8 +231,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         
         # Data standardization (only continuous varaibles will be standardized)
         if self.standardization:
-            x_cov = xhat_0[:,:self.n_cov]
-            x_cont = xhat_0[:,self.n_cov:]
+            x_cov = xhat_0[:,:self.n_cov-1]
+            x_cont = xhat_0[:,self.n_cov-1:]
             x_cont = self.standardize_data(x_cont)
             xhat_0 = np.concatenate((x_cov, x_cont), axis=1)
             
@@ -249,6 +257,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         self.model().encoder.zero_grad()
         self.model().decoder.zero_grad()
         loss = self.miwae_loss(data = data[:,self.n_cov:], mask = mask[:,self.n_cov:], xcat = data[:,:self.n_cov])
+        #loss = self.miwae_loss(data = data[:,self.n_cov:], mask = mask[:,self.n_cov:], xcat = None)
         return loss
 
 ###########################################################
@@ -335,13 +344,16 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
             "import numpy as np",
             "from typing import Any, Dict, Optional",
             "from sklearn.linear_model import SGDClassifier",
-            "from fedbiomed.common.training_plans import FedPerceptron"]
+            "from fedbiomed.common.training_plans import FedSGDClassifier",
+            "from sklearn.utils.class_weight import compute_class_weight"]
         return deps
 
     def __init__(self) -> None:
         """Class constructor."""
         super().__init__()
-        self._model.set_params(loss="perceptron")
+        self._model.set_params(loss="log")
+        #self._model.set_params(penalty="elasticnet")
+        #self._model.set_params(class_weight="balanced")
 
     def post_init(
             self,
@@ -349,7 +361,9 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
-        model_args["loss"] = "log_loss"
+        model_args["loss"] = "log"#"log_loss"
+        #model_args["penalty"] = "elasticnet"
+        #model_args["class_weight"]="balanced"
         self.n_cov=model_args['n_cov']
         self.regressors_col = model_args.get('regressors_col')
         self.target_col = model_args.get('target_col')
@@ -381,9 +395,12 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
             X_cont = self.standardize_data(X_cont)
             X = np.concatenate((X_cov, X_cont), axis=1)
 
-        y = dataset[self.target_col]
+        y = dataset[self.target_col].values.astype(int).ravel()
+        class_weight = compute_class_weight("balanced", np.unique(y), y)
+        dict_class_weight = {np.unique(y)[0]:class_weight[0],np.unique(y)[1]:class_weight[1]}
+        self._model.set_params(class_weight=dict_class_weight)
 
-        return DataManager(dataset=X, target=y.values.astype(int).ravel(), batch_size=batch_size, shuffle=True)
+        return DataManager(dataset=X, target=y, batch_size=batch_size, shuffle=True)
     
     def standardize_data(self,data):
         data_norm = np.copy(data)

@@ -26,11 +26,10 @@
 # Declare a torch training plan MyTrainingPlan class to send for training on the node
 import numpy as np
 import torch
-import torch.nn as nn
 import argparse
-import sys
 
-from func_miwae_traumabase import miwae_loss, recover_data, testing_func, save_results_imputation, databases, generate_save_plots, create_save_data_prediction
+from func_miwae_traumabase import miwae_loss, encoder_decoder_iota_opt, recover_data, testing_func, save_results_imputation, \
+    databases, generate_save_plots, create_save_data_prediction
 from class_miwae_traumabase import FedMeanStdTrainingPlan, MIWAETrainingPlan
 
 from fedbiomed.researcher.experiment import Experiment
@@ -64,7 +63,7 @@ if __name__ == '__main__':
                         help='Number of samples in testing')
     parser.add_argument('--batch_size', metavar='-bs', type=int, default=48,
                         help='Batch size')
-    parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
+    parser.add_argument('--learning_rate', metavar='-lr', type=float, default=5e-4,
                         help='Learning rate')
     parser.add_argument('--do_figures', metavar='-fig', default=True, action=argparse.BooleanOptionalAction,
                         help='Generate and save figures during local training')
@@ -90,7 +89,9 @@ if __name__ == '__main__':
     assert min(dataset_size)==max(dataset_size)
     data_size = dataset_size[0]
 
-    num_covariates = 15 if task=='imputation' else 16
+    ############################################################################
+    num_covariates = 13 if task=='imputation' else 14
+    ############################################################################
 
     #Number of partecipating clients
     N_cl = len(dataset_size)
@@ -122,7 +123,9 @@ if __name__ == '__main__':
         from fedbiomed.researcher.aggregators.fedstandard import FedStandard
 
         # NOTE: we need to perform only 1 round of 1 epoch to recover global mean and std
-        model_args = {'n_features': data_size, 'n_cov': num_covariates}
+        ############################################################################
+        model_args = {'n_features': data_size, 'n_cov': num_covariates-1}
+        ############################################################################
 
         training_args = {
             'batch_size': 48, 
@@ -245,7 +248,7 @@ if __name__ == '__main__':
             n = Clients_data[cls].shape[0] # number of observations
             p = Clients_data[cls].shape[1]-num_covariates # number of features
 
-            xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates)
+            xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1)
 
             if task == 'imputation':            
                 mask_cls_test = np.copy(Clients_mask[cls])
@@ -256,31 +259,8 @@ if __name__ == '__main__':
             x_cat_cls = np.copy(xhat_local_std)[:,:num_covariates]
             xfull_cls = np.copy(xfull_local_std)
 
-            encoder_cls = nn.Sequential(
-                torch.nn.Linear(p+num_covariates, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, 3*d),  
-            )
-
-            decoder_cls = nn.Sequential(
-                torch.nn.Linear(d+num_covariates, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
-            )
-
-            iota_cls = nn.Parameter(torch.zeros(1,p),requires_grad=True)
-
-            optimizer_cls = torch.optim.Adam(list(encoder_cls.parameters()) + list(decoder_cls.parameters()) + [iota_cls],lr=1e-3)
-
-            def weights_init(layer):
-                if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
-                    
-            encoder_cls.apply(weights_init)
-            decoder_cls.apply(weights_init)
+            # Model
+            encoder_cls, decoder_cls, iota_cls, optimizer_cls = encoder_decoder_iota_opt(p,num_covariates,h,d,lr)
 
             for ep in range(1,n_epochs_local):
                 perm = np.random.permutation(n) # We use the "random reshuffling" version of SGD
@@ -340,13 +320,24 @@ if __name__ == '__main__':
         xmiss_tot = np.concatenate(Clients_missing,axis=0)
         mask_tot_test = np.concatenate(Clients_mask,axis=0)
         x_cat_tot = np.copy(xmiss_tot)[:,:num_covariates]
+        ###########################################################
+        ##Fill nan values with mean
+        #xmiss_tot_filled = np.copy(xmiss_tot)
+        #col_mean = np.nanmean(xmiss_tot_filled,0)
+        ##Find indices that you need to replace
+        #inds = np.where(np.isnan(xmiss_tot_filled))
+        ##Place column means in the indices. Align the arrays using take
+        #xmiss_tot_filled[inds] = np.take(col_mean, inds[1])
+        ###########################################################
 
         n = xmiss_tot.shape[0] # number of observations
         p = xmiss_tot.shape[1]-num_covariates # number of features
 
-        mean_tot_missing = np.nanmean(xmiss_tot[:,num_covariates:],0)
-        std_tot_missing = np.nanstd(xmiss_tot[:,num_covariates:],0)
-        xmiss_tot = np.concatenate((x_cat_tot, (xmiss_tot[:,num_covariates:] - mean_tot_missing)/std_tot_missing), axis=1)
+        ###########################################################
+        mean_tot_missing = np.nanmean(xmiss_tot[:,num_covariates-1:],0)
+        std_tot_missing = np.nanstd(xmiss_tot[:,num_covariates-1:],0)
+        ###########################################################
+        xmiss_tot = np.concatenate((xmiss_tot[:,:num_covariates-1], (xmiss_tot[:,num_covariates-1:] - mean_tot_missing)/std_tot_missing), axis=1)
         mask_tot = np.isfinite(xmiss_tot)[:,num_covariates:] # binary mask that indicates which values are missing
         xhat_0_tot = np.copy(xmiss_tot)
         xhat_0_tot[np.isnan(xmiss_tot)] = 0
@@ -354,35 +345,10 @@ if __name__ == '__main__':
         xhat_tot = np.copy(xhat_0_tot) # This will be out imputed data matrix
 
         xfull_tot = np.concatenate(Clients_data,axis=0)
-        xfull_tot = np.concatenate((x_cat_tot, (xfull_tot[:,num_covariates:] - mean_tot_missing)/std_tot_missing), axis=1)
+        xfull_tot = np.concatenate((xfull_tot[:,:num_covariates-1], (xfull_tot[:,num_covariates-1:] - mean_tot_missing)/std_tot_missing), axis=1)
 
         # Model
-
-        encoder_cen = nn.Sequential(
-            torch.nn.Linear(p+num_covariates, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, 3*d),  # the encoder will output both the mean and the diagonal covariance
-        )
-
-        decoder_cen = nn.Sequential(
-            torch.nn.Linear(d+num_covariates, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
-        )
-
-        iota_cen = nn.Parameter(torch.zeros(1,p),requires_grad=True)
-
-        optimizer_cen = torch.optim.Adam(list(encoder_cen.parameters()) + list(decoder_cen.parameters()) + [iota_cen],lr=1e-3)
-
-        def weights_init(layer):
-            if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
-                
-        encoder_cen.apply(weights_init)
-        decoder_cen.apply(weights_init)
+        encoder_cen, decoder_cen, iota_cen, optimizer_cen = encoder_decoder_iota_opt(p,num_covariates,h,d,lr)
 
         # Training loop
 
@@ -450,11 +416,13 @@ if __name__ == '__main__':
                                     
         # Testing on data used during training
         for cls in range(N_cl):
+            ###########################################################
             if ((fed_mean is None) and (fed_std is None)):
-                xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates)
+                xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1)
             else:
                 xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                    recover_data(Clients_missing[cls], Clients_data[cls], num_covariates, fed_mean, fed_std)
+                    recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1, fed_mean, fed_std)
+            ###########################################################
             mask = np.copy(Clients_mask[cls])[:,num_covariates:]
             x_cat = xhat_local_std[:,:num_covariates]
             if method not in ['Local','Centralized']:
@@ -485,11 +453,13 @@ if __name__ == '__main__':
                     'Loc','local',MSE)
 
         # Testing on external dataset
+        ###########################################################
         if ((fed_mean is None) and (fed_std is None)):
-            xhat_local_std, xfull_local_std = recover_data(data_test_missing, data_test, num_covariates)
+            xhat_local_std, xfull_local_std = recover_data(data_test_missing, data_test, num_covariates-1)
         else:
             xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                    recover_data(data_test_missing, data_test, num_covariates, fed_mean, fed_std)
+                    recover_data(data_test_missing, data_test, num_covariates-1, fed_mean, fed_std)
+        ###########################################################
         mask = np.copy(test_mask)[:,num_covariates:]
         x_cat = xhat_local_std[:,:num_covariates]
         if method not in ['Local','Centralized']:

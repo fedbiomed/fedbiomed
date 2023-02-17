@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import torch
+import torch.nn as nn
 import csv, os
 import torch.distributions as td
 from datetime import datetime
@@ -10,6 +11,35 @@ import matplotlib.pyplot as plt
 ###########################################################
 #Define the imputation and the MSE functions              #
 ###########################################################
+
+def encoder_decoder_iota_opt(p,h,d,lr):
+    encoder = nn.Sequential(
+        torch.nn.Linear(p, h),
+        #torch.nn.ReLU(),
+        #torch.nn.Linear(h, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, 3*d),  
+    )
+
+    decoder = nn.Sequential(
+        torch.nn.Linear(d, h),
+        #torch.nn.ReLU(),
+        #torch.nn.Linear(h, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
+    )
+
+    iota = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()) + [iota],lr=lr)
+
+    def weights_init(layer):
+        if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
+            
+    encoder.apply(weights_init)
+    decoder.apply(weights_init)
+
+    return encoder, decoder, iota, optimizer
 
 def miwae_impute(encoder,decoder,iota,data,mask,p,d,L):
 

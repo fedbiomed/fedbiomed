@@ -30,7 +30,7 @@ import torch.nn as nn
 import argparse
 import sys
 
-from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases, generate_save_plots
+from func_miwae_adni import miwae_loss, recover_data, testing_func, save_results, databases, generate_save_plots, encoder_decoder_iota_opt
 from class_miwae_adni import FedMeanStdTrainingPlan, MIWAETrainingPlan
 
 from fedbiomed.researcher.experiment import Experiment
@@ -252,31 +252,8 @@ if __name__ == '__main__':
             xfull_cls = np.copy(xfull_local_std)
             mask_cls = np.copy(mask)
 
-            encoder_cls = nn.Sequential(
-                torch.nn.Linear(p, h),
-                #torch.nn.ReLU(),
-                #torch.nn.Linear(h, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, 3*d),  
-            )
-
-            decoder_cls = nn.Sequential(
-                torch.nn.Linear(d, h),
-                #torch.nn.ReLU(),
-                #torch.nn.Linear(h, h),
-                torch.nn.ReLU(),
-                torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
-            )
-
-            iota_cls = nn.Parameter(torch.zeros(1,p),requires_grad=True)
-
-            optimizer_cls = torch.optim.Adam(list(encoder_cls.parameters()) + list(decoder_cls.parameters()) + [iota_cls],lr=1e-3)
-
-            def weights_init(layer):
-                if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
-                    
-            encoder_cls.apply(weights_init)
-            decoder_cls.apply(weights_init)
+            # Model
+            encoder_cls, decoder_cls, iota_cls, optimizer_cls = encoder_decoder_iota_opt(p,h,d,lr)
 
             for ep in range(1,n_epochs_local):
                 perm = np.random.permutation(n) # We use the "random reshuffling" version of SGD
@@ -330,32 +307,7 @@ if __name__ == '__main__':
         xfull_tot = (xfull_tot - mean_tot_missing)/std_tot_missing
 
         # Model
-
-        encoder_cen = nn.Sequential(
-            torch.nn.Linear(p, h),
-            #torch.nn.ReLU(),
-            #torch.nn.Linear(h, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, 3*d),  # the encoder will output both the mean and the diagonal covariance
-        )
-
-        decoder_cen = nn.Sequential(
-            torch.nn.Linear(d, h),
-            #torch.nn.ReLU(),
-            #torch.nn.Linear(h, h),
-            torch.nn.ReLU(),
-            torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
-        )
-
-        iota_cen = nn.Parameter(torch.zeros(1,p),requires_grad=True)
-
-        optimizer_cen = torch.optim.Adam(list(encoder_cen.parameters()) + list(decoder_cen.parameters()) + [iota_cen],lr=1e-3)
-
-        def weights_init(layer):
-            if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
-                
-        encoder_cen.apply(weights_init)
-        decoder_cen.apply(weights_init)
+        encoder_cen, decoder_cen, iota_cen, optimizer_cen = encoder_decoder_iota_opt(p,h,d,lr)
 
         # Training loop
 

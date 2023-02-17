@@ -1,15 +1,46 @@
 import pandas as pd
 import numpy as np
 import torch
+import torch.nn as nn
 import csv, os
 import torch.distributions as td
 from datetime import datetime
 from pathlib import Path
 import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 
 ###########################################################
 #Define the imputation and the MSE functions              #
 ###########################################################
+
+def encoder_decoder_iota_opt(p,num_covariates,h,d,lr):
+    encoder = nn.Sequential(
+        torch.nn.Linear(p+num_covariates, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, 3*d),  
+    )
+
+    decoder = nn.Sequential(
+        torch.nn.Linear(d+num_covariates, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, h),
+        torch.nn.ReLU(),
+        torch.nn.Linear(h, 3*p),  # the decoder will output both the mean, the scale, and the number of degrees of freedoms (hence the 3*p)
+    )
+
+    iota = nn.Parameter(torch.zeros(1,p),requires_grad=True)
+
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()) + [iota],lr=lr)
+
+    def weights_init(layer):
+        if type(layer) == nn.Linear: torch.nn.init.orthogonal_(layer.weight)
+            
+    encoder.apply(weights_init)
+    decoder.apply(weights_init)
+
+    return encoder, decoder, iota, optimizer
 
 def miwae_impute(encoder,decoder,iota,data,x_cat,mask,p,d,L):
 
@@ -117,6 +148,17 @@ def miwae_loss(encoder, decoder, iota, data, xcat, mask, d, p, K):
 
     return neg_bound
 
+def mean_std_filled(data):
+    #Fill nan values with mean
+    data_filled = np.copy(data)
+    col_mean = np.nanmean(data_filled,0)
+    #Find indices that you need to replace
+    inds = np.where(np.isnan(data_filled))
+    #Place column means in the indices. Align the arrays using take
+    data_filled[inds] = np.take(col_mean, inds[1])
+    mean,std = np.nanmean(data_filled,0), np.nanstd(data_filled,0)
+    return mean,std
+
 def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None):
 
     # TEST DATA: data_missing = data_test_missing; data_full = data_test
@@ -130,10 +172,19 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
     xfull = np.copy(data_full)
     xfull_cont = xfull[:,n_cov:]
 
+    ###########################################################
+    #mean,std = mean_std_filled(xmiss_cont)
+    #xmiss_cont_local = standardize_data(xmiss_cont,mean,std)
+    ###########################################################
+
     xmiss_cont_local = standardize_data(xmiss_cont)
     xhat_local_std = np.concatenate((x_cov, xmiss_cont_local), axis=1)
     xhat_local_std[np.isnan(xhat_local_std)] = 0
 
+    ###########################################################
+    #mean,std = mean_std_filled(xfull_cont)
+    #xfull_cont_local = standardize_data(xfull_cont,mean,std)
+    ###########################################################
     xfull_cont_local = standardize_data(xfull_cont)
     xfull_local_std = np.concatenate((x_cov, xfull_cont_local), axis=1)
 
@@ -156,7 +207,6 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
 def create_save_data_prediction(encoder, decoder, iota, data, n_cov, result_folder, filename, d, L, standard = False, mean = None, std = None):
     
     cwd = os.getcwd()
-    print(cwd)
     folder = cwd+'/'+result_folder+'/clients_imputed'
     os.makedirs(folder, exist_ok=True)
     
@@ -169,19 +219,24 @@ def create_save_data_prediction(encoder, decoder, iota, data, n_cov, result_fold
 
     if standard:
         if ((mean is None) and (std is None)):
+            ###########################################################
+            #mean,std = mean_std_filled(data_cont)
             mean, std = np.nanmean(data_cont,0), np.nanstd(data_cont,0)
-        if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
-            mean, std = mean.numpy(), std.numpy()
+            ###########################################################
+        else:    
+            if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
+                mean, std = mean.numpy(), std.numpy()
+            mean, std = mean[1:], std[1:]
         data_cont = standardize_data(data_cont, mean, std)
+
     print(data_cont.shape,mask.shape,p)
     data_cont[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(data_cont).float(), 
                             x_cat = torch.from_numpy(data_cov).float(), mask = torch.from_numpy(mask).float(),p=p, d = d, L= L).cpu().data.numpy()[~mask]
+    
     if standard:
         data_cont = data_cont*std + mean
+    data_cont = np.round(data_cont,1)
     data_np = np.concatenate((data_cov, data_cont), axis=1)
-
-    print('HERE',filename)
-    print(np.isnan(data_np).any(),data_np.shape)
 
     data_df = pd.DataFrame(data_np, columns=col_names)
     print(data_df.head())
@@ -193,6 +248,11 @@ def recover_data_prediction(data_full , n_cov, fed_mean = None, fed_std = None):
     xfull = np.copy(data_full)
     x_cov = xfull[:,:n_cov]
     xfull_cont = xfull[:,n_cov:]
+
+    ###########################################################
+    #mean,std = mean_std_filled(xfull_cont)
+    #xfull_cont_local = standardize_data(xfull_cont,mean,std)
+    ###########################################################
 
     xfull_cont_local = standardize_data(xfull_cont)
     xfull_local_std = np.concatenate((x_cov, xfull_cont_local), axis=1)
@@ -228,6 +288,12 @@ def testing_func(data_missing, data_full, x_cat, mask, encoder, decoder, iota, d
     xhat[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(), x_cat = torch.from_numpy(x_cat).float(),
                             mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
     err = np.array([mse(xhat,xfull,mask)])
+    #for var in range(p):
+    #    err_var = np.array([mse(xhat[ :,var],xfull[ :,var],mask[ :,var])])
+    #    print(err_var)
+    #print(np.isnan(xfull[~mask]).any(), xfull[~mask].shape)
+    #print(err)
+    #print(xfull[~mask])
 
     return float(err)
 
@@ -258,25 +324,21 @@ def save_results_imputation(result_folder, Train_data,Test_data,model,
         dictwriter_object.writerow(dict_out)
         output_file.close()
 
-def save_results_prediction(result_folder, model, regressor, Epochs_reg, Rounds_reg, F1, precision, mse, accuraccy, conf_matr, tn, fp, fn, tp):
+def save_results_prediction(result_folder, model, regressor, Epochs_reg, Rounds_reg, F1, precision, mse, accuracy, conf_matr, validation_err):
     os.makedirs(result_folder, exist_ok=True) 
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     output_file_name = 'output_pred_'+str(exp_id)+'_'+str(np.random.randint(9999, dtype=int))+'.csv'
     fieldnames=['model', 'regressor', 'N_rounds_reg', 'N_epochs_reg',
-                'F1', 'precision', 'mse', 'accuraccy', 'conf_matr', 'validation_err']
+                'F1', 'precision', 'mse', 'accuracy', 'conf_matr', 'validation_err']
     if not os.path.exists(result_folder+'/'+output_file_name):
         output = open(result_folder+'/'+output_file_name, "w")
         writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter = ';')
         writer.writeheader()
         output.close()
 
-    w0=5/6
-    w1=1/6
-    validation_err = (w0*fn+w1*fp)/(fn+fp)
-
     # Dictionary to be added
     dict_out={'model': model, 'regressor': regressor, 'N_rounds_reg': Rounds_reg, 'N_epochs_reg': Epochs_reg, 
-                'F1':F1, 'precision':precision, 'mse':mse, 'accuraccy':accuraccy, 
+                'F1':F1, 'precision':precision, 'mse':mse, 'accuracy':accuracy, 
                 'conf_matr':conf_matr, 'validation_err':validation_err}
 
     with open(result_folder+'/'+output_file_name, 'a') as output_file:
@@ -333,7 +395,6 @@ def databases(data_folder,task,idx_clients,root_dir=None,idx_Test_data=None, inp
 
     if idx_Test_data is not None:
         if task == 'imputation':
-            test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
             test_file = os.path.join(str(data_folder),"dataset_full_"+str(idx_Test_data)+".csv")
         elif task == 'prediction':
             if inputed:
@@ -401,7 +462,7 @@ def save_plots(epochs,likelihood,loss,mse,fig_folder,file_name):
     plt.clf()
     plt.close()
 
-def generate_save_plots_prediction(result_folder,testing_error,y_pred,y_test,model):
+def generate_save_plots_prediction(result_folder,testing_error,validation_error,conf_matr,model,regressor):
     figures_folder = result_folder+'/Figures_pred'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
@@ -410,7 +471,23 @@ def generate_save_plots_prediction(result_folder,testing_error,y_pred,y_test,mod
     plt.title('FL testing loss')
     plt.xlabel('FL round')
     plt.ylabel('testing loss (MSE)')
-    filename = exp_id+'_Testing_error_'+model
+    filename = exp_id+'_Testing_error_'+model+'_'+regressor
+    plt.savefig(figures_folder + '/' + filename)
+    plt.clf()
+    plt.close()
+
+    plt.plot(validation_error)
+    plt.title('FL validation err')
+    plt.xlabel('FL round')
+    plt.ylabel('Validation error')
+    filename = exp_id+'_Validation_error_'+model+'_'+regressor
+    plt.savefig(figures_folder + '/' + filename)
+    plt.clf()
+    plt.close()
+
+    disp = ConfusionMatrixDisplay(confusion_matrix=conf_matr)
+    disp.plot()
+    filename = exp_id+'_Conf_matrix_'+model+'_'+regressor
     plt.savefig(figures_folder + '/' + filename)
     plt.clf()
     plt.close()
