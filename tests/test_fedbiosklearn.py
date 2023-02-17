@@ -312,7 +312,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # training plan type
             self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
             # ensure that the model args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan._model_args,
+            self.assertDictEqual(training_plan._model.model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
@@ -324,13 +324,13 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
             self.assertNotIn('key_not_in_model', training_plan.model().get_params())
 
-            # --------- Check that param_list is correctly populated
+            # --------- Check that model's param_list is correctly populated after initialization
             # check that param_list is a list
-            self.assertIsInstance(training_plan._param_list, list)
+            self.assertIsInstance(training_plan._model.param_list, list)
             # check that param_list is not empty
-            self.assertTrue(training_plan._param_list)
+            self.assertTrue(training_plan._model.param_list)
             # check that param_list is a list of str
-            for param in training_plan._param_list:
+            for param in training_plan._model.param_list:
                 self.assertIsInstance(param, str)
 
     def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
@@ -664,7 +664,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertTrue(np.isnan(loss))
 
-            with patch.object(training_plan, '_model_args', {'n_classes': 3}), \
+            with patch.object(training_plan._model, 'model_args', {'n_classes': 3}), \
                     patch.object(training_plan._model.model, 'classes_', np.array([0, 1, 2])):
                 batch_losses_stdout = [
                     ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
