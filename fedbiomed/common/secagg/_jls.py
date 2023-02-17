@@ -14,141 +14,151 @@ and Data Security. Springer Berlin Heidelberg, 2013.*
 
 """
 
-import random
-
+from typing import List, TypeVar, Union
+from ._jls_utils import invert, powmod
 from gmpy2 import mpz
-
-from ._jls_utils import getprimeover, invert, powmod
 
 DEFAULT_KEY_SIZE = 2048
 
 
-class JLS(object):
-    """
-    The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms: **Setup**,
-    **Protect**, and **Agg**.
+class EncryptedNumber(object):
+    """An encrypted number by one of the user keys .
 
-    ## **Args**:
-    -------------
-    *nusers* : `int` --
-        The number of users in the scheme
-
-    *VE* : `VectorEncoding` --
-        The vector encoding/decoding scheme (default: `None`)
-
-    ## **Attributes**:
-    -------------
-    *nusers* : `int` --
-        The number of users in the scheme
-
-    *VE* : `VectorEncoding` --
-        The vector encoding/decoding scheme
-
-    *keysize* : `int` --
-        The bit length of the keys
-
-
-
+    Attributes:
+        param: The public parameters
+        ciphertext: The integer value of the ciphertext
     """
 
-    def __init__(self, nusers, VE=None):
-        super().__init__()
-        self.nusers = nusers
-        self.keysize = None
-        self.VE = VE
-
-    def Setup(self, lmbda=DEFAULT_KEY_SIZE):
+    def __init__(self, param, ciphertext):
         """
-        Setups the users and the server with the secret keys and public parameters
 
-        ### Given some security parameter \\(\\lambda\\), this algorithm generates two equal-size prime numbers \\(p\\) and \\(q\\) and sets \\(N = pq\\). It randomly generates \\(n\\) secret keys \\(sk_u \\xleftarrow{R} \\pm \\{0,1\\}^{2l}\\) where \\(l\\) is the number of bits of \\(N\\) and sets \\(sk_0 = -\\sum_{1}^n{sk_u}\\). Then, it defines a cryptographic hash function \\(H : \\mathbb{Z} \\rightarrow \\mathbb{Z}_{N^2}^{*}\\). It outputs the \\(n+1\\) keys and the public parameters \\((N, H)\\).
+        Args:
+            param: The public parameters.
+            ciphertext: The integer value of the ciphertext
 
-        ## **Args**:
-        -------------
-        **lmbda** : `int` --
-            The bit length the user/server key
-
-        ## **Returns**:
-        -------------
-        The public parameters, server key, a list of user keys:  `(PublicParam, ServerKey, list[UserKeys])`
         """
-        self.keysize = lmbda
+        self.public_param = param
+        self.ciphertext = ciphertext
 
-        p = q = n = None
-        n_len = 0
-        # while n_len != lmbda // 2:
-        #     p = mpz(7801876574383880214548650574033350741129913580793719706746361606042541080141291132224899113047934760791108387050756752894517232516965892712015132079112571) #getprimeover(lmbda // 4)
-        #     q = p
-        #     while q == p:
-        #         q = mpz(7755946847853454424709929267431997195175500554762787715247111385596652741022399320865688002114973453057088521173384791077635017567166681500095602864712097) #getprimeover(lmbda // 4)
-        p = mpz(
-            7801876574383880214548650574033350741129913580793719706746361606042541080141291132224899113047934760791108387050756752894517232516965892712015132079112571
-        )  # getprimeover(lmbda // 4)
-        q = mpz(
-            7755946847853454424709929267431997195175500554762787715247111385596652741022399320865688002114973453057088521173384791077635017567166681500095602864712097
-        )  # getprimeover(lmbda // 4)
+    def __add__(
+            self,
+            other: Union['EncryptedNumber', mpz]
+    ) -> 'EncryptedNumber':
 
-        n = p * q
-        n_len = n.bit_length()
-        print("n_len", n_len)
-        fdh = FDH(self.keysize, n * n)
+        """Adds given value to self
 
-        public_param = PublicParam(n, lmbda // 2, fdh.H)
+        Args:
 
-        seed = random.SystemRandom()
-        # I already the share value
-        s0 = mpz(-20)
-        # users = {}
-        #
-        # for i in range(self.nusers):
-        #     s = mpz(0)  # s = mpz(seed.getrandbits(2 * n_len))
-        #     users[i] = UserKey(public_param, s)
-        #     s0 += s
-        # s0 = -s0
-        s_user = mpz(10)
-        server = ServerKey(public_param, s0)
-        user = UserKey(public_param, s_user)
-        return public_param, server, user
+        Returns:
 
-    def Protect(self, pp, sk_u, tau, x_u_tau):
         """
-        Protect user input with the user's secret key: \\(y_{u,\\tau} \\gets \\textbf{JL.Protect}(pp,sk_u,\\tau,x_{u,\\tau})\\)
+        if isinstance(other, EncryptedNumber):
+            return self._add_encrypted(other)
+        if isinstance(other, mpz):
+            e = EncryptedNumber(self.public_param, other)
+            return self._add_encrypted(e)
 
-        ### This algorithm encrypts private inputs \\(x_{u,\\tau} \\in \\mathbb{Z}_N\\) for time period \\(\\tau\\) using secret key \\(sk_u \\in \\mathbb{Z}_N^2\\) . It outputs cipher \\(y_{u,\\tau}\\) such that:
+    def __iadd__(self, other):
+        return self.__add__(other)
+
+    def __radd__(self, value: Union['EncryptedNumber', mpz]):
+        """Allows summing parameters using built-in `sum` method
+
+        Args:
+            value: Value to add. It can be an instance of `mpz` or EncryptedNumber
+        """
+        if value == 0:
+            return self
+        else:
+            return self.__add__(value)
+
+    def __repr__(self):
+        """Encrypted number representation """
+
+        estr = self.ciphertext.digits()
+        return "<EncryptedNumber {}...{}>".format(estr[:5], estr[-5:])
+
+    def _add_encrypted(self, other: Union['EncryptedNumber', mpz]) -> 'EncryptedNumber':
+        """Base add operation for single encrypted integer
+
+        Args:
+            other: Value to be added
+
+        Returns:
+            Sum of self and other
+        """
+
+        if self.public_param != other.public_param:
+            raise ValueError(
+                "Attempted to add numbers encrypted against " "different parameters!"
+            )
+
+        return EncryptedNumber(
+            self.public_param, self.ciphertext * other.ciphertext % self.public_param.nsquare
+        )
+
+
+class JLS:
+    """The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms:
+    `Protect`, and `Agg`.
+
+    Attributes:
+        _vector_encoder* : The vector encoding/decoding scheme
+
+    """
+
+    def __init__(self, vector_encoder: 'VectorEncoder'):
+        """JLS constructor
+
+        Args:
+            VE: `VectorEncoding` The vector encoding/decoding scheme (default: `None`)
+
+        """
+        self._vector_encoder = vector_encoder
+
+    def protect(self,
+                public_param,
+                sk_u,
+                tau,
+                x_u_tau,
+                n_users,
+                ) -> List[EncryptedNumber]:
+        """ Protect user input with the user's secret key:
+
+        \\(y_{u,\\tau} \\gets \\textbf{JL.Protect}(public_param,sk_u,\\tau,x_{u,\\tau})\\)
+
+        This algorithm encrypts private inputs
+        \\(x_{u,\\tau} \\in \\mathbb{Z}_N\\) for time period \\(\\tau\\)
+        using secret key \\(sk_u \\in \\mathbb{Z}_N^2\\) . It outputs cipher \\(y_{u,\\tau}\\) such that:
 
         $$y_{u,\\tau} = (1 + x_{u,\\tau} N) H(\\tau)^{sk_u} \\mod N^2$$
 
-        ## **Args**:
-        -------------
+        Args:
+            public_param: The public parameters \\(public_param\\)
+            sk_u: The user's secret key \\(sk_u\\)
+            tau: The time period \\(\\tau\\)
+            x_u_tau: The user's input \\(x_{u,\\tau}\\)
+            n_users: Number of nodes/users that participates secure aggregation
 
-        *pp* : `PublicParam` --
-            The public parameters \\(pp\\)
-
-        *sk_u* : `UserKey` --
-            The user's secret key \\(sk_u\\)
-
-        *tau* : `int` --
-            The time period \\(\\tau\\)
-
-        *x_u_tau* : `int` or `list` --
-            The user's input \\(x_{u,\\tau}\\)
-
-        ## **Returns**:
-        -------------
-        The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
+        Returns:
+                The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
         """
         assert isinstance(sk_u, UserKey), "bad user key"
-        assert sk_u.pp == pp, "bad user key"
+        assert sk_u.pp == public_param, "bad user key"
 
         if isinstance(x_u_tau, list):
-            x_u_tau = self.VE.encode(x_u_tau)
+            x_u_tau = self._vector_encoder.encode(
+                V=x_u_tau,
+                add_ops=n_users
+            )
             return sk_u.encrypt(x_u_tau, tau)
         else:
             return sk_u.encrypt(x_u_tau, tau)
 
-    def Agg(self, pp, sk_0, tau, list_y_u_tau):
+    def aggregate(self, public_param, sk_0, tau, list_y_u_tau):
+
         """
-        Aggregate users protected inputs with the server's secret key: \\(X_{\\tau} \\gets \\textbf{JL.Agg}(pp, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
+        Aggregate users protected inputs with the server's secret key: \\(X_{\\tau} \\gets \\textbf{JL.Agg}(public_param, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
 
         ### This algorithm aggregates the \\(n\\) ciphers received at time period \\(\\tau\\) to obtain \\(y_{\\tau} = \\prod_1^n{y_{u,\\tau}}\\) and decrypts the result. It obtains the sum of the private inputs ( \\( X_{\\tau} = \\sum_{1}^n{x_{u,\\tau}} \\) ) as follows:
 
@@ -157,8 +167,8 @@ class JLS(object):
         ## **Args**:
         -------------
 
-        *pp* : `PublicParam` --
-            The public parameters \\(pp\\)
+        *public_param* : `PublicParam` --
+            The public parameters \\(public_param\\)
 
         *sk_0* : `ServerKey` --
             The server's secret key \\(sk_0\\)
@@ -174,7 +184,7 @@ class JLS(object):
         The sum of the users' inputs of type `int`
         """
         assert isinstance(sk_0, ServerKey), "bad server key"
-        # assert sk_0.pp == pp, "bad server key"
+        # assert sk_0.public_param == public_param, "bad server key"
         assert isinstance(list_y_u_tau, list), "list_y_u_tau should be a list"
         assert (
             len(list_y_u_tau) > 0
@@ -191,7 +201,7 @@ class JLS(object):
                     y_tau_i += y_u_tau[i]
                 y_tau.append(y_tau_i)
             d = sk_0.decrypt(y_tau, tau)
-            sum_x_u_tau = self.VE.decode(d)
+            sum_x_u_tau = self._vector_encoder.decode(d)
 
         else:
             assert isinstance(list_y_u_tau[0], EncryptedNumber), "bad ciphertext"
@@ -283,7 +293,7 @@ class UserKey(object):
         return "<UserKey {}>".format(hashcode[:10])
 
     def __eq__(self, other):
-        return self.pp == other.pp and self.s == other.s
+        return self.pp == other.public_param and self.s == other.s
 
     def __hash__(self):
         return hash(self.s)
@@ -352,7 +362,7 @@ class ServerKey(object):
         return "<ServerKey {}>".format(hashcode[:10])
 
     def __eq__(self, other):
-        return self.pp == other.pp and self.s == other.s
+        return self.pp == other.public_param and self.s == other.s
 
     def __hash__(self):
         return hash(self.s)
@@ -387,7 +397,7 @@ class ServerKey(object):
     def _decrypt(self, cipher, tau, delta=1):
         if not isinstance(cipher, EncryptedNumber):
             raise TypeError("Expected encrypted number type but got: %s" % type(cipher))
-        if self.pp != cipher.pp:
+        if self.pp != cipher.public_param:
             raise ValueError(
                 "encrypted_number was encrypted against a " "different key!"
             )
@@ -404,68 +414,6 @@ class ServerKey(object):
         X = ((V - 1) // self.pp.n) % self.pp.n
         X = (X * invert(delta**2, self.pp.nsquare)) % self.pp.n
         return int(X)
-
-
-class EncryptedNumber(object):
-    """
-    An encrypted number by one of the user keys .
-
-    ## **Args**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **ciphertext** : `gmpy2.mpz` --
-        The integer value of the ciphertext
-
-    ## **Attributes**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **ciphertext** : `gmpy2.mpz` --
-        The integer value of the ciphertext
-    """
-
-    def __init__(self, param, ciphertext):
-        super().__init__()
-        self.pp = param
-        self.ciphertext = ciphertext
-
-    def __add__(self, other):
-        if isinstance(other, EncryptedNumber):
-            return self._add_encrypted(other)
-        if isinstance(other, mpz):
-            e = EncryptedNumber(self.pp, other)
-            return self._add_encrypted(e)
-
-    def __iadd__(self, other):
-        if isinstance(other, EncryptedNumber):
-            return self._add_encrypted(other)
-        if isinstance(other, mpz):
-            e = EncryptedNumber(self.pp, other)
-            return self._add_encrypted(e)
-
-    def __repr__(self):
-        estr = self.ciphertext.digits()
-        return "<EncryptedNumber {}...{}>".format(estr[:5], estr[-5:])
-
-    def _add_encrypted(self, other):
-        if self.pp != other.pp:
-            raise ValueError(
-                "Attempted to add numbers encrypted against " "different prameters!"
-            )
-
-        return EncryptedNumber(
-            self.pp, self.ciphertext * other.ciphertext % self.pp.nsquare
-        )
-
-    def getrealsize(self):
-        """
-        returns the size of the ciphertext
-        """
-        return self.pp.bits * 2
-
 
 """
 ### **Full-Domain Hash**

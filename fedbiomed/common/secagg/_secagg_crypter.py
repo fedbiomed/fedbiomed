@@ -7,10 +7,10 @@ from tinydb import TinyDB
 from gmpy2 import mpz
 
 
-from fedbiomed.common.exceptions import FedbiomedEncryptionError
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers
 
-from ._jls import JLS, EncryptedNumber as EN, ServerKey, UserKey, FDH, DEFAULT_KEY_SIZE, PublicParam
+from ._jls import JLS, EncryptedNumber, ServerKey, UserKey, FDH, DEFAULT_KEY_SIZE, PublicParam
 from ._jls_utils import quantize, reverse_quantize
 from ._vector_encoding import VES
 
@@ -21,7 +21,6 @@ Default clipping value that is going to be used to quantize list of parameters
 """
 
 
-
 class VEParameters:
     """Constants class for vector encoder parameters"""
 
@@ -29,22 +28,6 @@ class VEParameters:
     NUM_CLIENTS: int = 2
     VALUE_SIZE: int = ceil(log2(10000))
     VECTOR_SIZE: int = 1199882
-
-
-class EncryptedNumber(EN):
-    """Extends EncryptedNumber class to be able to `sum` functionality"""
-
-    def __radd__(self, value: Union[EN, mpz]):
-        """Allows summing parameters using built-in `sum` method
-
-        Args:
-            value: Value to add. It can be an instance of `mpz` or EncryptedNumber
-        """
-        if value == 0:
-            return self
-        else:
-            return self.__add__(value)
-
 
 
 class SecaggCrypter:
@@ -59,50 +42,15 @@ class SecaggCrypter:
         """Constructs ParameterEncrypter
 
         """
-        self._num_nodes = None
+
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
-            addops=self._num_nodes or 1,
             valuesize=VEParameters.VALUE_SIZE,
             vectorsize=VEParameters.VECTOR_SIZE,
         )
         self._jls = JLS(
-            nusers=None,
-            VE=self._vector_encoder
+            vector_encoder=self._vector_encoder
         )
-
-    def set_num_nodes(
-            self,
-            num_nodes: int
-    ) -> int:
-        """Sets number of clients for vector encoder
-
-        Number of clients/nodes except researcher (aggregator) should be dynamic where
-        it may change from one round to other or one experiment to other.
-
-        Args:
-            num_clients: Number of clients that participates in the training
-
-        Returns:
-            number of clients that is set in vector encoder
-        """
-
-        if num_nodes <= 0:
-            raise FedbiomedEncryptionError(
-                f"{ErrorNumbers.FB620.value}: Num of nodes for encryption should be more than 0"
-            )
-
-        self._num_nodes = num_nodes
-        # Update vector encoder
-        self._vector_encoder.addops = num_nodes
-        self._vector_encoder.elementsize = self._vector_encoder.valuesize + ceil(log2(num_nodes))
-
-        # Update JLS
-        # FIXME: currently `nusers` attribute has impact on nothing. It was only used for calculating
-        #  SerkeyKey and UserKey before
-        self._jls.nusers = num_nodes
-
-        return self._num_nodes
 
     @staticmethod
     def _setup_public_param() -> PublicParam:
@@ -146,12 +94,9 @@ class SecaggCrypter:
 
         # Make use the key is instance of
         if not isinstance(key, int):
-            raise FedbiomedEncryptionError(
+            raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB620.value}: The argument `key` must be integer"
             )
-
-        # Number of nodes should be set for vector encoder
-        self.set_num_nodes(num_nodes)
 
         clipping_range = self._get_clipping_value(params)
 
@@ -166,11 +111,12 @@ class SecaggCrypter:
         key = UserKey(public_param, key)
 
         # Encrypt parameters
-        encrypted_params: EncryptedNumber = self._jls.Protect(
-            pp=public_param,
+        encrypted_params: List[EncryptedNumber] = self._jls.protect(
+            public_param=public_param,
             sk_u=key,
             tau=current_round,
             x_u_tau=weights,
+            n_users=num_nodes
         )
 
         return self.convert_encrypted_number_to_int(encrypted_params)
@@ -206,11 +152,9 @@ class SecaggCrypter:
 
         """
 
-        self.set_num_nodes(num_nodes)
-
         # TODO: This check should be done before executing this method
         # if len(params) != self._num_nodes:
-        #     raise FedbiomedEncryptionError(f"Num of parameters that are received from node does not match the num of "
+        #     raise FedbiomedSecaggCrypterError(f"Num of parameters that are received from node does not match the num of "
         #                                    f"nodes has been set for the encrypter. There might be some nodes did "
         #                                    f"not answered to training request or num of clients of "
         #                                    f"`ParameterEncrypter` has not been set properly before train request.")
@@ -223,7 +167,7 @@ class SecaggCrypter:
 
         params = key.decrypt(params, current_round)
 
-        sum_of_weights = self._vector_encoder.decode(params)
+        sum_of_weights = self._vector_encoder.decode(params, add_ops=num_nodes)
 
         aggregated_params = reverse_quantize(
             self.quantized_divide(sum_of_weights, num_nodes)
