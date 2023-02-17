@@ -106,7 +106,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                              ])
 
         # Aggregated model parameters
-        self._init_params: List[torch.Tensor] = None
+        #self._init_params: List[torch.Tensor] = None
 
     def post_init(
             self,
@@ -186,7 +186,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Model arguments arguments
         """
-        return self._model._model_args
+        return self._model.model_args
 
     def get_learning_rate(self) -> List[float]:
         """Gets learning rate from value set in optimizer.
@@ -252,7 +252,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             State dictionary of torch Module
         """
-        return self._init_params
+        return self._model.init_params
 
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
@@ -691,7 +691,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         norm = 0
 
-        for current_model, init_model in zip(self.model().parameters(), self._init_params):
+        for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
 

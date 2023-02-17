@@ -45,7 +45,17 @@ class TestSkLearnModel(unittest.TestCase):
 
     def test_sklearnmodel_03_set_init_params(self):
         # self.assertEqual(training_plan._model.n_iter_, 1)
-        pass
+        # test several values for `model_args`
+        model_args_iterator = (
+            {'n_classes': 2, 'n_features': 1},
+            {'n_classes': 2, 'n_features': 2},
+            {'n_classes': 3, 'n_features': 1},
+            {'n_classes': 3, 'n_features': 3}
+        )
+        
+        for model_args in model_args_iterator:
+            self.sgdclass_model.set_init_params(model_args)
+            self.assertListEqual(sorted(self.sgdclass_model.param_list), sorted(['coef_', 'intercept_']))
         
 class TestSklearnTrainingPlansClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model

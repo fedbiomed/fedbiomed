@@ -376,6 +376,12 @@ class BaseSkLearnModel(Model):
 # TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
 
 # ---- toolbox classes for getting learning rate and setting initial model parameters
+# ---- they implement either:
+# ---- + `set_init_params` method to initialise model weights to 0 and adds appriopriate attributes pointing to the model weigths
+# -----   and the `param_list` attribute
+# ---- + `get_learning_rate` and `set_learning_rate` methods that enable setting / retrieving learning rate related parameters
+
+
 class RegressorSkLearnModel(BaseSkLearnModel):
     _is_classification: bool = False
     _is_regression: bool = True
