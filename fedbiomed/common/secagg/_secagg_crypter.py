@@ -1,33 +1,16 @@
-import numpy as np
-
-
-from math import ceil, log2
 from typing import List, Union
-from tinydb import TinyDB
 from gmpy2 import mpz
-
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers
 
-from ._jls import JLS, EncryptedNumber, ServerKey, UserKey, FDH, DEFAULT_KEY_SIZE, PublicParam
+from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam
 from ._jls_utils import quantize, reverse_quantize
-from ._vector_encoding import VES
-
 
 DEFAULT_CLIPPING: int = 3
 """
 Default clipping value that is going to be used to quantize list of parameters 
 """
-
-
-class VEParameters:
-    """Constants class for vector encoder parameters"""
-
-    KEY_SIZE: int = 2048
-    NUM_CLIENTS: int = 2
-    VALUE_SIZE: int = ceil(log2(10000))
-    VECTOR_SIZE: int = 1199882
 
 
 class SecaggCrypter:
@@ -38,19 +21,13 @@ class SecaggCrypter:
         _vector_encoder: Encodes given parameters vector
         _jls: Joye-Libert homomorphic encryption class
     """
+
     def __init__(self) -> None:
         """Constructs ParameterEncrypter
 
         """
 
-        self._vector_encoder = VES(
-            ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=VEParameters.VALUE_SIZE,
-            vectorsize=VEParameters.VECTOR_SIZE,
-        )
-        self._jls = JLS(
-            vector_encoder=self._vector_encoder
-        )
+        self._jls = JoyeLibert()
 
     @staticmethod
     def _setup_public_param() -> PublicParam:
@@ -136,11 +113,11 @@ class SecaggCrypter:
 
         return list(map(lambda encrypted_number: int(encrypted_number.ciphertext), params))
 
-    def decrypt(
+    def aggregate(
             self,
             current_round: int,
             num_nodes: int,
-            params: List[int],
+            params: List[List[EncryptedNumber]],
             key: int):
         """Decrypt given parameters
 
@@ -152,23 +129,30 @@ class SecaggCrypter:
 
         """
 
-        # TODO: This check should be done before executing this method
-        # if len(params) != self._num_nodes:
-        #     raise FedbiomedSecaggCrypterError(f"Num of parameters that are received from node does not match the num of "
-        #                                    f"nodes has been set for the encrypter. There might be some nodes did "
-        #                                    f"not answered to training request or num of clients of "
-        #                                    f"`ParameterEncrypter` has not been set properly before train request.")
+        if len(params) != self._num_nodes:
+            raise FedbiomedSecaggCrypterError(
+                f"Num of parameters that are received from node does not match the num of "
+                f"nodes has been set for the encrypter. There might be some nodes did "
+                f"not answered to training request or num of clients of "
+                f"`ParameterEncrypter` has not been set properly before train request.")
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param()
-
         key = ServerKey(public_param, key)
 
-        params = key.decrypt(params, current_round)
+        try:
+            sum_of_weights = self._jls.aggregate(
+                sk_0=key,
+                round_=current_round,  # The time period \\(\\tau\\)
+                list_y_u_tau=params
+            )
+        except (ValueError, TypeError) as exp:
+            raise FedbiomedSecaggCrypterError(f"The aggregation of encrypted parameters is not "
+                                              f"successful: {exp}") from exp
 
-        sum_of_weights = self._vector_encoder.decode(params, add_ops=num_nodes)
-
+        # TODO implement weighted everaging here or in `self._jls.aggregate`
+        # Reverse quantize and division (averaging)
         aggregated_params = reverse_quantize(
             self.quantized_divide(sum_of_weights, num_nodes)
         ).tolist()
@@ -190,7 +174,7 @@ class SecaggCrypter:
         max_val = max(params)
 
         if min_val < -clipping or max_val > clipping:
-            return SecaggCrypter._get_clipping_value(params, clipping+1)
+            return SecaggCrypter._get_clipping_value(params, clipping + 1)
         else:
             return clipping
 

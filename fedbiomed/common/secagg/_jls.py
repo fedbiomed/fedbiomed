@@ -13,12 +13,132 @@ and Data Security. Springer Berlin Heidelberg, 2013.*
 [2] *publication in progress*
 
 """
+import gmpy2
 
-from typing import List, TypeVar, Union
+from typing import List, Tuple, TypeVar, Union
 from ._jls_utils import invert, powmod
 from gmpy2 import mpz
+from math import ceil, floor, log2
 
-DEFAULT_KEY_SIZE = 2048
+
+class VEParameters:
+    """Constants class for vector encoder parameters"""
+
+    KEY_SIZE: int = 2048
+    NUM_CLIENTS: int = 2
+    VALUE_SIZE: int = ceil(log2(10000))
+    VECTOR_SIZE: int = 1199882
+
+
+class VES:
+    """The vector encoding class
+
+    This class encodes and decodes vector elements to create smaller size vectors using a packing technique
+
+
+    Attributes:
+        _ptsize: The bit length of the plaintext (the number of bits of an element in the output vector)
+        _valuesize: The bit length of an element of the input vector
+        _vectorsize: The number of element of the input vector
+    """
+
+    def __init__(
+            self,
+            ptsize: int,
+            valuesize: int,
+            vectorsize: int,
+    ) -> None:
+        """Vector encoder constructor
+
+        Arg:
+            _ptsize: The bit length of the plaintext (the number of bits of an element in the output vector)
+            _valuesize: The bit length of an element of the input vector
+            _vectorsize: The number of element of the input vector
+
+        """
+
+        self._ptsize = ptsize
+        self._valuesize = valuesize
+        self._vectorsize = vectorsize
+        # self._numbatches = ceil(self._vectorsize / self._compratio) unused argument
+
+    def _get_elements_size_and_compression_ratio(
+            self,
+            add_ops: int
+    ) -> Tuple[int, int]:
+        """
+
+        Args:
+            add_ops:
+        """
+        element_size = self._valuesize + ceil(log2(add_ops))
+        comp_ratio = floor(self._ptsize / self._elementsize)
+
+        return element_size, comp_ratio
+
+    def encode(self, V: List[int], add_ops: int):
+        """Encode a vector to a smaller size vector
+
+        """
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
+
+        bs = comp_ratio
+        e = []
+        E = []
+        for v in V:
+            e.append(v)
+            bs -= 1
+            if bs == 0:
+                E.append(self._batch(e, element_size))
+                e = []
+                bs = comp_ratio
+        if e:
+            E.append(self._batch(e, element_size))
+        return E
+
+    def decode(self, E, add_ops: int):
+        """Decode a vector back to original size vector"""
+
+        element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
+
+        V = []
+        for e in E:
+            for v in self._debatch(e, element_size):
+                V.append(v)
+        return V
+
+    @staticmethod
+    def _batch(
+            V,
+            element_size: int
+    ):
+        i = 0
+        a = 0
+        for v in V:
+            a |= v << element_size * i
+            i += 1
+        return gmpy2.mpz(a)
+
+    @staticmethod
+    def _debatch(
+            b: int,
+            element_size: int
+    ) -> List[int]:
+        """
+        """
+        i = 1
+        V = []
+        bit = 0b1
+        mask = 0b1
+        for _ in range(element_size - 1):
+            mask <<= 1
+            mask |= bit
+
+        while b != 0:
+            v = mask & b
+            V.append(int(v))
+            b >>= element_size
+        return V
 
 
 class EncryptedNumber(object):
@@ -98,7 +218,7 @@ class EncryptedNumber(object):
         )
 
 
-class JLS:
+class JoyeLibert:
     """The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms:
     `Protect`, and `Agg`.
 
@@ -107,14 +227,18 @@ class JLS:
 
     """
 
-    def __init__(self, vector_encoder: 'VectorEncoder'):
+    def __init__(self):
         """JLS constructor
 
         Args:
             VE: `VectorEncoding` The vector encoding/decoding scheme (default: `None`)
 
         """
-        self._vector_encoder = vector_encoder
+        self._vector_encoder = VES(
+            ptsize=VEParameters.KEY_SIZE // 2,
+            valuesize=VEParameters.VALUE_SIZE,
+            vectorsize=VEParameters.VECTOR_SIZE,
+        )
 
     def protect(self,
                 public_param,
@@ -155,62 +279,49 @@ class JLS:
         else:
             return sk_u.encrypt(x_u_tau, tau)
 
-    def aggregate(self, public_param, sk_0, tau, list_y_u_tau):
+    def aggregate(
+            self,
+            sk_0,
+            tau,
+            list_y_u_tau
+    ) -> List[int]:
+        """Aggregates users protected inputs with the server's secret key
 
-        """
-        Aggregate users protected inputs with the server's secret key: \\(X_{\\tau} \\gets \\textbf{JL.Agg}(public_param, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
 
-        ### This algorithm aggregates the \\(n\\) ciphers received at time period \\(\\tau\\) to obtain \\(y_{\\tau} = \\prod_1^n{y_{u,\\tau}}\\) and decrypts the result. It obtains the sum of the private inputs ( \\( X_{\\tau} = \\sum_{1}^n{x_{u,\\tau}} \\) ) as follows:
+        \\(X_{\\tau} \\gets \\textbf{JL.Agg}(public_param, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
+
+        This algorithm aggregates the \\(n\\) ciphers received at time period \\(\\tau\\) to obtain
+        \\(y_{\\tau} = \\prod_1^n{y_{u,\\tau}}\\) and decrypts the result.
+        It obtains the sum of the private inputs ( \\( X_{\\tau} = \\sum_{1}^n{x_{u,\\tau}} \\) )
+        as follows:
 
         $$V_{\\tau} = H(\\tau)^{sk_0} \\cdot y_{\\tau} \\qquad \\qquad X_{\\tau} = \\frac{V_{\\tau}-1}{N} \\mod N$$
 
-        ## **Args**:
-        -------------
+        Args:
+            sk_0: The server's secret key \\(sk_0\\)
+            tau: The time period \\(\\tau\\)
+            list_y_u_tau: A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
 
-        *public_param* : `PublicParam` --
-            The public parameters \\(public_param\\)
-
-        *sk_0* : `ServerKey` --
-            The server's secret key \\(sk_0\\)
-
-        *tau* : `int` --
-            The time period \\(\\tau\\)
-
-        *list_y_u_tau* : `list` --
-            A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
-
-        ## **Returns**:
-        -------------
-        The sum of the users' inputs of type `int`
+        Returns:
+            The sum of the users' inputs of type `int`
         """
-        assert isinstance(sk_0, ServerKey), "bad server key"
-        # assert sk_0.public_param == public_param, "bad server key"
-        assert isinstance(list_y_u_tau, list), "list_y_u_tau should be a list"
-        assert (
-            len(list_y_u_tau) > 0
-        ), "list_y_u_tau should contain at least one protected input"
-        if isinstance(list_y_u_tau[0], list):
-            for y_u_tau in list_y_u_tau:
-                assert len(list_y_u_tau[0]) == len(
-                    y_u_tau
-                ), "attempting to aggregate protected vectors of different sizes"
-            y_tau = []
-            for i in range(len(list_y_u_tau[0])):
-                y_tau_i = list_y_u_tau[0][i]
-                for y_u_tau in list_y_u_tau[1:]:
-                    y_tau_i += y_u_tau[i]
-                y_tau.append(y_tau_i)
-            d = sk_0.decrypt(y_tau, tau)
-            sum_x_u_tau = self._vector_encoder.decode(d)
 
-        else:
-            assert isinstance(list_y_u_tau[0], EncryptedNumber), "bad ciphertext"
-            y_tau = list_y_u_tau[0]
-            for y_u_tau in list_y_u_tau[1:]:
-                y_tau += y_u_tau
-            sum_x_u_tau = sk_0.decrypt(y_tau, tau)
+        if not isinstance(sk_0, ServerKey):
+            raise ValueError("Key must be an instance of `ServerKey`")
 
-        return sum_x_u_tau
+        if not isinstance(list_y_u_tau, list) or not list_y_u_tau:
+            raise ValueError("list_y_u_tau should be a non-empty list.")
+
+        if not isinstance(list_y_u_tau[0], list):
+            raise ValueError("list_y_u_tau should be a list that contains list of encrypted numbers")
+
+        n_user = len(list_y_u_tau)
+
+        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
+
+        decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
+
+        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
 
 
 class PublicParam(object):

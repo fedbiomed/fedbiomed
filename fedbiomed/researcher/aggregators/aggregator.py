@@ -50,10 +50,10 @@ class Aggregator:
         # TODO: Use server key here
         key = -(len(params) * 10)
 
-        aggregated_params = self._secagg_crypter.decrypt(current_round=aggregation_round,
-                                                         params=sum_of_params,
-                                                         num_nodes=num_nodes,
-                                                         key=key)
+        aggregated_params = self._secagg_crypter.aggregate(current_round=aggregation_round,
+                                                           params=encrypted_params,
+                                                           num_nodes=num_nodes,
+                                                           key=key)
 
         # Convert model params
         model_params = training_plan.convert_vector_to_parameters(aggregated_params)
