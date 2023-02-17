@@ -260,7 +260,7 @@ class FedbiomedCertificateError(FedbiomedError):
     pass
 
 
-class FedbiomedEncryptionError(FedbiomedError):
+class FedbiomedSecaggCrypterError(FedbiomedError):
     """
     Secure aggregation encryption error
     """
