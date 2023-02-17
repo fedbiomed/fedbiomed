@@ -1,4 +1,5 @@
 import unittest
+import urllib.request
 import logging
 from unittest.mock import MagicMock, patch, mock_open
 from fedbiomed.common.logger import logger
@@ -6,6 +7,34 @@ from fedbiomed.common.models.model import BaseSkLearnModel, SGDClassiferSKLearnM
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 import numpy as np
 
+
+class TestDocumentationLinks(unittest.TestCase):
+    skip_internet_test: bool
+    def setUp(self) -> None:
+        # test internet connection by reaching google website
+        google_url = 'http://www.google.com'
+        try:
+            url_res = urllib.request.urlopen(google_url)
+        except urllib.error.URLError as err:
+            self.skip_internet_test = True
+            return
+        if url_res.code != 200:
+            self.skip_internet_test = True
+        else:
+            self.skip_internet_test = False
+    
+    def tearDown(self) -> None:
+        pass
+    
+    def test_testdocumentationlinks_01(self):
+        links = (
+            'https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html',
+        )
+        if self.skip_internet_test:
+            self.skipTest("no internet connection: skipping test_testdocumentationlinks_01")
+        for link in links:
+            url_res = urllib.request.urlopen(link)
+            self.assertEqual(url_res.code, 200, f"cannot reach url link {link} pointed in documentation")
 
 
 class TestSkLearnModel(unittest.TestCase):
