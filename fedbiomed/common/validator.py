@@ -196,7 +196,7 @@ class SchemeValidator(object):
         ```python
         {
           "var_name": {
-                        "rules": [ validator1, vlidator2, ...] ,
+                        "rules": [ validator1, validator2, ...] ,
                         "default": a_default_value,
                         "required": True/False
                       },

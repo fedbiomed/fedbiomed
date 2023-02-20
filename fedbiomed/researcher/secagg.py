@@ -7,13 +7,25 @@ from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.mpc_controller import MPCController
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
+
+_MPC = MPCController(
+    tmp_dir=environ["TMP_DIR"],
+    component_type=ComponentType.RESEARCHER,
+    component_id=environ["ID"]
+)
+
+_CManager = CertificateManager(
+    db_path=environ["DB_PATH"]
+)
 
 
 class SecaggContext(ABC):
@@ -21,7 +33,7 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: str):
+    def __init__(self, parties: List[str], job_id: Union[str, None]):
         """Constructor of the class.
 
         Args:
@@ -29,7 +41,7 @@ class SecaggContext(ABC):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
-                Empty string means the element is not attached to a specific job
+                None means the element is not attached to a specific job
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -43,11 +55,17 @@ class SecaggContext(ABC):
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` must be a list of strings: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+
         if len(parties) < 3:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` : {parties} : need  ' \
-                'at least 3 parties for secure aggregation'
+                      'at least 3 parties for secure aggregation'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+
+        if environ['RESEARCHER_ID'] != parties[0]:
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
+            )
 
         self._secagg_id = 'secagg_' + str(uuid.uuid4())
         self._parties = parties
@@ -55,9 +73,21 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
+        self._job_id = None
 
+        # set job ID using setter to validate
         self.set_job_id(job_id)
 
+    @property
+    def parties(self) -> str:
+        """Getter for secagg parties
+
+        Returns:
+            Parties that participates secure aggregation
+        """
+        return self._parties
+
+    @property
     def secagg_id(self) -> str:
         """Getter for secagg context element ID 
 
@@ -66,14 +96,16 @@ class SecaggContext(ABC):
         """
         return self._secagg_id
 
-    def job_id(self) -> str:
+    @property
+    def job_id(self) -> Union[str, None]:
         """Getter for secagg context element job_id
 
         Returns:
-            secagg context element job_ib (or empty string if no job_id is attached to the element)
+            secagg context element job_ib (or None if no job_id is attached to the element)
         """
         return self._job_id
 
+    @property
     def status(self) -> bool:
         """Getter for secagg context element status
 
@@ -83,6 +115,7 @@ class SecaggContext(ABC):
         return self._status
 
     # alternative: define method in subclass to have specific return type
+    @property
     def context(self) -> Union[dict, None]:
         """Getter for secagg context element content
 
@@ -91,7 +124,7 @@ class SecaggContext(ABC):
         """
         return self._context
 
-    def set_job_id(self, job_id: str) -> None:
+    def set_job_id(self, job_id: Union[str, None]) -> None:
         """Setter for secagg context element job_id
 
         Args:
@@ -100,10 +133,10 @@ class SecaggContext(ABC):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        try:
-            self._v.validate(job_id, str)
-        except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str: {e}'
+
+        if not isinstance(job_id, (str, type(None))):
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str or None if the ' \
+                      f'context is set for biprime.'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -116,10 +149,8 @@ class SecaggContext(ABC):
         Returns:
             a tuple of a `context`, and a boolean `status` for the context element.
         """
-        # abstract method may contain some code in the future, so let's keep this command
-        pass
 
-    def _delete_payload(self) ->  Tuple[Union[dict, None], bool]:
+    def _delete_payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for secagg context element deletion
 
         Returns:
@@ -127,8 +158,14 @@ class SecaggContext(ABC):
         """
         return None, True
 
-
-    def _secagg_round(self, msg: dict, command: str, can_set_status: bool, payload: Callable, timeout: float = 0) -> bool:
+    def _secagg_round(
+            self,
+            msg: dict,
+            command: str,
+            can_set_status: bool,
+            payload: Callable,
+            timeout: float = 0
+    ) -> bool:
         """Negotiate secagg context element action with defined parties.
 
         Args:
@@ -137,8 +174,9 @@ class SecaggContext(ABC):
             can_set_status: `True` if this action can result in a valid secagg context
             payload: function that holds researcher side payload for this round. Needs to return
                 a tuple of `context` and `status` for this action
-            timeout: maximum duration for the negotiation phase. Defaults to `environ['TIMEOUT']` if unser
-                or equals 0.
+            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
+                It does not include the time for the local setup payload.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element action could be done for all parties, False if at least
@@ -154,8 +192,9 @@ class SecaggContext(ABC):
         self._status = False
         self._context = None
         timeout = timeout or environ['TIMEOUT']
-        start_time = time.time()
 
+        # FIXME: There are scenarios where key-share are calculated but it is lost on the
+        # researcher side
         sequence = {}
         for node in self._parties[1:]:
             sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
@@ -164,12 +203,16 @@ class SecaggContext(ABC):
         # basic implementation: synchronous payload on researcher, then read answers from other parties
         context, status[self._researcher_id] = payload()
 
+        # `timeout` covers only the time waiting for answers from other nodes
+        start_time = time.time()
+
         while True:
             # wait at most until `timeout` by chunks <= 1 second
             remain_time = start_time + timeout - time.time()
             if remain_time <= 0:
                 break
             wait_time = min(1, remain_time)
+
             responses = self._requests.get_responses(
                 look_for_commands=[command],
                 timeout=wait_time,
@@ -181,16 +224,19 @@ class SecaggContext(ABC):
                 # order of test matters !
                 if resp['researcher_id'] != self._researcher_id:
                     continue
+
                 if resp['secagg_id'] != self._secagg_id:
                     logger.debug(
                         f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
                         f" and received {resp['secagg_id']}")
                     continue
+
                 if resp['node_id'] not in self._parties[1:]:
                     errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
-                        'which is not a party of secagg "{self._secagg_id}"'
+                              'which is not a party of secagg "{self._secagg_id}"'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
+
                 if resp['sequence'] != sequence[resp['node_id']]:
                     logger.debug(
                         f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
@@ -217,18 +263,19 @@ class SecaggContext(ABC):
             if can_set_status and return_value:
                 self._status = True
                 self._context = context
-            # else:
-            #    self._status = False
-            #    self._context = None
 
         return return_value
 
-    def setup(self, timeout: float = 0) -> bool:
+    def setup(
+            self,
+            timeout: float = 0
+    ) -> bool:
         """Setup secagg context element on defined parties.
 
         Args:
-            timeout: maximum duration for the setup phase. Defaults to `environ['TIMEOUT']` if unset
-                or equals 0.
+            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
+                It does not include the time for the local setup payload.
+                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element could be setup for all parties, False if at least
@@ -238,7 +285,7 @@ class SecaggContext(ABC):
             FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
+            timeout = float(timeout)  # accept int (and bool...)
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
@@ -254,9 +301,13 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         }
+
         return self._secagg_round(msg, 'secagg', True, self._payload, timeout)
 
-    def delete(self, timeout: float = 0) -> bool:
+    def delete(
+            self,
+            timeout: float = 0
+    ) -> bool:
         """Delete secagg context element on defined parties.
 
         Args:
@@ -271,7 +322,7 @@ class SecaggContext(ABC):
             FedbiomedSecaggError: bad argument type
         """
         if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
+            timeout = float(timeout)  # accept int (and bool...)
         try:
             self._v.validate(timeout, float)
         except ValidatorError as e:
@@ -279,18 +330,16 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if self._status:
-            msg = {
-                'researcher_id': self._researcher_id,
-                'secagg_id': self._secagg_id,
-                'element': self._element.value,
-                'job_id': self._job_id,
-                'command': 'secagg-delete',
-            }
-            return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
-        else:
-            self._context = None   # should already be the case
-            return False
+        self._status = False
+        self._context = None
+        msg = {
+            'researcher_id': self._researcher_id,
+            'secagg_id': self._secagg_id,
+            'element': self._element.value,
+            'job_id': self._job_id,
+            'command': 'secagg-delete',
+        }
+        return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
 
     def save_state(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints
@@ -311,7 +360,11 @@ class SecaggContext(ABC):
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None, **kwargs):
+    def load_state(
+            self,
+            state: Dict[str, Any] = None,
+            **kwargs
+    ) -> None:
         """
         Method for loading secagg state from breakpoint state
 
@@ -356,16 +409,41 @@ class SecaggServkeyContext(SecaggContext):
         """Researcher payload for server key secagg context element
 
         Returns:
-            a tuple of a `context` and a `status` for the server key context element
+            A tuple of a `context` and a `status` for the server key context element
         """
-        # start dummy payload
-        time.sleep(1)
-        logger.info('PUT RESEARCHER SECAGG SERVER_KEY PAYLOAD HERE')
-        context = { 'msg': 'Not implemented yet' }
-        status = True
-        # end dummy payload
 
-        return context, status
+        ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
+            path_certificates=_MPC.mpc_data_dir,
+            path_ips=_MPC.tmp_dir,
+            self_id=environ["ID"],
+            self_ip=environ["MPSPDZ_IP"],
+            self_port=environ["MPSPDZ_PORT"],
+            self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
+            self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
+            parties=self._parties
+        )
+
+        try:
+            output = _MPC.exec_shamir(
+                party_number=0,  # 0 stands for server/aggregator
+                num_parties=len(self._parties),
+                ip_addresses=ip_file
+            )
+        except Exception as e:
+            raise FedbiomedSecaggError(f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}")
+
+        # Read output
+        try:
+            with open(output, "r") as file:
+                server_key = file.read()
+                file.close
+        except Exception as e:
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB415.value}: Can not read server key from created after MPC execution. {e}"
+            )
+
+        context = {'server_key': server_key.strip()}
+        return context, True
 
 
 class SecaggBiprimeContext(SecaggContext):
@@ -384,7 +462,7 @@ class SecaggBiprimeContext(SecaggContext):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(parties, '')
+        super().__init__(parties, None)
 
         self._element = SecaggElementTypes.BIPRIME
 
@@ -395,9 +473,9 @@ class SecaggBiprimeContext(SecaggContext):
             a tuple of a `context` and a `status` for the biprime context element
         """
         # start dummy payload
-        time.sleep(3)
+        time.sleep(6)
         logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
-        context = { 'msg': 'Not implemented yet' }
+        context = {'msg': 'Not implemented yet'}
         status = True
         # end dummy payload
 

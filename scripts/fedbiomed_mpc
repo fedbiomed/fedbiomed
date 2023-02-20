@@ -20,12 +20,39 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 programs_dir=$mpspdz_basedir/Programs/Source
 # ---------------------------------------------------------------------------------------------------------------
 
+fedbiomed_envs=(node researcher)
+fedbiomed_env=$1
+shift
+
+if [ -z "$fedbiomed_env" ]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}Please specify Fed-BioMed component node|researcher. '> fedbiomed_mpc (node | researcher)'"
+  exit 1
+fi
+
+# shellcheck disable=SC2076
+if [[ ! " ${fedbiomed_envs[*]} " =~ " $fedbiomed_env " ]]; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD}First argument of fedbiomed_mpc should be component type node|researcher. but got '$fedbiomed_env'"
+  exit 1
+fi
+
+
+# Activate conda environment ------------------------------------------------------------------------------------
+if ! eval "$(conda shell.bash hook)"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that 'conda' is installed and compatible with the current shell you are using"
+  exit 1
+fi
+
+if ! conda activate fedbiomed-"$fedbiomed_env"; then
+  echo -e "${RED}ERROR:${NC}"
+  echo -e "${BOLD} Please make sure that conda environment 'fedbiomed-$fedbiomed_env' is existing."
+  exit 1
+fi
 
 # TODO : remove conda env activation when integrating with `fedbiomed_run`
 #
-# Activate conda environment
-eval "$(conda shell.bash hook)"
-conda activate fedbiomed-researcher
 
 PROTOCOLS=(shamir-party)
 SCRIPTS=(server_key test_setup)
@@ -41,7 +68,7 @@ MPC Controller
 
 Usage
 
-> fedbiomed_mpc [compile | exec | shamir-server-key]
+> fedbiomed_mpc (node | researcher) [compile | exec | shamir-server-key]
 
 compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
                       and more information
@@ -56,7 +83,7 @@ EOF
 Compiles MPC script
 
 Usage:
-> fedbiomed_mpc  compile --script [script-name] [extra arguments]
+> fedbiomed_mpc  (node | researcher) compile --script [script-name] [extra arguments]
 
 Script argument is mandatory
 
@@ -74,7 +101,7 @@ EOF
 Executes MPC protocols
 
 Usage
-> fedbiomed_mpc exec --protocol [protocol-name] [extra-arguments]
+> fedbiomed_mpc (node | researcher) exec --protocol [protocol-name] [extra-arguments]
 
 Protocol argument is mandatory
 
@@ -91,7 +118,7 @@ EOF
       cat <<EOF
 Executes Shamir protocol for computing server key for secure aggregation
 
-Usage: fedbiomed_mpc shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
+Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
                                           -of [OUTPUT_FILE] [-c|--compile] | [ ]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
@@ -223,7 +250,7 @@ function execute_shamir_server_key(){
 
   if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ]; then
     error "There missing arguments. Please make sure that all the arguments are provided.\n\
-            \rSee 'fedbiomed_mpc shamir-server-key --help'"
+            \rSee 'fedbiomed_mpc (node|researcher) shamir-server-key --help'"
   fi
 
   # Check output file if party number is 0 (server) -------------------------------------------------------------------
@@ -254,8 +281,8 @@ function execute_shamir_server_key(){
 
   # Compile server key MPC file --------------------------------------------------------------------------------------
   if [ -n "$COMPILE" ]; then
-    if ! "$basedir"/scripts/fedbiomed_mpc compile --script server_key -N "$NUMBER_OF_PARTIES"; then
-      error "Error while executing protocol '$PROTOCOL'. Please check the logs above"
+    if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+      error "Error while compiling script `server_key`. Please check the logs above"
     fi
   fi
 
@@ -284,7 +311,7 @@ function execute_shamir_server_key(){
 
   # If party is not zero it will have Input file
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
-      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
         -IF "$INPUT_FILE" \
         server_key \
@@ -292,19 +319,22 @@ function execute_shamir_server_key(){
 
   # If party is zero it should have Output file
   else
-      "$basedir"/scripts/fedbiomed_mpc exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
           -ip "$ASSIGNED_IPS" \
           -OF "$OUTPUT_FILE" \
           server_key \
           -N "$NUMBER_OF_PARTIES"
   fi
 
+  exit $?
 
 }
 
 
 # Parsing arguments ---------------------------------------------------------------------------------------------
 case $1 in
+
+
 
   compile)
     while [[ $# -gt 0 ]]; do
@@ -394,7 +424,6 @@ case $1 in
         -c|--compile)
           COMPILE=1
           shift # past argument
-          shift # past value
           ;;
         -h| --help)
           help shamir-server-key
@@ -413,6 +442,7 @@ case $1 in
     done
 
     execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$INPUT_FILE" "$COMPILE"
+
   ;;
   -h|--help)
     help main
