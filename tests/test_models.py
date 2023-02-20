@@ -2,9 +2,18 @@ import unittest
 import urllib.request
 import logging
 from unittest.mock import MagicMock, patch, mock_open
+from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.models.model import BaseSkLearnModel, SGDClassiferSKLearnModel, SGDRegressorSKLearnModel, SkLearnModel, capture_stdout
+from fedbiomed.common.models.model import (BaseSkLearnModel, SGDClassiferSKLearnModel,
+                                           SGDRegressorSKLearnModel, SkLearnModel,
+                                           capture_stdout, Models, TorchModel
+)
+
+import torch
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from declearn.optimizer import Optimizer
+from declearn.optimizer.modules import MomentumModule
+from declearn.model.torch import TorchVector
 import numpy as np
 
 
@@ -35,6 +44,34 @@ class TestDocumentationLinks(unittest.TestCase):
         for link in links:
             url_res = urllib.request.urlopen(link)
             self.assertEqual(url_res.code, 200, f"cannot reach url link {link} pointed in documentation")
+
+
+class TestSkLearnModelBuilder(unittest.TestCase):
+    def setUp(self):
+        self.implemented_models =  (
+            SGDClassifier,
+            SGDRegressor
+        )
+        
+    def test_sklearnbuilder_1_test_sklearn_builder(self):
+        for sk_model in self.implemented_models:
+            model = SkLearnModel(sk_model)
+            self.assertIsInstance(model._instance, Models[sk_model.__name__])
+            self.assertTrue(Models.get(sk_model.__name__, False))
+
+    def test_sklearnbuilder_2_test_sklearn_methods(self):
+        # check that methods in implemented model also belongs to the 
+        for model in self.implemented_models:
+            _fbm_models = Models[model.__name__]
+            model_wrapper = SkLearnModel(model)
+            for method in dir(_fbm_models):
+                self.assertTrue(hasattr(model_wrapper, str(method),))
+            
+    def test_sklearnbuilder_3_test_sklearn_builder_error(self):
+        for sk_model in self.implemented_models:
+            model = SkLearnModel(sk_model)
+            with self.assertRaises(FedbiomedModelError):
+                val = model.this_method_does_not_exist()
 
 
 class TestSkLearnModel(unittest.TestCase):
@@ -180,6 +217,106 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             
             self.assertListEqual(collected_losses_stdout, [actual_losses_stdout])
 
+
+class TestTorchModel(unittest.TestCase):
+    def setUp(self):
+        self.torch_model = torch.nn.Linear(4, 1)
+        self.model = TorchModel(self.torch_model)
+        self.torch_optim = torch.optim.SGD(self.model.model.parameters(), lr=.01, momentum=.1)
+        self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
+
+        self.data = torch.randn(8, 1,  4, requires_grad=True)
+        self.targets = torch.tensor([1,0,1,1,0,0,1,1])#.type(torch.LongTensor)
+        
+
+    def tearDown(self) -> None:
+        pass
+    
+    
+    def fake_training_step(self, data, targets):
+        output = self.model.model.forward(data)
+
+        output = torch.squeeze(output, dim=1)
+        loss   = torch.nn.functional.nll_loss(torch.squeeze(torch.nn.functional.log_softmax(output, dim=1), dim=1), targets)
+        return loss
+
+    def test_torchmodel_1_get_gradients_method(self):
+        # case where no gradients have been found: model has not been trained
+        self.assertDictEqual({}, self.model.get_gradients(), "get_gradients should return an empty dict since model hasnot been trained")
+        
+        
+        # case model has been trained with pytorch optimizer
+        self.torch_optim.zero_grad()
+        loss = self.fake_training_step(self.data, self.targets)
+        loss.backward()
+        
+        grads = self.model.get_weights()
+        for layer_name, values in grads.items():
+            self.assertTrue(torch.all(values))
+        
+        torch_vector_grads = self.model.get_weights(return_type=TorchVector)
+        for layer_name, values in torch_vector_grads.coefs.items():
+            self.assertTrue(torch.all(values))
+            self.assertTrue(torch.all(torch.isclose(values, grads[layer_name])))
+            
+        
+    def test_torchmodel_2_get_gradients_method_failures(self):
+        
+        # test incorrect usage
+        incorrect_return_types = (
+            "incorrect usage",
+            True,
+            1234
+        )
+        for incorrect_return_type in incorrect_return_types:
+            with self.assertRaises(FedbiomedModelError):
+                self.model.get_gradients(return_type=incorrect_return_type)
+
+    def test_torchmodel_3_get_weights(self):
+        # test case where model_wweitghs is retunred as a dict
+        model_weights = self.model.get_weights()
+        
+        
+        for (layer, wrapped_model_weight) in model_weights.items():
+            self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
+        # test case where model weigths is returned as a TorchVector
+        torchvector_model_weights = self.model.get_weights(TorchVector)
+        
+        for (layer, wrapped_model_weight) in torchvector_model_weights.coefs.items():
+            self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
+
+    def test_torchmodel_4_get_weights_failures(self):
+        # test incorrect usage
+        incorrect_return_types = (
+            "incorrect usage",
+            True,
+            1234
+        )
+        
+        for incorrect_return_type in incorrect_return_types:
+            with self.assertRaises(FedbiomedModelError):
+                self.model.get_weights(return_type=incorrect_return_type)
+                
+    def test_torchmodel_xx_init_training(self):
+        self.model.init_training()
+        
+        #  before training, check values contained in `init_training`` are the same as in model
+        weights = self.model.get_weights()
+        print(self.model.init_params)
+        for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
+            self.assertTrue(torch.all(torch.isclose(w, init_w)))
+        
+        # mimic training by updating model weights
+        # 1. training through torch optimizer
+        self.torch_optim.zero_grad()
+        loss = self.fake_training_step(self.data, self.targets)
+        loss.backward()
+        torch_update_weights = self.model.get_weights()
+        for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
+            self.assertTrue(torch.all(torch.isclose(w, init_w)))
+        
+        # 2. training through declearn optimizer
+        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

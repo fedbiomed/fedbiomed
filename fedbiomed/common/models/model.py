@@ -78,7 +78,7 @@ class TorchModel(Model):
         # initial aggregated model parameters
         #self.init_params = deepcopy(list(self.model().parameters()))
 
-    def get_gradients(self, return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Any:
+    def get_gradients(self, return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Union[Dict[str, torch.Tensor],Any]:
         """Returns a TorchVector wrapping the gradients attached to the model.
         
         Args:
@@ -95,7 +95,7 @@ class TorchModel(Model):
         gradients = {
             name: param.grad.detach()
             for name, param in self.model.named_parameters()
-            if param.requires_grad
+            if param.requires_grad and param.grad is not None
         }
         if return_type is not None:
             gradients = return_type(gradients)
