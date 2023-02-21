@@ -135,7 +135,7 @@ class TorchModel(Model):
                 param = self.model.get_parameter(name)
                 param.add_(update)
     
-    def apply_gradients(self, gradients: torch.Tensor):
+    def apply_gradients(self, gradients: Union[TorchVector, Dict[str, torch.Tensor]]):
         """Adds values to attached gradients in the model"""
         iterator = self._get_iterator_model_params(gradients)
 
@@ -180,7 +180,7 @@ class TorchModel(Model):
             pred = self.model(inputs) 
         return pred.numpy()
     
-    def send_to_device(self, device:torch.device):
+    def send_to_device(self, device: torch.device):
         """sends model to device"""
         return self.model.to(device)
     

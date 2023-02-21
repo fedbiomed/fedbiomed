@@ -1,3 +1,4 @@
+import copy
 import unittest
 import urllib.request
 import logging
@@ -79,6 +80,11 @@ class TestSkLearnModel(unittest.TestCase):
         logging.disable(logging.CRITICAL)
         self.sgdclass_model = SkLearnModel(SGDClassifier)
         self.sgdregressor_model = SkLearnModel(SGDRegressor)
+        self.models = (self.sgdclass_model, self.sgdregressor_model)
+
+        self.n_features = (1, 10)  # possible number of features
+        self.n_classes = (2, 5)  # possible number of classes (for classification)
+
         
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
@@ -122,8 +128,38 @@ class TestSkLearnModel(unittest.TestCase):
         for model_args in model_args_iterator:
             self.sgdclass_model.set_init_params(model_args)
             self.assertListEqual(sorted(self.sgdclass_model.param_list), sorted(['coef_', 'intercept_']))
+            
+        self.assertEqual(self.sgdclass_model.batch_size, 0)
+            
+    def test_sklearmmodel_04_plain_sklearn_training(self):
+        n_values = 100
+        for model in self.models:
+            for _n_features in self.n_features:
+                
+                data = np.random.randn(_n_features, n_values)
+                
+                if model._is_classification:
+                    for _n_classes in self.n_classes:
+                        targets = np.random.randint(0, _n_classes, n_values)
+                else:
+                    targets = np.random.randn(n_values)
+                
+                model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
+                model.init_training()
+                for idx in range(n_values):
+                    print("Target", targets, targets[idx])
+                    model.train(data[idx:idx+1], targets[idx])
+                grads = model.get_gradients()
+                model.apply_updates(grads)
+                
+                # checks
+                self.assertEqual(self.model.n_iter, n_values)
+                self.assertEqual(model.batch_size, n_values)
+                
+    def test_sklearnmodel_05_sklearn_training_through_declearn_optimizer(self):
+        pass
         
-class TestSklearnTrainingPlansClassification(unittest.TestCase):
+class TestSklearnClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
     model_args = {
         SGDClassifier: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
@@ -159,7 +195,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             # Multiclass (class=3):
 
             multiclass_model_args = {
-                **TestSklearnTrainingPlansClassification.model_args[model],
+                **TestSklearnClassification.model_args[model],
                 'n_classes': 3
             }
             sk_model = SkLearnModel(model)
@@ -218,6 +254,10 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             self.assertListEqual(collected_losses_stdout, [actual_losses_stdout])
 
 
+
+class TestSkLearnToolboxClasses(unittest.TestCase):
+    pass
+
 class TestTorchModel(unittest.TestCase):
     def setUp(self):
         self.torch_model = torch.nn.Linear(4, 1)
@@ -226,7 +266,7 @@ class TestTorchModel(unittest.TestCase):
         self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
 
         self.data = torch.randn(8, 1,  4, requires_grad=True)
-        self.targets = torch.tensor([1,0,1,1,0,0,1,1])#.type(torch.LongTensor)
+        self.targets = torch.tensor([1,0,2,1,0,2,1,1])#.type(torch.LongTensor)
         
 
     def tearDown(self) -> None:
@@ -237,7 +277,8 @@ class TestTorchModel(unittest.TestCase):
         output = self.model.model.forward(data)
 
         output = torch.squeeze(output, dim=1)
-        loss   = torch.nn.functional.nll_loss(torch.squeeze(torch.nn.functional.log_softmax(output, dim=1), dim=1), targets)
+        print("ouput",output)
+        loss   = torch.nn.functional.nll_loss(torch.squeeze(output), targets)
         return loss
 
     def test_torchmodel_1_get_gradients_method(self):
@@ -249,6 +290,7 @@ class TestTorchModel(unittest.TestCase):
         self.torch_optim.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
         loss.backward()
+        self.torch_optim.step()
         
         grads = self.model.get_weights()
         for layer_name, values in grads.items():
@@ -297,12 +339,61 @@ class TestTorchModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 self.model.get_weights(return_type=incorrect_return_type)
                 
-    def test_torchmodel_xx_init_training(self):
+    def test_torchmodel_5_apply_updates_1(self):
+        init_weights = copy.deepcopy(self.model.get_weights())
+        
+        updates = torch.nn.Linear(4, 1).state_dict()
+        
+        self.model.apply_updates(updates)
+        updated_weights = self.model.get_weights()
+
+        # checks
+        for (layer, w), (_, updated_w) in zip(init_weights.items(), updated_weights.items()):
+            self.assertFalse(torch.all(torch.isclose(w, updated_w)))
+            self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
+
+    def test_torchmodel_5_apply_updates_2(self):
+        init_weights = copy.deepcopy(self.model.get_weights(return_type=TorchVector))
+        
+        updates = torch.nn.Linear(4, 1).state_dict()
+        
+        self.model.apply_updates(TorchVector(updates))
+        updated_weights = self.model.get_weights(return_type=TorchVector)
+
+        # checks
+        for (layer, w), (_, updated_w) in zip(init_weights.coefs.items(), updated_weights.coefs.items()):
+            self.assertFalse(torch.all(torch.isclose(w, updated_w)))
+            self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
+    
+    def test_torchmodel_5_apply_updates_3_failures(self):
+        # check that error is raised when passing incorrect type
+        incorrect_types = (
+            "incorrect usage",
+            True,
+            1234,
+            [1, 2, 3],
+            set((1,2,3))
+        )
+        for incorrect_type in incorrect_types:
+            with self.assertRaises(FedbiomedModelError):
+                self.model.apply_updates(incorrect_type)
+    
+    def test_torchmodel_6_predict(self):
+        data = torch.randn(1, 1,  4, requires_grad=True)
+        
+        tested_prediction = self.model.predict(data)
+        
+        ground_truth_prediction = self.model.model(data)
+        
+        self.assertIsInstance(tested_prediction, np.ndarray)
+        self.assertListEqual(tested_prediction.tolist(), ground_truth_prediction.tolist())
+        
+    def test_torchmodel_7_training(self):
         self.model.init_training()
         
-        #  before training, check values contained in `init_training`` are the same as in model
+        #  before training, check values contained in `init_training` are the same as in model
         weights = self.model.get_weights()
-        print(self.model.init_params)
+
         for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
             self.assertTrue(torch.all(torch.isclose(w, init_w)))
         
@@ -310,13 +401,34 @@ class TestTorchModel(unittest.TestCase):
         # 1. training through torch optimizer
         self.torch_optim.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
+
         loss.backward()
+        self.torch_optim.step()
         torch_update_weights = self.model.get_weights()
+        # checks
+        for (layer, w), ( init_w) in zip(torch_update_weights.items(), self.model.init_params):
+            self.assertFalse(torch.all(torch.isclose(w, init_w)))
+
+        # 2. training through declearn optimizer
+        self.model.init_training()
+        #  before training, check values contained in `init_training` are the same as in model
+        weights = self.model.get_weights()
+
         for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
             self.assertTrue(torch.all(torch.isclose(w, init_w)))
+            
+        self.model.model.zero_grad()
+        loss = self.fake_training_step(self.data, self.targets)
+
+        loss.backward()
+        grads = self.model.get_weights(return_type=TorchVector)
+        self.declearn_optim.apply_gradients(self.model, grads)
         
-        # 2. training through declearn optimizer
+        declearn_optimized_model_weights = self.model.get_weights()
+        # checks
         
+        for (layer, w), w_init in zip(declearn_optimized_model_weights.items(), self.model.init_params):
+            self.assertFalse(torch.all(torch.isclose(w, w_init)))
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
