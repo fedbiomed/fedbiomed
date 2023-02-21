@@ -67,6 +67,10 @@ class Model:
 
 class TorchModel(Model):
     """PyTorch model wrapper that ease the handling of a pytorch model
+    
+    Attibutes:
+    - model: torch.nn.Module. Pytorch model wrapped.
+    - init_params: OrderedDict. Model initial parameters. Set when calling `init_training`
     """
     model: torch.nn.Module =  None
     init_params: OrderedDict
@@ -131,26 +135,27 @@ class TorchModel(Model):
                 param = self.model.get_parameter(name)
                 param.add_(update)
     
-    def apply_gradients(self, updates: torch.Tensor):
-        iterator = self._get_iterator_model_params(updates)
+    def apply_gradients(self, gradients: torch.Tensor):
+        """Adds values to attached gradients in the model"""
+        iterator = self._get_iterator_model_params(gradients)
 
         for name, update in iterator:
             param = self.model.get_parameter(name)
             param.grad.add_(update.to(param.grad.device))
 
-    def _get_iterator_model_params(self, model_params) -> Iterable[Tuple]:
+    def _get_iterator_model_params(self, model_params) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a 
         dictionary or a declearn's TorchVector
 
         Args:
-            model_params (_type_): parameters
+            model_params (_type_): model parameters
 
         Raises:
             FedbiomedModelError: raised if argument `model_params` type is neither
             a TorchVector nor a dictionary
 
         Returns:
-            _type_: _description_
+            Iterable[Tuple]: iterbale containing model parameters, that returns layer name and its value
         """
         if isinstance(model_params, TorchVector):
             
@@ -161,7 +166,15 @@ class TorchModel(Model):
             raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
         return iterator
 
-    def predict(self, inputs)-> np.ndarray:
+    def predict(self, inputs: torch.Tensor)-> np.ndarray:
+        """Computes prediction given input data.
+
+        Args:
+            inputs (torch.Tensor): input data
+
+        Returns:
+            np.ndarray: model predictions returned as a numpy array
+        """
         self.model.eval()  # pytorch switch for model inference-mode
         with torch.no_grad():
             pred = self.model(inputs) 
@@ -226,7 +239,6 @@ class SkLearnModel():
         
      
     def __getattr__(self, item: str):
-
         """Wraps all functions/attributes of factory class members.
 
         Args:
@@ -248,6 +260,26 @@ class SkLearnModel():
     #     return cls(model)   
 
 class BaseSkLearnModel(Model):
+    """
+    Wrapper of Scikit learn model. It implements all abstract methods from 
+    `Model`
+    
+    Attributes:
+    - model: BaseEstimator. wrapped model
+    - default_lr_init: float. Default value for setting learning rate to the scikit learn model. Needed
+        for computing gradients. Set with `set_learning_rate` setter
+    - default_lr: str. Default value for setting learning rate schedule to the scikit learn model. Needed for computing 
+        gradients. Set with `set_learning_rate` setter
+    - batch_size: int. Internal counter that measures size of the batch.
+    - is_declearn_optim: bool. Switch that allows the use of declearn's optimizers
+    - param_list: List[str]. List that contains layer attributes. Should be set when calling `set_init_params` method
+    - updates: Dict[str, np.ndarray]. Contains model updates after a training. Set up when calling `init_training`
+               method.
+        
+    Raises:
+        FedbiomedModelError: raised if model is not as scikit learn `BaseEstimator` object
+
+    """
     model = None
     default_lr_init: float = .1
     default_lr: str = 'constant'
@@ -256,7 +288,6 @@ class BaseSkLearnModel(Model):
     param_list: List[str] = NotImplemented
     _gradients: Dict[str, np.ndarray] = NotImplemented
     #model_args: Dict[str, Any] = {}
-    verbose: bool = NotImplemented
     updates: Dict[str, np.ndarray] = NotImplemented  #replace `grads` from th poc
     def __init__(
         self,
@@ -282,14 +313,20 @@ class BaseSkLearnModel(Model):
         #     self.verbose = False
         
     def init_training(self):
-        """Initialises the training
+        """Initialises the training by setting up attributes.
+        
+        Attributes set:
+         - param: initial parameters of the model
+         - updates: attribute used to store model updates. Initially, it is arrays of zeros
+         - batch_size: internal counter that measure the batch_size, with respect to the data
+            used for training model
 
         Raises:
             FedbiomedModelError: raised if `param_list` has not been defined
         """
         if self.param_list is NotImplemented:
             raise FedbiomedModelError("Attribute `param_list` is not defined: please define it beforehand")
-        self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}
+        self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}  # call it `param_init` so to be consistent with SklearnModel
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
         self.batch_size = 0 
@@ -300,13 +337,21 @@ class BaseSkLearnModel(Model):
         
 
     def set_weights(self, weights: Dict[str, np.ndarray]) -> BaseEstimator:
+        """Sets model weights
+
+        Args:
+            weights (Dict[str, np.ndarray]): model weights contained in a dictionary mapping layers names
+            to its model paramaters (in numpy arrays)
+
+        Returns:
+            BaseEstimator: model wrapped updated with incoming weights
+        """
         for key, val in weights.items():
             setattr(self.model, key, val)
         return self.model
 
     def get_weights(self, return_type: Callable = None) -> Any:
-        
-        """Return a NumpyVector wrapping the model's parameters."""
+        """Returns model's parameters."""
         super().get_weights(return_type=return_type)
         if self.param_list is NotImplemented:
             raise FedbiomedModelError("`param_list` not defined. You should have initialized the model beforehand (try calling `set_init_params`)")
@@ -369,7 +414,7 @@ class BaseSkLearnModel(Model):
                 self._gradients[key] = self.updates[key] / self.batch_size - w[key]
     
     def get_gradients(self, return_type: Callable = None) -> Any:
-        """_summary_
+        """Gets computed gradients
 
         Args:
             return_type (Callable, optional): _description_. Defaults to None.
