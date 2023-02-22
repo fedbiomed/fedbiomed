@@ -88,8 +88,7 @@ class Optimizer:
                 the same concrete type as `grads`.
 
         Returns:
-            updates: Vector
-                Updates to be applied to the model weights, computed by:
+            Updates to be applied to the model weights, computed by:
                 - running wrapped gradients and weights through the regularizer
                   plug-ins (that add loss-regularization terms' derivatives);
                 - running resulting gradients through the optimodule plug-ins
@@ -118,7 +117,7 @@ class Optimizer:
         """Return auxiliary variables that need to be shared between the nodes and the researcher.
 
         Returns:
-            aux: Dict that associates `module.collect_aux_var()` values to
+            Aux-var dict that associates `module.collect_aux_var()` values to
                 `module.name` keys for each and every module plugged in this
                 Optimizer that has some auxiliary variables to share.
         """
@@ -152,9 +151,9 @@ class Optimizer:
         This method is to be used for creating breakpoints.
 
         Returns:
-            state: state-and-config dict that may be saved as part of a
-                breakpoint file, and used to re-create this Optimizer
-                using the `load_state` method.
+            State-and-config dict that may be saved as part of a breakpoint
+                file, and used to re-create this Optimizer using the
+                `Optimizer.load_state` classmethod constructor.
         """
         config = self._optimizer.get_config()
         states = self._optimizer.get_state()
@@ -168,7 +167,7 @@ class Optimizer:
             state: state-and-config dict created using the `save_state` method.
 
         Returns:
-            optimizer: Optimizer instance re-created from the `state` dict.
+            Optimizer instance re-created from the `state` dict.
 
         Raises:
             FedbiomedOptimizerError: If the input `state` dict has improper keys
