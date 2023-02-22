@@ -1,6 +1,6 @@
 
 
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
 from io import StringIO
@@ -24,25 +24,28 @@ from declearn.model.torch import TorchVector
 
 class Model:
     
-    model = None  #type = Union[nn.module, BaseEstimator]
-    model_args: Dict[str, Any] = {}
+    model : Union[torch.nn.Module, BaseEstimator]
+    model_args: Dict[str, Any]
     
     @abstractmethod
     def init_training(self):
-        pass
+        return
+
     @abstractmethod
     def train(self, inputs: Any, targets: Any, loss_func: Callable = None) -> Any:
-        pass
+        return
+
     @abstractmethod
     def predict(self, inputs: Any) -> Any:
-        pass
+        return
+
     @abstractmethod
     def load(self, path_file:str):
-        pass
-    
+        return
+
     @abstractmethod
     def set_weights(self, weights: Any):
-        pass
+        return
 
     def get_weights(self, return_type: Callable = None):
         if not (return_type is None or callable(return_type)):
@@ -52,17 +55,17 @@ class Model:
         if not (return_type is None or callable(return_type)):
             raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
 
+    @abstractmethod
+    def update_weigths(self, weights: Any):
+        return
 
     @abstractmethod
-    def update_weigths(self):
-        pass
-    @abstractmethod
-    def load(self, filenmae:str):
-        pass
-        
+    def load(self, filename:str):
+        return
+
     @abstractmethod
     def save(self, filename:str):
-        pass
+        return
 
 
 class TorchModel(Model):
@@ -178,7 +181,7 @@ class TorchModel(Model):
         self.model.eval()  # pytorch switch for model inference-mode
         with torch.no_grad():
             pred = self.model(inputs) 
-        return pred.numpy()
+        return pred.cpu().numpy()
     
     def send_to_device(self, device: torch.device):
         """sends model to device"""
@@ -253,6 +256,28 @@ class SkLearnModel():
             return self._instance.__getattribute__(item)
         except AttributeError:
             raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
+    
+    def __deepcopy__(self, memo):
+        """
+        
+        Usage:
+        >>> from sklearn.linear_model import SGDClassifier
+        >>> model = SkLearnModel(SGDClassifier)
+        >>> import copy
+        >>> model_copy = copy.deepcopy(model)
+
+        Args:
+            memo (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
     # @classmethod
     # def load(cls, filename: str):
     #     with open(filename, "rb") as file:
@@ -280,14 +305,14 @@ class BaseSkLearnModel(Model):
         FedbiomedModelError: raised if model is not as scikit learn `BaseEstimator` object
 
     """
-    model = None
+    model: BaseEstimator
     default_lr_init: float = .1
     default_lr: str = 'constant'
     batch_size: int
     is_declearn_optim: bool
     param_list: List[str] = NotImplemented
     _gradients: Dict[str, np.ndarray] = NotImplemented
-    #model_args: Dict[str, Any] = {}
+
     updates: Dict[str, np.ndarray] = NotImplemented  #replace `grads` from th poc
     def __init__(
         self,
@@ -335,8 +360,15 @@ class BaseSkLearnModel(Model):
             # set a constant learning rate, that will be used to extract gradient
             self.set_learning_rate()
         
+    def _get_iterator_model_params(self, model_params) -> Iterable[Tuple[str, np.ndarray]]:
+        if isinstance(model_params, NumpyVector):
+            return model_params.coefs.items()
+        elif isinstance(model_params, dict):
+            return model_params.items()
+        else:
+            raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
 
-    def set_weights(self, weights: Dict[str, np.ndarray]) -> BaseEstimator:
+    def set_weights(self, weights: Union[Dict[str, np.ndarray], NumpyVector]) -> BaseEstimator:
         """Sets model weights
 
         Args:
@@ -346,7 +378,8 @@ class BaseSkLearnModel(Model):
         Returns:
             BaseEstimator: model wrapped updated with incoming weights
         """
-        for key, val in weights.items():
+        weights = self._get_iterator_model_params(weights)
+        for key, val in weights:
             setattr(self.model, key, val)
         return self.model
 
@@ -363,11 +396,15 @@ class BaseSkLearnModel(Model):
             weights = return_type(weights)
         return weights
 
-    def apply_updates(self, updates: Dict[str, np.ndarray]) -> None:
+    def set_declearn_optim_switch(self, is_declearn_optim: bool):
+        self.is_declearn_optim = is_declearn_optim
+        return self.is_declearn_optim
+
+    def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
-        
+        updates = self._get_iterator_model_params(updates)
         w = self.get_weights()
-        for key, val in updates.items():
+        for key, val in updates:
             setattr(self.model, key, val + w[key])
         self.model.n_iter_ += 1    
         
@@ -453,8 +490,19 @@ class BaseSkLearnModel(Model):
         else: 
             return self.model.get_params()
 
-    def set_params(self, **params):
+    def set_params(self, **params: Any) -> Dict[str, Any]:
+        """Sets scikit learn model hyperparameters. Please refer to [`baseEstimator documentation`]
+        [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `set_params` method
+        for further details
+
+        Args: 
+            params (Any): new hyperparameters to set up the model.
+
+        Returns:
+            Dict[str, Any]: dictionary containing new hyperparameters values
+        """
         self.model.set_params(**params)
+        return params
 
     def load(self, filename: str):
         with open(filename, "rb") as file:

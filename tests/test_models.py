@@ -15,6 +15,7 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from declearn.optimizer import Optimizer
 from declearn.optimizer.modules import MomentumModule
 from declearn.model.torch import TorchVector
+from declearn.model.sklearn import NumpyVector
 import numpy as np
 
 
@@ -61,7 +62,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             self.assertTrue(Models.get(sk_model.__name__, False))
 
     def test_sklearnbuilder_2_test_sklearn_methods(self):
-        # check that methods in implemented model also belongs to the 
+        # check that methods in implemented model also belong to the builder
         for model in self.implemented_models:
             _fbm_models = Models[model.__name__]
             model_wrapper = SkLearnModel(model)
@@ -73,18 +74,29 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             model = SkLearnModel(sk_model)
             with self.assertRaises(FedbiomedModelError):
                 val = model.this_method_does_not_exist()
-
+    
+    def test_sklearnbuilder_4_test_sklearn_deepcopy(self):
+        for sk_model in self.implemented_models:
+            model = SkLearnModel(sk_model)
+            copied_model = copy.deepcopy(model)
+            
+            # check that copied_model is a deepcopy of model
+            self.assertIsInstance(model, SkLearnModel)
+            self.assertIsInstance(copied_model, SkLearnModel)
+            self.assertNotEqual(id(model), id(copied_model), "error, deep copy failed, objects share same reference")
+            
 
 class TestSkLearnModel(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.sgdclass_model = SkLearnModel(SGDClassifier)
         self.sgdregressor_model = SkLearnModel(SGDRegressor)
-        self.models = (self.sgdclass_model, self.sgdregressor_model)
+        self.models = (SGDClassifier, SGDRegressor)
 
         self.n_features = (1, 10)  # possible number of features
         self.n_classes = (2, 5)  # possible number of classes (for classification)
 
+        self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
         
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
@@ -131,33 +143,76 @@ class TestSkLearnModel(unittest.TestCase):
             
         self.assertEqual(self.sgdclass_model.batch_size, 0)
             
-    def test_sklearmmodel_04_plain_sklearn_training(self):
-        n_values = 100
+    def test_sklearmmodel_04_sklearn_training_01_plain_sklearn(self):
+        # FIXME: this is an more an integration test, but I feel like it is quite useful
+        # to test the correct execution of the training
+        n_values = 100  # data size
+        
         for model in self.models:
+            model = SkLearnModel(model)
             for _n_features in self.n_features:
                 
-                data = np.random.randn(_n_features, n_values)
+                data = np.random.randn(n_values, _n_features,)
                 
-                if model._is_classification:
-                    for _n_classes in self.n_classes:
+                
+                for _n_classes in self.n_classes:
+                    
+                    if model._is_classification:
                         targets = np.random.randint(0, _n_classes, n_values)
-                else:
-                    targets = np.random.randn(n_values)
+                    
+                    else:
+                        targets = np.random.randn(n_values)
                 
-                model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                model.init_training()
-                for idx in range(n_values):
-                    print("Target", targets, targets[idx])
-                    model.train(data[idx:idx+1], targets[idx])
-                grads = model.get_gradients()
-                model.apply_updates(grads)
+                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
+                    model.init_training()
+                    init_model = copy.deepcopy(model)
+                    for idx in range(n_values):
+                        model.train(data[idx:idx+1], targets[idx].reshape( 1))
+                    grads = model.get_gradients()
+                    model.apply_updates(grads)
+                    
+                    # checks
+                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                    self.assertEqual(model.batch_size, n_values)
+                    for layer in model.param_list:
+                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
+                                                        "model has not been updated during training"))
                 
-                # checks
-                self.assertEqual(self.model.n_iter, n_values)
-                self.assertEqual(model.batch_size, n_values)
+    def test_sklearnmodel_04_sklearn_training_02_declearn_optimizer(self):
+        n_values = 100  # data size
+        for model in self.models:
+            model = SkLearnModel(model)
+            for _n_features in self.n_features:
                 
-    def test_sklearnmodel_05_sklearn_training_through_declearn_optimizer(self):
-        pass
+                data = np.random.randn(n_values, _n_features,)
+
+                for _n_classes in self.n_classes:
+                    
+                    if model._is_classification:
+                        targets = np.random.randint(0, _n_classes, n_values)
+                    
+                    else:
+                        targets = np.random.randn(n_values)
+                    
+                    model.is_declearn_optim = True  # FIXME: change me when merging Optimizer abstraction
+                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
+                    model.init_training()
+                    init_model = copy.deepcopy(model)
+                    for idx in range(n_values):
+                        model.train(data[idx:idx+1], targets[idx].reshape( 1))
+                    grads = model.get_gradients(return_type=NumpyVector)
+                    
+                    self.declearn_optim.apply_gradients(model, grads)
+
+                    # checks
+                    self.assertTrue(model.is_declearn_optim)
+                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                    self.assertEqual(model.batch_size, n_values)
+                    self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
+                    for layer in model.param_list:
+                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
+                                                        "model has not been updated during training"))
+                
         
 class TestSklearnClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
@@ -180,7 +235,7 @@ class TestSklearnClassification(unittest.TestCase):
         # TODO: add testing additional parameters (set_learning_rate/get_learning_rate)
         
         for model in self.implemented_models:
-            # dual classes
+            # binary classification
             sk_model = SkLearnModel(model)
             self.assertTrue(sk_model._is_classification)
             sk_model.set_init_params(model_args={'n_classes':2, 'n_features': 5})
