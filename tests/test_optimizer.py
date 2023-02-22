@@ -36,11 +36,20 @@ class TestOptimizer(unittest.TestCase):
             modules=modules,
             regularizers=regularizers,
         )
-        assert optim._lr == 1e-3
-        assert optim._decay == 1e-4
-        assert isinstance(optim._optimizer, DeclearnOptimizer)
-        assert optim._optimizer.modules == modules
-        assert optim._optimizer.regularizers == regularizers
+        self.assertEqual(optim._lr, 1e-3)
+        self.assertEqual(optim._decay, 1e-4)
+        self.assertIsInstance(optim._optimizer, DeclearnOptimizer)
+        self.assertEqual(optim._optimizer.modules, modules)
+        self.assertEqual(optim._optimizer.regularizers, regularizers)
+
+    def test_init_fails(self) -> None:
+        """Test that Optimizer instantiation errors are caught and wrapped."""
+        # This would cause a KeyError in declearn (unregistered module name).
+        with self.assertRaises(FedbiomedOptimizerError):
+            Optimizer(lr=1e-3, modules=["invalid-module-name"])
+        # This would cause a TypeError in declearn (invalid module type).
+        with self.assertRaises(FedbiomedOptimizerError):
+            Optimizer(lr=1e-3, modules=[mock.MagicMock()])
 
     def test_step(self) -> None:
         """Test that the `Optimizer.step` performs expected computations.
@@ -89,7 +98,7 @@ class TestOptimizer(unittest.TestCase):
     def test_get_aux_none(self) -> None:
         """Test `Optimizer.get_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
-        assert optim.get_aux() == {}
+        self.assertEqual(optim.get_aux(), {})
 
     def test_get_aux_scaffold(self) -> None:
         """Test `Optimizer.get_aux` when there are Scaffold aux-var to share."""
@@ -106,13 +115,14 @@ class TestOptimizer(unittest.TestCase):
         optim.step(grads, weights)
         # Access the auxiliary variables and verify their formatting.
         aux = optim.get_aux()
-        assert isinstance(aux, dict) and aux.keys() == {"scaffold"}
-        assert isinstance(aux["scaffold"], dict)
+        self.assertIsInstance(aux, dict)
+        self.assertEqual(aux.keys(), {"scaffold"})
+        self.assertIsInstance(aux["scaffold"], dict)
 
     def test_set_aux_none(self) -> None:
         """Test `Optimizer.set_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
-        assert optim.set_aux({}) is None
+        self.assertIsNone(optim.set_aux({}))
 
     def test_set_aux_fails(self) -> None:
         """Test `Optimizer.set_aux` exception-catching."""
@@ -138,7 +148,7 @@ class TestOptimizer(unittest.TestCase):
         module = mock.create_autospec(OptiModule, instance=True)
         optim = Optimizer(lr=0.001, modules=[module])
         state = optim.save_state()
-        assert isinstance(state, dict)
+        self.assertIsInstance(state, dict)
         module.get_config.assert_called_once()
         module.get_state.assert_called_once()
 
@@ -162,11 +172,12 @@ class TestOptimizer(unittest.TestCase):
         # Check that states can be accessed, dumped to JSON and reloaded.
         state = optim.save_state()
         sdump = json.dumps(state, default=declearn.utils.json_pack)
-        assert isinstance(sdump, str)
+        self.assertIsInstance(sdump, str)
         sload = json.loads(sdump, object_hook=declearn.utils.json_unpack)
-        assert isinstance(sload, dict) and sload.keys() == state.keys()
+        self.assertIsInstance(sload, dict)
+        self.assertEqual(sload.keys(), state.keys())
 
-    def test_load_state_mock(self) -> None:
+    def test_load_state(self) -> None:
         """Test that `Optimizer.load_state` works properly.
 
         Use a practical case to test so, with an Adam module and a FedProx
@@ -187,8 +198,13 @@ class TestOptimizer(unittest.TestCase):
         state = optim.save_state()
         opt_b = Optimizer.load_state(state)
         # Check that the loaded Optimizer is the same as the original one.
-        assert isinstance(opt_b, Optimizer)
-        assert opt_b.save_state() == state
+        self.assertIsInstance(opt_b, Optimizer)
+        self.assertEqual(opt_b.save_state(), state)
         upd_a = optim.step(grads, weights)
         upd_b = opt_b.step(grads, weights)
-        assert upd_a == upd_b
+        self.assertEqual(upd_a, upd_b)
+
+    def test_load_state_fails(self) -> None:
+        """Test that `Optimizer.load_state` exceptions are wrapped."""
+        with self.assertRaises(FedbiomedOptimizerError):
+            Optimizer.load_state({})

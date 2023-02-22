@@ -60,9 +60,18 @@ class Optimizer:
         """
         self._lr = lr
         self._decay = decay
-        self._optimizer = DeclearnOptimizer(
-            lrate=lr, w_decay=decay, modules=modules, regularizers=regularizers
-        )
+        try:
+            self._optimizer = DeclearnOptimizer(
+                lrate=lr,
+                w_decay=decay,
+                modules=modules,
+                regularizers=regularizers,
+            )
+        except (KeyError, TypeError) as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: declearn Optimizer instantiation"
+                " raised the following exception: {exc}"
+            ) from exc
 
     def step(self, grads: Vector, weights: Vector) -> Vector:
         """Run an optimization step to compute and return model weight updates.
