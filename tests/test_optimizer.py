@@ -108,7 +108,7 @@ class TestOptimizer(unittest.TestCase):
         decay.__mul__.assert_called_once_with(weights)
         output.__isub__.assert_called_once_with(decay.__mul__.return_value)
         # Check that the outputs match the expected ones.
-        assert updates is output.__isub__.return_value
+        self.assertIs(updates, output.__isub__.return_value)
 
     def test_step_fails(self) -> None:
         """Test that the `Optimizer.step` exceptions are properly wrapped."""
