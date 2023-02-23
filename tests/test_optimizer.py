@@ -36,11 +36,12 @@ class TestOptimizer(unittest.TestCase):
             modules=modules,
             regularizers=regularizers,
         )
-        self.assertEqual(optim._lr, 1e-3)
-        self.assertEqual(optim._decay, 1e-4)
-        self.assertIsInstance(optim._optimizer, DeclearnOptimizer)
-        self.assertEqual(optim._optimizer.modules, modules)
-        self.assertEqual(optim._optimizer.regularizers, regularizers)
+        d_opt = getattr(optim, "_optimizer")
+        self.assertIsInstance(d_opt, DeclearnOptimizer)
+        self.assertEqual(d_opt.lrate, 1e-3)
+        self.assertEqual(d_opt.w_decay, 1e-4)
+        self.assertEqual(d_opt.modules, modules)
+        self.assertEqual(d_opt.regularizers, regularizers)
 
     def test_init_fails(self) -> None:
         """Test that Optimizer instantiation errors are caught and wrapped."""

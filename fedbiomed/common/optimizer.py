@@ -58,8 +58,6 @@ class Optimizer:
                 Decoupled Weight Decay Regularization.
                 https://arxiv.org/abs/1711.05101
         """
-        self._lr = lr
-        self._decay = decay
         try:
             self._optimizer = DeclearnOptimizer(
                 lrate=lr,
@@ -116,10 +114,10 @@ class Optimizer:
             for mod in self._optimizer.modules:
                 grads = mod.run(grads)
             # Apply the base learning rate.
-            updates = - self._lr * grads
+            updates = - self._optimizer.lrate * grads
             # Optionally add the decoupled weight decay term.
-            if self._decay:
-                updates -= self._decay * weights
+            if self._optimizer.w_decay:
+                updates -= self._optimizer.w_decay * weights
             # Return the model updates.
             return updates
         except Exception as exc:
