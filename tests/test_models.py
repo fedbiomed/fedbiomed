@@ -167,7 +167,7 @@ class TestSkLearnModel(unittest.TestCase):
                     model.init_training()
                     init_model = copy.deepcopy(model)
                     for idx in range(n_values):
-                        model.train(data[idx:idx+1], targets[idx].reshape( 1))
+                        model.train(data, targets)
                     grads = model.get_gradients()
                     model.apply_updates(grads)
                     
@@ -198,8 +198,8 @@ class TestSkLearnModel(unittest.TestCase):
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
                     model.init_training()
                     init_model = copy.deepcopy(model)
-                    for idx in range(n_values):
-                        model.train(data[idx:idx+1], targets[idx].reshape( 1))
+                    
+                    model.train(data, targets)
                     grads = model.get_gradients(return_type=NumpyVector)
                     
                     self.declearn_optim.apply_gradients(model, grads)

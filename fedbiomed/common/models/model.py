@@ -377,7 +377,7 @@ class BaseSkLearnModel(Model):
         for key, val in updates:
             w = getattr(self.model, key)
             setattr(self.model, key, val + w)
-        self.model.n_iter_ += 1    
+          
 
     def predict(self, inputs: np.ndarray) -> np.ndarray:
         """Computes prediction given input data.
@@ -404,17 +404,19 @@ class BaseSkLearnModel(Model):
         """
         if self.updates is NotImplemented:
             raise FedbiomedModelError("Training has not been initialized: please run `init_training` method beforehand")
-        self.batch_size += inputs.shape[0]
-        with capture_stdout() as console:
-            self.model.partial_fit(inputs, targets)
-        if stdout is not None:
-            stdout.append(console)
-        for key in self.param_list:
-            # cumul grad
-            self.updates[key] += getattr(self.model, key)
-            setattr(self.model, key, self.param[key])  #resetting parameter to initial values
-        
-        self.model.n_iter_ -= 1
+        self.batch_size = 0
+        for idx in range(inputs.shape[0]):
+            with capture_stdout() as console:
+                self.model.partial_fit(inputs[idx:idx+1], targets[idx].reshape(1))
+            if stdout is not None:
+                stdout.append(console)
+            for key in self.param_list:
+                # cumul grad
+                self.updates[key] += getattr(self.model, key)
+                setattr(self.model, key, self.param[key])  #resetting parameter to initial values
+            
+            self.model.n_iter_ -= 1
+            self.batch_size +=1
         
         # compute gradients
         w = self.get_weights()
@@ -427,7 +429,8 @@ class BaseSkLearnModel(Model):
         else:
             for key in self.param_list:
                 self._gradients[key] = self.updates[key] / self.batch_size - w[key]
-    
+        self.model.n_iter_ += 1  
+
     def get_gradients(self, return_type: Callable = None) -> Any:
         """Gets computed gradients
 

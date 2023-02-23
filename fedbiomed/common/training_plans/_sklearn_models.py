@@ -164,7 +164,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         self._model.init_training()
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
         stdout = []  # type: List[List[str]]
-        for idx in range(b_len):
+        #for idx in range(b_len):
             # Compute updated weights based on the sample. Capture loss prints.
             # with capture_stdout() as console:
             #     self._model.partial_fit(inputs[idx:idx+1], target[idx])
@@ -175,7 +175,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             #     grads[key] += getattr(self._model, key)
             #     setattr(self._model, key, param[key])
             # self._model.n_iter_ -= 1
-            self._model.train(inputs[idx:idx+1], target[idx], stdout)
+        self._model.train(inputs, target, stdout)
         
         # Compute the batch-averaged updated weights and apply them.
         # Update the `param` values, and reset gradients to zero.
