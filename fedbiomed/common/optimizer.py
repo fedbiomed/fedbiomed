@@ -122,7 +122,7 @@ class Optimizer:
             return updates
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'step' method: {exc}"
+                f"{ErrorNumbers.FB620.value}: error in 'step': {exc}"
             ) from exc
 
     def get_aux(self) -> Dict[str, Dict[str, Any]]:
@@ -133,7 +133,12 @@ class Optimizer:
                 `module.name` keys for each and every module plugged in this
                 Optimizer that has some auxiliary variables to share.
         """
-        return self._optimizer.collect_aux_var()
+        try:
+            return self._optimizer.collect_aux_var()
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'get_aux': {exc}"
+            ) from exc
 
     def set_aux(self, aux: Dict[str, Dict[str, Any]]) -> None:
         """Update plug-in modules based on received shared auxiliary variables.
@@ -152,9 +157,9 @@ class Optimizer:
         """
         try:
             self._optimizer.process_aux_var(aux)
-        except (AttributeError, KeyError, TypeError) as exc:
+        except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: `Optimizer.set_aux`: {exc}"
+                f"{ErrorNumbers.FB620.value}: error in 'set_aux': {exc}"
             ) from exc
 
     def get_state(self) -> Dict[str, Any]:
@@ -167,9 +172,14 @@ class Optimizer:
                 file, and used to re-create this Optimizer using the
                 `Optimizer.load_state` classmethod constructor.
         """
-        config = self._optimizer.get_config()
-        states = self._optimizer.get_state()
-        return {"config": config, "states": states}
+        try:
+            config = self._optimizer.get_config()
+            states = self._optimizer.get_state()
+            return {"config": config, "states": states}
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'get_state': {exc}"
+            ) from exc
 
     @classmethod
     def load_state(cls, state: Dict[str, Any]) -> Self:

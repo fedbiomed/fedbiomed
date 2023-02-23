@@ -53,14 +53,14 @@ class TestOptimizer(unittest.TestCase):
             Optimizer(lr=1e-3, modules=[mock.MagicMock()])
 
     def test_init_round(self) -> None:
-        """Test that 'Optimizer.init_round' works as expected."""
+        """Test that `Optimizer.init_round` works as expected."""
         regul = mock.create_autospec(Regularizer, instance=True)
         optim = Optimizer(lr=1e-3, regularizers=[regul])
         optim.init_round()
         regul.on_round_start.assert_called_once()
 
     def test_init_round_fails(self) -> None:
-        """Test that 'Optimizer.init_round' exceptions are wrapped."""
+        """Test that `Optimizer.init_round` exceptions are wrapped."""
         regul = mock.create_autospec(Regularizer, instance=True)
         regul.on_round_start.side_effect = RuntimeError
         optim = Optimizer(lr=1e-3, regularizers=[regul])
@@ -137,7 +137,15 @@ class TestOptimizer(unittest.TestCase):
     def test_get_aux_none(self) -> None:
         """Test `Optimizer.get_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
-        self.assertEqual(optim.get_aux(), {})
+        self.assertDictEqual(optim.get_aux(), {})
+
+    def test_get_aux_fails(self) -> None:
+        """Test that `Optimizer.get_aux` exceptions are wrapped."""
+        module = mock.create_autospec(OptiModule, instance=True)
+        module.collect_aux_var.side_effect = RuntimeError
+        optim = Optimizer(lr=0.001, modules=[module])
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.get_aux()
 
     def test_set_aux(self) -> None:
         """Test `Optimizer.set_aux` using a mock Module."""
@@ -170,7 +178,15 @@ class TestOptimizer(unittest.TestCase):
         module.get_config.assert_called_once()
         module.get_state.assert_called_once()
 
-    def test_get_state_json(self) -> None:
+    def test_get_state_fails(self) -> None:
+        """Test that `Optimizer.get_state` exceptions are wrapped."""
+        module = mock.create_autospec(OptiModule, instance=True)
+        module.get_state.side_effect = RuntimeError
+        optim = Optimizer(lr=0.001, modules=[module])
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.load_state({})
+
+    def test_get_state(self) -> None:
         """Test that `Optimizer.get_state` is declearn-JSON-serializable.
 
         Use a practical case to test so, with an Adam module and a FedProx
