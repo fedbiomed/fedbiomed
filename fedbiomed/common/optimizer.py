@@ -98,20 +98,25 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
-        # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
-        # Add loss-regularization terms' derivatives to the raw gradients.
-        for reg in self._optimizer.regularizers:
-            grads = reg.run(grads, weights)
-        # Iteratively refine updates by running them through the optimodules.
-        for mod in self._optimizer.modules:
-            grads = mod.run(grads)
-        # Apply the base learning rate.
-        updates = - self._lr * grads
-        # Optionally add the decoupled weight decay term.
-        if self._decay:
-            updates -= self._decay * weights
-        # Return the model updates.
-        return updates
+        try:
+            # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
+            # Add loss-regularization terms' derivatives to the raw gradients.
+            for reg in self._optimizer.regularizers:
+                grads = reg.run(grads, weights)
+            # Iteratively refine updates by running them through the optimodules.
+            for mod in self._optimizer.modules:
+                grads = mod.run(grads)
+            # Apply the base learning rate.
+            updates = - self._lr * grads
+            # Optionally add the decoupled weight decay term.
+            if self._decay:
+                updates -= self._decay * weights
+            # Return the model updates.
+            return updates
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'step' method: {exc}"
+            ) from exc
 
     def get_aux(self) -> Dict[str, Dict[str, Any]]:
         """Return auxiliary variables that need to be shared between the nodes and the researcher.

@@ -95,6 +95,12 @@ class TestOptimizer(unittest.TestCase):
         # Check that the outputs match the expected ones.
         assert updates is output.__isub__.return_value
 
+    def test_step_fails(self) -> None:
+        """Test that the `Optimizer.step` exceptions are properly wrapped."""
+        optim = Optimizer(lr=0.001)
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.step(grads=None, weights=None)
+
     def test_get_aux_none(self) -> None:
         """Test `Optimizer.get_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
