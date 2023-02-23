@@ -150,7 +150,7 @@ class Optimizer:
                 f"{ErrorNumbers.FB620.value}: `Optimizer.set_aux`: {exc}"
             ) from exc
 
-    def save_state(self) -> Dict[str, Any]:
+    def get_state(self) -> Dict[str, Any]:
         """Return the configuration and current states of this Optimizer.
 
         This method is to be used for creating breakpoints.
@@ -169,7 +169,7 @@ class Optimizer:
         """Instantiate an Optimizer from its breakpoint state dict.
 
         Args:
-            state: state-and-config dict created using the `save_state` method.
+            state: state-and-config dict created using the `get_state` method.
 
         Returns:
             Optimizer instance re-created from the `state` dict.

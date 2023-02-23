@@ -149,17 +149,17 @@ class TestOptimizer(unittest.TestCase):
         # Test that these can be input into the server-side Optimizer.
         optim.set_aux(aux)
 
-    def test_save_state_mock(self) -> None:
-        """Test that `Optimizer.save_state` returns a dict and calls modules."""
+    def test_get_state_mock(self) -> None:
+        """Test that `Optimizer.get_state` returns a dict and calls modules."""
         module = mock.create_autospec(OptiModule, instance=True)
         optim = Optimizer(lr=0.001, modules=[module])
-        state = optim.save_state()
+        state = optim.get_state()
         self.assertIsInstance(state, dict)
         module.get_config.assert_called_once()
         module.get_state.assert_called_once()
 
-    def test_save_state_json(self) -> None:
-        """Test that `Optimizer.save_state` is declearn-JSON-serializable.
+    def test_get_state_json(self) -> None:
+        """Test that `Optimizer.get_state` is declearn-JSON-serializable.
 
         Use a practical case to test so, with an Adam module and a FedProx
         regularizer.
@@ -176,7 +176,7 @@ class TestOptimizer(unittest.TestCase):
         })
         optim.step(grads, weights)
         # Check that states can be accessed, dumped to JSON and reloaded.
-        state = optim.save_state()
+        state = optim.get_state()
         sdump = json.dumps(state, default=declearn.utils.json_pack)
         self.assertIsInstance(sdump, str)
         sload = json.loads(sdump, object_hook=declearn.utils.json_unpack)
@@ -201,11 +201,11 @@ class TestOptimizer(unittest.TestCase):
         })
         optim.step(grads, weights)
         # Gather the state of that Optimizer and build a new one from it.
-        state = optim.save_state()
+        state = optim.get_state()
         opt_b = Optimizer.load_state(state)
         # Check that the loaded Optimizer is the same as the original one.
         self.assertIsInstance(opt_b, Optimizer)
-        self.assertEqual(opt_b.save_state(), state)
+        self.assertEqual(opt_b.get_state(), state)
         upd_a = optim.step(grads, weights)
         upd_b = opt_b.step(grads, weights)
         self.assertEqual(upd_a, upd_b)
