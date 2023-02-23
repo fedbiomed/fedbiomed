@@ -117,29 +117,38 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             optim.step(grads=None, weights=None)
 
+    def test_get_aux(self) -> None:
+        """Test `Optimizer.set_aux` using a mock Module."""
+        # Set up an Optimizer, and mock modules, one of which emits aux vars.
+        mockaux = mock.MagicMock()
+        mod_aux = mock.create_autospec(OptiModule, instance=True)
+        mod_aux.collect_aux_var.return_value = mockaux
+        setattr(mod_aux, "aux_name", "mock-module-1")
+        mod_nox = mock.create_autospec(OptiModule, instance=True)
+        mod_nox.collect_aux_var.return_value = {}
+        setattr(mod_nox, "aux_name", "mock-module-2")
+        optim = Optimizer(lr=0.001, modules=[mod_aux, mod_nox])
+        # Call 'get_aux' and assert that the results match expectations.
+        aux = optim.get_aux()
+        self.assertDictEqual(aux, {"mock-module-1": mockaux})
+        mod_aux.collect_aux_var.assert_called_once()
+        mod_nox.collect_aux_var.assert_called_once()
+
     def test_get_aux_none(self) -> None:
         """Test `Optimizer.get_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
         self.assertEqual(optim.get_aux(), {})
 
-    def test_get_aux_scaffold(self) -> None:
-        """Test `Optimizer.get_aux` when there are Scaffold aux-var to share."""
-        optim = Optimizer(lr=0.001, modules=["scaffold-client"])
-        # Run an optimizer step (required for Scaffold to produce aux-vars).
-        grads = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
-        weights = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
-        optim.step(grads, weights)
-        # Access the auxiliary variables and verify their formatting.
-        aux = optim.get_aux()
-        self.assertIsInstance(aux, dict)
-        self.assertEqual(aux.keys(), {"scaffold"})
-        self.assertIsInstance(aux["scaffold"], dict)
+    def test_set_aux(self) -> None:
+        """Test `Optimizer.set_aux` using a mock Module."""
+        # Set up an Optimizer, a mock module and mock aux-var inputs.
+        module = mock.create_autospec(OptiModule, instance=True)
+        setattr(module, "aux_name", "mock-module")
+        optim = Optimizer(lr=0.001, modules=[module])
+        state = mock.MagicMock()
+        # Call 'set_aux' and assert that the information was passed.
+        optim.set_aux({"mock-module": state})
+        module.process_aux_var.assert_called_once_with(state)
 
     def test_set_aux_none(self) -> None:
         """Test `Optimizer.set_aux` when there are no aux-var to share."""
@@ -151,19 +160,6 @@ class TestOptimizer(unittest.TestCase):
         optim = Optimizer(lr=0.001)
         with self.assertRaises(FedbiomedOptimizerError):
             optim.set_aux({"missing": {}})
-
-    def test_set_aux_scaffold(self) -> None:
-        """Test `Optimizer.set_aux` when there are Scaffold aux-var to share."""
-        # Set up an Optimizer with a server-side Scaffold module.
-        optim = Optimizer(lr=0.001, modules=["scaffold-server"])
-        # Set up random-valued client-emitted Scaffold auxiliary variables.
-        state = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
-        aux = {"scaffold": {"client": {"state": state}}}
-        # Test that these can be input into the server-side Optimizer.
-        optim.set_aux(aux)
 
     def test_get_state_mock(self) -> None:
         """Test that `Optimizer.get_state` returns a dict and calls modules."""
