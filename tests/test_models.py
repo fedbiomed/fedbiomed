@@ -213,7 +213,7 @@ class TestSkLearnModel(unittest.TestCase):
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
                 
-        
+
 class TestSklearnClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
     model_args = {
@@ -332,7 +332,7 @@ class TestTorchModel(unittest.TestCase):
         output = self.model.model.forward(data)
 
         output = torch.squeeze(output, dim=1)
-        print("ouput",output)
+
         loss   = torch.nn.functional.nll_loss(torch.squeeze(output), targets)
         return loss
 
@@ -377,7 +377,7 @@ class TestTorchModel(unittest.TestCase):
         for (layer, wrapped_model_weight) in model_weights.items():
             self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
         # test case where model weigths is returned as a TorchVector
-        torchvector_model_weights = self.model.get_weights(TorchVector)
+        torchvector_model_weights = self.model.get_weights(return_type=TorchVector)
         
         for (layer, wrapped_model_weight) in torchvector_model_weights.coefs.items():
             self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))

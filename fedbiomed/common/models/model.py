@@ -75,7 +75,7 @@ class TorchModel(Model):
     - model: torch.nn.Module. Pytorch model wrapped.
     - init_params: OrderedDict. Model initial parameters. Set when calling `init_training`
     """
-    model: torch.nn.Module =  None
+    model: torch.nn.Module
     init_params: OrderedDict
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiate the wrapper over a torch Module instance."""
@@ -85,7 +85,8 @@ class TorchModel(Model):
         # initial aggregated model parameters
         #self.init_params = deepcopy(list(self.model().parameters()))
 
-    def get_gradients(self, return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Union[Dict[str, torch.Tensor],Any]:
+    def get_gradients(self,
+                      return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Union[Dict[str, torch.Tensor],Any]:
         """Returns a TorchVector wrapping the gradients attached to the model.
         
         Args:
@@ -102,20 +103,29 @@ class TorchModel(Model):
         gradients = {
             name: param.grad.detach()
             for name, param in self.model.named_parameters()
-            if param.requires_grad and param.grad is not None
+            if (param.requires_grad and param.grad is not None)
         }
+        
+        if len(gradients) < len(list(self.model.named_parameters())):
+            logger.warning("Warning: can not retrieve all gradients from the model. Are you sure you have "
+                           "trained the model beforehand?")
         if return_type is not None:
             gradients = return_type(gradients)
         return gradients
 
-    def get_weights(self, return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Any:
+    def get_weights(self,
+                    only_trainable: bool = False,
+                    return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Any:
         """Return a TorchVector wrapping the model's parameters.
         
         Args:
+            only_trainable (bool, optional): whether to gather weights only on trainable layers (ie
+                non frozen layers) or all layers (trainable and frozen). Defaults to False, (trainable and 
+                frozen ones) 
             return_type (Callable, optional): callable that loads weights into a 
-            data structure and outputs weights in this data structure. If not provided,
-            returns weights under a dictionary mapping model's layer names to theirs tensors. 
-            Defaults to None. 
+                data structure and outputs weights in this data structure. If not provided,
+                returns weights under a dictionary mapping model's layer names to theirs tensors. 
+                Defaults to None. 
         
         Returns:
             Model's weights in a dictionary mapping model's layer names to theirs tensors (if
@@ -125,6 +135,7 @@ class TorchModel(Model):
         parameters = {
             name: param.detach()
             for name, param in self.model.named_parameters()
+            if param.requires_grad or not only_trainable
         }
         if return_type is not None:
             parameters = return_type(parameters)
@@ -138,9 +149,9 @@ class TorchModel(Model):
                 param = self.model.get_parameter(name)
                 param.add_(update)
     
-    def apply_gradients(self, gradients: Union[TorchVector, Dict[str, torch.Tensor]]):
+    def add_corrections_to_gradients(self, corrections: Union[TorchVector, Dict[str, torch.Tensor]]):
         """Adds values to attached gradients in the model"""
-        iterator = self._get_iterator_model_params(gradients)
+        iterator = self._get_iterator_model_params(corrections)
 
         for name, update in iterator:
             param = self.model.get_parameter(name)
@@ -236,53 +247,6 @@ def capture_stdout() -> Iterator[List[str]]:
         sys.stdout = stdout
         output.extend(str_io.getvalue().splitlines())
 
-class SkLearnModel():
-    def __init__(self, model: BaseEstimator):
-        self._instance = Models[model.__name__](model())
-        
-     
-    def __getattr__(self, item: str):
-        """Wraps all functions/attributes of factory class members.
-
-        Args:
-             item: Requested item from class
-
-        Raises:
-            FedbiomedModelError: If the attribute is not implemented
-
-        """
-
-        try:
-            return self._instance.__getattribute__(item)
-        except AttributeError:
-            raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
-    
-    def __deepcopy__(self, memo):
-        """
-        
-        Usage:
-        >>> from sklearn.linear_model import SGDClassifier
-        >>> model = SkLearnModel(SGDClassifier)
-        >>> import copy
-        >>> model_copy = copy.deepcopy(model)
-
-        Args:
-            memo (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, deepcopy(v, memo))
-        return result
-    # @classmethod
-    # def load(cls, filename: str):
-    #     with open(filename, "rb") as file:
-    #         model = joblib.load(file)
-    #     return cls(model)   
 
 class BaseSkLearnModel(Model):
     """
@@ -310,10 +274,9 @@ class BaseSkLearnModel(Model):
     default_lr: str = 'constant'
     batch_size: int
     is_declearn_optim: bool
-    param_list: List[str] = NotImplemented
-    _gradients: Dict[str, np.ndarray] = NotImplemented
-
-    updates: Dict[str, np.ndarray] = NotImplemented  #replace `grads` from th poc
+    param_list: List[str]
+    _gradients: Dict[str, np.ndarray]
+    updates: Dict[str, np.ndarray]  #replace `grads` from th poc
     def __init__(
         self,
         model: BaseEstimator,
@@ -329,8 +292,10 @@ class BaseSkLearnModel(Model):
         #     raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
         # self.param_list = param_list
         self.batch_size: int = 0
-        self.is_declearn_optim = False  # TODO: to be changed when implementing declearn optimizers
-        
+        self.is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
+        self.param_list = NotImplemented
+        self._gradients = NotImplemented
+        self.updates = NotImplemented
         # FIXME: should we force model verbosity here?
         # if hasattr(model, "verbose"):
         #     self.verbose = True
@@ -380,18 +345,23 @@ class BaseSkLearnModel(Model):
         """
         weights = self._get_iterator_model_params(weights)
         for key, val in weights:
-            setattr(self.model, key, val)
+            setattr(self.model, key, val.copy() if isinstance(val, np.ndarray) else val)
         return self.model
 
     def get_weights(self, return_type: Callable = None) -> Any:
         """Returns model's parameters."""
         super().get_weights(return_type=return_type)
+        weights = {}
         if self.param_list is NotImplemented:
             raise FedbiomedModelError("`param_list` not defined. You should have initialized the model beforehand (try calling `set_init_params`)")
         try:
-            weights = {key: getattr(self.model, key) for key in self.param_list}
+             for key in self.param_list:
+                val = getattr(self.model, key)
+                weights[key] = val.copy() if isinstance(val, np.ndarray) else val
+
         except AttributeError as err:
             raise FedbiomedModelError(f"Unable to access weights of BaseEstimator model {self.model} (details {str(err)}")
+
         if return_type is not None:
             weights = return_type(weights)
         return weights
@@ -403,13 +373,21 @@ class BaseSkLearnModel(Model):
     def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
         updates = self._get_iterator_model_params(updates)
-        w = self.get_weights()
+        
         for key, val in updates:
-            setattr(self.model, key, val + w[key])
+            w = getattr(self.model, key)
+            setattr(self.model, key, val + w)
         self.model.n_iter_ += 1    
-        
-        
+
     def predict(self, inputs: np.ndarray) -> np.ndarray:
+        """Computes prediction given input data.
+
+        Args:
+            inputs (np.ndarray): input data
+
+        Returns:
+            np.ndarray: model predictions
+        """
         return self.model.predict(inputs)
     
     def train(self, inputs: np.ndarray, targets: np.ndarray, stdout: List[str] = None):
@@ -454,13 +432,17 @@ class BaseSkLearnModel(Model):
         """Gets computed gradients
 
         Args:
-            return_type (Callable, optional): _description_. Defaults to None.
+            return_type (Callable, optional):  callable that loads gradients into a 
+            data structure and outputs gradients in this data structure. If not provided,
+            returns gradient under a dictionary mapping model's layer names to theirs tensors. 
+            Defaults to None.
 
         Raises:
-            FedbiomedModelError: _description_
+            FedbiomedModelError: raised if gradients have not been computed yet (ie model has not been trained)
 
         Returns:
-            Any: _description_
+            Any: Gradients in a dictionary mapping model's layer names to theirs tensors (if
+            `return_type` argument is not provided) or in a data structure returned by `return_type`.
         """
         super().get_gradients(return_type=return_type)
         if self._gradients is NotImplemented:
@@ -535,18 +517,31 @@ class BaseSkLearnModel(Model):
         depend on the attribute used to set up these arbitrary arguments
         """
         pass
-    
+
+
 # TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
 # TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
 
-# ---- toolbox classes for getting learning rate and setting initial model parameters
-# ---- they implement either:
-# ---- + `set_init_params` method to initialise model weights to 0 and adds appriopriate attributes pointing to the model weigths
-# -----   and the `param_list` attribute
-# ---- + `get_learning_rate` and `set_learning_rate` methods that enable setting / retrieving learning rate related parameters
+
+class SGDSkLearnModel(BaseSkLearnModel):
+    def get_learning_rate(self) -> List[float]:
+        return [self.model.eta0]
+    
+    def set_learning_rate(self):
+        self.model.eta0 = self.default_lr_init
+        self.model.learning_rate = self.default_lr
+
+      
+class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
+    def get_learning_rate(self) -> List[float]:
+        return [self.model.learning_rate_init]
+    
+    def set_learning_rate(self):
+        self.model.learning_rate_init = self.default_lr_init
+        self.model.learning_rate = self.default_lr
 
 
-class RegressorSkLearnModel(BaseSkLearnModel):
+class SGDRegressorSKLearnModel(SGDSkLearnModel):
     """Toolbox class for Sklearn Regression models bsed on SGD
     """
     _is_classification: bool = False
@@ -562,7 +557,7 @@ class RegressorSkLearnModel(BaseSkLearnModel):
             setattr(self.model, key, val)
 
 
-class ClassifierSkLearnModel(BaseSkLearnModel):
+class SGDClassiferSKLearnModel(SGDSkLearnModel):
     """Toolbox class for Sklearn Classifier models based on SGD
     """
     _is_classification: bool = True
@@ -590,31 +585,49 @@ class ClassifierSkLearnModel(BaseSkLearnModel):
         # FIXME: this assumes target values are integers in range(n_classes).
         setattr(self.model, "classes_", np.arange(n_classes))
         
-
-class SGDSkLearnModel(BaseSkLearnModel):
-    def get_learning_rate(self) -> List[float]:
-        return [self.model.eta0]
-    
-    def set_learning_rate(self):
-        self.model.eta0 = self.default_lr_init
-        self.model.learning_rate = self.default_lr
-
-class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
-    def get_learning_rate(self) -> List[float]:
-        return [self.model.learning_rate_init]
-    
-    def set_learning_rate(self):
-        self.model.learning_rate_init = self.default_lr_init
-        self.model.learning_rate = self.default_lr
+ 
+class SkLearnModel():
+    def __init__(self, model: BaseEstimator):
+        self._instance = Models[model.__name__](model())
         
+     
+    def __getattr__(self, item: str):
+        """Wraps all functions/attributes of factory class members.
 
-# --------- Model objects with appropriate methods ----- 
-class SGDClassiferSKLearnModel(ClassifierSkLearnModel, SGDSkLearnModel):
-    pass 
+        Args:
+             item: Requested item from class
 
-class SGDRegressorSKLearnModel(RegressorSkLearnModel, SGDSkLearnModel):
-    pass
+        Raises:
+            FedbiomedModelError: If the attribute is not implemented
 
+        """
+
+        try:
+            return self._instance.__getattribute__(item)
+        except AttributeError:
+            raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
+    
+    def __deepcopy__(self, memo):
+        """
+        
+        Usage:
+        >>> from sklearn.linear_model import SGDClassifier
+        >>> model = SkLearnModel(SGDClassifier)
+        >>> import copy
+        >>> model_copy = copy.deepcopy(model)
+
+        Args:
+            memo (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
 
 Models = {
     SGDClassifier.__name__: SGDClassiferSKLearnModel ,
