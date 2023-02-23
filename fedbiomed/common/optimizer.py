@@ -73,6 +73,15 @@ class Optimizer:
                 " raised the following exception: {exc}"
             ) from exc
 
+    def init_round(self) -> None:
+        """Trigger start-of-training-round behavior of wrapped regularizers."""
+        try:
+            self._optimizer.start_round()
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'init_round': {exc}"
+            ) from exc
+
     def step(self, grads: Vector, weights: Vector) -> Vector:
         """Run an optimization step to compute and return model weight updates.
 

@@ -51,6 +51,21 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer(lr=1e-3, modules=[mock.MagicMock()])
 
+    def test_init_round(self) -> None:
+        """Test that 'Optimizer.init_round' works as expected."""
+        regul = mock.create_autospec(Regularizer, instance=True)
+        optim = Optimizer(lr=1e-3, regularizers=[regul])
+        optim.init_round()
+        regul.on_round_start.assert_called_once()
+
+    def test_init_round_fails(self) -> None:
+        """Test that 'Optimizer.init_round' exceptions are wrapped."""
+        regul = mock.create_autospec(Regularizer, instance=True)
+        regul.on_round_start.side_effect = RuntimeError
+        optim = Optimizer(lr=1e-3, regularizers=[regul])
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.init_round()
+
     def test_step(self) -> None:
         """Test that the `Optimizer.step` performs expected computations.
 
