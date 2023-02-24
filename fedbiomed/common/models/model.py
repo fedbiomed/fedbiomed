@@ -6,7 +6,7 @@ from copy import deepcopy
 from io import StringIO
 import joblib
 import sys
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Union, Iterator
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Iterator
 from contextlib import contextmanager
 
 import numpy as np
@@ -47,13 +47,13 @@ class Model:
     def set_weights(self, weights: Any):
         return
 
+    @abstractmethod
     def get_weights(self, return_type: Callable = None):
-        if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
-        
+        return
+
+    @abstractmethod
     def get_gradients(self, return_type: Callable = None):
-        if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
+        return
 
     @abstractmethod
     def update_weigths(self, weights: Any):
@@ -66,6 +66,23 @@ class Model:
     @abstractmethod
     def save(self, filename:str):
         return
+    
+    @staticmethod
+    def _validate_return_type(return_type: Optional[Callable] = None) -> None:
+        """Checks that `return_type` argument is either a callble or None.
+        Otherwise raises an error
+
+        Args:
+            return_type (Optional[Callable], optional): callable that will
+            be used to convetrt a dictionry into another data structure (e.g. a declearn
+            Vector). Defaults to None.
+
+        Raises:
+            FedbiomedModelError: raised if `return_type` argument is neither a callable nor `None`.
+        """
+        if not (return_type is None or callable(return_type)):
+            raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
+
 
 
 class TorchModel(Model):
@@ -99,9 +116,9 @@ class TorchModel(Model):
             Gradients in a dictionary mapping model's layer names to theirs tensors (if
             `return_type` argument is not provided) or in a data structure returned by `return_type`.
         """
-        super().get_gradients(return_type=return_type)
+        self._validate_return_type(return_type=return_type)
         gradients = {
-            name: param.grad.detach()
+            name: param.grad.detach().clone()
             for name, param in self.model.named_parameters()
             if (param.requires_grad and param.grad is not None)
         }
@@ -131,9 +148,9 @@ class TorchModel(Model):
             Model's weights in a dictionary mapping model's layer names to theirs tensors (if
             `return_type` argument is not provided) or in a data structure returned by `return_type` Callable.
         """
-        super().get_weights(return_type=return_type)
+        self._validate_return_type(return_type=return_type)
         parameters = {
-            name: param.detach()
+            name: param.detach().clone()
             for name, param in self.model.named_parameters()
             if param.requires_grad or not only_trainable
         }
@@ -259,7 +276,7 @@ class BaseSkLearnModel(Model):
         for computing gradients. Set with `set_learning_rate` setter
     - default_lr: str. Default value for setting learning rate schedule to the scikit learn model. Needed for computing 
         gradients. Set with `set_learning_rate` setter
-    - batch_size: int. Internal counter that measures size of the batch.
+    - _batch_size: int. Internal counter that measures size of the batch.
     - is_declearn_optim: bool. Switch that allows the use of declearn's optimizers
     - param_list: List[str]. List that contains layer attributes. Should be set when calling `set_init_params` method
     - updates: Dict[str, np.ndarray]. Contains model updates after a training. Set up when calling `init_training`
@@ -272,7 +289,7 @@ class BaseSkLearnModel(Model):
     model: BaseEstimator
     default_lr_init: float = .1
     default_lr: str = 'constant'
-    batch_size: int
+    _batch_size: int
     is_declearn_optim: bool
     param_list: List[str]
     _gradients: Dict[str, np.ndarray]
@@ -291,7 +308,7 @@ class BaseSkLearnModel(Model):
         # if len(param_list) == 0:
         #     raise FedbiomedModelError("Argument param_list can not be empty, but should contain model's layer names (as strings)")
         # self.param_list = param_list
-        self.batch_size: int = 0
+        self._batch_size: int = 0
         self.is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
         self.param_list = NotImplemented
         self._gradients = NotImplemented
@@ -308,7 +325,7 @@ class BaseSkLearnModel(Model):
         Attributes set:
          - param: initial parameters of the model
          - updates: attribute used to store model updates. Initially, it is arrays of zeros
-         - batch_size: internal counter that measure the batch_size, with respect to the data
+         - _batch_size: internal counter that measure the batch_size, with respect to the data
             used for training model
 
         Raises:
@@ -319,11 +336,10 @@ class BaseSkLearnModel(Model):
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}  # call it `param_init` so to be consistent with SklearnModel
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
-        self.batch_size = 0 
+        self._batch_size = 0 
         
-        if self.is_declearn_optim:
-            # set a constant learning rate, that will be used to extract gradient
-            self.set_learning_rate()
+        # if self.is_declearn_optim:
+        #     self.disable_internal_optimizer()
         
     def _get_iterator_model_params(self, model_params) -> Iterable[Tuple[str, np.ndarray]]:
         if isinstance(model_params, NumpyVector):
@@ -348,9 +364,9 @@ class BaseSkLearnModel(Model):
             setattr(self.model, key, val.copy() if isinstance(val, np.ndarray) else val)
         return self.model
 
-    def get_weights(self, return_type: Callable = None) -> Any:
+    def get_weights(self, return_type: Callable[[Dict[str, np.ndarray]], Any] = None) -> Any:
         """Returns model's parameters."""
-        super().get_weights(return_type=return_type)
+        self._validate_return_type(return_type=return_type)
         weights = {}
         if self.param_list is NotImplemented:
             raise FedbiomedModelError("`param_list` not defined. You should have initialized the model beforehand (try calling `set_init_params`)")
@@ -366,9 +382,9 @@ class BaseSkLearnModel(Model):
             weights = return_type(weights)
         return weights
 
-    def set_declearn_optim_switch(self, is_declearn_optim: bool):
-        self.is_declearn_optim = is_declearn_optim
-        return self.is_declearn_optim
+    # def set_declearn_optim_switch(self, is_declearn_optim: bool):
+    #     self.is_declearn_optim = is_declearn_optim
+    #     return self.is_declearn_optim
 
     def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters."""
@@ -404,31 +420,36 @@ class BaseSkLearnModel(Model):
         """
         if self.updates is NotImplemented:
             raise FedbiomedModelError("Training has not been initialized: please run `init_training` method beforehand")
-        self.batch_size = 0
+        self._batch_size: int = 0  # batch size counter
+        
+        # Iterate over the batch; accumulate sample-wise gradients (and loss).
         for idx in range(inputs.shape[0]):
+            # Compute updated weights based on the sample. Capture loss prints.
             with capture_stdout() as console:
-                self.model.partial_fit(inputs[idx:idx+1], targets[idx].reshape(1))
+                self.model.partial_fit(inputs[idx:idx+1], targets[idx])
             if stdout is not None:
                 stdout.append(console)
             for key in self.param_list:
-                # cumul grad
+                # Accumulate updated weights (weights + sum of gradients).
+                # Reset the model's weights and iteration counter.
                 self.updates[key] += getattr(self.model, key)
                 setattr(self.model, key, self.param[key])  #resetting parameter to initial values
             
             self.model.n_iter_ -= 1
-            self.batch_size +=1
+            self._batch_size +=1
         
         # compute gradients
         w = self.get_weights()
         self._gradients: Dict[str, np.ndarray] = {}
         if self.is_declearn_optim:
-            adjust = self.batch_size * self.get_learning_rate()[0]
+            adjust = self._batch_size * self.get_learning_rate()[0]
             
             for key in self.param_list:
                 self._gradients[key] = ( w[key] * (1 - adjust) - self.updates[key]) / adjust
         else:
+             # Compute the batch-averaged updated weights and apply them.
             for key in self.param_list:
-                self._gradients[key] = self.updates[key] / self.batch_size - w[key]
+                self._gradients[key] = self.updates[key] / self._batch_size - w[key]
         self.model.n_iter_ += 1  
 
     def get_gradients(self, return_type: Callable = None) -> Any:
@@ -447,7 +468,7 @@ class BaseSkLearnModel(Model):
             Any: Gradients in a dictionary mapping model's layer names to theirs tensors (if
             `return_type` argument is not provided) or in a data structure returned by `return_type`.
         """
-        super().get_gradients(return_type=return_type)
+        self._validate_return_type(return_type=return_type)
         if self._gradients is NotImplemented:
             raise FedbiomedModelError("Error, cannot get gradients if model hasnot been trained beforehand!")
 
@@ -490,6 +511,7 @@ class BaseSkLearnModel(Model):
         return params
 
     def load(self, filename: str):
+        # FIXME: Security issue using pickles!
         with open(filename, "rb") as file:
             model = joblib.load(file)
         self.model = model
@@ -502,24 +524,26 @@ class BaseSkLearnModel(Model):
     @abstractmethod
     def set_init_params(self):
         """Zeroes scikit learn model parameters. Should be used before any training,
-        as it sets the scikit learn model parameters and makes them accessible.
-        Mode parameters will depend on the scikit learn model
+        as it sets the scikit learn model parameters and makes them accessible through the
+        use of attributes.
+        Model parameter attribute names will depend on the scikit learn model wrapped.
         """
-        pass
+        return
     
     @abstractmethod
     def get_learning_rate(self) -> List[float]:
         """Retrieves learning rate of the model. Method implementation will
         depend on the attribute used to set up these arbitrary arguments"""
-        pass
+        return
     
     @abstractmethod
-    def set_learning_rate(self):
-        """Sets arbitrary learning rate parameters to the scikit learn model, 
-        in order to then compute its gradients. Method implementation will
-        depend on the attribute used to set up these arbitrary arguments
+    def disable_internal_optimizer(self):
+        """Disables scikit learn internal optimizer by setting arbitrary learning rate
+        parameters to the scikit learn model, in order to then compute its gradients.
+        ''' warning "Call it only if using 
+        Method implementation will depend on the attribute used to set up these arbitrary arguments.
         """
-        pass
+        return
 
 
 # TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
@@ -530,18 +554,20 @@ class SGDSkLearnModel(BaseSkLearnModel):
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
     
-    def set_learning_rate(self):
+    def disable_internal_optimizer(self):
         self.model.eta0 = self.default_lr_init
         self.model.learning_rate = self.default_lr
+        self.is_declearn_optim = True
 
       
 class MLPSklearnModel(BaseSkLearnModel):  # just for sake of demo
     def get_learning_rate(self) -> List[float]:
         return [self.model.learning_rate_init]
     
-    def set_learning_rate(self):
+    def disable_internal_optimizer(self):
         self.model.learning_rate_init = self.default_lr_init
         self.model.learning_rate = self.default_lr
+        self.is_declearn_optim = True
 
 
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
@@ -602,7 +628,6 @@ class SkLearnModel():
 
         Raises:
             FedbiomedModelError: If the attribute is not implemented
-
         """
 
         try:
@@ -612,7 +637,8 @@ class SkLearnModel():
     
     def __deepcopy__(self, memo):
         """
-        
+        Provides a deepcopy of the object. Copied object will have no shared references with the original model.
+
         Usage:
         >>> from sklearn.linear_model import SGDClassifier
         >>> model = SkLearnModel(SGDClassifier)

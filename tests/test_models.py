@@ -141,11 +141,11 @@ class TestSkLearnModel(unittest.TestCase):
             self.sgdclass_model.set_init_params(model_args)
             self.assertListEqual(sorted(self.sgdclass_model.param_list), sorted(['coef_', 'intercept_']))
             
-        self.assertEqual(self.sgdclass_model.batch_size, 0)
+        self.assertEqual(self.sgdclass_model._batch_size, 0)
             
     def test_sklearmmodel_04_sklearn_training_01_plain_sklearn(self):
-        # FIXME: this is an more an integration test, but I feel like it is quite useful
-        # to test the correct execution of the training
+        # FIXME: this is an more an integration test, but I feel it is quite useful
+        # to test the correct execution of the whole training process
         n_values = 100  # data size
         
         for model in self.models:
@@ -158,22 +158,21 @@ class TestSkLearnModel(unittest.TestCase):
                 for _n_classes in self.n_classes:
                     
                     if model._is_classification:
-                        targets = np.random.randint(0, _n_classes, n_values)
+                        targets = np.random.randint(0, _n_classes,(n_values, 1))
                     
                     else:
-                        targets = np.random.randn(n_values)
-                
+                        targets = np.random.randn( n_values, 1)
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
                     model.init_training()
                     init_model = copy.deepcopy(model)
-                    for idx in range(n_values):
-                        model.train(data, targets)
+                    #for idx in range(n_values):
+                    model.train(data, targets)
                     grads = model.get_gradients()
                     model.apply_updates(grads)
                     
                     # checks
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model.batch_size, n_values)
+                    self.assertEqual(model._batch_size, n_values)
                     for layer in model.param_list:
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
@@ -189,10 +188,10 @@ class TestSkLearnModel(unittest.TestCase):
                 for _n_classes in self.n_classes:
                     
                     if model._is_classification:
-                        targets = np.random.randint(0, _n_classes, n_values)
+                        targets = np.random.randint(0, _n_classes, (n_values, 1))
                     
                     else:
-                        targets = np.random.randn(n_values)
+                        targets = np.random.randn(n_values, 1)
                     
                     model.is_declearn_optim = True  # FIXME: change me when merging Optimizer abstraction
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
@@ -207,7 +206,7 @@ class TestSkLearnModel(unittest.TestCase):
                     # checks
                     self.assertTrue(model.is_declearn_optim)
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model.batch_size, n_values)
+                    self.assertEqual(model._batch_size, n_values)
                     self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
                     for layer in model.param_list:
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
@@ -275,7 +274,7 @@ class TestSklearnClassification(unittest.TestCase):
                 def __init__(self, *args, **kwargs):
                     pass
                 def __enter__(self):
-                    return value
+                    return next(value)
                 def __exit__(self, type, value, traceback):
                     pass
             return MockContextManager()
@@ -288,17 +287,16 @@ class TestSklearnClassification(unittest.TestCase):
             sk_model.set_init_params({'n_classes': 3, 'n_features': 2})
 
             sk_model.init_training()
-            actual_losses_stdout = [
-                    ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
-                    ['loss: 0.0', 'loss: 1.0', 'epoch', 'loss: 0.0'],
-            ]
+            actual_losses_stdout = ['loss: 1.0', 'loss: 0.0', 'loss: 2.0']
             
+            
+            iterator = iter(actual_losses_stdout)
             inputs = np.array([[1, 2], [1, 1],[0, 1]])
-            target = np.array([0, 2, 1])
+            target = np.array([[0], [2], [1]])
             
             
             context_manager_patcher = patch('fedbiomed.common.models.model.capture_stdout',
-                                            return_value=fake_context_manager(actual_losses_stdout))
+                                            return_value=fake_context_manager(iterator))
             
             collected_losses_stdout = []
             context_manager_patcher.start()
@@ -306,12 +304,10 @@ class TestSklearnClassification(unittest.TestCase):
             context_manager_patcher.stop()
 
             
-            self.assertListEqual(collected_losses_stdout, [actual_losses_stdout])
+            self.assertListEqual(collected_losses_stdout, actual_losses_stdout)
 
 
 
-class TestSkLearnToolboxClasses(unittest.TestCase):
-    pass
 
 class TestTorchModel(unittest.TestCase):
     def setUp(self):
