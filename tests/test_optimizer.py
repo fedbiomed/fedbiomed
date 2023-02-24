@@ -242,3 +242,7 @@ class TestOptimizer(unittest.TestCase):
         """Test that `Optimizer.load_state` exceptions are wrapped."""
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer.load_state({})
+
+
+if __name__ == '__main__':  # pragma: no cover
+    unittest.main()
