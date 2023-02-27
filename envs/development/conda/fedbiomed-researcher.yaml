@@ -11,7 +11,7 @@ channels:
 dependencies:
   # minimal environment
   - python >=3.9,<3.10
-  - pip
+  - pip >=23.0.1
   - jupyter
   - ipython
   # tests
