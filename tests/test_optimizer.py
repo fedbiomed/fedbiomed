@@ -21,7 +21,7 @@ from fedbiomed.common.optimizer import Optimizer
 class TestOptimizer(unittest.TestCase):
     """Unit tests for the declearn-interfacing Optimizer class."""
 
-    def test_init(self) -> None:
+    def test_optimizer_01_init(self) -> None:
         """Test that Optimizer instantiation works as expected.
 
         Note: additional syntaxes to pass actual modules or regularizers
@@ -43,7 +43,7 @@ class TestOptimizer(unittest.TestCase):
         self.assertEqual(d_opt.modules, modules)
         self.assertEqual(d_opt.regularizers, regularizers)
 
-    def test_init_fails(self) -> None:
+    def test_optimizer_02_init_fails(self) -> None:
         """Test that Optimizer instantiation errors are caught and wrapped."""
         # This would cause a KeyError in declearn (unregistered module name).
         with self.assertRaises(FedbiomedOptimizerError):
@@ -52,14 +52,14 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer(lr=1e-3, modules=[mock.MagicMock()])
 
-    def test_init_round(self) -> None:
+    def test_optimizer_03_init_round(self) -> None:
         """Test that `Optimizer.init_round` works as expected."""
         regul = mock.create_autospec(Regularizer, instance=True)
         optim = Optimizer(lr=1e-3, regularizers=[regul])
         optim.init_round()
         regul.on_round_start.assert_called_once()
 
-    def test_init_round_fails(self) -> None:
+    def test_optimizer_04_init_round_fails(self) -> None:
         """Test that `Optimizer.init_round` exceptions are wrapped."""
         regul = mock.create_autospec(Regularizer, instance=True)
         regul.on_round_start.side_effect = RuntimeError
@@ -67,7 +67,7 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             optim.init_round()
 
-    def test_step(self) -> None:
+    def test_optimizer_05_step(self) -> None:
         """Test that the `Optimizer.step` performs expected computations.
 
         Note: this code is mostly redundant with that of the declearn unit
@@ -111,13 +111,13 @@ class TestOptimizer(unittest.TestCase):
         # Check that the outputs match the expected ones.
         self.assertIs(updates, output.__isub__.return_value)
 
-    def test_step_fails(self) -> None:
+    def test_optimizer_06_step_fails(self) -> None:
         """Test that the `Optimizer.step` exceptions are properly wrapped."""
         optim = Optimizer(lr=0.001)
         with self.assertRaises(FedbiomedOptimizerError):
             optim.step(grads=None, weights=None)
 
-    def test_get_aux(self) -> None:
+    def test_optimizer_07_get_aux(self) -> None:
         """Test `Optimizer.set_aux` using a mock Module."""
         # Set up an Optimizer, and mock modules, one of which emits aux vars.
         mockaux = mock.MagicMock()
@@ -134,12 +134,12 @@ class TestOptimizer(unittest.TestCase):
         mod_aux.collect_aux_var.assert_called_once()
         mod_nox.collect_aux_var.assert_called_once()
 
-    def test_get_aux_none(self) -> None:
+    def test_optimizer_08_get_aux_none(self) -> None:
         """Test `Optimizer.get_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
         self.assertDictEqual(optim.get_aux(), {})
 
-    def test_get_aux_fails(self) -> None:
+    def test_optimizer_09_get_aux_fails(self) -> None:
         """Test that `Optimizer.get_aux` exceptions are wrapped."""
         module = mock.create_autospec(OptiModule, instance=True)
         module.collect_aux_var.side_effect = RuntimeError
@@ -147,7 +147,7 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             optim.get_aux()
 
-    def test_set_aux(self) -> None:
+    def test_optimizer_10_set_aux(self) -> None:
         """Test `Optimizer.set_aux` using a mock Module."""
         # Set up an Optimizer, a mock module and mock aux-var inputs.
         module = mock.create_autospec(OptiModule, instance=True)
@@ -158,18 +158,18 @@ class TestOptimizer(unittest.TestCase):
         optim.set_aux({"mock-module": state})
         module.process_aux_var.assert_called_once_with(state)
 
-    def test_set_aux_none(self) -> None:
+    def test_optimizer_11_set_aux_none(self) -> None:
         """Test `Optimizer.set_aux` when there are no aux-var to share."""
         optim = Optimizer(lr=0.001)
         self.assertIsNone(optim.set_aux({}))
 
-    def test_set_aux_fails(self) -> None:
+    def test_optimizer_12_set_aux_fails(self) -> None:
         """Test `Optimizer.set_aux` exception-catching."""
         optim = Optimizer(lr=0.001)
         with self.assertRaises(FedbiomedOptimizerError):
             optim.set_aux({"missing": {}})
 
-    def test_get_state_mock(self) -> None:
+    def test_optimizer_13_get_state_mock(self) -> None:
         """Test that `Optimizer.get_state` returns a dict and calls modules."""
         module = mock.create_autospec(OptiModule, instance=True)
         optim = Optimizer(lr=0.001, modules=[module])
@@ -178,7 +178,7 @@ class TestOptimizer(unittest.TestCase):
         module.get_config.assert_called_once()
         module.get_state.assert_called_once()
 
-    def test_get_state_fails(self) -> None:
+    def test_optimizer_14_get_state_fails(self) -> None:
         """Test that `Optimizer.get_state` exceptions are wrapped."""
         module = mock.create_autospec(OptiModule, instance=True)
         module.get_state.side_effect = RuntimeError
@@ -186,7 +186,7 @@ class TestOptimizer(unittest.TestCase):
         with self.assertRaises(FedbiomedOptimizerError):
             optim.get_state()
 
-    def test_get_state(self) -> None:
+    def test_optimizer_15_get_state(self) -> None:
         """Test that `Optimizer.get_state` is declearn-JSON-serializable.
 
         Use a practical case to test so, with an Adam module and a FedProx
@@ -211,7 +211,7 @@ class TestOptimizer(unittest.TestCase):
         self.assertIsInstance(sload, dict)
         self.assertEqual(sload.keys(), state.keys())
 
-    def test_load_state(self) -> None:
+    def test_optimizer_16_load_state(self) -> None:
         """Test that `Optimizer.load_state` works properly.
 
         Use a practical case to test so, with an Adam module and a FedProx
@@ -238,7 +238,7 @@ class TestOptimizer(unittest.TestCase):
         upd_b = opt_b.step(grads, weights)
         self.assertEqual(upd_a, upd_b)
 
-    def test_load_state_fails(self) -> None:
+    def test_optimizer_17_load_state_fails(self) -> None:
         """Test that `Optimizer.load_state` exceptions are wrapped."""
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer.load_state({})
