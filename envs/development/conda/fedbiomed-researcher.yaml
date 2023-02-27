@@ -29,6 +29,7 @@ dependencies:
   - paho-mqtt >=1.5.1,<2.0.0
   - validators >=0.18.2,<0.19.0
   - tqdm >=4.59.0,<5.0.0
+  - pyopenssl==22.0.0
   - git
   # git notebook striper
   - nbstripout
