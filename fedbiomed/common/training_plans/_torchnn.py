@@ -683,7 +683,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         if vector:
             params = torch.nn.utils.parameters_to_vector(self._model.parameters()).tolist()
-            print(len(params))
         return params
 
     def convert_vector_to_parameters(self, vec: List[float]):
