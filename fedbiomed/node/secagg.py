@@ -94,7 +94,7 @@ class BaseSecaggSetup(ABC):
         self._parties = parties
         self._element = None
 
-        # one controller per 
+        # one controller per secagg object to prevent any file conflict
         self._MPC = MPCController(
             tmp_dir=environ["TMP_DIR"],
             component_type=ComponentType.NODE,

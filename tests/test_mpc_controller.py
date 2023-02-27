@@ -1,5 +1,6 @@
 import shutil
 import unittest
+import os
 
 import tempfile
 import fedbiomed.common.mpc_controller
@@ -29,8 +30,8 @@ class TestMPCController(unittest.TestCase):
     def test_mpc_controller_01_init_getters(self):
         """Test instantiation and getters"""
 
-        self.assertTrue("modules/MP-SPDZ/Player-Data" in self.mpc_controller.mpc_data_dir)
-        self.assertTrue("node-1" in self.mpc_controller.tmp_dir)
+        self.assertTrue(os.path.isdir(self.mpc_controller.mpc_data_dir))
+        self.assertTrue(os.path.isdir(self.mpc_controller.tmp_dir))
 
     def test_mpc_controller_02_exec(self):
         """Tests exec method to execute commands"""
