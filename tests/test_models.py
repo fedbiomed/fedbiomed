@@ -399,7 +399,7 @@ class TestSkLearnRegressorModel(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_model_sklearnregressor_01_disable_intenrla_optimizer(self):
+    def test_model_sklearnregressor_01_disable_intenral_optimizer(self):
         model = SkLearnModel(SGDRegressor)
         
         model.disable_internal_optimizer()
@@ -583,7 +583,6 @@ class TestTorchModel(unittest.TestCase):
         for (layer, w), w_init in zip(declearn_optimized_model_weights.items(), self.model.init_params):
             self.assertFalse(torch.all(torch.isclose(w, w_init)))
 
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
-
-# Test init params

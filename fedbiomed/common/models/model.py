@@ -6,7 +6,7 @@ from copy import deepcopy
 from io import StringIO
 import joblib
 import sys
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Iterator
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
 import numpy as np
@@ -29,90 +29,71 @@ class Model(metaclass=ABCMeta):
     
     @abstractmethod
     def init_training(self):
-        """_summary_
-
-        Raises:
-            FedbiomedModelError: _description_
+        """Initializes parameters before model training
         """
     @abstractmethod
-    def train(self, inputs: Any, targets: Any, loss_func: Callable = None) -> Any:
-        """_summary_
+    def train(self, inputs: Any, targets: Any, *args, **kwargs):
+        """Trains model given inputs and targets data
 
+        !!! warning "Pease run `init_training` method before running `train` method, so to initialize parameters needed for model training"
+
+        !!! warning "This function may not update weights. You may need to call `apply_updates` to apply updates to the model"
+        
         Args:
-            inputs (Any): _description_
-            targets (Any): _description_
-            loss_func (Callable, optional): _description_. Defaults to None.
-
-        Raises:
-            FedbiomedModelError: _description_
-
-        Returns:
-            Any: _description_
+            inputs (Any): input (training) data.
+            targets (Any): target values.
         """
     @abstractmethod
     def predict(self, inputs: Any) -> Any:
-        """_summary_
+        """Returns model predictions given input values
 
         Args:
-            inputs (Any): _description_
-
-        Raises:
-            FedbiomedModelError: _description_
+            inputs (Any): input values.
 
         Returns:
-            Any: _description_
+            Any: predictions.
         """
+
     @abstractmethod
-    def load(self, path_file:str):
-        """_summary_
+    def apply_updates(self, updates: Any):
+        """Applies updates to the model.
 
         Args:
-            path_file (str): _description_
-
-        Raises:
-            FedbiomedModelError: _description_
+            updates (Any): model updates.
         """
-
     @abstractmethod
-    def get_weights(self, return_type: Callable = None):
-        """_summary_
+    def get_weights(self, return_type: Callable = None) -> Any:
+        """Returns weights of the model.
+
+        Args:
+            return_type (Callable, optional): Function that converts the dictionary mapping
+            layers to model weights into another data structure. `return_type` should be used
+            mainly with `declearn`'s `Vector`s. Defaults to None.
+
+        Returns:
+            Any: model's weights.
+        """
+    @abstractmethod
+    def get_gradients(self, return_type: Callable = None) -> Any:
+        """Returns computed gradients after training a model
 
         Args:
             return_type (Callable, optional): _description_. Defaults to None.
-
-        Raises:
-            FedbiomedModelError: _description_
-        """
-    @abstractmethod
-    def get_gradients(self, return_type: Callable = None):
-        """_summary_
-
-        Args:
-            return_type (Callable, optional): _description_. Defaults to None.
-
-        Raises:
-            FedbiomedModelError: _description_
         """
 
     @abstractmethod
-    def load(self, filename:str):
-        """_summary_
+    def load(self, filename: str):
+        """Loads model from a file.
 
         Args:
-            filename (str): _description_
-
-        Raises:
-            FedbiomedModelError: _description_
+            path_file (str): path towards the file where the model has been saved.
         """
     @abstractmethod
-    def save(self, filename:str):
-        """_summary_
+    def save(self, filename: str):
+        """Saves model into a file.
 
         Args:
-            filename (str): _description_
-
-        Raises:
-            FedbiomedModelError: _description_
+            filename (str): path to the file, where will be savded the model.
         """
     @staticmethod
     def _validate_return_type(return_type: Optional[Callable] = None) -> None:
@@ -142,7 +123,7 @@ class TorchModel(Model):
     model: torch.nn.Module
     init_params: OrderedDict
     def __init__(self, model: torch.nn.Module) -> None:
-        """Instantiate the wrapper over a torch Module instance."""
+        """Instantiates the wrapper over a torch Module instance."""
         # if not isinstance(model, torch.nn.Module):
         #     raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
         self.model = model
@@ -190,7 +171,7 @@ class TorchModel(Model):
                 Defaults to None. 
         
         Returns:
-            Model's weights in a dictionary mapping model's layer names to theirs tensors (if
+            Model's weights in a dictionary mapping model's layer names to theirs tensors (I am going to change thatif
             `return_type` argument is not provided) or in a data structure returned by `return_type` Callable.
         """
         self._validate_return_type(return_type=return_type)
@@ -204,7 +185,12 @@ class TorchModel(Model):
         return parameters
 
     def apply_updates(self, updates: Union[TorchVector, OrderedDict]) -> None:
-        """Apply incoming updates to the wrapped model's parameters."""
+        """Apply incoming updates to the wrapped model's parameters.
+        
+        Args:
+            updates (Union[TorchVector, OrderedDict]): model updates to be added to the model.
+        
+        """
         iterator = self._get_iterator_model_params(updates)
         with torch.no_grad():
             for name, update in iterator:
@@ -219,12 +205,12 @@ class TorchModel(Model):
             param = self.model.get_parameter(name)
             param.grad.add_(update.to(param.grad.device))
 
-    def _get_iterator_model_params(self, model_params) -> Iterable[Tuple[str, torch.Tensor]]:
+    def _get_iterator_model_params(self, model_params: Union[Dict[str, torch.Tensor], TorchVector]) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a 
         dictionary or a declearn's TorchVector
 
         Args:
-            model_params (_type_): model parameters
+            model_params (Union[Dict[str, torch.Tensor], TorchVector]): model parameters
 
         Raises:
             FedbiomedModelError: raised if argument `model_params` type is neither
@@ -257,12 +243,16 @@ class TorchModel(Model):
         return pred.cpu().numpy()
     
     def send_to_device(self, device: torch.device):
-        """sends model to device"""
+        """Sends model to device
+        
+        Args:
+            device (torch.device): device set for using GPU or CPU.
+        """
         return self.model.to(device)
-    
 
     def init_training(self):
-        """Initializes and Sets attributes before model training.
+        """Initializes and sets attributes before model training.
+
         Initialized attributes:
         - init_params: copy of the initial parameters of the model
         
@@ -383,7 +373,20 @@ class BaseSkLearnModel(Model):
         # if self.is_declearn_optim:
         #     self.disable_internal_optimizer()
         
-    def _get_iterator_model_params(self, model_params) -> Iterable[Tuple[str, np.ndarray]]:
+    def _get_iterator_model_params(self, model_params: Union[Dict[str, np.ndarray], NumpyVector]) -> Iterable[Tuple[str, np.ndarray]]:
+        """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
+
+        Args:
+            model_params (Union[Dict[str, np.ndarray], NumyVector]): model parameters
+
+        Raises:
+            FedbiomedModelError: raised if argument `model_params` type is neither
+            a NumpyVector nor a dictionary
+
+        Returns:
+            Iterable[Tuple]: iterbale containing model parameters, that returns a mapping of model's layer names (actually model's
+            name attributes corresponding to layer) and its value.
+        """
         if isinstance(model_params, NumpyVector):
             return model_params.coefs.items()
         elif isinstance(model_params, dict):
@@ -392,7 +395,7 @@ class BaseSkLearnModel(Model):
             raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
 
     def set_weights(self, weights: Union[Dict[str, np.ndarray], NumpyVector]) -> BaseEstimator:
-        """Sets model weights
+        """Sets model weights.
 
         Args:
             weights (Dict[str, np.ndarray]): model weights contained in a dictionary mapping layers names
@@ -488,7 +491,10 @@ class BaseSkLearnModel(Model):
              # Compute the batch-averaged updated weights and apply them.
             for key in self.param_list:
                 self._gradients[key] = self.updates[key] / self._batch_size - w[key]
-        self.model.n_iter_ += 1  
+        self.model.n_iter_ += 1
+        
+        # resetting updates
+        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
 
     def get_gradients(self, return_type: Callable[[Dict[str, np.ndarray]], Any] = None) -> Any:
         """Gets computed gradients
@@ -560,23 +566,32 @@ class BaseSkLearnModel(Model):
 
 # ---- abstraction for sklearn models
     @abstractmethod
-    def set_init_params(self):
+    def set_init_params(self, model_args: Dict, *args, **kwargs):
         """Zeroes scikit learn model parameters. Should be used before any training,
         as it sets the scikit learn model parameters and makes them accessible through the
         use of attributes.
         Model parameter attribute names will depend on the scikit learn model wrapped.
+        
+        Args: 
+            model_args(Dict): dictionary that contains specifications for setting inital model
+            parameters.
         """
     
     @abstractmethod
     def get_learning_rate(self) -> List[float]:
         """Retrieves learning rate of the model. Method implementation will
-        depend on the attribute used to set up these arbitrary arguments"""
+        depend on the attribute used to set up these arbitrary arguments
+        
+        Returns:
+            List[float]: intial learning rate value(s); a single value if only on learning rate has been used, and
+                     a list of several learning rates, one for each layer of the model.
+        """
     
     @abstractmethod
     def disable_internal_optimizer(self):
         """Disables scikit learn internal optimizer by setting arbitrary learning rate
         parameters to the scikit learn model, in order to then compute its gradients.
-        ''' warning "Call it only if using 
+        ''' warning "Call it only if using `declearn` optimizers"
         Method implementation will depend on the attribute used to set up these arbitrary arguments.
         """
 
@@ -651,14 +666,42 @@ class SGDClassiferSKLearnModel(SGDSkLearnModel):
         
  
 class SkLearnModel():
-    def __init__(self, model: BaseEstimator):
+    _instance: BaseSkLearnModel
+    """Sklearn model builder. It wrapps one of Fed-BioMed `BaseSkLearnModel` object children, 
+    by passing a [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html]
+    object to the constructor, as shown below.
+    
+    Usage:
+    >>> from sklearn.linear_model import SGDClassifier
+    >>> model = SkLearnModel(SGDClassifier)
+    >>> model.set_weights(some_weights)  
+    >>> type(model.model)
+    <class 'sklearn.linear_model._stochastic_gradient.SGDClassifier'>
+    
+    Attributes:
+        _instance (BaseSkLearnModel): instance of BaseSkLearnModel
+    """
+    def __init__(self, model: Type[BaseEstimator]):
+        """Constructor of the builder.
+
+        Args:
+            model (Type[BaseEstimator]): non-initalized `BaseEstimator` object
+            
+        Raises:
+            FedBiomedModelError: raised if model does not belong to the implemented models.
+            FedBiomedModelError: raised if `__name__` attribute does not belong to object. This may happen
+                                when passing an instantiated object instead of the class object (eg instance of
+                                SGDClassifier() instead of SGDClassifier object) 
+
+        """
         if hasattr(model, '__name__'):
             try:
                 self._instance = Models[model.__name__](model())
             except KeyError as ke:
                 raise FedbiomedModelError(f"Error when building SkLearn Model: {model} has not been implemented in Fed-BioMed. Details: {ke}") from ke
         else:
-            raise FedbiomedModelError(f"cannot build SkLearn Model: Model {model} don't have a `__name__` attribute")
+            raise FedbiomedModelError(f"cannot build SkLearn Model: Model {model} don't have a `__name__` attribute. Are yousure you have not passed a"
+                                      " sklearn object instance instead of the object class")
      
     def __getattr__(self, item: str):
         """Wraps all functions/attributes of factory class members.
@@ -675,10 +718,11 @@ class SkLearnModel():
         except AttributeError:
             raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
     
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo) -> 'SkLearnModel':
         """
         Provides a deepcopy of the object. Copied object will have no shared references with the original model.
-
+        !!!  warning "to be used with the `copy` built-in package of Python"
+        
         Usage:
         >>> from sklearn.linear_model import SGDClassifier
         >>> model = SkLearnModel(SGDClassifier)
@@ -686,10 +730,10 @@ class SkLearnModel():
         >>> model_copy = copy.deepcopy(model)
 
         Args:
-            memo (dictionary): _description_
+            memo (dict): dictionary fo completing new 
 
         Returns:
-            _type_: _description_
+            SkLearnMode: deep copied object.
         """
         cls = self.__class__
         result = cls.__new__(cls)
