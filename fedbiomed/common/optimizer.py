@@ -58,8 +58,6 @@ class Optimizer:
                 Decoupled Weight Decay Regularization.
                 https://arxiv.org/abs/1711.05101
         """
-        self._lr = lr
-        self._decay = decay
         try:
             self._optimizer = DeclearnOptimizer(
                 lrate=lr,
@@ -71,6 +69,15 @@ class Optimizer:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: declearn Optimizer instantiation"
                 " raised the following exception: {exc}"
+            ) from exc
+
+    def init_round(self) -> None:
+        """Trigger start-of-training-round behavior of wrapped regularizers."""
+        try:
+            self._optimizer.start_round()
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'init_round': {exc}"
             ) from exc
 
     def step(self, grads: Vector, weights: Vector) -> Vector:
@@ -98,20 +105,25 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
-        # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
-        # Add loss-regularization terms' derivatives to the raw gradients.
-        for reg in self._optimizer.regularizers:
-            grads = reg.run(grads, weights)
-        # Iteratively refine updates by running them through the optimodules.
-        for mod in self._optimizer.modules:
-            grads = mod.run(grads)
-        # Apply the base learning rate.
-        updates = - self._lr * grads
-        # Optionally add the decoupled weight decay term.
-        if self._decay:
-            updates -= self._decay * weights
-        # Return the model updates.
-        return updates
+        try:
+            # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
+            # Add loss-regularization terms' derivatives to the raw gradients.
+            for reg in self._optimizer.regularizers:
+                grads = reg.run(grads, weights)
+            # Iteratively refine updates by running them through the optimodules.
+            for mod in self._optimizer.modules:
+                grads = mod.run(grads)
+            # Apply the base learning rate.
+            updates = - self._optimizer.lrate * grads
+            # Optionally add the decoupled weight decay term.
+            if self._optimizer.w_decay:
+                updates -= self._optimizer.w_decay * weights
+            # Return the model updates.
+            return updates
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'step': {exc}"
+            ) from exc
 
     def get_aux(self) -> Dict[str, Dict[str, Any]]:
         """Return auxiliary variables that need to be shared between the nodes and the researcher.
@@ -121,7 +133,12 @@ class Optimizer:
                 `module.name` keys for each and every module plugged in this
                 Optimizer that has some auxiliary variables to share.
         """
-        return self._optimizer.collect_aux_var()
+        try:
+            return self._optimizer.collect_aux_var()
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'get_aux': {exc}"
+            ) from exc
 
     def set_aux(self, aux: Dict[str, Dict[str, Any]]) -> None:
         """Update plug-in modules based on received shared auxiliary variables.
@@ -140,12 +157,12 @@ class Optimizer:
         """
         try:
             self._optimizer.process_aux_var(aux)
-        except (AttributeError, KeyError, TypeError) as exc:
+        except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: `Optimizer.set_aux`: {exc}"
             ) from exc
 
-    def save_state(self) -> Dict[str, Any]:
+    def get_state(self) -> Dict[str, Any]:
         """Return the configuration and current states of this Optimizer.
 
         This method is to be used for creating breakpoints.
@@ -155,16 +172,21 @@ class Optimizer:
                 file, and used to re-create this Optimizer using the
                 `Optimizer.load_state` classmethod constructor.
         """
-        config = self._optimizer.get_config()
-        states = self._optimizer.get_state()
-        return {"config": config, "states": states}
+        try:
+            config = self._optimizer.get_config()
+            states = self._optimizer.get_state()
+            return {"config": config, "states": states}
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB620.value}: error in 'get_state': {exc}"
+            ) from exc
 
     @classmethod
     def load_state(cls, state: Dict[str, Any]) -> Self:
         """Instantiate an Optimizer from its breakpoint state dict.
 
         Args:
-            state: state-and-config dict created using the `save_state` method.
+            state: state-and-config dict created using the `get_state` method.
 
         Returns:
             Optimizer instance re-created from the `state` dict.
