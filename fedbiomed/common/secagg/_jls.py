@@ -13,12 +13,15 @@ and Data Security. Springer Berlin Heidelberg, 2013.*
 [2] *publication in progress*
 
 """
+
+
 import gmpy2
 
-from typing import List, Tuple, TypeVar, Union
+from typing import List, Tuple, Union, Callable
 from ._jls_utils import invert, powmod
-from gmpy2 import mpz
+from gmpy2 import mpz, gcd
 from math import ceil, floor, log2
+from Crypto.Hash import SHA256
 
 
 class VEParameters:
@@ -50,34 +53,44 @@ class VES:
     ) -> None:
         """Vector encoder constructor
 
-        Arg:
-            _ptsize: The bit length of the plaintext (the number of bits of an element in the output vector)
-            _valuesize: The bit length of an element of the input vector
-            _vectorsize: The number of element of the input vector
+        Args:
+            ptsize: The bit length of the plaintext (the number of bits of an element in the output vector)
+            valuesize: The bit length of an element of the input vector
+            vectorsize: The number of element of the input vector
 
         """
 
         self._ptsize = ptsize
         self._valuesize = valuesize
         self._vectorsize = vectorsize
-        # self._numbatches = ceil(self._vectorsize / self._compratio) unused argument
+        # self._numbatches = ceil(self._vectorsize / self._compratio) # unused argument
 
     def _get_elements_size_and_compression_ratio(
             self,
             add_ops: int
     ) -> Tuple[int, int]:
-        """
+        """Gets element size and compression ratio by given additional operation count.
 
         Args:
             add_ops:
         """
         element_size = self._valuesize + ceil(log2(add_ops))
-        comp_ratio = floor(self._ptsize / self._elementsize)
+        comp_ratio = floor(self._ptsize / element_size)
 
         return element_size, comp_ratio
 
-    def encode(self, V: List[int], add_ops: int):
+    def encode(
+            self,
+            V: List[int],
+            add_ops: int
+    ) -> List[gmpy2.mpz]:
         """Encode a vector to a smaller size vector
+
+        Args:
+            V:
+            add_ops:
+
+        Returns:
 
         """
         element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
@@ -96,8 +109,19 @@ class VES:
             E.append(self._batch(e, element_size))
         return E
 
-    def decode(self, E, add_ops: int):
-        """Decode a vector back to original size vector"""
+    def decode(
+            self,
+            E: List[int],
+            add_ops: int
+    ) -> List[int]:
+        """Decode a vector back to original size vector
+
+        Args:
+            E:
+            add_ops:
+        Returns:
+            Decoded vector
+        """
 
         element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
 
@@ -117,7 +141,7 @@ class VES:
         for v in V:
             a |= v << element_size * i
             i += 1
-        return gmpy2.mpz(a)
+        return mpz(a)
 
     @staticmethod
     def _debatch(
@@ -214,7 +238,7 @@ class EncryptedNumber(object):
             )
 
         return EncryptedNumber(
-            self.public_param, self.ciphertext * other.ciphertext % self.public_param.nsquare
+            self.public_param, self.ciphertext * other.ciphertext % self.public_param.n_square
         )
 
 
@@ -223,17 +247,13 @@ class JoyeLibert:
     `Protect`, and `Agg`.
 
     Attributes:
-        _vector_encoder* : The vector encoding/decoding scheme
+        _vector_encoder: The vector encoding/decoding scheme
 
     """
 
     def __init__(self):
-        """JLS constructor
+        """Constructs the class"""
 
-        Args:
-            VE: `VectorEncoding` The vector encoding/decoding scheme (default: `None`)
-
-        """
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
             valuesize=VEParameters.VALUE_SIZE,
@@ -267,8 +287,12 @@ class JoyeLibert:
         Returns:
                 The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
         """
-        assert isinstance(sk_u, UserKey), "bad user key"
-        assert sk_u.pp == public_param, "bad user key"
+        if not isinstance(sk_u, UserKey):
+            raise TypeError(f"Expected key for encryption type is UserKey. but got {type(sk_u)}")
+
+        if sk_u.public_param != public_param:
+            raise ValueError("Bad public parameter. The public parameter of user key does not match the "
+                             "one given for encryption")
 
         if isinstance(x_u_tau, list):
             x_u_tau = self._vector_encoder.encode(
@@ -324,28 +348,15 @@ class JoyeLibert:
         return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
 
 
-class PublicParam(object):
-    """
-    The public parameters for Joye-Libert Scheme.
-
-    ## **Args**:
-    -------------
-    **n** : `gmpy2.mpz` --
-        The modulus \\(N\\)
-
-    **bits** : `int` --
-        The number of bits of the modulus \\(N\\)
-
-    **H** : `function` --
-        The hash algorithm \\(H : \\mathbb{Z} \\rightarrow \\mathbb{Z}_{N^2}^{*}\\)
-
+class PublicParam:
+    """The public parameters for Joye-Libert Scheme.
 
     ## **Attributes**:
     -------------
     **n** : `gmpy2.mpz` --
         The modulus \\(N\\)
 
-    **nsquare** : `gmpy2.mpz` --
+        _n_square** : `gmpy2.mpz` --
         The square of the modulus \\(N^2\\)
 
     **bits** : `int` --
@@ -355,239 +366,353 @@ class PublicParam(object):
         The hash algorithm \\(H : \\mathbb{Z} \\rightarrow \\mathbb{Z}_{N^2}^{*}\\)
     """
 
-    def __init__(self, n, bits, H):
-        super().__init__()
-        self.n = n
-        self.nsquare = n * n
-        self.bits = bits
-        self.H = H
-
-    def __eq__(self, other):
-        return self.n == other.n
-
-    def __repr__(self):
-        hashcode = hex(hash(self.H))
-        nstr = self.n.digits()
-        return "<PublicParam (N={}...{}, H(x)={})>".format(
-            nstr[:5], nstr[-5:], hashcode[:10]
-        )
-
-
-class UserKey(object):
-    """
-    A user key for Joye-Libert Scheme.
-
-    ## **Args**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **key** : `gmpy2.mpz` --
-        The value of the user's key \\(sk_0\\)
-
-    ## **Attributes**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **key** : `gmpy2.mpz` --
-        The value of the user's key \\(sk_0\\)
-    """
-
-    def __init__(self, param, key):
-        super().__init__()
-        self.pp = param
-        self.s = key
-
-    def __repr__(self):
-        hashcode = hex(hash(self))
-        return "<UserKey {}>".format(hashcode[:10])
-
-    def __eq__(self, other):
-        return self.pp == other.public_param and self.s == other.s
-
-    def __hash__(self):
-        return hash(self.s)
-
-    def encrypt(self, plaintext, tau):
+    def __init__(
+            self,
+            n_modulus: gmpy2.mpz,
+            bits: int,
+            hashing_function: Callable
+    ) -> None:
         """
-        Encrypts a plaintext  for time period tau
 
-        ## **Args**:
-        -------------
-        **plaintext** : `int` or `gmpy2.mpz` --
-            the plaintext to encrypt
+        Args:
+            n_modulus: The modulus \\(N\\)
+            bits: The number of bits of the modulus \\(N\\)
+            hashing_function: The hash algorithm \\(H : \\mathbb{Z} \\rightarrow \\mathbb{Z}_{N^2}^{*}\\)
+        """
 
-        **tau** : `int` --
-            the time period
+        self._n_modulus = n_modulus
+        self._n_square = n_modulus * n_modulus
+        self._bits = bits
+        self._hashing_function = hashing_function
 
-        ## **Returns**:
-        ---------------
-        A ciphertext of the *plaintext* encrypted by the user key of type `EncryptedNumber`
+    @property
+    def bits(self) -> int:
+        """Gets bits size
+
+        Returns:
+            Bits size
+        """
+        return self._bits
+
+    @property
+    def n_modulus(self) -> gmpy2.mpz:
+        """Gets N modulus.
+
+        Returns:
+            N modulus
+        """
+        return self._n_modulus
+
+    @property
+    def n_square(self) -> gmpy2.mpz:
+        """Gets squared N modulus
+
+        Returns:
+            Squared N modulus
+        """
+        return self._n_square
+
+    def hashing_function(self, val: int):
+        """Applies hashing
+
+        Args:
+            val: Value for hashing
+        """
+        return self._hashing_function(val)
+
+    def __eq__(
+            self,
+            other: 'PublicParam'
+    ) -> bool:
+        """Compares equality of two public parameter
+
+        Returns:
+            True if other Public param's n_modules is equal to `self._n_modulus`
+        """
+        return self._n_modulus == other.n_modulus
+
+    def __repr__(self) -> str:
+        """Representation of Public parameters
+
+        Returns:
+            Representation as string
+        """
+        hashcode = hex(hash(self._hashing_function))
+        n_str = self._n_modulus.digits()
+        return "<PublicParam (N={}...{}, H(x)={})>".format(n_str[:5], n_str[-5:], hashcode[:10])
+
+
+class BaseKey:
+    """A base key class for Joye-Libert Scheme.
+
+    Attributes:
+        _public_param: The public parameter
+        _key: Server key
+
+    """
+
+    def __init__(self, param: PublicParam, key: int):
+        """Constructs base key object
+        Args:
+            param: The public parameters
+            key: The value of the server's key \\(sk_0\\)
+        """
+
+        if not isinstance(key, int):
+            raise TypeError("The key should be type of integer")
+
+        self._public_param = param
+        self._key = mpz(key)
+
+    @property
+    def public_param(
+            self
+    ) -> PublicParam:
+        """Return public parameter of the key"""
+        return self._public_param
+
+    def __repr__(self):
+        """Representation of ServerKey object"""
+        hashcode = hex(hash(self))
+        return "<ServerKey {}>".format(hashcode[:10])
+
+    def __eq__(
+            self,
+            other: 'ServerKey'
+    ) -> bool:
+        """Check equality of public parameters
+
+        Args:
+            other: other server key object to compare.
+
+        Returns:
+            True if both ServerKey uses same public params. False for vice versa.
+        """
+        return self._public_param == other.public_param and self._key == other.s
+
+    def __hash__(self) -> str:
+        """Hash of server key"""
+        return hash(self._key)
+
+
+class UserKey(BaseKey):
+    """A user key for Joye-Libert Scheme. """
+
+    def __init__(
+            self,
+            public_param: PublicParam,
+            key: int
+    ) -> None:
+        """Server key constructor.
+
+        Args:
+            public_param: The public parameters
+            key: The value of the server's key \\(sk_0\\)
+        """
+        super().__init__(public_param, key)
+
+    def encrypt(
+            self, 
+            plaintext: Union[List[gmpy2.mpz], gmpy2.mpz],
+            tau: int
+    ):
+        """Encrypts a plaintext  for time period tau
+
+        Args:
+            plaintext: The plaintext/value to encrypt
+            tau:  The time period
+           
+
+        Returns:
+            A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber` or list of
+                encrypted numbers.
+
         """
         if isinstance(plaintext, list):
             counter = 0
             cipher = []
             for pt in plaintext:
-                cipher.append(self._encrypt(pt, (counter << self.pp.bits // 2) | tau))
+                cipher.append(self._encrypt(pt, (counter << self._public_param.bits // 2) | tau))
                 counter += 1
         else:
             cipher = self._encrypt(plaintext, tau)
         return cipher
 
-    def _encrypt(self, plaintext, tau):
-        nude_ciphertext = (self.pp.n * plaintext + 1) % self.pp.nsquare
-        r = powmod(self.pp.H(tau), self.s, self.pp.nsquare)
-        ciphertext = (nude_ciphertext * r) % self.pp.nsquare
-        return EncryptedNumber(self.pp, ciphertext)
+    def _encrypt(
+            self,
+            plaintext: gmpy2.mpz,
+            tau: int
+    ) -> EncryptedNumber:
+        """Encrypts given single plaintext as int
 
+        Args:
+            plaintext: The plaintext/value to encrypt
+            tau:  The time period
 
-class ServerKey(object):
-    """
-    A server key for Joye-Libert Scheme.
+        Returns:
+            A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber`
 
-    ## **Args**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **key** : `gmpy2.mpz` --
-        The value of the server's key \\(sk_0\\)
-
-    ## **Attributes**:
-    -------------
-    **param** : `PublicParam` --
-        The public parameters
-
-    **key** : `gmpy2.mpz` --
-        The value of the server's key \\(sk_0\\)
-    """
-
-    def __init__(self, param, key):
-        super().__init__()
-        self.pp = param
-        self.s = key
-
-    def __repr__(self):
-        hashcode = hex(hash(self))
-        return "<ServerKey {}>".format(hashcode[:10])
-
-    def __eq__(self, other):
-        return self.pp == other.public_param and self.s == other.s
-
-    def __hash__(self):
-        return hash(self.s)
-
-    def decrypt(self, cipher, tau, delta=1):
         """
-        Decrypts the aggregated ciphertexts of all users for time period tau
+        nude_ciphertext = (self._public_param.n_modulus * plaintext + 1) % self._public_param.n_square
+        r = powmod(self._public_param.hashing_function(tau), self._key, self._public_param.n_square)
+        ciphertext = (nude_ciphertext * r) % self._public_param.n_square
 
-        ## **Args**:
-        -------------
-        **cipher** : `EncryptedNumber` --
-            An aggregated ciphertext
+        return EncryptedNumber(self._public_param, ciphertext)
 
-        **tau** : `int` --
-            the time period
 
-        ## **Returns**:
-        ---------------
-        The sum of user inputs of type `int`
+class ServerKey(BaseKey):
+    """A server key for Joye-Libert Scheme. """
+
+    def __init__(
+            self,
+            public_param: PublicParam,
+            key: int
+    ) -> None:
+        """Server key constructor.
+
+        Args:
+            public_param: The public parameters
+            key: The value of the server's key \\(sk_0\\)
+        """
+        super().__init__(public_param, key)
+
+    def decrypt(
+            self,
+            cipher: Union[List[EncryptedNumber], EncryptedNumber],
+            tau: int,
+            delta: int = 1
+    ) -> Union[int, List[int]]:
+        """Decrypts the aggregated ciphertexts of all users for time period tau
+
+        Args:
+            cipher:  An aggregated ciphertext, with weighted averaging or not
+            tau: The time period, (training round)
+            delta: ...
+
+        Returns:
+            Decrypted sum of user inputs of type `int`
+            List of decrypted sum of user inputs
         """
 
         if isinstance(cipher, list):
             counter = 0
             pt = []
             for c in cipher:
-                pt.append(self._decrypt(c, (counter << self.pp.bits // 2) | tau, delta))
+                pt.append(self._decrypt(c, (counter << self._public_param.bits // 2) | tau, delta))
                 counter += 1
         else:
             pt = self._decrypt(cipher, tau, delta)
+
         return pt
 
-    def _decrypt(self, cipher, tau, delta=1):
+    def _decrypt(
+            self,
+            cipher: EncryptedNumber,
+            tau: int,
+            delta=1
+    ) -> int:
+        """Decrypts given single encrypted number using server key
+
+        Args:
+            cipher:  An aggregated ciphertext, with weighted averaging or not
+            tau: The time period, (training round)
+            delta: ...
+
+        Returns:
+            Decrypted sum of user inputs of type `int`
+        """
         if not isinstance(cipher, EncryptedNumber):
             raise TypeError("Expected encrypted number type but got: %s" % type(cipher))
-        if self.pp != cipher.public_param:
+
+        if self._public_param != cipher.public_param:
             raise ValueError(
                 "encrypted_number was encrypted against a " "different key!"
             )
-        return self._raw_decrypt(cipher.ciphertext, tau, delta)
 
-    def _raw_decrypt(self, ciphertext, tau, delta=1):
-        if not isinstance(ciphertext, mpz):
+        cipher_text = cipher.ciphertext
+
+        if not isinstance(cipher_text, mpz):
             raise TypeError(
-                "Expected mpz type ciphertext but got: %s" % type(ciphertext)
+                "Expected mpz type ciphertext but got: %s" % type(cipher_text)
             )
-        V = (
-            ciphertext * powmod(self.pp.H(tau), delta**2 * self.s, self.pp.nsquare)
-        ) % self.pp.nsquare
-        X = ((V - 1) // self.pp.n) % self.pp.n
-        X = (X * invert(delta**2, self.pp.nsquare)) % self.pp.n
-        return int(X)
 
-"""
-### **Full-Domain Hash**
+        v = (cipher_text *
+             powmod(self._public_param.hashing_function(tau),
+                    delta ** 2 * self._key,
+                    self._public_param.n_square
+                    )
+             ) % self._public_param.n_square
+        x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
+        x = (x * invert(delta ** 2, self._public_param.n_square)) % self._public_param.n_modulus
 
-This module computes a full domain hash value usign SHA256 hash function
-"""
-
-from Crypto.Hash import SHA256
-from gmpy2 import gcd, mpz
+        return int(x)
 
 
-class FDH(object):
+class FDH:
     """
     The Full-Domain Hash scheme
 
-    ## **Args**:
-    -------------
-    *bitsize* : `int` --
-        The bitlength of the output of the FDH
-
-    *N* : `int` --
-        The modulus \\(N\\) such that the FDH output is in \\(\\mathbb{Z}^*_N\\)
+    This class computes a full domain hash value usign SHA256 hash function
 
     """
 
-    def __init__(self, bitsize, N) -> None:
-        super().__init__()
-        self.bitsize = bitsize
-        self.N = N
+    def __init__(
+            self,
+            bits_size: int,
+            n_modulus: gmpy2.mpz
+    ) -> None:
+        """Constructs FDH.
 
-    def H(self, t):
+        Args:
+            bits_size: The bit length of the output of the FDH
+            n_modulus: The modulus \\(N\\) such that the FDH output is in \\(\\mathbb{Z}^*_N\\)
         """
-        Computes the FDH using SHA256
 
-        It computes:
+        if not isinstance(bits_size, int):
+            raise TypeError(f"Bits size should be an integer not {type(bits_size)}")
+
+        if not isinstance(n_modulus, gmpy2.mpz):
+            raise TypeError(f"n_modules should be of type `gmpy2.mpz` not {type(n_modulus)}")
+
+        self.bits_size = bits_size
+        self._n_modules = n_modulus
+
+    def H(
+            self,
+            t: int
+    ) -> gmpy2.mpz:
+
+        """Computes the FDH using SHA256.
+
+        !!! infor "Computation"
             $$\\textbf{SHA256}(x||0) ||\\textbf{SHA256}(x||1) || ... || \\textbf{SHA256}(x||c) \\mod N$$
-        where \\(c\\) is a counter that keeps incrementing until the size of the output has *bitsize* length and the output falls in  \\(\\mathbb{Z}^*_N\\)
+                where \\(c\\) is a counter that keeps incrementing until the size of the output has *bits_size*
+                length and the output falls in  \\(\\mathbb{Z}^*_N\\)
 
-        ## **Args**:
-        -------------
-        *t* : `int` --
-            The input of the hash function
+        Args:
+            t: The input of the hash function
 
-        ## **Returns**:
-        ----------------
-        A value in \\(\\mathbb{Z}^*_N\\) of type `gmpy2.mpz`
+        Returns:
+            A value in \\(\\mathbb{Z}^*_N\\)
         """
+
         counter = 1
         result = b""
         while True:
             while True:
                 h = SHA256.new()
                 h.update(
-                    int(t).to_bytes(self.bitsize // 2, "big")
+                    int(t).to_bytes(self.bits_size // 2, "big")
                     + counter.to_bytes(1, "big")
                 )
                 result += h.digest()
                 counter += 1
-                if len(result) < (self.bitsize // 8):
+                if len(result) < (self.bits_size // 8):
                     break
-            r = mpz(int.from_bytes(result[-self.bitsize :], "big"))
-            if gcd(r, self.N) == 1:
+
+            r = mpz(int.from_bytes(result[-self.bits_size:], "big"))
+
+            if gcd(r, self._n_modules) == 1:
                 break
-            else:
-                print("HAPPENED")
+
         return r

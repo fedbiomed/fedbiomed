@@ -4,7 +4,7 @@ from gmpy2 import mpz
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers
 
-from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam
+from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam, VEParameters
 from ._jls_utils import quantize, reverse_quantize
 
 DEFAULT_CLIPPING: int = 3
@@ -14,19 +14,16 @@ Default clipping value that is going to be used to quantize list of parameters
 
 
 class SecaggCrypter:
-    """
+    """Secure aggregation encryption and decryiton manager.
 
-    Attributes:
-        _num_clients: Number of clients participating federated learning experiment/round
-        _vector_encoder: Encodes given parameters vector
-        _jls: Joye-Libert homomorphic encryption class
+    This class is responsible for encrypting model parameters using Joye-Libert secure
+    aggregation scheme. It also aggregates encrypted model parameters and decrypts
+    to retrieve final model parameters as vector. This vector can be loaded into model
+    by converting it proper format for the framework.
     """
 
     def __init__(self) -> None:
-        """Constructs ParameterEncrypter
-
-        """
-
+        """Constructs ParameterEncrypter"""
         self._jls = JoyeLibert()
 
     @staticmethod
@@ -50,7 +47,9 @@ class SecaggCrypter:
         n = p * q
         fdh = FDH(key_size, n * n)
 
-        return PublicParam(n, key_size // 2, fdh.H)
+        return PublicParam(n_modulus=n,
+                           bits=key_size // 2,
+                           hashing_function=fdh.H)
 
     def encrypt(
             self,
@@ -78,7 +77,7 @@ class SecaggCrypter:
         clipping_range = self._get_clipping_value(params)
 
         weights = quantize(
-            weight=params,
+            weights=params,
             clipping_range=clipping_range
         ).tolist()
 
@@ -87,6 +86,7 @@ class SecaggCrypter:
         # Instantiates UserKey object
         key = UserKey(public_param, key)
 
+        print(key)
         # Encrypt parameters
         encrypted_params: List[EncryptedNumber] = self._jls.protect(
             public_param=public_param,
@@ -95,6 +95,8 @@ class SecaggCrypter:
             x_u_tau=weights,
             n_users=num_nodes
         )
+
+        print(len(encrypted_params))
 
         return self.convert_encrypted_number_to_int(encrypted_params)
 
@@ -129,7 +131,7 @@ class SecaggCrypter:
 
         """
 
-        if len(params) != self._num_nodes:
+        if len(params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
                 f"Num of parameters that are received from node does not match the num of "
                 f"nodes has been set for the encrypter. There might be some nodes did "
@@ -144,14 +146,14 @@ class SecaggCrypter:
         try:
             sum_of_weights = self._jls.aggregate(
                 sk_0=key,
-                round_=current_round,  # The time period \\(\\tau\\)
+                tau=current_round,  # The time period \\(\\tau\\)
                 list_y_u_tau=params
             )
         except (ValueError, TypeError) as exp:
             raise FedbiomedSecaggCrypterError(f"The aggregation of encrypted parameters is not "
                                               f"successful: {exp}") from exp
 
-        # TODO implement weighted everaging here or in `self._jls.aggregate`
+        # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         aggregated_params = reverse_quantize(
             self.quantized_divide(sum_of_weights, num_nodes)
