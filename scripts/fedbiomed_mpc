@@ -192,7 +192,7 @@ function check_workdir() {
   if [ ! -d "$BASEDIR" ] ; then
     error "The working directory $BASEDIR is not an existing directory"
   fi
-  if [ ! -d "$BASEDIR/Player-Data" -a ! -d "$BASEDIR/Player-Data" ] ; then
+  if [ ! -d "$BASEDIR/Player-Data" ] ; then
     error "The working directory $BASEDIR does not look like a MPC working directory"
   fi
 }
@@ -317,8 +317,8 @@ function execute_shamir_server_key(){
 
   # Check file for ip addresses is existing ---------------------------------------------------------------------------
   if [ ! -f "$ASSIGNED_IPS" ]; then
-    error "The file for assigned ip addresses not found.If the given path is a relative path please make the path \n\
-    \rrespects where ths command/script is executed"
+    error "The file for assigned ip addresses is not found. If the given path is a relative path please make the path \n\
+    \rrespect where the command/script is executed"
   else
     ASSIGNED_IPS="$(cd "$(dirname -- "$ASSIGNED_IPS")" >/dev/null; pwd -P)/$(basename -- "$ASSIGNED_IPS")"
   fi
