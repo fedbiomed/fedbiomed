@@ -184,7 +184,7 @@ class TestOptimizer(unittest.TestCase):
         module.get_state.side_effect = RuntimeError
         optim = Optimizer(lr=0.001, modules=[module])
         with self.assertRaises(FedbiomedOptimizerError):
-            optim.load_state({})
+            optim.get_state()
 
     def test_get_state(self) -> None:
         """Test that `Optimizer.get_state` is declearn-JSON-serializable.
