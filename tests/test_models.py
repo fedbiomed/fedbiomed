@@ -12,6 +12,7 @@ from fedbiomed.common.models.model import (BaseSkLearnModel, SGDClassiferSKLearn
 
 import torch
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.base import BaseEstimator
 from declearn.optimizer import Optimizer
 from declearn.optimizer.modules import MomentumModule
 from declearn.model.torch import TorchVector
@@ -101,7 +102,19 @@ class TestSkLearnModel(unittest.TestCase):
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
     
-    def test_sklearnmodel_method_01_save(self):
+    def test_sklearnmodel_01_init_failures(self):
+        class InvalidModel:
+            pass
+        invalid_models = (
+            torch.nn.Linear(4, 1),
+            InvalidModel
+        )
+        
+        for invalid_model in invalid_models:
+            with self.assertRaises(FedbiomedModelError):
+                model = SkLearnModel(invalid_model)
+
+    def test_sklearnmodel_02_method_save(self):
         saved_params = []
         def mocked_joblib_dump(obj, *args, **kwargs):
             saved_params.append(obj)
@@ -114,7 +127,7 @@ class TestSkLearnModel(unittest.TestCase):
             self.assertEqual(saved_params[-1].coef_, 0.42)
             self.assertEqual(saved_params[-1].intercept_, 0.42)
             
-    def test_sklearnmodel_method_02_load(self):
+    def test_sklearnmodel_03_method_load(self):
         self.sgdclass_model.set_init_params({'n_classes':3, 'n_features':5})
         with (
             # patch.object(self.sgdclass_model, 'param_list', ['coef_', 'intercept_']), 
@@ -127,7 +140,7 @@ class TestSkLearnModel(unittest.TestCase):
             self.sgdclass_model.load('filename')
             self.assertDictEqual(self.sgdclass_model.get_weights(), {'coef_': 0.42, 'intercept_': 0.42})
 
-    def test_sklearnmodel_03_set_init_params(self):
+    def test_sklearnmodel_04_set_init_params(self):
         # self.assertEqual(training_plan._model.n_iter_, 1)
         # test several values for `model_args`
         model_args_iterator = (
@@ -142,8 +155,14 @@ class TestSkLearnModel(unittest.TestCase):
             self.assertListEqual(sorted(self.sgdclass_model.param_list), sorted(['coef_', 'intercept_']))
             
         self.assertEqual(self.sgdclass_model._batch_size, 0)
-            
-    def test_sklearmmodel_04_sklearn_training_01_plain_sklearn(self):
+    
+    def test_sklearnmodel_05_set_init_params_failures(self):
+        for model in self.models:
+            model = SkLearnModel(model)
+            with self.assertRaises(FedbiomedModelError):
+                model.init_training()
+    
+    def test_sklearmmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
         n_values = 100  # data size
@@ -177,7 +196,7 @@ class TestSkLearnModel(unittest.TestCase):
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
                 
-    def test_sklearnmodel_04_sklearn_training_02_declearn_optimizer(self):
+    def test_sklearnmodel_06_sklearn_training_02_declearn_optimizer(self):
         n_values = 100  # data size
         for model in self.models:
             model = SkLearnModel(model)
@@ -193,7 +212,7 @@ class TestSkLearnModel(unittest.TestCase):
                     else:
                         targets = np.random.randn(n_values, 1)
                     
-                    model.is_declearn_optim = True  # FIXME: change me when merging Optimizer abstraction
+                    model.disable_internal_optimizer()
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
                     model.init_training()
                     init_model = copy.deepcopy(model)
@@ -204,7 +223,7 @@ class TestSkLearnModel(unittest.TestCase):
                     self.declearn_optim.apply_gradients(model, grads)
 
                     # checks
-                    self.assertTrue(model.is_declearn_optim)
+                    self.assertTrue(model._is_declearn_optim)
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
                     self.assertEqual(model._batch_size, n_values)
                     self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
@@ -212,6 +231,60 @@ class TestSkLearnModel(unittest.TestCase):
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
                 
+    def test_sklearnmodel_07_train_failures(self):
+        inputs = np.array([[1, 2], [1, 1],[0, 1]])
+        target = np.array([[0], [2], [1]])
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            with self.assertRaises(FedbiomedModelError):
+                # raise exception because model has not been initialized
+                model.train(inputs, target)
+
+    def test_sklearnmodel_08_get_weights(self):
+        inputs = np.array([[1, 2], [1, 1],[0, 1]])
+        target = np.array([0, 2, 1])
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            
+            model.set_init_params(model_args={'n_classes': 3, 'n_features': 2})
+            initial_model = copy.deepcopy(model)
+            init_weights = initial_model.get_weights()
+            
+            model.model.partial_fit(inputs, target)
+            model._instance.model = MagicMock(spec=BaseEstimator)
+            
+            for key in init_weights:
+                # making sure updated model's weights are different than the initial ones
+                setattr(model.model, key, 10 + init_weights[key])
+
+            # action!
+            weights = model.get_weights()
+            vectorized_weights = model.get_weights(return_type=NumpyVector)
+            
+            # checks
+            
+            for (layer, val), (_, init_val), (vec_layer, vectorized_val) in zip(
+                weights.items(), init_weights.items(), vectorized_weights.coefs.items()
+                ):
+
+                self.assertFalse(np.any(np.isclose(val,init_val)))
+                self.assertFalse(np.any(np.isclose(vectorized_val, init_val)))
+                self.assertTrue(np.all(np.isclose(val, vectorized_val)))
+                self.assertEqual(vec_layer, layer)
+
+
+    def test_sklearnmodel_09_get_weights_failures(self):
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            with self.assertRaises(FedbiomedModelError):
+                # should raise exception regarding missing `param_list` 
+                model.get_weights()
+            model.set_init_params(model_args={'n_classes': 2, 'n_features': 3})
+            model.param_list.append('wrong-attribute')
+            with self.assertRaises(FedbiomedModelError):
+                # should raise exception complaining about non reachable model layer
+                model.get_weights()
+            
 
 class TestSklearnClassification(unittest.TestCase):
     implemented_models = [SGDClassifier]  # store here implemented model
@@ -294,7 +367,8 @@ class TestSklearnClassification(unittest.TestCase):
             inputs = np.array([[1, 2], [1, 1],[0, 1]])
             target = np.array([[0], [2], [1]])
             
-            
+            # in this test, we will make sure that collected stdout is the same caught 
+            # by the `capture_stdout` context manager
             context_manager_patcher = patch('fedbiomed.common.models.model.capture_stdout',
                                             return_value=fake_context_manager(iterator))
             
@@ -303,10 +377,38 @@ class TestSklearnClassification(unittest.TestCase):
             sk_model.train(inputs, target, collected_losses_stdout)
             context_manager_patcher.stop()
 
-            
             self.assertListEqual(collected_losses_stdout, actual_losses_stdout)
 
+    def test_model_sklearnclassification_04_disable_internal_optimizer(self):
 
+        model = SkLearnModel(SGDClassifier)
+        # action
+        model.disable_internal_optimizer()
+        
+        # checks
+        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
+        self.assertEqual(model.default_lr_init, model.model.eta0)
+        self.assertEqual(model.default_lr, model.model.learning_rate)
+        self.assertTrue(model._is_declearn_optim)
+
+
+class TestSkLearnRegressorModel(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_model_sklearnregressor_01_disable_intenrla_optimizer(self):
+        model = SkLearnModel(SGDRegressor)
+        
+        model.disable_internal_optimizer()
+        
+        # checks
+        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
+        self.assertEqual(model.default_lr_init, model.model.eta0)
+        self.assertEqual(model.default_lr, model.model.learning_rate)
+        self.assertTrue(model._is_declearn_optim)
 
 
 class TestTorchModel(unittest.TestCase):

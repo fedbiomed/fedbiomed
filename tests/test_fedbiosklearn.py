@@ -123,16 +123,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             training_plan.save('filename')
             self.assertEqual(saved_params[-1], 'filename')
 
-        # Params passed to save function as dict
-        # TODO: add it to the test models
-        # with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
-        #            side_effect=mocked_joblib_dump), \
-        #         patch('builtins.open', mock_open()):
-        #     training_plan.save('filename', params={'coef_': 0.42, 'intercept_': 0.42})
-        #     self.assertEqual(saved_params[-1].coef_, 0.42)
-        #     self.assertEqual(saved_params[-1].intercept_, 0.42)
-        
-        # Params passed to save function as dict and as dict with 'model_params' field
 
         for  param in ({'coef_': 0.42, 'intercept_': 0.42}, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}}):
             with (patch('fedbiomed.common.models.model.BaseSkLearnModel.save',
@@ -142,15 +132,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
                 training_plan.save('filename', params=param)
                 self.assertEqual(saved_params[-1], 'filename')
                 patch_set_weights.assert_called_once_with({'coef_': 0.42, 'intercept_': 0.42})
-
-        # Params passed as dict with 'model_params' field
-        # with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
-        #            side_effect=mocked_joblib_dump), \
-        #         patch('builtins.open', mock_open()):
-        #     training_plan.save('filename', params={'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-        #     self.assertEqual(saved_params[-1].coef_, 0.42)
-        #     self.assertEqual(saved_params[-1].intercept_, 0.42)
-
 
     def test_sklearntrainingplanbasicinheritance_04_load(self):
         training_plan = SKLearnTrainingPlan()
@@ -171,16 +152,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
             params = training_plan.after_training_params()
             self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
-            # with patch.object('fedbiomed.common.models.model.BaseSkLearnModel', 'param_list', ['coef_', 'intercept_']), \
-            #     patch.object(training_plan._model, 'coef_', 0.42), \
-            #     patch.object(training_plan._model, 'intercept_', 0.42), \
-            #     patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-            #           return_value=training_plan._model), \
-            #     patch('builtins.open', mock_open()):
-            # params = training_plan.load('filename', to_params=True)
-            # self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-            # params = training_plan.after_training_params()
-            # self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
+
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
     def setUp(self):
@@ -442,7 +414,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         for training_plan in self.training_plans:
             inputs = np.array([[0., 0.]])  # one batch of a 2-feature array
             target = np.array([[0.]])
-            loss = training_plan._train_over_batch(inputs, target, inputs.shape[0], report=True)
+            loss = training_plan._train_over_batch(inputs, target, report=True)
             # Assert loss values are within reasonable ranges
             # Since different models handle loss differently, we cannot assert that loss == 0.
             # Instead, we check it lies within [-1., 1.]
@@ -453,13 +425,13 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # Test that coefs are not updated.
             # Cannot test intercept because classes are internally converted to [-1, 1], and therefore intercept_
             # is updated even after a single iteration
-            print(training_plan.after_training_params().values())
+
             self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
             self.assertEqual(training_plan._model.model.n_iter_, 1)
 
             # When report is False, expected return value is NaN
-            loss = training_plan._train_over_batch(inputs, target, inputs.shape[0], report=False)
+            loss = training_plan._train_over_batch(inputs, target, report=False)
             self.assertTrue(np.isnan(loss),
                             f"{training_plan.__class__.__name__} loss should be NaN")
             self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
