@@ -33,6 +33,39 @@ x-node:
     - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
     - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
 
+#
+# optionally launch a second node instance on the same machine
+x-node2:
+  &standard-node2
+  container_name: fedbiomed-vpn-node2
+  hostname: fedbiomed-vpn-node2
+  build:
+    context: ../../..
+    dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+    args:
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+  image: fedbiomed/vpn-node
+  environment:
+  # enable overloading build-time id with a run-time id
+    - CONTAINER_UID
+    - CONTAINER_GID
+    - CONTAINER_USER
+    - CONTAINER_GROUP
+  cap_add:
+    - net_admin
+    - sys_module
+  devices:
+    - /dev/net/tun
+  volumes:
+    - ./node2/run_mounts/config:/config # contains VPN configurations
+    - ./node2/run_mounts/data:/data # datasets can be added here
+    - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+    - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+    - ./node2/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
+
 services:
   #
   # intermediate step : image for building wireguard for base image
@@ -113,6 +146,8 @@ services:
     ports:
       - 51820:51820/udp # wireguard server
 
+  #
+  # node component
   # not using gpu
   node:
     << : *standard-node
@@ -132,6 +167,16 @@ services:
     #        - driver: nvidia
     #          #count: 1
     #          capabilities: [gpu]
+  #
+  # optionally launch a second node instance
+  # not using gpu
+  node2:
+    << : *standard-node2
+  # using gpu (need image with gpu support)
+  node2-gpu:
+    << : *standard-node2
+    runtime: nvidia
+
   #
   # node gui component
   gui:
@@ -160,6 +205,34 @@ services:
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
       - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
+  #
+  # node gui component
+  gui2:
+    container_name: fedbiomed-vpn-gui2
+    hostname: fedbiomed-vpn-gui2
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+    image: fedbiomed/vpn-gui
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+    ports:
+      - "${GUI_HOST:-127.0.0.1}:8485:8484" # flask server
+    volumes:
+      # caution: /data /etc /var directory must be shared with node
+      - ./node2/run_mounts/data:/data # datasets can be added here
+      - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+      - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+      - ./node2/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
   #
   # researcher component
   researcher:

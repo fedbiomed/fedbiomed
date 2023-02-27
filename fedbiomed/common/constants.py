@@ -249,7 +249,8 @@ class ErrorNumbers(_BaseEnum):
     FB617 = "FB617: FLamby dataset error"
     FB618 = "FB618: FLamby data transformation error"
     FB619 = "FB619: Certificate error"
-    FB620 = "FB620: declearn optimizer error"
+    FB620 = "FB620: MPC protocol error"
+    FB621 = "FB621: declearn optimizer error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

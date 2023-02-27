@@ -11,9 +11,11 @@ class FakeSecaggContext:
         self.cont = None
         self.success = True
 
+    @property
     def status(self) -> bool:
         return self.stat
 
+    @property
     def context(self) -> Union[dict, None]:
         return self.cont
 

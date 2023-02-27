@@ -263,3 +263,12 @@ class FedbiomedCertificateError(FedbiomedError):
     Certificate error
     """
     pass
+
+
+class FedbiomedMPCControllerError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
+
+

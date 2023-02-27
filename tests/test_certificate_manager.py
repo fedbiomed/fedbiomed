@@ -216,7 +216,8 @@ class TestCertificateManager(unittest.TestCase):
 
         arguments = {
             "parties": ["id-1", "id-2", "id-3"],
-            "path": "/dummy/path",
+            "path_certificates": "/dummy/path",
+            "path_ips": "/dummy/path",
             "self_id": "id-2",
             "self_ip": "1.1.1.1",
             "self_port": 12345,
@@ -228,6 +229,11 @@ class TestCertificateManager(unittest.TestCase):
         with self.assertRaises(FedbiomedCertificateError):
             self.cm.write_mpc_certificates_for_experiment(**arguments)
 
+        self.mock_isdir.side_effect = [True, False]
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.write_mpc_certificates_for_experiment(**arguments)
+
+        self.mock_isdir.side_effect = None
         self.mock_isdir.return_value = True
         self.mock_isfile.return_value = True
 
@@ -272,9 +278,10 @@ class TestCertificateManager(unittest.TestCase):
         self.assertEqual(mock_write_certificate_file.call_args_list[3][0], ('/dummy/path/P2.pem', 'cert-id-3'))
 
         # Check if the result is as expected
-        self.assertListEqual(
+        self.assertTupleEqual(
             result,
-            ['/dummy/path/P0.pem', '/dummy/path/P1.key', '/dummy/path/P1.pem', '/dummy/path/P2.pem'])
+            ('/dummy/path/ip_addresses', ['/dummy/path/P0.pem', '/dummy/path/P1.key',
+                                          '/dummy/path/P1.pem', '/dummy/path/P2.pem']))
 
         mock_cm_get.side_effect = None
         mock_cm_get.return_value = {}

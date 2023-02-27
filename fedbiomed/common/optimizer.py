@@ -69,7 +69,7 @@ class Optimizer:
             )
         except (KeyError, TypeError) as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: declearn Optimizer instantiation"
+                f"{ErrorNumbers.FB621.value}: declearn Optimizer instantiation"
                 " raised the following exception: {exc}"
             ) from exc
 
@@ -142,7 +142,7 @@ class Optimizer:
             self._optimizer.process_aux_var(aux)
         except (AttributeError, KeyError, TypeError) as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: `Optimizer.set_aux`: {exc}"
+                f"{ErrorNumbers.FB621.value}: `Optimizer.set_aux`: {exc}"
             ) from exc
 
     def save_state(self) -> Dict[str, Any]:
@@ -178,7 +178,7 @@ class Optimizer:
             optim.set_state(state["states"])
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: `Optimizer.load_state`: {exc}"
+                f"{ErrorNumbers.FB621.value}: `Optimizer.load_state`: {exc}"
             ) from exc
         return cls(
             lr=optim.lrate,

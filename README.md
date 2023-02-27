@@ -632,7 +632,7 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg <node|researcher>
+{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
 ```
 
 
@@ -643,10 +643,10 @@ Fed-BioMed node and researcher components. The script for executing the protocol
 `{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc compile --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc exec --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc shamir-server-key --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) compile --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) exec --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) shamir-server-key --help
 
 ```
 
