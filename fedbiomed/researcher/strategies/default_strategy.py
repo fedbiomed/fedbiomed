@@ -154,4 +154,4 @@ class DefaultStrategy(Strategy):
 
         logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
 
-        return model_params, weights
+        return model_params, weights, total_rows
