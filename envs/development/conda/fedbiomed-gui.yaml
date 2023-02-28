@@ -43,5 +43,3 @@ dependencies:
       - Flask-JWT-Extended == 4.4.2
       # FLamby
       - git+https://github.com/owkin/FLamby@main
-      # declearn
-      - declearn[torch] ~= 2.0.1
