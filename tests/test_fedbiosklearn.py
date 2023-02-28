@@ -28,6 +28,7 @@ from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, 
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
 from sklearn.linear_model import SGDClassifier
 
+
 class Custom:
     def testing_step(mydata, mytarget):
         return {'Metric': 42.0}
@@ -111,50 +112,48 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         )
 
     def test_sklearntrainingplanbasicinheritance_03_save_load(self):
-        training_plan = SKLearnTrainingPlan()
+        training_plan = FedSGDRegressor()
         saved_params = []
 
         def mocked_joblib_dump(obj, *args, **kwargs):
             saved_params.append(obj)
 
         # Base case where params are not provided to save function
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.dump',
                    side_effect=mocked_joblib_dump), \
                 patch('builtins.open', mock_open()):
             training_plan.save('filename')
-            self.assertEqual(saved_params[-1], training_plan.model())
+            self.assertEqual(saved_params[-1], {"model_params": training_plan.get_model_params()})
 
         # Params passed to save function as dict
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.dump',
                    side_effect=mocked_joblib_dump), \
                 patch('builtins.open', mock_open()):
-            training_plan.save('filename', params={'coef_': 0.42, 'intercept_': 0.42})
-            self.assertEqual(saved_params[-1].coef_, 0.42)
-            self.assertEqual(saved_params[-1].intercept_, 0.42)
+            training_plan.save('filename', params={'coef_': np.array([0.42]), 'intercept_': np.array([0.42])})
+            self.assertEqual(saved_params[-1]["model_params"]["coef_"], np.array([0.42]))
+            self.assertEqual(saved_params[-1]["model_params"]["intercept_"], np.array([0.42]))
 
         # Params passed as dict with 'model_params' field
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.dump',
                    side_effect=mocked_joblib_dump), \
                 patch('builtins.open', mock_open()):
-            training_plan.save('filename', params={'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-            self.assertEqual(saved_params[-1].coef_, 0.42)
-            self.assertEqual(saved_params[-1].intercept_, 0.42)
+            training_plan.save('filename',
+                               params={'model_params': {'coef_': np.array([0.42]), 'intercept_': np.array([0.42])}})
+            self.assertEqual(saved_params[-1]["model_params"]["coef_"], np.array([0.42]))
+            self.assertEqual(saved_params[-1]["model_params"]["intercept_"], np.array([0.42]))
 
         # Saved object is not the correct type
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-                   return_value=FedSGDRegressor._model_cls()), \
+        with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.loads',
+                   return_value={"model_params": {"coef_": 0.42, "intercept_": 0.42}}), \
                 patch('builtins.open', mock_open()):
+
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.load('filename')
 
-        # Option to retrieve model parameters instead of full model from load function
-        with patch.object(training_plan, '_param_list', ['coef_', 'intercept_']), \
-                patch.object(training_plan._model, 'coef_', 0.42), \
-                patch.object(training_plan._model, 'intercept_', 0.42), \
-                patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-                      return_value=training_plan._model), \
-                patch('builtins.open', mock_open()):
-            params = training_plan.load('filename', to_params=True)
+            training_plan.post_init({'max_iter': 4242, 'alpha': 0.999, 'n_features': 2, 'key_not_in_model': None},
+                                    FakeTrainingArgs()
+                                    )
+            params = training_plan.load('filename', update_model=True)
             self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
             params = training_plan.after_training_params()
             self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
@@ -315,7 +314,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
             training_plan.save(randomfile.name)
-            orig_params = deepcopy(training_plan.model().get_params())
+            orig_params = deepcopy(training_plan.get_model_params())
 
             # ensure file has been created and has size > 0
             self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
@@ -325,9 +324,11 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
 
             m = new_tp.load(randomfile.name)
             # ensure output of load is the same as original parameters
-            self.assertDictEqual(m.get_params(), orig_params)
+            self.assertDictEqual(m, {"model_params": orig_params})
+
+            # VALIDATE: This control is not necessary since only intercept and coef are sent from node to researcher
             # ensure that the newly loaded model has the same params as the original model
-            self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
+            # self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
     @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
     def test_sklearntrainingplancommonfunctionalities_03_getters(self):
