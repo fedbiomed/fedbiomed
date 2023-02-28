@@ -466,6 +466,7 @@ class Node:
                                 }
                             ).get_dict()
                         )
+                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:
