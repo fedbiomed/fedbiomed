@@ -125,6 +125,13 @@ class SecaggTestCase(NodeTestCase):
 
         # Set MOCK variables
         self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
+        self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
+        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
+            return_value='dummy/path/to/output'
+        )
+        unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
+            return_value=environ["TMP_DIR"]
+        )
 
     def tearDown(self) -> None:
         self.patch_skm.stop()
@@ -146,15 +153,6 @@ class TestSecaggServkey(SecaggTestCase):
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
         self.secagg_servkey = SecaggServkeySetup(**self.args)
-
-        # Set MOCK variables
-        self.secagg_servkey._MPC.exec_shamir.return_value = 'dummy/path/to/output'
-        type(self.secagg_servkey._MPC).mpc_data_dir = unittest.mock.PropertyMock(
-            return_value='dummy/path/to/output'
-        )
-        type(self.secagg_servkey._MPC).tmp_dir = unittest.mock.PropertyMock(
-            return_value=environ["TMP_DIR"]
-        )
 
     def tearDown(self) -> None:
         super().tearDown()
