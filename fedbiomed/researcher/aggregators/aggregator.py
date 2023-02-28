@@ -29,13 +29,20 @@ class Aggregator:
         self._training_plan_type: TrainingPlans = None
         self._secagg_crypter = SecaggCrypter()
 
-    def secure_aggregation(self, params, aggregation_round, training_plan):
+    def secure_aggregation(
+            self,
+            params: List[int],
+            aggregation_round: int,
+            total_sample_size: int,
+            training_plan: BaseTrainingPlan
+    ):
         """ Apply aggregation for encrypted model parameters
 
         Args:
             params: List containing list of encrypted parameters of each node
             aggregation_round: The round of the aggregation.
-            training_plan:
+            total_sample_size: Sum of sample sizes used for training
+            training_plan: Training plan instance used for the training.
         """
 
         # TODO: verify with secagg context number of parties
@@ -44,16 +51,17 @@ class Aggregator:
         encrypted_params: List[List[EncryptedNumber]] = \
             self._secagg_crypter.convert_to_encrypted_number(params)
 
-        # Aggregation--------------------------------------------------------------------
-        sum_of_params: List[EncryptedNumber] = [sum(ep) for ep in zip(*encrypted_params)]
-
         # TODO: Use server key here
         key = -(len(params) * 10)
 
+        # IMPORTANT = Keep this key for testing purposes
+        key = -4521514305280526329525552501850970498079782904248225896786295610941010325354834129826500373412436986239012584207113747347251251180530850751209537684586944643780840182990869969844131477709433555348941386442841023261287875379985666260596635843322044109172782411303407030194453287409138194338286254652273563418119335656859169132074431378389356392955315045979603414700450628308979043208779867835835935403213000649039155952076869962677675951924910959437120608553858253906942559260892494214955907017206115207769238347962438107202114814163305602442458693305475834199715587932463252324681290310458316249381037969151400784780
+        logger.info("Securely aggregating model parameters...")
         aggregated_params = self._secagg_crypter.aggregate(current_round=aggregation_round,
                                                            params=encrypted_params,
                                                            num_nodes=num_nodes,
-                                                           key=key)
+                                                           key=key,
+                                                           total_sample_size=total_sample_size)
 
         # Convert model params
         model_params = training_plan.convert_vector_to_parameters(aggregated_params)

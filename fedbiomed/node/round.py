@@ -6,12 +6,11 @@ implementation of Round class of the node component
 '''
 
 import os
-import shutil
 import sys
 import time
 import inspect
 import importlib
-from typing import Dict, Iterable, Union, Any, Optional, Tuple, List
+from typing import Dict, Union, Any, Optional, Tuple, List
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
@@ -24,7 +23,6 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.researcher.strategies import strategy
 from fedbiomed.node.secagg_manager import SecaggServkeyManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
@@ -326,15 +324,22 @@ class Round:
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
+            sample_size = len(self.training_plan.training_data_loader.dataset)
+
             # Upload results
             model_params = self.training_plan.after_training_params(vector=environ["SECURE_AGGREGATION"])
             if environ["SECURE_AGGREGATION"]:
+                logger.info("Encrypting model parameters. This process can take some time depending on model size.")
                 model_params = self._secagg_crypter.encrypt(
                     num_nodes=2,
                     current_round=self._round,
                     params=model_params,
-                    key=10
+                    # IMPORTANT = Keep this key for testing purposes
+                    key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
+                    #key=10,
+                    weight=sample_size
                 )
+                logger.info("Encryption in completed!")
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
@@ -342,8 +347,6 @@ class Round:
             results['model_params'] = model_params
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
-
-            sample_size = len(self.training_plan.training_data_loader.dataset)
 
             try:
                 # TODO : should validation status code but not yet returned
