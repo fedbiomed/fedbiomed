@@ -240,7 +240,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
                                                  f'certificate for the federated setup. Please see error: {e}', False)
             except Exception as e:
                 logger.debug(f"{e}")
-                return self._create_secagg_reply('Unexpected error occurred please report this to the node owner', False)
+                return self._create_secagg_reply('Unexpected error occurred please '
+                                                 'report this to the node owner', False)
         else:
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
             logger.info(message)
