@@ -138,6 +138,11 @@ class FedbiomedMetricError(FedbiomedError):
     pass
 
 
+class FedbiomedOptimizerError(FedbiomedError):
+    """
+    Exception raised when an error is encountered within `Optimizer` code.
+    """
+
 class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
     Exception specific to the TrainingPlanSecurityManager.
