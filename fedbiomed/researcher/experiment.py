@@ -193,8 +193,9 @@ class Experiment(object):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             use_secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-            secagg_timeout: when `use_secagg` is `True`, maximum duration for the setup phase of each
-                secagg context element (server key and biprime), thus total secagg setup is twice the `timeout`.
+            secagg_timeout: when `use_secagg` is `True`, maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
@@ -1468,8 +1469,9 @@ class Experiment(object):
         Args:
             use_secagg: if `True` sets secure aggregation to be used for next rounds and
                 establish secagg context if it doesn't exist
-            timeout: maximum duration for the setup phase of each secagg context element
-                (server key and biprime), thus total secagg setup is twice the `timeout`.
+            timeout:  maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
@@ -1503,13 +1505,13 @@ class Experiment(object):
                 # a secagg servkey element must be attached to a job_id
                 if self._job:
                     self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
-            if self._secagg_servkey and not self._secagg_servkey.status():
+            if self._secagg_servkey and not self._secagg_servkey.status:
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
-            if not self._secagg_biprime.status():
+            if not self._secagg_biprime.status:
                 self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
+            if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:
                 self._use_secagg = True
                 logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:

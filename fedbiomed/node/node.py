@@ -4,13 +4,12 @@
 '''
 Core code of the node component.
 '''
-
 from json import decoder
 
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union
 
-from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
@@ -21,8 +20,8 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
-from fedbiomed.node.secagg import SecaggSetup, SecaggServkeySetup, SecaggBiprimeSetup
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.node.secagg import SecaggSetup
+from fedbiomed.node.secagg_manager import SecaggManager
 
 import validators
 
@@ -86,7 +85,7 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args'}
+        msg_print = {key: value for key, value in msg.items() if key != 'aggregator_args'}
         logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
@@ -174,91 +173,37 @@ class Node:
         Args:
             msg: `SecaggDeleteRequest` message object to parse
         """
-        # 1. Parse message content
 
-        # we don't want to check (try/except) that msg is a properly formatted
-        # SecaggRequest message, we rely on Message() for that
-        researcher_id = msg.get_param('researcher_id')
         secagg_id = msg.get_param('secagg_id')
-        sequence = msg.get_param('sequence')
-        element = msg.get_param('element')
-        job_id = msg.get_param('job_id')
 
-        if element in [m.value for m in SecaggElementTypes]:
-            element = SecaggElementTypes(element)
-        else:
-            errmess = f'{ErrorNumbers.FB321}: received bad delete message: incorrect `element` {element}'
-            logger.error(errmess)
-            return self.messaging.send_message(
-                NodeMessages.reply_create(
-                    {
-                        'command': 'error',
-                        'extra_msg': errmess,
-                        'node_id': environ['NODE_ID'],
-                        'researcher_id': researcher_id,
-                        'errnum': ErrorNumbers.FB321
-                    }
-                ).get_dict()
-            )
+        reply = {
+            'researcher_id': msg.get_param('researcher_id'),
+            'secagg_id': secagg_id,
+            'sequence': msg.get_param('sequence'),
+            'command': 'secagg-delete'}
 
-        # 2. Instantiate secagg manager for this context element & delete
-        element2class = {
-            'SERVER_KEY': SecaggServkeyManager,
-            'BIPRIME': SecaggBiprimeManager
-        }
+        try:
+            secagg_manager = SecaggManager(element=msg.get_param('element'))()
+        except Exception as e:
+            message = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
+            logger.error(message)
+            return self.reply({"success": False, "msg": message, **reply})
 
-        if element.name in element2class.keys():
-            try:
-                # arguments depend on element type
-                args = { 'secagg_id': secagg_id }
-                if element.name == 'SERVER_KEY':
-                    args['job_id'] = job_id
+        try:
+            status = secagg_manager.remove(secagg_id=secagg_id,
+                                           job_id=msg.get_param('job_id'))
+            if status:
+                message = 'Delete request is successful'
+            else:
+                message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
+                    f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
+        except Exception as e:
+            message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
+                      f'secagg_id={secagg_id}: {e}'
+            logger.error(message)
+            status = False
 
-                # remove from database
-                secagg_manager = element2class[element.name]()
-                removed = secagg_manager.remove(**args)
-
-                # reply to delete request
-                if not removed:
-                    message = f"{ErrorNumbers.FB321}: no such secagg context element in node database for " \
-                        f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
-                    logger.error(message)
-                else:
-                    message = ''
-                return self.messaging.send_message(
-                    NodeMessages.reply_create(
-                        {
-                            'researcher_id': researcher_id,
-                            'secagg_id': secagg_id,
-                            'sequence': sequence,
-                            'success': removed,
-                            'node_id': environ['NODE_ID'],
-                            'msg': message,
-                            'command': 'secagg-delete'
-                        }).get_dict())
-            except Exception as e:
-                # bad secagg delete request
-                errmess = f"{ErrorNumbers.FB321}: error during secagg delete on node_id={environ['NODE_ID']} " \
-                    f'secagg_id={secagg_id}: {e}'
-        else:
-            errmess = f'{ErrorNumbers.FB321}: bad secagg delete request message ' \
-                f"received by {environ['NODE_ID']}: no such element {element.name}"
-
-        # failed secagg delete request
-        logger.error(errmess)
-        return self.messaging.send_message(
-            NodeMessages.reply_create(
-                {
-                    'researcher_id': researcher_id,
-                    'secagg_id': secagg_id,
-                    'sequence': sequence,
-                    'success': False,
-                    'node_id': environ['NODE_ID'],
-                    'msg': errmess,
-                    'command': 'secagg-delete'
-                }
-            ).get_dict()
-        )
+        return self.reply({"success": status, "msg": message, **reply})
 
     def _task_secagg(self, msg: SecaggRequest) -> None:
         """Parse a given secagg setup task message and execute secagg task.
@@ -266,77 +211,21 @@ class Node:
         Args:
             msg: `SecaggRequest` message object to parse
         """
-        # 1. Parse message content
+        setup_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
 
-        # we don't want to check (try/except) that msg is a properly formatted
-        # SecaggRequest message, we rely on Message() for that
-        researcher_id = msg.get_param('researcher_id')
-        secagg_id = msg.get_param('secagg_id')
-        sequence = msg.get_param('sequence')
-        element = msg.get_param('element')
-        job_id = msg.get_param('job_id')
-        parties = msg.get_param('parties')
+        try:
+            secagg = SecaggSetup(**setup_arguments)()
+        except Exception as error_message:
+            logger.error(error_message)
+            return self.reply({"researcher_id": msg.get_param('researcher_id'),
+                               "secagg_id": msg.get_param('secagg_id'),
+                               "msg": str(error_message),
+                               "sequence": msg.get_param('sequence'),
+                               "success": False,
+                               "command": "secagg"})
 
-        if element in [m.value for m in SecaggElementTypes]:
-            element = SecaggElementTypes(element)
-        else:
-            errmess = f'{ErrorNumbers.FB318}: received bad request message: incorrect `element` {element}'
-            logger.error(errmess)
-            return self.messaging.send_message(
-                NodeMessages.reply_create(
-                    {
-                        'command': 'error',
-                        'extra_msg': errmess,
-                        'node_id': environ['NODE_ID'],
-                        'researcher_id': researcher_id,
-                        'errnum': ErrorNumbers.FB318
-                    }
-                ).get_dict()
-            )
-
-        # 2. Instantiate secagg context element
-        element2class = {
-            'SERVER_KEY': SecaggServkeySetup,
-            'BIPRIME': SecaggBiprimeSetup
-        }
-
-        if element.name in element2class.keys():
-            try:
-                # instantiate a `SecaggSetup` object
-                secagg = element2class[element.name](researcher_id, secagg_id, job_id, sequence, parties)
-            except Exception as e:
-                # bad secagg request
-                errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request ' \
-                    f"received by {environ['NODE_ID']}: {str(e)}"
-            else:
-                # 3. Execute
-                try:
-                    logger.info(f"Entering secagg setup phase on node {environ['NODE_ID']}")
-                    msg = secagg.setup()
-                    return self.messaging.send_message(msg)
-                except Exception as e:
-                    errmess = f'{ErrorNumbers.FB318}: error during secagg setup for type ' \
-                        f'{secagg.element()}: {e}'
-        else:
-            errmess = f'{ErrorNumbers.FB318}: bad secure aggregation request message ' \
-                f"received by {environ['NODE_ID']}: no such element {element.name}"
-
-        # failed secagg request
-        logger.error(errmess)
-        return self.messaging.send_message(
-            NodeMessages.reply_create(
-                {
-                    'researcher_id': researcher_id,
-                    'secagg_id': secagg_id,
-                    'sequence': sequence,
-                    'success': False,
-                    'node_id': environ['NODE_ID'],
-                    'msg': errmess,
-                    'command': 'secagg'
-                }
-            ).get_dict()
-        )
-
+        msg = secagg.setup()
+        return self.reply(msg)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -363,7 +252,6 @@ class Node:
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
         round_number = msg.get_param('round') or 0
-
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -472,17 +360,7 @@ class Node:
                 else:
                     errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                     logger.error(errmess)
-                    self.messaging.send_message(
-                        NodeMessages.reply_create(
-                            {
-                                'command': 'error',
-                                'extra_msg': errmess,
-                                'node_id': environ['NODE_ID'],
-                                'researcher_id': 'NOT_SET',
-                                'errnum': ErrorNumbers.FB319
-                            }
-                        ).get_dict()
-                    )
+                    self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
             self.tasks_queue.task_done()
 
@@ -494,7 +372,37 @@ class Node:
         """
         self.messaging.start(block)
 
-    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
+    def reply(self, msg: dict):
+        """Send reply to researcher
+
+        Args:
+            msg:
+
+        """
+
+        try:
+            reply = NodeMessages.reply_create(
+                {'node_id': environ['ID'],
+                 **msg}
+            ).get_dict()
+        except FedbiomedMessageError as e:
+            logger.error(f"{ErrorNumbers.FB601.value}: {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: Can not reply "
+                                                                 f"due to incorrect message type {e}.")
+        except Exception as e:
+            logger.error(f"{ErrorNumbers.FB601.value} Unexpected error while creating node reply message {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: "
+                                                                 f"Unexpected error occurred")
+
+        else:
+            self.messaging.send_message(reply)
+
+    def send_error(
+            self,
+            errnum: ErrorNumbers,
+            extra_msg: str = "",
+            researcher_id: str = "<unknown>"
+    ):
         """Sends an error message.
 
         It is a wrapper of `Messaging.send_error()`.
@@ -506,4 +414,4 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum, extra_msg=extra_msg, researcher_id=researcher_id)
+        self.messaging.send_error(errnum=errnum, extra_msg=extra_msg, researcher_id=researcher_id)

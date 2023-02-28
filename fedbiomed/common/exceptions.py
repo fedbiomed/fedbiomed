@@ -260,6 +260,13 @@ class FedbiomedCertificateError(FedbiomedError):
     pass
 
 
+class FedbiomedMPCControllerError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
+
+
 class FedbiomedSecaggCrypterError(FedbiomedError):
     """
     Secure aggregation encryption error
