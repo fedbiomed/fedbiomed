@@ -74,6 +74,7 @@ class FedAverage(Aggregator):
             agg_params = self.secure_aggregation(
                 params=model_params_processed,
                 aggregation_round=kwargs.get('n_round'),
+                total_sample_size=kwargs.get('total_sample_size'),
                 training_plan=kwargs.get('training_plan')
             )
 
