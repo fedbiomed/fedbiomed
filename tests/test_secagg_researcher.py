@@ -269,7 +269,9 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload()
 
-            self.mock_mpc.exec_shamir.side_effect = Exception
+            # note: should not be accessing private `_MPC` of `SecaggServkeyContext`
+            # but could not have it working "clean" mocking
+            self.srvkey_context._MPC.exec_shamir.side_effect = Exception
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload()
 
