@@ -1,13 +1,15 @@
-from typing import List, Union
+import time
+
+from typing import List
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers
 
 from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam, VEParameters
-from ._jls_utils import quantize, reverse_quantize
+from ._jls_utils import quantize, reverse_quantize, CLIPPING_RANGE
+from ..logger import logger
 
-DEFAULT_CLIPPING: int = 3
 """
 Default clipping value that is going to be used to quantize list of parameters 
 """
@@ -56,7 +58,8 @@ class SecaggCrypter:
             num_nodes: int,
             current_round: int,
             params: List[float],
-            key: int
+            key: int,
+            weight: int = None
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -66,7 +69,10 @@ class SecaggCrypter:
             current_round: Current round of federated training
             params: List of flatten parameters
             key: Key to encrypt
+            weight: Weight for the params
         """
+
+        start = time.process_time()
 
         # Make use the key is instance of
         if not isinstance(key, int):
@@ -74,29 +80,26 @@ class SecaggCrypter:
                 f"{ErrorNumbers.FB620.value}: The argument `key` must be integer"
             )
 
-        clipping_range = self._get_clipping_value(params)
+        if weight is not None:
+            params = [param * 1 for param in params]
 
-        weights = quantize(
-            weights=params,
-            clipping_range=clipping_range
-        ).tolist()
-
+        params = quantize(weights=params).tolist()
         public_param = self._setup_public_param()
 
         # Instantiates UserKey object
         key = UserKey(public_param, key)
 
-        print(key)
         # Encrypt parameters
         encrypted_params: List[EncryptedNumber] = self._jls.protect(
             public_param=public_param,
             sk_u=key,
             tau=current_round,
-            x_u_tau=weights,
+            x_u_tau=params,
             n_users=num_nodes
         )
 
-        print(len(encrypted_params))
+        time_elapsed = time.process_time() - start
+        logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
         return self.convert_encrypted_number_to_int(encrypted_params)
 
@@ -120,7 +123,9 @@ class SecaggCrypter:
             current_round: int,
             num_nodes: int,
             params: List[List[EncryptedNumber]],
-            key: int):
+            key: int,
+            total_sample_size: int
+    ):
         """Decrypt given parameters
 
         Args:
@@ -128,8 +133,10 @@ class SecaggCrypter:
             params: Aggregated/Summed encrypted parameters
             num_nodes:
             key: The key that will be used for decryption
+            total_sample_size:
 
         """
+        start = time.process_time()
 
         if len(params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
@@ -149,27 +156,30 @@ class SecaggCrypter:
                 tau=current_round,  # The time period \\(\\tau\\)
                 list_y_u_tau=params
             )
-        except (ValueError, TypeError) as exp:
+        except (ValueError, TypeError) as e:
             raise FedbiomedSecaggCrypterError(f"The aggregation of encrypted parameters is not "
-                                              f"successful: {exp}") from exp
+                                              f"successful: {e}")
 
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         aggregated_params = reverse_quantize(
-            self.quantized_divide(sum_of_weights, num_nodes)
+            self.quantized_divide(sum_of_weights, num_nodes, total_sample_size)
         ).tolist()
+
+        time_elapsed = time.process_time() - start
+        logger.debug(f"Secure aggregation took {time_elapsed} seconds.")
 
         return aggregated_params
 
     @staticmethod
-    def _get_clipping_value(params: List, clipping: int = DEFAULT_CLIPPING) -> int:
+    def _get_clipping_value(params: List, clipping: int = CLIPPING_RANGE) -> int:
         """Gets minimum clipping value by checking minimum value of the params list.
 
         Args:
             params: List of parameters (vector) that are going to be encrypted.
 
         Returns
-            Clipping value for quantizing.
+            Clipping value for quantization.
         """
 
         min_val = min(params)
@@ -181,17 +191,23 @@ class SecaggCrypter:
             return clipping
 
     @staticmethod
-    def quantized_divide(params: List, num_clients: int) -> List:
+    def quantized_divide(
+            params: List,
+            num_nodes: int,
+            total_sample_size: int
+    ) -> List:
         """Average
 
         Args:
             params: List of aggregated/summed parameters
-            num_clients: Number of clients/nodes
+            total_sample_size: Num of total samples used for federated training
 
         Returns:
             Averaged parameters
         """
-        return [param / num_clients for param in params]
+        #TODO: Use total sample size for weighted averaging
+
+        return [param / num_nodes for param in params]
 
     def convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
         """Converts encrypted integers to EncryptedNumber

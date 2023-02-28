@@ -1,9 +1,12 @@
-import random
 import gmpy2
 import numpy as np
 
-from typing import List, Optional
+from typing import List
+from fedbiomed.common.logger import logger
 
+
+# TODO: 100 quantization clipping range is costly in terms of memory
+#  but it provides wider range for model parameters.
 CLIPPING_RANGE = 3
 TARGET_RANGE = 10000
 
@@ -16,18 +19,22 @@ def _check_clipping_range(values: List[float], clipping_range: float):
         clipping_range: Clipping range
 
     """
+    state = False
+
     for x in values:
         if x < -clipping_range or x > clipping_range:
-            raise ValueError(
-                f"There are some numbers in the local vector that exceeds clipping range. Please increase the "
-                f"clipping range to account for value {x}",
-            )
+            state = True
+
+    if state:
+        logger.info(
+            f"There are some numbers in the local vector that exceeds clipping range. Please increase the "
+            f"clipping range to account for value")
 
 
 def quantize(
     weights: List[float],
-    clipping_range: Optional[float] = None,
-    target_range: Optional[int] = None,
+    clipping_range: int = CLIPPING_RANGE,
+    target_range: int = TARGET_RANGE,
 ) -> np.ndarray:
     """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -42,11 +49,6 @@ def quantize(
         Quantized model weights as numpy array.
 
     """
-    # Assign defaults
-    if clipping_range is None:
-        clipping_range = CLIPPING_RANGE
-    if target_range is None:
-        target_range = TARGET_RANGE
 
     # Check clipping range
     _check_clipping_range(weights, clipping_range)
@@ -66,8 +68,8 @@ def quantize(
 
 def reverse_quantize(
     weights: List[int],
-    clipping_range: Optional[float] = None,
-    target_range: Optional[int] = None,
+    clipping_range: float = CLIPPING_RANGE,
+    target_range: int = TARGET_RANGE,
 ) -> np.ndarray:
     """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -79,13 +81,9 @@ def reverse_quantize(
     Returns:
         Reversed quantized model weights as numpy array.
     """
-    if clipping_range is None:
-        clipping_range = CLIPPING_RANGE
-    if target_range is None:
-        target_range = TARGET_RANGE
 
     f = np.vectorize(
-        lambda x: (x) / target_range * (2 * clipping_range) - clipping_range
+        lambda x: x / target_range * (2 * clipping_range) - clipping_range
     )
 
     weights = np.array(weights)

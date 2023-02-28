@@ -14,23 +14,23 @@ and Data Security. Springer Berlin Heidelberg, 2013.*
 
 """
 
-
 import gmpy2
+import time
+import numpy as np
 
 from typing import List, Tuple, Union, Callable
 from ._jls_utils import invert, powmod
 from gmpy2 import mpz, gcd
 from math import ceil, floor, log2
 from Crypto.Hash import SHA256
+from ._jls_utils import TARGET_RANGE
 
 
 class VEParameters:
     """Constants class for vector encoder parameters"""
 
     KEY_SIZE: int = 2048
-    NUM_CLIENTS: int = 2
     VALUE_SIZE: int = ceil(log2(10000))
-    VECTOR_SIZE: int = 1199882
 
 
 class VES:
@@ -49,21 +49,17 @@ class VES:
             self,
             ptsize: int,
             valuesize: int,
-            vectorsize: int,
     ) -> None:
         """Vector encoder constructor
 
         Args:
             ptsize: The bit length of the plaintext (the number of bits of an element in the output vector)
             valuesize: The bit length of an element of the input vector
-            vectorsize: The number of element of the input vector
 
         """
 
         self._ptsize = ptsize
         self._valuesize = valuesize
-        self._vectorsize = vectorsize
-        # self._numbatches = ceil(self._vectorsize / self._compratio) # unused argument
 
     def _get_elements_size_and_compression_ratio(
             self,
@@ -124,8 +120,8 @@ class VES:
         """
 
         element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
-
         V = []
+
         for e in E:
             for v in self._debatch(e, element_size):
                 V.append(v)
@@ -256,8 +252,7 @@ class JoyeLibert:
 
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=VEParameters.VALUE_SIZE,
-            vectorsize=VEParameters.VECTOR_SIZE,
+            valuesize=VEParameters.VALUE_SIZE
         )
 
     def protect(self,
@@ -294,14 +289,11 @@ class JoyeLibert:
             raise ValueError("Bad public parameter. The public parameter of user key does not match the "
                              "one given for encryption")
 
-        if isinstance(x_u_tau, list):
-            x_u_tau = self._vector_encoder.encode(
-                V=x_u_tau,
-                add_ops=n_users
-            )
-            return sk_u.encrypt(x_u_tau, tau)
-        else:
-            return sk_u.encrypt(x_u_tau, tau)
+        x_u_tau = self._vector_encoder.encode(
+            V=x_u_tau,
+            add_ops=n_users
+        )
+        return sk_u.encrypt(x_u_tau, tau)
 
     def aggregate(
             self,
@@ -494,6 +486,16 @@ class BaseKey:
         """Hash of server key"""
         return hash(self._key)
 
+    def _populate_tau(self, tau: int, len_: int, ):
+        """Populates TAU by applying hashing function"""
+
+        taus = (np.arange(0, len_) << self._public_param.bits // 2) | tau
+
+        # with multiprocessing.Pool() as pool:
+        #     result = pool.map(self._public_param.hashing_function, taus)
+
+        return [self._public_param.hashing_function(t) for t in taus]
+
 
 class UserKey(BaseKey):
     """A user key for Joye-Libert Scheme. """
@@ -512,8 +514,8 @@ class UserKey(BaseKey):
         super().__init__(public_param, key)
 
     def encrypt(
-            self, 
-            plaintext: Union[List[gmpy2.mpz], gmpy2.mpz],
+            self,
+            plaintext: List[gmpy2.mpz],
             tau: int
     ):
         """Encrypts a plaintext  for time period tau
@@ -528,14 +530,25 @@ class UserKey(BaseKey):
                 encrypted numbers.
 
         """
-        if isinstance(plaintext, list):
-            counter = 0
-            cipher = []
-            for pt in plaintext:
-                cipher.append(self._encrypt(pt, (counter << self._public_param.bits // 2) | tau))
-                counter += 1
-        else:
-            cipher = self._encrypt(plaintext, tau)
+        if not isinstance(plaintext, list):
+            raise TypeError(f"Expected plaintext type list but got {type(plaintext)}")
+
+        # TODO: find-out what is going wrong in numpy implementation
+        # Use numpy vectors to increase speed of calculation
+        # plaintext = np.array(plaintext)
+        # nude_ciphertext = (self._public_param.n_modulus * (plaintext + 1)) % self._public_param.n_modulus
+        # taus = self._populate_tau(tau=tau, len_=len(plaintext))
+        #
+        # # This process takes some time
+        # vec_pow_mod = np.vectorize(powmod, otypes=[mpz])
+        # r = vec_pow_mod(taus, self._key, self._public_param.n_square)
+        # cipher = (nude_ciphertext * r) % self._public_param.n_square
+        # cipher = [EncryptedNumber(self._public_param, ciphertext) for ciphertext in cipher]
+
+        # TODO: Remove old implementation
+        cipher = [self._encrypt(pt, (i << self._public_param.bits // 2) | tau)
+                  for i, pt in plaintext]
+
         return cipher
 
     def _encrypt(
@@ -578,10 +591,10 @@ class ServerKey(BaseKey):
 
     def decrypt(
             self,
-            cipher: Union[List[EncryptedNumber], EncryptedNumber],
+            cipher: List[EncryptedNumber],
             tau: int,
             delta: int = 1
-    ) -> Union[int, List[int]]:
+    ) -> List[int]:
         """Decrypts the aggregated ciphertexts of all users for time period tau
 
         Args:
@@ -589,22 +602,42 @@ class ServerKey(BaseKey):
             tau: The time period, (training round)
             delta: ...
 
+        Raises:
+            TypeError: In case of invalid argument type.
+
         Returns:
-            Decrypted sum of user inputs of type `int`
             List of decrypted sum of user inputs
         """
 
-        if isinstance(cipher, list):
-            counter = 0
-            pt = []
-            for c in cipher:
-                pt.append(self._decrypt(c, (counter << self._public_param.bits // 2) | tau, delta))
-                counter += 1
-        else:
-            pt = self._decrypt(cipher, tau, delta)
+        if not isinstance(cipher, list):
+            raise TypeError(f"Expected `cipher` is list of encrypter numbers but got {type(cipher)}")
+
+        if not all([isinstance(c, EncryptedNumber) for c in cipher]):
+            raise TypeError(f"Cipher text should be list of EncryptedNumbers")
+
+        # TODO: Findout what is going wrong in numpy implementation
+        # ciphertext = [c.ciphertext for c in cipher]
+        # taus = self._populate_tau(tau=tau, len_=len(ciphertext))
+        #
+        # powmod_ = np.vectorize(powmod, otypes=[mpz])
+        # mod = powmod_(taus,  delta ** 2 * self._key, self._public_param.n_square)
+        #
+        # v = (ciphertext * mod) % self._public_param.n_square
+        # x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
+        #
+        # inverted = invert(delta ** 2, self._public_param.n_square)
+        #
+        # x = (x * inverted) % self._public_param.n_modulus
+        #
+        # pt = [int(pt) for pt in x]
+
+        # TODO: Remove old implementation
+        pt = [self._decrypt(c, (i << self._public_param.bits // 2) | tau, delta)
+                  for i, c in enumerate(cipher)]
 
         return pt
 
+    # TODO: Remove this method before merging
     def _decrypt(
             self,
             cipher: EncryptedNumber,
@@ -649,11 +682,9 @@ class ServerKey(BaseKey):
 
 
 class FDH:
-    """
-    The Full-Domain Hash scheme
+    """The Full-Domain Hash scheme.
 
-    This class computes a full domain hash value usign SHA256 hash function
-
+    This class computes a full domain hash value using SHA256 hash function
     """
 
     def __init__(
@@ -698,6 +729,7 @@ class FDH:
 
         counter = 1
         result = b""
+
         while True:
             while True:
                 h = SHA256.new()
