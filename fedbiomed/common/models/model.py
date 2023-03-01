@@ -241,8 +241,8 @@ class TorchModel(Model):
             if param.grad is not None:
                 param.grad.add_(update.to(param.grad.device))
 
-
-    def _get_iterator_model_params(self, model_params: Union[Dict[str, torch.Tensor], TorchVector]) -> Iterable[Tuple[str, torch.Tensor]]:
+    @staticmethod
+    def _get_iterator_model_params(model_params: Union[Dict[str, torch.Tensor], TorchVector]) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a 
         dictionary or a declearn's TorchVector
 
@@ -417,8 +417,8 @@ class BaseSkLearnModel(Model):
         
         # if self.is_declearn_optim:
         #     self.disable_internal_optimizer()
-        
-    def _get_iterator_model_params(self, model_params: Union[Dict[str, np.ndarray], NumpyVector]) -> Iterable[Tuple[str, np.ndarray]]:
+    @staticmethod
+    def _get_iterator_model_params(model_params: Union[Dict[str, np.ndarray], NumpyVector]) -> Iterable[Tuple[str, np.ndarray]]:
         """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
 
         Args:
