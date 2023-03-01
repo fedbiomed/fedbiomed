@@ -76,11 +76,6 @@ if __name__ == '__main__':
     root_dir = args.root_data_folder
     regressor = args.regressor
 
-    regressors_col = ['fracas_du_bassin_-1.0', 'fracas_du_bassin_0.0', 'fracas_du_bassin_1.0', 
-                    'catecholamines_-1.0', 'catecholamines_0.0', 'catecholamines_1.0', 
-                    'intubation_orotracheale_smur_-1.0', 'intubation_orotracheale_smur_0.0', 'intubation_orotracheale_smur_1.0', 
-                    'sexe', 'expansion_volemique', 'penetrant', 'age', 'pression_arterielle_systolique_PAS_minimum', 
-                    'pression_arterielle_diastolique_PAD_minimum', 'frequence_cardiaque_FC_maximum', 'hemocue_initial']
     target_col = ['choc_hemo']
 
     ###########################################################
@@ -95,7 +90,18 @@ if __name__ == '__main__':
     assert min(dataset_size)==max(dataset_size)
     data_size = dataset_size[0]
 
-    num_covariates = 13
+    num_covariates = 7#13
+
+    if num_covariates == 7:
+        regressors_col = ['fracas_du_bassin', 'catecholamines', 'intubation_orotracheale_smur',
+                        'sexe','expansion_volemique', 'penetrant', 'age', 'pression_arterielle_systolique_PAS_minimum', 
+                        'pression_arterielle_diastolique_PAD_minimum', 'frequence_cardiaque_FC_maximum', 'hemocue_initial']
+    elif num_covariates == 13:
+        regressors_col = ['fracas_du_bassin_-1.0', 'fracas_du_bassin_0.0', 'fracas_du_bassin_1.0', 
+                        'catecholamines_-1.0', 'catecholamines_0.0', 'catecholamines_1.0', 
+                        'intubation_orotracheale_smur_-1.0', 'intubation_orotracheale_smur_0.0', 'intubation_orotracheale_smur_1.0', 
+                        'sexe', 'expansion_volemique', 'penetrant', 'age', 'pression_arterielle_systolique_PAS_minimum', 
+                        'pression_arterielle_diastolique_PAD_minimum', 'frequence_cardiaque_FC_maximum', 'hemocue_initial']
 
     #Number of partecipating clients
     N_cl = len(dataset_size)
@@ -315,3 +321,6 @@ if __name__ == '__main__':
 
         if args.do_figures==True:
             generate_save_plots_prediction(result_folder,testing_error,Validation,conf_matr,method,regressor)
+
+        print(model_pred.coef_)
+        print(model_pred.feature_names_in_)

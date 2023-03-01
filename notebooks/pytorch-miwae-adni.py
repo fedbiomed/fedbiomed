@@ -41,6 +41,8 @@ if __name__ == '__main__':
                         help='Scenario for data splitting')
     parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local'],
                         help='Methods for the running experiment')
+    parser.add_argument('--kind', metavar='-k', type=str, default='single', choices = ['single', 'multiple', 'both'],
+                        help='Kind of imputation')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
                         help='Id of the Test dataset (between 1 and 4)')
     parser.add_argument('--tags', metavar='-t', type=str, default='adni_1', choices = ['adni_1', 'adni_2', 'adni_notiid'],
@@ -56,15 +58,17 @@ if __name__ == '__main__':
     parser.add_argument('--result_folder', metavar='-rf', type=str, default='results', 
                         help='Folder cotaining the results csv')
     parser.add_argument('--hidden', metavar='-h', type=int, default=256,
-                        help='Number of epochs')
+                        help='Number of hidden units')
     parser.add_argument('--latent', metavar='-d', type=int, default=20,
-                        help='Number of epochs')
+                        help='Latent dimension')
     parser.add_argument('--K', metavar='-k', type=int, default=50,
-                        help='Number of epochs')
+                        help='Number of IS during training')
     parser.add_argument('--L', metavar='-l', type=int, default=10000,
-                        help='Number of epochs')
+                        help='Number of IS during testing')
+    parser.add_argument('--num_samples', metavar='-ns', type=int, default=30,
+                        help='Number of multiple imputations (if kind == both or kind == multiple)')
     parser.add_argument('--batch_size', metavar='-bs', type=int, default=32,
-                        help='Number of epochs')
+                        help='Batch size')
     parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
                         help='Learning rate')
     parser.add_argument('--do_figures', metavar='-fig', default=True, action=argparse.BooleanOptionalAction,
@@ -77,6 +81,8 @@ if __name__ == '__main__':
     idx_Test_data = int(args.Test_id)
     tags = args.tags
     data_folder = args.data_folder
+    kind = args.kind
+    num_samples = args.num_samples
     root_dir = args.root_data_folder
 
     if ((Split_type=='site_1') and (tags!='adni_1')):
@@ -111,7 +117,8 @@ if __name__ == '__main__':
     idx_clients=[*range(1,N_cl+2)]
     idx_clients.remove(idx_Test_data)
 
-    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir)
+    Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test = \
+        databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir)
 
     ###########################################################
     # Recover global mean and std in a federated manner       #
@@ -400,32 +407,37 @@ if __name__ == '__main__':
         xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
                 recover_data(data_test_missing, data_test, fed_mean, fed_std)
     if method != 'Local':
-        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L)
+        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L,
+                           idx_Test_data,result_folder,method+'_local',kind,num_samples)
         save_results(result_folder,Split_type,idx_clients,idx_Test_data,
             Perc_missing,Perc_missing_test,method,
             N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
             std_training,'local',MSE)
         if method != 'FedProx_loc':
-            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L)
+            MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L,
+                           idx_Test_data,result_folder,method+'_global',kind,num_samples)
             save_results(result_folder,Split_type,idx_clients,idx_Test_data,
                 Perc_missing,Perc_missing_test,method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'global',MSE)
     elif method == 'Local':
         # centralized 
-        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+        MSE = testing_func(xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L,
+                           idx_Test_data,result_folder,'Centralized_local',kind,num_samples)
         save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','local',MSE)
-        MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+        MSE = testing_func(xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L,
+                           idx_Test_data,result_folder,'Centralized_global',kind,num_samples)
         save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','global',MSE)
         # local
         for cls in range(N_cl):
-            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+            MSE = testing_func(xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L,
+                           idx_Test_data,result_folder,'Local_cl'+str(idx_clients[cls]),kind,num_samples)
             save_results(result_folder,Split_type,idx_clients[cls],idx_Test_data,
                 Perc_missing[cls],Perc_missing_test,'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,

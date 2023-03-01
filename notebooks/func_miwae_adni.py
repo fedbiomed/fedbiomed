@@ -7,6 +7,8 @@ import torch.distributions as td
 from datetime import datetime
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import seaborn as sns; sns.set()
 
 ###########################################################
 #Define the imputation and the MSE functions              #
@@ -41,7 +43,7 @@ def encoder_decoder_iota_opt(p,h,d,lr):
 
     return encoder, decoder, iota, optimizer
 
-def miwae_impute(encoder,decoder,iota,data,mask,p,d,L):
+def miwae_impute_single(encoder,decoder,iota,data,mask,p,d,L):
 
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
 
@@ -87,6 +89,72 @@ def miwae_impute(encoder,decoder,iota,data,mask,p,d,L):
     xm=torch.einsum('ki,kij->ij', imp_weights, xms) 
 
     return xm
+
+def miwae_impute(encoder,decoder,iota, data, mask,d,p,L,kind="single",num_samples=20):
+    with torch.no_grad():
+
+        # kind = "single" will return only the single imputation
+        # kind = "multiple" will return num_samples multiple imputations
+        # kind = "both" will both the single imputation and num_samples multiple imputations
+
+        p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
+
+        batch_size = data.shape[0]
+        
+        tiledmask = torch.tile(mask,(L,1))
+        mask_complement_float = torch.abs(mask-1)
+
+        tilediota = torch.tile(iota,(data.shape[0],1))
+        iotax = data + torch.mul(tilediota,mask_complement_float)
+        
+        out_encoder = encoder(iotax)
+        #q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :d],scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)])),1)
+        q_zgivenxobs = td.Independent(td.StudentT(loc=out_encoder[..., :d],\
+                                                    scale=torch.nn.Softplus()(out_encoder[..., d:(2*d)]),\
+                                                    df=torch.nn.Softplus()\
+                                                    (out_encoder[..., (2*d):(3*d)]) + 3),1)
+
+        zgivenx = q_zgivenxobs.rsample([L])
+        zgivenx_flat = zgivenx.reshape([L*batch_size,d])
+
+        out_decoder = decoder(zgivenx_flat)
+        all_means_obs_model = out_decoder[..., :p]
+        all_scales_obs_model = torch.nn.Softplus()(out_decoder[..., p:(2*p)]) + 0.001
+        all_degfreedom_obs_model = torch.nn.Softplus()(out_decoder[..., (2*p):(3*p)]) + 3
+
+        data_flat = torch.Tensor.repeat(data,[L,1]).reshape([-1,1])
+        #tiledmask = torch.Tensor.repeat(mask,[L,1])
+
+        all_log_pxgivenz_flat = torch.distributions.StudentT(loc=all_means_obs_model.reshape([-1,1]),\
+                scale=all_scales_obs_model.reshape([-1,1]),\
+                df=all_degfreedom_obs_model.reshape([-1,1])).log_prob(data_flat)
+        all_log_pxgivenz = all_log_pxgivenz_flat.reshape([L*batch_size,p])
+
+        logpxobsgivenz = torch.sum(all_log_pxgivenz*tiledmask,1).reshape([L,batch_size])
+        logpz = p_z.log_prob(zgivenx)
+        logq = q_zgivenxobs.log_prob(zgivenx)
+
+        xgivenz = td.Independent(td.StudentT(loc=all_means_obs_model, scale=all_scales_obs_model, df=all_degfreedom_obs_model),1)
+        log_imp_weights = logpxobsgivenz + logpz - logq # same importance wieghts used for single and multiple imputation
+
+        imp_weights = torch.nn.functional.softmax(log_imp_weights,0) # these are w_1,....,w_L for all observations in the batch
+        xms = xgivenz.mean.reshape([L,batch_size,p])  # that's the only line that changed!
+        xm = torch.multiply(torch.einsum('ki,kij->ij', imp_weights, xms),mask_complement_float)
+
+        if ((kind=="multiple") or (kind=="both")):
+
+            sir_logits = torch.t(log_imp_weights)
+            sir = td.Categorical(logits = sir_logits).sample((num_samples,))
+            #xmul = torch.reshape(xhat_0_batch + torch.multiply(torch.reshape(xgivenz.sample(),[L,xhat_0_batch.shape[0],p]),mask_complement_float),[L,xhat_0_batch.shape[0],p])
+            xmul = torch.reshape(torch.multiply(torch.reshape(xgivenz.sample(),[L,batch_size,p]),mask_complement_float),[L,batch_size,p])
+            xmul_gat = xmul.permute(1,0,2)[:,torch.t(sir)][0]
+            # tf.gather(tf.transpose(xmul,perm=[1,0,2]), tf.transpose(sir), axis = 1, batch_dims=1)
+
+    if (kind=="single"):
+        return xm
+
+    else:
+        return xm, xmul_gat
 
 def mse(xhat,xtrue,mask): # MSE function for imputations
     xhat = np.array(xhat)
@@ -174,7 +242,8 @@ def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
         return xmiss, mask, xhat_local_std, xfull_local_std
         
 
-def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L):
+def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L,
+                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20):
 
     xhat = np.copy(data_missing)
     xhat_0 = np.copy(data_missing)
@@ -182,10 +251,36 @@ def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L):
 
     p = data_full.shape[1] # number of features
 
-    xhat[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
+    xm = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),
+                               mask = torch.from_numpy(mask).float(),p=p, d = d,L= L)
+        
+    xhat[~mask] = xm.cpu().data.numpy()[~mask]
     err = np.array([mse(xhat,xfull,mask)])
 
-    return float(err)
+    if (kind=="single"):
+        return float(err)
+    else:
+        n = data_full.shape[0]
+        for i in range(n):
+            if (np.sum(mask[i,:])<=p-2):
+        #two_miss = False
+        #while two_miss != True:
+        #    i = torch.randint(high=n,size=(1,))
+        #    if (np.sum(mask[i,:])>p-2):
+        #        print('This data point has less than two missing values, therefore the visualisation will fail.')
+        #    else:
+        #        two_miss = True
+                xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
+                                                        data = torch.from_numpy(xhat_0[i,:]).reshape([1,p]).float(), 
+                                                        mask = torch.from_numpy(mask[i,:]).reshape([1,p]).float(),
+                                                        p=p, d = d,L= L,kind=kind,num_samples=num_samples)
+
+
+                true_values = xfull[i,~mask[i,:].astype(bool)]
+                single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
+                mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
+                multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i)
+        return float(err)
 
 def save_results(result_folder, Split_type,Train_data,Test_data,
                 perc_missing_train,perc_missing_test,model,
@@ -259,6 +354,35 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir=Non
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test
 
+def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i):
+    figures_folder = result_folder+'/Figures'
+    os.makedirs(figures_folder, exist_ok=True)
+    exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
+    file_name = 'Multiple_imp_'+method+exp_id+'Client_'+str(idx_cl)
+    ax = plt.figure(figsize=(9,10))
+    sns.kdeplot(x=mul_imp[:,0],y=mul_imp[:,1],fill=True)
+    plt.scatter(x=single_imp[0],y=single_imp[1], s =100, marker = "P",  c = '#2ca02c')
+    plt.scatter(x=true_values[0],y=true_values[1], s =100, marker = "X",  c = '#d62728')
+    legend_elements = [Line2D([0], [0], color='b', lw=4, label='MIWAE (KDE of multiple imp.)'),
+                    Line2D([0], [0], marker='P', color='w', markerfacecolor = '#2ca02c', label='MIWAE (single imp.)', markersize=10),
+                    Line2D([0], [0], marker='X', color='w', markerfacecolor = '#d62728', label='True value', markersize=10)]
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.title('Subject'+str(i))
+    plt.savefig(figures_folder + '/' + file_name,bbox_inches='tight')
+    plt.clf()
+    plt.close()
+
+    ax = plt.figure(figsize=(9,10))
+    file_name = 'px_miss_px_obs_'+method+exp_id+'Client_'+str(idx_cl)
+    sns.kdeplot(x=mul_imp[:,0],y=mul_imp[:,1], color = 'b')
+    sns.kdeplot(x=xfull[:,0],y=xfull[:,1], color = 'r')
+    legend_elements = [Line2D([0], [0], color='b', label='p(xmiss|xobs) via KDE of MIWAE multiple imp.'),
+                    Line2D([0], [0], color='r', label='p(xmiss) via KDE on the fully observed dataset')]
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.title('Subject'+str(i))
+    plt.savefig(figures_folder + '/' + file_name,bbox_inches='tight')
+    plt.clf()
+    plt.close()
 
 def generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,Loss_tot,Like_tot,MSE_tot,epochs_loc,epochs_tot,idx_clients):
     figures_folder = result_folder+'/Figures'

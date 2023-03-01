@@ -42,7 +42,7 @@ if __name__ == '__main__':
                         help='Task to be performed with the pipeline')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
                         help='Id of the Test dataset (between 1 and 4)')
-    parser.add_argument('--tags', metavar='-t', type=str, default='traumabase', help='Dataset tags')
+    parser.add_argument('--tags', metavar='-t', type=str, default='traumabase', help='Dataset tags', choices = ['traumabase','traumabase_imp','traumabase_pred'])
     parser.add_argument('--Rounds', metavar='-r', type=int, default=200,
                         help='Number of rounds for imputation')
     parser.add_argument('--Epochs', metavar='-e', type=int, default=10,
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     data_size = dataset_size[0]
 
     ############################################################################
-    num_covariates = 13 if task=='imputation' else 14
+    num_covariates = 7 if task=='imputation' else 8 #13 14
     ############################################################################
 
     #Number of partecipating clients

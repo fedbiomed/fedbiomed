@@ -272,6 +272,11 @@ class SGDRegressorTraumabaseTrainingPlan(FedSGDRegressor):
             "import numpy as np",
             "from typing import Any, Dict, Optional"]
         return deps
+    
+    def __init__(self) -> None:
+        """Class constructor."""
+        super().__init__()
+        self._model.set_params(penalty="elasticnet")
 
     def post_init(
             self,
@@ -280,6 +285,7 @@ class SGDRegressorTraumabaseTrainingPlan(FedSGDRegressor):
             aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
 
+        model_args["penalty"] = "elasticnet"
         self.n_cov=model_args['n_cov']
         self.regressors_col = model_args.get('regressors_col')
         self.target_col = model_args.get('target_col')
@@ -311,9 +317,9 @@ class SGDRegressorTraumabaseTrainingPlan(FedSGDRegressor):
             X_cont = self.standardize_data(X_cont)
             X = np.concatenate((X_cov, X_cont), axis=1)
 
-        y = dataset[self.target_col]
+        y = dataset[self.target_col].values.astype(int).ravel()
 
-        return DataManager(dataset=X, target=y.values.astype(int).ravel(), batch_size=batch_size, shuffle=True)
+        return DataManager(dataset=X, target=y, batch_size=batch_size, shuffle=True)
     
     def standardize_data(self,data):
         data_norm = np.copy(data)
