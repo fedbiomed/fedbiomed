@@ -134,7 +134,7 @@ class Model(metaclass=ABCMeta):
             FedbiomedModelError: raised if `return_type` argument is neither a callable nor `None`.
         """
         if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Argument `return_type` should be either None or callable, but got {type(return_type)} instead")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Argument `return_type` should be either None or callable, but got {type(return_type)} instead")
 
 
 
@@ -262,7 +262,7 @@ class TorchModel(Model):
         elif isinstance(model_params, dict):
             iterator = model_params.items()
         else:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
         return iterator
 
     def predict(self, inputs: torch.Tensor)-> np.ndarray:
@@ -300,7 +300,7 @@ class TorchModel(Model):
     def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
         # TODO: should we pass loss function here? and do the backward prop?
         if self.init_params is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Training has not been initialized, please initalized it beforehand")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initalized it beforehand")
         pass
 
     def load(self, filename: str) -> OrderedDict:
@@ -375,7 +375,7 @@ class BaseSkLearnModel(Model):
 
         """
         if not isinstance(model, BaseEstimator):
-            err_msg = f"{ErrorNumbers.FB623.value}. Invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}"
+            err_msg = f"{ErrorNumbers.FB622.value}. Invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}"
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
         
@@ -409,7 +409,7 @@ class BaseSkLearnModel(Model):
         """
 
         if self.param_list is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Attribute `param_list` is not defined: please define it beforehand")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Attribute `param_list` is not defined: please define it beforehand")
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}  # call it `param_init` so to be consistent with SklearnModel
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
@@ -437,7 +437,7 @@ class BaseSkLearnModel(Model):
         elif isinstance(model_params, dict):
             return model_params.items()
         else:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value} got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value} got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
 
     def set_weights(self, weights: Union[Dict[str, np.ndarray], NumpyVector]) -> BaseEstimator:
         """Sets model weights.
@@ -472,7 +472,7 @@ class BaseSkLearnModel(Model):
         weights = {}
         if self.param_list is None:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB623.value}. Attribute `param_list` not defined. You should "
+                f"{ErrorNumbers.FB622.value}. Attribute `param_list` not defined. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
         try:
@@ -481,7 +481,7 @@ class BaseSkLearnModel(Model):
                 weights[key] = val.copy() if isinstance(val, np.ndarray) else val
 
         except AttributeError as err:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Unable to access weights of BaseEstimator model {self.model} (details {str(err)}")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Unable to access weights of BaseEstimator model {self.model} (details {str(err)}")
 
         if return_type is not None:
             weights = return_type(weights)
@@ -529,7 +529,7 @@ class BaseSkLearnModel(Model):
             FedbiomedModelError: raised if training has not been initialized
         """
         if self.updates is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Training has not been initialized: please run `init_training` method beforehand")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Training has not been initialized: please run `init_training` method beforehand")
         self._batch_size: int = 0  # batch size counter
         
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
@@ -583,7 +583,7 @@ class BaseSkLearnModel(Model):
         """
         self._validate_return_type(return_type=return_type)
         if self._gradients is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Can not get gradients if model has not been trained beforehand!")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Can not get gradients if model has not been trained beforehand!")
 
         gradients: Dict[str, np.ndarray] = self._gradients
         
@@ -779,9 +779,9 @@ class SkLearnModel:
             try:
                 self._instance = Models[model.__name__](model())
             except KeyError as ke:
-                raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Error when building SkLearn Model: {model} has not been implemented in Fed-BioMed. Details: {ke}") from ke
+                raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Error when building SkLearn Model: {model} has not been implemented in Fed-BioMed. Details: {ke}") from ke
         else:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Cannot build SkLearn Model: Model {model} don't have a `__name__` attribute. Are yousure you have not passed a"
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Cannot build SkLearn Model: Model {model} don't have a `__name__` attribute. Are yousure you have not passed a"
                                       " sklearn object instance instead of the object class")
      
     def __getattr__(self, item: str):

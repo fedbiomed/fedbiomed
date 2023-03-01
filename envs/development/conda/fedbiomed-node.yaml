@@ -25,6 +25,9 @@ dependencies:
   - validators >=0.18.2,<0.19.0
   - tqdm >=4.59.0,<5.0.0
   - git
+  # these two have to be aligned
+  - cryptography ~=39.0
+  - pyopenssl ~=23.0
   # git notebook striper
   - nbstripout
   - joblib >=1.0.1
@@ -54,6 +57,8 @@ dependencies:
       - declearn[torch] ~= 2.0.1
       # FLamby
       - git+https://github.com/owkin/FLamby@main
+      # declearn
+      - declearn[torch] ~= 2.0.1
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7

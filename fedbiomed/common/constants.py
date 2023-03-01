@@ -78,7 +78,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     APPROVED = "Approved"
     REJECTED = "Rejected"
     PENDING = "Pending"
-    
+
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
@@ -250,8 +250,8 @@ class ErrorNumbers(_BaseEnum):
     FB618 = "FB618: FLamby data transformation error"
     FB619 = "FB619: Certificate error"
     FB620 = "FB620: MPC protocol error"
-    
-    FB623 = "FB623: Model error"
+    FB621 = "FB621: declearn optimizer error"
+    FB622 = "FB622: Model error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
