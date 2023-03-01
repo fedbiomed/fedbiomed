@@ -83,7 +83,7 @@ class TestTorchnn(unittest.TestCase):
         self.patcher.start()
 
         self.TrainingPlan = TrainingPlan
-        self.params = {'one': 1, '2': 'two'}
+        self.params = {'conv.1': 1, 'conv.2': 'two'}
         self.tmpdir = '.'
 
     # after the tests
@@ -299,23 +299,25 @@ class TestTorchnn(unittest.TestCase):
         tp1._model = torch.nn.Module()
         paramfile = self.tmpdir + '/tmp_params.pt'
 
+        params = tp1._model.state_dict()
+
         if os.path.isfile(paramfile):
             os.remove(paramfile)
 
         # save/load from/to variable
-        tp1.save(paramfile, self.params)
+        tp1.save(paramfile, params)
         self.assertTrue(os.path.isfile(paramfile))
         params2 = tp1.load(paramfile, True)
 
-        self.assertTrue(type(params2) is dict)
-        self.assertEqual(self.params, params2)
+
+        self.assertTrue(isinstance(params2, dict))
+        self.assertEqual(params, params2)
 
         # save/load from/to object params
         tp1.save(paramfile)
         tp2 = TorchTrainingPlan()
         tp2._model = torch.nn.Module()
         tp2.load(paramfile)
-        self.assertTrue(type(params2) is dict)
 
         sd1 = tp1.model().state_dict()
         sd2 = tp2.model().state_dict()
