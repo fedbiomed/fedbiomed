@@ -2,14 +2,8 @@ import unittest
 from unittest.mock import patch
 import copy
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
-
-from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager, SecaggManager
+from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
 
 class FakeTinyDB:
@@ -56,12 +50,12 @@ class FakeTable:
             return True
 
 
-class TestBaseSecaggManager(NodeTestCase):
-    """Test for SecaggManager node side module"""
+class TestBaseSecaggManager(unittest.TestCase):
+    """Test for common secagg_manager module"""
 
     def setUp(self):
-        self.patcher_db = patch('fedbiomed.node.secagg_manager.TinyDB', FakeTinyDB)
-        self.patcher_query = patch('fedbiomed.node.secagg_manager.Query', FakeQuery)
+        self.patcher_db = patch('fedbiomed.common.secagg_manager.TinyDB', FakeTinyDB)
+        self.patcher_query = patch('fedbiomed.common.secagg_manager.Query', FakeQuery)
 
         self.patcher_db.start()
         self.patcher_query.start()
@@ -71,22 +65,22 @@ class TestBaseSecaggManager(NodeTestCase):
         self.patcher_db.stop()
 
     def test_secagg_manager_01_init_ok(self):
-        """Instantiate SecaggManager normal successful case"""
+        """Instantiate SecaggServkeyManager / SecaggBiprimeManager normal successful case"""
         # prepare
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
 
         # action
         for manager in managers:
-            manager()
+            manager('/path/to/dummy/file')
 
         # test
         # nothing to test at this point ...
 
-    @patch('fedbiomed.node.secagg_manager.TinyDB.__init__')
+    @patch('fedbiomed.common.secagg_manager.TinyDB.__init__')
     def test_secagg_manager_02_init_error(
             self,
             patch_tinydb_init):
-        """Instantiate SecaggManager fails with exception"""
+        """Instantiate SecaggServkeyManager / SecaggBiprimeManager fails with exception"""
         # prepare
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
 
@@ -95,10 +89,10 @@ class TestBaseSecaggManager(NodeTestCase):
         # action + check
         for manager in managers:
             with self.assertRaises(FedbiomedSecaggError):
-                manager()
+                manager('/path/to/dummy/file')
 
     def test_secagg_manager_03_get_ok(self):
-        """Using `get()` method from SecaggManager successfully"""
+        """Using `get()` method from SecaggServkeyManager / SecaggBiprimeManager successfully"""
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
@@ -111,7 +105,7 @@ class TestBaseSecaggManager(NodeTestCase):
         for m in managers:
             for entries, job_id in entries_list:
                 # preparation (continued)
-                manager = m()
+                manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
                 # for each test
                 manager._db.db_table.entries = entries
@@ -147,7 +141,7 @@ class TestBaseSecaggManager(NodeTestCase):
                 if not test_for_biprime and m == SecaggBiprimeManager:
                     continue
 
-                manager = m()
+                manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
                 # for each test
                 manager._db.db_table.entries = entries
@@ -178,7 +172,7 @@ class TestBaseSecaggManager(NodeTestCase):
         for m in managers:
             for entries, job_id in entries_list:
                 # preparation (continued)
-                manager = m()
+                manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but avoids writing a specific fake class
                 # for each test
                 manager._db.db_table.exception_search = True
@@ -209,7 +203,7 @@ class TestBaseSecaggManager(NodeTestCase):
             for parties in parties_list:
                 for m, specific, kwargs in specific_list:
                     # preparation (continued)
-                    manager = m()
+                    manager = m('/path/to/dummy/file')
                     expected_entries = copy.deepcopy(specific)
                     expected_entries.update({'secagg_id': secagg_id, 'parties': parties})
 
@@ -263,7 +257,7 @@ class TestBaseSecaggManager(NodeTestCase):
             for parties in parties_list:
                 for m, specific, alt_specific, kwargs in specific_list:
                     # preparation (continued)
-                    manager = m()
+                    manager = m('/path/to/dummy/file')
                     manager.add(secagg_id, parties, **specific)
 
                     # action + check
@@ -291,7 +285,7 @@ class TestBaseSecaggManager(NodeTestCase):
             for parties in parties_list:
                 for m, specific, kwargs in specific_list:
                     # preparation (continued)
-                    manager = m()
+                    manager = m('/path/to/dummy/file')
                     # should not be accessing private variable, but avoids writing a specific fake class
                     # for each test
                     manager._db.db_table.exception_insert = True
@@ -311,40 +305,6 @@ class TestBaseSecaggManager(NodeTestCase):
                     with self.assertRaises(FedbiomedSecaggError):
                         manager.remove('my_secagg_id', **kwargs)
 
-
-class TestSecaggManager(NodeTestCase):
-
-    def setUp(self) -> None:
-        pass
-
-    def tearDown(self) -> None:
-        pass
-
-    def test_secagg_manager_01_initialization(self):
-
-        # Test server key manager
-        secagg_setup = SecaggManager(0)()
-        self.assertIsInstance(secagg_setup, SecaggServkeyManager)
-
-        # Test biprime manager
-        secagg_setup = SecaggManager(1)()
-        self.assertIsInstance(secagg_setup, SecaggBiprimeManager)
-
-        # Raise element type erro
-        with self.assertRaises(FedbiomedSecaggError):
-            SecaggManager(2)()
-
-        # Raise missing component for element type error
-        with patch('fedbiomed.node.secagg_manager.SecaggElementTypes') as element_types_patch:
-            class FakeSecaggElementTypes(_BaseEnum):
-                DUMMY: int = 0
-            element_types_patch.return_value = FakeSecaggElementTypes(0)
-            element_types_patch.__iter__.return_value = [
-                FakeSecaggElementTypes(0)
-            ]
-
-            with self.assertRaises(FedbiomedSecaggError):
-                SecaggManager(0)()        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
