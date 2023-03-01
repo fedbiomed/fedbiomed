@@ -30,6 +30,9 @@ dependencies:
   - validators >=0.18.2,<0.19.0
   - tqdm >=4.59.0,<5.0.0
   - git
+    # these two have to be aligned
+  - cryptography ~=39.0
+  - pyopenssl ~=23.0
   # git notebook striper
   - nbstripout
   - joblib >=1.0.1

@@ -9,24 +9,43 @@ import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
-import numpy as np
-from declearn.model.sklearn import NumpyVector
-from declearn.optimizer import Optimizer
+
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import ErrorNumbers
+
+import numpy as np
+from declearn.model.sklearn import NumpyVector
+
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
-from sklearn.neural_network import MLPClassifier
+
 import torch
 from declearn.model.torch import TorchVector
 
 
 
 class Model(metaclass=ABCMeta):
+    """Model abstraction, that wraps and handles both declearn's and native models
     
+    Attributes:
+        model (Union[torch.nn.Module, BaseEstimator]): native model, written with frameworks
+        supported by Fed-BioMed.
+        model_args (Dict[str, Any]): model arguments stored as a dictionary, that provides additional
+        arguments for building/using models. Defaults to None.
+    """
     model : Union[torch.nn.Module, BaseEstimator]
     model_args: Dict[str, Any]
     
+    def __init__(self, model: Union[torch.nn.Module, BaseEstimator]):
+        """Constructor of Model abstract class
+
+        Args:
+            model (Union[torch.nn.Module, BaseEstimator]): native model wrapped
+        """
+        self.model = model
+        self.model_args = None
+
     @abstractmethod
     def init_training(self):
         """Initializes parameters before model training
@@ -109,7 +128,7 @@ class Model(metaclass=ABCMeta):
             FedbiomedModelError: raised if `return_type` argument is neither a callable nor `None`.
         """
         if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(f"argument return_type should be either None or callable, but got {type(return_type)} instead")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Argument `return_type` should be either None or callable, but got {type(return_type)} instead")
 
 
 
@@ -126,7 +145,8 @@ class TorchModel(Model):
         """Instantiates the wrapper over a torch Module instance."""
         # if not isinstance(model, torch.nn.Module):
         #     raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
-        self.model = model
+        super().__init__(model)
+        self.init_params = None
 
     def get_gradients(self,
                       return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Union[Dict[str, torch.Tensor],Any]:
@@ -198,12 +218,17 @@ class TorchModel(Model):
                 param.add_(update)
     
     def add_corrections_to_gradients(self, corrections: Union[TorchVector, Dict[str, torch.Tensor]]):
-        """Adds values to attached gradients in the model"""
+        """Adds values to attached gradients in the model
+        
+        Args:
+            corrections (Union[TorchVector, Dict[str, torch.Tensor]]): corrections to be added to model's gradients
+        """
         iterator = self._get_iterator_model_params(corrections)
 
         for name, update in iterator:
             param = self.model.get_parameter(name)
-            param.grad.add_(update.to(param.grad.device))
+            if param.grad is not None:
+                param.grad.add_(update.to(param.grad.device))
 
     def _get_iterator_model_params(self, model_params: Union[Dict[str, torch.Tensor], TorchVector]) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a 
@@ -225,7 +250,7 @@ class TorchModel(Model):
         elif isinstance(model_params, dict):
             iterator = model_params.items()
         else:
-            raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
         return iterator
 
     def predict(self, inputs: torch.Tensor)-> np.ndarray:
@@ -251,7 +276,7 @@ class TorchModel(Model):
         return self.model.to(device)
 
     def init_training(self):
-        """Initializes and sets attributes before model training.
+        """Initializes and sets attributes before model tFB622 = "FB622: Model error"raining.
 
         Initialized attributes:
         - init_params: copy of the initial parameters of the model
@@ -264,8 +289,8 @@ class TorchModel(Model):
         
     def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
         # TODO: should we pass loss function here? and do the backward prop?
-        if self.init_params is NotImplemented:
-            raise FedbiomedModelError("Error, training has not been initialized, please initalized it beforehand")
+        if self.init_params is None:
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Training has not been initialized, please initalized it beforehand")
         pass
 
     def load(self, filename: str) -> OrderedDict:
@@ -335,16 +360,17 @@ class BaseSkLearnModel(Model):
     ) -> None:
         """Instantiate the wrapper over a scikit-learn BaseEstimator."""
         if not isinstance(model, BaseEstimator):
-            err_msg = f"invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}"
+            err_msg = f"{ErrorNumbers.FB623.value}. Invalid argument for `model`: expecting an object extending from BaseEstimator, but got {model.__class__}"
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
-        self.model = model
+        
+        super().__init__(model)
 
         self._batch_size: int = 0
         self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
-        self.param_list = NotImplemented
-        self._gradients = NotImplemented
-        self.updates = NotImplemented
+        self.param_list = None
+        self._gradients = None
+        self.updates = None
         # FIXME: should we force model verbosity here?
         # if hasattr(model, "verbose"):
         #     self.verbose = True
@@ -363,8 +389,8 @@ class BaseSkLearnModel(Model):
         Raises:
             FedbiomedModelError: raised if `param_list` has not been defined
         """
-        if self.param_list is NotImplemented:
-            raise FedbiomedModelError("Attribute `param_list` is not defined: please define it beforehand")
+        if self.param_list is None:
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Attribute `param_list` is not defined: please define it beforehand")
         self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in self.param_list}  # call it `param_init` so to be consistent with SklearnModel
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
         
@@ -392,7 +418,7 @@ class BaseSkLearnModel(Model):
         elif isinstance(model_params, dict):
             return model_params.items()
         else:
-            raise FedbiomedModelError(f"Error, got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value} got a {type(model_params)} while expecting NumpyVector or OrderedDict/Dict")
 
     def set_weights(self, weights: Union[Dict[str, np.ndarray], NumpyVector]) -> BaseEstimator:
         """Sets model weights.
@@ -413,15 +439,15 @@ class BaseSkLearnModel(Model):
         """Returns model's parameters."""
         self._validate_return_type(return_type=return_type)
         weights = {}
-        if self.param_list is NotImplemented:
-            raise FedbiomedModelError("`param_list` not defined. You should have initialized the model beforehand (try calling `set_init_params`)")
+        if self.param_list is None:
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Attribute `param_list` not defined. You should have initialized the model beforehand (try calling `set_init_params`)")
         try:
              for key in self.param_list:
                 val = getattr(self.model, key)
                 weights[key] = val.copy() if isinstance(val, np.ndarray) else val
 
         except AttributeError as err:
-            raise FedbiomedModelError(f"Unable to access weights of BaseEstimator model {self.model} (details {str(err)}")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Unable to access weights of BaseEstimator model {self.model} (details {str(err)}")
 
         if return_type is not None:
             weights = return_type(weights)
@@ -459,8 +485,8 @@ class BaseSkLearnModel(Model):
         Raises:
             FedbiomedModelError: raised if training has not been initialized
         """
-        if self.updates is NotImplemented:
-            raise FedbiomedModelError("Training has not been initialized: please run `init_training` method beforehand")
+        if self.updates is None:
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Training has not been initialized: please run `init_training` method beforehand")
         self._batch_size: int = 0  # batch size counter
         
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
@@ -513,8 +539,8 @@ class BaseSkLearnModel(Model):
             `return_type` argument is not provided) or in a data structure returned by `return_type`.
         """
         self._validate_return_type(return_type=return_type)
-        if self._gradients is NotImplemented:
-            raise FedbiomedModelError("Error, cannot get gradients if model hasnot been trained beforehand!")
+        if self._gradients is None:
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Can not get gradients if model has not been trained beforehand!")
 
         gradients: Dict[str, np.ndarray] = self._gradients
         
@@ -536,7 +562,14 @@ class BaseSkLearnModel(Model):
             Dict[str, Any]: dictionary mapping model hyperparameter names to their values
         """
         if value is not None:
-            return self.model.get_params(value)
+            return self.model.get_params(value)    def test_torchmodel_7_add_corrections_to_gradients(self):
+        correction_values = torch.randn(1, 1,  4, requires_grad=True)
+        corrections = {layer_name: val for }
+        # action
+        self.model.add_corrections_to_gradients(corrections)
+        # checks
+        for layer_name, param in self.model.model.parameters():
+            self.assertTrue(torch.isclose())
         else: 
             return self.model.get_params()
 
@@ -574,7 +607,7 @@ class BaseSkLearnModel(Model):
         
         Args: 
             model_args(Dict): dictionary that contains specifications for setting inital model
-            parameters.
+            parameters (e.g. number of features, number of classes, ...).
         """
     
     @abstractmethod
@@ -641,7 +674,7 @@ class SGDClassiferSKLearnModel(SGDSkLearnModel):
     """
     _is_classification: bool = True
     _is_regression: bool = False
-    #classes_: np.ndarray = NotImplemented
+
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
         """Initialize the model's trainable parameters."""
         # Set up zero-valued start weights, for binary of multiclass classif.
@@ -682,7 +715,7 @@ class SkLearnModel():
         _instance (BaseSkLearnModel): instance of BaseSkLearnModel
     """
     def __init__(self, model: Type[BaseEstimator]):
-        """Constructor of the builder.
+        """Constructor of the model builder.
 
         Args:
             model (Type[BaseEstimator]): non-initalized `BaseEstimator` object
@@ -698,9 +731,9 @@ class SkLearnModel():
             try:
                 self._instance = Models[model.__name__](model())
             except KeyError as ke:
-                raise FedbiomedModelError(f"Error when building SkLearn Model: {model} has not been implemented in Fed-BioMed. Details: {ke}") from ke
+                raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Error when building SkLearn Model: {model} has not been implemented in Fed-BioMed. Details: {ke}") from ke
         else:
-            raise FedbiomedModelError(f"cannot build SkLearn Model: Model {model} don't have a `__name__` attribute. Are yousure you have not passed a"
+            raise FedbiomedModelError(f"{ErrorNumbers.FB623.value}. Cannot build SkLearn Model: Model {model} don't have a `__name__` attribute. Are yousure you have not passed a"
                                       " sklearn object instance instead of the object class")
      
     def __getattr__(self, item: str):
@@ -718,7 +751,7 @@ class SkLearnModel():
         except AttributeError:
             raise FedbiomedModelError(f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}")
     
-    def __deepcopy__(self, memo) -> 'SkLearnModel':
+    def __deepcopy__(self, memo: Dict) -> 'SkLearnModel':
         """
         Provides a deepcopy of the object. Copied object will have no shared references with the original model.
         !!!  warning "to be used with the `copy` built-in package of Python"
@@ -730,7 +763,7 @@ class SkLearnModel():
         >>> model_copy = copy.deepcopy(model)
 
         Args:
-            memo (dict): dictionary fo completing new 
+            memo (Dict): dictionary for creating new object with new reference.
 
         Returns:
             SkLearnMode: deep copied object.
@@ -741,6 +774,7 @@ class SkLearnModel():
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memo))
         return result
+
 
 Models = {
     SGDClassifier.__name__: SGDClassiferSKLearnModel ,

@@ -250,6 +250,8 @@ class ErrorNumbers(_BaseEnum):
     FB618 = "FB618: FLamby data transformation error"
     FB619 = "FB619: Certificate error"
     FB620 = "FB620: MPC protocol error"
+    
+    FB623 = "FB623: Model error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
