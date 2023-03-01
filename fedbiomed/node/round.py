@@ -171,7 +171,10 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
                                       f"is not set. Node requires to apply secure aggregation")
 
-    def run_model_training(self, secagg_id: Union[str, None]) -> dict[str, Any]:
+    def run_model_training(
+            self,
+            secagg_id: Union[str, None] = None
+    ) -> dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
 
@@ -326,6 +329,8 @@ class Round:
 
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
+            results["encrypted"] = False
+
             # Upload results
             model_params = self.training_plan.after_training_params(vector=environ["SECURE_AGGREGATION"])
             if environ["SECURE_AGGREGATION"]:
@@ -339,11 +344,11 @@ class Round:
                     #key=10,
                     weight=sample_size
                 )
+                results["encrypted"] = True
                 logger.info("Encryption in completed!")
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results["encrypted"] = environ["SECURE_AGGREGATION"]
             results['model_params'] = model_params
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()

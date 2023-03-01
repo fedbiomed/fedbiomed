@@ -34,7 +34,7 @@ class FakeModel:
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
-    def load(self, path: str, to_params: bool):
+    def load(self, path: str, update_model: bool = True):
         """Fakes `load` method of TrainingPlan classes,
         used for loading model parameters. API mimickes
         TrainingPlan 's `load` method, but passed arguments
@@ -96,7 +96,7 @@ class FakeModel:
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
 
-    def after_training_params(self) -> List[int]:
+    def after_training_params(self, vector = False) -> List[int]:
         """Fakes `after_training_params` method of TrainingPlan classes.
         Originally used to get the parameters after training is performed.
         Passed arguments are unused.

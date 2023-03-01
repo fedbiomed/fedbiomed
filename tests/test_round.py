@@ -19,6 +19,7 @@ from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
+from fedbiomed.node.secagg_manager import SecaggServkeyManager
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.constants import DatasetTypes
@@ -67,7 +68,8 @@ class TestRound(NodeTestCase):
                         training_plan_class='MyTrainingPlan',
                         params_url='https://url/to/model/params?ok=True',
                         training_kwargs={},
-                        training=True
+                        training=True,
+                        sk_manager= SecaggServkeyManager()
                         )
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
@@ -81,7 +83,9 @@ class TestRound(NodeTestCase):
                         training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
-                        training=True)
+                        training=True,
+                        sk_manager=SecaggServkeyManager()
+                        )
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
@@ -133,6 +137,7 @@ class TestRound(NodeTestCase):
         # action!
         msg_test1 = self.r1.run_model_training()
 
+        print(msg_test1)
         # check results
         self.assertTrue(msg_test1.get('success', False))
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
@@ -211,6 +216,7 @@ class TestRound(NodeTestCase):
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
+            'encrypted': False,
             'optimizer_args': {}
         }
 
@@ -228,8 +234,7 @@ class TestRound(NodeTestCase):
             _ = self.r1.run_model_training()
 
             # test if all methods have been called once with the good arguments
-            mock_load.assert_called_once_with(MODEL_NAME,
-                                              to_params=False)
+            mock_load.assert_called_once_with(MODEL_NAME)
 
 
             # Check set train and test data split function is called
@@ -292,7 +297,7 @@ class TestRound(NodeTestCase):
             "       pass\n" + \
             "   def optimizer_args(self):\n" + \
             "       pass\n" + \
-            "   def after_training_params(self):\n" + \
+            "   def after_training_params(self, vector = False):\n" + \
             "       return [1,2,3,4]\n"
 
 
@@ -660,7 +665,9 @@ class TestRound(NodeTestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        r3 = Round(training_kwargs={})
+        r3 = Round(training_kwargs={},
+                   sk_manager=SecaggServkeyManager()
+                   )
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -670,7 +677,8 @@ class TestRound(NodeTestCase):
 
         dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
         r4 = Round(training_kwargs={},
-                   dlp_and_loading_block_metadata=dlp.serialize()
+                   dlp_and_loading_block_metadata=dlp.serialize(),
+                   sk_manager=SecaggServkeyManager()
                    )
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
