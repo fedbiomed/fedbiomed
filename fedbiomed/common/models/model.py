@@ -562,14 +562,7 @@ class BaseSkLearnModel(Model):
             Dict[str, Any]: dictionary mapping model hyperparameter names to their values
         """
         if value is not None:
-            return self.model.get_params(value)    def test_torchmodel_7_add_corrections_to_gradients(self):
-        correction_values = torch.randn(1, 1,  4, requires_grad=True)
-        corrections = {layer_name: val for }
-        # action
-        self.model.add_corrections_to_gradients(corrections)
-        # checks
-        for layer_name, param in self.model.model.parameters():
-            self.assertTrue(torch.isclose())
+            return self.model.get_params(value)
         else: 
             return self.model.get_params()
 

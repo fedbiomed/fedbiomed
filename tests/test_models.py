@@ -541,7 +541,27 @@ class TestTorchModel(unittest.TestCase):
         self.assertIsInstance(tested_prediction, np.ndarray)
         self.assertListEqual(tested_prediction.tolist(), ground_truth_prediction.tolist())
         
-    def test_torchmodel_7_training(self):
+    def test_torchmodel_7_add_corrections_to_gradients(self):
+        self.torch_optim.zero_grad()
+        loss = self.fake_training_step(self.data, self.targets)
+
+        loss.backward()
+        # self.torch_optim.step()
+        correction_values = (
+            torch.randn(1,   4, requires_grad=True),
+            torch.randn(1, requires_grad=True)
+        )
+        corrections = {layer_name: val for (layer_name, _), val in zip(self.model.model.named_parameters(), correction_values)}
+        
+        # zeroes gradients model
+        self.model.model.zero_grad()
+        # action
+        self.model.add_corrections_to_gradients(corrections)
+        # checks
+        for (layer_name, param), val in zip(self.model.model.named_parameters(), correction_values):
+            self.assertTrue(torch.all(torch.isclose(param.grad, val)))
+
+    def test_torchmodel_8_training(self):
         self.model.init_training()
         
         #  before training, check values contained in `init_training` are the same as in model
