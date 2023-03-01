@@ -1140,8 +1140,8 @@ class TestNode(NodeTestCase):
             'sequence': req['sequence'],
             'success': False,
             'node_id': environ["ID"],
-            'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB318: '
-                   f'Secure aggregation setup error: received bad message: incorrect `element` {req["element"]}',
+            'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB621: '
+                   f'Secure aggregation database error: received bad message: incorrect `element` {req["element"]}',
             'command': 'secagg-delete'
         })
         messaging_send_msg.reset_mock()

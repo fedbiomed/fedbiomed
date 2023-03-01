@@ -248,8 +248,8 @@ class CommonCLI:
         certificates = get_all_existing_certificates()
 
         if len(certificates) <= 2:
-            print(f"\n{RED}Warning!{NC}")
-            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'certificate-dev-setup' "
+            print(f"\n{RED}Error!{NC}")
+            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component(s) created.For 'certificate-dev-setup' "
                   f"you should have at least 2 components created{NC}\n")
             return
 
