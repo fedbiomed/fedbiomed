@@ -68,12 +68,12 @@ class NodeEnviron(Environ):
         allow_dtp = self.from_config('security', 'allow_default_training_plans')
 
         self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', allow_dtp) \
-            .lower() in ('true', '1', 't', True)
+                                                           .lower() in ('true', '1', 't', True)
 
         tp_approval = self.from_config('security', 'training_plan_approval')
 
         self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', tp_approval) \
-            .lower() in ('true', '1', 't', True)
+                                                     .lower() in ('true', '1', 't', True)
 
         hashing_algorithm = self.from_config('security', 'hashing_algorithm')
         if hashing_algorithm in HashingAlgorithms.list():
@@ -86,6 +86,11 @@ class NodeEnviron(Environ):
         secure_aggregation = self.from_config('security', 'secure_aggregation')
         self._values["SECURE_AGGREGATION"] = os.getenv('SECURE_AGGREGATION',
                                                        secure_aggregation).lower() in ('true', '1', 't', True)
+
+        force_secure_aggregation = self.from_config('security', 'force_secure_aggregation')
+        self._values["FORCE_SECURE_AGGREGATION"] = os.getenv('FORCE_SECURE_AGGREGATION',
+                                                             force_secure_aggregation).lower() in (
+                                                   'true', '1', 't', True)
 
         self._values['EDITOR'] = os.getenv('EDITOR')
 
@@ -123,7 +128,8 @@ class NodeEnviron(Environ):
             'hashing_algorithm': HashingAlgorithms.SHA256.value,
             'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
             'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
-            'secure_aggregation': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False)
+            'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
+            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
     def info(self):

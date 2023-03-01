@@ -1332,6 +1332,8 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
+            secagg_id=None,
+            round=1,
             command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'})
 
@@ -1681,6 +1683,8 @@ class TestMessage(unittest.TestCase):
             "dataset_id": 'my_dataset',
             "training": True,
             "model_args": {},
+            "secagg_id": "dummy",
+            "round": 1,
             "training_plan_url": "https://dev.null",
             "training_plan_class": "my_model",
             "aggregator_args": {},
