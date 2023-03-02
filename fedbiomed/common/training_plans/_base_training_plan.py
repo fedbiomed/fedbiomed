@@ -20,6 +20,7 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.models import Model
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
@@ -47,7 +48,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
     """
-
+    _model: Model
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -57,6 +58,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         ] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.global_model: Model = None
 
     @abstractmethod
     def post_init(
@@ -443,7 +445,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output = self.predict(data)
+                output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
                 return metric_controller.evaluate(
@@ -485,27 +487,27 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     num_batches=n_batches
                 )
 
-    @abstractmethod
-    def predict(
-            self,
-            data: Any,
-        ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
+    # @abstractmethod
+    # def predict(
+    #         self,
+    #         data: Any,
+    #     ) -> np.ndarray:
+    #     """Return model predictions for a given batch of input features.
 
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
+    #     This method is called as part of `testing_routine`, to compute
+    #     predictions based on which evaluation metrics are computed. It
+    #     will however be skipped if a `testing_step` method is attached
+    #     to the training plan, than wraps together a custom routine to
+    #     compute an output metric directly from a (data, target) batch.
 
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
-        Returns:
-            Output predictions, converted to a numpy array (as per the
-                `fedbiomed.common.metrics.Metrics` specs).
-        """
-        return NotImplemented
+    #     Args:
+    #         data: Array-like (or tensor) structure containing batched
+    #             input features.
+    #     Returns:
+    #         Output predictions, converted to a numpy array (as per the
+    #             `fedbiomed.common.metrics.Metrics` specs).
+    #     """
+    #     return NotImplemented
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:

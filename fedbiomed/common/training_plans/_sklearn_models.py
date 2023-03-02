@@ -83,15 +83,15 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
         report = False
-        if (history_monitor is not None) and hasattr(self._model, "verbose"):
+        if (history_monitor is not None) and hasattr(self.model(), "verbose"):
             report = True
-            loss_name = getattr(self._model, "loss", "")
+            loss_name = getattr(self.model(), "loss", "")
             loss_name = "Loss" + (f" {loss_name}" if loss_name else "")
             record_loss = functools.partial(
                 history_monitor.add_scalar,
                 train=True,
             )
-            verbose = self._model.get_params("verbose")
+            verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
             self._model.set_params(verbose=1)
         # Iterate over epochs.
         for epoch in iterations_accountant.iterate_epochs():
@@ -154,28 +154,18 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 loss printed out to the console by the scikit-learn
                 model. If False, or if parsing fails, return a nan.
         """
-        b_len = inputs.shape[0]
+
         # Gather start weights of the model and initialize zero gradients.
-        param = {k: getattr(self._model, k) for k in self._param_list}
-        grads = {k: np.zeros_like(v) for k, v in param.items()}
-        # Iterate over the batch; accumulate sample-wise gradients (and loss).
+
+        self._model.init_training()
+        
         stdout = []  # type: List[List[str]]
-        for idx in range(b_len):
-            # Compute updated weights based on the sample. Capture loss prints.
-            with capture_stdout() as console:
-                self._model.partial_fit(inputs[idx:idx+1], target[idx])
-            stdout.append(console)
-            # Accumulate updated weights (weights + sum of gradients).
-            # Reset the model's weights and iteration counter.
-            for key in self._param_list:
-                grads[key] += getattr(self._model, key)
-                setattr(self._model, key, param[key])
-            self._model.n_iter_ -= 1
-        # Compute the batch-averaged updated weights and apply them.
-        # Update the `param` values, and reset gradients to zero.
-        for key in self._param_list:
-            setattr(self._model, key, grads[key] / b_len)
-        self._model.n_iter_ += 1
+
+        self._model.train(inputs, target, stdout)
+
+        # TODO: update the following with Optimizer class
+        gradients: Dict[str, np.ndarray] = self._model.get_gradients()
+        self._model.apply_updates(gradients)
         # Optionally report the training loss over this batch.
         if report:
             try:
@@ -203,6 +193,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             inputs: Batched input features.
             target: Batched target labels.
         """
+        #import remote_pdb; remote_pdb.set_trace()
         values = [self._parse_sample_losses(sample) for sample in stdout]
         losses = np.array(values)
         return float(np.mean(losses))
@@ -236,20 +227,19 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
     def __init__(self) -> None:
         """Initialize the sklearn SGDRegressor training plan."""
         super().__init__()
-        self._is_regression = True
 
-    def set_init_params(self) -> None:
-        """Initialize the model's trainable parameters."""
-        init_params = {
-            'intercept_': np.array([0.]),
-            'coef_': np.array([0.] * self._model_args['n_features'])
-        }
-        self._param_list = list(init_params.keys())
-        for key, val in init_params.items():
-            setattr(self._model, key, val)
+    # def set_init_params(self) -> None:
+    #     """Initialize the model's trainable parameters."""
+    #     init_params = {
+    #         'intercept_': np.array([0.]),
+    #         'coef_': np.array([0.] * self._model_args['n_features'])
+    #     }
+    #     self._param_list = list(init_params.keys())
+    #     for key, val in init_params.items():
+    #         setattr(self._model, key, val)
 
-    def get_learning_rate(self) -> List[float]:
-        return self._model.eta0
+    # def get_learning_rate(self) -> List[float]:
+    #     return self._model.eta0
 
 
 class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
@@ -264,32 +254,31 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     def __init__(self) -> None:
         """Initialize the sklearn SGDClassifier training plan."""
         super().__init__()
-        self._is_classification = True
 
-    def set_init_params(self) -> None:
-        """Initialize the model's trainable parameters."""
-        # Set up zero-valued start weights, for binary of multiclass classif.
-        n_classes = self._model_args["n_classes"]
-        if n_classes == 2:
-            init_params = {
-                "intercept_": np.zeros((1,)),
-                "coef_": np.zeros((1, self._model_args["n_features"]))
-            }
-        else:
-            init_params = {
-                "intercept_": np.zeros((n_classes,)),
-                "coef_": np.zeros((n_classes, self._model_args["n_features"]))
-            }
-        # Assign these initialization parameters and retain their names.
-        self._param_list = list(init_params.keys())
-        for key, val in init_params.items():
-            setattr(self._model, key, val)
-        # Also initialize the "classes_" slot with unique predictable labels.
-        # FIXME: this assumes target values are integers in range(n_classes).
-        setattr(self._model, "classes_", np.arange(n_classes))
+    # def set_init_params(self) -> None:
+    #     """Initialize the model's trainable parameters."""
+    #     # Set up zero-valued start weights, for binary of multiclass classif.
+    #     n_classes = self._model_args["n_classes"]
+    #     if n_classes == 2:
+    #         init_params = {
+    #             "intercept_": np.zeros((1,)),
+    #             "coef_": np.zeros((1, self._model_args["n_features"]))
+    #         }
+    #     else:
+    #         init_params = {
+    #             "intercept_": np.zeros((n_classes,)),
+    #             "coef_": np.zeros((n_classes, self._model_args["n_features"]))
+    #         }
+    #     # Assign these initialization parameters and retain their names.
+    #     self._param_list = list(init_params.keys())
+    #     for key, val in init_params.items():
+    #         setattr(self._model, key, val)
+    #     # Also initialize the "classes_" slot with unique predictable labels.
+    #     # FIXME: this assumes target values are integers in range(n_classes).
+    #     setattr(self._model, "classes_", np.arange(n_classes))
 
-    def get_learning_rate(self) -> List[float]:
-        return self._model.eta0
+    # def get_learning_rate(self) -> List[float]:
+    #     return self._model.eta0
 
     def _parse_batch_loss(
             self,
@@ -299,7 +288,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
-        if self._model_args["n_classes"] == 2:
+        if self._model.model_args["n_classes"] == 2:
             return super()._parse_batch_loss(stdout, inputs, target)
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.
@@ -307,7 +296,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         losses = np.array(values).mean(axis=0)
         # Compute the support-weighted average of label-wise losses.
         # NOTE: this assumes a (n, 1)-shaped targets array.
-        classes = getattr(self._model, "classes_")
+        classes = getattr(self.model(), "classes_")
         support = (target == classes).sum(axis=0)
         return float(np.average(losses, weights=support))
 
