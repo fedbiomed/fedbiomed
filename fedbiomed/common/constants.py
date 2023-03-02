@@ -43,6 +43,18 @@ class ComponentType(_BaseEnum):
     NODE: int = 2
 
 
+
+class BiprimeType(_BaseEnum):
+    """Constant values for secure aggregation biprime type that will be saved into db
+
+    Attributes:
+        DYNAMIC: means biprime dynamically added after negoti
+        DEFAULT: means biprime is a default one provided by Fed-BioMed
+    """
+    DYNAMIC = 'dynamic'
+    DEFAULT = 'default'
+
+
 class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 

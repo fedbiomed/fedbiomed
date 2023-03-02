@@ -10,7 +10,7 @@ from typing import Union, List, Dict
 import json
 from tinydb import TinyDB, Query
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, BiprimeType
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
@@ -300,7 +300,10 @@ class SecaggBiprimeManager(BaseSecaggManager):
         self._add_generic(
             secagg_id,
             parties,
-            {'context': context}
+            {
+                'context': context,
+                'type': BiprimeType.DYNAMIC.value
+            }
         )
 
     def remove(self, secagg_id: str, job_id: None = None) -> bool:
@@ -322,6 +325,9 @@ class SecaggBiprimeManager(BaseSecaggManager):
         Args:
             default_biprimes_dir: directory containing the default biprimes files
 
+        Returns:
+            a list of dictionaries, each one containing a default biprime
+
         Raises:
             FedbiomedSecaggError: cannot read biprime files
             FedbiomedSecaggError: badly formatted default biprime
@@ -333,7 +339,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 continue
 
             # Read default biprimes files
-            logger.debug(f'Reading default biprime file {bp_file}')
+            logger.debug(f'Reading default biprime file "{bp_file}"')
             try:
                 with open(os.path.join(default_biprimes_dir, bp_file)) as json_file:
                     biprime = json.load(json_file)
@@ -350,7 +356,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
-            for param, type in [(biprime['name'], str), (biprime['biprime'], int), (biprime['max_keybits'], int)]:
+            for param, type in [(biprime['secagg_id'], str), (biprime['biprime'], int), (biprime['max_keybits'], int)]:
                 try:
                     self._v.validate(param, type)
                 except ValidatorError as e:
@@ -358,8 +364,9 @@ class SecaggBiprimeManager(BaseSecaggManager):
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
 
-            if not biprime['name']:
-                errmess = f'{ErrorNumbers.FB318.value}: bad biprime name in file "{bp_file}" must be a non-empty string'
+            if not biprime['secagg_id']:
+                errmess = f'{ErrorNumbers.FB622.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
+                    'must be a non-empty string'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
@@ -382,11 +389,54 @@ class SecaggBiprimeManager(BaseSecaggManager):
         Raises:
             FedbiomedSecaggError: cannot update default biprimes
         """
-        # Read and check the default biprime values
+        # Read and check the new proposed default biprime values from files
         if allow_default_biprimes:
-            default_biprimes = self._read_default_biprimes(default_biprimes_dir)
+            default_biprimes_new = self._read_default_biprimes(default_biprimes_dir)
         else:
-            default_biprimes = []
+            default_biprimes_new = []
 
-        print(default_biprimes)
+        # Read the existing default biprimes in DB
+        try:
+            default_biprimes_current = self._table.search(
+                self._query.type.exists() &
+                (self._query.type == BiprimeType.DEFAULT.value)
+            )
+        except Exception as e:
+            errmess = f'{ErrorNumbers.FB622.value}: database search operation failed for default biprimes: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
+        # Remove existing default biprimes not in the new proposed values
+        bp_new_ids = set(bp['secagg_id'] for bp in default_biprimes_new)
+        bp_current_ids = set(bp['secagg_id'] for bp in default_biprimes_current)
+        bp_remove_ids = list(bp_current_ids - bp_new_ids)
+
+        for secagg_id in bp_remove_ids:
+            try:
+                self._table.remove(self._query.secagg_ig == secagg_id)
+            except Exception as e:
+                errmess = f'{ErrorNumbers.FB622.value}: database remove operation failed for ' \
+                    f'obsolete default biprime {secagg_id}: {e}'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
+
+        # Save or update the new default biprimes
+        for bp in default_biprimes_new:
+            try:
+                self._table.upsert(
+                    {
+                        'secagg_id': bp['secagg_id'],
+                        'parties': None,
+                        'type': BiprimeType.DEFAULT.value,
+                        'context': {
+                            'biprime': bp['biprime'],
+                            'max_keybits': bp['max_keybits']
+                        },
+                    },
+                    self._query.secagg_id == bp['secagg_id']
+                )
+            except Exception as e:
+                errmess = f'{ErrorNumbers.FB622.value}: database upsert operation failed for ' \
+                    f'default biprime {bp["secagg_id"]}: {e}'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
