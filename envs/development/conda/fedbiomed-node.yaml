@@ -53,8 +53,6 @@ dependencies:
       - openpyxl >= 3.0.9,<3.1
       - JSON-log-formatter
       - python-minifier ==2.5.0
-            # declearn
-      - declearn[torch] ~= 2.0.1
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
