@@ -17,11 +17,6 @@ from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
-_MPC = MPCController(
-    tmp_dir=environ["TMP_DIR"],
-    component_type=ComponentType.RESEARCHER,
-    component_id=environ["ID"]
-)
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -77,6 +72,13 @@ class SecaggContext(ABC):
 
         # set job ID using setter to validate
         self.set_job_id(job_id)
+
+        # one controller per secagg object to prevent any file conflict
+        self._MPC = MPCController(
+            tmp_dir=environ["TMP_DIR"],
+            component_type=ComponentType.RESEARCHER,
+            component_id=environ["ID"]
+        )
 
     @property
     def parties(self) -> str:
@@ -413,8 +415,8 @@ class SecaggServkeyContext(SecaggContext):
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
-            path_certificates=_MPC.mpc_data_dir,
-            path_ips=_MPC.tmp_dir,
+            path_certificates=self._MPC.mpc_data_dir,
+            path_ips=self._MPC.tmp_dir,
             self_id=environ["ID"],
             self_ip=environ["MPSPDZ_IP"],
             self_port=environ["MPSPDZ_PORT"],
@@ -424,7 +426,7 @@ class SecaggServkeyContext(SecaggContext):
         )
 
         try:
-            output = _MPC.exec_shamir(
+            output = self._MPC.exec_shamir(
                 party_number=0,  # 0 stands for server/aggregator
                 num_parties=len(self._parties),
                 ip_addresses=ip_file

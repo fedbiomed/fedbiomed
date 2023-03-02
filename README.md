@@ -644,9 +644,9 @@ Fed-BioMed node and researcher components. The script for executing the protocol
 
 ```bash
 {FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) compile --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) exec --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) shamir-server-key --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
+{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
 
