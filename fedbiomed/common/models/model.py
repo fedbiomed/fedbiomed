@@ -15,13 +15,14 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 
 import numpy as np
+
 from declearn.model.sklearn import NumpyVector
+from declearn.model.torch import TorchVector
 
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
 import torch
-from declearn.model.torch import TorchVector
 
 
 
@@ -51,7 +52,7 @@ class Model(metaclass=ABCMeta):
         """Initializes parameters before model training
         """
     @abstractmethod
-    def train(self, inputs: Any, targets: Any, *args, **kwargs) -> None:
+    def train(self, inputs: Any, targets: Any, **kwargs) -> None:
         """Trains model given inputs and targets data
 
         !!! warning "Warning"
@@ -297,10 +298,10 @@ class TorchModel(Model):
         self.model.train()  # pytorch switch for training
         self.model.zero_grad()
         
-    def train(self, inputs: torch.Tensor, targets: torch.Tensor,):
+    def train(self, inputs: torch.Tensor, targets: torch.Tensor, **kwargs):
         # TODO: should we pass loss function here? and do the backward prop?
         if self.init_params is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initalized it beforehand")
+            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initalize it beforehand")
         pass
 
     def load(self, filename: str) -> OrderedDict:
@@ -515,7 +516,8 @@ class BaseSkLearnModel(Model):
             self,
             inputs: np.ndarray,
             targets: np.ndarray,
-            stdout: List[str] = None
+            stdout: List[str] = None,
+            **kwargs
     ) -> None:
         """Trains scikit learn model and internally computes gradients 
 
