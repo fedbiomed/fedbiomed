@@ -249,8 +249,8 @@ class CommonCLI:
 
         if len(certificates) <= 2:
             print(f"\n{RED}Warning!{NC}")
-            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component created.For 'certificate-dev-setup' "
-                  f"you should have at least 2 components created{NC}\n")
+            print(f"{BOLD}There are {len(certificates)} Fed-BioMed component created. For 'certificate-dev-setup' "
+                  f"you should have at least 3 components created{NC}\n")
             return
 
         for id_, db_name in db_names.items():
