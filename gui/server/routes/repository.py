@@ -58,7 +58,6 @@ def list_data_path():
 
         table = node_database.table_datasets()
         all_datasets = table.all()
-        query = node_database.query()
 
         for file in files:
             if not file.startswith('.'):

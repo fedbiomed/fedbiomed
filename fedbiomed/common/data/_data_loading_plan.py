@@ -432,10 +432,10 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
-    [DataLoadingBlock] represents a customization to the way data is loaded and
-    presented to the researcher. These customizations are defined by the node,
-    but they operate on a Dataset class, which is defined by the library and
-    instantiated by the researcher.
+    [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+    represents a customization to the way data is loaded and presented to the researcher.
+    These customizations are defined by the node, but they operate on a Dataset class,
+    which is defined by the library and instantiated by the researcher.
 
     To exploit this functionality, a Dataset must be modified to accept the
     customizations provided by the DataLoadingPlan. To simplify this process,
@@ -481,7 +481,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
                 - a dictionary of key-value pairs with the
                 [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] parameters.
                 - a list of dict containing the data for reconstruction all the DataLoadingBlock
-                    of the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] 
+                    of the [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] 
         """
         return dict(
             dlp_id=self.dlp_id,
@@ -494,9 +494,9 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] from a serialized version.
 
-        :warning: Calling this function will *clear* the contained
-            [DataLoadingBlockTypes]. This function may not be used to "update"
-            nor to "append to" a DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
+        !!! warning "Calling this function will *clear* the contained [DataLoadingBlockTypes]."
+            This function may not be used to "update" nor to "append to"
+            a [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
 
         Args:
             serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the

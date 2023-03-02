@@ -65,12 +65,19 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
     def _training_routine(
             self,
             history_monitor: Optional['HistoryMonitor'] = None
-        ) -> None:
+        ) -> int:
         """Backend training routine for scikit-learn models with `partial_fit`.
 
         Args:
             history_monitor (HistoryMonitor, None): optional HistoryMonitor
                 instance, recording the loss value during training.
+                
+        Returns:
+            number of data processed during training. This should be sent to Node,
+            in order to weight accordingly the participation of each Node, in the
+            [Strategy][fedbiomed.researcher.strategies.strategy.Strategies] (for
+            instance, [FedAverage][fedbiomed.researcher.aggregators.fedavg.FedAverage] needs this piece of information
+            before aggregating model parameters).
         """
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -125,6 +132,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
+
+        return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(
             self,

@@ -193,8 +193,9 @@ class Experiment(object):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             use_secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-            secagg_timeout: when `use_secagg` is `True`, maximum duration for the setup phase of each
-                secagg context element (server key and biprime), thus total secagg setup is twice the `timeout`.
+            secagg_timeout: when `use_secagg` is `True`, maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
@@ -783,12 +784,12 @@ class Experiment(object):
         """
 
         if isinstance(nodes, list):
-            self._nodes = nodes
             for node in nodes:
                 if not isinstance(node, str):
                     msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
+            self._nodes = nodes
         elif nodes is None:
             self._nodes = nodes
         else:
@@ -821,7 +822,7 @@ class Experiment(object):
                     searching for datasets with a query to the nodes using `tags` and `nodes`
                   - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
                     experiment is not fully initialized and cannot be launched)
-            from_tags: Specificities; If True, query nodes for datasets when no `training_data` is provided.
+            from_tags: If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
 
         Returns:
@@ -847,7 +848,6 @@ class Experiment(object):
         if isinstance(training_data, FederatedDataSet):
             self._fds = training_data
         elif isinstance(training_data, dict):
-            # TODO: FederatedDataSet constructor should verify typing and format
             self._fds = FederatedDataSet(training_data)
         elif training_data is not None:
             msg = ErrorNumbers.FB410.value + f' `training_data` has incorrect type: {type(training_data)}'
@@ -1469,8 +1469,9 @@ class Experiment(object):
         Args:
             use_secagg: if `True` sets secure aggregation to be used for next rounds and
                 establish secagg context if it doesn't exist
-            timeout: maximum duration for the setup phase of each secagg context element
-                (server key and biprime), thus total secagg setup is twice the `timeout`.
+            timeout:  maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
+                plus the local setup payload execution time for server key and biprime.
                 Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
@@ -1504,13 +1505,13 @@ class Experiment(object):
                 # a secagg servkey element must be attached to a job_id
                 if self._job:
                     self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
-            if self._secagg_servkey and not self._secagg_servkey.status():
+            if self._secagg_servkey and not self._secagg_servkey.status:
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
                 self._secagg_biprime = SecaggBiprimeContext(parties)
-            if not self._secagg_biprime.status():
+            if not self._secagg_biprime.status:
                 self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey and self._secagg_servkey.status() and self._secagg_biprime.status():
+            if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:
                 self._use_secagg = True
                 logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
             else:
@@ -2001,10 +2002,6 @@ class Experiment(object):
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
-        # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
-        # in Experiment.__init__() applying some type checks.
-        # More checks to verify the structure/content of saved_state.get('training_data')
-        # should be added in FederatedDataSet.__init__() when refactoring it
         bkpt_fds = FederatedDataSet(bkpt_fds)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")

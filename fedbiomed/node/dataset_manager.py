@@ -14,6 +14,7 @@ import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
+from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -48,16 +49,15 @@ class DatasetManager:
         self._dataset_table = self._db.table(name='Datasets', cache_size=0)
         self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
-    def get_by_id(self, dataset_id: str) -> List[dict]:
-        """Searches for data with given dataset_id.
+    def get_by_id(self, dataset_id: str) -> Union[dict, None]:
+        """Searches for a dataset with given dataset_id.
 
         Args:
             dataset_id:  A dataset id
 
         Returns:
-            A list of dict of matching datasets, each dict
-                containing all the fields describing the matching datasets
-                stored in Tiny database.
+            A `dict` containing the dataset's description if a dataset with this `dataset_id`
+            exists in the database. `None` if no such dataset exists in the database. 
         """
         result = self._dataset_table.get(self._database.dataset_id == dataset_id)
 
@@ -133,6 +133,21 @@ class DatasetManager:
             The list of matching datasets
         """
         return self._dataset_table.search(self._database.tags.all(tags))
+
+    def search_conflicting_tags(self, tags: Union[tuple, list]) -> list:
+        """Searches for registered data that have conflicting tags with the given tags
+
+        Args:
+            tags:  List of tags
+
+        Returns:
+            The list of conflicting datasets
+        """
+        def _conflicting_tags(val):
+            return all(t in val for t in tags) or all(t in tags for t in val)
+
+
+        return self._dataset_table.search(self._database.tags.test(_conflicting_tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -368,8 +383,13 @@ class DatasetManager:
         if path is not None:
             path = os.path.expanduser(path)
 
-        # Check that there are not existing databases with the same name
-        assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
+        # Check that there are not existing dataset with conflicting tags
+        conflicting = self.search_conflicting_tags(tags)
+        if len(conflicting) > 0:
+            msg = f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: " \
+                f" {' '.join([ c['name'] for c in conflicting ])}"
+            logger.critical(msg)
+            raise FedbiomedDatasetManagerError(msg)
 
         dtypes = []  # empty list for Image datasets
         data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
@@ -511,15 +531,33 @@ class DatasetManager:
         self._dataset_table.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
-                             tags: Union[tuple, list],
+                             dataset_id: str,
                              modified_dataset: dict):
         """Modifies a dataset in the database.
 
         Args:
-            tags: Tags describing the dataset to modify.
+            dataset_id: ID of the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
+
+        Raises:
+            FedbiomedDatasetManagerError: conflicting tags with existing dataset
         """
-        self._dataset_table.update(modified_dataset, self._database.tags.all(tags))
+        # Check that there are not existing dataset with conflicting tags
+        if 'tags' in modified_dataset:
+            conflicting = self.search_conflicting_tags(modified_dataset['tags'])
+
+            conflicting_ids = [ c['dataset_id'] for c in conflicting ]
+            # the dataset to modify is ignored (can conflict with its previous tags)
+            if dataset_id in conflicting_ids:
+                conflicting_ids.remove(dataset_id)
+
+            if len(conflicting_ids) > 0:
+                msg = f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: " \
+                    f" {' '.join([ c['name'] for c in conflicting if c['dataset_id'] != dataset_id ])}"
+                logger.critical(msg)
+                raise FedbiomedDatasetManagerError(msg)
+
+        self._dataset_table.update(modified_dataset, self._database.dataset_id == dataset_id)
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.

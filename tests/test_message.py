@@ -409,6 +409,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params_url='string_param',
             timing={"t0": 0.0, "t1": 1.0},
+            sample_size=123,
             msg='message_in_a_bottle',
             command='do_it')
 
@@ -485,6 +486,7 @@ class TestMessage(unittest.TestCase):
             params_url='string_param',
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
+            sample_size=None,
             command='do_it',
             extra_param='dont_know_what_to_do_with_you')
 
@@ -1325,7 +1327,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=True,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1362,7 +1364,7 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            training_data={"data": "MNIS"})
+            dataset_id="MNIS")
 
         self.check_class_args(
             message.TrainRequest,
@@ -1396,7 +1398,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1413,7 +1415,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1428,7 +1430,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1443,7 +1445,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url=False,
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1457,23 +1459,8 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             job_id='job_number',
             params_url='this_is_an_url',
-            training_args="not_a_dict",
-            training_data={"data": "MNIS"},
-            training=False,
-            model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
-            training_plan_class='my_model',
-            command='do_it')
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            researcher_id='toto',
-            job_id='job_number',
-            params_url='this_is_an_url',
-            training_args={"a": 1, "b": 2},
-            training_data="not_a_dict",
+            training_args={"foo": "not_a_str"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1488,7 +1475,22 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id={"foo": "not_a_str"},
+            training=False,
+            model_args={"c": 3, "d": 4},
+            training_plan_url="http://dev.null",
+            training_plan_class='my_model',
+            command='do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result=False,
+
+            researcher_id='toto',
+            job_id='job_number',
+            params_url='this_is_an_url',
+            training_args={"a": 1, "b": 2},
+            dataset_id="MNIS",
             training="not a bool",
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1503,7 +1505,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args="not_a_dict",
             training_plan_url="http://dev.null",
@@ -1518,7 +1520,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url=False,
@@ -1533,7 +1535,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1548,7 +1550,7 @@ class TestMessage(unittest.TestCase):
             job_id='job_number',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
-            training_data={"data": "MNIS"},
+            training_data="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
@@ -1662,6 +1664,7 @@ class TestMessage(unittest.TestCase):
             "params_url": 'string_param',
             "timing": {"t0": 0.0, "t1": 1.0},
             "msg": 'message_in_a_bottle',
+            "sample_size": 100,
             "command": 'train'}
 
         r = message.ResearcherMessages.reply_create(params)
@@ -1675,7 +1678,7 @@ class TestMessage(unittest.TestCase):
             "job_id": 'job',
             "params_url": "https://dev.null",
             "training_args": {},
-            "training_data": {},
+            "dataset_id": 'my_dataset',
             "training": True,
             "model_args": {},
             "training_plan_url": "https://dev.null",

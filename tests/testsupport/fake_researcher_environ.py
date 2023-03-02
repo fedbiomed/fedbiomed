@@ -60,6 +60,12 @@ class ResearcherEnviron:
         self._values['EXPERIMENTS_DIR'] = f'/tmp/{res}/var/experiments'
         self._values['TENSORBOARD_RESULTS_DIR'] = f"/tmp/{res}/runs"
 
+        self._values['MPSPDZ_IP'] = 'localhost'
+        self._values['MPSPDZ_PORT'] = 1111
+
+        self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
+        self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
+
         os.makedirs(self._values['EXPERIMENTS_DIR'], exist_ok=True)
         os.makedirs(self._values['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 

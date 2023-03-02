@@ -371,8 +371,8 @@ class TestJob(ResearcherTestCase):
 
         self.job._nodes = ['node-1', 'node-2']
         self.fds.data = MagicMock(return_value={
-            'node-1': [{'dataset_id': '1234'}],
-            'node-2': [{'dataset_id': '12345'}]
+            'node-1': {'dataset_id': '1234'},
+            'node-2': {'dataset_id': '12345'}
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
@@ -380,7 +380,9 @@ class TestJob(ResearcherTestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'command': 'train',
+                      'sample_size': 100,
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
@@ -388,33 +390,31 @@ class TestJob(ResearcherTestCase):
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
-                      'dataset_id': '1234'
+                      'dataset_id': '1234',
+                      'command': 'train',
+                      'sample_size': 100,
                       }
 
         response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'errnum': ErrorNumbers.FB100,
                       'extra_msg': 'this extra msg',
-                      'dataset_id': '1234'
+                      'command': 'error',
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
                       'extra_msg': False,
                       'errnum': ErrorNumbers.FB100,
-                      'dataset_id': '1234'
+                      'command': 'error',
+                      'dataset_id': '1234',
+                      'sample_size': 100,
                       }
 
         responses = FakeResponses([response_1, response_2])
 
         mock_requests_get_responses.return_value = responses
-        aggregator_args = {node_id : {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
+        aggregator_args = {node_id: {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
         # Test - 1
         nodes = self.job.start_nodes_training_round(1, aggregator_args_thr_msg=aggregator_args,
                                                     aggregator_args_thr_files={})
@@ -453,13 +453,13 @@ class TestJob(ResearcherTestCase):
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
         self.assertEqual( self.job.repo.uploads_url , self.job._repository_args['params_url'])
         self.mock_upload_file.assert_called_once_with('dummy/file/name/')
-        
+
         self.mock_upload_file.reset_mock()
         file_url = 'http://some/file/uploaded'
         self.mock_upload_file.return_value = {"file": file_url}
         # case where arg is_model_params is False and filename is not defined
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None, is_model_params=False)
             filename = os.path.join(self.job._keep_files_dir, 'aggregated_params' + str(FakeUuid.VALUE) + '.pt')
@@ -469,12 +469,12 @@ class TestJob(ResearcherTestCase):
             self.assertNotEqual(result[1], self.job._repository_args['params_url'])
 
         self.mock_upload_file.reset_mock()
-        
+
         # test with specified variable name
         variable_name = "my_variable"
-        
+
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None,
                                                 is_model_params=False, variable_name=variable_name)
@@ -485,11 +485,11 @@ class TestJob(ResearcherTestCase):
 
         # same test but with `is_model_params` set to True
         self.mock_upload_file.reset_mock()
-            
+
         variable_name = "my_variable"
-        
+
         with patch.object(uuid, 'uuid4' ) as patch_uuid:
-            
+
             patch_uuid.return_value = FakeUuid()
             result = self.job.update_parameters(params=params, filename=None,
                                                 is_model_params=False, variable_name=variable_name)
@@ -524,8 +524,8 @@ class TestJob(ResearcherTestCase):
 
         # CSV - Check dataset when everything is okay
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         try:
             self.job.check_data_quality()
@@ -534,32 +534,32 @@ class TestJob(ResearcherTestCase):
 
         # CSV - Check when data types are different
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
-            'node-2': [{'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
+            'node-2': {'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # CSV - Check when dimensions are different
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # CSV - Check when dtypes do not match
         self.fds.data.return_value = {
-            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]}],
-            'node-2': [{'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}]
+            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]},
+            'node-2': {'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}
         }
         with self.assertRaises(Exception):
             self.job.check_data_quality()
 
         # Image Dataset - Check when datasets are OK
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
         }
         try:
             self.job.check_data_quality()
@@ -568,8 +568,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when color channels do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()
@@ -578,8 +578,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when dimensions do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()
@@ -588,8 +588,8 @@ class TestJob(ResearcherTestCase):
 
         # Image Dataset - Check when dimensions and color channels do not match
         self.fds.data.return_value = {
-            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
-            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
+            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
         }
         # Logs error instead of raising error
         mock_logger_error.reset_mock()

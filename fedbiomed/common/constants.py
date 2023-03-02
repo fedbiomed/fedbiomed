@@ -78,7 +78,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     APPROVED = "Approved"
     REJECTED = "Rejected"
     PENDING = "Pending"
-    
+
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
@@ -201,6 +201,7 @@ class ErrorNumbers(_BaseEnum):
     FB319 = "FB319: Command not found error"
     FB320 = "FB320: bad model type"
     FB321 = "FB321: Secure aggregation delete error"
+    FB322 = "FB322: Dataset registration error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -219,6 +220,7 @@ class ErrorNumbers(_BaseEnum):
     FB413 = "FB413: cannot save or load breakpoint for experiment"
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
+    FB416 = "FB416: federated dataset error"
 
     # node problem detected by researcher
 
@@ -247,6 +249,8 @@ class ErrorNumbers(_BaseEnum):
     FB617 = "FB617: FLamby dataset error"
     FB618 = "FB618: FLamby data transformation error"
     FB619 = "FB619: Certificate error"
+    FB620 = "FB620: MPC protocol error"
+    FB621 = "FB621: declearn optimizer error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

@@ -87,6 +87,13 @@ class FedbiomedExperimentError(FedbiomedError):
     pass
 
 
+class FedbiomedFederatedDataSetError(FedbiomedError):
+    """
+    Exception specific to the FederatedDataSetError class.
+    """
+    pass
+
+
 class FedbiomedLoadingBlockError(FedbiomedError):
     """
     Exception specific to the DataLoadingBlock classes/subclasses.
@@ -130,6 +137,11 @@ class FedbiomedMetricError(FedbiomedError):
     """
     pass
 
+
+class FedbiomedOptimizerError(FedbiomedError):
+    """
+    Exception raised when an error is encountered within `Optimizer` code.
+    """
 
 class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
@@ -251,3 +263,12 @@ class FedbiomedCertificateError(FedbiomedError):
     Certificate error
     """
     pass
+
+
+class FedbiomedMPCControllerError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
+
+

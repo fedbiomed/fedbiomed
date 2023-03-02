@@ -7,7 +7,7 @@ name: fedbiomed-gui
 
 channels:
   - conda-forge
-  
+
 dependencies:
   # common
   - python >=3.9,<3.10

@@ -136,7 +136,8 @@ EOF
             cat <<EOF
 
 certificate-dev-setup : prepares development environment by registering certificates of each component created
-            in a single clone of Fed-BioMed.
+            in a single clone of Fed-BioMed. This is only for development purposes and it is required to
+            fedbiomed-researcher conda environment installed for this option.
 EOF
         ;;
     esac
@@ -187,7 +188,7 @@ EOF
         *|'')
             cat <<EOF
 usage: fedbiomed_run network (stop)
-       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run researcher [ip_address IP_ADDRESS] start
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
@@ -643,7 +644,13 @@ case $1 in
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
-                forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"
+
+                if ! forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"; then
+                    echo -e "${RED}ERROR:${NC}"
+                    echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for researcher"
+                    exit 1
+                fi
+
                 jupyter notebook $NB_OPTS
 
             ;;
@@ -672,9 +679,12 @@ case $1 in
 
     *)
       PARAMS=${@}
-      source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
+      if [ -z "$1" ]; then
+        echo "Please specify a command/option with fedbiomed_run. Please see fedbiomed_run --help"
+        exit 1
+      fi
+
+      source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
       python -m fedbiomed.common.cli $PARAMS
-#      echo "Please specify the component you want to run between: network, node, researcher, gui"
-#      exit 1
       ;;
 esac

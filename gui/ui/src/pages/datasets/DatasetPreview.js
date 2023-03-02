@@ -165,8 +165,8 @@ export const DatasetPreview = (props) => {
                     ...preview,
                     ...res.data.result
                 })
-            }).catch(error => {
-                alert('Cant, update dataset')
+            }).catch( error => {
+                alert("Can't update dataset : " + error.response.data.message)
                 window.location.reload();
             })
     }
