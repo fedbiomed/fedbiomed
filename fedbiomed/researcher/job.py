@@ -141,7 +141,6 @@ class Job:
 
         else:
             self._training_plan = self._training_plan_class
-        print("MODEL ARGS", self._model_args)
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
 
@@ -155,7 +154,6 @@ class Job:
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
-            print("ERRROR")
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
         # upload my_model_xxx.py on repository server (contains model definition)
@@ -167,7 +165,6 @@ class Job:
         try:
             self._training_plan.save(self._model_params_file)
         except Exception as e:
-            print("Cannot save parameters of the model to a local tmp dir : ")
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
         # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
@@ -182,7 +179,6 @@ class Job:
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
         # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
-        print("FIRST REOSITORY ARGS", self._repository_args)
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -372,8 +368,6 @@ class Job:
                    'model_args': self._model_args,
                    'command': 'train',
                    'aggregator_args': {}}
-        
-        print("NODES", self._repository_args)
 
         msg = {**headers, **self._repository_args}
         time_start = {}
