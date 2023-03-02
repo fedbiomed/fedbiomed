@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterato
 from copy import deepcopy
 
 import numpy as np
-from fedbiomed.common.models.model import TorchModel
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn

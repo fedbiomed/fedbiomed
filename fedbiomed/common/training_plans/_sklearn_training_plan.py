@@ -9,7 +9,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from fedbiomed.common.models.model import SkLearnModel
+from fedbiomed.common.models import SkLearnModel
 
 import numpy as np
 from sklearn.base import BaseEstimator

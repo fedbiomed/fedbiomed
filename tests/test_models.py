@@ -4,11 +4,9 @@ import urllib.request
 import logging
 from unittest.mock import MagicMock, patch, mock_open
 from fedbiomed.common.exceptions import FedbiomedModelError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.models.model import (BaseSkLearnModel, SGDClassiferSKLearnModel,
-                                           SGDRegressorSKLearnModel, SkLearnModel,
-                                           capture_stdout, Models, TorchModel
-)
+from fedbiomed.common.models import (SkLearnModel,
+                                     TorchModel)
+from fedbiomed.common.models._sklearn import Models
 
 import torch
 from sklearn.linear_model import SGDClassifier, SGDRegressor
@@ -41,6 +39,7 @@ class TestDocumentationLinks(unittest.TestCase):
     def test_testdocumentationlinks_01(self):
         links = (
             'https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html',
+            'https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1'
         )
         if self.skip_internet_test:
             self.skipTest("no internet connection: skipping test_testdocumentationlinks_01")
@@ -120,7 +119,7 @@ class TestSkLearnModel(unittest.TestCase):
             saved_params.append(obj)
         
         self.sgdclass_model.set_weights({'coef_': 0.42, 'intercept_': 0.42})
-        with patch('fedbiomed.common.models.model.joblib.dump',
+        with patch('fedbiomed.common.models._sklearn.joblib.dump',
                    side_effect=mocked_joblib_dump), \
                 patch('builtins.open', mock_open()):
             self.sgdclass_model.save('filename')
@@ -133,7 +132,7 @@ class TestSkLearnModel(unittest.TestCase):
             # patch.object(self.sgdclass_model, 'param_list', ['coef_', 'intercept_']), 
                 patch.object(self.sgdclass_model.model, 'coef_', 0.42), 
                 patch.object(self.sgdclass_model.model, 'intercept_',  0.42), 
-                patch('fedbiomed.common.models.model.joblib.load',
+                patch('fedbiomed.common.models._sklearn.joblib.load',
                     return_value=self.sgdclass_model.model), 
                 patch('builtins.open', mock_open())
                 ):
@@ -369,7 +368,7 @@ class TestSklearnClassification(unittest.TestCase):
             
             # in this test, we will make sure that collected stdout is the same caught 
             # by the `capture_stdout` context manager
-            context_manager_patcher = patch('fedbiomed.common.models.model.capture_stdout',
+            context_manager_patcher = patch('fedbiomed.common.models._sklearn.capture_stdout',
                                             return_value=fake_context_manager(iterator))
             
             collected_losses_stdout = []

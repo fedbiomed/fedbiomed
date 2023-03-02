@@ -5,7 +5,7 @@ import unittest
 import os
 import logging
 import re
-from fedbiomed.common.models.model import TorchModel
+from fedbiomed.common.models import TorchModel
 
 import torch
 import torch.nn as nn

@@ -118,16 +118,16 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             saved_params.append(obj)
 
         # Base case where params are not provided to save function
-        with patch('fedbiomed.common.models.model.BaseSkLearnModel.save',
+        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
                    side_effect=mocked_joblib_dump):
             training_plan.save('filename')
             self.assertEqual(saved_params[-1], 'filename')
 
 
         for  param in ({'coef_': 0.42, 'intercept_': 0.42}, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}}):
-            with (patch('fedbiomed.common.models.model.BaseSkLearnModel.save',
+            with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
                     side_effect=mocked_joblib_dump),
-                    patch('fedbiomed.common.models.model.BaseSkLearnModel.set_weights') as patch_set_weights):
+                    patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.set_weights') as patch_set_weights):
 
                 training_plan.save('filename', params=param)
                 self.assertEqual(saved_params[-1], 'filename')
@@ -137,7 +137,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         training_plan = SKLearnTrainingPlan()
             
         # Saved object is not the correct type
-        with (patch('fedbiomed.common.models.model.BaseSkLearnModel.load') as patch_model_loader,
+        with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load') as patch_model_loader,
                    patch('fedbiomed.common.training_plans._sklearn_training_plan.SKLearnTrainingPlan.model',
                          return_value=FedSGDRegressor._model_cls())):
             
@@ -146,8 +146,8 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         # Option to retrieve model parameters instead of full model from load function
         init_params = {'coef_': 0.42, 'intercept_': 0.42}
-        with (patch('fedbiomed.common.models.model.BaseSkLearnModel.get_weights', return_value=init_params),
-              patch('fedbiomed.common.models.model.BaseSkLearnModel.load')):
+        with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.get_weights', return_value=init_params),
+              patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load')):
             params = training_plan.load('filename', to_params=True)
             self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
             params = training_plan.after_training_params()
