@@ -49,7 +49,7 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
@@ -184,7 +184,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         # main directories
         self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
-        self._values['VAR_DIR'] = os.path.join(root_dir, 'var')
+        self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
         self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
         self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")

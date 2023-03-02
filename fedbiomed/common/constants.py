@@ -5,8 +5,11 @@
 
 from enum import Enum
 
+"""Directory/folder name where variable files are saved"""
+VAR_FOLDER_NAME = "var"
+
 """Directory/folder name where DB files are saved"""
-DB_FOLDER_NAME = "var"
+DB_FOLDER_NAME = VAR_FOLDER_NAME
 
 """Prefix for database files name"""
 DB_PREFIX = 'db_'
