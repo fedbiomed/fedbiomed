@@ -366,12 +366,22 @@ class BaseSkLearnModel(Model):
         return params
 
     def load(self, filename: str):
+        """Loads model from a file.
+
+        Args:
+            filename: path towards the file where the model has been saved.
+        """
         # FIXME: Security issue using pickles!
         with open(filename, "rb") as file:
             model = joblib.load(file)
         self.model = model
 
     def save(self, filename: str):
+        """Saves model into a file.
+
+        Args:
+            filename: path to the file, where will be saved the model.
+        """
         with open(filename, "wb") as file:
             joblib.dump(self.model, file)
 
@@ -485,7 +495,7 @@ class SkLearnModel:
     """Sklearn model builder. 
     
     It wraps one of Fed-BioMed `BaseSkLearnModel` object children, 
-    by passing a [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html]
+    by passing a (BaseEstimator)(https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html)
     object to the constructor, as shown below.
     
     **Usage**  

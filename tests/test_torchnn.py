@@ -201,7 +201,7 @@ class TestTorchnn(unittest.TestCase):
 
         class FakeTP(BaseFakeTrainingPlan):
             def init_model(self, model_args):
-                return None
+                return TestTorchnn.model
 
             def init_optimizer(self, optimizer_args):
                 return TestTorchnn.optimizer
@@ -209,7 +209,8 @@ class TestTorchnn(unittest.TestCase):
         tp = FakeTP()
         tp._optimizer_args = {}
         #tp._model_args = {}
-        tp._dp_controller = FakeDPController()
+        tp._dp_controller = MagicMock()
+        tp._dp_controller.validate_and_fix_model(return_value=None)
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp._configure_model_and_optimizer(model_args={})
