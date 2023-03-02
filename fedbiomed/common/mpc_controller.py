@@ -36,18 +36,6 @@ class MPCController:
         self._component_type = component_type
         mpc_controller_id = str(uuid.uuid4())
 
-        self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
-        self._mpc_dir = os.path.join(self._root, 'var', 'MP-SPDZ', component_id, mpc_controller_id)
-        self._mpc_data_dir = os.path.join(self._mpc_dir , 'Player-Data')
-
-        if not os.path.isdir(self._mpc_data_dir):
-            try:
-                os.makedirs(self._mpc_data_dir)
-            except Exception as e:
-                raise FedbiomedMPCControllerError(
-                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
-                )
-
         # Use tmp dir to write files
         self._tmp_dir = os.path.join(tmp_dir, 'MPC', component_id, mpc_controller_id)
 
@@ -59,6 +47,19 @@ class MPCController:
                 raise FedbiomedMPCControllerError(
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC temporary files : {e}"
                 )
+
+        self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
+        self._mpc_dir = os.path.join(self._tmp_dir, 'MP-SPDZ')
+        self._mpc_data_dir = os.path.join(self._mpc_dir , 'Player-Data')
+
+        if not os.path.isdir(self._mpc_data_dir):
+            try:
+                os.makedirs(self._mpc_data_dir)
+            except Exception as e:
+                raise FedbiomedMPCControllerError(
+                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
+                )
+
 
     @property
     def mpc_data_dir(self) -> str:

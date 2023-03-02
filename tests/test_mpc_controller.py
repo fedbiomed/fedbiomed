@@ -91,8 +91,14 @@ class TestMPCController(unittest.TestCase):
                 component_id="node-1",
             )
 
-        with patch('fedbiomed.common.mpc_controller.get_fedbiomed_root') as patch_gfr:
-            patch_gfr.return_value = '/not/valid/path'
+        with patch('os.makedirs') as patch_makedirs:
+            def makedirs_side_effect(dir):
+                if dir.endswith('Player-Data'):
+                    raise Exception
+                else:
+                    return None
+
+            patch_makedirs.side_effect = makedirs_side_effect
             with self.assertRaises(FedbiomedMPCControllerError):
                 MPCController(
                     tmp_dir=self.tmp_dir,
