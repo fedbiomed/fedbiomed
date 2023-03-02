@@ -4,26 +4,22 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Callable, Dict, Optional, Union
 
-from fedbiomed.common.exceptions import FedbiomedModelError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers
-
+import torch
 from sklearn.base import BaseEstimator
 
-import torch
-
+from fedbiomed.common.exceptions import FedbiomedModelError
+from fedbiomed.common.constants import ErrorNumbers
 
 
 class Model(metaclass=ABCMeta):
-    """Model abstraction, that wraps and handles both declearn's and native models
+    """Model abstraction, that wraps and handles both native models
     
     Attributes:
-        model (Union[torch.nn.Module, BaseEstimator]): native model, written with frameworks
-        supported by Fed-BioMed.
-        model_args (Dict[str, Any]): model arguments stored as a dictionary, that provides additional
-        arguments for building/using models. Defaults to None.
+        model: native model, written with frameworks supported by Fed-BioMed.
+        model_args: model arguments stored as a dictionary, that provides additional
+            arguments for building/using models. Defaults to None.
     """
-    model : Union[torch.nn.Module, BaseEstimator]
+    model: Union[torch.nn.Module, BaseEstimator]
     model_args: Dict[str, Any]
     
     def __init__(self, model: Union[torch.nn.Module, BaseEstimator]):
@@ -37,8 +33,8 @@ class Model(metaclass=ABCMeta):
 
     @abstractmethod
     def init_training(self):
-        """Initializes parameters before model training
-        """
+        """Initializes parameters before model training"""
+
     @abstractmethod
     def train(self, inputs: Any, targets: Any, **kwargs) -> None:
         """Trains model given inputs and targets data
@@ -79,9 +75,8 @@ class Model(metaclass=ABCMeta):
         """Returns weights of the model.
 
         Args:
-            return_type (Callable, optional): Function that converts the dictionary mapping
-            layers to model weights into another data structure. `return_type` should be used
-            mainly with `declearn`'s `Vector`s. Defaults to None.
+            return_type: Function that converts the dictionary mapping layers to model weights into another data
+                structure. `return_type` should be used mainly with `declearn`'s `Vector`s. Defaults to None.
 
         Returns:
             Any: model's weights.
@@ -115,12 +110,14 @@ class Model(metaclass=ABCMeta):
         Otherwise, raises an error
 
         Args:
-            return_type (Optional[Callable], optional): callable that will
-            be used to convert a dictionary into another data structure (e.g. a declearn
-            Vector). Defaults to None.
+            return_type: callable that will be used to convert a dictionary into another data structure
+                (e.g. a declearn Vector). Defaults to None.
 
         Raises:
             FedbiomedModelError: raised if `return_type` argument is neither a callable nor `None`.
         """
         if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Argument `return_type` should be either None or callable, but got {type(return_type)} instead")
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}. Argument `return_type` should be either None or callable, "
+                f"but got {type(return_type)} instead"
+            )

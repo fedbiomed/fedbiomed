@@ -3,7 +3,7 @@
 
 """
 The `fedbiomed.common.models` module includes model abstraction classes
-that can be used either with plain framework specific models or with declearn model
+that can be used with plain framework specific models.
 
 declearn repository: https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1
 """

@@ -5,18 +5,14 @@ from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, Tuple, Union
 
+import numpy as np
+import torch
+from declearn.model.torch import TorchVector
 
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
-
-import numpy as np
-
-from declearn.model.torch import TorchVector
-
-import torch
-
 
 
 class TorchModel(Model):
@@ -32,13 +28,19 @@ class TorchModel(Model):
 
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiates the wrapper over a torch Module instance."""
-        # if not isinstance(model, torch.nn.Module):
-        #     raise FedbiomedModelError(f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}")
+
+        if not isinstance(model, torch.nn.Module):
+            raise FedbiomedModelError(
+                f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}"
+            )
+
         super().__init__(model)
         self.init_params = None
 
-    def get_gradients(self,
-                      return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Union[Dict[str, torch.Tensor],Any]:
+    def get_gradients(
+            self,
+            return_type: Callable[[Dict[str, torch.Tensor]], Any] = None
+    ) -> Union[Dict[str, torch.Tensor], Any]:
         """Returns a TorchVector wrapping the gradients attached to the model.
         
         Args:
@@ -57,7 +59,7 @@ class TorchModel(Model):
             for name, param in self.model.named_parameters()
             if (param.requires_grad and param.grad is not None)
         }
-        
+
         if len(gradients) < len(list(self.model.named_parameters())):
             logger.warning("Warning: can not retrieve all gradients from the model. Are you sure you have "
                            "trained the model beforehand?")
@@ -65,9 +67,11 @@ class TorchModel(Model):
             gradients = return_type(gradients)
         return gradients
 
-    def get_weights(self,
-                    only_trainable: bool = False,
-                    return_type: Callable[[Dict[str, torch.Tensor]], Any] = None) -> Any:
+    def get_weights(
+            self,
+            only_trainable: bool = False,
+            return_type: Callable[[Dict[str, torch.Tensor]], Any] = None
+    ) -> Any:
         """Return a TorchVector wrapping the model's parameters.
         
         Args:
@@ -95,7 +99,10 @@ class TorchModel(Model):
             parameters = return_type(parameters)
         return parameters
 
-    def apply_updates(self, updates: Union[TorchVector, OrderedDict]) -> None:
+    def apply_updates(
+            self,
+            updates: Union[TorchVector, OrderedDict]
+    ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
         
         Args:
@@ -107,8 +114,11 @@ class TorchModel(Model):
             for name, update in iterator:
                 param = self.model.get_parameter(name)
                 param.add_(update)
-    
-    def add_corrections_to_gradients(self, corrections: Union[TorchVector, Dict[str, torch.Tensor]]):
+
+    def add_corrections_to_gradients(
+            self,
+            corrections: Union[TorchVector, Dict[str, torch.Tensor]]
+    ) -> None:
         """Adds values to attached gradients in the model
         
         Args:
@@ -123,7 +133,9 @@ class TorchModel(Model):
                 param.grad.add_(update.to(param.grad.device))
 
     @staticmethod
-    def _get_iterator_model_params(model_params: Union[Dict[str, torch.Tensor], TorchVector]) -> Iterable[Tuple[str, torch.Tensor]]:
+    def _get_iterator_model_params(
+            model_params: Union[Dict[str, torch.Tensor], TorchVector]
+    ) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a 
         dictionary or a declearn's TorchVector
 
@@ -138,15 +150,21 @@ class TorchModel(Model):
             Iterable[Tuple]: iterable containing model parameters, that returns layer name and its value
         """
         if isinstance(model_params, TorchVector):
-            
+
             iterator = model_params.coefs.items()
         elif isinstance(model_params, dict):
             iterator = model_params.items()
         else:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Got a {type(model_params)} while expecting TorchVector or OrderedDict/Dict")
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}. Got a {type(model_params)} "
+                f"while expecting TorchVector or OrderedDict/Dict"
+            )
         return iterator
 
-    def predict(self, inputs: torch.Tensor)-> np.ndarray:
+    def predict(
+            self,
+            inputs: torch.Tensor
+    ) -> np.ndarray:
         """Computes prediction given input data.
 
         Args:
@@ -157,16 +175,19 @@ class TorchModel(Model):
         """
         self.model.eval()  # pytorch switch for model inference-mode
         with torch.no_grad():
-            pred = self.model(inputs) 
+            pred = self.model(inputs)
         return pred.cpu().numpy()
-    
-    def send_to_device(self, device: torch.device):
+
+    def send_to_device(
+            self,
+            device: torch.device
+    ) -> None:
         """Sends model to device
         
         Args:
             device: device set for using GPU or CPU.
         """
-        return self.model.to(device)
+        self.model.to(device)
 
     def init_training(self):
         """Initializes and sets attributes before the training.
@@ -177,11 +198,18 @@ class TorchModel(Model):
         self.init_params = deepcopy(list(self.model.parameters()))
         self.model.train()  # pytorch switch for training
         self.model.zero_grad()
-        
-    def train(self, inputs: torch.Tensor, targets: torch.Tensor, **kwargs):
+
+    def train(
+            self,
+            inputs: torch.Tensor,
+            targets: torch.Tensor,
+            **kwargs
+    ) -> None:
         # TODO: should we pass loss function here? and do the backward prop?
         if self.init_params is None:
-            raise FedbiomedModelError(f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initalize it beforehand")
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initialize it beforehand"
+            )
         pass
 
     def load(self, filename: str) -> OrderedDict:
@@ -197,7 +225,7 @@ class TorchModel(Model):
         params = torch.load(filename)
         self.model.load_state_dict(params)
         return params
-        
+
     def save(self, filename: str):
         """Saves model into a file.
 
