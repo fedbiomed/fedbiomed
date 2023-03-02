@@ -413,7 +413,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
         for secagg_id in bp_remove_ids:
             try:
-                self._table.remove(self._query.secagg_ig == secagg_id)
+                self._table.remove(self._query.secagg_id == secagg_id)
             except Exception as e:
                 errmess = f'{ErrorNumbers.FB622.value}: database remove operation failed for ' \
                     f'obsolete default biprime {secagg_id}: {e}'
