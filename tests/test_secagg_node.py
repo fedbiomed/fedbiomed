@@ -115,10 +115,8 @@ class SecaggTestCase(NodeTestCase):
     def setUp(self) -> None:
         self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
         self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.node.secagg, "_MPC")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg, 'MPCController')
         self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
-
-
 
         self.mock_skm = self.patch_skm.start()
         self.mock_cm = self.patch_cm.start()
@@ -128,10 +126,10 @@ class SecaggTestCase(NodeTestCase):
         # Set MOCK variables
         self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
         self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
-        type(self.mock_mpc).mpc_data_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
             return_value='dummy/path/to/output'
         )
-        type(self.mock_mpc).tmp_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=environ["TMP_DIR"]
         )
 
@@ -170,7 +168,6 @@ class TestSecaggServkey(SecaggTestCase):
         args["job_id"] = ''
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
-
 
     def test_secagg_servkey_setup_02_setup_server_key(self):
         """Test setup operation for servkey"""
