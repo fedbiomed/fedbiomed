@@ -482,7 +482,6 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
 
 
 class SkLearnModel:
-    _instance: BaseSkLearnModel
     """Sklearn model builder. 
     
     It wraps one of Fed-BioMed `BaseSkLearnModel` object children, 
@@ -501,6 +500,7 @@ class SkLearnModel:
     Attributes:
         _instance: instance of BaseSkLearnModel
     """
+    _instance: BaseSkLearnModel
 
     def __init__(self, model: Type[BaseEstimator]):
         """Constructor of the model builder.
