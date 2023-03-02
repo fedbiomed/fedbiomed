@@ -185,10 +185,23 @@ class TorchModel(Model):
         pass
 
     def load(self, filename: str) -> OrderedDict:
+        """Loads model from a file.
+
+        Args:
+            filename: path towards the file where the model has been saved.
+
+        Returns:
+            model_parameters stored in an OrderedDict.
+        """
         # loads model from a file
         params = torch.load(filename)
         self.model.load_state_dict(params)
         return params
         
     def save(self, filename: str):
+        """Saves model into a file.
+
+        Args:
+            filename: path to the file, where will be saved the model.
+        """
         torch.save(self.model.state_dict(), filename)

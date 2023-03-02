@@ -8,11 +8,12 @@ that can be used either with plain framework specific models or with declearn mo
 declearn repository: https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1
 """
 from ._model import Model
-from ._sklearn import SkLearnModel
+from ._sklearn import SkLearnModel, BaseSkLearnModel
 from ._torch import TorchModel
 
 __all__ = [
     "SkLearnModel",
     "TorchModel",
-    "Model"
+    "Model",
+    "BaseSkLearnModel"
 ]
