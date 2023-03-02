@@ -20,12 +20,6 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 
 
-_MPC = MPCController(
-    tmp_dir=environ["TMP_DIR"],
-    component_type=ComponentType.NODE,
-    component_id=environ["ID"]
-)
-
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
 )
@@ -99,6 +93,13 @@ class BaseSecaggSetup(ABC):
         self._sequence = sequence
         self._parties = parties
         self._element = None
+
+        # one controller per secagg object to prevent any file conflict
+        self._MPC = MPCController(
+            tmp_dir=environ["TMP_DIR"],
+            component_type=ComponentType.NODE,
+            component_id=environ["ID"]
+        )
 
     @property
     def researcher_id(self) -> str:
@@ -239,7 +240,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
                                                  f'certificate for the federated setup. Please see error: {e}', False)
             except Exception as e:
                 logger.debug(f"{e}")
-                return self._create_secagg_reply('Unexpected error occurred please report this to the node owner', False)
+                return self._create_secagg_reply('Unexpected error occurred please '
+                                                 'report this to the node owner', False)
         else:
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
             logger.info(message)
@@ -252,8 +254,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
-            path_certificates=_MPC.mpc_data_dir,
-            path_ips=_MPC.tmp_dir,
+            path_certificates=self._MPC.mpc_data_dir,
+            path_ips=self._MPC.tmp_dir,
             self_id=environ["ID"],
             self_ip=environ["MPSPDZ_IP"],
             self_port=environ["MPSPDZ_PORT"],
@@ -262,7 +264,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
             parties=self._parties
         )
 
-        output = _MPC.exec_shamir(
+        output = self._MPC.exec_shamir(
             party_number=self._parties.index(environ["ID"]),
             num_parties=len(self._parties),
             ip_addresses=ip_file

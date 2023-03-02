@@ -19,7 +19,7 @@ BPrimeManager = SecaggBiprimeManager(environ['DB_PATH'])
 
 
 class SecaggManager:
-    """Wrapper class for instantiating any type of node secagg element database manager
+    """Wrapper class for returning any type of node secagg element database manager
     """
 
     element2class = {
@@ -33,10 +33,10 @@ class SecaggManager:
         self._element = element
 
     def __call__(self) -> BaseSecaggManager:
-        """Instantiate a component secagg element database manager object.
+        """Return a node secagg element database manager object.
 
         Returns:
-            a new secagg element database manager object
+            an existing secagg element database manager object
         """
 
         if self._element in [m.value for m in SecaggElementTypes]:

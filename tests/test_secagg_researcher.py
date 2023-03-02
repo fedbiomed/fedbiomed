@@ -19,7 +19,7 @@ class BaseTestCaseSecaggContext(ResearcherTestCase):
 
     def setUp(self) -> None:
         self.patch_cm = patch.object(fedbiomed.researcher.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "_MPC")
+        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPCController")
         self.patch_requests = patch("fedbiomed.researcher.secagg.Requests")
 
         self.mock_cm = self.patch_cm.start()
@@ -30,10 +30,10 @@ class BaseTestCaseSecaggContext(ResearcherTestCase):
         # Set MOCK variables
         self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
         self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
-        type(self.mock_mpc).mpc_data_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
             return_value='dummy/path/to/output'
         )
-        type(self.mock_mpc).tmp_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=environ["TMP_DIR"]
         )
 
@@ -269,7 +269,9 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload()
 
-            self.mock_mpc.exec_shamir.side_effect = Exception
+            # note: should not be accessing private `_MPC` of `SecaggServkeyContext`
+            # but could not have it working "clean" mocking
+            self.srvkey_context._MPC.exec_shamir.side_effect = Exception
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload()
 
