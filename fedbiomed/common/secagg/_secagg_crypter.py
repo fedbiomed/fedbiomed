@@ -77,7 +77,7 @@ class SecaggCrypter:
         # Make use the key is instance of
         if not isinstance(key, int):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB621.value}: The argument `key` must be integer"
+                f"{ErrorNumbers.FB622.value}: The argument `key` must be integer"
             )
 
         if weight is not None:
