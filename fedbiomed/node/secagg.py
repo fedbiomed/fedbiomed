@@ -245,7 +245,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
         else:
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
             logger.info(message)
-            self._create_secagg_reply(message, True)
+            return self._create_secagg_reply(message, True)
 
         return self._create_secagg_reply('Key share has been successfully created', True)
 
