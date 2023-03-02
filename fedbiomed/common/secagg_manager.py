@@ -3,14 +3,17 @@
 
 """Interface with the component secure aggregation element database
 """
+import os
 from abc import ABC, abstractmethod
-from typing import Union, List
+from typing import Union, List, Dict
 
+import json
 from tinydb import TinyDB, Query
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.validator import Validator, ValidatorError
 
 
 class BaseSecaggManager(ABC):
@@ -121,6 +124,9 @@ class BaseSecaggManager(ABC):
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: failed to remove entry from the database
         """
         # Rely on element found in database (rather than number of element removed)
         if self._get_generic(secagg_id) is None:
@@ -222,6 +228,9 @@ class SecaggServkeyManager(BaseSecaggManager):
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: database entry does not belong to `job_id`
         """
 
         # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
@@ -252,6 +261,8 @@ class SecaggBiprimeManager(BaseSecaggManager):
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggBiprime', cache_size=0)
+
+        self._v = Validator()
 
     def get(self, secagg_id: str, job_id: None = None) -> Union[dict, None]:
         """Search for data entry with given `secagg_id` in the biprime table
@@ -304,3 +315,78 @@ class SecaggBiprimeManager(BaseSecaggManager):
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         return self._remove_generic(secagg_id)
+
+    def _read_default_biprimes(self, default_biprimes_dir: str) -> List[Dict]:
+        """Read default biprime files and check default biprime format
+
+        Args:
+            default_biprimes_dir: directory containing the default biprimes files
+
+        Raises:
+            FedbiomedSecaggError: cannot read biprime files
+            FedbiomedSecaggError: badly formatted default biprime
+        """
+        default_biprimes = []
+
+        for bp_file in os.listdir(default_biprimes_dir):
+            if not bp_file.endswith('.json'):
+                continue
+
+            # Read default biprimes files
+            logger.debug(f'Reading default biprime file {bp_file}')
+            try:
+                with open(os.path.join(default_biprimes_dir, bp_file)) as json_file:
+                    biprime = json.load(json_file)
+            except Exception as e:
+                errmess = f'{ErrorNumbers.FB622.value}: cannot parse default biprime file "{bp_file}" : {e}'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
+
+            # Check default biprimes content
+            try:
+                self._v.validate(biprime, dict)
+            except ValidatorError as e:
+                errmess = f'{ErrorNumbers.FB622.value}: bad biprime format in file "{bp_file}": {e}'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
+
+            for param, type in [(biprime['name'], str), (biprime['biprime'], int), (biprime['max_keybits'], int)]:
+                try:
+                    self._v.validate(param, type)
+                except ValidatorError as e:
+                    errmess = f'{ErrorNumbers.FB622.value}: bad biprime field in file "{bp_file}": {e}'
+                    logger.error(errmess)
+                    raise FedbiomedSecaggError(errmess)
+
+            if not biprime['name']:
+                errmess = f'{ErrorNumbers.FB318.value}: bad biprime name in file "{bp_file}" must be a non-empty string'
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
+
+            default_biprimes.append(biprime)
+
+        return default_biprimes
+
+    def update_default_biprimes(self, allow_default_biprimes: bool, default_biprimes_dir: str) -> None:
+        """Update the default entries in the biprime table.
+
+        If `allow_default_biprimes` is True, then add or update the default biprimes from the *.json
+            files in `default_biprimes_dir` directory.
+
+        In all cases, remove the other default biprimes existing in the biprime table.
+
+        Args:
+            allow_default_biprimes: if True, then accept default biprimes from files
+            default_biprimes_dir: directory containing the default biprimes files
+
+        Raises:
+            FedbiomedSecaggError: cannot update default biprimes
+        """
+        # Read and check the default biprime values
+        if allow_default_biprimes:
+            default_biprimes = self._read_default_biprimes(default_biprimes_dir)
+        else:
+            default_biprimes = []
+
+        print(default_biprimes)
+

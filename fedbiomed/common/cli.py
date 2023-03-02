@@ -18,6 +18,7 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
     get_method_spec, \
     get_fedbiomed_root
+from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -284,9 +285,16 @@ class CommonCLI:
             files.
         """
 
-        print(f"{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
+        print(
+            "Updating secure aggregation default biprimes with:\n" 
+            f"ALLOW_DEFAULT_BIPRIMES : {self._environ['ALLOW_DEFAULT_BIPRIMES']}\n"
+            f"DEFAULT_BIPRIMES_DIR   : {self._environ['DEFAULT_BIPRIMES_DIR']}\n"
+        )
+        BPrimeManager = SecaggBiprimeManager(self._environ['DB_PATH'])
+        BPrimeManager.update_default_biprimes(
+            self._environ['ALLOW_DEFAULT_BIPRIMES'], self._environ['DEFAULT_BIPRIMES_DIR'])
 
-        pass
+        print(f"\n{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
 
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates certificate using Certificate Manager
