@@ -326,7 +326,7 @@ function execute_shamir_server_key(){
   # Compile server key MPC file --------------------------------------------------------------------------------------
   if [ -n "$COMPILE" ]; then
     if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$BASEDIR" compile --script server_key -N "$NUMBER_OF_PARTIES"; then
-      error "Error while compiling script `server_key`. Please check the logs above"
+      error "Error while compiling script 'server_key'. Please check the logs above"
     fi
   fi
 
