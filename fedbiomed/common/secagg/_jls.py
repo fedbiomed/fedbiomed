@@ -483,7 +483,7 @@ class BaseKey:
     def _populate_tau(self, tau: int, len_: int, ):
         """Populates TAU by applying hashing function"""
 
-        taus = (np.arange(0, len_) << self._public_param.bits // 2) | tau
+        taus = (np.arange(0, len_, dtype=mpz) << self._public_param.bits // 2) | tau
 
         # with multiprocessing.Pool() as pool:
         #     result = pool.map(self._public_param.hashing_function, taus)
@@ -529,21 +529,23 @@ class UserKey(BaseKey):
 
         # TODO: find-out what is going wrong in numpy implementation
         # Use numpy vectors to increase speed of calculation
-        # plaintext = np.array(plaintext)
-        # nude_ciphertext = (self._public_param.n_modulus * (plaintext + 1)) % self._public_param.n_modulus
-        # taus = self._populate_tau(tau=tau, len_=len(plaintext))
-        #
-        # # This process takes some time
-        # vec_pow_mod = np.vectorize(powmod, otypes=[mpz])
-        # r = vec_pow_mod(taus, self._key, self._public_param.n_square)
-        # cipher = (nude_ciphertext * r) % self._public_param.n_square
-        # cipher = [EncryptedNumber(self._public_param, ciphertext) for ciphertext in cipher]
+        plaintext = np.array(plaintext)
+        nude_ciphertext = (self._public_param.n_modulus * plaintext + 1) % self._public_param.n_square
+        taus = self._populate_tau(tau=tau, len_=len(plaintext))
 
-        cipher = [self._encrypt(pt, (i << self._public_param.bits // 2) | tau)
-                  for i, pt in plaintext]
+        # This process takes some time
+        vec_pow_mod = np.vectorize(powmod, otypes=[mpz])
+        r = vec_pow_mod(taus, self._key, self._public_param.n_square)
+        cipher = (nude_ciphertext * r) % self._public_param.n_square
+        cipher = [EncryptedNumber(self._public_param, ciphertext) for ciphertext in cipher]
+
+        # TODO: Remove old implementation
+        # cipher = [self._encrypt(pt, (i << self._public_param.bits // 2) | tau)
+        #           for i, pt in enumerate(plaintext)]
 
         return cipher
 
+    # TODO: remove old implementation
     def _encrypt(
             self,
             plaintext: gmpy2.mpz,
@@ -609,26 +611,28 @@ class ServerKey(BaseKey):
             raise TypeError(f"Cipher text should be list of EncryptedNumbers")
 
         # TODO: Find out what is going wrong in numpy implementation
-        # ciphertext = [c.ciphertext for c in cipher]
-        # taus = self._populate_tau(tau=tau, len_=len(ciphertext))
-        #
-        # powmod_ = np.vectorize(powmod, otypes=[mpz])
-        # mod = powmod_(taus,  delta ** 2 * self._key, self._public_param.n_square)
-        #
-        # v = (ciphertext * mod) % self._public_param.n_square
-        # x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
-        #
-        # inverted = invert(delta ** 2, self._public_param.n_square)
-        #
-        # x = (x * inverted) % self._public_param.n_modulus
-        #
-        # pt = [int(pt) for pt in x]
+        ciphertext = [c.ciphertext for c in cipher]
+        taus = self._populate_tau(tau=tau, len_=len(ciphertext))
 
-        pt = [self._decrypt(c, (i << self._public_param.bits // 2) | tau, delta)
-                  for i, c in enumerate(cipher)]
+        powmod_ = np.vectorize(powmod, otypes=[mpz])
+        mod = powmod_(taus,  delta ** 2 * self._key, self._public_param.n_square)
+
+        v = (ciphertext * mod) % self._public_param.n_square
+        x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
+
+        inverted = invert(delta ** 2, self._public_param.n_square)
+
+        x = (x * inverted) % self._public_param.n_modulus
+
+        pt = [int(pt) for pt in x]
+
+        # TODO: Remove old implementation
+        # pt = [self._decrypt(c, (i << self._public_param.bits // 2) | tau, delta)
+        #           for i, c in enumerate(cipher)]
 
         return pt
 
+    # TODO: remove old implementation
     def _decrypt(
             self,
             cipher: EncryptedNumber,
