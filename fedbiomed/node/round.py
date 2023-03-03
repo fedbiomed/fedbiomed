@@ -73,6 +73,7 @@ class Round:
                     doesn't request for using a GPU.
         """
 
+        self._use_secagg: bool = False
         self.dataset = dataset
         self.training_plan_url = training_plan_url
         self.training_plan_class = training_plan_class
@@ -165,25 +166,43 @@ class Round:
 
             return True, params_path, ''
 
-    def _configure_secagg(self, secagg_id):
+    @staticmethod
+    def _validate_secagg(secagg_id: Union[str, None]):
+        """Validates secure aggregation status
 
-        if environ["SECURE_AGGREGATION"] and secagg_id is None:
+        Args:
+            secagg_id: Secure aggregation ID attached to the train request
+        """
+        if environ["FORCE_SECURE_AGGREGATION"] and secagg_id is None:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
                                       f"is not set. Node requires to apply secure aggregation")
+
+        if secagg_id is not None and not environ["SECURE_AGGREGATION"]:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
+            )
+
+        return True if secagg_id is not None else False
 
     def run_model_training(
             self,
             secagg_id: Union[str, None] = None
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
+
+        Args:
+            secagg_id: Secure aggregation id. None means that the parameters
+                are not going to be encrypted
 
         Returns:
             Returns the corresponding node message, training reply instance
         """
         is_failed = False
 
-        self._configure_secagg(secagg_id=secagg_id)
+        # Validate secagg status. Raises error if the training request is compatible with
+        # secure aggregation settings
+        self._use_secagg = self._validate_secagg(secagg_id=secagg_id)
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -220,7 +239,7 @@ class Round:
 
                 success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
                 if success:
-                    # retrieving arggegator args
+                    # retrieving aggregator args
                     success, error_msg = self.download_aggregator_args()
 
                 if not success:
@@ -332,8 +351,8 @@ class Round:
             results["encrypted"] = False
 
             # Upload results
-            model_params = self.training_plan.after_training_params(vector=environ["SECURE_AGGREGATION"])
-            if environ["SECURE_AGGREGATION"]:
+            model_params = self.training_plan.after_training_params(vector=self._use_secagg)
+            if self._use_secagg:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.")
                 model_params = self._secagg_crypter.encrypt(
                     num_nodes=2,
@@ -341,7 +360,7 @@ class Round:
                     params=model_params,
                     # IMPORTANT = Keep this key for testing purposes
                     key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
-                    #key=10,
+                    # key=10,
                     weight=sample_size
                 )
                 results["encrypted"] = True
@@ -383,12 +402,14 @@ class Round:
             # Only for validation
             return self._send_round_reply(success=True)
 
-    def _send_round_reply(self,
-                          message: str = '',
-                          success: bool = False,
-                          params_url: Union[str, None] = '',
-                          timing: dict = {},
-                          sample_size: Union[int, None] = None) -> NodeMessages:
+    def _send_round_reply(
+            self,
+            message: str = '',
+            success: bool = False,
+            params_url: Union[str, None] = '',
+            timing: dict = {},
+            sample_size: Union[int, None] = None
+    ) -> Dict[str, Any]:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
