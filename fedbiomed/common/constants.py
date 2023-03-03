@@ -266,7 +266,8 @@ class ErrorNumbers(_BaseEnum):
     FB619 = "FB619: Certificate error"
     FB620 = "FB620: MPC protocol error"
     FB621 = "FB621: declearn optimizer error"
-    FB622 = "FB622: Secure aggregation database error"
+    FB622 = "FB622: Model error"
+    FB623 = "FB623: Secure aggregation database error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

@@ -173,6 +173,13 @@ class FedbiomedRoundError(FedbiomedError):
     pass
 
 
+class FedbiomedModelError(FedbiomedError):
+    """
+    Exceptions triggered from Model class
+    """
+    pass
+
+
 class FedbiomedSecaggError(FedbiomedError):
     """
     Exceptions specific for the researcher secure aggregation class.

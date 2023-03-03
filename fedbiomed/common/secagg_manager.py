@@ -32,7 +32,7 @@ class BaseSecaggManager(ABC):
         try:
             self._db = TinyDB(db_path)
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB622.value}: failed to access the database with error: {e}'
+            errmess = f'{ErrorNumbers.FB623.value}: failed to access the database with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -61,13 +61,13 @@ class BaseSecaggManager(ABC):
                 (self._query.secagg_id == secagg_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB622.value}: failed searching the database table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB623.value}: failed searching the database table "{self._table}" ' \
                       f'for secagg element "{secagg_id}" with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
         if (len(entries) > 1):
-            errmess = f'{ErrorNumbers.FB622.value}: database table "{self._table}" is inconsistent: ' \
+            errmess = f'{ErrorNumbers.FB623.value}: database table "{self._table}" is inconsistent: ' \
                       f'found {len(entries)} entries with unique secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
@@ -97,7 +97,7 @@ class BaseSecaggManager(ABC):
             FedbiomedSecaggError: an entry already exists for `secagg_id` in the table
         """
         if self._get_generic(secagg_id) is not None:
-            errmess = f'{ErrorNumbers.FB622.value}: error adding element in table "{self._table}": ' \
+            errmess = f'{ErrorNumbers.FB623.value}: error adding element in table "{self._table}": ' \
                       f' an entry already exists for secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
@@ -106,7 +106,7 @@ class BaseSecaggManager(ABC):
         try:
             self._table.insert(specific)
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB622.value}: failed adding an entry in table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB623.value}: failed adding an entry in table "{self._table}" ' \
                       f'for secagg element secagg_id={secagg_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
@@ -139,7 +139,7 @@ class BaseSecaggManager(ABC):
                 (self._query.secagg_id == secagg_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB622.value}: failed removing an entry from table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB623.value}: failed removing an entry from table "{self._table}" ' \
                       f'for secagg element secagg_id={secagg_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
@@ -189,7 +189,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
-            errmess = f'{ErrorNumbers.FB622.value}: error getting servkey element: ' \
+            errmess = f'{ErrorNumbers.FB623.value}: error getting servkey element: ' \
                       f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
                       f'current job job_id={job_id}'
             logger.error(errmess)
@@ -237,7 +237,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Don't trust `Node` for `job_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
         if element is not None and element['job_id'] != job_id:
-            errmess = f'{ErrorNumbers.FB622.value}: error removing servkey element: ' \
+            errmess = f'{ErrorNumbers.FB623.value}: error removing servkey element: ' \
                       f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
                       f'current job job_id={job_id}'
             logger.error(errmess)
@@ -326,7 +326,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
         # Can only remove dynamic biprimes
         element = self._get_generic(secagg_id)
         if isinstance(element, dict) and ('type' not in element or element['type'] != BiprimeType.DYNAMIC.value):
-            errmess = f'{ErrorNumbers.FB622.value}: not authorized to remove non-dynamic biprime "{secagg_id}"'
+            errmess = f'{ErrorNumbers.FB623.value}: not authorized to remove non-dynamic biprime "{secagg_id}"'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -357,7 +357,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 with open(os.path.join(default_biprimes_dir, bp_file)) as json_file:
                     biprime = json.load(json_file)
             except Exception as e:
-                errmess = f'{ErrorNumbers.FB622.value}: cannot parse default biprime file "{bp_file}" : {e}'
+                errmess = f'{ErrorNumbers.FB623.value}: cannot parse default biprime file "{bp_file}" : {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
@@ -365,7 +365,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             try:
                 self._v.validate(biprime, dict)
             except ValidatorError as e:
-                errmess = f'{ErrorNumbers.FB622.value}: bad biprime format in file "{bp_file}": {e}'
+                errmess = f'{ErrorNumbers.FB623.value}: bad biprime format in file "{bp_file}": {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
@@ -373,12 +373,12 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 try:
                     self._v.validate(param, type)
                 except ValidatorError as e:
-                    errmess = f'{ErrorNumbers.FB622.value}: bad biprime field in file "{bp_file}": {e}'
+                    errmess = f'{ErrorNumbers.FB623.value}: bad biprime field in file "{bp_file}": {e}'
                     logger.error(errmess)
                     raise FedbiomedSecaggError(errmess)
 
             if not biprime['secagg_id']:
-                errmess = f'{ErrorNumbers.FB622.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
+                errmess = f'{ErrorNumbers.FB623.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
                     'must be a non-empty string'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
@@ -415,7 +415,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 (self._query.type == BiprimeType.DEFAULT.value)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB622.value}: database search operation failed for default biprimes: {e}'
+            errmess = f'{ErrorNumbers.FB623.value}: database search operation failed for default biprimes: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -428,7 +428,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             try:
                 self._table.remove(self._query.secagg_id == secagg_id)
             except Exception as e:
-                errmess = f'{ErrorNumbers.FB622.value}: database remove operation failed for ' \
+                errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
                     f'obsolete default biprime {secagg_id}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
@@ -449,7 +449,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                     self._query.secagg_id == bp['secagg_id']
                 )
             except Exception as e:
-                errmess = f'{ErrorNumbers.FB622.value}: database upsert operation failed for ' \
+                errmess = f'{ErrorNumbers.FB623.value}: database upsert operation failed for ' \
                     f'default biprime {bp["secagg_id"]}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
