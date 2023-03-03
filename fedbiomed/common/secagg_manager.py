@@ -277,7 +277,12 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 or None if no element exists for this `secagg_id`
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-        return self._get_generic(secagg_id)
+        element = self._get_generic(secagg_id)
+        # type is internal to this class, need not transmit to caller
+        if isinstance(element, dict) and 'type' in element:
+            del element['type']
+
+        return element
 
     def add(
             self,
@@ -317,6 +322,14 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 False if no entry existed for this `secagg_id`
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+
+        # Can only remove dynamic biprimes
+        element = self._get_generic(secagg_id)
+        if isinstance(element, dict) and ('type' not in element or element['type'] != BiprimeType.DYNAMIC.value):
+            errmess = f'{ErrorNumbers.FB622.value}: not authorized to remove non-dynamic biprime "{secagg_id}"'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
         return self._remove_generic(secagg_id)
 
     def _read_default_biprimes(self, default_biprimes_dir: str) -> List[Dict]:

@@ -243,6 +243,13 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 return self._create_secagg_reply('Unexpected error occurred please '
                                                  'report this to the node owner', False)
         else:
+            # Need to ensure existing element was established for the same parties or a superset of the parties
+            if not isinstance(context, dict) or \
+                    'parties' not in context or \
+                    not isinstance(context['parties'], dict) or \
+                    set(self._parties).issubset(set(context['parties'])):
+                return self._create_secagg_reply(f'Context for {self._secagg_id} exists but parties do not match', False)
+
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
             logger.info(message)
             return self._create_secagg_reply(message, True)
@@ -338,6 +345,9 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
                         f"secagg_id='{self._secagg_id}'")
 
             BPrimeManager.add(self._secagg_id, self._parties, biprime)
+
+        # TODO: handle case where context['parties'] is None
+        # TODO: check parties match if not None
 
         logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
         msg = self._create_secagg_reply('', True)

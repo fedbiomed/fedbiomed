@@ -279,12 +279,13 @@ class CommonCLI:
     def _create_component_configuration(self, args):
         """CLI Handler for creating configuration file for given component
 
-        TODO: This method doesn't do specific action for creating configuration file for
+        TODO: This method doesn't yet concentrate all actions for creating configuration file for
             given component. Since, `environ` will be imported through component CLI, configuration
             file will be automatically created. In future, it might be useful to generate configuration
             files.
         """
 
+        # Update secure aggregation biprimes in component database
         print(
             "Updating secure aggregation default biprimes with:\n" 
             f"ALLOW_DEFAULT_BIPRIMES : {self._environ['ALLOW_DEFAULT_BIPRIMES']}\n"
