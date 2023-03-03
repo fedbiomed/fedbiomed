@@ -14,23 +14,17 @@ and Data Security. Springer Berlin Heidelberg, 2013.*
 
 """
 
-import gmpy2
-import time
-import numpy as np
 
-from typing import List, Tuple, Union, Callable
-from ._jls_utils import invert, powmod
-from gmpy2 import mpz, gcd
 from math import ceil, floor, log2
+from typing import List, Tuple, Union, Callable
+
+import gmpy2
+import numpy as np
+from gmpy2 import mpz, gcd
 from Crypto.Hash import SHA256
-from ._jls_utils import TARGET_RANGE
 
-
-class VEParameters:
-    """Constants class for vector encoder parameters"""
-
-    KEY_SIZE: int = 2048
-    VALUE_SIZE: int = ceil(log2(10000))
+from fedbiomed.common.constants import VEParameters
+from ._jls_utils import invert, powmod
 
 
 class VES:
@@ -252,7 +246,7 @@ class JoyeLibert:
 
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=VEParameters.VALUE_SIZE
+            valuesize=ceil(log2(VEParameters.TARGET_RANGE))
         )
 
     def protect(self,
@@ -545,7 +539,6 @@ class UserKey(BaseKey):
         # cipher = (nude_ciphertext * r) % self._public_param.n_square
         # cipher = [EncryptedNumber(self._public_param, ciphertext) for ciphertext in cipher]
 
-        # TODO: Remove old implementation
         cipher = [self._encrypt(pt, (i << self._public_param.bits // 2) | tau)
                   for i, pt in plaintext]
 
@@ -615,7 +608,7 @@ class ServerKey(BaseKey):
         if not all([isinstance(c, EncryptedNumber) for c in cipher]):
             raise TypeError(f"Cipher text should be list of EncryptedNumbers")
 
-        # TODO: Findout what is going wrong in numpy implementation
+        # TODO: Find out what is going wrong in numpy implementation
         # ciphertext = [c.ciphertext for c in cipher]
         # taus = self._populate_tau(tau=tau, len_=len(ciphertext))
         #
@@ -631,13 +624,11 @@ class ServerKey(BaseKey):
         #
         # pt = [int(pt) for pt in x]
 
-        # TODO: Remove old implementation
         pt = [self._decrypt(c, (i << self._public_param.bits // 2) | tau, delta)
                   for i, c in enumerate(cipher)]
 
         return pt
 
-    # TODO: Remove this method before merging
     def _decrypt(
             self,
             cipher: EncryptedNumber,
@@ -712,7 +703,6 @@ class FDH:
             self,
             t: int
     ) -> gmpy2.mpz:
-
         """Computes the FDH using SHA256.
 
         !!! infor "Computation"

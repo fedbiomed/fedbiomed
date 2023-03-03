@@ -1,17 +1,18 @@
-import gmpy2
-import numpy as np
 
 from typing import List
+
+import gmpy2
+import numpy as np
+from gmpy2 import mpz
+
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import VEParameters
 
 
-# TODO: 100 quantization clipping range is costly in terms of memory
-#  but it provides wider range for model parameters.
-CLIPPING_RANGE = 3
-TARGET_RANGE = 10000
-
-
-def _check_clipping_range(values: List[float], clipping_range: float):
+def _check_clipping_range(
+        values: List[float],
+        clipping_range: float
+) -> None:
     """Checks clipping range for quantization
 
     Args:
@@ -33,8 +34,8 @@ def _check_clipping_range(values: List[float], clipping_range: float):
 
 def quantize(
     weights: List[float],
-    clipping_range: int = CLIPPING_RANGE,
-    target_range: int = TARGET_RANGE,
+    clipping_range: int = VEParameters.CLIPPING_RANGE,
+    target_range: int = VEParameters.TARGET_RANGE,
 ) -> np.ndarray:
     """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -68,8 +69,8 @@ def quantize(
 
 def reverse_quantize(
     weights: List[int],
-    clipping_range: float = CLIPPING_RANGE,
-    target_range: int = TARGET_RANGE,
+    clipping_range: float = VEParameters.CLIPPING_RANGE,
+    target_range: int = VEParameters.TARGET_RANGE,
 ) -> np.ndarray:
     """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -92,8 +93,12 @@ def reverse_quantize(
     return reverse_quantized_list
 
 
-def invert(a, b):
-    """Finds the invers of a mod b"""
+def invert(
+        a: mpz,
+        b: mpz
+) -> mpz:
+    """Finds the inverts of a mod b"""
+
     s = gmpy2.invert(a, b)
     # according to documentation, gmpy2.invert might return 0 on
     # non-invertible element, although it seems to actually raise an
@@ -103,9 +108,12 @@ def invert(a, b):
     return s
 
 
-def powmod(a, b, c):
+def powmod(
+        a: mpz,
+        b: mpz,
+        c: mpz
+) -> mpz:
     """Computes a to the power of b mod c"""
-
     if a == 1:
         return 1
     return gmpy2.powmod(a, b, c)

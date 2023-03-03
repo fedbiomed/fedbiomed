@@ -160,6 +160,11 @@ class SecaggElementTypes(_BaseEnum):
     BIPRIME: int = 1
 
 
+class VEParameters:
+    CLIPPING_RANGE: int = 3
+    TARGET_RANGE: int = 10000
+    KEY_SIZE: int = 2048
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
