@@ -4,11 +4,13 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABC, abstractmethod
+import functools
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
 from copy import deepcopy
 
 import numpy as np
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn
@@ -104,7 +106,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                              ])
 
         # Aggregated model parameters
-        self._init_params: List[torch.Tensor] = None
+        #self._init_params: List[torch.Tensor] = None
 
     def post_init(
             self,
@@ -128,7 +130,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 configuration goes wrong.
         """
 
-        self._model_args = model_args
+        
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
@@ -154,7 +156,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._configure_dependencies()
 
         # Configure model and optimizer
-        self._configure_model_and_optimizer()
+        self._configure_model_and_optimizer(model_args)
 
     @abstractmethod
     def init_model(self):
@@ -172,8 +174,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """Abstract method to return training data"""
         pass
 
-    def model(self):
-        return self._model
+    def model(self) -> torch.nn.Module:
+        return self._model.model
 
     def optimizer(self):
         return self._optimizer
@@ -184,7 +186,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Model arguments arguments
         """
-        return self._model_args
+        return self._model.model_args
 
     def get_learning_rate(self) -> List[float]:
         """Gets learning rate from value set in optimizer.
@@ -225,7 +227,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         return self._optimizer_args
 
     def get_model_params(self) -> OrderedDict:
-        return self._model.state_dict()
+        return self.model().state_dict()
 
     def training_args(self) -> Dict:
         """Retrieves training args
@@ -250,12 +252,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             State dictionary of torch Module
         """
-        return self._init_params
+        return self._model.init_params
 
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._model.parameters(), **self._optimizer_args)
+            self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}")
@@ -266,7 +268,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """ Gets training plan type"""
         return self.__type
 
-    def _configure_model_and_optimizer(self):
+    def _configure_model_and_optimizer(self, model_args: Dict[str, Any]):
         """Configures model and optimizers before training """
 
         # Message to format for unexpected argument definitions in special methods
@@ -279,20 +281,22 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Get model defined by user -----------------------------------------------------------------------------
         init_model_spec = get_method_spec(self.init_model)
         if not init_model_spec:
-            self._model = self.init_model()
+            model = self.init_model()
         elif len(init_model_spec.keys()) == 1:
-            self._model = self.init_model(self._model_args)
+            model = self.init_model(model_args)
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
                                                                  method="init_model",
                                                                  keys=list(init_model_spec.keys()),
                                                                  alternative="self.model_args()"))
 
+        self._model = TorchModel(model)
+        self._model.model_args = model_args
         # Validate and fix model
-        self._model = self._dp_controller.validate_and_fix_model(self._model)
+        self._model.model = self._dp_controller.validate_and_fix_model(self._model.model)
 
         # Validate model
-        if not isinstance(self._model, nn.Module):
+        if not isinstance(self.model(), nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
         # Get optimizer defined by researcher ---------------------------------------------------------------------
@@ -415,24 +419,24 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             Total number of samples observed during the training.
         """
 
-        self._model.train()  # pytorch switch for training
-
+        #self.model().train()  # pytorch switch for training
+        self._model.init_training()
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
         # send all model to device, ensures having all the requested tensors
         self._set_device(self._use_gpu, node_args)
-        self._model.to(self._device)
+        self._model.send_to_device(self._device)
 
         # Run preprocess when everything is ready before the training
         self._preprocess()
 
-        # initial aggregated model parameters
-        self._init_params = deepcopy(list(self._model.parameters()))
+        # # initial aggregated model parameters
+        # self._init_params = deepcopy(list(self.model().parameters()))
 
         # DP actions
-        self._model, self._optimizer, self.training_data_loader = \
-            self._dp_controller.before_training(self._model, self._optimizer, self.training_data_loader)
+        self._model.model, self._optimizer, self.training_data_loader = \
+            self._dp_controller.before_training(self.model(), self._optimizer, self.training_data_loader)
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -495,7 +499,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
 
-        self._model.to(self._device_init)
+        self._model.send_to_device(self._device_init)
         torch.cuda.empty_cache()
 
         return iterations_accountant.num_samples_observed_in_total
@@ -530,7 +534,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # If Scaffold is used: apply corrections to the gradients
         if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
-            for name, param in self._model.named_parameters():
+            for name, param in self.model().named_parameters():
                 correction = self.correction_state.get(name)
                 if correction is not None:
                     param.grad.add_(correction.to(param.grad.device))
@@ -564,45 +568,45 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 before local training occurs, of afterwards. This is merely
                 reported back through `history_monitor`.
         """
-        if not isinstance(self._model, torch.nn.Module):
+        if not isinstance(self.model(), torch.nn.Module):
             msg = (
                 f"{ErrorNumbers.FB320.value}: model should be a torch "
-                f"nn.Module, but is of type {type(self._model)}"
+                f"nn.Module, but is of type {type(self.model())}"
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         try:
-            self._model.eval()  # pytorch switch for model inference-mode
+            self.model().eval()  # pytorch switch for model inference-mode TODO should be removed
             with torch.no_grad():
                 super().testing_routine(
                     metric, metric_args, history_monitor, before_train
                 )
         finally:
-            self._model.train()  # restore training behaviors
+            self.model().train()  # restore training behaviors
 
-    def predict(
-            self,
-            data: Any,
-    ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
+    # def predict(
+    #         self,
+    #         data: Any,
+    # ) -> np.ndarray:
+    #     """Return model predictions for a given batch of input features.
 
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
+    #     This method is called as part of `testing_routine`, to compute
+    #     predictions based on which evaluation metrics are computed. It
+    #     will however be skipped if a `testing_step` method is attached
+    #     to the training plan, than wraps together a custom routine to
+    #     compute an output metric directly from a (data, target) batch.
 
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
+    #     Args:
+    #         data: Array-like (or tensor) structure containing batched
+    #             input features.
 
-        Returns:
-            np.ndarray: Output predictions, converted to a numpy array
-                (as per the `fedbiomed.common.metrics.Metrics` specs).
-        """
-        with torch.no_grad():
-            pred = self._model(data)
-        return pred.numpy()
+    #     Returns:
+    #         np.ndarray: Output predictions, converted to a numpy array
+    #             (as per the `fedbiomed.common.metrics.Metrics` specs).
+    #     """
+    #     with torch.no_grad():
+    #         pred = self._model(data)
+    #     return pred.numpy()
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
@@ -616,7 +620,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return torch.save(self._model.state_dict(), filename)
+            return self._model.save(filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -631,7 +635,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         params = torch.load(filename)
         if to_params is False:
-            self._model.load_state_dict(params)
+            self._model.load(filename)
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
@@ -667,11 +671,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Check whether postprocess method exists, and use it
 
-        params = self._model.state_dict()
+        params = self.model().state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self._model.state_dict())  # Post process
+                params = self.postprocess(self.model().state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
                                                  f"{e}")
@@ -687,7 +691,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         norm = 0
 
-        for current_model, init_model in zip(self._model.parameters(), self._init_params):
+        for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
 
