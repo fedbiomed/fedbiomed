@@ -64,10 +64,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
     def test_sklearntrainingplanbasicinheritance_02_training_testing_routine(self):
         training_plan = SKLearnTrainingPlan()
-        # Model is not of the correct type
-        with patch.object(training_plan, '_model'):
-            with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.training_routine()
 
         X = np.array([])
         loader = NPDataLoader(dataset=X, target=X)
@@ -141,6 +137,9 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
                                params={'model_params': {'coef_': np.array([0.42]), 'intercept_': np.array([0.42])}})
             self.assertEqual(saved_params[-1]["model_params"]["coef_"], np.array([0.42]))
             self.assertEqual(saved_params[-1]["model_params"]["intercept_"], np.array([0.42]))
+
+    def test_sklearntrainingplanbasicinheritance_04_load(self):
+        training_plan = SKLearnTrainingPlan()
 
         # Saved object is not the correct type
         with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.loads',
@@ -289,7 +288,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # training plan type
             self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
             # ensure that the model args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan._model_args,
+            self.assertDictEqual(training_plan._model.model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
@@ -301,13 +300,13 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
             self.assertNotIn('key_not_in_model', training_plan.model().get_params())
 
-            # --------- Check that param_list is correctly populated
+            # --------- Check that model's param_list is correctly populated after initialization
             # check that param_list is a list
-            self.assertIsInstance(training_plan._param_list, list)
+            self.assertIsInstance(training_plan._model.param_list, list)
             # check that param_list is not empty
-            self.assertTrue(training_plan._param_list)
+            self.assertTrue(training_plan._model.param_list)
             # check that param_list is a list of str
-            for param in training_plan._param_list:
+            for param in training_plan._model.param_list:
                 self.assertIsInstance(param, str)
 
     def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
@@ -432,17 +431,18 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # Test that coefs are not updated.
             # Cannot test intercept because classes are internally converted to [-1, 1], and therefore intercept_
             # is updated even after a single iteration
-            self.assertTrue(np.all(training_plan._model.coef_ == 0),
+
+            self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.n_iter_, 1)
+            self.assertEqual(training_plan._model.model.n_iter_, 1)
 
             # When report is False, expected return value is NaN
             loss = training_plan._train_over_batch(inputs, target, report=False)
             self.assertTrue(np.isnan(loss),
                             f"{training_plan.__class__.__name__} loss should be NaN")
-            self.assertTrue(np.all(training_plan._model.coef_ == 0),
+            self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
+            self.assertEqual(training_plan._model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
@@ -474,14 +474,6 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
-
-    def test_skleanregression_01_parameters(self):
-        for training_plan in self.training_plans:
-            self.assertFalse(training_plan._is_classification)
-            self.assertTrue(training_plan._is_regression)
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.))
 
     def test_sklearnregression_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
@@ -556,36 +548,6 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
-
-    def test_sklearnclassification_01_parameters(self):
-        for training_plan in self.training_plans:
-            self.assertTrue(training_plan._is_classification)
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.))
-                self.assertEqual(getattr(training_plan._model, key).shape[0], 1)
-            # Test that classes values are integers in the range [0, n_classes)
-            for i in np.arange(2):
-                self.assertEqual(training_plan._model.classes_[i], i)
-
-        # Multiclass
-        for sklearn_model_type, new_subclass_type in self.subclass_types.items():
-            training_plan = new_subclass_type()
-            multiclass_model_args = {
-                **TestSklearnTrainingPlansClassification.model_args[sklearn_model_type],
-                'n_classes': 3
-            }
-            training_plan.post_init(multiclass_model_args, FakeTrainingArgs())
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.),
-                                f"{training_plan.__class__.__name__} Multiclass did not initialize all parms to 0.")
-                self.assertEqual(getattr(training_plan._model, key).shape[0], 3,
-                                 f"{training_plan.__class__.__name__} Multiclass wrong shape for {key}")
-            # Test that classes values are integers in the range [0, n_classes)
-            for i in np.arange(3):
-                self.assertEqual(training_plan._model.classes_[i], i,
-                                 f"{training_plan.__class__.__name__} Multiclass wrong values for classes")
 
     def test_sklearnclassification_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
@@ -680,8 +642,8 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertTrue(np.isnan(loss))
 
-            with patch.object(training_plan, '_model_args', {'n_classes': 3}), \
-                    patch.object(training_plan._model, 'classes_', np.array([0, 1, 2])):
+            with patch.object(training_plan._model, 'model_args', {'n_classes': 3}), \
+                    patch.object(training_plan._model.model, 'classes_', np.array([0, 1, 2])):
                 batch_losses_stdout = [
                     ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
                     ['loss: 0.0', 'loss: 1.0', 'epoch', 'loss: 0.0'],

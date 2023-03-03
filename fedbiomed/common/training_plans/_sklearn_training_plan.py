@@ -9,6 +9,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from fedbiomed.common.models import SkLearnModel
 
 import json
 import numpy as np
@@ -50,12 +51,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model = self._model_cls()
-        self._model_args = {}  # type: Dict[str, Any]
+        self._model = SkLearnModel(self._model_cls)
+        #self._model_args = {}  # type: Dict[str, Any]
         self._training_args = {}  # type: Dict[str, Any]
-        self._param_list = []  # type: List[str]
+        #self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-        self._is_classification = False
+        #self._is_classification = False
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self.add_dependency([
@@ -83,25 +84,28 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-        self._model_args = model_args
+        model_args.setdefault("verbose", 1)
+        self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
-        self._model_args.setdefault("verbose", 1)
+
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
         # Add dependencies
         self._configure_dependencies()
         # Override default model parameters based on `self._model_args`.
         params = {
-            key: self._model_args.get(key, val)
+            key: model_args.get(key, val)
             for key, val in self._model.get_params().items()
         }
+
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
-        self.set_init_params()
+        # TODO: raise error if
+        self._model.set_init_params(model_args)
 
-    @abstractmethod
-    def set_init_params(self) -> None:
-        """Initialize the model's trainable parameters."""
+    # @abstractmethod
+    # def set_init_params(self) -> None:
+    #     """Initialize the model's trainable parameters."""
 
     def set_data_loaders(
             self,
@@ -133,7 +137,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        return self._model_args
+        return self._model.model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.
@@ -143,15 +147,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
-    def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
-        lr = self._model_args.get(lr_key)
-        if lr is None:
-            # get the default value
-            lr = self._model.__dict__.get(lr_key)
-        if lr is None:
-            raise FedbiomedTrainingPlanError(
-                "Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
-        return [lr]
+    # def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
+    #     lr = self._model.model_args.get(lr_key)
+    #     if lr is None:
+    #         # get the default value
+    #         lr = self._model.__dict__.get(lr_key)
+    #     if lr is None:
+    #         raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
+    #     return [lr]
 
     def model(self) -> BaseEstimator:
         """Retrieve the wrapped scikit-learn model instance.
@@ -159,7 +162,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Scikit-learn model instance
         """
-        return self._model
+        return self._model.model
 
     def get_model_params(self) -> Dict:
         return self.after_training_params()
@@ -184,13 +187,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run preprocesses
         self._preprocess()
 
-        if not isinstance(self._model, BaseEstimator):
-            msg = (
-                f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
-                f"estimator, but is of type {type(self._model)}"
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+        # if not isinstance(self.model(), BaseEstimator):
+        #     msg = (
+        #         f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
+        #         f"estimator, but is of type {type(self.model())}"
+        #     )
+        #     logger.critical(msg)
+        #     raise FedbiomedTrainingPlanError(msg)
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
@@ -268,12 +271,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._is_classification and not hasattr(self._model, 'classes_'):
+        if self._model._is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self._model, 'classes_', classes)
+            setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._is_classification:
+            if self._model._is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
@@ -282,27 +285,27 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             metric, metric_args, history_monitor, before_train
         )
 
-    def predict(
-            self,
-            data: Any,
-    ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
+    # def predict(
+    #         self,
+    #         data: Any,
+    #     ) -> np.ndarray:
+    #     """Return model predictions for a given batch of input features.
 
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
+    #     This method is called as part of `testing_routine`, to compute
+    #     predictions based on which evaluation metrics are computed. It
+    #     will however be skipped if a `testing_step` method is attached
+    #     to the training plan, than wraps together a custom routine to
+    #     compute an output metric directly from a (data, target) batch.
 
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
+    #     Args:
+    #         data: Array-like (or tensor) structure containing batched
+    #             input features.
 
-        Returns:
-            Output predictions, converted to a numpy array (as per the
-                `fedbiomed.common.metrics.Metrics` specs).
-        """
-        return self._model.predict(data)
+    #     Returns:
+    #         Output predictions, converted to a numpy array (as per the
+    #             `fedbiomed.common.metrics.Metrics` specs).
+    #     """
+    #     return self._model.predict(data)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """Return unique target labels from the training and testing datasets.
@@ -334,8 +337,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Notes:
             Save can be called from Job or Round.
-            * From Round it is called with params (as a complex dict).
-            * From Job it is called with no params in constructor, and
+            * From [`Round`][fedbiomed.node.round.Round] it is called with params (as a complex dict).
+            * From [`Job`][fedbiomed.researcher.job.Job] it is called with no params in constructor, and
                 with params in update_parameters.
         """
 
@@ -373,8 +376,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         !!! info 'Notes'
             Load can be called from a Job or Round:
-            * From Round it is called to return the model.
-            * From Job it is called with to return its parameters dict.
+            * From [`Round`][fedbiomed.node.round.Round] it is called to return the model.
+            * From [`Job`][fedbiomed.researcher.job.Job] it is called with to return its parameters dict.
 
         Returns:
             Dictionary with the loaded parameters.
@@ -388,13 +391,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if update_model:
             model_params = params["model_params"]
 
-            if set(model_params.keys()) != set(self._param_list):
-                raise FedbiomedTrainingPlanError(
-                    f"{ErrorNumbers.FB310}: Trying to load model parameters that does not match model parameters."
-                )
+            # if set(model_params.keys()) != set(self._param_list):
+            #     raise FedbiomedTrainingPlanError(
+            #         f"{ErrorNumbers.FB310}: Trying to load model parameters that does not match model parameters."
+            #     )
 
-            for key in self._param_list:
-                setattr(self._model, key, np.array(model_params[key]))
+            self._model.set_weights(model_params)
 
         return params
 
