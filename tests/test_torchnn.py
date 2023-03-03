@@ -301,7 +301,7 @@ class TestTorchnn(unittest.TestCase):
         tp1._model = TorchModel(torch.nn.Module())
         paramfile = self.tmpdir + '/tmp_params.pt'
 
-        params = tp1._model.state_dict()
+        params = tp1.model().state_dict()
 
         if os.path.isfile(paramfile):
             os.remove(paramfile)

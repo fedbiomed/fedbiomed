@@ -456,7 +456,8 @@ class TestNode(NodeTestCase):
         self.assertIsInstance(round, Round)
 
         self.assertEqual(round_patch.call_count, 1)
-        round_patch.assert_called_with(dict_msg_1_dataset['model_args'],
+        round_patch.assert_called_with(self.n1._secagg_servkey_manager,
+                                       dict_msg_1_dataset['model_args'],
                                        dict_msg_1_dataset['training_args'],
                                        True,
                                        self.database_id,
@@ -467,7 +468,7 @@ class TestNode(NodeTestCase):
                                        dict_msg_1_dataset['researcher_id'],
                                        unittest.mock.ANY,  # this is for HistoryMonitor
                                        None,
-                                       None,
+                                       None, round_number=0,
                                        dlp_and_loading_block_metadata=None)
 
         # check if object `HistoryMonitor` has been called
@@ -544,6 +545,8 @@ class TestNode(NodeTestCase):
             'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
+            "secagg_id": None,
+            "round": 1,
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
             'dataset_id': 'dataset_id_1234',
@@ -562,7 +565,8 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
+        round_patch.assert_called_once_with(self.n1._secagg_servkey_manager,
+                                            dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             True,
                                             self.database_id,
@@ -573,7 +577,7 @@ class TestNode(NodeTestCase):
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history monitor object
                                             None,
-                                            None,
+                                            None, round_number=1,
                                             dlp_and_loading_block_metadata=None
                                             )
 
@@ -595,6 +599,8 @@ class TestNode(NodeTestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
+            "secagg_id": None,
+            "round": 1,
             "command": "train",
             "dataset_id": "dataset_id_1234",
             'aggregator_args': {}
@@ -612,7 +618,8 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg_1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
+        round_patch.assert_called_once_with(self.n1._secagg_servkey_manager,
+                                            dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             True,
                                             self.database_id,
@@ -622,7 +629,7 @@ class TestNode(NodeTestCase):
                                             dict_msg_1_dataset['job_id'],
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history_monitor object
-                                            None, None,
+                                            None, None, round_number=1,
                                             dlp_and_loading_block_metadata=None)
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
@@ -650,6 +657,8 @@ class TestNode(NodeTestCase):
             'training_plan_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
+            "secagg_id": None,
+            "round": 1,
             'researcher_id': resid,
             'dataset_id': 'dataset_id_1234'
         }
@@ -738,6 +747,8 @@ class TestNode(NodeTestCase):
             "training_plan_class": "my_test_training_plan",
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
+            "secagg_id": None,
+            "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "dataset_id": "dataset_id_1234"
@@ -774,6 +785,8 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
+            "secagg_id": None,
+            "round": 1,
             "dataset_id": "dataset_id_1234"
         }
         request_create_patch.side_effect = Exception
@@ -811,6 +824,8 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
+            "secagg_id": None,
+            "round": 1,
             "dataset_id": "dataset_id_1234"
         }
        # defining arguments and attributes
@@ -849,6 +864,8 @@ class TestNode(NodeTestCase):
             "training_plan_class": "my_test_training_plan",
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
+            "secagg_id": None,
+            "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "dataset_id": "dataset_id_1234"
@@ -981,6 +998,8 @@ class TestNode(NodeTestCase):
             "training_plan_class": "my_test_training_plan",
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
+            "secagg_id": None,
+            "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "dataset_id": "dataset_id_1234"

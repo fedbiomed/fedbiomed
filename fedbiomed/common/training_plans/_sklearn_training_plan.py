@@ -147,15 +147,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
-    # def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
-    #     lr = self._model.model_args.get(lr_key)
-    #     if lr is None:
-    #         # get the default value
-    #         lr = self._model.__dict__.get(lr_key)
-    #     if lr is None:
-    #         raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
-    #     return [lr]
-
     def model(self) -> BaseEstimator:
         """Retrieve the wrapped scikit-learn model instance.
 
@@ -187,13 +178,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run preprocesses
         self._preprocess()
 
-        # if not isinstance(self.model(), BaseEstimator):
-        #     msg = (
-        #         f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
-        #         f"estimator, but is of type {type(self.model())}"
-        #     )
-        #     logger.critical(msg)
-        #     raise FedbiomedTrainingPlanError(msg)
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
@@ -285,27 +269,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             metric, metric_args, history_monitor, before_train
         )
 
-    # def predict(
-    #         self,
-    #         data: Any,
-    #     ) -> np.ndarray:
-    #     """Return model predictions for a given batch of input features.
-
-    #     This method is called as part of `testing_routine`, to compute
-    #     predictions based on which evaluation metrics are computed. It
-    #     will however be skipped if a `testing_step` method is attached
-    #     to the training plan, than wraps together a custom routine to
-    #     compute an output metric directly from a (data, target) batch.
-
-    #     Args:
-    #         data: Array-like (or tensor) structure containing batched
-    #             input features.
-
-    #     Returns:
-    #         Output predictions, converted to a numpy array (as per the
-    #             `fedbiomed.common.metrics.Metrics` specs).
-    #     """
-    #     return self._model.predict(data)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """Return unique target labels from the training and testing datasets.
@@ -343,16 +306,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
 
         if params is None:
-            params_to_save = {"model_params": self.after_training_params()}
-        elif 'model_params' not in params:
-            params = {key: param.astype(float).tolist() for key, param in params.items()}
-            params_to_save = {"model_params": params}
-        else:
-            params_to_save = params
+            params = {"model_params": self.after_training_params()}
+        elif "model_params" not in params:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: params should contain `model_params`"
+            )
 
         # Save the wrapped model (using joblib, hence pickle).
         with open(filename, "w", encoding='utf-8') as file:
-            json.dump(params_to_save, file, ensure_ascii=False, indent=4)
+            json.dump(params, file, ensure_ascii=False, indent=4)
 
     def load(
             self,
@@ -390,12 +352,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         if update_model:
             model_params = params["model_params"]
-
-            # if set(model_params.keys()) != set(self._param_list):
-            #     raise FedbiomedTrainingPlanError(
-            #         f"{ErrorNumbers.FB310}: Trying to load model parameters that does not match model parameters."
-            #     )
-
             self._model.set_weights(model_params)
 
         return params
@@ -404,7 +360,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Getter for training plan type """
         return self.__type
 
-    def after_training_params(self, vector: bool = False) -> Union[List[float], Dict[str, np.ndarray]]:
+    def after_training_params(
+            self,
+            vector: bool = False
+    ) -> Union[List[float], Dict[str, np.ndarray]]:
         """Return the wrapped model's trainable parameters' current values.
 
         This method returns a dict containing parameters that need
@@ -419,13 +378,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             vector: Returns the vectorized parameters ff the vector argument is `True`
         """
 
-        model_params = {key: getattr(self._model, key) for key in self._param_list}
+        model_params = self._model.get_weights()
 
         if vector:
             params = []
             for key, param in model_params.items():
                 params.extend(param.flatten().astype(float).tolist())
         else:
+            # Convert to list
             params = {key: param.astype(float).tolist() for key, param in model_params.items()}
 
         return params
@@ -448,5 +408,4 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
             pointer += num_param
 
-        print(params)
         return params

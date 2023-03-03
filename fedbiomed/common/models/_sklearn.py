@@ -180,11 +180,13 @@ class BaseSkLearnModel(Model):
 
     def get_weights(
             self,
+            as_vector: bool = False,
             return_type: Callable[[Dict[str, np.ndarray]], Any] = None
     ) -> Any:
         """Returns model's parameters.
 
         Args:
+            as_vector:
             return_type: Output type for the weights. Wrap results by given return type.
 
         Raises:
@@ -195,16 +197,25 @@ class BaseSkLearnModel(Model):
         """
 
         self._validate_return_type(return_type=return_type)
-        weights = {}
+
+        weights = {} if not as_vector else []
+
         if self.param_list is None:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` not defined. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
+
         try:
+            # TODO: Force to get only `coef_` and `_intercept`
+            #  other parameters are shared through `model_args`
             for key in self.param_list:
                 val = getattr(self.model, key)
-                weights[key] = val.copy() if isinstance(val, np.ndarray) else val
+                if not as_vector:
+                    weights[key] = val.copy()  # no need to check if isinstance(val, np.ndarray) else val
+                else:
+                    # This part is only used for secure aggregation
+                    weights.extend(val.flatten().astype(float).tolist())
 
         except AttributeError as err:
             raise FedbiomedModelError(

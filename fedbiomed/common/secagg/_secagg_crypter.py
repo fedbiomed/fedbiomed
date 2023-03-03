@@ -4,10 +4,10 @@ from typing import List
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, VEParameters
 
 from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam, VEParameters
-from ._jls_utils import quantize, reverse_quantize, CLIPPING_RANGE
+from ._jls_utils import quantize, reverse_quantize
 from ..logger import logger
 
 """
@@ -172,7 +172,10 @@ class SecaggCrypter:
         return aggregated_params
 
     @staticmethod
-    def _get_clipping_value(params: List, clipping: int = CLIPPING_RANGE) -> int:
+    def _get_clipping_value(
+            params: List,
+            clipping: int = VEParameters.CLIPPING_RANGE
+    ) -> int:
         """Gets minimum clipping value by checking minimum value of the params list.
 
         Args:

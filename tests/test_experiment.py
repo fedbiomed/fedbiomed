@@ -1131,7 +1131,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_strategy_refine.return_value = ({'param': 1}, [12.2])
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2] , 10)
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
@@ -1235,7 +1235,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_strategy_refine.return_value = ({'param': 1}, [12.2])
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10)
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
@@ -1328,11 +1328,14 @@ class TestExperiment(ResearcherTestCase):
         model_params = {node_id: model_param for node_id in node_ids}
         mock_fedavg_aggregate.assert_called_with(model_params, weigths,
                                                  global_model=unittest.mock.ANY,
+                                                 total_sample_size=30,
                                                  training_plan=unittest.mock.ANY,
                                                  training_replies=mock_job_training_replies(),
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
-                                                 n_round=0,)
+                                                 n_round=0,
+                                                 secure_aggregation=True
+                                                 )
         
         # repeat experiment but with a wrong sample_size
         

@@ -127,17 +127,18 @@ class TestSkLearnModel(unittest.TestCase):
             self.assertEqual(saved_params[-1].intercept_, 0.42)
             
     def test_sklearnmodel_03_method_load(self):
-        self.sgdclass_model.set_init_params({'n_classes':3, 'n_features':5})
+        self.sgdclass_model.set_init_params({'n_classes': 3, 'n_features':5})
         with (
             # patch.object(self.sgdclass_model, 'param_list', ['coef_', 'intercept_']), 
-                patch.object(self.sgdclass_model.model, 'coef_', 0.42), 
-                patch.object(self.sgdclass_model.model, 'intercept_',  0.42), 
+                patch.object(self.sgdclass_model.model, 'coef_', np.array([0.42])),
+                patch.object(self.sgdclass_model.model, 'intercept_',  np.array([0.42])),
                 patch('fedbiomed.common.models._sklearn.joblib.load',
                     return_value=self.sgdclass_model.model), 
                 patch('builtins.open', mock_open())
                 ):
             self.sgdclass_model.load('filename')
-            self.assertDictEqual(self.sgdclass_model.get_weights(), {'coef_': 0.42, 'intercept_': 0.42})
+            self.assertDictEqual(self.sgdclass_model.get_weights(),
+                                 {'coef_': np.array([0.42]), 'intercept_': np.array([0.42])})
 
     def test_sklearnmodel_04_set_init_params(self):
         # self.assertEqual(training_plan._model.n_iter_, 1)
