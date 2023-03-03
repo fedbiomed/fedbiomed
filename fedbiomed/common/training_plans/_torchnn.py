@@ -586,31 +586,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         finally:
             self.model().train()  # restore training behaviors
 
-    # def predict(
-    #         self,
-    #         data: Any,
-    # ) -> np.ndarray:
-    #     """Return model predictions for a given batch of input features.
-
-    #     This method is called as part of `testing_routine`, to compute
-    #     predictions based on which evaluation metrics are computed. It
-    #     will however be skipped if a `testing_step` method is attached
-    #     to the training plan, than wraps together a custom routine to
-    #     compute an output metric directly from a (data, target) batch.
-
-    #     Args:
-    #         data: Array-like (or tensor) structure containing batched
-    #             input features.
-
-    #     Returns:
-    #         np.ndarray: Output predictions, converted to a numpy array
-    #             (as per the `fedbiomed.common.metrics.Metrics` specs).
-    #     """
-    #     with torch.no_grad():
-    #         pred = self._model(data)
-    #     return pred.numpy()
-
-    # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
         """Save the torch training parameters from this training plan or from given `params` to a file
 
@@ -687,7 +662,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         params = self._dp_controller.after_training(params)
 
         if vector:
-            params = torch.nn.utils.parameters_to_vector(self._model.parameters()).tolist()
+            params = torch.nn.utils.parameters_to_vector(self._model.model.parameters()).tolist()
         return params
 
     def convert_vector_to_parameters(self, vec: List[float]):
