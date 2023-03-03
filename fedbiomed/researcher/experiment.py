@@ -1508,7 +1508,7 @@ class Experiment(object):
             if self._secagg_servkey and not self._secagg_servkey.status:
                 self._secagg_servkey.setup(timeout)
             if not self._secagg_biprime:
-                self._secagg_biprime = SecaggBiprimeContext(parties)
+                self._secagg_biprime = SecaggBiprimeContext(parties, 'default_biprime0')
             if not self._secagg_biprime.status:
                 self._secagg_biprime.setup(timeout)
             if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:

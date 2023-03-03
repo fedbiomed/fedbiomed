@@ -28,7 +28,7 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: Union[str, None]):
+    def __init__(self, parties: List[str], job_id: Union[str, None], secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -37,11 +37,22 @@ class SecaggContext(ABC):
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
                 None means the element is not attached to a specific job
+            secagg_id: optional secagg context element ID to use for this element.
+                Default is None, which means a unique element ID will be generated.
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
         self._v = Validator()
+
+        self._v.register("nonempty_str_or_none", self._check_secagg_id_type, override=True)
+        try:
+            self._v.validate(secagg_id, "nonempty_str_or_none")
+        except ValidatorError as e:
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `secagg_id` must be a None or non-empty string: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
         try:
             self._v.validate(parties, list)
             for p in parties:
@@ -62,7 +73,10 @@ class SecaggContext(ABC):
                 f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
             )
 
-        self._secagg_id = 'secagg_' + str(uuid.uuid4())
+        if secagg_id is None:
+            self._secagg_id = 'secagg_' + str(uuid.uuid4())
+        else:
+            self._secagg_id = secagg_id
         self._parties = parties
         self._researcher_id = environ['RESEARCHER_ID']
         self._requests = Requests()
@@ -79,6 +93,18 @@ class SecaggContext(ABC):
             component_type=ComponentType.RESEARCHER,
             component_id=environ["ID"]
         )
+
+    @staticmethod
+    def _check_secagg_id_type(value) -> bool:
+        """Check if argument is None or a non-empty string
+
+        Args:
+            value: argument to check.
+
+        Returns:
+            True if argument matches constraint, False if it does not.
+        """
+        return value is None or (isinstance(value, str) and bool(value))
 
     @property
     def parties(self) -> str:
@@ -386,7 +412,7 @@ class SecaggServkeyContext(SecaggContext):
     Handles a Secure Aggregation server key context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: str):
+    def __init__(self, parties: List[str], job_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -394,11 +420,13 @@ class SecaggServkeyContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
+            secagg_id: optional secagg context element ID to use for this element.
+                Default is None, which means a unique element ID will be generated.
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(parties, job_id)
+        super().__init__(parties, job_id, secagg_id)
 
         if not self._job_id:
             errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be non empty string'
@@ -453,18 +481,20 @@ class SecaggBiprimeContext(SecaggContext):
     Handles a Secure Aggregation biprime context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str]):
+    def __init__(self, parties: List[str], secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
             parties: list of parties participating to the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
+            secagg_id: optional secagg context element ID to use for this element.
+                Default is None, which means a unique element ID will be generated.
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(parties, None)
+        super().__init__(parties, None, secagg_id)
 
         self._element = SecaggElementTypes.BIPRIME
 
