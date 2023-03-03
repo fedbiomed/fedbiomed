@@ -246,8 +246,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
             # Need to ensure existing element was established for the same parties or a superset of the parties
             if not isinstance(context, dict) or \
                     'parties' not in context or \
-                    not isinstance(context['parties'], dict) or \
-                    set(self._parties).issubset(set(context['parties'])):
+                    not isinstance(context['parties'], list) or \
+                    not set(self._parties).issubset(set(context['parties'])):
                 return self._create_secagg_reply(f'Context for {self._secagg_id} exists but parties do not match', False)
 
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
