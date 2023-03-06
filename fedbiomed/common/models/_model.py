@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union, Type
 
-import torch
 from declearn.model.api import Vector
-from sklearn.base import BaseEstimator
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedModelError
+from fedbiomed.common.logger import logger
 
 
 class Model(metaclass=ABCMeta):
@@ -17,17 +19,24 @@ class Model(metaclass=ABCMeta):
         model_args: model arguments stored as a dictionary, that provides additional
             arguments for building/using models. Defaults to None.
     """
-    model: Union[torch.nn.Module, BaseEstimator]
-    model_args: Dict[str, Any]
 
-    def __init__(self, model: Union[torch.nn.Module, BaseEstimator]):
+    _model_type: Type[Any]
+
+    def __init__(self, model: Any):
         """Constructor of Model abstract class
 
         Args:
-            model (Union[torch.nn.Module, BaseEstimator]): native model wrapped
+            model: native model wrapped, of child-class-specific type.
         """
+        if not isinstance(model, self._model_type):
+            err_msg = (
+                f"{ErrorNumbers.FB622.value}: unproper 'model' input type: "
+                f"expected '{self._model_type}', but 'got {type(model)}'."
+            )
+            logger.critical(err_msg)
+            raise FedbiomedModelError(err_msg)
         self.model = model
-        self.model_args = None
+        self.model_args: Optional[Dict[str, Any]] = None
 
     @abstractmethod
     def init_training(self):

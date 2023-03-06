@@ -16,7 +16,6 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
 from fedbiomed.common.exceptions import FedbiomedModelError
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
 
@@ -56,9 +55,6 @@ class BaseSkLearnModel(Model):
         _batch_size: Internal counter that measures size of the batch.
         _is_declearn_optim: Switch that allows the use of Declearn's optimizers
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
-        updates: Contains model updates after a training. Set up when calling `init_training`
-               method.
-
     """
     model: BaseEstimator
     default_lr_init: float = .1
@@ -72,7 +68,6 @@ class BaseSkLearnModel(Model):
     def __init__(
             self,
             model: BaseEstimator,
-
     ) -> None:
         """Instantiate the wrapper over a scikit-learn BaseEstimator.
 
@@ -83,15 +78,7 @@ class BaseSkLearnModel(Model):
              FedbiomedModelError: raised if model is not as scikit learn [BaseEstimator][sklearn.base.BaseEstimator] object
 
         """
-        if not isinstance(model, BaseEstimator):
-            err_msg = f"{ErrorNumbers.FB622.value}. Invalid argument for `model`: expecting an object extending " \
-                      f"from BaseEstimator, but got {model.__class__}"
-            logger.critical(err_msg)
-            raise FedbiomedModelError(err_msg)
-
         super().__init__(model)
-
-        self._batch_size: int = 0
         self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
         self._gradients = None
 

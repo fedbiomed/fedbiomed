@@ -3,7 +3,7 @@
 
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Dict, Iterable, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,19 +23,12 @@ class TorchModel(Model):
         init_params: OrderedDict. Model initial parameters. Set when calling `init_training`
     """
 
-    model: torch.nn.Module
-    init_params: OrderedDict
+    _model_type = torch.nn.Module
 
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiates the wrapper over a torch Module instance."""
-
-        if not isinstance(model, torch.nn.Module):
-            raise FedbiomedModelError(
-                f"invalid argument for `model`: expecting a torch.nn.Module, but got {type(model)}"
-            )
-
         super().__init__(model)
-        self.init_params = None
+        self.init_params: Optional[OrderedDict[str, torch.Tensor]] = None
 
     def get_gradients(
             self,
