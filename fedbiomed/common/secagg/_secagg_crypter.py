@@ -70,9 +70,23 @@ class SecaggCrypter:
             params: List of flatten parameters
             key: Key to encrypt
             weight: Weight for the params
+
+        Returns:
+            List of encrypted parameters
         """
 
         start = time.process_time()
+
+        if not isinstance(params, list):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB622.value}: Expected argument `params` type list but got {type(params)}"
+            )
+
+        if not all([isinstance(p, float) for p in params]):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB622.value}: The parameters to encrypt should list of floats. "
+                f"There are one or more than a value that is not type of float."
+            )
 
         # Make use the key is instance of
         if not isinstance(key, int):
@@ -89,40 +103,29 @@ class SecaggCrypter:
         # Instantiates UserKey object
         key = UserKey(public_param, key)
 
-        # Encrypt parameters
-        encrypted_params: List[EncryptedNumber] = self._jls.protect(
-            public_param=public_param,
-            sk_u=key,
-            tau=current_round,
-            x_u_tau=params,
-            n_users=num_nodes
-        )
+        try:
+            # Encrypt parameters
+            encrypted_params: List[EncryptedNumber] = self._jls.protect(
+                public_param=public_param,
+                sk_u=key,
+                tau=current_round,
+                x_u_tau=params,
+                n_users=num_nodes
+            )
+        except (TypeError, ValueError) as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB623} Error during parameter encryption. {exp}") from exp
 
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
-        return self.convert_encrypted_number_to_int(encrypted_params)
-
-    @staticmethod
-    def convert_encrypted_number_to_int(
-            params: List[EncryptedNumber]
-    ) -> List[int]:
-        """Converts given `EncryptedNumber` to integer
-
-        Args:
-            params: Encrypted model parameters
-
-        Returns:
-            List of quantized and encrypted model parameters
-        """
-
-        return list(map(lambda encrypted_number: int(encrypted_number.ciphertext), params))
+        return [int(e_p) for e_p in encrypted_params]
 
     def aggregate(
             self,
             current_round: int,
             num_nodes: int,
-            params: List[List[EncryptedNumber]],
+            params: List[List[int]],
             key: int,
             total_sample_size: int
     ):
@@ -144,6 +147,16 @@ class SecaggCrypter:
                 f"nodes has been set for the encrypter. There might be some nodes did "
                 f"not answered to training request or num of clients of "
                 f"`ParameterEncrypter` has not been set properly before train request.")
+
+        if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB622}: The parameters to aggregate should "
+                                              f"list containing list of parameters")
+
+        if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB622}: Invalid parameter type. The parameters "
+                                              f"should be type of integers.")
+
+        params = self._convert_to_encrypted_number(params)
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
@@ -172,28 +185,6 @@ class SecaggCrypter:
         return aggregated_params
 
     @staticmethod
-    def _get_clipping_value(
-            params: List,
-            clipping: int = VEParameters.CLIPPING_RANGE
-    ) -> int:
-        """Gets minimum clipping value by checking minimum value of the params list.
-
-        Args:
-            params: List of parameters (vector) that are going to be encrypted.
-
-        Returns
-            Clipping value for quantization.
-        """
-
-        min_val = min(params)
-        max_val = max(params)
-
-        if min_val < -clipping or max_val > clipping:
-            return SecaggCrypter._get_clipping_value(params, clipping + 1)
-        else:
-            return clipping
-
-    @staticmethod
     def quantized_divide(
             params: List,
             num_nodes: int,
@@ -203,16 +194,16 @@ class SecaggCrypter:
 
         Args:
             params: List of aggregated/summed parameters
+            num_nodes:
             total_sample_size: Num of total samples used for federated training
 
         Returns:
             Averaged parameters
         """
-        #TODO: Use total sample size for weighted averaging
 
         return [param / num_nodes for param in params]
 
-    def convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
+    def _convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
         """Converts encrypted integers to EncryptedNumber
 
         Args:
