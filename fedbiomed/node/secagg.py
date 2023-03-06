@@ -236,7 +236,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 self._setup_server_key()
             except FedbiomedError as e:
                 logger.debug(f"{e}")
-                return self._create_secagg_reply(f'Can not apply secure aggregation it might be due to unregistered '
+                return self._create_secagg_reply(f'Can not setup secure aggregation it might be due to unregistered '
                                                  f'certificate for the federated setup. Please see error: {e}', False)
             except Exception as e:
                 logger.debug(f"{e}")
@@ -244,11 +244,13 @@ class SecaggServkeySetup(BaseSecaggSetup):
                                                  'report this to the node owner', False)
         else:
             # Need to ensure existing element was established for the same parties or a superset of the parties
-            if not isinstance(context, dict) or \
-                    'parties' not in context or \
-                    not isinstance(context['parties'], list) or \
-                    not set(self._parties).issubset(set(context['parties'])):
-                return self._create_secagg_reply(f'Context for {self._secagg_id} exists but parties do not match', False)
+            if (not isinstance(context, dict) or
+                    'parties' not in context or
+                    not isinstance(context['parties'], list) or
+                    not set(self._parties).issubset(set(context['parties']))):
+                return self._create_secagg_reply(
+                    f'Context for {self._secagg_id} exists but parties do not match',
+                    False)
 
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
             logger.info(message)
@@ -292,7 +294,9 @@ class SecaggServkeySetup(BaseSecaggSetup):
             )
 
         SKManager.add(self._secagg_id, self._parties, key_share, self._job_id)
-        logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        logger.info(
+            "Server key share successfully created for "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
 class SecaggBiprimeSetup(BaseSecaggSetup):
@@ -335,23 +339,63 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             message to return to the researcher after the setup
         """
 
-        context = BPrimeManager.get(self._secagg_id)
+        try:
+            context = BPrimeManager.get(self._secagg_id)
+        except FedbiomedError as e:
+            logger.debug(f"{e}")
+            return self._create_secagg_reply(
+                f'Can not create secure aggregation context due to database error: {e}', False)
+        except Exception as e:
+            logger.debug(f"Can not create secure aggregation context due to database error: {e}")
+            return self._create_secagg_reply('Can not create secure aggregation context', False)
 
         if context is None:
-            # create a context if it does not exist yet
-            time.sleep(6)
-            biprime = str(random.randrange(10**12))
-            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
-                        f"secagg_id='{self._secagg_id}'")
+            try:
+                self._setup_biprime()
+            except FedbiomedError as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply(f'Can not setup secure aggregation it might be due to unregistered '
+                                                 f'certificate for the federated setup. Please see error: {e}', False)
+            except Exception as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply('Unexpected error occurred please '
+                                                 'report this to the node owner', False)
+        else:
+            # Need to ensure that:
+            # - either the existing element is not attached to specific parties (None)
+            # - or existing element was established for the same parties or a superset of the parties
+            if (not isinstance(context, dict) or
+                    'parties' not in context or (
+                        context['parties'] is not None and (
+                            not isinstance(context['parties'], list) or
+                            not set(self._parties).issubset(set(context['parties']))
+                        ))):
+                return self._create_secagg_reply(
+                    f'Context for {self._secagg_id} exists but parties do not match',
+                    False)
 
-            BPrimeManager.add(self._secagg_id, self._parties, biprime)
+            message = f"Biprime for {self._secagg_id} is already existing on node"
+            logger.info(message)
+            return self._create_secagg_reply(message, True)
 
-        # TODO: handle case where context['parties'] is None
-        # TODO: check parties match if not None
+        return self._create_secagg_reply('Biprime was successfully created', True)
 
-        logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
-        msg = self._create_secagg_reply('', True)
-        return msg
+    def _setup_biprime(self):
+        """Service function for setting up the biprime secagg context element.
+        """
+
+        # create a (currently dummy) context if it does not exist yet
+        time.sleep(3)
+        biprime = {
+            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'max_keybits': 0                            # prevent using the dummy biprime for real
+        }
+        logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
+                    f"secagg_id='{self._secagg_id}'")
+
+        BPrimeManager.add(self._secagg_id, self._parties, biprime)
+        logger.info(
+            f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
 class SecaggSetup:
