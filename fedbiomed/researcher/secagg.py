@@ -231,7 +231,7 @@ class SecaggContext(ABC):
             a tuple of None (no context after deletion) and
                 a boolean (True if payload succeeded for this element)
         """
-        status = self._secagg_manager.remove(self._secagg_id, None)
+        status = self._secagg_manager.remove(self._secagg_id, self.job_id)
         if status:
             logger.debug(
                 f"Context element successfully deleted for researcher_id='{environ['RESEARCHER_ID']}' "
