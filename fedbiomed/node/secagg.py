@@ -243,13 +243,19 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 return self._create_secagg_reply('Unexpected error occurred please '
                                                  'report this to the node owner', False)
         else:
-            # Need to ensure existing element was established for the same parties or a superset of the parties
+            # Need to ensure that:
+            # - either the existing element is not attached to specific parties (None)
+            # - or existing element was established for the same parties or a superset of the parties
             if (not isinstance(context, dict) or
-                    'parties' not in context or
-                    not isinstance(context['parties'], list) or
-                    not set(self._parties).issubset(set(context['parties']))):
+                    'parties' not in context or (
+                        context['parties'] is not None and (
+                            not isinstance(context['parties'], list) or
+                            not set(self._parties).issubset(set(context['parties']))
+                        ))):
+                # Note: for servkey, we should not find an entry where
+                # `parties` are `None` in database, as we don't create such entry
                 return self._create_secagg_reply(
-                    f'Context for {self._secagg_id} exists but parties do not match',
+                    f'Servkey context for {self._secagg_id} exists but parties do not match',
                     False)
 
             message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
@@ -371,7 +377,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
                             not set(self._parties).issubset(set(context['parties']))
                         ))):
                 return self._create_secagg_reply(
-                    f'Context for {self._secagg_id} exists but parties do not match',
+                    f'Biprime context for {self._secagg_id} exists but parties do not match',
                     False)
 
             message = f"Biprime for {self._secagg_id} is already existing on node"
@@ -386,14 +392,16 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
 
         # create a (currently dummy) context if it does not exist yet
         time.sleep(3)
-        biprime = {
+        context = {
             'biprime': str(random.randrange(10**12)),   # dummy biprime
             'max_keybits': 0                            # prevent using the dummy biprime for real
         }
         logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
                     f"secagg_id='{self._secagg_id}'")
 
-        BPrimeManager.add(self._secagg_id, self._parties, biprime)
+        # Currently, all biprimes can be used by all sets of parties.
+        # TODO: add a mode where biprime is restricted for `self._parties`
+        BPrimeManager.add(self._secagg_id, None, context)
         logger.info(
             f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 

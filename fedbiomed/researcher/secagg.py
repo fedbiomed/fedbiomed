@@ -6,6 +6,7 @@ import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
+import random
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
@@ -13,6 +14,8 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
+from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
@@ -21,6 +24,10 @@ from fedbiomed.researcher.requests import Requests
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
 )
+
+# Instantiate one manager for each secagg element type
+_SKManager = SecaggServkeyManager(environ['DB_PATH'])
+_BPrimeManager = SecaggBiprimeManager(environ['DB_PATH'])
 
 
 class SecaggContext(ABC):
@@ -93,6 +100,9 @@ class SecaggContext(ABC):
             component_type=ComponentType.RESEARCHER,
             component_id=environ["ID"]
         )
+
+        # to be set in subclasses
+        self._secagg_manager = None
 
     @staticmethod
     def _check_secagg_id_type(value) -> bool:
@@ -182,9 +192,20 @@ class SecaggContext(ABC):
         """Researcher payload for secagg context element deletion
 
         Returns:
-            a tuple of None (no context after deletion) and True (payload succeeded for this element)
+            a tuple of None (no context after deletion) and
+                a boolean (True if payload succeeded for this element)
         """
-        return None, True
+        status = self._secagg_manager.remove(self._secagg_id, None)
+        if status:
+            logger.debug(
+                f"Context element successfully deleted for researcher_id='{environ['RESEARCHER_ID']}' "
+                f"secagg_id='{self._secagg_id}'")
+        else:
+            logger.error(
+                f"{ErrorNumbers.FB415.value}: No such context element secagg_id={self._secagg_id} "
+                f"on researcher researcher_id='{environ['RESEARCHER_ID']}'")
+
+        return None, status
 
     def _secagg_round(
             self,
@@ -385,6 +406,7 @@ class SecaggContext(ABC):
             "researcher_id": self._researcher_id,
             "status": self._status,
             "context": self._context
+            # No need to save self._secagg_manager, value restored when instantiated from breakpoint
         }
         return state
 
@@ -434,6 +456,7 @@ class SecaggServkeyContext(SecaggContext):
             raise FedbiomedSecaggError(errmess)
 
         self._element = SecaggElementTypes.SERVER_KEY
+        self._secagg_manager = _SKManager
 
     def _payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for server key secagg context element
@@ -497,6 +520,7 @@ class SecaggBiprimeContext(SecaggContext):
         super().__init__(parties, None, secagg_id)
 
         self._element = SecaggElementTypes.BIPRIME
+        self._secagg_manager = _BPrimeManager
 
     def _payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for biprime secagg context element
@@ -504,11 +528,39 @@ class SecaggBiprimeContext(SecaggContext):
         Returns:
             a tuple of a `context` and a `status` for the biprime context element
         """
-        # start dummy payload
-        time.sleep(6)
-        logger.info('PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
-        context = {'msg': 'Not implemented yet'}
-        status = True
-        # end dummy payload
+        context = self._secagg_manager.get(self._secagg_id)
+
+        if context is None:
+            # start dummy payload
+            time.sleep(3)
+            context = {
+                'biprime': str(random.randrange(10**12)),   # dummy biprime
+                'max_keybits': 0                            # prevent using the dummy biprime for real
+            }
+            logger.info('Not yet implemented, PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
+            self._secagg_manager.add(self._secagg_id, self._parties, context)
+            logger.debug(
+                f"Biprime successfully created for researcher_id='{environ['RESEARCHER_ID']}' secagg_id='{self._secagg_id}'")
+            status = True
+            # end dummy payload
+        else:
+            # Need to ensure that:
+            # - either the existing element is not attached to specific parties (None)
+            # - or existing element was established for the same parties or a superset of the parties
+            if (not isinstance(context, dict) or
+                    'parties' not in context or (
+                        context['parties'] is not None and (
+                            not isinstance(context['parties'], list) or
+                            not set(self._parties).issubset(set(context['parties']))
+                        ))):
+                logger.error(
+                    f"{ErrorNumbers.FB415.value}: Biprime context for {self._secagg_id} exists "
+                    f"but parties do not match: {context['parties']}")
+                status = False
+            else:
+                logger.debug(
+                    f"Biprime for {self._secagg_id} is already existing on researcher "
+                    f"researcher_id='{environ['RESEARCHER_ID']}'")
+                status = True
 
         return context, status
