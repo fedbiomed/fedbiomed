@@ -64,11 +64,11 @@ class BaseSkLearnModel(Model):
     default_lr_init: float = .1
     default_lr: str = 'constant'
     _batch_size: int
-    _is_declearn_optim: bool
+    #_is_declearn_optim: bool
     param_list: List[str]
     _gradients: Dict[str, np.ndarray]
     updates: Dict[str, np.ndarray]  # replace `grads` from th poc
-
+    gradients_computation: Callable[[Union[Dict[str, np.ndarray], NumpyVector,Dict[str, np.ndarray]]]] = NotImplemented
     def __init__(
             self,
             model: BaseEstimator,
@@ -92,7 +92,7 @@ class BaseSkLearnModel(Model):
         super().__init__(model)
 
         self._batch_size: int = 0
-        self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
+        #self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
         self._gradients = None
 
         self.param_list = None
@@ -283,22 +283,38 @@ class BaseSkLearnModel(Model):
             self.model.n_iter_ -= 1
             self._batch_size += 1
 
+    
         # compute gradients
         w = self.get_weights()
         self._gradients: Dict[str, np.ndarray] = {}
-        if self._is_declearn_optim:
-            adjust = self._batch_size * self.get_learning_rate()[0]
+        
+        if self.gradients_computation is NotImplemented:
+            raise FedbiomedModelError("Error, `gradient_computation` method is not implemented")
+        self.gradients_computation(w, self._gradients)
+        # if self._is_declearn_optim:
+        #     adjust = self._batch_size * self.get_learning_rate()[0]
 
-            for key in self.param_list:
-                self._gradients[key] = (w[key] * (1 - adjust) - self.updates[key]) / adjust
-        else:
-            # Compute the batch-averaged updated weights and apply them.
-            for key in self.param_list:
-                self._gradients[key] = self.updates[key] / self._batch_size - w[key]
+        #     for key in self.param_list:
+        #         self._gradients[key] = (w[key] * (1 - adjust) - self.updates[key]) / adjust
+        # else:
+        #     # Compute the batch-averaged updated weights and apply them.
+        #     for key in self.param_list:
+        #         self._gradients[key] = self.updates[key] / self._batch_size - w[key]
         self.model.n_iter_ += 1
 
         # resetting updates
         self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
+
+    def _native_gradients_computation(self, weights, gradients):
+        adjust = self._batch_size * self.get_learning_rate()[0]
+
+        for key in self.param_list:
+            gradients[key] = (weights[key] * (1 - adjust) - self.updates[key]) / adjust
+    
+    def _declearn_gradients_computation(self, weights, gradients):
+        # Compute the batch-averaged updated weights and apply them.
+        for key in self.param_list:
+            gradients[key] = self.updates[key] / self._batch_size - weights[key]
 
     def get_gradients(
             self,
@@ -410,7 +426,7 @@ class BaseSkLearnModel(Model):
 
     @abstractmethod
     def disable_internal_optimizer(self):
-        """Abstract method to apply;
+        """Abstract method to apply;_is_declearn_optim
 
         Disables scikit learn internal optimizer by setting arbitrary learning rate parameters to the
         scikit learn model, in order to then compute its gradients.
@@ -432,7 +448,7 @@ class SGDSkLearnModel(BaseSkLearnModel, ABC):
     def disable_internal_optimizer(self):
         self.model.eta0 = self.default_lr_init
         self.model.learning_rate = self.default_lr
-        self._is_declearn_optim = True
+        #self._is_declearn_optim = True
 
 
 class MLPSklearnModel(BaseSkLearnModel, ABC):  # just for sake of demo
@@ -442,7 +458,7 @@ class MLPSklearnModel(BaseSkLearnModel, ABC):  # just for sake of demo
     def disable_internal_optimizer(self):
         self.model.learning_rate_init = self.default_lr_init
         self.model.learning_rate = self.default_lr
-        self._is_declearn_optim = True
+        #self._is_declearn_optim = True
 
 
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
