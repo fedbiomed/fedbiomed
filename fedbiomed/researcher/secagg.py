@@ -532,6 +532,10 @@ class SecaggServkeyContext(SecaggContext):
             )
 
         context = {'server_key': server_key.strip()}
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
+        logger.debug(
+            f"Server key successfully created for researcher_id='{environ['RESEARCHER_ID']}' "
+            f"secagg_id='{self._secagg_id}'")
         return context, True
 
 
@@ -571,7 +575,10 @@ class SecaggBiprimeContext(SecaggContext):
             'max_keybits': 0                            # prevent using the dummy biprime for real
         }
         logger.info('Not yet implemented, PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
-        self._secagg_manager.add(self._secagg_id, self._parties, context)
+
+        # Currently, all biprimes can be used by all sets of parties.
+        # TODO: add a mode where biprime is restricted for `self._parties`
+        self._secagg_manager.add(self._secagg_id, None, context)
         logger.debug(
             f"Biprime successfully created for researcher_id='{environ['RESEARCHER_ID']}' secagg_id='{self._secagg_id}'")
         # end dummy payload

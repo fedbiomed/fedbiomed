@@ -297,7 +297,8 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        self._secagg_manager.add(self._secagg_id, self._parties, key_share, self._job_id)
+        context = {'server_key': key_share}
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.info(
             "Server key share successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
