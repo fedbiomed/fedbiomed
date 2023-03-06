@@ -255,31 +255,6 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         """Initialize the sklearn SGDClassifier training plan."""
         super().__init__()
 
-    # def set_init_params(self) -> None:
-    #     """Initialize the model's trainable parameters."""
-    #     # Set up zero-valued start weights, for binary of multiclass classif.
-    #     n_classes = self._model_args["n_classes"]
-    #     if n_classes == 2:
-    #         init_params = {
-    #             "intercept_": np.zeros((1,)),
-    #             "coef_": np.zeros((1, self._model_args["n_features"]))
-    #         }
-    #     else:
-    #         init_params = {
-    #             "intercept_": np.zeros((n_classes,)),
-    #             "coef_": np.zeros((n_classes, self._model_args["n_features"]))
-    #         }
-    #     # Assign these initialization parameters and retain their names.
-    #     self._param_list = list(init_params.keys())
-    #     for key, val in init_params.items():
-    #         setattr(self._model, key, val)
-    #     # Also initialize the "classes_" slot with unique predictable labels.
-    #     # FIXME: this assumes target values are integers in range(n_classes).
-    #     setattr(self._model, "classes_", np.arange(n_classes))
-
-    # def get_learning_rate(self) -> List[float]:
-    #     return self._model.eta0
-
     def _parse_batch_loss(
             self,
             stdout: List[List[str]],
