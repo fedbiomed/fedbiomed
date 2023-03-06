@@ -1,12 +1,12 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-import abc
+
 import sys
 
 from abc import abstractmethod, ABC
 from copy import deepcopy
 from io import StringIO
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Type, Union, Iterator
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
 import numpy as np
@@ -52,18 +52,13 @@ class BaseSkLearnModel(Model):
             for computing gradients. Set with `set_learning_rate` setter
         default_lr: Default value for setting learning rate schedule to the scikit learn model. Needed for computing
             gradients. Set with `set_learning_rate` setter
-        _batch_size: Internal counter that measures size of the batch.
         _is_declearn_optim: Switch that allows the use of Declearn's optimizers
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
     """
-    model: BaseEstimator
+
+    _model_type = BaseEstimator
     default_lr_init: float = .1
     default_lr: str = 'constant'
-    _batch_size: int
-    _is_declearn_optim: bool
-    param_list: List[str]
-    _gradients: Dict[str, np.ndarray]
-    updates: Dict[str, np.ndarray]  # replace `grads` from th poc
 
     def __init__(
             self,
@@ -80,43 +75,20 @@ class BaseSkLearnModel(Model):
         """
         super().__init__(model)
         self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
-        self._gradients = None
-
-        self.param_list = None
-        self.updates = None
-        self.param = None
-
-        # FIXME: should we force model verbosity here?
-        # if hasattr(model, "verbose"):
-        #     self.verbose = True
-        # else:
-        #     self.verbose = False
+        self._gradients: Dict[str, np.ndarray] = {}
+        self.param_list: List[str] = []
 
     def init_training(self):
         """Initialises the training by setting up attributes.
 
-        !!! info "Sets following attributes" :
-            - **param:** initial parameters of the model
-            - **updates:** attribute used to store model updates. Initially, it is arrays of zeros
-            - **_batch_size:** internal counter that measure the batch_size, with respect to the data
-                used for training model
-
         Raises:
             FedbiomedModelError: raised if `param_list` has not been defined
         """
-
-        if self.param_list is None:
+        if not self.param_list:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Attribute `param_list` is not defined: please define it beforehand")\
-
-        # call it `param_init` so to be consistent with SklearnModel
-        self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in
-                                             self.param_list}
-
-        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
-
-        self._batch_size = 0
-
+                f"{ErrorNumbers.FB622.value}. Attribute `param_list` is empty. You should "
+                f"have initialized the model beforehand (try calling `set_init_params`)"
+            )
         # if self.is_declearn_optim:
         #     self.disable_internal_optimizer()
 
@@ -127,7 +99,7 @@ class BaseSkLearnModel(Model):
         """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
 
         Args:
-            model_params: model parameters
+            model_params: model parameters or gradients
 
         Raises:
             FedbiomedModelError: raised if argument `model_params` type is neither
@@ -144,12 +116,12 @@ class BaseSkLearnModel(Model):
         else:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
-                f"while expecting NumpyVector or OrderedDict/Dict"
+                "while expecting a NumpyVector or a dict"
             )
 
     def set_weights(
             self,
-            weights: Union[Dict[str, np.ndarray], NumpyVector]
+            weights: Union[Dict[str, np.ndarray], NumpyVector],
     ) -> BaseEstimator:
         """Sets model weights.
 
@@ -180,9 +152,9 @@ class BaseSkLearnModel(Model):
             Model weights, as a dictionary mapping parameters' names to their
                 numpy array, or as a declearn NumpyVector wrapping such a dict.
         """
-        if self.param_list is None:
+        if not self.param_list:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Attribute `param_list` not defined. You should "
+                f"{ErrorNumbers.FB622.value}. Attribute `param_list` is empty. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
         # Gather copies of the model weights.
@@ -233,7 +205,7 @@ class BaseSkLearnModel(Model):
             self,
             inputs: np.ndarray,
             targets: np.ndarray,
-            stdout: List[str] = None,
+            stdout: Optional[List[str]] = None,
             **kwargs
     ) -> None:
         """Trains scikit learn model and internally computes gradients
@@ -247,45 +219,36 @@ class BaseSkLearnModel(Model):
         Raises:
             FedbiomedModelError: raised if training has not been initialized
         """
-        if self.updates is None:
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Training has not been initialized: please run "
-                f"`init_training` method beforehand"
-            )
-        self._batch_size: int = 0  # batch size counter
-
+        batch_size = inputs.shape[0]
+        w_init = self.get_weights(as_vector=False)  # type: Dict[str, np.ndarray]
+        w_updt = {key: np.zeros_like(val) for key, val in w_init.items()}
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
-        for idx in range(inputs.shape[0]):
+        for idx in range(batch_size):
             # Compute updated weights based on the sample. Capture loss prints.
             with capture_stdout() as console:
                 self.model.partial_fit(inputs[idx:idx + 1], targets[idx])
             if stdout is not None:
                 stdout.append(console)
+            # Accumulate updated weights (weights + sum of gradients).
+            # Reset the model's weights and iteration counter.
             for key in self.param_list:
-                # Accumulate updated weights (weights + sum of gradients).
-                # Reset the model's weights and iteration counter.
-                self.updates[key] += getattr(self.model, key)
-                setattr(self.model, key, self.param[key])  # resetting parameter to initial values
-
+                w_updt[key] += getattr(self.model, key)
+                setattr(self.model, key, w_init[key])
             self.model.n_iter_ -= 1
-            self._batch_size += 1
-
-        # compute gradients
-        w = self.get_weights()
-        self._gradients: Dict[str, np.ndarray] = {}
+        # Compute the batch-averaged gradients (scaled by eta_t).
+        # Note: w_init: {w_t}, w_updt: {w_t - eta_t sum_{s=1}^B(grad_s)}
+        #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
+        self._gradients = {
+            key: w_init[key] - (w_updt[key] / batch_size)
+            for key in self.param_list
+        }
+        # When using a declearn Optimizer, negate the learning rate.
         if self._is_declearn_optim:
-            adjust = self._batch_size * self.get_learning_rate()[0]
-
-            for key in self.param_list:
-                self._gradients[key] = (w[key] * (1 - adjust) - self.updates[key]) / adjust
-        else:
-            # Compute the batch-averaged updated weights and apply them.
-            for key in self.param_list:
-                self._gradients[key] = self.updates[key] / self._batch_size - w[key]
+            lrate = self.get_learning_rate()[0]
+            for key, val in self._gradients.items():
+                val /= lrate
+        # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
-
-        # resetting updates
-        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
 
     def get_gradients(
             self,

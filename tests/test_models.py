@@ -159,15 +159,13 @@ class TestSkLearnModel(unittest.TestCase):
             self.sgdclass_model.set_init_params(model_args)
             self.assertListEqual(sorted(self.sgdclass_model.param_list), sorted(['coef_', 'intercept_']))
 
-        self.assertEqual(self.sgdclass_model._batch_size, 0)
-
     def test_sklearnmodel_05_set_init_params_failures(self):
         for model in self.models:
             model = SkLearnModel(model)
             with self.assertRaises(FedbiomedModelError):
                 model.init_training()
 
-    def test_sklearmmodel_06_sklearn_training_01_plain_sklearn(self):
+    def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
         n_values = 100  # data size
@@ -196,7 +194,6 @@ class TestSkLearnModel(unittest.TestCase):
 
                     # checks
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model._batch_size, n_values)
                     for layer in model.param_list:
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
@@ -230,7 +227,6 @@ class TestSkLearnModel(unittest.TestCase):
                     # checks
                     self.assertTrue(model._is_declearn_optim)
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model._batch_size, n_values)
                     self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
                     for layer in model.param_list:
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
