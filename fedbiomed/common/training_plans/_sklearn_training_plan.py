@@ -307,10 +307,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         if params is None:
             params = {"model_params": self.after_training_params()}
-        elif "model_params" not in params:
-            raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: params should contain `model_params`"
-            )
+
+        # Convert
+        for key, item in params.items():
+            if isinstance(item, np.ndarray):
+                params[key] = item.tolist()
 
         # Save the wrapped model (using joblib, hence pickle).
         with open(filename, "w", encoding='utf-8') as file:
@@ -350,9 +351,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             params = json.loads(content)
             file.close()
 
+        # Convert to numpy (supported by scikit-learn)
+        params = {key: np.array(item) for key, item in params.items()}
+
+        # FIXME: Update model assumes that params only contains `coef_` and `intercept_`
         if update_model:
-            model_params = params["model_params"]
-            self._model.set_weights(model_params)
+            self._model.set_weights(params)
 
         return params
 
@@ -390,7 +394,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         return params
 
-    def convert_vector_to_parameters(self, vec: List[float]):
+    def convert_vector_to_parameters(
+            self,
+            vec: List[float]
+    ) -> np.ndarray:
         """Converts given float vector to numpy typed params
 
         Args:
@@ -399,7 +406,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         vector = np.array(vec)
 
-        params = {key: getattr(self._model, key) for key in self._param_list}
+        params = self._model.get_weights()
         pointer = 0
 
         for key, param in params.items():

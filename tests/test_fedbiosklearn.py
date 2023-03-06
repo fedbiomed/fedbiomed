@@ -127,11 +127,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
                    side_effect=mocked_joblib_dump), \
                 patch('builtins.open', mock_open()):
 
-            with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.save('filename', params={
-                    'coef_': np.array([0.42]), 'intercept_': np.array([0.42])}
-                                   )
-
             training_plan.save('filename', params={'model_params': {
                 'coef_': np.array([0.42]), 'intercept_': np.array([0.42])}})
             self.assertEqual(saved_params[-1]["model_params"]["coef_"], np.array([0.42]))
@@ -151,16 +146,20 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         # Saved object is not the correct type
         with patch('fedbiomed.common.training_plans._sklearn_training_plan.json.loads',
-                   return_value={"model_params": {"coef_": np.array([0.42]), "intercept_": np.array([0.42])}}), \
+                   return_value={"coef_": np.array([0.42]), "intercept_": np.array([0.42])}), \
                 patch('builtins.open', mock_open()):
 
             training_plan.post_init({'max_iter': 4242, 'alpha': 0.999, 'n_features': 2, 'key_not_in_model': None},
                                     FakeTrainingArgs()
                                     )
+
             params = training_plan.load('filename', update_model=True)
-            self.assertDictEqual(params, {'model_params': {'coef_': np.array([0.42]), 'intercept_': np.array([0.42])}})
-            params = training_plan.after_training_params()
             self.assertDictEqual(params, {'coef_': np.array([0.42]), 'intercept_': np.array([0.42])})
+
+            # Returns list not np.ndarray
+            params = training_plan.after_training_params()
+
+            self.assertDictEqual(params, {'coef_': [0.42], 'intercept_': [0.42]})
 
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
