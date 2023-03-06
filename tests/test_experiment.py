@@ -1847,7 +1847,7 @@ class TestExperiment(ResearcherTestCase):
         # patch_create_object.side_effect = side_create_object
 
         class FakeModelInstance:
-            def load(self, aggreg, to_params):
+            def load(self, aggreg, update_model):
                 return model_params
 
         patch_training_plan.return_value = FakeModelInstance()
@@ -1955,7 +1955,7 @@ class TestExperiment(ResearcherTestCase):
     def test_experiment_31_static_load_aggregated_params(self):
         """ Testing static method for loading aggregated params of Experiment"""
 
-        def load_func(x, to_params):
+        def load_func(x, update_model):
             return False
 
         # Test invalid type of aggregated params (should be dict)

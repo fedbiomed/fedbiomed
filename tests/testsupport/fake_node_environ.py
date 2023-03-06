@@ -39,6 +39,7 @@ class NodeEnviron:
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f"/tmp/{node}/default_training_plans"
         self._values['TRAINING_PLANS_DIR'] = f"/tmp/{node}/registered_training_plans"
         self._values['SECURE_AGGREGATION'] = False
+        self._values['FORCE_SECURE_AGGREGATION'] = False
 
 
         # TODO: create random directory paths like  for test_taskqueue.py
