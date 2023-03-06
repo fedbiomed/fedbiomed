@@ -283,6 +283,10 @@ class JoyeLibert:
             raise ValueError("Bad public parameter. The public parameter of user key does not match the "
                              "one given for encryption")
 
+        if not isinstance(x_u_tau, list):
+            raise TypeError(f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
+                            f"got {type(x_u_tau)}")
+
         x_u_tau = self._vector_encoder.encode(
             V=x_u_tau,
             add_ops=n_users
@@ -537,13 +541,9 @@ class UserKey(BaseKey):
         vec_pow_mod = np.vectorize(powmod, otypes=[mpz])
         r = vec_pow_mod(taus, self._key, self._public_param.n_square)
         cipher = (nude_ciphertext * r) % self._public_param.n_square
-        cipher = [EncryptedNumber(self._public_param, ciphertext) for ciphertext in cipher]
 
-        # TODO: Remove old implementation
-        # cipher = [self._encrypt(pt, (i << self._public_param.bits // 2) | tau)
-        #           for i, pt in enumerate(plaintext)]
-
-        return cipher
+        # Convert np array to list
+        return cipher.tolist()
 
     # TODO: remove old implementation
     def _encrypt(
