@@ -186,7 +186,7 @@ class SecaggContext(ABC):
         Returns:
             a tuple of a `context` and a `status` for the biprime context element
         """
-        context = self._secagg_manager.get(self._secagg_id)
+        context = self._secagg_manager.get(self._secagg_id, self._job_id)
 
         if context is None:
             context, status = self._payload_create()
