@@ -3,7 +3,7 @@
 
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Callable, Dict, Iterable, Tuple, Union
+from typing import Dict, Iterable, Tuple, Union
 
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ from fedbiomed.common.models import Model
 
 class TorchModel(Model):
     """PyTorch model wrapper that ease the handling of a pytorch model
-    
+
     Attributes:
         model: torch.nn.Module. Pytorch model wrapped.
         init_params: OrderedDict. Model initial parameters. Set when calling `init_training`
@@ -39,72 +39,62 @@ class TorchModel(Model):
 
     def get_gradients(
             self,
-            return_type: Callable[[Dict[str, torch.Tensor]], Any] = None
-    ) -> Union[Dict[str, torch.Tensor], Any]:
-        """Returns a TorchVector wrapping the gradients attached to the model.
-        
+            as_vector: bool = False,
+    ) -> Union[Dict[str, torch.Tensor], TorchVector]:
+        """Return the gradients attached to the model, opt. as a declearn TorchVector.
+
         Args:
-            return_type (Callable, optional): callable that loads gradients into a 
-                data structure and outputs gradients in this data structure. If not provided,
-                returns gradient under a dictionary mapping model's layer names to theirs tensors.
-                Defaults to None.
-        
+            as_vector: Whether to wrap returned gradients into a declearn Vector.
+
         Returns:
-            Gradients in a dictionary mapping model's layer names to theirs tensors (if
-                `return_type` argument is not provided) or in a data structure returned by `return_type`.
-        """
-        self._validate_return_type(return_type=return_type)
+            Gradients, as a dictionary mapping parameters' names to their gradient's
+                torch tensor, or as a declearn TorchVector wrapping such a dict.
+       """
         gradients = {
             name: param.grad.detach().clone()
             for name, param in self.model.named_parameters()
             if (param.requires_grad and param.grad is not None)
         }
-
         if len(gradients) < len(list(self.model.named_parameters())):
+            # FIXME: this will be triggered when having some frozen weights even if training was properly conducted
             logger.warning("Warning: can not retrieve all gradients from the model. Are you sure you have "
                            "trained the model beforehand?")
-        if return_type is not None:
-            gradients = return_type(gradients)
+        if as_vector:
+            return TorchVector(gradients)
         return gradients
 
     def get_weights(
             self,
+            as_vector: bool = False,
             only_trainable: bool = False,
-            return_type: Callable[[Dict[str, torch.Tensor]], Any] = None
-    ) -> Any:
-        """Return a TorchVector wrapping the model's parameters.
-        
+    ) -> Union[Dict[str, torch.Tensor], TorchVector]:
+        """Return the model's parameters, optionally as a declearn TorchVector.
+
         Args:
             only_trainable (bool, optional): whether to gather weights only on trainable layers (ie
                 non-frozen layers) or all layers (trainable and frozen). Defaults to False, (trainable and
-                frozen ones) 
-            return_type (Callable, optional): callable that loads weights into a 
-                data structure and outputs weights in this data structure. If not provided,
-                returns weights under a dictionary mapping model's layer names to theirs tensors. 
-                Defaults to None. 
-        
-        Returns:
-            Model's weights in a dictionary mapping model's layer names to theirs tensors
-                (I am going to change that if `return_type` argument is not provided) or in
-                a data structure returned by `return_type` Callable.
-        """
+                frozen ones)
+            as_vector: Whether to wrap returned weights into a declearn Vector.
 
-        self._validate_return_type(return_type=return_type)
+        Returns:
+            Model weights, as a dictionary mapping parameters' names to their
+                torch tensor, or as a declearn TorchVector wrapping such a dict.
+        """
         parameters = {
             name: param.detach().clone()
             for name, param in self.model.named_parameters()
             if param.requires_grad or not only_trainable
         }
-        if return_type is not None:
-            parameters = return_type(parameters)
+        if as_vector:
+            return TorchVector(parameters)
         return parameters
 
     def apply_updates(
             self,
-            updates: Union[TorchVector, OrderedDict]
+            updates: Union[TorchVector, Dict[str, torch.Tensor]],
     ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
-        
+
         Args:
             updates: model updates to be added to the model.
         """
@@ -120,7 +110,7 @@ class TorchModel(Model):
             corrections: Union[TorchVector, Dict[str, torch.Tensor]]
     ) -> None:
         """Adds values to attached gradients in the model
-        
+
         Args:
             corrections: corrections to be added to model's gradients
 
@@ -136,7 +126,7 @@ class TorchModel(Model):
     def _get_iterator_model_params(
             model_params: Union[Dict[str, torch.Tensor], TorchVector]
     ) -> Iterable[Tuple[str, torch.Tensor]]:
-        """Returns an iterable from model_params, whether it is a 
+        """Returns an iterable from model_params, whether it is a
         dictionary or a declearn's TorchVector
 
         Args:
@@ -183,7 +173,7 @@ class TorchModel(Model):
             device: torch.device
     ) -> None:
         """Sends model to device
-        
+
         Args:
             device: device set for using GPU or CPU.
         """

@@ -46,7 +46,7 @@ def capture_stdout() -> Iterator[List[str]]:
 class BaseSkLearnModel(Model):
     """
     Wrapper of Scikit learn model. It implements all abstract methods from `Model`
-    
+
     Attributes:
         model: Wrapped model
         default_lr_init: Default value for setting learning rate to the scikit learn model. Needed
@@ -107,7 +107,7 @@ class BaseSkLearnModel(Model):
 
     def init_training(self):
         """Initialises the training by setting up attributes.
-        
+
         !!! info "Sets following attributes" :
             - **param:** initial parameters of the model
             - **updates:** attribute used to store model updates. Initially, it is arrays of zeros
@@ -173,47 +173,49 @@ class BaseSkLearnModel(Model):
         Returns:
             Model wrapped updated with incoming weights
         """
-        weights = self._get_iterator_model_params(weights)
-        for key, val in weights:
-            setattr(self.model, key, val.copy() if isinstance(val, np.ndarray) else val)
+        for key, val in self._get_iterator_model_params(weights):
+            setattr(self.model, key, val.copy())
         return self.model
 
     def get_weights(
             self,
-            return_type: Callable[[Dict[str, np.ndarray]], Any] = None
-    ) -> Any:
-        """Returns model's parameters.
+            as_vector: bool = False,
+    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
+        """Returns model's parameters, optionally as a declearn NumpyVector.
 
         Args:
-            return_type: Output type for the weights. Wrap results by given return type.
+            as_vector: Whether to wrap returned weights into a declearn Vector.
 
         Raises:
             FedbiomedModelError: If the list of parameters are not defined.
 
-        Return:
-            Model weights.
+        Returns:
+            Model weights, as a dictionary mapping parameters' names to their
+                numpy array, or as a declearn NumpyVector wrapping such a dict.
         """
-
-        self._validate_return_type(return_type=return_type)
-        weights = {}
         if self.param_list is None:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` not defined. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
+        # Gather copies of the model weights.
+        weights = {}  # type: Dict[str, np.ndarray]
         try:
             for key in self.param_list:
                 val = getattr(self.model, key)
-                weights[key] = val.copy() if isinstance(val, np.ndarray) else val
-
+                if not isinstance(val, np.ndarray):
+                    raise FedbiomedModelError(
+                        f"{ErrorNumbers.FB622.value}: SklearnModel parameter is not a numpy array."
+                    )
+                weights[key] = val.copy()
         except AttributeError as err:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Unable to access weights of BaseEstimator "
-                f"model {self.model} (details {str(err)}"
-            )
-
-        if return_type is not None:
-            weights = return_type(weights)
+                f"model {self.model} (details {err}"
+            ) from err
+        # Optionally encapsulate into a NumpyVector, else return as a dict.
+        if as_vector:
+            return NumpyVector(weights)
         return weights
 
     def apply_updates(
@@ -225,11 +227,9 @@ class BaseSkLearnModel(Model):
         Args:
             updates: Model parameters' updates to add/apply existing model parameters.
         """
-        updates = self._get_iterator_model_params(updates)
-
-        for key, val in updates:
-            w = getattr(self.model, key)
-            setattr(self.model, key, val + w)
+        for key, val in self._get_iterator_model_params(updates):
+            wgt = getattr(self.model, key)
+            setattr(self.model, key, wgt + val)
 
     def predict(self, inputs: np.ndarray) -> np.ndarray:
         """Computes prediction given input data.
@@ -249,7 +249,7 @@ class BaseSkLearnModel(Model):
             stdout: List[str] = None,
             **kwargs
     ) -> None:
-        """Trains scikit learn model and internally computes gradients 
+        """Trains scikit learn model and internally computes gradients
 
         Args:
             inputs: inputs data.
@@ -302,32 +302,27 @@ class BaseSkLearnModel(Model):
 
     def get_gradients(
             self,
-            return_type: Callable[[Dict[str, np.ndarray]], Any] = None
-    ) -> Any:
+            as_vector: bool = False,
+    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
         """Gets computed gradients
 
         Args:
-            return_type:  callable that loads gradients into a
-                data structure and outputs gradients in this data structure. If not provided,
-                returns gradient under a dictionary mapping model's layer names to theirs tensors.
-                Defaults to None.
+            as_vector: Whether to wrap returned gradients into a declearn Vector.
 
         Raises:
             FedbiomedModelError: raised if gradients have not been computed yet (ie model has not been trained)
 
         Returns:
-            Gradients in a dictionary mapping model's layer names to theirs tensors (if
-                `return_type` argument is not provided) or in a data structure returned by `return_type`.
-        """
-        self._validate_return_type(return_type=return_type)
+            Gradients, as a dictionary mapping parameters' names to their gradient's
+                numpy array, or as a declearn NumpyVector wrapping such a dict.
+         """
         if self._gradients is None:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Can not get gradients if model has not been trained beforehand!")
-
-        gradients: Dict[str, np.ndarray] = self._gradients
-
-        if return_type is not None:
-            gradients = return_type(gradients)
+                f"{ErrorNumbers.FB622.value}. Cannot get gradients if model has not been trained beforehand!"
+            )
+        gradients = self._gradients
+        if as_vector:
+            return NumpyVector(gradients)
         return gradients
 
     def get_params(self, value: Any = None) -> Dict[str, Any]:
@@ -356,7 +351,7 @@ class BaseSkLearnModel(Model):
         [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `set_params` method
         for further details
 
-        Args: 
+        Args:
             params: new hyperparameters to set up the model.
 
         Returns:
@@ -393,8 +388,8 @@ class BaseSkLearnModel(Model):
         Should be used before any training, as it sets the scikit learn model parameters
         and makes them accessible through the use of attributes. Model parameter attribute names
         will depend on the scikit learn model wrapped.
-        
-        Args: 
+
+        Args:
             model_args: dictionary that contains specifications for setting initial model
         """
 
@@ -402,7 +397,7 @@ class BaseSkLearnModel(Model):
     def get_learning_rate(self) -> List[float]:
         """Retrieves learning rate of the model. Method implementation will
         depend on the attribute used to set up these arbitrary arguments
-        
+
         Returns:
             Initial learning rate value(s); a single value if only on learning rate has been used, and
                 a list of several learning rates, one for each layer of the model.
@@ -457,7 +452,7 @@ class SGDRegressorSKLearnModel(SGDSkLearnModel):
             'intercept_': np.array([0.]),
             'coef_': np.array([0.] * model_args['n_features'])
         }
-        self.param_list = list(init_params.keys())
+        self.param_list = list(init_params)
         for key, val in init_params.items():
             setattr(self.model, key, val)
 
@@ -483,7 +478,7 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
                 "coef_": np.zeros((n_classes, model_args["n_features"]))
             }
         # Assign these initialization parameters and retain their names.
-        self.param_list = list(init_params.keys())
+        self.param_list = list(init_params)
         for key, val in init_params.items():
             setattr(self.model, key, val)
         # Also initialize the "classes_" slot with unique predictable labels.
@@ -492,21 +487,21 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
 
 
 class SkLearnModel:
-    """Sklearn model builder. 
-    
-    It wraps one of Fed-BioMed `BaseSkLearnModel` object children, 
+    """Sklearn model builder.
+
+    It wraps one of Fed-BioMed `BaseSkLearnModel` object children,
     by passing a (BaseEstimator)(https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html)
     object to the constructor, as shown below.
-    
-    **Usage**  
+
+    **Usage**
     ```python
         from sklearn.linear_model import SGDClassifier
         model = SkLearnModel(SGDClassifier)
-        model.set_weights(some_weights)  
+        model.set_weights(some_weights)
         type(model.model)
         # Output: <class 'sklearn.linear_model._stochastic_gradient.SGDClassifier'>
     ```
-    
+
     Attributes:
         _instance: instance of BaseSkLearnModel
     """
@@ -517,7 +512,7 @@ class SkLearnModel:
 
         Args:
             model: non-initialized [BaseEstimator][sklearn.base.BaseEstimator] object
-            
+
         Raises:
             FedbiomedModelError: raised if model does not belong to the implemented models.
             FedbiomedModelError: raised if `__name__` attribute does not belong to object. This may happen
@@ -561,7 +556,7 @@ class SkLearnModel:
 
         !!!  warning "Warning"
             To be used with the `copy` built-in package of Python
-        
+
         **Usage**
         ```python
             >>> from sklearn.linear_model import SGDClassifier

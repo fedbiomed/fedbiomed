@@ -2,18 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import torch
+from declearn.model.api import Vector
 from sklearn.base import BaseEstimator
-
-from fedbiomed.common.exceptions import FedbiomedModelError
-from fedbiomed.common.constants import ErrorNumbers
 
 
 class Model(metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
-    
+
     Attributes:
         model: native model, written with frameworks supported by Fed-BioMed.
         model_args: model arguments stored as a dictionary, that provides additional
@@ -21,7 +19,7 @@ class Model(metaclass=ABCMeta):
     """
     model: Union[torch.nn.Module, BaseEstimator]
     model_args: Dict[str, Any]
-    
+
     def __init__(self, model: Union[torch.nn.Module, BaseEstimator]):
         """Constructor of Model abstract class
 
@@ -46,7 +44,7 @@ class Model(metaclass=ABCMeta):
         !!! warning "Warning"
             This function may not update weights. You may need to call `apply_updates`
             to apply updates to the model
-        
+
         Args:
             inputs (Any): input (training) data.
             targets (Any): target values.
@@ -70,23 +68,33 @@ class Model(metaclass=ABCMeta):
         Args:
             updates (Any): model updates.
         """
+
     @abstractmethod
-    def get_weights(self, return_type: Callable = None) -> Any:
-        """Returns weights of the model.
+    def get_weights(
+        self, as_vector: bool = False
+    ) -> Union[Dict[str, Any], Vector]:
+        """Return a copy of the model's trainable weights.
 
         Args:
-            return_type: Function that converts the dictionary mapping layers to model weights into another data
-                structure. `return_type` should be used mainly with `declearn`'s `Vector`s. Defaults to None.
+            as_vector: Whether to wrap returned weights into a declearn Vector.
 
         Returns:
-            Any: model's weights.
+            Model weights, as a dictionary mapping parameters' names to their
+                value, or as a declearn Vector structure wrapping such a dict.
         """
+
     @abstractmethod
-    def get_gradients(self, return_type: Callable = None) -> Any:
-        """Returns computed gradients after training a model
+    def get_gradients(
+        self, as_vector: bool = False
+    ) -> Union[Dict[str, Any], Vector]:
+        """Return computed gradients attached to the model.
 
         Args:
-            return_type (Callable, optional): _description_. Defaults to None.
+            as_vector: Whether to wrap returned gradients into a declearn Vector.
+
+        Returns:
+            Gradients, as a dictionary mapping parameters' names to their gradient's
+                value, or as a declearn Vector structure wrapping such a dict.
         """
 
     @abstractmethod
@@ -103,21 +111,3 @@ class Model(metaclass=ABCMeta):
         Args:
             filename: path to the file, where will be saved the model.
         """
-    @staticmethod
-    def _validate_return_type(return_type: Optional[Callable] = None) -> None:
-        """Checks that `return_type` argument is either a callable or None.
-
-        Otherwise, raises an error
-
-        Args:
-            return_type: callable that will be used to convert a dictionary into another data structure
-                (e.g. a declearn Vector). Defaults to None.
-
-        Raises:
-            FedbiomedModelError: raised if `return_type` argument is neither a callable nor `None`.
-        """
-        if not (return_type is None or callable(return_type)):
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Argument `return_type` should be either None or callable, "
-                f"but got {type(return_type)} instead"
-            )
