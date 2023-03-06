@@ -502,7 +502,11 @@ class Job:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
-                self._training_plan.save(filename, params)
+
+                # Needs to be copied in order to keep the object as np.ndarray
+                params_to_save = copy.deepcopy(params)
+
+                self._training_plan.save(filename, params_to_save)
 
             repo_response = self.repo.upload_file(filename)
 
@@ -607,7 +611,7 @@ class Job:
             # reload parameters from file params_path
             for node in loaded_training_reply:
                 node['params'] = func_load_params(
-                    node['params_path'], to_params=True)['model_params']
+                    node['params_path'], update_model=False)['model_params']
 
             training_replies[round_] = loaded_training_reply
 

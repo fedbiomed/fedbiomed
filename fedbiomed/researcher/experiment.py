@@ -1626,6 +1626,7 @@ class Experiment(object):
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
 
+
         self._round_current += 1
 
         # Update round in monitor for the next round
@@ -2051,7 +2052,7 @@ class Experiment(object):
         # retrieve and change federator
         bkpt_aggregator_args = saved_state.get("aggregator")
 
-        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
@@ -2065,8 +2066,8 @@ class Experiment(object):
         if bkpt_secagg_servkey_args:
             loaded_exp._secagg_servkey = cls._create_object(
                 bkpt_secagg_servkey_args,
-                parties = bkpt_secagg_servkey_args['parties'],
-                job_id = bkpt_secagg_servkey_args['job_id']
+                parties=bkpt_secagg_servkey_args['parties'],
+                job_id=bkpt_secagg_servkey_args['job_id']
             )
 
         bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")
@@ -2169,7 +2170,7 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = func_load_params(aggreg['params_path'], to_params=True)
+            aggreg['params'] = func_load_params(aggreg['params_path'], update_model=False)
             # errors should be handled in training plan loader function
 
         return aggregated_params
