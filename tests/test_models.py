@@ -542,9 +542,9 @@ class TestTorchModel(unittest.TestCase):
 
         #  before training, check values contained in `init_training` are the same as in model
         weights = self.model.get_weights()
-
-        for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
-            self.assertTrue(torch.all(torch.isclose(w, init_w)))
+        for key, wgt in weights.items():
+            self.assertTrue(key in self.model.init_params)
+            self.assertTrue(torch.all(wgt == self.model.init_params[key]))
 
         # mimic training by updating model weights
         # 1. training through torch optimizer
@@ -555,16 +555,17 @@ class TestTorchModel(unittest.TestCase):
         self.torch_optim.step()
         torch_update_weights = self.model.get_weights()
         # checks
-        for (layer, w), ( init_w) in zip(torch_update_weights.items(), self.model.init_params):
-            self.assertFalse(torch.all(torch.isclose(w, init_w)))
+        for key, wgt in torch_update_weights.items():
+            self.assertTrue(key in self.model.init_params)
+            self.assertFalse(torch.all(wgt == self.model.init_params[key]))
 
         # 2. training through declearn optimizer
         self.model.init_training()
         #  before training, check values contained in `init_training` are the same as in model
         weights = self.model.get_weights()
-
-        for (layer, w), ( init_w) in zip(weights.items(), self.model.init_params):
-            self.assertTrue(torch.all(torch.isclose(w, init_w)))
+        for key, wgt in weights.items():
+            self.assertTrue(key in self.model.init_params)
+            self.assertTrue(torch.all(wgt == self.model.init_params[key]))
 
         self.model.model.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
@@ -575,9 +576,9 @@ class TestTorchModel(unittest.TestCase):
 
         declearn_optimized_model_weights = self.model.get_weights()
         # checks
-
-        for (layer, w), w_init in zip(declearn_optimized_model_weights.items(), self.model.init_params):
-            self.assertFalse(torch.all(torch.isclose(w, w_init)))
+        for key, wgt in declearn_optimized_model_weights.items():
+            self.assertTrue(key in self.model.init_params)
+            self.assertFalse(torch.all(wgt == self.model.init_params[key]))
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -1,8 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from collections import OrderedDict
-from copy import deepcopy
+"""Torch interfacing Model class."""
+
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
@@ -28,11 +28,11 @@ class TorchModel(Model):
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiates the wrapper over a torch Module instance."""
         super().__init__(model)
-        self.init_params: Optional[OrderedDict[str, torch.Tensor]] = None
+        self.init_params: Optional[Dict[str, torch.Tensor]] = None
 
     def get_gradients(
-            self,
-            as_vector: bool = False,
+        self,
+        as_vector: bool = False,
     ) -> Union[Dict[str, torch.Tensor], TorchVector]:
         """Return the gradients attached to the model, opt. as a declearn TorchVector.
 
@@ -42,7 +42,7 @@ class TorchModel(Model):
         Returns:
             Gradients, as a dictionary mapping parameters' names to their gradient's
                 torch tensor, or as a declearn TorchVector wrapping such a dict.
-       """
+        """
         gradients = {
             name: param.grad.detach().clone()
             for name, param in self.model.named_parameters()
@@ -50,16 +50,18 @@ class TorchModel(Model):
         }
         if len(gradients) < len(list(self.model.named_parameters())):
             # FIXME: this will be triggered when having some frozen weights even if training was properly conducted
-            logger.warning("Warning: can not retrieve all gradients from the model. Are you sure you have "
-                           "trained the model beforehand?")
+            logger.warning(
+                "Warning: can not retrieve all gradients from the model. Are you sure you have "
+                "trained the model beforehand?"
+            )
         if as_vector:
             return TorchVector(gradients)
         return gradients
 
     def get_weights(
-            self,
-            as_vector: bool = False,
-            only_trainable: bool = False,
+        self,
+        as_vector: bool = False,
+        only_trainable: bool = False,
     ) -> Union[Dict[str, torch.Tensor], TorchVector]:
         """Return the model's parameters, optionally as a declearn TorchVector.
 
@@ -83,33 +85,30 @@ class TorchModel(Model):
         return parameters
 
     def apply_updates(
-            self,
-            updates: Union[TorchVector, Dict[str, torch.Tensor]],
+        self,
+        updates: Union[TorchVector, Dict[str, torch.Tensor]],
     ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
 
         Args:
             updates: model updates to be added to the model.
         """
-
         iterator = self._get_iterator_model_params(updates)
         with torch.no_grad():
             for name, update in iterator:
                 param = self.model.get_parameter(name)
-                param.add_(update)
+                param.add_(update.to(param.device))
 
     def add_corrections_to_gradients(
-            self,
-            corrections: Union[TorchVector, Dict[str, torch.Tensor]]
+        self,
+        corrections: Union[TorchVector, Dict[str, torch.Tensor]],
     ) -> None:
         """Adds values to attached gradients in the model
 
         Args:
             corrections: corrections to be added to model's gradients
-
         """
         iterator = self._get_iterator_model_params(corrections)
-
         for name, update in iterator:
             param = self.model.get_parameter(name)
             if param.grad is not None:
@@ -117,7 +116,7 @@ class TorchModel(Model):
 
     @staticmethod
     def _get_iterator_model_params(
-            model_params: Union[Dict[str, torch.Tensor], TorchVector]
+        model_params: Union[Dict[str, torch.Tensor], TorchVector],
     ) -> Iterable[Tuple[str, torch.Tensor]]:
         """Returns an iterable from model_params, whether it is a
         dictionary or a declearn's TorchVector
@@ -133,7 +132,6 @@ class TorchModel(Model):
             Iterable[Tuple]: iterable containing model parameters, that returns layer name and its value
         """
         if isinstance(model_params, TorchVector):
-
             iterator = model_params.coefs.items()
         elif isinstance(model_params, dict):
             iterator = model_params.items()
@@ -145,8 +143,8 @@ class TorchModel(Model):
         return iterator
 
     def predict(
-            self,
-            inputs: torch.Tensor
+        self,
+        inputs: torch.Tensor,
     ) -> np.ndarray:
         """Computes prediction given input data.
 
@@ -162,8 +160,8 @@ class TorchModel(Model):
         return pred.cpu().numpy()
 
     def send_to_device(
-            self,
-            device: torch.device
+        self,
+        device: torch.device,
     ) -> None:
         """Sends model to device
 
@@ -172,30 +170,32 @@ class TorchModel(Model):
         """
         self.model.to(device)
 
-    def init_training(self):
+    def init_training(self) -> None:
         """Initializes and sets attributes before the training.
 
         Initializes `init_params` as a copy of the initial parameters of the model
         """
         # initial aggregated model parameters
-        self.init_params = deepcopy(list(self.model.parameters()))
+        self.init_params = {
+            key: param.data.detach().clone()
+            for key, param in self.model.named_parameters()
+        }
         self.model.train()  # pytorch switch for training
         self.model.zero_grad()
 
     def train(
-            self,
-            inputs: torch.Tensor,
-            targets: torch.Tensor,
-            **kwargs
+        self,
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+        **kwargs,
     ) -> None:
         # TODO: should we pass loss function here? and do the backward prop?
-        if self.init_params is None:
+        if not self.init_params:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initialize it beforehand"
             )
-        pass
 
-    def load(self, filename: str) -> OrderedDict:
+    def load(self, filename: str) -> None:
         """Loads model from a file.
 
         Args:
@@ -207,9 +207,8 @@ class TorchModel(Model):
         # loads model from a file
         params = torch.load(filename)
         self.model.load_state_dict(params)
-        return params
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """Saves model into a file.
 
         Args:
