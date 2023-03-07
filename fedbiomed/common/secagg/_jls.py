@@ -20,8 +20,9 @@ from typing import List, Tuple, Union, Callable
 
 import gmpy2
 import numpy as np
+import hashlib
 from gmpy2 import mpz, gcd
-from Crypto.Hash import SHA256
+
 
 from fedbiomed.common.constants import VEParameters
 from ._jls_utils import invert, powmod
@@ -677,7 +678,7 @@ class FDH:
 
         while True:
             while True:
-                h = SHA256.new()
+                h = hashlib.sha256()
                 h.update(
                     int(t).to_bytes(self.bits_size // 2, "big")
                     + counter.to_bytes(1, "big")
