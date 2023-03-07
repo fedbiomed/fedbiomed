@@ -9,10 +9,18 @@ from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers, VEParameters
+from fedbiomed.common.logger import logger
 
-from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam, VEParameters
-from ._jls_utils import quantize, reverse_quantize
-from ..logger import logger
+from ._jls import JoyeLibert, \
+    EncryptedNumber, \
+    ServerKey, \
+    UserKey, \
+    FDH, \
+    PublicParam, \
+    quantize, \
+    reverse_quantize
+
+
 
 """
 Default clipping value that is going to be used to quantize list of parameters 
