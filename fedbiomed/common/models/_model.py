@@ -81,9 +81,7 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(
-        self, as_vector: bool = False
-    ) -> Union[Dict[str, Any], Vector]:
+    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -95,9 +93,7 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_gradients(
-        self, as_vector: bool = False
-    ) -> Union[Dict[str, Any], Vector]:
+    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
         """Return computed gradients attached to the model.
 
         Args:
@@ -109,14 +105,15 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def load(self, filename: str):
+    def load(self, filename: str) -> None:
         """Loads model from a file.
 
         Args:
             filename: path towards the file where the model has been saved.
         """
+
     @abstractmethod
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """Saves model into a file.
 
         Args:

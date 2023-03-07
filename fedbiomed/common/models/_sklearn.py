@@ -66,13 +66,13 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     """
 
     _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
-    default_lr_init: ClassVar[float] = .1
-    default_lr: ClassVar[str] = 'constant'
+    default_lr_init: ClassVar[float] = 0.1
+    default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
 
     def __init__(
-            self,
-            model: BaseEstimator,
+        self,
+        model: BaseEstimator,
     ) -> None:
         """Instantiate the wrapper over a scikit-learn BaseEstimator.
 
@@ -80,8 +80,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             model: Model object as an instance of [BaseEstimator][sklearn.base.BaseEstimator]
 
         Raises:
-             FedbiomedModelError: raised if model is not as scikit learn [BaseEstimator][sklearn.base.BaseEstimator] object
-
+            FedbiomedModelError: if model is not as scikit learn [BaseEstimator][sklearn.base.BaseEstimator] object
         """
         super().__init__(model)
         self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
@@ -99,12 +98,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` is empty. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
-        # if self.is_declearn_optim:
-        #     self.disable_internal_optimizer()
+        if self._is_declearn_optim:
+            self.disable_internal_optimizer()
 
     @staticmethod
     def _get_iterator_model_params(
-            model_params: Union[Dict[str, np.ndarray], NumpyVector]
+        model_params: Union[Dict[str, np.ndarray], NumpyVector]
     ) -> Iterable[Tuple[str, np.ndarray]]:
         """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
 
@@ -130,8 +129,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             )
 
     def set_weights(
-            self,
-            weights: Union[Dict[str, np.ndarray], NumpyVector],
+        self,
+        weights: Union[Dict[str, np.ndarray], NumpyVector],
     ) -> BaseEstimator:
         """Sets model weights.
 
@@ -147,8 +146,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return self.model
 
     def get_weights(
-            self,
-            as_vector: bool = False,
+        self,
+        as_vector: bool = False,
     ) -> Union[Dict[str, np.ndarray], NumpyVector]:
         """Returns model's parameters, optionally as a declearn NumpyVector.
 
@@ -187,10 +186,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             return NumpyVector(weights)
         return weights
 
-    def apply_updates(
-            self,
-            updates: Union[Dict[str, np.ndarray], NumpyVector]
-    ) -> None:
+    def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters.
 
         Args:
@@ -212,11 +208,11 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return self.model.predict(inputs)
 
     def train(
-            self,
-            inputs: np.ndarray,
-            targets: np.ndarray,
-            stdout: Optional[List[List[str]]] = None,
-            **kwargs
+        self,
+        inputs: np.ndarray,
+        targets: np.ndarray,
+        stdout: Optional[List[List[str]]] = None,
+        **kwargs,
     ) -> None:
         """Trains scikit learn model and internally computes gradients
 
@@ -236,7 +232,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         for idx in range(batch_size):
             # Compute updated weights based on the sample. Capture loss prints.
             with capture_stdout() as console:
-                self.model.partial_fit(inputs[idx:idx + 1], targets[idx])
+                self.model.partial_fit(inputs[idx : idx + 1], targets[idx])
             if stdout is not None:
                 stdout.append(console)
             # Accumulate updated weights (weights + sum of gradients).
@@ -249,8 +245,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         # Note: w_init: {w_t}, w_updt: {w_t - eta_t sum_{s=1}^B(grad_s)}
         #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
         self._gradients = {
-            key: w_init[key] - (w_updt[key] / batch_size)
-            for key in self.param_list
+            key: w_init[key] - (w_updt[key] / batch_size) for key in self.param_list
         }
         # When using a declearn Optimizer, negate the learning rate.
         if self._is_declearn_optim:
@@ -261,8 +256,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self.model.n_iter_ += 1
 
     def get_gradients(
-            self,
-            as_vector: bool = False,
+        self,
+        as_vector: bool = False,
     ) -> Union[Dict[str, np.ndarray], NumpyVector]:
         """Gets computed gradients
 
@@ -275,7 +270,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         Returns:
             Gradients, as a dictionary mapping parameters' names to their gradient's
                 numpy array, or as a declearn NumpyVector wrapping such a dict.
-         """
+        """
         if self._gradients is None:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Cannot get gradients if model has not been trained beforehand!"
@@ -398,8 +393,8 @@ class SGDRegressorSKLearnModel(SGDSkLearnModel):
     def set_init_params(self, model_args: Dict[str, Any]):
         """Initialize the model's trainable parameters."""
         init_params = {
-            'intercept_': np.array([0.]),
-            'coef_': np.array([0.] * model_args['n_features'])
+            "intercept_": np.array([0.0]),
+            "coef_": np.array([0.0] * model_args["n_features"]),
         }
         self.param_list = list(init_params)
         for key, val in init_params.items():
@@ -419,12 +414,12 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
         if n_classes == 2:
             init_params = {
                 "intercept_": np.zeros((1,)),
-                "coef_": np.zeros((1, model_args["n_features"]))
+                "coef_": np.zeros((1, model_args["n_features"])),
             }
         else:
             init_params = {
                 "intercept_": np.zeros((n_classes,)),
-                "coef_": np.zeros((n_classes, model_args["n_features"]))
+                "coef_": np.zeros((n_classes, model_args["n_features"])),
             }
         # Assign these initialization parameters and retain their names.
         self.param_list = list(init_params)
@@ -451,7 +446,7 @@ class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of 
 
 SKLEARN_MODELS = {
     SGDClassifier.__name__: SGDClassifierSKLearnModel,
-    SGDRegressor.__name__: SGDRegressorSKLearnModel
+    SGDRegressor.__name__: SGDRegressorSKLearnModel,
 }
 
 
@@ -474,6 +469,7 @@ class SkLearnModel:
     Attributes:
         _instance: instance of BaseSkLearnModel
     """
+
     _instance: BaseSkLearnModel
 
     def __init__(self, model: Type[BaseEstimator]):
@@ -521,7 +517,7 @@ class SkLearnModel:
                 f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}"
             ) from exc
 
-    def __deepcopy__(self, memo: Dict) -> 'SkLearnModel':
+    def __deepcopy__(self, memo: Dict) -> "SkLearnModel":
         """Provides a deepcopy of the object.
 
         Copied object will have no shared references with the original model.
