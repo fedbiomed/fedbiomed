@@ -165,6 +165,7 @@ class VEParameters:
     TARGET_RANGE: int = 10000
     KEY_SIZE: int = 2048
 
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 

@@ -52,8 +52,8 @@ class VES:
 
         """
 
-        self._ptsize = ptsize
-        self._valuesize = valuesize
+        self._ptsize: int = ptsize
+        self._valuesize: int = valuesize
 
     def _get_elements_size_and_compression_ratio(
             self,
@@ -155,189 +155,6 @@ class VES:
         return V
 
 
-class EncryptedNumber(object):
-    """An encrypted number by one of the user keys .
-
-    Attributes:
-        param: The public parameters
-        ciphertext: The integer value of the ciphertext
-    """
-
-    def __init__(self, param, ciphertext):
-        """
-
-        Args:
-            param: The public parameters.
-            ciphertext: The integer value of the ciphertext
-
-        """
-        self.public_param = param
-        self.ciphertext = ciphertext
-
-    def __add__(
-            self,
-            other: Union['EncryptedNumber', mpz]
-    ) -> 'EncryptedNumber':
-
-        """Adds given value to self
-
-        Args:
-
-        Returns:
-
-        """
-        if isinstance(other, EncryptedNumber):
-            return self._add_encrypted(other)
-        if isinstance(other, mpz):
-            e = EncryptedNumber(self.public_param, other)
-            return self._add_encrypted(e)
-
-    def __iadd__(self, other):
-        return self.__add__(other)
-
-    def __radd__(self, value: Union['EncryptedNumber', mpz]):
-        """Allows summing parameters using built-in `sum` method
-
-        Args:
-            value: Value to add. It can be an instance of `mpz` or EncryptedNumber
-        """
-        if value == 0:
-            return self
-        else:
-            return self.__add__(value)
-
-    def __repr__(self):
-        """Encrypted number representation """
-
-        estr = self.ciphertext.digits()
-        return "<EncryptedNumber {}...{}>".format(estr[:5], estr[-5:])
-
-    def _add_encrypted(self, other: Union['EncryptedNumber', mpz]) -> 'EncryptedNumber':
-        """Base add operation for single encrypted integer
-
-        Args:
-            other: Value to be added
-
-        Returns:
-            Sum of self and other
-        """
-
-        if self.public_param != other.public_param:
-            raise ValueError(
-                "Attempted to add numbers encrypted against " "different parameters!"
-            )
-
-        return EncryptedNumber(
-            self.public_param, self.ciphertext * other.ciphertext % self.public_param.n_square
-        )
-
-
-class JoyeLibert:
-    """The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms:
-    `Protect`, and `Agg`.
-
-    Attributes:
-        _vector_encoder: The vector encoding/decoding scheme
-
-    """
-
-    def __init__(self):
-        """Constructs the class"""
-
-        self._vector_encoder = VES(
-            ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=ceil(log2(VEParameters.TARGET_RANGE))
-        )
-
-    def protect(self,
-                public_param,
-                sk_u,
-                tau,
-                x_u_tau,
-                n_users,
-                ) -> List[EncryptedNumber]:
-        """ Protect user input with the user's secret key:
-
-        \\(y_{u,\\tau} \\gets \\textbf{JL.Protect}(public_param,sk_u,\\tau,x_{u,\\tau})\\)
-
-        This algorithm encrypts private inputs
-        \\(x_{u,\\tau} \\in \\mathbb{Z}_N\\) for time period \\(\\tau\\)
-        using secret key \\(sk_u \\in \\mathbb{Z}_N^2\\) . It outputs cipher \\(y_{u,\\tau}\\) such that:
-
-        $$y_{u,\\tau} = (1 + x_{u,\\tau} N) H(\\tau)^{sk_u} \\mod N^2$$
-
-        Args:
-            public_param: The public parameters \\(public_param\\)
-            sk_u: The user's secret key \\(sk_u\\)
-            tau: The time period \\(\\tau\\)
-            x_u_tau: The user's input \\(x_{u,\\tau}\\)
-            n_users: Number of nodes/users that participates secure aggregation
-
-        Returns:
-                The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
-        """
-        if not isinstance(sk_u, UserKey):
-            raise TypeError(f"Expected key for encryption type is UserKey. but got {type(sk_u)}")
-
-        if sk_u.public_param != public_param:
-            raise ValueError("Bad public parameter. The public parameter of user key does not match the "
-                             "one given for encryption")
-
-        if not isinstance(x_u_tau, list):
-            raise TypeError(f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
-                            f"got {type(x_u_tau)}")
-
-        x_u_tau = self._vector_encoder.encode(
-            V=x_u_tau,
-            add_ops=n_users
-        )
-        return sk_u.encrypt(x_u_tau, tau)
-
-    def aggregate(
-            self,
-            sk_0,
-            tau,
-            list_y_u_tau
-    ) -> List[int]:
-        """Aggregates users protected inputs with the server's secret key
-
-
-        \\(X_{\\tau} \\gets \\textbf{JL.Agg}(public_param, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
-
-        This algorithm aggregates the \\(n\\) ciphers received at time period \\(\\tau\\) to obtain
-        \\(y_{\\tau} = \\prod_1^n{y_{u,\\tau}}\\) and decrypts the result.
-        It obtains the sum of the private inputs ( \\( X_{\\tau} = \\sum_{1}^n{x_{u,\\tau}} \\) )
-        as follows:
-
-        $$V_{\\tau} = H(\\tau)^{sk_0} \\cdot y_{\\tau} \\qquad \\qquad X_{\\tau} = \\frac{V_{\\tau}-1}{N} \\mod N$$
-
-        Args:
-            sk_0: The server's secret key \\(sk_0\\)
-            tau: The time period \\(\\tau\\)
-            list_y_u_tau: A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
-
-        Returns:
-            The sum of the users' inputs of type `int`
-        """
-
-        if not isinstance(sk_0, ServerKey):
-            raise ValueError("Key must be an instance of `ServerKey`")
-
-        if not isinstance(list_y_u_tau, list) or not list_y_u_tau:
-            raise ValueError("list_y_u_tau should be a non-empty list.")
-
-        if not isinstance(list_y_u_tau[0], list):
-            raise ValueError("list_y_u_tau should be a list that contains list of encrypted numbers")
-
-        n_user = len(list_y_u_tau)
-
-        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
-
-        decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
-
-        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
-
-
 class PublicParam:
     """The public parameters for Joye-Libert Scheme.
 
@@ -358,7 +175,7 @@ class PublicParam:
 
     def __init__(
             self,
-            n_modulus: gmpy2.mpz,
+            n_modulus: mpz,
             bits: int,
             hashing_function: Callable
     ) -> None:
@@ -432,6 +249,88 @@ class PublicParam:
         return "<PublicParam (N={}...{}, H(x)={})>".format(n_str[:5], n_str[-5:], hashcode[:10])
 
 
+class EncryptedNumber(object):
+    """An encrypted number by one of the user keys .
+
+    Attributes:
+        param: The public parameters
+        ciphertext: The integer value of the ciphertext
+    """
+
+    def __init__(self, param: PublicParam, ciphertext: int):
+        """
+
+        Args:
+            param: The public parameters.
+            ciphertext: The integer value of the ciphertext
+
+        """
+        self.public_param = param
+        self.ciphertext = mpz(ciphertext)
+
+    def __add__(
+            self,
+            other: 'EncryptedNumber'
+    ) -> 'EncryptedNumber':
+
+        """Adds given value to self
+
+        Args:
+
+        Returns:
+
+        """
+
+        if not isinstance(other, EncryptedNumber):
+            raise TypeError(f"Encrypted number can be only summed with another Encrypted num."
+                             f"Can not sum Encrypted number with type {type(other)}")
+
+        return self._add_encrypted(other)
+
+    def __iadd__(self, other):
+        return self.__add__(other)
+
+    def __radd__(self, other: Union['EncryptedNumber', int]):
+        """Allows summing parameters using built-in `sum` method
+
+        Args:
+            other: Value to add. It should be an instance EncryptedNumber
+        """
+        if other == 0:
+            return self
+        else:
+            return self.__add__(other)
+
+    def __repr__(self):
+        """Encrypted number representation """
+
+        repr = self.ciphertext.digits()
+        return "<EncryptedNumber {}...{}>".format(repr[:5], repr[-5:])
+
+    def _add_encrypted(
+            self,
+            other: 'EncryptedNumber'
+    ) -> 'EncryptedNumber':
+        """Base add operation for single encrypted integer
+
+        Args:
+            other: Value to be added
+
+        Returns:
+            Sum of self and other
+        """
+
+        if self.public_param != other.public_param:
+            raise ValueError(
+                "Attempted to add numbers encrypted against " "different parameters!"
+            )
+
+        return EncryptedNumber(
+            self.public_param,
+            self.ciphertext * other.ciphertext % self.public_param.n_square
+        )
+
+
 class BaseKey:
     """A base key class for Joye-Libert Scheme.
 
@@ -441,7 +340,7 @@ class BaseKey:
 
     """
 
-    def __init__(self, param: PublicParam, key: int):
+    def __init__(self, public_param: PublicParam, key: int):
         """Constructs base key object
         Args:
             param: The public parameters
@@ -451,7 +350,7 @@ class BaseKey:
         if not isinstance(key, int):
             raise TypeError("The key should be type of integer")
 
-        self._public_param = param
+        self._public_param = public_param
         self._key = mpz(key)
 
     @property
@@ -461,6 +360,17 @@ class BaseKey:
         """Return public parameter of the key"""
         return self._public_param
 
+    @property
+    def key(
+            self
+    ) -> mpz:
+        """Gets the key.
+
+        Returns:
+            The user or server key
+        """
+        return self._key
+
     def __repr__(self):
         """Representation of ServerKey object"""
         hashcode = hex(hash(self))
@@ -468,7 +378,7 @@ class BaseKey:
 
     def __eq__(
             self,
-            other: 'ServerKey'
+            other: Union['BaseKey', 'ServerKey', 'Userkey']
     ) -> bool:
         """Check equality of public parameters
 
@@ -478,7 +388,10 @@ class BaseKey:
         Returns:
             True if both ServerKey uses same public params. False for vice versa.
         """
-        return self._public_param == other.public_param and self._key == other.s
+        if not isinstance(other, type(self)):
+            raise TypeError(f"The key can not be compared with type {type(other)}")
+
+        return self._public_param == other.public_param and self._key == other.key
 
     def __hash__(self) -> str:
         """Hash of server key"""
@@ -513,15 +426,15 @@ class UserKey(BaseKey):
 
     def encrypt(
             self,
-            plaintext: List[gmpy2.mpz],
+            plaintext: List[mpz],
             tau: int
-    ):
+    ) -> List[mpz]:
         """Encrypts a plaintext  for time period tau
 
         Args:
             plaintext: The plaintext/value to encrypt
             tau:  The time period
-           
+
 
         Returns:
             A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber` or list of
@@ -544,28 +457,6 @@ class UserKey(BaseKey):
 
         # Convert np array to list
         return cipher.tolist()
-
-    # TODO: remove old implementation
-    def _encrypt(
-            self,
-            plaintext: gmpy2.mpz,
-            tau: int
-    ) -> EncryptedNumber:
-        """Encrypts given single plaintext as int
-
-        Args:
-            plaintext: The plaintext/value to encrypt
-            tau:  The time period
-
-        Returns:
-            A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber`
-
-        """
-        nude_ciphertext = (self._public_param.n_modulus * plaintext + 1) % self._public_param.n_square
-        r = powmod(self._public_param.hashing_function(tau), self._key, self._public_param.n_square)
-        ciphertext = (nude_ciphertext * r) % self._public_param.n_square
-
-        return EncryptedNumber(self._public_param, ciphertext)
 
 
 class ServerKey(BaseKey):
@@ -615,7 +506,7 @@ class ServerKey(BaseKey):
         taus = self._populate_tau(tau=tau, len_=len(ciphertext))
 
         powmod_ = np.vectorize(powmod, otypes=[mpz])
-        mod = powmod_(taus,  delta ** 2 * self._key, self._public_param.n_square)
+        mod = powmod_(taus, delta ** 2 * self._key, self._public_param.n_square)
 
         v = (ciphertext * mod) % self._public_param.n_square
         x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
@@ -626,54 +517,114 @@ class ServerKey(BaseKey):
 
         pt = [int(pt) for pt in x]
 
-        # TODO: Remove old implementation
-        # pt = [self._decrypt(c, (i << self._public_param.bits // 2) | tau, delta)
-        #           for i, c in enumerate(cipher)]
-
         return pt
 
-    # TODO: remove old implementation
-    def _decrypt(
-            self,
-            cipher: EncryptedNumber,
-            tau: int,
-            delta=1
-    ) -> int:
-        """Decrypts given single encrypted number using server key
+
+class JoyeLibert:
+    """The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms:
+    `Protect`, and `Agg`.
+
+    Attributes:
+        _vector_encoder: The vector encoding/decoding scheme
+
+    """
+
+    def __init__(self):
+        """Constructs the class"""
+
+        self._vector_encoder = VES(
+            ptsize=VEParameters.KEY_SIZE // 2,
+            valuesize=ceil(log2(VEParameters.TARGET_RANGE))
+        )
+
+    def protect(self,
+                public_param: PublicParam,
+                user_key: UserKey,
+                tau: int,
+                x_u_tau: List[int],
+                n_users: int,
+                ) -> List[mpz]:
+        """ Protect user input with the user's secret key:
+
+        \\(y_{u,\\tau} \\gets \\textbf{JL.Protect}(public_param,sk_u,\\tau,x_{u,\\tau})\\)
+
+        This algorithm encrypts private inputs
+        \\(x_{u,\\tau} \\in \\mathbb{Z}_N\\) for time period \\(\\tau\\)
+        using secret key \\(sk_u \\in \\mathbb{Z}_N^2\\) . It outputs cipher \\(y_{u,\\tau}\\) such that:
+
+        $$y_{u,\\tau} = (1 + x_{u,\\tau} N) H(\\tau)^{sk_u} \\mod N^2$$
 
         Args:
-            cipher:  An aggregated ciphertext, with weighted averaging or not
-            tau: The time period, (training round)
-            delta: ...
+            public_param: The public parameters \\(public_param\\)
+            user_key: The user's secret key \\(sk_u\\)
+            tau: The time period \\(\\tau\\)
+            x_u_tau: The user's input \\(x_{u,\\tau}\\)
+            n_users: Number of nodes/users that participates secure aggregation
 
         Returns:
-            Decrypted sum of user inputs of type `int`
+                The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
         """
-        if not isinstance(cipher, EncryptedNumber):
-            raise TypeError("Expected encrypted number type but got: %s" % type(cipher))
+        if not isinstance(user_key, UserKey):
+            raise TypeError(f"Expected key for encryption type is UserKey. but got {type(user_key)}")
 
-        if self._public_param != cipher.public_param:
-            raise ValueError(
-                "encrypted_number was encrypted against a " "different key!"
-            )
+        if user_key.public_param != public_param:
+            raise ValueError("Bad public parameter. The public parameter of user key does not match the "
+                             "one given for encryption")
 
-        cipher_text = cipher.ciphertext
+        if not isinstance(x_u_tau, list):
+            raise TypeError(f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
+                            f"got {type(x_u_tau)}")
 
-        if not isinstance(cipher_text, mpz):
-            raise TypeError(
-                "Expected mpz type ciphertext but got: %s" % type(cipher_text)
-            )
+        x_u_tau = self._vector_encoder.encode(
+            V=x_u_tau,
+            add_ops=n_users
+        )
 
-        v = (cipher_text *
-             powmod(self._public_param.hashing_function(tau),
-                    delta ** 2 * self._key,
-                    self._public_param.n_square
-                    )
-             ) % self._public_param.n_square
-        x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
-        x = (x * invert(delta ** 2, self._public_param.n_square)) % self._public_param.n_modulus
+        return user_key.encrypt(x_u_tau, tau)
 
-        return int(x)
+    def aggregate(
+            self,
+            sk_0: ServerKey,
+            tau: int,
+            list_y_u_tau: List[List[EncryptedNumber]]
+    ) -> List[int]:
+        """Aggregates users protected inputs with the server's secret key
+
+
+        \\(X_{\\tau} \\gets \\textbf{JL.Agg}(public_param, sk_0,\\tau, \\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}})\\)
+
+        This algorithm aggregates the \\(n\\) ciphers received at time period \\(\\tau\\) to obtain
+        \\(y_{\\tau} = \\prod_1^n{y_{u,\\tau}}\\) and decrypts the result.
+        It obtains the sum of the private inputs ( \\( X_{\\tau} = \\sum_{1}^n{x_{u,\\tau}} \\) )
+        as follows:
+
+        $$V_{\\tau} = H(\\tau)^{sk_0} \\cdot y_{\\tau} \\qquad \\qquad X_{\\tau} = \\frac{V_{\\tau}-1}{N} \\mod N$$
+
+        Args:
+            sk_0: The server's secret key \\(sk_0\\)
+            tau: The time period \\(\\tau\\)
+            list_y_u_tau: A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
+
+        Returns:
+            The sum of the users' inputs of type `int`
+        """
+
+        if not isinstance(sk_0, ServerKey):
+            raise ValueError("Key must be an instance of `ServerKey`")
+
+        if not isinstance(list_y_u_tau, list) or not list_y_u_tau:
+            raise ValueError("list_y_u_tau should be a non-empty list.")
+
+        if not isinstance(list_y_u_tau[0], list):
+            raise ValueError("list_y_u_tau should be a list that contains list of encrypted numbers")
+
+        n_user = len(list_y_u_tau)
+
+        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
+
+        decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
+
+        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
 
 
 class FDH:
@@ -685,7 +636,7 @@ class FDH:
     def __init__(
             self,
             bits_size: int,
-            n_modulus: gmpy2.mpz
+            n_modulus: mpz
     ) -> None:
         """Constructs FDH.
 
@@ -697,7 +648,7 @@ class FDH:
         if not isinstance(bits_size, int):
             raise TypeError(f"Bits size should be an integer not {type(bits_size)}")
 
-        if not isinstance(n_modulus, gmpy2.mpz):
+        if not isinstance(n_modulus, mpz):
             raise TypeError(f"n_modules should be of type `gmpy2.mpz` not {type(n_modulus)}")
 
         self.bits_size = bits_size
@@ -706,7 +657,7 @@ class FDH:
     def H(
             self,
             t: int
-    ) -> gmpy2.mpz:
+    ) -> mpz:
         """Computes the FDH using SHA256.
 
         !!! infor "Computation"

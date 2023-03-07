@@ -31,7 +31,7 @@ class Aggregator:
 
     def secure_aggregation(
             self,
-            params: List[int],
+            params: List[List[int]],
             aggregation_round: int,
             total_sample_size: int,
             training_plan: BaseTrainingPlan

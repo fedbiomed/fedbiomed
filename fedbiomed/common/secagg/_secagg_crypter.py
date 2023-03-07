@@ -105,9 +105,9 @@ class SecaggCrypter:
 
         try:
             # Encrypt parameters
-            encrypted_params: List[EncryptedNumber] = self._jls.protect(
+            encrypted_params: List[mpz] = self._jls.protect(
                 public_param=public_param,
-                sk_u=key,
+                user_key=key,
                 tau=current_round,
                 x_u_tau=params,
                 n_users=num_nodes
