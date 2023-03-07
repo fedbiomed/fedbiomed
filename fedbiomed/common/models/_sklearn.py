@@ -68,7 +68,7 @@ class BaseSkLearnModel(Model):
     param_list: List[str]
     _gradients: Dict[str, np.ndarray]
     updates: Dict[str, np.ndarray]  # replace `grads` from th poc
-    gradients_computation: Callable[[Union[Dict[str, np.ndarray], NumpyVector,Dict[str, np.ndarray]]]] = NotImplemented
+    #gradients_computation: Callable[[Union[Dict[str, np.ndarray], NumpyVector,Dict[str, np.ndarray]]]] = NotImplemented
     def __init__(
             self,
             model: BaseEstimator,
@@ -97,7 +97,7 @@ class BaseSkLearnModel(Model):
 
         self.param_list = None
         self.updates = None
-        self.param = None
+        self.init_param = None
 
         # FIXME: should we force model verbosity here?
         # if hasattr(model, "verbose"):
@@ -123,10 +123,10 @@ class BaseSkLearnModel(Model):
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` is not defined: please define it beforehand")\
 
         # call it `param_init` so to be consistent with SklearnModel
-        self.param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in
+        self.init_param: Dict[str, np.ndarray] = {k: getattr(self.model, k) for k in
                                              self.param_list}
 
-        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
+        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.init_param.items()}
 
         self._batch_size = 0
 
@@ -265,10 +265,10 @@ class BaseSkLearnModel(Model):
                 f"{ErrorNumbers.FB622.value}. Training has not been initialized: please run "
                 f"`init_training` method beforehand"
             )
-        self._batch_size: int = 0  # batch size counter
+        self._batch_size: int = inputs.shape[0] # batch size counter
 
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
-        for idx in range(inputs.shape[0]):
+        for idx in range(self._batch_size):
             # Compute updated weights based on the sample. Capture loss prints.
             with capture_stdout() as console:
                 self.model.partial_fit(inputs[idx:idx + 1], targets[idx])
@@ -278,19 +278,20 @@ class BaseSkLearnModel(Model):
                 # Accumulate updated weights (weights + sum of gradients).
                 # Reset the model's weights and iteration counter.
                 self.updates[key] += getattr(self.model, key)
-                setattr(self.model, key, self.param[key])  # resetting parameter to initial values
+                setattr(self.model, key, self.init_param[key])  # resetting parameter to initial values
 
             self.model.n_iter_ -= 1
-            self._batch_size += 1
 
     
         # compute gradients
-        w = self.get_weights()
+
         self._gradients: Dict[str, np.ndarray] = {}
+        lrate = self.get_learning_rate()[0]
+        self._gradients = {
+            key: (self.param[key] - (self.updates[key] / self._batch_size)) / lrate for key in self.param_list
+        }
         
-        if self.gradients_computation is NotImplemented:
-            raise FedbiomedModelError("Error, `gradient_computation` method is not implemented")
-        self.gradients_computation(w, self._gradients)
+
         # if self._is_declearn_optim:
         #     adjust = self._batch_size * self.get_learning_rate()[0]
 
@@ -303,18 +304,18 @@ class BaseSkLearnModel(Model):
         self.model.n_iter_ += 1
 
         # resetting updates
-        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.param.items()}
+        self.updates: Dict[str, np.ndarray] = {k: np.zeros_like(v) for k, v in self.init_param.items()}
 
-    def _native_gradients_computation(self, weights, gradients):
-        adjust = self._batch_size * self.get_learning_rate()[0]
+    # def _native_gradients_computation(self, weights, gradients):
+    #     adjust = self._batch_size * self.get_learning_rate()[0]
 
-        for key in self.param_list:
-            gradients[key] = (weights[key] * (1 - adjust) - self.updates[key]) / adjust
+    #     for key in self.param_list:
+    #         gradients[key] = (weights[key] * (1 - adjust) - self.updates[key]) / adjust
     
-    def _declearn_gradients_computation(self, weights, gradients):
-        # Compute the batch-averaged updated weights and apply them.
-        for key in self.param_list:
-            gradients[key] = self.updates[key] / self._batch_size - weights[key]
+    # def _declearn_gradients_computation(self, weights, gradients):
+    #     # Compute the batch-averaged updated weights and apply them.
+    #     for key in self.param_list:
+    #         gradients[key] = self.updates[key] / self._batch_size - weights[key]
 
     def get_gradients(
             self,

@@ -9,12 +9,10 @@ from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterato
 
 from copy import deepcopy
 
-import numpy as np
 from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, TorchOptimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.training_args import TrainingArgs
-import torch
-from torch import nn
-
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
@@ -23,6 +21,12 @@ from fedbiomed.common.privacy import DPController
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
+
+import torch
+from torch import nn
+from declearn.optimizer import Optimizer as DeclearnOptimizer
+import numpy as np
+
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
@@ -188,26 +192,26 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         return self._model.model_args
 
-    def get_learning_rate(self) -> List[float]:
-        """Gets learning rate from value set in optimizer.
+    # def get_learning_rate(self) -> List[float]:
+    #     """Gets learning rate from value set in optimizer.
 
-        !!! warning
-            This function gathers the base learning rate applied to the model weights,
-            including alterations due to any LR scheduler. However, it does not catch
-            any adaptive component, e.g. due to RMSProp, Adam or such.
+    #     !!! warning
+    #         This function gathers the base learning rate applied to the model weights,
+    #         including alterations due to any LR scheduler. However, it does not catch
+    #         any adaptive component, e.g. due to RMSProp, Adam or such.
 
-        Returns:
-            List[float]: list of single learning rate or multiple learning rates
-                (as many as the number of the layers contained in the model)
-        """
-        if self._optimizer is None:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call "
-                                             f"`init_optimizer beforehand")
-        learning_rates = []
-        params = self._optimizer.param_groups
-        for param in params:
-            learning_rates.append(param['lr'])
-        return learning_rates
+    #     Returns:
+    #         List[float]: list of single learning rate or multiple learning rates
+    #             (as many as the number of the layers contained in the model)
+    #     """
+    #     if self._optimizer is None:
+    #         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call "
+    #                                          f"`init_optimizer beforehand")
+    #     learning_rates = []
+    #     params = self._optimizer.param_groups
+    #     for param in params:
+    #         learning_rates.append(param['lr'])
+    #     return learning_rates
 
     def update_optimizer_args(self) -> Dict:
         """
@@ -223,7 +227,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         if self._optimizer_args is None:
             self._optimizer_args = {}
-        self._optimizer_args['lr'] = self.get_learning_rate()
+        if self.aggregator_name is not None and self.aggregator_name.lower() == "scaffold":
+            self._optimizer_args['lr'] = self._optimizer.get_learning_rate()
         return self._optimizer_args
 
     def get_model_params(self) -> OrderedDict:
@@ -292,19 +297,16 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._model = TorchModel(model)
         self._model.model_args = model_args
-        # Validate and fix model
-        self._model.model = self._dp_controller.validate_and_fix_model(self._model.model)
-
         # Validate model
-        if not isinstance(self.model(), nn.Module):
+        if not isinstance(self._model.model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
         if not init_optim_spec:
-            self._optimizer = self.init_optimizer()
+            optimizer = self.init_optimizer()
         elif len(init_optim_spec.keys()) == 1:
-            self._optimizer = self.init_optimizer(self._optimizer_args)
+            optimizer = self.init_optimizer(self._optimizer_args)
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
                                                                  method="init_optimizer",
@@ -312,8 +314,18 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                                  alternative="self.optimizer_args()"))
 
         # Validate optimizer
-        if not isinstance(self._optimizer, torch.optim.Optimizer):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
+        if isinstance(optimizer, torch.optim.Optimizer):
+            self._optimizer = TorchOptimizer(self._model, optimizer)
+        elif isinstance(optimizer, DeclearnOptimizer):
+            optimizer = Optimizer(optimizer)
+            self._optimizer = GenericOptimizer(self._model, optimizer)
+        else:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
+        # if not isinstance(self._optimizer, torch.optim.Optimizer):
+        #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
+        
+        # Validate and fix model
+        self._optimizer.model.model = self._dp_controller.validate_and_fix_model(self._optimizer.model.model)
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -420,13 +432,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
 
         #self.model().train()  # pytorch switch for training
-        self._model.init_training()
+        self._optimizer.init_training()
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
         # send all model to device, ensures having all the requested tensors
         self._set_device(self._use_gpu, node_args)
-        self._model.send_to_device(self._device)
+        self._optimizer.send_model_to_device(self._device)
 
         # Run preprocess when everything is ready before the training
         self._preprocess()
@@ -435,8 +447,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self._init_params = deepcopy(list(self.model().parameters()))
 
         # DP actions
-        self._model.model, self._optimizer, self.training_data_loader = \
-            self._dp_controller.before_training(self.model(), self._optimizer, self.training_data_loader)
+        self._optimizer, self.training_data_loader = \
+            self._dp_controller.before_training(self._optimizer, self.training_data_loader)
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -491,7 +503,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
                 # Handle dry run mode
                 if self._dry_run:
-                    self._model.to(self._device_init)
+                    self._optimizer.send_model_to_device(self._device_init)
                     torch.cuda.empty_cache()
                     return iterations_accountant.num_samples_observed_in_total
 
@@ -499,7 +511,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
 
-        self._model.send_to_device(self._device_init)
+        self._optimizer.send_model_to_device(self._device_init)
         torch.cuda.empty_cache()
 
         return iterations_accountant.num_samples_observed_in_total
@@ -584,30 +596,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         finally:
             self.model().train()  # restore training behaviors
 
-    # def predict(
-    #         self,
-    #         data: Any,
-    # ) -> np.ndarray:
-    #     """Return model predictions for a given batch of input features.
-
-    #     This method is called as part of `testing_routine`, to compute
-    #     predictions based on which evaluation metrics are computed. It
-    #     will however be skipped if a `testing_step` method is attached
-    #     to the training plan, than wraps together a custom routine to
-    #     compute an output metric directly from a (data, target) batch.
-
-    #     Args:
-    #         data: Array-like (or tensor) structure containing batched
-    #             input features.
-
-    #     Returns:
-    #         np.ndarray: Output predictions, converted to a numpy array
-    #             (as per the `fedbiomed.common.metrics.Metrics` specs).
-    #     """
-    #     with torch.no_grad():
-    #         pred = self._model(data)
-    #     return pred.numpy()
-
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
         """Save the torch training parameters from this training plan or from given `params` to a file
@@ -678,7 +666,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 params = self.postprocess(self.model().state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
-                                                 f"{e}")
+                                                 f"{e}") from e
 
         params = self._dp_controller.after_training(params)
         return params

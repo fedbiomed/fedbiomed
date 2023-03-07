@@ -4,6 +4,7 @@
 """Diffenrential Privacy controller."""
 
 from typing import Dict, Tuple, Union
+from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, TorchOptimizer
 
 from opacus import PrivacyEngine
 from opacus.data_loader import DPDataLoader
@@ -36,39 +37,34 @@ class DPController:
             self._configure_dp_args()
 
     def before_training(self,
-                        model: Module,
-                        optimizer: Optimizer,
-                        loader: DataLoader) -> Tuple[Module, Optimizer, DPDataLoader]:
+                        optimizer: TorchOptimizer,
+                        loader: DataLoader) -> Tuple[TorchOptimizer, DPDataLoader]:
         """DP action before starting training.
 
         Args:
-            model: Model that will be used for training
-            optimizer: Optimizer for training
+            optimizer: TorchOptimizer for training
             loader: Data loader for training
 
         Returns:
-            Differential privacy applies model, optimizer and data loader
+            Differential privacy applied Optimizer and data loader
         """
-        if not isinstance(model, Module):
-            raise FedbiomedDPControllerError(
-                f"{ErrorNumbers.FB616}: "
-                "Model must be an instance of torch.nn.Module"
-            )
-        if not isinstance(optimizer, Optimizer):
-            raise FedbiomedDPControllerError(
-                f"{ErrorNumbers.FB616}: "
-                "Optimizer must be an instance of torch.optim.Optimizer"
-            )
-        if not isinstance(loader, DataLoader):
-            raise FedbiomedDPControllerError(
-                f"{ErrorNumbers.FB616}: "
-                "Data loader must be an instance of torch.utils.data.DataLoader"
-            )
+
+
         if self._is_active:
+            if not isinstance(optimizer, TorchOptimizer):
+                raise FedbiomedDPControllerError(
+                    f"{ErrorNumbers.FB616.value}: "
+                    "Optimizer must be an instance of torch.optim.Optimizer"
+            )
+            if not isinstance(loader, DataLoader):
+                raise FedbiomedDPControllerError(
+                    f"{ErrorNumbers.FB616.value}: "
+                    "Data loader must be an instance of torch.utils.data.DataLoader"
+                )
             try:
-                model, optimizer, loader = self._privacy_engine.make_private(
-                    module=model,
-                    optimizer=optimizer,
+                optimizer.model, optimizer.optimizer, loader = self._privacy_engine.make_private(
+                    module=optimizer.model,
+                    optimizer=optimizer.optimizer,
                     data_loader=loader,
                     noise_multiplier=float(self._dp_args['sigma']),
                     max_grad_norm=float(self._dp_args['clip'])
@@ -78,7 +74,7 @@ class DPController:
                     f"{ErrorNumbers.FB616.value}: "
                     f"Error while running privacy engine: {e}"
                 )
-        return model, optimizer, loader
+        return optimizer, loader
 
     def after_training(self, params: Dict) -> Dict:
         """DP actions after the training.
