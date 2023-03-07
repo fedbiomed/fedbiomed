@@ -1,8 +1,10 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+"""'Model' abstract base class defining an API to interface framework-specific models."""
+
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Optional, Union, Type
+from typing import Any, ClassVar, Dict, Optional, Union, Type
 
 from declearn.model.api import Vector
 
@@ -20,7 +22,7 @@ class Model(metaclass=ABCMeta):
             arguments for building/using models. Defaults to None.
     """
 
-    _model_type: Type[Any]
+    _model_type: ClassVar[Type[Any]]
 
     def __init__(self, model: Any):
         """Constructor of Model abstract class

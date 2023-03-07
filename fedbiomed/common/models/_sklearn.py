@@ -1,19 +1,21 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
+"""Scikit-learn interfacing Model classes."""
 
-from abc import abstractmethod, ABC
+import sys
+from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 from io import StringIO
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
-import numpy as np
 import joblib
+import numpy as np
 from declearn.model.sklearn import NumpyVector
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
@@ -42,23 +44,31 @@ def capture_stdout() -> Iterator[List[str]]:
         output.extend(str_io.getvalue().splitlines())
 
 
-class BaseSkLearnModel(Model):
+class BaseSkLearnModel(Model, metaclass=ABCMeta):
     """
-    Wrapper of Scikit learn model. It implements all abstract methods from `Model`
+    Wrapper of Scikit learn models.
+
+    This class implements all abstract methods from the `Model` API, but adds some scikit-learn-specific ones
+    that need implementing by its children.
 
     Attributes:
         model: Wrapped model
+        _is_declearn_optim: Switch that allows the use of Declearn's optimizers
+        param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
+
+    Class attributes:
         default_lr_init: Default value for setting learning rate to the scikit learn model. Needed
             for computing gradients. Set with `set_learning_rate` setter
         default_lr: Default value for setting learning rate schedule to the scikit learn model. Needed for computing
             gradients. Set with `set_learning_rate` setter
-        _is_declearn_optim: Switch that allows the use of Declearn's optimizers
-        param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
+        is_classification: Boolean flag indicating whether the wrapped model is designed for classification
+            or for regression supervised-learning tasks.
     """
 
-    _model_type = BaseEstimator
-    default_lr_init: float = .1
-    default_lr: str = 'constant'
+    _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
+    default_lr_init: ClassVar[float] = .1
+    default_lr: ClassVar[str] = 'constant'
+    is_classification: ClassVar[bool]
 
     def __init__(
             self,
@@ -205,7 +215,7 @@ class BaseSkLearnModel(Model):
             self,
             inputs: np.ndarray,
             targets: np.ndarray,
-            stdout: Optional[List[str]] = None,
+            stdout: Optional[List[List[str]]] = None,
             **kwargs
     ) -> None:
         """Trains scikit learn model and internally computes gradients
@@ -291,8 +301,7 @@ class BaseSkLearnModel(Model):
         """
         if value is not None:
             return self.model.get_params(value)
-        else:
-            return self.model.get_params()
+        return self.model.get_params()
 
     def set_params(self, **params: Any) -> Dict[str, Any]:
         """Sets scikit learn model hyperparameters.
@@ -310,7 +319,7 @@ class BaseSkLearnModel(Model):
         self.model.set_params(**params)
         return params
 
-    def load(self, filename: str):
+    def load(self, filename: str) -> None:
         """Loads model from a file.
 
         Args:
@@ -321,7 +330,7 @@ class BaseSkLearnModel(Model):
             model = joblib.load(file)
         self.model = model
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """Saves model into a file.
 
         Args:
@@ -332,7 +341,7 @@ class BaseSkLearnModel(Model):
 
     # ---- abstraction for sklearn models
     @abstractmethod
-    def set_init_params(self, model_args: Dict, *args, **kwargs):
+    def set_init_params(self, model_args: Dict) -> None:
         """Zeroes scikit learn model parameters.
 
         Should be used before any training, as it sets the scikit learn model parameters
@@ -354,7 +363,7 @@ class BaseSkLearnModel(Model):
         """
 
     @abstractmethod
-    def disable_internal_optimizer(self):
+    def disable_internal_optimizer(self) -> None:
         """Abstract method to apply;
 
         Disables scikit learn internal optimizer by setting arbitrary learning rate parameters to the
@@ -366,11 +375,11 @@ class BaseSkLearnModel(Model):
         """
 
 
-# TODO: check for `self.model.n_iter += 1` and `self.model.n_iter -= 1` if it makes sense
-# TODO: agree on how to compute batch_size (needed for scaling): is the proposed method correct?
+class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
+    """BaseSkLearnModel abstract subclass for geenric SGD-based models."""
 
+    _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
 
-class SGDSkLearnModel(BaseSkLearnModel, ABC):
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
 
@@ -380,21 +389,11 @@ class SGDSkLearnModel(BaseSkLearnModel, ABC):
         self._is_declearn_optim = True
 
 
-class MLPSklearnModel(BaseSkLearnModel, ABC):  # just for sake of demo
-    def get_learning_rate(self) -> List[float]:
-        return [self.model.learning_rate_init]
-
-    def disable_internal_optimizer(self):
-        self.model.learning_rate_init = self.default_lr_init
-        self.model.learning_rate = self.default_lr
-        self._is_declearn_optim = True
-
-
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
-    """Toolbox class for Sklearn Regression models bsed on SGD
-    """
-    _is_classification: bool = False
-    _is_regression: bool = True
+    """BaseSkLearnModel subclass for SGDRegressor models."""
+
+    _model_type = SGDRegressor
+    is_classification = False
 
     def set_init_params(self, model_args: Dict[str, Any]):
         """Initialize the model's trainable parameters."""
@@ -408,10 +407,10 @@ class SGDRegressorSKLearnModel(SGDSkLearnModel):
 
 
 class SGDClassifierSKLearnModel(SGDSkLearnModel):
-    """Toolbox class for Sklearn Classifier models based on SGD
-    """
-    _is_classification: bool = True
-    _is_regression: bool = False
+    """BaseSkLearnModel subclass for SGDClassifier models."""
+
+    _model_type = SGDClassifier
+    is_classification = True
 
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
         """Initialize the model's trainable parameters."""
@@ -434,6 +433,26 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
         setattr(self.model, "classes_", np.arange(n_classes))
+
+
+class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of demo
+    """BaseSklearnModel abstract subclass for multi-layer perceptron models."""
+
+    _model_type: ClassVar[Union[Type[MLPClassifier], Type[MLPRegressor]]]
+
+    def get_learning_rate(self) -> List[float]:
+        return [self.model.learning_rate_init]
+
+    def disable_internal_optimizer(self):
+        self.model.learning_rate_init = self.default_lr_init
+        self.model.learning_rate = self.default_lr
+        self._is_declearn_optim = True
+
+
+SKLEARN_MODELS = {
+    SGDClassifier.__name__: SGDClassifierSKLearnModel,
+    SGDRegressor.__name__: SGDRegressorSKLearnModel
+}
 
 
 class SkLearnModel:
@@ -469,18 +488,22 @@ class SkLearnModel:
                 when passing an instantiated object instead of the class object (e.g. instance of
                 SGDClassifier() instead of SGDClassifier object)
         """
-        if hasattr(model, '__name__'):
-            try:
-                self._instance = Models[model.__name__](model())
-            except KeyError as ke:
-                raise FedbiomedModelError(
-                    f"{ErrorNumbers.FB622.value}. Error when building SkLearn Model: {model} "
-                    f"has not been implemented in Fed-BioMed. Details: {ke}") from ke
-        else:
+        if not isinstance(model, type):
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Cannot build SkLearn Model: Model {model} don't "
-                f"have a `__name__` attribute. Are you sure you have not passed a"
-                " sklearn object instance instead of the object class")
+                f"{ErrorNumbers.FB622.value}: 'SkLearnModel' received a '{type(model)}' instance as 'model' "
+                "input while it was expecting a scikit-learn BaseEstimator subclass constructor."
+            )
+        if not issubclass(model, BaseEstimator):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}: 'SkLearnModel' received a 'model' class that is not "
+                f"a scikit-learn BaseEstimator subclass: '{model}'."
+            )
+        if model.__name__ not in SKLEARN_MODELS:
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}: 'SkLearnModel' received '{model}' as 'model' class, "
+                f"support for which has not yet been implemented in Fed-BioMed."
+            )
+        self._instance = SKLEARN_MODELS[model.__name__](model())
 
     def __getattr__(self, item: str):
         """Wraps all functions/attributes of factory class members.
@@ -491,13 +514,12 @@ class SkLearnModel:
         Raises:
             FedbiomedModelError: If the attribute is not implemented
         """
-
         try:
             return self._instance.__getattribute__(item)
-        except AttributeError:
+        except AttributeError as exc:
             raise FedbiomedModelError(
                 f"Error in SKlearnModel Builder: {item} not an attribute of {self._instance}"
-            )
+            ) from exc
 
     def __deepcopy__(self, memo: Dict) -> 'SkLearnModel':
         """Provides a deepcopy of the object.
@@ -521,17 +543,9 @@ class SkLearnModel:
         Returns:
             Deep copied object.
         """
-
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, deepcopy(v, memo))
-
+        for key, val in self.__dict__.items():
+            setattr(result, key, deepcopy(val, memo))
         return result
-
-
-Models = {
-    SGDClassifier.__name__: SGDClassifierSKLearnModel,
-    SGDRegressor.__name__: SGDRegressorSKLearnModel
-}

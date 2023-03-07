@@ -15,7 +15,7 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.models import SkLearnModel, TorchModel
-from fedbiomed.common.models._sklearn import Models
+from fedbiomed.common.models._sklearn import SKLEARN_MODELS
 
 
 class TestDocumentationLinks(unittest.TestCase):
@@ -58,13 +58,13 @@ class TestSkLearnModelBuilder(unittest.TestCase):
     def test_sklearnbuilder_1_test_sklearn_builder(self):
         for sk_model in self.implemented_models:
             model = SkLearnModel(sk_model)
-            self.assertIsInstance(model._instance, Models[sk_model.__name__])
-            self.assertTrue(Models.get(sk_model.__name__, False))
+            self.assertIsInstance(model._instance, SKLEARN_MODELS[sk_model.__name__])
+            self.assertTrue(SKLEARN_MODELS.get(sk_model.__name__, False))
 
     def test_sklearnbuilder_2_test_sklearn_methods(self):
         # check that methods in implemented model also belong to the builder
         for model in self.implemented_models:
-            _fbm_models = Models[model.__name__]
+            _fbm_models = SKLEARN_MODELS[model.__name__]
             model_wrapper = SkLearnModel(model)
             for method in dir(_fbm_models):
                 self.assertTrue(hasattr(model_wrapper, str(method),))
@@ -179,7 +179,7 @@ class TestSkLearnModel(unittest.TestCase):
 
                 for _n_classes in self.n_classes:
 
-                    if model._is_classification:
+                    if model.is_classification:
                         targets = np.random.randint(0, _n_classes,(n_values, 1))
 
                     else:
@@ -208,7 +208,7 @@ class TestSkLearnModel(unittest.TestCase):
 
                 for _n_classes in self.n_classes:
 
-                    if model._is_classification:
+                    if model.is_classification:
                         targets = np.random.randint(0, _n_classes, (n_values, 1))
 
                     else:
@@ -310,7 +310,7 @@ class TestSklearnClassification(unittest.TestCase):
         for model in self.implemented_models:
             # binary classification
             sk_model = SkLearnModel(model)
-            self.assertTrue(sk_model._is_classification)
+            self.assertTrue(sk_model.is_classification)
             sk_model.set_init_params(model_args={'n_classes':2, 'n_features': 5})
             # Parameters all initialized to 0.
             for key in sk_model.param_list:
