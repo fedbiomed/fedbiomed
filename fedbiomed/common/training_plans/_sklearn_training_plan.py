@@ -9,7 +9,6 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from fedbiomed.common.models import SkLearnModel
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -20,6 +19,7 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import SkLearnModel
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -51,11 +51,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
         self._model = SkLearnModel(self._model_cls)
-        #self._model_args = {}  # type: Dict[str, Any]
         self._training_args = {}  # type: Dict[str, Any]
-        #self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-        #self._is_classification = False
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self.add_dependency([
@@ -86,7 +83,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         model_args.setdefault("verbose", 1)
         self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
-        
+
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
         # Add dependencies
@@ -99,7 +96,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
-        # TODO: raise error if 
+        # TODO: raise error if
         self._model.set_init_params(model_args)
 
     # @abstractmethod
@@ -270,12 +267,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._model._is_classification and not hasattr(self.model(), 'classes_'):
+        if self._model.is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._model._is_classification:
+            if self._model.is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
