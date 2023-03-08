@@ -276,7 +276,7 @@ class CommonCLI:
 
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
-    def _create_component_configuration(self, args):
+    def _create_component(self, args):
         """CLI Handler for creating configuration file and assets for given component
 
         TODO: This method doesn't yet concentrate all actions for creating configuration file for
