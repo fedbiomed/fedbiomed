@@ -5,25 +5,28 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
 import torch
-
-from collections import OrderedDict
-
 from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError, FedbiomedUserInputError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
-from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
+
+
+class PreProcessDict(TypedDict):
+    """Dict structure to specify a pre-processing transform."""
+
+    method: Callable[..., Any]
+    process_type: ProcessTypes
 
 
 class BaseTrainingPlan(metaclass=ABCMeta):
@@ -48,17 +51,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
     """
+
     _model: Model
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
-        self.pre_processes: Dict[
-            str, Dict[ProcessTypes, Union[str, Callable[..., Any]]]
-        ] = OrderedDict()
+        self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
-        self.global_model: Model = None
 
     @abstractmethod
     def post_init(
@@ -116,7 +118,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
-    def init_dependencies(self) -> List:
+    def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
 
         Returns:
@@ -128,13 +130,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
-                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
-
-        dependencies: Union[Tuple, List] = self.init_dependencies()
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                f"Unexpected arguments: {list(init_dep_spec.keys())}"
+            )
+        dependencies = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
+                "tuple of str, but got {type(dependencies)}"
+            )
         self.add_dependency(dependencies)
 
     def save_code(self, filepath: str) -> None:
@@ -149,24 +154,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         try:
             class_source = get_class_source(self.__class__)
-        except FedbiomedError as e:
-            msg = ErrorNumbers.FB605.value + \
-                  " : error while getting source of the model class - " + \
-                  str(e)
+        except FedbiomedError as exc:
+            msg = f"{ErrorNumbers.FB605.value}: error while getting source of the model class: {exc}"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         # Preparing content of the module
-        content = ""
-        for s in self._dependencies:
-            content += s + "\n"
-
+        content = "\n".join(self._dependencies)
         content += "\n"
         content += class_source
-
         try:
             # should we write it in binary (for the sake of space optimization)?
-            with open(filepath, "w") as file:
+            with open(filepath, "w", encoding="utf-8") as file:
                 file.write(content)
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
@@ -190,7 +189,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedbiomedTrainingPlanError: if called and not inherited
         """
-        msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
+        msg = f"{ErrorNumbers.FB303.value}: training_data must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -532,9 +531,3 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # case `data` is a torch.Tensor or a np.ndarray
             batch_size = len(data)
             return batch_size
-
-
-
-
-
-
