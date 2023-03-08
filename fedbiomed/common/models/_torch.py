@@ -3,7 +3,7 @@
 
 """Torch interfacing Model class."""
 
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, Tuple, Union
 
 import numpy as np
 import torch
@@ -28,7 +28,7 @@ class TorchModel(Model):
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiates the wrapper over a torch Module instance."""
         super().__init__(model)
-        self.init_params: Optional[Dict[str, torch.Tensor]] = None
+        self.init_params: Dict[str, torch.Tensor] = {}
 
     def get_gradients(
         self,
