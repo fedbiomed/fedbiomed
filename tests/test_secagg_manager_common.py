@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 import copy
 
+from fedbiomed.common.constants import BiprimeType 
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
@@ -126,7 +127,10 @@ class TestBaseSecaggManager(unittest.TestCase):
                 self.assertEqual(expected_entries, get_entries)
 
     def test_secagg_manager_04_get_remove_error_bad_input(self):
-        """Using `get()` and `remove()` methods from SecaggManager fails with exception error because of bad arguments"""
+        """Using `get()` and `remove()` methods from SecaggManager fails with exception error because of bad arguments
+        """
+        # 1. common to servkey and biprime
+
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
@@ -158,6 +162,27 @@ class TestBaseSecaggManager(unittest.TestCase):
                 # action + check
                 with self.assertRaises(FedbiomedSecaggError):
                     manager.remove('my_secagg_id', **kwargs)
+
+        # 2. specific remove test for biprime: can't remove default biprimes
+
+        # preparation
+        entries_list = [
+            [{}],
+            [{'type': BiprimeType.DEFAULT.value}],
+            [{'other': BiprimeType.DYNAMIC.value}],
+        ]
+
+        # action
+        for entries in entries_list:
+            # preparation (continued)
+            manager = SecaggBiprimeManager('/path/to/dummy/file')
+            # should not be accessing private variable, but got no getter + avoid writing a specific fake class
+            # for each test
+            manager._db.db_table.entries = entries
+
+            # action + check
+            with self.assertRaises(FedbiomedSecaggError):
+                manager.remove('my_secagg_id')
 
     def test_secagg_manager_05_get_error_table_access_error(self):
         """Using `get()` method from SecaggManager fails with exception error because of table access error"""
