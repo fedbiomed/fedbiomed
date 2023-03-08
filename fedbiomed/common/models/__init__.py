@@ -5,15 +5,20 @@
 The `fedbiomed.common.models` module includes model abstraction classes
 that can be used with plain framework specific models.
 
-declearn repository: https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1
+Please visit the [Declearn](https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1) repository for
+the "TorchVector" and "NumpyVector" classes used in this module.
 """
+
 from ._model import Model
-from ._sklearn import SkLearnModel, BaseSkLearnModel
+from ._sklearn import SkLearnModel, BaseSkLearnModel, MLPSklearnModel, SGDRegressorSKLearnModel, SGDClassifierSKLearnModel
 from ._torch import TorchModel
 
 __all__ = [
     "SkLearnModel",
     "TorchModel",
     "Model",
+    "SGDRegressorSKLearnModel",
+    "SGDClassifierSKLearnModel",
+    "MLPSklearnModel",
     "BaseSkLearnModel"
 ]
