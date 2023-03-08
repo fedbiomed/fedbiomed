@@ -56,7 +56,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         _is_declearn_optim: Switch that allows the use of Declearn's optimizers
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
 
-    Class attributes:
+    Attributes: Class attributes:
         default_lr_init: Default value for setting learning rate to the scikit learn model. Needed
             for computing gradients. Set with `set_learning_rate` setter
         default_lr: Default value for setting learning rate schedule to the scikit learn model. Needed for computing
@@ -66,6 +66,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     """
 
     _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
+    model: BaseEstimator  # merely for the docstring builder
     default_lr_init: ClassVar[float] = 0.1
     default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
@@ -374,6 +375,7 @@ class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
     """BaseSkLearnModel abstract subclass for geenric SGD-based models."""
 
     _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
+    model: Union[SGDClassifier, SGDRegressor]  # merely for the docstring builder
 
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
@@ -388,6 +390,7 @@ class SGDRegressorSKLearnModel(SGDSkLearnModel):
     """BaseSkLearnModel subclass for SGDRegressor models."""
 
     _model_type = SGDRegressor
+    model: SGDRegressor  # merely for the docstring builder
     is_classification = False
 
     def set_init_params(self, model_args: Dict[str, Any]):
@@ -405,6 +408,7 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
     """BaseSkLearnModel subclass for SGDClassifier models."""
 
     _model_type = SGDClassifier
+    model: SGDClassifier  # merely for the docstring builder
     is_classification = True
 
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
@@ -434,6 +438,7 @@ class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of 
     """BaseSklearnModel abstract subclass for multi-layer perceptron models."""
 
     _model_type: ClassVar[Union[Type[MLPClassifier], Type[MLPRegressor]]]
+    model: Union[MLPClassifier, MLPRegressor]  # merely for the docstring builder
 
     def get_learning_rate(self) -> List[float]:
         return [self.model.learning_rate_init]
@@ -470,8 +475,6 @@ class SkLearnModel:
         _instance: instance of BaseSkLearnModel
     """
 
-    _instance: BaseSkLearnModel
-
     def __init__(self, model: Type[BaseEstimator]):
         """Constructor of the model builder.
 
@@ -499,7 +502,7 @@ class SkLearnModel:
                 f"{ErrorNumbers.FB622.value}: 'SkLearnModel' received '{model}' as 'model' class, "
                 f"support for which has not yet been implemented in Fed-BioMed."
             )
-        self._instance = SKLEARN_MODELS[model.__name__](model())
+        self._instance: BaseSkLearnModel = SKLEARN_MODELS[model.__name__](model())
 
     def __getattr__(self, item: str):
         """Wraps all functions/attributes of factory class members.

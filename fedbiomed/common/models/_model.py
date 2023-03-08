@@ -37,7 +37,7 @@ class Model(metaclass=ABCMeta):
             )
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
-        self.model = model
+        self.model: Any = model
         self.model_args: Optional[Dict[str, Any]] = None
 
     @abstractmethod

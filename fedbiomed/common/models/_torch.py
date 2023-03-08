@@ -24,6 +24,7 @@ class TorchModel(Model):
     """
 
     _model_type = torch.nn.Module
+    model: torch.nn.Module  # merely for the docstring builder
 
     def __init__(self, model: torch.nn.Module) -> None:
         """Instantiates the wrapper over a torch Module instance."""
@@ -125,8 +126,8 @@ class TorchModel(Model):
             model_params: model parameters
 
         Raises:
-            FedbiomedModelError: raised if argument `model_params` type is neither
-            a TorchVector nor a dictionary
+            FedbiomedModelError: if argument `model_params` type is neither
+                a TorchVector nor a dictionary.
 
         Returns:
             Iterable[Tuple]: iterable containing model parameters, that returns layer name and its value
