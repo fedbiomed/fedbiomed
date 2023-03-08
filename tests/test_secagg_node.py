@@ -169,11 +169,11 @@ class TestSecaggServkey(SecaggTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
 
-    def test_secagg_servkey_setup_02_setup_server_key(self):
+    def test_secagg_servkey_setup_02_setup_specific(self):
         """Test setup operation for servkey"""
 
         with patch("builtins.open") as mock_open:
-            self.secagg_servkey._setup_server_key()
+            self.secagg_servkey._setup_specific()
 
             self.mock_cm.write_mpc_certificates_for_experiment.assert_called_once_with(
                 path_certificates='dummy/path/to/output',
@@ -195,7 +195,7 @@ class TestSecaggServkey(SecaggTestCase):
 
             mock_open.side_effect = Exception
             with self.assertRaises(FedbiomedSecaggError):
-                self.secagg_servkey._setup_server_key()
+                self.secagg_servkey._setup_specific()
 
     def test_secagg_servkey_setup_03_setup(self):
 
@@ -205,7 +205,7 @@ class TestSecaggServkey(SecaggTestCase):
             self.assertEqual(reply["success"], False)
 
         self.mock_skm.get.side_effect = None
-        self.mock_skm.get.return_value = "context"
+        self.mock_skm.get.return_value = {'parties': None}
         reply = self.secagg_servkey.setup()
         self.assertEqual(reply["success"], True)
 
@@ -214,7 +214,7 @@ class TestSecaggServkey(SecaggTestCase):
             reply = self.secagg_servkey.setup()
             self.assertEqual(reply["success"], True)
 
-        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_server_key") as mock_:
+        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_specific") as mock_:
 
             mock_.side_effect = Exception
             self.mock_skm.get.return_value = None
@@ -256,7 +256,7 @@ class TestSecaggBiprime(SecaggTestCase):
     def test_secagg_biprime_setup_02_setup(self):
         """Tests init """
 
-        self.mock_bpm.get.return_value = True
+        self.mock_bpm.get.return_value = {'parties': None}
         reply = self.secagg_bprime.setup()
         self.assertEqual(reply["success"], True)
 

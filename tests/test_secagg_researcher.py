@@ -290,11 +290,15 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
         super().tearDown()
         pass
 
+    @patch('random.randrange')
     @patch("time.sleep")
-    def test_biprime_context_01_payload(self, mock_time):
+    def test_biprime_context_01_payload(self, mock_time, mock_randrange):
 
+        dummy_random = '123456'
+        mock_randrange.return_value = dummy_random
         context, status = self.biprime_context._payload()
-        self.assertDictEqual(context, {'msg': 'Not implemented yet'})
+        # current test for dummy biprime generation
+        self.assertDictEqual(context, {'biprime': dummy_random, 'max_keybits': 0})
         self.assertTrue(status)
 
 

@@ -6,6 +6,7 @@
 import os
 from abc import ABC, abstractmethod
 from typing import Union, List, Dict
+import copy
 
 import json
 from tinydb import TinyDB, Query
@@ -280,6 +281,8 @@ class SecaggBiprimeManager(BaseSecaggManager):
         element = self._get_generic(secagg_id)
         # type is internal to this class, need not transmit to caller
         if isinstance(element, dict) and 'type' in element:
+            # `deepcopy` avoids  any risk of error related to database implementation
+            element = copy.deepcopy(element)
             del element['type']
 
         return element
