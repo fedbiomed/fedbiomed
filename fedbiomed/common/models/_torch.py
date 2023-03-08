@@ -85,6 +85,30 @@ class TorchModel(Model):
             return TorchVector(parameters)
         return parameters
 
+    def set_weights(
+        self,
+        weights: Union[Dict[str, torch.Tensor], TorchVector],
+    ) -> None:
+        """Sets model weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                torch tensor, or as a declearn TorchVector wrapping such a dict.
+        """
+        state_dict = dict(self._get_iterator_model_params(weights))
+        incompatible = self.model.load_state_dict(state_dict, strict=False)
+        if incompatible.missing_keys:
+            logger.warning(
+                "'TorchModel.set_weights' received inputs that did not cover all"
+                "model parameters; missing weights: %s",
+                incompatible.missing_keys
+            )
+        if incompatible.unexpected_keys:
+            logger.warning(
+                "'TorchModel.set_weights' received inputs with unexpected names: %s",
+                incompatible.unexpected_keys
+            )
+
     def apply_updates(
         self,
         updates: Union[TorchVector, Dict[str, torch.Tensor]],

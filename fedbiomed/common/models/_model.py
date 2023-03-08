@@ -4,7 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Optional, Union, Type
+from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar
 
 from declearn.model.api import Vector
 
@@ -13,7 +13,11 @@ from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
 
 
-class Model(metaclass=ABCMeta):
+DT = TypeVar("DT")
+VT = TypeVar("VT", bound=Vector)
+
+
+class Model(Generic[DT, VT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
@@ -81,7 +85,7 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
+    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, DT], VT]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -93,7 +97,16 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
+    def set_weights(self, weights: Union[Dict[str, DT], VT]) -> None:
+        """Assign new values to the model's trainable weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                value, or as a declearn Vector structure wrapping such a dict.
+        """
+
+    @abstractmethod
+    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], VT]:
         """Return computed gradients attached to the model.
 
         Args:

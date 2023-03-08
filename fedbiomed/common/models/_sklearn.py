@@ -67,6 +67,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
     model: BaseEstimator  # merely for the docstring builder
+    # Class attributes.
     default_lr_init: ClassVar[float] = 0.1
     default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
@@ -121,30 +122,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         """
         if isinstance(model_params, NumpyVector):
             return model_params.coefs.items()
-        elif isinstance(model_params, dict):
+        if isinstance(model_params, dict):
             return model_params.items()
-        else:
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
-                "while expecting a NumpyVector or a dict"
-            )
-
-    def set_weights(
-        self,
-        weights: Union[Dict[str, np.ndarray], NumpyVector],
-    ) -> BaseEstimator:
-        """Sets model weights.
-
-        Args:
-            weights: Model weights contained in a dictionary mapping layers names
-                to its model parameters (in numpy arrays)
-
-        Returns:
-            Model wrapped updated with incoming weights
-        """
-        for key, val in self._get_iterator_model_params(weights):
-            setattr(self.model, key, val.copy())
-        return self.model
+        raise FedbiomedModelError(
+            f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
+            "while expecting a NumpyVector or a dict"
+        )
 
     def get_weights(
         self,
@@ -186,6 +169,19 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         if as_vector:
             return NumpyVector(weights)
         return weights
+
+    def set_weights(
+        self,
+        weights: Union[Dict[str, np.ndarray], NumpyVector],
+    ) -> None:
+        """Assign new values to the model's trainable weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                numpy array, or as a declearn NumpyVector wrapping such a dict.
+        """
+        for key, val in self._get_iterator_model_params(weights):
+            setattr(self.model, key, val.copy())
 
     def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters.
