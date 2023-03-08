@@ -372,7 +372,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
-            for param, type in [(biprime['secagg_id'], str), (biprime['biprime'], int), (biprime['max_keybits'], int)]:
+            for param, type in [(biprime['secagg_id'], str), (biprime['biprime'], int), (biprime['max_keysize'], int)]:
                 try:
                     self._v.validate(param, type)
                 except ValidatorError as e:
@@ -445,7 +445,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
                         'type': BiprimeType.DEFAULT.value,
                         'context': {
                             'biprime': bp['biprime'],
-                            'max_keybits': bp['max_keybits']
+                            'max_keysize': bp['max_keysize']
                         },
                     },
                     self._query.secagg_id == bp['secagg_id']

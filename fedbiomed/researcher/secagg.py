@@ -572,7 +572,7 @@ class SecaggBiprimeContext(SecaggContext):
         time.sleep(3)
         context = {
             'biprime': str(random.randrange(10**12)),   # dummy biprime
-            'max_keybits': 0                            # prevent using the dummy biprime for real
+            'max_keysize': 0                            # prevent using the dummy biprime for real
         }
         logger.info('Not yet implemented, PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
 
