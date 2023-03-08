@@ -206,7 +206,7 @@ class SecaggContext(ABC):
                         ))):
                 logger.error(
                     f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
-                    f"but parties do not match: {context['parties']}")
+                    f"but parties do not match")
                 status = False
             else:
                 logger.debug(
