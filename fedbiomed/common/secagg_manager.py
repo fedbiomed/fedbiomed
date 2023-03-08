@@ -14,7 +14,13 @@ from tinydb import TinyDB, Query
 from fedbiomed.common.constants import ErrorNumbers, BiprimeType
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
+
+_DefaultBiprimeValidator = SchemeValidator({
+    'secagg_id': { "rules" : [str] , "required": True},
+    'biprime': { "rules" : [int] , "required": True},
+    'max_keysize': { "rules" : [int] , "required": True},
+})
 
 
 class BaseSecaggManager(ABC):
@@ -366,19 +372,11 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
             # Check default biprimes content
             try:
-                self._v.validate(biprime, dict)
+                _DefaultBiprimeValidator.validate(biprime)
             except ValidatorError as e:
                 errmess = f'{ErrorNumbers.FB623.value}: bad biprime format in file "{bp_file}": {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
-
-            for param, type in [(biprime['secagg_id'], str), (biprime['biprime'], int), (biprime['max_keysize'], int)]:
-                try:
-                    self._v.validate(param, type)
-                except ValidatorError as e:
-                    errmess = f'{ErrorNumbers.FB623.value}: bad biprime field in file "{bp_file}": {e}'
-                    logger.error(errmess)
-                    raise FedbiomedSecaggError(errmess)
 
             if not biprime['secagg_id']:
                 errmess = f'{ErrorNumbers.FB623.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
