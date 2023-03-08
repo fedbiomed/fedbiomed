@@ -427,14 +427,13 @@ class SecaggBiprimeManager(BaseSecaggManager):
         bp_current_ids = set(bp['secagg_id'] for bp in default_biprimes_current)
         bp_remove_ids = list(bp_current_ids - bp_new_ids)
 
-        for secagg_id in bp_remove_ids:
-            try:
-                self._table.remove(self._query.secagg_id == secagg_id)
-            except Exception as e:
-                errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
-                    f'obsolete default biprime {secagg_id}: {e}'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
+        try:
+            self._table.remove(self._query.secagg_id.one_of(bp_remove_ids))
+        except Exception as e:
+            errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
+                f'obsolete default biprimes {bp_remove_ids}: {e}'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
         # Save or update the new default biprimes
         for bp in default_biprimes_new:
