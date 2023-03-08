@@ -57,7 +57,7 @@ class TestCommonCLI(unittest.TestCase):
 
         self.assertEqual(self.cli._subparsers.choices["configuration"].
                          _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
-                         '_create_component_configuration')
+                         '_create_component')
 
     def test_06_common_cli_initialize_certificate_parser(self):
         self.cli.set_environ(
@@ -154,14 +154,14 @@ class TestCommonCLI(unittest.TestCase):
 
     @patch('fedbiomed.common.cli.SecaggBiprimeManager')
     @patch("builtins.print")
-    def test_06_common_cli_create_component_configuration(self, mock_print, mock_secagg_bp_manager):
+    def test_06_common_cli_create_component(self, mock_print, mock_secagg_bp_manager):
         mock_secagg_bp_manager = MagicMock(return_value=None)
         self.cli.set_environ({
             "ID": "test-id",
             "DB_PATH": '/a/dummy/path',
             "ALLOW_DEFAULT_BIPRIMES": True,
             "DEFAULT_BIPRIMES_DIR": '/not/existing/dir'})
-        self.cli._create_component_configuration({})
+        self.cli._create_component({})
         mock_print.assert_called()
 
     @patch("builtins.open")
