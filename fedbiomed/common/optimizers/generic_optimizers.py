@@ -1,8 +1,9 @@
 from abc import abstractmethod
-from typing import Callable, Dict, List, Type, Union
+from typing import Callable, Dict, List, Optional, Type, Union
 
 from fedbiomed.common. models import Model, SkLearnModel
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.optimizers.optimizer import Optimizer
 
 import declearn
@@ -52,13 +53,9 @@ class GenericOptimizer:
         pass
     def init_training(self):
         self.model.init_training()
-        
-    def send_model_to_device(self, device: torch.device):
-        self.model.send_to_device(device)
-        
-    def zero_grad(self):
-        # warning: specific for pytorch
-        self.model.model.zero_grad()
+
+    def train_model(self, inputs, target, stdout: Optional[List] = None):
+        self.model.train(inputs, target, stdout)
 
     @abstractmethod
     def step_native(selfs):
@@ -71,6 +68,17 @@ class GenericOptimizer:
 
 
 class TorchOptimizer(GenericOptimizer):
+    def zero_grad(self):
+        # warning: specific for pytorch
+        try:
+            self.model.model.zero_grad()
+        except AttributeError as err:
+            raise FedbiomedOptimizerError(f"Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?. Details {err}") from err
+    def send_model_to_device(self, device: torch.device):
+        # for pytorch specifically
+        self.model.send_to_device(device)
+
+class NativeTorchOptimizer(GenericOptimizer):
     def __init__(self, model, optimizer: torch.optim.Optimizer, return_type=None):
         if not isinstance(optimizer, torch.optim.Optimizer):
             raise FedbiomedOptimizerError(f"Error, expected a `torch.optim` optimizer, but got {type(optimizer)}")
@@ -83,7 +91,7 @@ class TorchOptimizer(GenericOptimizer):
         self.optimizer.zero_grad()
         
     def get_learning_rate(self) -> List[float]:
-        """Gets learning rate from value set in optimizer.
+        """Gets learning rate from value set in Pytorch optimizer.
 
         !!! warning
             This function gathers the base learning rate applied to the model weights,
@@ -99,6 +107,10 @@ class TorchOptimizer(GenericOptimizer):
         for param in params:
             learning_rates.append(param['lr'])
         return learning_rates
+
+    def send_model_to_device(self, device: torch.device):
+        # for pytorch specifically
+        self.model.send_to_device(device)
 
     def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> torch.float:
         loss += float(mu) / 2. * self.__norm_l2()
@@ -119,10 +131,20 @@ class TorchOptimizer(GenericOptimizer):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
     
-    
+
 class SkLearnOptimizer(GenericOptimizer):
+    def __init__(self, model: Model, optimizer: Union[Optimizer, None], return_type: Union[None, Callable] = None):
+        super().__init__(model, optimizer, return_type)
+        # self.model.disable_internal_optimizer()
+        # is_param_changed, param_changed = self.model.check_changed_optimizer_params()
+        # if is_param_changed:
+        #     msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
+        #     msg += param_changed
+        #     logger.warning(msg)
+        
+class NativeSkLearnOptimizer(GenericOptimizer):
     
-    def __init__(self, model: SkLearnModel, optimizer, return_type=None):
+    def __init__(self, model: SkLearnModel, optimizer=None, return_type=None):
         if not isinstance(model, SkLearnModel):
             raise FedbiomedOptimizerError(f"Error in model argument: expected a `SkLearnModel` object, but got {type(model)}")
         super().__init__(model, optimizer, return_type=None)
@@ -134,4 +156,6 @@ class SkLearnOptimizer(GenericOptimizer):
         gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
             
         self.model.apply_updates(gradients)
+    
+
 

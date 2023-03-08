@@ -288,7 +288,7 @@ class BaseSkLearnModel(Model):
         self._gradients: Dict[str, np.ndarray] = {}
         lrate = self.get_learning_rate()[0]
         self._gradients = {
-            key: (self.param[key] - (self.updates[key] / self._batch_size)) / lrate for key in self.param_list
+            key: (self.init_param[key] - (self.updates[key] / self._batch_size)) / lrate for key in self.param_list
         }
         
 
@@ -382,6 +382,19 @@ class BaseSkLearnModel(Model):
         self.model.set_params(**params)
         return params
 
+    def check_changed_optimizer_params(self, init_model_args: Dict, to_string: bool = True) -> Tuple[bool, Union[List[str], str]]:
+        new_params: Dict = self.get_params()
+        changed_params: Union[List, str] = []
+        for k, v in new_params.items():
+            _param = init_model_args.get(k)
+            if _param is not None and _param != v:
+                changed_params.append(k)
+        is_params_changed: bool = changed_params != []
+        
+        if to_string:
+            changed_params = "\n".join(p + ",\n" for p in changed_params)
+        return is_params_changed, changed_params
+        
     def load(self, filename: str):
         """Loads model from a file.
 

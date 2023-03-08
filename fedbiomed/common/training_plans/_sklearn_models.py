@@ -91,8 +91,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 history_monitor.add_scalar,
                 train=True,
             )
-            verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
-            self._model.set_params(verbose=1)
+            verbose = self._optimizer.model.get_params("verbose")  # force verbose = 1 to print losses
+            self._optimizer.model.set_params(verbose=1)
         # Iterate over epochs.
         for epoch in iterations_accountant.iterate_epochs():
             training_data_iter: Iterator = iter(self.training_data_loader)
@@ -131,7 +131,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                     )
         # Reset model verbosity to its initial value.
         if report:
-            self._model.set_params(verbose=verbose)
+            self._optimizer.model.set_params(verbose=verbose)
 
         return iterations_accountant.num_samples_observed_in_total
 
@@ -157,15 +157,13 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         # Gather start weights of the model and initialize zero gradients.
 
-        self._model.init_training()
+        self._optimizer.init_training()
         
         stdout = []  # type: List[List[str]]
 
-        self._model.train(inputs, target, stdout)
+        self._optimizer.train_model(inputs, target, stdout)
+        self._optimizer.step()
 
-        # TODO: update the following with Optimizer class
-        gradients: Dict[str, np.ndarray] = self._model.get_gradients()
-        self._model.apply_updates(gradients)
         # Optionally report the training loss over this batch.
         if report:
             try:
@@ -228,19 +226,6 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
         """Initialize the sklearn SGDRegressor training plan."""
         super().__init__()
 
-    # def set_init_params(self) -> None:
-    #     """Initialize the model's trainable parameters."""
-    #     init_params = {
-    #         'intercept_': np.array([0.]),
-    #         'coef_': np.array([0.] * self._model_args['n_features'])
-    #     }
-    #     self._param_list = list(init_params.keys())
-    #     for key, val in init_params.items():
-    #         setattr(self._model, key, val)
-
-    # def get_learning_rate(self) -> List[float]:
-    #     return self._model.eta0
-
 
 class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     """Fed-BioMed training plan for scikit-learn SGDClassifier models."""
@@ -254,31 +239,6 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     def __init__(self) -> None:
         """Initialize the sklearn SGDClassifier training plan."""
         super().__init__()
-
-    # def set_init_params(self) -> None:
-    #     """Initialize the model's trainable parameters."""
-    #     # Set up zero-valued start weights, for binary of multiclass classif.
-    #     n_classes = self._model_args["n_classes"]
-    #     if n_classes == 2:
-    #         init_params = {
-    #             "intercept_": np.zeros((1,)),
-    #             "coef_": np.zeros((1, self._model_args["n_features"]))
-    #         }
-    #     else:
-    #         init_params = {
-    #             "intercept_": np.zeros((n_classes,)),
-    #             "coef_": np.zeros((n_classes, self._model_args["n_features"]))
-    #         }
-    #     # Assign these initialization parameters and retain their names.
-    #     self._param_list = list(init_params.keys())
-    #     for key, val in init_params.items():
-    #         setattr(self._model, key, val)
-    #     # Also initialize the "classes_" slot with unique predictable labels.
-    #     # FIXME: this assumes target values are integers in range(n_classes).
-    #     setattr(self._model, "classes_", np.arange(n_classes))
-
-    # def get_learning_rate(self) -> List[float]:
-    #     return self._model.eta0
 
     def _parse_batch_loss(
             self,
@@ -317,6 +277,7 @@ class FedPerceptron(FedSGDClassifier):
     def __init__(self) -> None:
         """Class constructor."""
         super().__init__()
+        # here self._optimizer is None
         self._model.set_params(loss="perceptron")
 
     def post_init(

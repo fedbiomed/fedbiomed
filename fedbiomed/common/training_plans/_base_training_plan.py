@@ -8,6 +8,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer
 import torch
 
 from collections import OrderedDict
@@ -49,6 +50,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
     _model: Model
+    _optimizer: GenericOptimizer
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -213,6 +215,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
+
+    def init_optimizer(self):
+        """Abstract method for declaring optimizer by default """
+        raise FedbiomedTrainingPlanError("method not implemented")
 
     def optimizer_args(self) -> Dict:
         """Retrieves optimizer arguments (to be overridden
@@ -445,7 +451,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output = self._model.predict(data)
+                output = self._optimizer.model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
                 return metric_controller.evaluate(

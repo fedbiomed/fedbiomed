@@ -7,11 +7,10 @@ from abc import ABC, abstractmethod
 import functools
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
-from copy import deepcopy
 
 from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, TorchOptimizer
-from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, NativeTorchOptimizer, TorchOptimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -68,25 +67,25 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self.__type = TrainingPlans.TorchTrainingPlan
 
         # Differential privacy support
-        self._dp_controller = None
+        self._dp_controller: Optional[DPController] = None
 
-        self._optimizer = None
-        self._model = None
+        self._optimizer: Optional[GenericOptimizer] = None
+        self._model: Optional[TorchModel] = None
 
-        self._training_args = None
-        self._model_args = None
-        self._optimizer_args = None
-        self._use_gpu = False
+        self._training_args: Optional[dict] = None
+        self._model_args: Optional[dict] = None
+        self._optimizer_args: Optional[dict] = None
+        self._use_gpu: bool = False
 
-        self._batch_maxnum = 100
-        self._fedprox_mu = None
-        self._log_interval = 10
-        self._epochs = 1
+        self._batch_maxnum: int = 100
+        self._fedprox_mu: Optional[float] = None
+        self._log_interval: int = 10
+        self._epochs: int = 1
         self._dry_run = False
-        self._num_updates = None
+        self._num_updates: Optional[int] = None
 
-        self.correction_state = OrderedDict()
-        self.aggregator_name = None
+        self.correction_state: OrderedDict = OrderedDict()
+        self.aggregator_name: str = None
 
         # TODO : add random seed init
         # self.random_seed_params = None
@@ -95,7 +94,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # device to use: cpu/gpu
         # - all operations except training only use cpu
         # - researcher doesn't request to use gpu by default
-        self._device_init = "cpu"
+        self._device_init: str = "cpu"
         self._device = self._device_init
 
         # list dependencies of the model
@@ -265,7 +264,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
-                                             f"optimizer Adam. Error: {e}")
+                                             f"optimizer Adam. Error: {e}") from e
 
         return self._optimizer
 
@@ -315,10 +314,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Validate optimizer
         if isinstance(optimizer, torch.optim.Optimizer):
-            self._optimizer = TorchOptimizer(self._model, optimizer)
+            self._optimizer = NativeTorchOptimizer(self._model, optimizer)
         elif isinstance(optimizer, DeclearnOptimizer):
-            optimizer = Optimizer(optimizer)
-            self._optimizer = GenericOptimizer(self._model, optimizer)
+            optimizer = FedOptimizer(optimizer)
+            self._optimizer = TorchOptimizer(self._model, optimizer)
         else:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
         # if not isinstance(self._optimizer, torch.optim.Optimizer):
