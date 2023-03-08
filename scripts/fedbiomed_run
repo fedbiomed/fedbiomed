@@ -543,7 +543,7 @@ case $1 in
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
-                add-dataset-from-file|--add-dataset-from-file|-adff)v
+                add-dataset-from-file|--add-dataset-from-file|-adff)
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
