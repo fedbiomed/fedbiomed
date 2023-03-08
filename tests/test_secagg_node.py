@@ -7,16 +7,10 @@ from copy import deepcopy
 from testsupport.base_case import NodeTestCase
 #############################################################
 
-import fedbiomed.node.secagg
-
-from testsupport.fake_message import FakeMessages
-from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
-
-
-from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, BaseSecaggSetup, SecaggSetup
+import fedbiomed.node.secagg
 
 
 class TestBaseSecaggSetup(NodeTestCase):
@@ -204,10 +198,17 @@ class TestSecaggServkey(SecaggTestCase):
             reply = self.secagg_servkey.setup()
             self.assertEqual(reply["success"], False)
 
-        self.mock_skm.get.side_effect = None
-        self.mock_skm.get.return_value = {'parties': None}
-        reply = self.secagg_servkey.setup()
-        self.assertEqual(reply["success"], True)
+        for get_value, return_value in (
+            (3, False),
+            ({}, False),
+            ({'parties': None}, True),
+            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True)
+        ):
+            self.mock_skm.get.side_effect = None
+            self.mock_skm.get.return_value = get_value
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], return_value)
 
         with patch("builtins.open") as mock_open:
             self.mock_skm.get.return_value = None
@@ -256,9 +257,16 @@ class TestSecaggBiprime(SecaggTestCase):
     def test_secagg_biprime_setup_02_setup(self):
         """Tests init """
 
-        self.mock_bpm.get.return_value = {'parties': None}
-        reply = self.secagg_bprime.setup()
-        self.assertEqual(reply["success"], True)
+        for get_value, return_value in (
+            (3, False),
+            ({}, False),
+            ({'parties': None}, True),
+            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True)
+        ):
+            self.mock_bpm.get.return_value = get_value
+            reply = self.secagg_bprime.setup()
+            self.assertEqual(reply["success"], return_value)
 
         with patch('time.sleep'):
             self.mock_bpm.get.return_value = None
