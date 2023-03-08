@@ -62,8 +62,8 @@ class DPController:
                     "Data loader must be an instance of torch.utils.data.DataLoader"
                 )
             try:
-                optimizer.model, optimizer.optimizer, loader = self._privacy_engine.make_private(
-                    module=optimizer.model,
+                optimizer.model.model, optimizer.optimizer, loader = self._privacy_engine.make_private(
+                    module=optimizer.model.model,
                     optimizer=optimizer.optimizer,
                     data_loader=loader,
                     noise_multiplier=float(self._dp_args['sigma']),
