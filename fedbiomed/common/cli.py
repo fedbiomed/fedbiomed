@@ -135,7 +135,7 @@ class CommonCLI:
                  "If the configuration file exists, leave it unchanged"
         )
 
-        create.set_defaults(func=self._create_component_configuration)
+        create.set_defaults(func=self._create_component)
 
     def initialize_certificate_parser(self):
         """Common arguments """
@@ -277,7 +277,7 @@ class CommonCLI:
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
     def _create_component_configuration(self, args):
-        """CLI Handler for creating configuration file for given component
+        """CLI Handler for creating configuration file and assets for given component
 
         TODO: This method doesn't yet concentrate all actions for creating configuration file for
             given component. Since, `environ` will be imported through component CLI, configuration
