@@ -32,10 +32,11 @@ class TestLocalJob(ResearcherTestCase):
 
         content = "from typing import Dict, Any, List\n"
         content += "import time\n"
+        content += "from unittest import mock\n"
+        content += "from fedbiomed.common.models import Model\n"
         content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
+        with open(tmp_dir_model, "w", encoding="utf-8") as file:
+            file.write(content)
 
         return tmp_dir_model
 

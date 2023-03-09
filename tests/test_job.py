@@ -45,10 +45,11 @@ class TestJob(ResearcherTestCase):
 
         content = "from typing import Dict, Any, List\n"
         content += "import time\n"
+        content += "from unittest import mock\n"
+        content += "from fedbiomed.common.models import Model\n"
         content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
+        with open(tmp_dir_model, "w", encoding="utf-8") as file:
+            file.write(content)
 
         return tmp_dir_model
 
@@ -441,62 +442,34 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 
-    def test_job_11_update_parameters_with_all_arguments(self):
+    def test_job_11_update_parameters_with_invalid_arguments(self):
         """ Testing update_parameters method with all available arguments"""
 
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
-
         params = {'params': [1, 2, 3, 4]}
-        # Test by passing all arguments
-        result = self.job.update_parameters(params=params, filename='dummy/file/name/')
-        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.assertEqual( self.job.repo.uploads_url , self.job._repository_args['params_url'])
-        self.mock_upload_file.assert_called_once_with('dummy/file/name/')
 
-        self.mock_upload_file.reset_mock()
-        file_url = 'http://some/file/uploaded'
-        self.mock_upload_file.return_value = {"file": file_url}
-        # case where arg is_model_params is False and filename is not defined
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+        # Test by passing both params and filename: raises.
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters(params=params, filename='dummy/file/name/')
 
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None, is_model_params=False)
-            filename = os.path.join(self.job._keep_files_dir, 'aggregated_params' + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job.repo.uploads_url)
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
+        # case where arg is_model_params=False - DEPRECATED (hence SystemExit)
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters(params=params, filename=None, is_model_params=False)
 
-        self.mock_upload_file.reset_mock()
-
-        # test with specified variable name
+        # test with specified variable name - DEPRECATED (hence SystemExit)
         variable_name = "my_variable"
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters(
+                params=params, filename=None, is_model_params=False, variable_name=variable_name
+            )
 
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
-
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None,
-                                                is_model_params=False, variable_name=variable_name)
-            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
-
-        # same test but with `is_model_params` set to True
-        self.mock_upload_file.reset_mock()
-
+        # same test but with `is_model_params` - DEPRECATED (hence SystemExit)
         variable_name = "my_variable"
-
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
-
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None,
-                                                is_model_params=False, variable_name=variable_name)
-            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters(
+                params=params, filename=None, is_model_params=False, variable_name=variable_name
+            )
 
     def test_job_12_update_parameters_with_passing_params_only(self):
         """ Testing update_parameters by passing only params """
@@ -506,17 +479,18 @@ class TestJob(ResearcherTestCase):
 
         params = {'params': [1, 2, 3, 4]}
         # Test without passing filename
-
-        result = self.job.update_parameters(params=params)
+        with patch.object(self.job.training_plan.model, "get_weights") as patch_get:
+            patch_get.return_value = params
+            result = self.job.update_parameters(params=params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.model.save.assert_called_once()
+        self.model.model.get_weights.assert_called_once_with(as_vector=True)
 
     def test_job_13_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """
 
         # Test without passing parameters should raise ValueError
         with self.assertRaises(SystemExit):
-            _ = self.job.update_parameters()
+            self.job.update_parameters()
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job__14_check_dataset_quality(self, mock_logger_error):
@@ -857,14 +831,14 @@ class TestJob(ResearcherTestCase):
     def test_job_19_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
-        tensor = torch.tensor([[1, 2, 4], [2, 3, 4]])
+        tensor = torch.Tensor([[1, 2, 4], [2, 3, 4]])
         arr = np.array([1, 4, 5])
         training_args_thr_files = {'node-1':{ 'aggregator_name': 'my_aggregator',
                                     'var4': {'params': tensor}, 'var5': {'params': arr}},
                                    'node-2':{ 'aggregator_name': 'my_aggregator',
                                              'var4': {'params': tensor.T}, 'var5': {'params':arr}}
                                    }
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+        with patch.object(uuid, 'uuid4') as patch_uuid:
             patch_uuid.return_value = FakeUuid()
             t_a = self.job.upload_aggregator_args(copy.deepcopy(training_args_thr_msg), training_args_thr_files)
             # first we check `training_args_thr_msg` are contained into `t_a` (be careful about references!)
@@ -875,7 +849,7 @@ class TestJob(ResearcherTestCase):
                 for var in ('var4', 'var5'):
                     # check that `t_a` doesnot contain any params field
                     self.assertIsNone(t_a[node_id][var].get('params'))
-                    filename = os.path.join(self.job._keep_files_dir, var + str(FakeUuid.VALUE) + '.pt')
+                    filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.pkl")
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
 

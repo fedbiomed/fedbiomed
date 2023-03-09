@@ -1595,7 +1595,7 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True)
-        
+
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
@@ -1612,8 +1612,9 @@ class Experiment(object):
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current)
-        # write results of the aggregated model in a temp file
 
+        # Export aggregated parameters to a local file and upload it.
+        # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
         aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '

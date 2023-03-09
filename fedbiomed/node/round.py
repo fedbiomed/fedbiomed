@@ -5,14 +5,15 @@
 implementation of Round class of the node component
 '''
 
+import importlib
+import inspect
 import os
-import shutil
 import sys
 import time
-import inspect
-import importlib
-from typing import Dict, Iterable, Union, Any, Optional, Tuple, List
 import uuid
+from typing import Dict, Union, Any, Optional, Tuple, List
+
+import declearn
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -24,7 +25,6 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.researcher.strategies import strategy
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -176,7 +176,6 @@ class Round:
             msg = 'Unexpected error while validating training argument'
             logger.debug(f"{msg}: {e}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
-
         try:
             # module name cannot contain dashes
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
@@ -235,10 +234,10 @@ class Round:
 
         # import model params into the training plan instance
         try:
-
-            self.training_plan.load(params_path, to_params=False)
+            params = declearn.utils.json_load(params_path)["model_weights"]
+            self.training_plan.model.set_weights(params)
         except Exception as e:
-            error_message = f"Cannot initialize model parameters: f{str(e)}"
+            error_message = f"Cannot initialize model parameters: {e}"
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data

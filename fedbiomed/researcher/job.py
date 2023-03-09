@@ -5,17 +5,19 @@
 
 import atexit
 import copy
+import importlib
 import inspect
 import os
+import pickle
 import re
 import sys
 import shutil
 import tempfile
 import time
 import uuid
-import importlib
-from typing import Any, Tuple, Union, Callable, List, Dict, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
+import declearn
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
@@ -76,9 +78,9 @@ class Job:
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None  # path to local file containing model code
-        self._model_params_file = None  # path to local file containing current version of aggregated params
+        self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
-        self._training_plan = None
+        # self._training_plan = None  # declared below, as a TrainingPlan instance
         self._aggregator_args = None
 
         if keep_files_dir:
@@ -149,7 +151,7 @@ class Job:
         self._training_plan_name = self._training_plan.__class__.__name__
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
-        
+
         self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
@@ -161,15 +163,12 @@ class Job:
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
-        self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
+        # Save model parameters to a local file and upload it to the remote repository.
+        # The filename and remote url are assigned to attributes through this call.
         try:
-            self._training_plan.save(self._model_params_file)
-        except Exception as e:
-            logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
+            self.update_parameters()
+        except SystemExit:
             return
-        # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
-        repo_response = self.repo.upload_file(self._model_params_file)
-        self._repository_args['params_url'] = repo_response['file']
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
@@ -178,7 +177,6 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
-        # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -334,10 +332,14 @@ class Job:
                     continue
                 args_thr_msg[node_id][arg_name] = {}
                 args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
-
-                filename, url = self.update_parameters(aggr_param, None,
-                                                       is_model_params=False,
-                                                       variable_name=arg_name)
+                try:
+                    filename = os.path.join(self._keep_files_dir, f"{arg_name}_{uuid.uuid4()}.pkl")
+                    with open(filename, "wb") as file:
+                        pickle.dump(aggr_param, file)
+                    url = self.repo.upload_file(filename)["file"]
+                except Exception as exc:
+                    logger.critical("Failed to export %s to local file and upload it: %s", arg_name, exc)
+                    sys.exit(-1)
                 args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file with the parameters
                 args_thr_msg[node_id][arg_name]['url'] = url
 
@@ -469,48 +471,70 @@ class Job:
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
-    def update_parameters(self,
-                          params: dict = None,
-                          filename: str = None,
-                          is_model_params: bool = True,
-                          variable_name: str = 'aggregated_params') -> Tuple[str, str]:
-        """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
-        already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
-        next training round. If a `filename` is given (file exists) it has precedence over `params`.
+    def update_parameters(
+        self,
+        params: Optional[Dict[str, Any]] = None,
+        filename: Optional[str] = None,
+        # DEPRECATED arguments:
+        is_model_params: bool = True,
+        variable_name: str = "",
+    ) -> Tuple[str, str]:
+        """Save and upload global model parameters, optionally after updating them.
+
+        This method is designed to save and upload the parameters of the wrapped
+        training plan instance. It may also be used to update these parameters
+        prior to their upload, whether based on provided in-memory values or on
+        a pre-exported dump file.
 
         Args:
-            params: data structure containing the new version of the aggregated parameters for this job,
-            defaults to empty dictionary {}
-            filename: path to the file containing the new version of the aggregated parameters for this job,
-            defaults to None.
-            is_model_params: whether params are models parameters or another value that must be sent
-            through file exchange system. Defaults to True (argument are model parameters).
-            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
-        
+            params: Optional data structure containing the new version of the aggregated parameters for this job.
+                If None (default), export and upload the current model parameters.
+            filename: Optional path to a pre-existing file containing the aggregated parameters to load an upload.
+                If `params` is not None, `filename` has to be None.
+            is_model_params: **DEPRECATED**
+                Whether params are models parameters or another value that must be sent through file exchange system.
+            variable_name: **DEPRECATED**
+                Prefix to the created file's name. Defaults to 'aggregated_prams'.
+
         Returns:
-            the name of the parameter file
-            the URL of the uploaded file
+            filename: path to the local parameters file
+            url: url at which the file was uploaded
+
+        !!! info "Notes":
+            * The path to the created and/or uploaded file is stored under the `_model_params_file` attribute,
+              that is updated by this method.
+            * The url of the uploaded file is stored under the `_repository_args["params_url"]` attribute,
+              that is also updated by this method.
         """
-        if params is None:
-            params = {}
         try:
-            if not filename:
-                if not params:
-                    raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = os.path.join(self._keep_files_dir, variable_name + str(uuid.uuid4()) + '.pt')
-                self._training_plan.save(filename, params)
-
+            # Raise on invalid parameter values or combinations.
+            if (not is_model_params) or variable_name:
+                raise ValueError("'update_parameters' received a deprecated argument, that will be ignored.")
+            if params and filename:
+                raise ValueError("'update_parameters' received both filename and params: only one may be used.")
+            # Case when uploading a pre-existing file: load the parameters.
+            if filename:
+                params = declearn.utils.json_load(filename)["model_weights"]
+                self._training_plan.model.set_weights(params)
+            # Case when exporting current parameters: create a local dump file.
+            else:
+                filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.json")
+                params = {
+                    "researcher_id": self._researcher_id,
+                    "model_weights": self._training_plan.model.get_weights(as_vector=True),
+                }
+                declearn.utils.json_dump(params, filename)
+            # Upload the file and record its local and remote locations.
+            self._model_params_file = filename
             repo_response = self.repo.upload_file(filename)
-
-            if is_model_params:
-                # case where we are designing model parameter file
-                self._repository_args['params_url'] = repo_response['file']
-                self._model_params_file = filename
-        except Exception as e:
-            e = sys.exc_info()
-            logger.error("Cannot update parameters - Error: " + str(e))
+            self._repository_args["params_url"] = url = repo_response["file"]
+            # Return the local path and remote url to the file.
+            return filename, url
+        # Log exceptions and trigger a system exit if one is raised.
+        except Exception:
+            exc = sys.exc_info()
+            logger.error("'Job.update_parameters' failed with error: %s", exc)
             sys.exit(-1)
-        return filename, repo_response['file']
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint. Includes creating links to files included
@@ -546,19 +570,22 @@ class Job:
 
         return state
 
-    def load_state(self, saved_state: dict = None):
+    def load_state(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
             saved_state: breakpoint content
         """
+        # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
-        self.update_parameters(filename=saved_state.get('model_params_path'))
+        self._researcher_id = saved_state.get('researcher_id')
+        # Upload the latest model parameters. This records the filename and url.
+        self.update_parameters(filename=saved_state.get("model_params_path"))
+        # Reloadthe latest training replies.
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies'),
             self._training_plan.load
         )
-        self._researcher_id = saved_state.get('researcher_id')
 
     @staticmethod
     def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[dict]]:
@@ -643,7 +670,7 @@ class Job:
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
                     if len(set(t)) > 1:
-                        # FIXME: specifying a specific use case (in the condition above) should be avoided 
+                        # FIXME: specifying a specific use case (in the condition above) should be avoided
                         raise FedbiomedDataQualityCheckError(
                             f'Variable data types do not match in federated datasets {dtypes}'
                         )

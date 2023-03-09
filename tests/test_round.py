@@ -89,6 +89,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('declearn.utils.json_load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -98,6 +99,7 @@ class TestRound(NodeTestCase):
                                                      repository_download_patch,
                                                      tp_security_manager_patch,
                                                      import_module_patch,
+                                                     declearn_json_load_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
@@ -135,6 +137,7 @@ class TestRound(NodeTestCase):
 
         # check results
         self.assertTrue(msg_test1.get('success', False))
+        declearn_json_load_patch.assert_called_once()
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
         self.assertEqual(msg_test1.get('command', False), 'train')
 
@@ -153,16 +156,19 @@ class TestRound(NodeTestCase):
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
+        declearn_json_load_patch.reset_mock()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
         self.assertTrue(msg_test2.get('success', False))
+        declearn_json_load_patch.assert_called_once()
         self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
         self.assertEqual('train', msg_test2.get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('declearn.utils.json_load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -172,6 +178,7 @@ class TestRound(NodeTestCase):
                                                              repository_download_patch,
                                                              tp_security_manager_patch,
                                                              import_module_patch,
+                                                             declearn_json_load_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -219,18 +226,16 @@ class TestRound(NodeTestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-                patch.object(FakeModel, 'load') as mock_load,
                 patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
                 patch.object(FakeModel, 'save') as mock_save
         ):
-            _ = self.r1.run_model_training()
+            msg = self.r1.run_model_training()
+            self.assertTrue(msg.get("success"))
 
-            # test if all methods have been called once with the good arguments
-            mock_load.assert_called_once_with(MODEL_NAME,
-                                              to_params=False)
-
+            #
+            declearn_json_load_patch.assert_called_once()
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
@@ -248,11 +253,13 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('declearn.utils.json_load')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
                                                               repository_download_patch,
+                                                              declearn_json_load_patch,
                                                               tp_security_manager_patch,
                                                               repository_upload_patch,
                                                               node_msg_patch,
@@ -269,44 +276,47 @@ class TestRound(NodeTestCase):
         mock_split_train_and_test_data.return_value = (True, True)
 
         # create dummy_model
-        dummy_training_plan_test = \
-            "class MyTrainingPlan:\n" + \
-            "   dataset = [1,2,3,4]\n" + \
-            "   def __init__(self, **kwargs):\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):\n" + \
-            "       pass\n" + \
-            "   def load(self, *args, **kwargs):\n" + \
-            "       pass \n" + \
-            "   def save(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def training_routine(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def set_data_loaders(self, *args, **kwargs):\n" + \
-            "       self.testing_data_loader = MyTrainingPlan\n" + \
-            "       self.training_data_loader = MyTrainingPlan\n" + \
-            "       pass\n" + \
-            "   def set_dataset_path(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def optimizer_args(self):\n" + \
-            "       pass\n" + \
-            "   def after_training_params(self):\n" + \
-            "       return [1,2,3,4]\n"
+        dummy_training_plan_test = "\n".join([
+            "from unittest import mock",
+            "from fedbiomed.common.models import Model",
+            "class MyTrainingPlan:\n",
+            "   dataset = [1,2,3,4]",
+            "   def __init__(self, **kwargs):",
+            "       self._kwargs = kwargs",
+            "       self.model = mock.create_autospec(Model, instance=True)",
+            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):",
+            "       pass",
+            "   def load(self, *args, **kwargs):",
+            "       pass ",
+            "   def save(self, *args, **kwargs):",
+            "       pass",
+            "   def training_routine(self, *args, **kwargs):",
+            "       pass",
+            "   def set_data_loaders(self, *args, **kwargs):",
+            "       self.testing_data_loader = MyTrainingPlan",
+            "       self.training_data_loader = MyTrainingPlan",
+            "       pass",
+            "   def set_dataset_path(self, *args, **kwargs):",
+            "       pass",
+            "   def optimizer_args(self):",
+            "       pass",
+            "   def after_training_params(self):",
+            "       return [1,2,3,4]",
+        ])
 
 
         module_file_path = os.path.join(environ['TMP_DIR'],
                                         'training_plan_' + str(FakeUuid.VALUE) + '.py')
 
         # creating file for toring dummy training plan
-        with open(module_file_path, "w") as f:
-            f.write(dummy_training_plan_test)
+        with open(module_file_path, "w", encoding="utf-8") as file:
+            file.write(dummy_training_plan_test)
 
         # action
         msg_test = self.r1.run_model_training()
         print("MESSAGE", msg_test)
         # checks
+        declearn_json_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
         self.assertEqual('train', msg_test.get('command', False))
@@ -684,26 +694,26 @@ class TestRound(NodeTestCase):
     @patch('uuid.uuid4')
     def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
         uuid_patch.return_value = FakeUuid()
-        
+
         repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
         success, _ = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         # if attribute `aggregator_args` is None, then do nothing
         repository_download_patch.assert_not_called()
 
-        aggregator_args = {'var1': 1, 
+        aggregator_args = {'var1': 1,
                             'var2': [1, 2, 3, 4],
                             'var3': {'url': 'http://to/var/3',},
                             'var4': {'url': 'http://to/var/4'}}
         self.r1.aggregator_args = copy.deepcopy(aggregator_args)
-        
+
         success, error_msg = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         self.assertEqual(error_msg, '')
-        
+
         for var in ('var1', 'var2'):
             self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
-        
+
         for var in ('var3', 'var4'):
             self.assertNotIn('url', self.r1.aggregator_args[var].keys())
             self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
