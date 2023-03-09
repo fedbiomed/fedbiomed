@@ -5,8 +5,11 @@
 
 from enum import Enum
 
+"""Directory/folder name where variable files are saved"""
+VAR_FOLDER_NAME = "var"
+
 """Directory/folder name where DB files are saved"""
-DB_FOLDER_NAME = "var"
+DB_FOLDER_NAME = VAR_FOLDER_NAME
 
 """Prefix for database files name"""
 DB_PREFIX = 'db_'
@@ -38,6 +41,18 @@ class ComponentType(_BaseEnum):
 
     RESEARCHER: int = 1
     NODE: int = 2
+
+
+
+class BiprimeType(_BaseEnum):
+    """Constant values for secure aggregation biprime type that will be saved into db
+
+    Attributes:
+        DYNAMIC: means biprime dynamically added after negoti
+        DEFAULT: means biprime is a default one provided by Fed-BioMed
+    """
+    DYNAMIC = 'dynamic'
+    DEFAULT = 'default'
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -252,6 +267,7 @@ class ErrorNumbers(_BaseEnum):
     FB620 = "FB620: MPC protocol error"
     FB621 = "FB621: declearn optimizer error"
     FB622 = "FB622: Model error"
+    FB623 = "FB623: Secure aggregation database error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

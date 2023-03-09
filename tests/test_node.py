@@ -1094,7 +1094,7 @@ class TestNode(NodeTestCase):
              'sequence': req['sequence'],
              'success': False,
              'node_id': environ["ID"],
-             'msg': 'Can not apply secure aggregation it might be due to unregistered certificate for the '
+             'msg': 'Can not setup secure aggregation it might be due to unregistered certificate for the '
                     f'federated setup. Please see error: FB619: Certificate error: Certificate for {req["researcher_id"]} is '
                     'not existing. Certificates  of each federated training participant should be present. '
                     f'{environ["ID"]} should register certificate of {req["researcher_id"]}.',

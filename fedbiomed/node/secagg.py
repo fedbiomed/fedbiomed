@@ -11,7 +11,6 @@ import random
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
-from fedbiomed.common.message import SecaggReply
 from fedbiomed.common.logger import logger
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.validator import Validator, ValidatorError
@@ -101,6 +100,9 @@ class BaseSecaggSetup(ABC):
             component_id=environ["ID"]
         )
 
+        # to be set in subclasses
+        self._secagg_manager = None
+
     @property
     def researcher_id(self) -> str:
         """Getter for `researcher_id`
@@ -171,12 +173,58 @@ class BaseSecaggSetup(ABC):
             'command': 'secagg'
         }
 
-    @abstractmethod
-    def setup(self) -> SecaggReply:
+    def setup(self) -> dict:
         """Set up a secagg context element.
 
         Returns:
             message to return to the researcher after the setup
+        """
+        try:
+            context = self._secagg_manager.get(self._secagg_id, self._job_id)
+        except FedbiomedError as e:
+            logger.debug(f"{e}")
+            return self._create_secagg_reply(
+                f'Can not create secure aggregation context due to database error: {e}', False)
+        except Exception as e:
+            logger.debug(f"Can not create secure aggregation context due to database error: {e}")
+            return self._create_secagg_reply('Can not create secure aggregation context', False)
+
+        if context is None:
+            try:
+                self._setup_specific()
+            except FedbiomedError as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply(f'Can not setup secure aggregation it might be due to unregistered '
+                                                 f'certificate for the federated setup. Please see error: {e}', False)
+            except Exception as e:
+                logger.debug(f"{e}")
+                return self._create_secagg_reply('Unexpected error occurred please '
+                                                 'report this to the node owner', False)
+        else:
+            # Need to ensure that:
+            # - either the existing element is not attached to specific parties (None)
+            # - or existing element was established for the same parties or a superset of the parties
+            if (not isinstance(context, dict) or
+                    'parties' not in context or (
+                        context['parties'] is not None and (
+                            not isinstance(context['parties'], list) or
+                            not set(self._parties).issubset(set(context['parties']))
+                        ))):
+                # Note: for servkey, we should not find an entry where
+                # `parties` are `None` in database, as we don't create such entry
+                return self._create_secagg_reply(
+                    f'Secagg element context for {self._secagg_id} exists but parties do not match',
+                    False)
+
+            message = f"Node secagg context element for {self._secagg_id} is already existing for job {self._job_id}"
+            logger.info(message)
+            return self._create_secagg_reply(message, True)
+
+        return self._create_secagg_reply('Context element was successfully created on node', True)
+
+    @abstractmethod
+    def _setup_specific(self) -> None:
+        """Service function for setting up a specific context element.
         """
 
 
@@ -207,49 +255,14 @@ class SecaggServkeySetup(BaseSecaggSetup):
         super().__init__(researcher_id, secagg_id, sequence, parties, job_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
+        self._secagg_manager = SKManager
 
         if not self._job_id or not isinstance(self._job_id, str):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be a non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def setup(self) -> dict:
-        """Set up the server key secagg context element.
-
-        Returns:
-            message to return to the researcher after the setup
-        """
-
-        # also checks that `context` is attached to the job `self._job_id`
-        try:
-            context = SKManager.get(self._secagg_id, self._job_id)
-        except FedbiomedError as e:
-            logger.debug(f"{e}")
-            return self._create_secagg_reply(
-                f'Can not create secure aggregation context due to database error: {e}', False)
-        except Exception as e:
-            logger.debug(f"Can not create secure aggregation context due to database error: {e}")
-            return self._create_secagg_reply('Can not create secure aggregation context', False)
-
-        if context is None:
-            try:
-                self._setup_server_key()
-            except FedbiomedError as e:
-                logger.debug(f"{e}")
-                return self._create_secagg_reply(f'Can not apply secure aggregation it might be due to unregistered '
-                                                 f'certificate for the federated setup. Please see error: {e}', False)
-            except Exception as e:
-                logger.debug(f"{e}")
-                return self._create_secagg_reply('Unexpected error occurred please '
-                                                 'report this to the node owner', False)
-        else:
-            message = f"Node key share for {self._secagg_id} is already existing for job {self._job_id}"
-            logger.info(message)
-            return self._create_secagg_reply(message, True)
-
-        return self._create_secagg_reply('Key share has been successfully created', True)
-
-    def _setup_server_key(self):
+    def _setup_specific(self) -> None:
         """Service function for setting up the server key secagg context element.
         """
 
@@ -276,7 +289,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 key_share = file.read()
                 file.close()
         except Exception as e:
-            logger.debug("Can not open key share file file written by MPC after executing MPC "
+            logger.debug("Can not open key share file written by MPC after executing MPC "
                          f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}")
 
             # Message for researcher
@@ -284,8 +297,11 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        SKManager.add(self._secagg_id, self._parties, key_share, self._job_id)
-        logger.info(f"Completed secagg servkey setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+        context = {'server_key': key_share}
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
+        logger.info(
+            "Server key share successfully created for "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
 class SecaggBiprimeSetup(BaseSecaggSetup):
@@ -315,33 +331,31 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         super().__init__(researcher_id, secagg_id, sequence, parties, None)
 
         self._element = SecaggElementTypes.BIPRIME
+        self._secagg_manager = BPrimeManager
 
         if job_id is not None:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be None'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def setup(self) -> dict:
-        """Set up the biprime secagg context element.
-
-        Returns:
-            message to return to the researcher after the setup
+    def _setup_specific(self) -> None:
+        """Service function for setting up the biprime secagg context element.
         """
 
-        context = BPrimeManager.get(self._secagg_id)
+        # create a (currently dummy) context if it does not exist yet
+        time.sleep(3)
+        context = {
+            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'max_keysize': 0                            # prevent using the dummy biprime for real
+        }
+        logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
+                    f"secagg_id='{self._secagg_id}'")
 
-        if context is None:
-            # create a context if it does not exist yet
-            time.sleep(6)
-            biprime = str(random.randrange(10**12))
-            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
-                        f"secagg_id='{self._secagg_id}'")
-
-            BPrimeManager.add(self._secagg_id, self._parties, biprime)
-
-        logger.info(f"Completed secagg biprime setup for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
-        msg = self._create_secagg_reply('', True)
-        return msg
+        # Currently, all biprimes can be used by all sets of parties.
+        # TODO: add a mode where biprime is restricted for `self._parties`
+        self._secagg_manager.add(self._secagg_id, None, context)
+        logger.info(
+            f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
 class SecaggSetup:
