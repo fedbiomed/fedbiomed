@@ -3,6 +3,7 @@
 
 """TrainingPlan definition for the pytorch deep learning framework."""
 
+import pickle
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
@@ -646,10 +647,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
                 # by an aggregator handler that contains all keys for all strategies implemented
                 # in fedbiomed
-
-                # setattr(self, arg_name, aggregator_arg)
                 # here we ae loading all args that have been sent from file exchange system
-                self.correction_state = torch.load(aggregator_arg.get('param_path'))
+                with open(aggregator_arg["param_path"], "rb") as file:
+                    self.correction_state = pickle.load(file)
 
     def after_training_params(self) -> dict:
         """Retrieve parameters after training is done
