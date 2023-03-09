@@ -4,8 +4,9 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Optional, Union, Type
+from typing import Any, ClassVar, Dict, Optional, Union, Type, List
 
+import torch
 from declearn.model.api import Vector
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -102,6 +103,28 @@ class Model(metaclass=ABCMeta):
         Returns:
             Gradients, as a dictionary mapping parameters' names to their gradient's
                 value, or as a declearn Vector structure wrapping such a dict.
+        """
+
+    @abstractmethod
+    def flatten(self) -> List[float]:
+        """Flattens model weights
+
+        Returns:
+            List of model weights as float.
+        """
+
+    @abstractmethod
+    def unflatten(
+            self,
+            weights_vector: List[float]
+      ) -> Dict[str, Union['np.ndarray', 'torch.Tensor']]:
+        """Revert flatten model weights back model-dict form.
+
+        Args:
+            weights_vector: ..
+
+        Return:
+            Model dictionary
         """
 
     @abstractmethod

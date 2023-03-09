@@ -351,7 +351,7 @@ class Round:
             results["encrypted"] = False
 
             # Upload results
-            model_params = self.training_plan.after_training_params(vector=self._use_secagg)
+            model_params = self.training_plan.after_training_params(flatten=self._use_secagg)
             if self._use_secagg:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.")
                 model_params = self._secagg_crypter.encrypt(
@@ -487,6 +487,7 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
+        print(self.training_plan.dataset_path)
         training_plan_type = self.training_plan.type()
 
         # Inspect the arguments of the method `training_data`, because this
@@ -502,6 +503,7 @@ class Round:
         # Check batch_size is one of the argument of training_data method
         # `batch_size` is in used for only TorchTrainingPlan. If it is based to
         # sklearn, it will raise argument error
+
         try:
             if 'batch_size' in args:
                 data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])

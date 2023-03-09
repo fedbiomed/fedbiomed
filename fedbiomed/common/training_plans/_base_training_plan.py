@@ -49,6 +49,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
     _model: Model
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -59,6 +60,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.global_model: Model = None
+
+    @abstractmethod
+    def model(self):
+        """Gets model instance of the training plan"""
 
     @abstractmethod
     def post_init(

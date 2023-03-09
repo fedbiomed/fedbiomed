@@ -61,7 +61,9 @@ class Aggregator:
                                                            total_sample_size=total_sample_size)
 
         # Convert model params
-        model_params = training_plan.convert_vector_to_parameters(aggregated_params)
+        model = training_plan._model
+
+        model_params = model.unflatten(aggregated_params)
 
         return model_params
 

@@ -51,7 +51,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model = SkLearnModel(self._model_cls)
+        self._model: SkLearnModel = SkLearnModel(self._model_cls)
         self._training_args = {}  # type: Dict[str, Any]
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
@@ -363,7 +363,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     def after_training_params(
             self,
-            vector: bool = False
+            flatten: bool = False
     ) -> Union[List[float], Dict[str, np.ndarray]]:
         """Return the wrapped model's trainable parameters' current values.
 
@@ -379,14 +379,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             vector: Returns the vectorized parameters ff the vector argument is `True`
         """
 
-        model_params = self._model.get_weights()
-
-        if vector:
-            params = []
-            for key, param in model_params.items():
-                params.extend(param.flatten().astype(float).tolist())
+        if flatten:
+            params = self._model.flatten()
         else:
             # Convert to list
+            model_params = self._model.get_weights()
             params = {key: param.astype(float).tolist() for key, param in model_params.items()}
 
         return params

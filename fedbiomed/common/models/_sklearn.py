@@ -7,7 +7,7 @@ import sys
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 from io import StringIO
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
+from typing import Any, ClassVar, Dict, Generic, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
 import joblib
@@ -186,6 +186,44 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         if as_vector:
             return NumpyVector(weights)
         return weights
+
+    def flatten(self) -> List[float]:
+        """Gets weights as flatten vector
+
+        Returns:
+            to_list: Convert np.ndarray to a list if it is True.
+        """
+
+        weights = self.get_weights()
+        flatten = []
+        for _, w in weights.items():
+            w_: List[float] = list(w.flatten().astype(float))
+            flatten.extend(w_)
+
+        return flatten
+
+    def unflatten(
+            self,
+            weights_vector: List[float]
+    ) -> Dict[str, np.ndarray]:
+        """Unflatten vectorized model weights
+
+        Args:
+            weights_vector: Vectorized model weights to convert dict
+        """
+
+        weights_vector = np.array(weights_vector)
+        weights = self.get_weights()
+        pointer = 0
+
+        params = {}
+        for key, w in weights.items():
+            num_param = w.size
+            params[key] = weights_vector[pointer: pointer + num_param].reshape(w.shape)
+
+            pointer += num_param
+
+        return params
 
     def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters.

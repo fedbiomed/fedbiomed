@@ -69,7 +69,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._dp_controller = None
 
         self._optimizer = None
-        self._model = None
+        self._model: Union[TorchModel, None] = None
 
         self._training_args = None
         self._model_args = None
@@ -637,7 +637,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 # here we ae loading all args that have been sent from file exchange system
                 self.correction_state = torch.load(aggregator_arg.get('param_path'))
 
-    def after_training_params(self, vector: bool = False) -> dict:
+    def after_training_params(self, flatten: bool = False) -> dict:
         """Retrieve parameters after training is done
 
         Call the user defined postprocess function:
@@ -661,8 +661,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         params = self._dp_controller.after_training(params)
 
-        if vector:
-            params = torch.nn.utils.parameters_to_vector(self._model.model.parameters()).tolist()
+        if flatten:
+            params = self._model.flatten()
+
         return params
 
     def convert_vector_to_parameters(self, vec: List[float]):
