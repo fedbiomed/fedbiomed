@@ -9,7 +9,6 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from fedbiomed.common.models import SkLearnModel
 
 import json
 import numpy as np
@@ -21,6 +20,7 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import SkLearnModel
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -52,11 +52,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
         self._model = SkLearnModel(self._model_cls)
-        #self._model_args = {}  # type: Dict[str, Any]
         self._training_args = {}  # type: Dict[str, Any]
-        #self._param_list = []  # type: List[str]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-        #self._is_classification = False
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self.add_dependency([
@@ -255,12 +252,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._model._is_classification and not hasattr(self.model(), 'classes_'):
+        if self._model.is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._model._is_classification:
+            if self._model.is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
