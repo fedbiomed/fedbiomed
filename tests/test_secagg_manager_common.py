@@ -3,6 +3,8 @@ from unittest.mock import patch
 import copy
 import os
 
+import inspect
+
 from fedbiomed.common.constants import BiprimeType 
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
@@ -77,6 +79,14 @@ class TestBaseSecaggManager(unittest.TestCase):
 
         self.patcher_db.start()
         self.patcher_query.start()
+
+        self.biprime_dir = os.path.join(
+            os.path.dirname(
+                os.path.abspath(inspect.getfile(inspect.currentframe()))
+            ),
+            "test-data",
+            "default_biprimes"
+        )
 
     def tearDown(self) -> None:
         self.patcher_query.stop()
@@ -355,10 +365,9 @@ class TestBaseSecaggManager(unittest.TestCase):
         # prepare
         bpm = SecaggBiprimeManager('/path/to/dummy/file')
         bpm._table.insert({'secagg_id': 'ANOTHER'})
-        biprime_dir = './test-data/default_biprimes'
 
         # test
-        bpm.update_default_biprimes(True, biprime_dir)
+        bpm.update_default_biprimes(True, self.biprime_dir)
 
         # check
         #
@@ -375,7 +384,7 @@ class TestBaseSecaggManager(unittest.TestCase):
         bpm._query.secagg_id.exists = False
 
         # test
-        bpm.update_default_biprimes(False, biprime_dir)
+        bpm.update_default_biprimes(False, self.biprime_dir)
 
         # check
         #
@@ -387,14 +396,13 @@ class TestBaseSecaggManager(unittest.TestCase):
         """
         # prepare
         bpm = SecaggBiprimeManager('/path/to/dummy/file')
-        biprime_dir = './test-data/default_biprimes'
 
         for exception in ['bpm._table.exception_search', 'bpm._table.exception_remove', 'bpm._table.exception_upsert']:
             exec(f'{exception} = True')
 
             # test
             with self.assertRaises(FedbiomedSecaggError):
-                bpm.update_default_biprimes(True, biprime_dir)
+                bpm.update_default_biprimes(True, self.biprime_dir)
 
             # clean
             exec(f'{exception} = False')
@@ -404,12 +412,11 @@ class TestBaseSecaggManager(unittest.TestCase):
         """
         # prepare
         bpm = SecaggBiprimeManager('/path/to/dummy/file')
-        biprime_dir = './test-data/default_biprimes'
 
         with patch('builtins.open', return_value=Exception):
             # test
             with self.assertRaises(FedbiomedSecaggError):
-                bpm._read_default_biprimes(biprime_dir)
+                bpm._read_default_biprimes(self.biprime_dir)
 
         for bad_json in [
                 None,
@@ -424,7 +431,7 @@ class TestBaseSecaggManager(unittest.TestCase):
             with patch('json.load', return_value=bad_json):
                 # test
                 with self.assertRaises(FedbiomedSecaggError):
-                    bpm._read_default_biprimes(biprime_dir)
+                    bpm._read_default_biprimes(self.biprime_dir)
 
 
 if __name__ == '__main__':  # pragma: no cover
