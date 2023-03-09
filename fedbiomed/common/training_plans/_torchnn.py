@@ -3,15 +3,9 @@
 
 """TrainingPlan definition for the pytorch deep learning framework."""
 
-from abc import ABC, abstractmethod
-import functools
+from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 
-from copy import deepcopy
-
-import numpy as np
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn
 
@@ -19,15 +13,18 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.privacy import DPController
-from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
+from fedbiomed.common.utils import get_method_spec
+
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
-class TorchTrainingPlan(BaseTrainingPlan, ABC):
+class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
@@ -129,8 +126,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-
-        
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
@@ -225,9 +220,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._optimizer_args = {}
         self._optimizer_args['lr'] = self.get_learning_rate()
         return self._optimizer_args
-
-    def get_model_params(self) -> OrderedDict:
-        return self.model().state_dict()
 
     def training_args(self) -> Dict:
         """Retrieves training args
@@ -435,8 +427,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self._init_params = deepcopy(list(self.model().parameters()))
 
         # DP actions
-        self._model.model, self._optimizer, self.training_data_loader = \
-            self._dp_controller.before_training(self.model(), self._optimizer, self.training_data_loader)
+        self._model.model, self._optimizer, self.training_data_loader = self._dp_controller.before_training(
+            self.model(), self._optimizer, self.training_data_loader
+        )
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -694,4 +687,3 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
-

@@ -3,14 +3,18 @@
 """
 
 from typing import Dict, Any, List
+from unittest import mock
 import time
+
+
+from fedbiomed.common.models import Model
 
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
 class FakeModel:
-    """Fakes a model (TrainingPlan, inheriting either from 
+    """Fakes a model (TrainingPlan, inheriting either from
     `fedbiomed.common.torchnn` or from `fedbiomed.common.fedbiosklearn`)
-    Provides a few methods that mimicks the behaviour of 
+    Provides a few methods that mimicks the behaviour of
     TrainingPlan models
 
     """
@@ -21,7 +25,13 @@ class FakeModel:
         self.model_args = model_args
         self.__type = 'DummyTrainingPlan'
         self._optimizer_args = {}
-        pass
+        self._model = mock.create_autospec(Model, instance=True)
+        self._model.get_weights.return_value = {}
+
+    @property
+    def model(self):
+        """Mock `Model` property."""
+        return self._model
 
     def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):
         pass
@@ -42,25 +52,23 @@ class FakeModel:
 
         Args:
             path (str): originally, the path where the parameters model
-            are stored. Unused in this dummy class. 
+            are stored. Unused in this dummy class.
             to_params (bool): originally, whether to return parameter into
             the model or into a dictionary. Unused in this dummy class.
         """
-        pass
 
     def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
         saving node's local model. Passed argument are unused.
-        
+
         Args:
-            filename (str): originally, the name of the file 
+            filename (str): originally, the name of the file
             that will contain the saved parameters. Unused in this
             dummy class.
-            results (Dict[str, Any]): originally, contains the 
+            results (Dict[str, Any]): originally, contains the
             results of the training. Unused in this method.
         """
-        pass
 
     def save_code(self, path: str):
         """
@@ -70,17 +78,15 @@ class FakeModel:
         Args:
             path (str): saving path
         """
-        pass
 
     def set_dataset_path(self, path: str):
-        """Fakes `set_dataset` method of TrainingPlan classes. Originally 
-        used for setting dataset path. Passed arguments are unused.        
+        """Fakes `set_dataset` method of TrainingPlan classes. Originally
+        used for setting dataset path. Passed arguments are unused.
 
         Args:
             path (str): originally, path where the node dataset are stored.
             Unused in this method.
         """
-        pass
 
     def optimizer_args(self):
         return self._optimizer_args
@@ -100,9 +106,9 @@ class FakeModel:
         """Fakes `after_training_params` method of TrainingPlan classes.
         Originally used to get the parameters after training is performed.
         Passed arguments are unused.
-        
+
         Returns:
-            List[int]: Mimicks return of trained parameters 
+            List[int]: Mimicks return of trained parameters
             (always returns a list of integers: [1, 2, 3, 4])
         """
         return [1, 2, 3, 4]

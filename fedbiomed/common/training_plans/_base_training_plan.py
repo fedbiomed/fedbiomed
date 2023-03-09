@@ -81,6 +81,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return None
 
+    @property
+    def model(self) -> Model:
+        """Fed-BioMed Model instance wrapped by this training plan."""
+        return self._model
+
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
 
@@ -193,19 +198,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self) -> Union[OrderedDict, Dict]:
-        """
-        Retrieves parameters from a model defined in a training plan.
-        Output format depends on the nature of the training plan (OrderedDict for
-        a PyTorch training plan, np.ndarray for a sklearn training plan)
+    def get_model_params(self) -> Dict[str, Any]:
+        """Return a copy of the model's trainable weights.
+
+        The type of data structure used to store weights depends on the actual
+        framework of the wrapped model.
 
         Returns:
-            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on
-            the nature of the TrainingPlan
+            Model weights, as a dictionary mapping parameters' names to their value.
         """
-        msg = ErrorNumbers.FB303.value + ": get_model_parans method must be implemented in the TrainingPlan"
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
+        return self._model.get_weights()  # type: ignore
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
