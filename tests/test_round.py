@@ -7,6 +7,9 @@ from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+from declearn.model.api import Vector
+
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
@@ -168,6 +171,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('declearn.utils.json_dump')
     @patch('declearn.utils.json_load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
@@ -179,6 +183,7 @@ class TestRound(NodeTestCase):
                                                              tp_security_manager_patch,
                                                              import_module_patch,
                                                              declearn_json_load_patch,
+                                                             declearn_json_dump_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -194,7 +199,7 @@ class TestRound(NodeTestCase):
 
         FakeModel.SLEEPING_TIME = 0
         MODEL_NAME = "my_model"
-        MODEL_PARAMS = [1, 2, 3, 4]
+        MODEL_PARAMS = {"coef": np.array([1, 2, 3, 4])}
 
         class FakeModule:
             MyTrainingPlan = FakeModel
@@ -212,13 +217,13 @@ class TestRound(NodeTestCase):
                            'dataset_id': 'id_1234'}
 
         # arguments of `save` method
-        _model_filename = environ['TMP_DIR'] + '/node_params_1234.pt'
+        _model_filename = environ['TMP_DIR'] + '/node_params_1234.json'
         _model_results = {
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
-            'model_params': MODEL_PARAMS,
+            'model_weights': Vector.build(MODEL_PARAMS),
             'node_id': environ['NODE_ID'],
-            'optimizer_args': {}
+            'optimizer_args': {},
         }
 
         # define context managers for each model method
@@ -229,12 +234,11 @@ class TestRound(NodeTestCase):
                 patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
-                patch.object(FakeModel, 'save') as mock_save
         ):
             msg = self.r1.run_model_training()
             self.assertTrue(msg.get("success"))
 
-            #
+            # Check that the model weights were loaded.
             declearn_json_load_patch.assert_called_once()
 
             # Check set train and test data split function is called
@@ -246,8 +250,9 @@ class TestRound(NodeTestCase):
             mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
                                                            node_args=None)
 
+            # Check that the model weights were saved.
             mock_after_training_params.assert_called_once()
-            mock_save.assert_called_once_with(_model_filename, _model_results)
+            declearn_json_dump_patch.assert_called_once_with(_model_results, _model_filename)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
@@ -278,6 +283,7 @@ class TestRound(NodeTestCase):
         # create dummy_model
         dummy_training_plan_test = "\n".join([
             "from unittest import mock",
+            "import numpy as np",
             "from fedbiomed.common.models import Model",
             "class MyTrainingPlan:\n",
             "   dataset = [1,2,3,4]",
@@ -301,7 +307,7 @@ class TestRound(NodeTestCase):
             "   def optimizer_args(self):",
             "       pass",
             "   def after_training_params(self):",
-            "       return [1,2,3,4]",
+            "       return {'coefs': np.array([1,2,3,4])}",
         ])
 
 

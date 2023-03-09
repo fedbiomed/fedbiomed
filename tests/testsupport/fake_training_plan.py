@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 from unittest import mock
 import time
 
+import numpy as np
 
 from fedbiomed.common.models import Model
 
@@ -111,4 +112,4 @@ class FakeModel:
             List[int]: Mimicks return of trained parameters
             (always returns a list of integers: [1, 2, 3, 4])
         """
-        return [1, 2, 3, 4]
+        return {"coefs": np.array([1, 2, 3, 4])}

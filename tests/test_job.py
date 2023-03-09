@@ -351,13 +351,15 @@ class TestJob(ResearcherTestCase):
         result = self.job.waiting_for_nodes(responses)
         self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
 
+    @patch('declearn.utils.json_load')
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('fedbiomed.researcher.responses.Responses')
     def test_job_09_start_training_round(self,
                                          mock_responses,
                                          mock_requests_get_responses,
-                                         mock_requests_send_message
+                                         mock_requests_send_message,
+                                         declearn_json_load_patch,
                                          ):
         """ Test Job - start_training_round method with 3 different scenarios
 
@@ -431,9 +433,11 @@ class TestJob(ResearcherTestCase):
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
+        self.assertEqual(declearn_json_load_patch.call_count, 3)
 
         # Test - 2 When one of the nodes returns error without extra_msg and
         # check node-2 is removed since it returned error in the previous test call
+        declearn_json_load_patch.reset_mock()
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
@@ -441,6 +445,7 @@ class TestJob(ResearcherTestCase):
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
+        self.assertEqual(declearn_json_load_patch.call_count, 1)
 
     def test_job_11_update_parameters_with_invalid_arguments(self):
         """ Testing update_parameters method with all available arguments"""

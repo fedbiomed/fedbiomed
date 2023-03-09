@@ -438,15 +438,14 @@ class Job:
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:
-                        _, params_path = self.repo.download_file(m['params_url'],
-                                                                 'node_params_' + str(uuid.uuid4()) + '.pt')
+                        _, params_path = self.repo.download_file(m["params_url"], f"node_params_{uuid.uuid4()}.json")
                     except FedbiomedRepositoryError as err:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    loaded_model = self._training_plan.load(params_path, to_params=True)
-                    params = loaded_model['model_params']
-                    optimizer_args = loaded_model.get('optimizer_args')
+                    results = declearn.utils.json_load(params_path)
+                    params = results["model_weights"].coefs  # unpack declearn Vector
+                    optimizer_args = results.get("optimizer_args")
                 else:
                     params_path = None
                     params = None

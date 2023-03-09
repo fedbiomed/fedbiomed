@@ -311,24 +311,22 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = self.training_plan.after_training_params()
+            params = self.training_plan.after_training_params()
+            results['model_weights'] = declearn.model.api.Vector.build(params)
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
-
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
             try:
-                # TODO : should validation status code but not yet returned
-                # by upload_file
-                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + str(uuid.uuid4()) + '.pt')
-                self.training_plan.save(filename, results)
+                # TODO: add validation status to these results?
+                # Dump the results to a (declearn-enhanced) JSON file.
+                filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.json")
+                declearn.utils.json_dump(results, filename)
+                # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-
-            except Exception as e:
-                is_failed = True
-                error_message = f"Cannot upload results: {str(e)}"
-                return self._send_round_reply(success=False, message=error_message)
+            except Exception as exc:
+                return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
             # end : clean the namespace
             try:
@@ -336,7 +334,6 @@ class Round:
                 del import_module
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {e}')
-                pass
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
