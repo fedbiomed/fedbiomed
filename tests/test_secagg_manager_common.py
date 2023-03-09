@@ -355,9 +355,9 @@ class TestBaseSecaggManager(unittest.TestCase):
         # prepare
         bpm = SecaggBiprimeManager('/path/to/dummy/file')
         bpm._table.insert({'secagg_id': 'ANOTHER'})
+        biprime_dir = './test-data/default_biprimes'
 
         # test
-        biprime_dir = './test-data/default_biprimes'
         bpm.update_default_biprimes(True, biprime_dir)
 
         # check
@@ -371,7 +371,7 @@ class TestBaseSecaggManager(unittest.TestCase):
 
         # 2. don't use default biprimes
 
-        #prepare
+        # prepare
         bpm._query.secagg_id.exists = False
 
         # test
@@ -379,8 +379,52 @@ class TestBaseSecaggManager(unittest.TestCase):
 
         # check
         #
-        # checks are done accordingly to default_biprimes dir content
+        # checks default biprimes from previous test were removed as we don't use default biprimes
         self.assertEqual(bpm._table.entries, [])
+
+    def test_secagg_manager_08_update_default_biprimes_fail(self):
+        """Testing failed update of the default biprimes in database
+        """
+        # prepare
+        bpm = SecaggBiprimeManager('/path/to/dummy/file')
+        biprime_dir = './test-data/default_biprimes'
+
+        for exception in ['bpm._table.exception_search', 'bpm._table.exception_remove', 'bpm._table.exception_upsert']:
+            exec(f'{exception} = True')
+
+            # test
+            with self.assertRaises(FedbiomedSecaggError):
+                bpm.update_default_biprimes(True, biprime_dir)
+
+            # clean
+            exec(f'{exception} = False')
+
+    def test_secagg_manager_08_read_default_biprimes_fail(self):
+        """Testing failed reading of the default biprimes files
+        """
+        # prepare
+        bpm = SecaggBiprimeManager('/path/to/dummy/file')
+        biprime_dir = './test-data/default_biprimes'
+
+        with patch('builtins.open', return_value=Exception):
+            # test
+            with self.assertRaises(FedbiomedSecaggError):
+                bpm._read_default_biprimes(biprime_dir)
+
+        for bad_json in [
+                None,
+                3,
+                [],
+                {},
+                { 'secagg_id': 1, 'biprime': 2, 'max_keysize': 3},
+                { 'secagg_id': '1', 'biprime': '2', 'max_keysize': 3},
+                { 'secagg_id': '1', 'biprime': 2, 'max_keysize': '3'},
+                { 'secagg_id': '', 'biprime': 2, 'max_keysize': 3},
+        ]:
+            with patch('json.load', return_value=bad_json):
+                # test
+                with self.assertRaises(FedbiomedSecaggError):
+                    bpm._read_default_biprimes(biprime_dir)
 
 
 if __name__ == '__main__':  # pragma: no cover
