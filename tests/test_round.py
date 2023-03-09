@@ -289,7 +289,7 @@ class TestRound(NodeTestCase):
             "   dataset = [1,2,3,4]",
             "   def __init__(self, **kwargs):",
             "       self._kwargs = kwargs",
-            "       self.model = mock.create_autospec(Model, instance=True)",
+            "       self.fbm_model = mock.create_autospec(Model, instance=True)",
             "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):",
             "       pass",
             "   def load(self, *args, **kwargs):",

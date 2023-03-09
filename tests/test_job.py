@@ -484,11 +484,11 @@ class TestJob(ResearcherTestCase):
 
         params = {'params': [1, 2, 3, 4]}
         # Test without passing filename
-        with patch.object(self.job.training_plan.model, "get_weights") as patch_get:
+        with patch.object(self.job.training_plan.fbm_model, "get_weights") as patch_get:
             patch_get.return_value = params
             result = self.job.update_parameters(params=params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.model.model.get_weights.assert_called_once_with(as_vector=True)
+        self.model.fbm_model.get_weights.assert_called_once_with(as_vector=True)
 
     def test_job_13_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """

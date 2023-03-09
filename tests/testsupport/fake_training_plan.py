@@ -30,7 +30,7 @@ class FakeModel:
         self._model.get_weights.return_value = {}
 
     @property
-    def model(self):
+    def fbm_model(self):
         """Mock `Model` property."""
         return self._model
 

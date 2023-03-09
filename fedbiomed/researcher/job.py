@@ -514,13 +514,13 @@ class Job:
             # Case when uploading a pre-existing file: load the parameters.
             if filename:
                 params = declearn.utils.json_load(filename)["model_weights"]
-                self._training_plan.model.set_weights(params)
+                self._training_plan.fbm_model.set_weights(params)
             # Case when exporting current parameters: create a local dump file.
             else:
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.json")
                 params = {
                     "researcher_id": self._researcher_id,
-                    "model_weights": self._training_plan.model.get_weights(as_vector=True),
+                    "model_weights": self._training_plan.fbm_model.get_weights(as_vector=True),
                 }
                 declearn.utils.json_dump(params, filename)
             # Upload the file and record its local and remote locations.

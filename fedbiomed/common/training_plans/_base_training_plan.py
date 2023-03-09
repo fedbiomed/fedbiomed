@@ -82,7 +82,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         return None
 
     @property
-    def model(self) -> Model:
+    def fbm_model(self) -> Model:
         """Fed-BioMed Model instance wrapped by this training plan."""
         return self._model
 

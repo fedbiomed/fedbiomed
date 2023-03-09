@@ -235,7 +235,7 @@ class Round:
         # import model params into the training plan instance
         try:
             params = declearn.utils.json_load(params_path)["model_weights"]
-            self.training_plan.model.set_weights(params)
+            self.training_plan.fbm_model.set_weights(params)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: {e}"
             return self._send_round_reply(success=False, message=error_message)
