@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 import copy
+import os
 
 from fedbiomed.common.constants import BiprimeType 
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -19,15 +20,24 @@ class FakeTinyDB:
 class FakeQuery:
     def __init__(self):
         class FakeSecaggId:
+            def __init__(self):
+                self.exists_value = True
             def exists(self):
+                return self.exists_value
+            def one_of(self, id):
                 return True
         self.secagg_id = FakeSecaggId()
+        class Type():
+            def exists(self):
+                return True
+        self.type = Type()
 
 
 class FakeTable:
     def __init__(self):
         self.entries = []
         self.exception_insert = False
+        self.exception_upsert = False
         self.exception_search = False
         self.exception_remove = False
 
@@ -36,6 +46,13 @@ class FakeTable:
             raise FedbiomedSecaggError('mocked exception')
         else:
             self.entries.append(entry)
+
+    def upsert(self, entry, condition):
+        if self.exception_upsert:
+            raise FedbiomedSecaggError('mocked exception')
+        else:
+            self.entries.append(entry)
+
 
     def search(self, *args, **kwargs):
         if self.exception_search:
@@ -329,6 +346,41 @@ class TestBaseSecaggManager(unittest.TestCase):
                     # action + check
                     with self.assertRaises(FedbiomedSecaggError):
                         manager.remove('my_secagg_id', **kwargs)
+
+    def test_secagg_manager_08_update_default_biprimes_ok(self):
+        """Testing successful update of the default biprimes in database
+        """
+        # 1. use default biprimes
+
+        # prepare
+        bpm = SecaggBiprimeManager('/path/to/dummy/file')
+        bpm._table.insert({'secagg_id': 'ANOTHER'})
+
+        # test
+        biprime_dir = './test-data/default_biprimes'
+        bpm.update_default_biprimes(True, biprime_dir)
+
+        # check
+        #
+        # checks are done accordingly to default_biprimes dir content
+        self.assertEqual(
+            bpm._table.entries,
+            [{'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
+                'context': {'biprime': 12345678, 'max_keysize': 33}}]
+        )
+
+        # 2. don't use default biprimes
+
+        #prepare
+        bpm._query.secagg_id.exists = False
+
+        # test
+        bpm.update_default_biprimes(False, biprime_dir)
+
+        # check
+        #
+        # checks are done accordingly to default_biprimes dir content
+        self.assertEqual(bpm._table.entries, [])
 
 
 if __name__ == '__main__':  # pragma: no cover

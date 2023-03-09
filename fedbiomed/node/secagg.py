@@ -289,7 +289,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 key_share = file.read()
                 file.close()
         except Exception as e:
-            logger.debug("Can not open key share file file written by MPC after executing MPC "
+            logger.debug("Can not open key share file written by MPC after executing MPC "
                          f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}")
 
             # Message for researcher
