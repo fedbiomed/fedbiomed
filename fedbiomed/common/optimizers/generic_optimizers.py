@@ -58,12 +58,24 @@ class GenericOptimizer:
         self.model.train(inputs, target, stdout)
 
     @abstractmethod
-    def step_native(selfs):
+    def step_native(self):
         """_summary_
 
         Raises:
             FedbiomedOptimizerError: _description_
             FedbiomedOptimizerError: _description_
+        """
+    @abstractmethod
+    def get_learning_rate(self)-> List[float]:
+        """_summary_
+
+        Raises:
+            FedbiomedOptimizerError: _description_
+            FedbiomedOptimizerError: _description_
+            FedbiomedOptimizerError: _description_
+
+        Returns:
+            _type_: _description_
         """
 
 
@@ -141,6 +153,8 @@ class SkLearnOptimizer(GenericOptimizer):
         #     msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
         #     msg += param_changed
         #     logger.warning(msg)
+    def get_learning_rate(self) -> List[float]:
+        return self.model.get_learning_rate()
         
 class NativeSkLearnOptimizer(GenericOptimizer):
     
@@ -156,6 +170,5 @@ class NativeSkLearnOptimizer(GenericOptimizer):
         gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
             
         self.model.apply_updates(gradients)
-    
 
 
