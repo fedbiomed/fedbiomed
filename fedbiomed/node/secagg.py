@@ -14,6 +14,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
@@ -173,6 +174,17 @@ class BaseSecaggSetup(ABC):
             'command': 'secagg'
         }
 
+    @abstractmethod
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+
     def setup(self) -> dict:
         """Set up a secagg context element.
 
@@ -201,17 +213,8 @@ class BaseSecaggSetup(ABC):
                 return self._create_secagg_reply('Unexpected error occurred please '
                                                  'report this to the node owner', False)
         else:
-            # Need to ensure that:
-            # - either the existing element is not attached to specific parties (None)
-            # - or existing element was established for the same parties or a superset of the parties
-            if (not isinstance(context, dict) or
-                    'parties' not in context or (
-                        context['parties'] is not None and (
-                            not isinstance(context['parties'], list) or
-                            not set(self._parties).issubset(set(context['parties']))
-                        ))):
-                # Note: for servkey, we should not find an entry where
-                # `parties` are `None` in database, as we don't create such entry
+            # Need to ensure the read context has compatible parties with this element
+            if (not self._matching_parties(context)):
                 return self._create_secagg_reply(
                     f'Secagg element context for {self._secagg_id} exists but parties do not match',
                     False)
@@ -261,6 +264,17 @@ class SecaggServkeySetup(BaseSecaggSetup):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be a non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+        return matching_parties_servkey(context, self._parties)
 
     def _setup_specific(self) -> None:
         """Service function for setting up the server key secagg context element.
@@ -337,6 +351,20 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be None'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
+
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+        # Need to ensure that:
+        # - either the existing element is not attached to specific parties (None)
+        # - or existing element was established for the same parties or a superset of the parties
+        return matching_parties_biprime(context, self._parties)
 
     def _setup_specific(self) -> None:
         """Service function for setting up the biprime secagg context element.

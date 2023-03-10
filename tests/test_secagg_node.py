@@ -201,9 +201,12 @@ class TestSecaggServkey(SecaggTestCase):
         for get_value, return_value in (
             (3, False),
             ({}, False),
-            ({'parties': None}, True),
+            ({'parties': None}, False),
             ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True)
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
+            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
         ):
             self.mock_skm.get.side_effect = None
             self.mock_skm.get.return_value = get_value
@@ -262,7 +265,10 @@ class TestSecaggBiprime(SecaggTestCase):
             ({}, False),
             ({'parties': None}, True),
             ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True)
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
+            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
         ):
             self.mock_bpm.get.return_value = get_value
             reply = self.secagg_bprime.setup()

@@ -237,8 +237,12 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
             ({'parties': [environ["ID"], 'party2', 'party3']},
                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
-            ({'parties': ['party4', environ["ID"], 'party2', 'party3']},
-                {'parties': ['party4', environ["ID"], 'party2', 'party3']}, True),
+            ({'parties': [environ["ID"], 'party3', 'party2']},
+                {'parties': [environ["ID"], 'party3', 'party2']}, True),
+            ({'parties': [environ["ID"], 'party2', 'party3', 'party4']},
+                {'parties': [environ["ID"], 'party2', 'party3', 'party4']}, False),
+            ({'parties': ['party2', environ["ID"], 'party3']},
+                {'parties': ['party2', environ["ID"], 'party3']}, False),
         ):
             self.mock_skmanager.get.return_value = return_value
             srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
