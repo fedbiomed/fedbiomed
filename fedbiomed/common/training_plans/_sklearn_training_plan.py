@@ -387,26 +387,3 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             params = {key: param.astype(float).tolist() for key, param in model_params.items()}
 
         return params
-
-    def convert_vector_to_parameters(
-            self,
-            vec: List[float]
-    ) -> np.ndarray:
-        """Converts given float vector to numpy typed params
-
-        Args:
-            vec: List of flatten model parameters
-        """
-
-        vector = np.array(vec)
-
-        params = self._model.get_weights()
-        pointer = 0
-
-        for key, param in params.items():
-            num_param = param.size
-            params[key] = vector[pointer: pointer + num_param].reshape(param.shape)
-
-            pointer += num_param
-
-        return params

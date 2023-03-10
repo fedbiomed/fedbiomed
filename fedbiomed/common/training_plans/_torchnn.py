@@ -666,27 +666,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         return params
 
-    def convert_vector_to_parameters(self, vec: List[float]):
-        """Converts given float vector to torch model parameters
-
-        Args:
-            vec:
-        """
-
-        # Copy model to make sure global model parameters won't be overwritten
-        model = deepcopy(self._model.model)
-        vector = torch.as_tensor(vec).type(torch.DoubleTensor)
-
-        # Following operation updates model parameters
-        torch.nn.utils.vector_to_parameters(vector, model.parameters())
-
-        # Create state dict manually or use model.state_dict()
-        # state_dict = OrderedDict(
-        # {key: param for (key, _),
-        # param in zip(model.named_parameters(), model.parameters())})
-
-        return model.state_dict()
-
     def __norm_l2(self) -> float:
         """Regularize L2 that is used by FedProx optimization
 
