@@ -114,20 +114,6 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def unflatten(
-            self,
-            weights_vector: List[float]
-      ) -> Dict[str, Union['np.ndarray', 'torch.Tensor']]:
-        """Revert flatten model weights back model-dict form.
-
-        Args:
-            weights_vector: ..
-
-        Return:
-            Model dictionary
-        """
-
-    @abstractmethod
     def load(self, filename: str) -> None:
         """Loads model from a file.
 
@@ -142,3 +128,22 @@ class Model(metaclass=ABCMeta):
         Args:
             filename: path to the file, where will be saved the model.
         """
+
+    @abstractmethod
+    def unflatten(
+            self,
+            weights_vector: List[float]
+      ) -> None:
+        """Revert flatten model weights back model-dict form.
+
+        Args:
+            weights_vector: ..
+
+        Return:
+            Model dictionary
+        """
+
+        if not isinstance(weights_vector, list) or not all([isinstance(w, float) for w in weights_vector]):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
+            )

@@ -212,6 +212,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             weights_vector: Vectorized model weights to convert dict
         """
 
+        super().unflatten(weights_vector)
+
         weights_vector = np.array(weights_vector)
         weights = self.get_weights()
         pointer = 0

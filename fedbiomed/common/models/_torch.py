@@ -110,12 +110,19 @@ class TorchModel(Model):
             weights_vector: Vectorized model weights to convert dict
         """
 
+        super().unflatten(weights_vector)
+
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self.model)
         vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
 
         # Following operation updates model parameters of copied model object
-        torch.nn.utils.vector_to_parameters(vector, model.parameters())
+        try:
+            torch.nn.utils.vector_to_parameters(vector, model.parameters())
+        except TypeError as e:
+            FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value} Can not unflatten model parameters. {e}"
+            )
 
         return model.state_dict()
 
