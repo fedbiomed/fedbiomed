@@ -180,13 +180,14 @@ class BaseSkLearnModel(Model):
 
     def get_weights(
             self,
+            only_trainable: bool=False,
             return_type: Callable[[Dict[str, np.ndarray]], Any] = None
     ) -> Any:
         """Returns model's parameters.
 
         Args:
             return_type: Output type for the weights. Wrap results by given return type.
-
+            only_trainable: unused
         Raises:
             FedbiomedModelError: If the list of parameters are not defined.
 

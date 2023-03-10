@@ -105,6 +105,7 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
+        print("BUG", type(grads), type(weights))
         try:
             # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
             # Add loss-regularization terms' derivatives to the raw gradients.
@@ -122,7 +123,7 @@ class Optimizer:
             return updates
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'step': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'step': {exc}"
             ) from exc
 
     def get_aux(self) -> Dict[str, Dict[str, Any]]:

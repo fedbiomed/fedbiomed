@@ -71,10 +71,13 @@ class Model(metaclass=ABCMeta):
             updates (Any): model updates.
         """
     @abstractmethod
-    def get_weights(self, return_type: Callable = None) -> Any:
+    def get_weights(self, only_trainable: bool=False, return_type: Callable = None) -> Any:
         """Returns weights of the model.
 
         Args:
+            only_trainable: whether to gather weights only on trainable layers (ie
+                non-frozen layers) or all layers (trainable and frozen). Defaults to False, (trainable and
+                frozen ones) 
             return_type: Function that converts the dictionary mapping layers to model weights into another data
                 structure. `return_type` should be used mainly with `declearn`'s `Vector`s. Defaults to None.
 
