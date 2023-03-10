@@ -124,7 +124,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
                 msg += "\nParameters changed:\n"
                 msg += param_changed
-                logger.warning(msg)
+                logger.warning(msg)            
 
     # @abstractmethod
     # def set_init_params(self) -> None:
@@ -211,9 +211,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             # default case: no optimizer is passed, using native sklearn optimizer
             logger.debug("Using native sklearn optimizer")
             self._optimizer = NativeSkLearnOptimizer(self._model)
-        elif isinstance(optimizer, DeclearnOptimizer):
+        elif isinstance(optimizer, (DeclearnOptimizer, FedOptimizer)):
             logger.debug("using a declearn Optimizer")
-            optimizer = FedOptimizer(optimizer)
+            if isinstance(optimizer, FedOptimizer):
+                optimizer = FedOptimizer(optimizer)
             self._optimizer = SkLearnOptimizer(self._model, optimizer)
             
         else:

@@ -31,15 +31,22 @@ class GenericOptimizer:
         
             
     def step(self) -> Callable:
+        logger.debug("calling steps")
         if self._step_method is NotImplemented:
             raise FedbiomedOptimizerError("Error, method used for step not implemeted yet")
-        return self._step_method()
+        #self._step_method()
+        if isinstance(self.optimizer, declearn.optimizer.Optimizer):
+            self.step_modules()
+        else:
+            self.step_native()
     
     def step_modules(self):
+        logger.debug("calling step_modules")
         grad: Vector = self.model.get_gradients(self._return_type)
         weights: Vector = self.model.get_weights(self._return_type)
         updates = self.optimizer.step(grad, weights)
         self.model.apply_updates(updates)
+        print("MODEL", self.model.model.state_dict())
 
     @classmethod
     def load_state(cls, state):

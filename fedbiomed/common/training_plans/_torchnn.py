@@ -315,8 +315,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Validate optimizer
         if isinstance(optimizer, torch.optim.Optimizer):
             self._optimizer = NativeTorchOptimizer(self._model, optimizer)
-        elif isinstance(optimizer, DeclearnOptimizer):
-            optimizer = FedOptimizer(optimizer)
+        elif isinstance(optimizer, (FedOptimizer, DeclearnOptimizer)):
+            if isinstance(optimizer, FedOptimizer):
+                optimizer = FedOptimizer(optimizer)
             self._optimizer = TorchOptimizer(self._model, optimizer)
         else:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
@@ -587,13 +588,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         try:
-            self.model().eval()  # pytorch switch for model inference-mode TODO should be removed
+            self._optimizer.model.model.eval()  # pytorch switch for model inference-mode TODO should be removed
             with torch.no_grad():
                 super().testing_routine(
                     metric, metric_args, history_monitor, before_train
                 )
         finally:
-            self.model().train()  # restore training behaviors
+            self._optimizer.model.model.train()  # restore training behaviors
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
@@ -607,7 +608,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return self._model.save(filename)
+            return self._optimizer.model.save(filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -622,7 +623,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         params = torch.load(filename)
         if to_params is False:
-            self._model.load(filename)
+            self._optimizer.model.load(filename)
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
@@ -658,11 +659,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Check whether postprocess method exists, and use it
 
-        params = self.model().state_dict()
+        params = self._optimizer.model.model.state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self.model().state_dict())  # Post process
+                params = self.postprocess(self._optimizer.model.model.state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
                                                  f"{e}") from e

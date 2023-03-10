@@ -68,7 +68,7 @@ class Optimizer:
         except (KeyError, TypeError) as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: declearn Optimizer instantiation"
-                " raised the following exception: {exc}"
+                f" raised the following exception: {exc}"
             ) from exc
 
     def init_round(self) -> None:
