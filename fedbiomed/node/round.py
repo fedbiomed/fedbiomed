@@ -13,7 +13,6 @@ import time
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
-import declearn
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -21,6 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, Fed
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.serializers import JsonSerializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
@@ -227,7 +227,7 @@ class Round:
 
         # import model params into the training plan instance
         try:
-            params = declearn.utils.json_load(params_path)["model_weights"]
+            params = JsonSerializer.load(params_path)["model_weights"]
             self.training_plan.fbm_model.set_weights(params)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: {e}"
@@ -304,17 +304,16 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            params = self.training_plan.after_training_params()
-            results['model_weights'] = declearn.model.api.Vector.build(params)
+            results['model_weights'] = self.training_plan.after_training_params()
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
             try:
                 # TODO: add validation status to these results?
-                # Dump the results to a (declearn-enhanced) JSON file.
+                # Dump the results to a JSON file.
                 filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.json")
-                declearn.utils.json_dump(results, filename)
+                JsonSerializer.dump(results, filename)
                 # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")

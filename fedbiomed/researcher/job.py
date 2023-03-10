@@ -17,13 +17,13 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-import declearn
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.serializers import JsonSerializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -443,8 +443,8 @@ class Job:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    results = declearn.utils.json_load(params_path)
-                    params = results["model_weights"].coefs  # unpack declearn Vector
+                    results = JsonSerializer.load(params_path)
+                    params = results["model_weights"]
                     optimizer_args = results.get("optimizer_args")
                 else:
                     params_path = None
@@ -513,16 +513,16 @@ class Job:
                 raise ValueError("'update_parameters' received both filename and params: only one may be used.")
             # Case when uploading a pre-existing file: load the parameters.
             if filename:
-                params = declearn.utils.json_load(filename)["model_weights"]
+                params = JsonSerializer.load(filename)["model_weights"]
                 self._training_plan.fbm_model.set_weights(params)
             # Case when exporting current parameters: create a local dump file.
             else:
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.json")
                 params = {
                     "researcher_id": self._researcher_id,
-                    "model_weights": self._training_plan.fbm_model.get_weights(as_vector=True),
+                    "model_weights": self._training_plan.fbm_model.get_weights(),
                 }
-                declearn.utils.json_dump(params, filename)
+                JsonSerializer.dump(params, filename)
             # Upload the file and record its local and remote locations.
             self._model_params_file = filename
             repo_response = self.repo.upload_file(filename)
