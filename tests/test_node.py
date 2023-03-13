@@ -546,6 +546,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
@@ -600,6 +601,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             "command": "train",
             "dataset_id": "dataset_id_1234",
@@ -658,6 +660,7 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             'researcher_id': resid,
             'dataset_id': 'dataset_id_1234'
@@ -748,6 +751,7 @@ class TestNode(NodeTestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
@@ -786,6 +790,7 @@ class TestNode(NodeTestCase):
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             "dataset_id": "dataset_id_1234"
         }
@@ -825,6 +830,7 @@ class TestNode(NodeTestCase):
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             "dataset_id": "dataset_id_1234"
         }
@@ -865,6 +871,7 @@ class TestNode(NodeTestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "secagg_id": None,
+            "secagg_random": None,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
@@ -999,6 +1006,7 @@ class TestNode(NodeTestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "secagg_id": None,
+            "secagg_random": 0.95,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
