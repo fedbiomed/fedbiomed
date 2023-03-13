@@ -18,7 +18,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, Message
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 
@@ -72,6 +72,7 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
+            secagg_id: server key secure aggregation context element
         """
 
         self._use_secagg: bool = False
@@ -135,7 +136,8 @@ class Round:
                         else:
                             # FIXME: should we load parameters here or in the training plan
                             self.aggregator_args[arg_name] = {'param_path': param_path,
-                                                              # 'params': training_plan.load(param_path, to_params=True)
+                                                              # 'params': training_plan.load(param_path,
+                                                              # update_model=True)
                                                               }
             return True, ''
         else:
@@ -177,6 +179,12 @@ class Round:
 
         Args:
             secagg_id: Secure aggregation ID attached to the train request
+
+        Returns:
+            True if secure aggregation should be used.
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
         """
         if environ["FORCE_SECURE_AGGREGATION"] and secagg_id is None:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
@@ -435,6 +443,9 @@ class Round:
             success: Declares whether training/validation is successful
             params_url: URL where parameters are uploaded
             timing: Timing statistics
+
+        Returns:
+            reply message
         """
 
         # If round is not successful log error message

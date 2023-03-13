@@ -1189,7 +1189,8 @@ class Experiment(object):
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_plan_path` must be string, but got type: {type(training_plan_path)}'
+            msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
+                f'but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1577,7 +1578,8 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
-            self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
+            self._global_model = self._job.training_plan.get_model_params()
+            # initial server state, before optimization/aggregation
 
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
@@ -1923,7 +1925,10 @@ class Experiment(object):
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(self._job.training_plan, breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(
+                self._job.training_plan,
+                breakpoint_path,
+                global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1976,8 +1981,8 @@ class Experiment(object):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()` method to pursue model
-                training.
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+                method to pursue model training.
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
@@ -2023,7 +2028,7 @@ class Experiment(object):
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                        # aggregator=bkpt_aggregator,
+                         # aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),

@@ -295,7 +295,7 @@ class SchemeValidator(object):
             only_required (bool): if True, only force required key. If False, update all
                            keys with default values in the scheme. Defaults to True.
 
-        Return:
+        Returns:
             (dict) a json populated with default values, returns an empty dict if something is wrong
 
         Raises:

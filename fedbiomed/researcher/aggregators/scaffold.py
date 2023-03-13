@@ -461,7 +461,7 @@ class Scaffold(Aggregator):
 
         # loading global state
         global_state_filename = self._aggregator_args['global_state_filename']
-        self.global_state = training_plan.load(global_state_filename, to_params=True)
+        self.global_state = training_plan.load(global_state_filename, update_model=False)
 
         for node_id in self._aggregator_args['aggregator_correction'].keys():
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]

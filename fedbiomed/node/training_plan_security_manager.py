@@ -70,7 +70,7 @@ class TrainingPlanSecurityManager:
             path: Training plan file path
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: bad parameter type
+            FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: file cannot be open
             FedbiomedTrainingPlanSecurityManagerError: file cannot be minified
             FedbiomedTrainingPlanSecurityManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
@@ -353,7 +353,7 @@ class TrainingPlanSecurityManager:
                     returns None instead.
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: bad parameter type or value
+            FedbiomedTrainingPlanSecurityManagerError: bad argument type or value
             FedbiomedTrainingPlanSecurityManagerError: database access problem
         """
 
@@ -409,7 +409,7 @@ class TrainingPlanSecurityManager:
             training plan entry found in the database matching `training_plan_name`. Otherwise, returns None.
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: bad parameter type
+            FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: cannot read database.
         """
 
@@ -447,7 +447,7 @@ class TrainingPlanSecurityManager:
             None.
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: bad parameter type
+            FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: database access problem
         """
 
@@ -491,7 +491,7 @@ class TrainingPlanSecurityManager:
             If there is no training plan matching [`training_plan_id`], returns None
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: bad parameter type
+            FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: database access problem
         """
 

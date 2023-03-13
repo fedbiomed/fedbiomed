@@ -23,7 +23,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
 
     Args:
         msg: message in JSON format but encoded as string or bytes
-    Return:
+    Returns:
         Parsed message as python dictionary.
     """
     decode = json.loads(msg)
