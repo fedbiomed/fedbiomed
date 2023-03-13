@@ -47,9 +47,11 @@ class FedAverage(Aggregator):
         """
 
         secure_aggregation = kwargs.get('secure_aggregation', False)
+        encryption_factors = kwargs.get('encryption_factors', None)
+        secagg_random = kwargs.get('secagg_random', None)
 
-        model_params_processed = list()
-        weights_processed = list()
+        model_params_processed = []
+        weights_processed = []
 
         for node_id, params in model_params.items():
 
@@ -60,7 +62,6 @@ class FedAverage(Aggregator):
                 )
 
             weight = weights[node_id]
-
             model_params_processed.append(params)
             weights_processed.append(weight)
 
@@ -73,6 +74,8 @@ class FedAverage(Aggregator):
         if secure_aggregation:
             agg_params = self.secure_aggregation(
                 params=model_params_processed,
+                encryption_factors=encryption_factors,
+                secagg_random=secagg_random,
                 aggregation_round=kwargs.get('n_round'),
                 total_sample_size=kwargs.get('total_sample_size'),
                 training_plan=kwargs.get('training_plan')

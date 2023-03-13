@@ -1131,7 +1131,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_strategy_refine.return_value = ({'param': 1}, [12.2] , 10)
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10,  {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
@@ -1235,7 +1235,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10)
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
@@ -1334,7 +1334,9 @@ class TestExperiment(ResearcherTestCase):
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
                                                  n_round=0,
-                                                 secure_aggregation=True
+                                                 secure_aggregation=True,
+                                                 secagg_random=unittest.mock.ANY,
+                                                 encryption_factors={'node-1': None, 'node-2': None}
                                                  )
         
         # repeat experiment but with a wrong sample_size

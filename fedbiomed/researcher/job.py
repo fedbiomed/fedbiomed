@@ -14,6 +14,7 @@ import tempfile
 import time
 import uuid
 import importlib
+import random
 from typing import Any, Tuple, Union, Callable, List, Dict, Type
 
 import validators
@@ -349,7 +350,8 @@ class Job:
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
                                    do_training: bool = True,
-                                   secagg_id: Union[str, None] = None):
+                                   secagg_id: Union[str, None] = None,
+                                   secagg_random: Union[float, None] = None):
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -363,6 +365,7 @@ class Job:
                 aggregator_args_thr_msg .
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
+
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
                    'training_args': self._training_args.dict(),
@@ -370,6 +373,7 @@ class Job:
                    'model_args': self._model_args,
                    'round': round,
                    'secagg_id': secagg_id,
+                   'secagg_random': secagg_random,
                    'command': 'train',
                    'aggregator_args': {}}
 
@@ -449,6 +453,7 @@ class Job:
                     params = self._training_plan.load(params_path, update_model=False)
                     model_params = params['model_params']
                     optimizer_args = params.get('optimizer_args')
+                    encryption_factor = params.get('encryption_factor', None)
                 else:
                     params_path = None
                     model_params = None
@@ -466,6 +471,7 @@ class Job:
                                'params': model_params,
                                'optimizer_args': optimizer_args,
                                'sample_size': m["sample_size"],
+                               'encryption_factor': encryption_factor,
                                'timing': timing})
 
                 self._training_replies[round].append(r)

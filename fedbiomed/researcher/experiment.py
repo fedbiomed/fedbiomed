@@ -5,6 +5,7 @@
 
 import functools
 import os
+import random
 import sys
 import json
 import inspect
@@ -1590,23 +1591,26 @@ class Experiment(object):
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job._nodes)
 
+        secagg_random = round(random.uniform(0, 1), 3)
         # Trigger training round on sampled nodes
         _ = self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_id="DUMMY_SECAGG")
+                                                 secagg_id="DUMMY_SECAGG",
+                                                 secagg_random=secagg_random)
         
         # refining/normalizing model weights received from nodes
-        model_params, weights, total_sample_size = self._node_selection_strategy.refine(
+        model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
-
         # aggregate models from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
+                                                       encryption_factors=encryption_factors,
+                                                       secagg_random=secagg_random,
                                                        total_sample_size=total_sample_size,
                                                        global_model=self._global_model,
                                                        training_plan=self._job.training_plan,

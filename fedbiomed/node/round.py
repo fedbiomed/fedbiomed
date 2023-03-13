@@ -10,6 +10,7 @@ import sys
 import time
 import inspect
 import importlib
+import functools
 from typing import Dict, Union, Any, Optional, Tuple, List
 import uuid
 
@@ -124,7 +125,8 @@ class Round:
                     url = aggregator_arg.get('url', False)
 
                     if any((url, arg_name)):
-                        # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                        # if both `filename` and `arg_name` fields are present, it means that parameters
+                        # should be retrieved using file
                         # exchanged system
                         success, param_path, error_msg = self.download_file(url, arg_name)
 
@@ -167,7 +169,10 @@ class Round:
             return True, params_path, ''
 
     @staticmethod
-    def _validate_secagg(secagg_id: Union[str, None]):
+    def _validate_secagg(
+            secagg_id: Union[str, None] = None,
+            secagg_random: Union[float, None] = None
+    ):
         """Validates secure aggregation status
 
         Args:
@@ -182,11 +187,18 @@ class Round:
                 f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
             )
 
+        if secagg_id is not None and secagg_random is None:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
+                f"secure aggregation correctness. Please add `secagg_random` to the train request"
+            )
+
         return True if secagg_id is not None else False
 
     def run_model_training(
             self,
-            secagg_id: Union[str, None] = None
+            secagg_id: Union[str, None] = None,
+            secagg_random: Union[float, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
@@ -194,6 +206,7 @@ class Round:
         Args:
             secagg_id: Secure aggregation id. None means that the parameters
                 are not going to be encrypted
+            secagg_random: Float value to validate secure aggregation on the researcher side
 
         Returns:
             Returns the corresponding node message, training reply instance
@@ -202,7 +215,7 @@ class Round:
 
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-        self._use_secagg = self._validate_secagg(secagg_id=secagg_id)
+        self._use_secagg = self._validate_secagg(secagg_id=secagg_id, secagg_random=secagg_random)
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -354,16 +367,19 @@ class Round:
             model_params = self.training_plan.after_training_params(flatten=self._use_secagg)
             if self._use_secagg:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.")
-                model_params = self._secagg_crypter.encrypt(
+
+                encrypt = functools.partial(
+                    self._secagg_crypter.encrypt,
                     num_nodes=2,
                     current_round=self._round,
-                    params=model_params,
-                    # IMPORTANT = Keep this key for testing purposes
+                    #key=10,
                     key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
-                    # key=10,
-                    weight=sample_size
+                    weight=sample_size,
                 )
+                model_params = encrypt(params=model_params)
                 results["encrypted"] = True
+                results["encryption_factor"] = encrypt(params=[secagg_random])
+
                 logger.info("Encryption in completed!")
 
             results['researcher_id'] = self.researcher_id
