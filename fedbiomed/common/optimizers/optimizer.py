@@ -105,7 +105,7 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
-        print("BUG", type(grads), type(weights))
+
         try:
             # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
             # Add loss-regularization terms' derivatives to the raw gradients.

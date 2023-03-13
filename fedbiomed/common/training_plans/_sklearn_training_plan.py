@@ -218,10 +218,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self._optimizer = SkLearnOptimizer(self._model, optimizer)
             
         else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be a declearn optimizer, but got {type(optimizer)}. If you want to use only native scikit learn optimizer, please do not use `init_optimizer` method in the TrainingPlan")
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be a declearn optimizer, but got {type(optimizer)}. If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan")
 
     def init_optimizer(self) -> None:
-        """Default optimizer, which basically returns None (meaning native scikit learn optimization will be used)"""
+        """Default optimizer, which basically returns None (meaning native inner scikit learn optimization will be used)"""
         pass
 
     def optimizer_args(self) -> Dict:

@@ -50,7 +50,6 @@ class GenericOptimizer:
         weights: Vector = self.model.get_weights(return_type=self._return_type)
         updates = self.optimizer.step(grad, weights)
         self.model.apply_updates(updates)
-        print("MODEL", self.model.model.state_dict())
 
     @classmethod
     def build(cls, tp_type: TrainingPlans, model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
@@ -71,7 +70,7 @@ class GenericOptimizer:
                 raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
         else:
             
-            raise FedbiomedOptimizerError(f"Training Plan {tp_type} unknown")
+            raise FedbiomedOptimizerError(f"Unknown Training Plan type {tp_type} ")
             
     @classmethod
     def load_state(cls, state):
@@ -134,6 +133,10 @@ class TorchOptimizer(GenericOptimizer):
 
     def step(self):
         self.step_modules()
+        
+    def get_learning_rate(self) -> List[float]:
+        return [self.optimizer._optimizer.lrate]
+
 
 class NativeTorchOptimizer(GenericOptimizer):
     def __init__(self, model, optimizer: torch.optim.Optimizer, return_type=None):
