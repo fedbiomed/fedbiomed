@@ -297,7 +297,7 @@ class TestRound(NodeTestCase):
             "       pass\n" + \
             "   def optimizer_args(self):\n" + \
             "       pass\n" + \
-            "   def after_training_params(self, vector = False):\n" + \
+            "   def after_training_params(self, flatten = False):\n" + \
             "       return [1,2,3,4]\n"
 
 
