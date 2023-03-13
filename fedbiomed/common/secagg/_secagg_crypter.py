@@ -4,8 +4,9 @@
 
 import time
 
-from typing import List, Any
+from typing import List
 from gmpy2 import mpz
+import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers, VEParameters
@@ -143,7 +144,7 @@ class SecaggCrypter:
             params: List[List[int]],
             key: int,
             total_sample_size: int
-    ) -> Any:
+    ) -> np.ndarray:
         """Decrypt given parameters
 
         Args:
@@ -154,7 +155,7 @@ class SecaggCrypter:
             total_sample_size: sum of number of samples from all nodes
 
         Returns:
-            Aggregated parameters
+            Aggregated parameters decrypted and structured
 
         Raises:
              FedbiomedSecaggCrypterError: bad parameters
