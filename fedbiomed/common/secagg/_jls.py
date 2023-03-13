@@ -51,8 +51,8 @@ def _check_clipping_range(
 
     if state:
         logger.info(
-            f"There are some numbers in the local vector that exceeds clipping range. Please increase the "
-            f"clipping range to account for value")
+            "There are some numbers in the local vector that exceeds clipping range. Please increase the "
+            "clipping range to account for value")
 
 
 def quantize(
@@ -80,9 +80,9 @@ def quantize(
     f = np.vectorize(
         lambda x: min(
             target_range - 1,
-            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range)
-            * target_range
-            / (2 * clipping_range),
+            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) *
+            target_range /
+            (2 * clipping_range),
         )
     )
     quantized_list = f(weights).astype(int)
@@ -120,7 +120,18 @@ def invert(
         a: mpz,
         b: mpz
 ) -> mpz:
-    """Finds the inverts of a mod b"""
+    """Finds the inverts of a mod b
+
+    Args:
+        a: number to invert
+        b: modulo of inversion
+
+    Returns:
+        inverted value
+
+    Raises:
+        ZeroDivisionError: cannot invert number
+    """
 
     s = gmpy2.invert(a, b)
     # according to documentation, gmpy2.invert might return 0 on
@@ -136,7 +147,16 @@ def powmod(
         b: mpz,
         c: mpz
 ) -> mpz:
-    """Computes a to the power of b mod c"""
+    """Computes a to the power of b mod c
+
+    Args:
+        a: number to compute power
+        b: power
+        c: power modulus
+
+    Returns:
+        powered value of a
+    """
     if a == 1:
         return 1
     return gmpy2.powmod(a, b, c)
@@ -179,7 +199,10 @@ class VES:
         """Gets element size and compression ratio by given additional operation count.
 
         Args:
-            add_ops:
+            add_ops: ?
+
+        Returns:
+            tuple of element size and compression ratio
         """
         element_size = self._valuesize + ceil(log2(add_ops))
         comp_ratio = floor(self._ptsize / element_size)
@@ -194,11 +217,11 @@ class VES:
         """Encode a vector to a smaller size vector
 
         Args:
-            V:
-            add_ops:
+            V: ?
+            add_ops: ?
 
         Returns:
-
+            list of encoded values
         """
         element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
 
@@ -224,8 +247,8 @@ class VES:
         """Decode a vector back to original size vector
 
         Args:
-            E:
-            add_ops:
+            E: ?
+            add_ops: ?
         Returns:
             Decoded vector
         """
@@ -257,7 +280,6 @@ class VES:
     ) -> List[int]:
         """
         """
-        i = 1
         V = []
         bit = 0b1
         mask = 0b1
@@ -341,6 +363,9 @@ class PublicParam:
 
         Args:
             val: Value for hashing
+
+        Returns:
+            hashed value
         """
         return self._hashing_function(val)
 
@@ -350,8 +375,11 @@ class PublicParam:
     ) -> bool:
         """Compares equality of two public parameter
 
+        Args:
+            other: other PublicParam
+
         Returns:
-            True if other Public param's n_modules is equal to `self._n_modulus`
+            True if other PublicParam's n_modules is equal to `self._n_modulus`
         """
         return self._n_modulus == other.n_modulus
 
@@ -393,33 +421,41 @@ class EncryptedNumber(object):
         """Adds given value to self
 
         Args:
+            other: value to add to self
 
         Returns:
-
+            summed value
         """
 
         if not isinstance(other, EncryptedNumber):
-            raise TypeError(f"Encrypted number can be only summed with another Encrypted num."
-                             f"Can not sum Encrypted number with type {type(other)}")
+            raise TypeError("Encrypted number can be only summed with another Encrypted num."
+                            f"Can not sum Encrypted number with type {type(other)}")
 
         return self._add_encrypted(other)
 
     def __iadd__(self, other):
         return self.__add__(other)
 
-    def __radd__(self, other: Union['EncryptedNumber', int]):
+    def __radd__(self, other: Union['EncryptedNumber', int]) -> 'EncryptedNumber':
         """Allows summing parameters using built-in `sum` method
 
         Args:
             other: Value to add. It should be an instance EncryptedNumber
+
+        Returns:
+            summed value
         """
         if other == 0:
             return self
         else:
             return self.__add__(other)
 
-    def __repr__(self):
-        """Encrypted number representation """
+    def __repr__(self) -> str:
+        """Encrypted number representation
+
+        Returns:
+            encypted number
+        """
 
         repr = self.ciphertext.digits()
         return "<EncryptedNumber {}...{}>".format(repr[:5], repr[-5:])
@@ -435,6 +471,9 @@ class EncryptedNumber(object):
 
         Returns:
             Sum of self and other
+
+        Raises:
+            ValueError: summing numbers encrypted against different parameters
         """
 
         if self.public_param != other.public_param:
@@ -459,9 +498,13 @@ class BaseKey:
 
     def __init__(self, public_param: PublicParam, key: int):
         """Constructs base key object
+
         Args:
             param: The public parameters
             key: The value of the server's key \\(sk_0\\)
+
+        Raises:
+            TypeError: bad argument type
         """
 
         if not isinstance(key, int):
@@ -474,7 +517,11 @@ class BaseKey:
     def public_param(
             self
     ) -> PublicParam:
-        """Return public parameter of the key"""
+        """Return public parameter of the key
+
+        Returns:
+            public param
+        """
         return self._public_param
 
     @property
@@ -495,7 +542,7 @@ class BaseKey:
 
     def __eq__(
             self,
-            other: Union['BaseKey', 'ServerKey', 'Userkey']
+            other: Union['BaseKey', 'ServerKey', 'UserKey']
     ) -> bool:
         """Check equality of public parameters
 
@@ -504,6 +551,9 @@ class BaseKey:
 
         Returns:
             True if both ServerKey uses same public params. False for vice versa.
+
+        Raises:
+            TypeError: bad argument type
         """
         if not isinstance(other, type(self)):
             raise TypeError(f"The key can not be compared with type {type(other)}")
@@ -511,11 +561,23 @@ class BaseKey:
         return self._public_param == other.public_param and self._key == other.key
 
     def __hash__(self) -> str:
-        """Hash of server key"""
+        """Hash of server key
+
+        Returns:
+            hash value
+        """
         return hash(self._key)
 
     def _populate_tau(self, tau: int, len_: int, ):
-        """Populates TAU by applying hashing function"""
+        """Populates TAU by applying hashing function
+
+        Args:
+            tau: `tau` value to use for generating list numbers
+            len: number of elements in tau list
+
+        Returns:
+            list of tau values
+        """
 
         taus = (np.arange(0, len_, dtype=mpz) << self._public_param.bits // 2) | tau
 
@@ -557,6 +619,8 @@ class UserKey(BaseKey):
             A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber` or list of
                 encrypted numbers.
 
+        Raises:
+            TypeError: bad parameters type
         """
         if not isinstance(plaintext, list):
             raise TypeError(f"Expected plaintext type list but got {type(plaintext)}")
@@ -605,18 +669,19 @@ class ServerKey(BaseKey):
             tau: The time period, (training round)
             delta: ...
 
+        Returns:
+            List of decrypted sum of user inputs
+
         Raises:
             TypeError: In case of invalid argument type.
 
-        Returns:
-            List of decrypted sum of user inputs
         """
 
         if not isinstance(cipher, list):
             raise TypeError(f"Expected `cipher` is list of encrypter numbers but got {type(cipher)}")
 
         if not all([isinstance(c, EncryptedNumber) for c in cipher]):
-            raise TypeError(f"Cipher text should be list of EncryptedNumbers")
+            raise TypeError("Cipher text should be list of EncryptedNumbers")
 
         # TODO: Find out what is going wrong in numpy implementation
         ciphertext = [c.ciphertext for c in cipher]
@@ -680,6 +745,10 @@ class JoyeLibert:
 
         Returns:
                 The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
+
+        Raises:
+                TypeError: bad argument type
+                ValueError: bad argument value
         """
         if not isinstance(user_key, UserKey):
             raise TypeError(f"Expected key for encryption type is UserKey. but got {type(user_key)}")
@@ -724,6 +793,9 @@ class JoyeLibert:
 
         Returns:
             The sum of the users' inputs of type `int`
+
+        Raises:
+            ValueError: bad argument value
         """
 
         if not isinstance(sk_0, ServerKey):
@@ -796,8 +868,8 @@ class FDH:
             while True:
                 h = hashlib.sha256()
                 h.update(
-                    int(t).to_bytes(self.bits_size // 2, "big")
-                    + counter.to_bytes(1, "big")
+                    int(t).to_bytes(self.bits_size // 2, "big") +
+                    counter.to_bytes(1, "big")
                 )
                 result += h.digest()
                 counter += 1

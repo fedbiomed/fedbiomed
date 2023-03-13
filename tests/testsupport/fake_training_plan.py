@@ -43,8 +43,8 @@ class FakeModel:
         Args:
             path (str): originally, the path where the parameters model
             are stored. Unused in this dummy class. 
-            to_params (bool): originally, whether to return parameter into
-            the model or into a dictionary. Unused in this dummy class.
+            update_model (bool): originally, whether to update the model
+            parameters. Unused in this dummy class.
         """
         pass
 

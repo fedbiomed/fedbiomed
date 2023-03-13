@@ -9,7 +9,7 @@ from json import decoder
 from typing import Optional, Union
 
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging

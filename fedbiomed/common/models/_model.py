@@ -6,7 +6,6 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, ClassVar, Dict, Optional, Union, Type, List
 
-import torch
 from declearn.model.api import Vector
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -133,13 +132,13 @@ class Model(metaclass=ABCMeta):
     def unflatten(
             self,
             weights_vector: List[float]
-      ) -> None:
+    ) -> None:
         """Revert flatten model weights back model-dict form.
 
         Args:
-            weights_vector: ..
+            weights_vector: Vectorized model weights to convert dict
 
-        Return:
+        Returns:
             Model dictionary
         """
 

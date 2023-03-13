@@ -108,6 +108,9 @@ class TorchModel(Model):
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
         """
 
         super().unflatten(weights_vector)

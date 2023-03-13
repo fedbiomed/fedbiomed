@@ -17,7 +17,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, Message
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 
@@ -71,6 +71,7 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
+            secagg_id: server key secure aggregation context element
         """
 
         self._use_secagg: bool = False
@@ -124,7 +125,8 @@ class Round:
                     url = aggregator_arg.get('url', False)
 
                     if any((url, arg_name)):
-                        # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                        # if both `filename` and `arg_name` fields are present, it means that parameters 
+                        # should be retrieved using file
                         # exchanged system
                         success, param_path, error_msg = self.download_file(url, arg_name)
 
@@ -133,7 +135,8 @@ class Round:
                         else:
                             # FIXME: should we load parameters here or in the training plan
                             self.aggregator_args[arg_name] = {'param_path': param_path,
-                                                              # 'params': training_plan.load(param_path, to_params=True)
+                                                              # 'params': training_plan.load(param_path, 
+                                                              # update_model=True)
                                                               }
             return True, ''
         else:
@@ -167,11 +170,17 @@ class Round:
             return True, params_path, ''
 
     @staticmethod
-    def _validate_secagg(secagg_id: Union[str, None]):
-        """Validates secure aggregation status
+    def _validate_secagg(secagg_id: Union[str, None]) -> bool:
+        """Validates secure aggregation status.
 
         Args:
             secagg_id: Secure aggregation ID attached to the train request
+
+        Returns:
+            True if secure aggregation should be used.
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
         """
         if environ["FORCE_SECURE_AGGREGATION"] and secagg_id is None:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
@@ -187,7 +196,7 @@ class Round:
     def run_model_training(
             self,
             secagg_id: Union[str, None] = None
-    ) -> Dict[str, Any]:
+    ) -> Message:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
 
@@ -409,7 +418,7 @@ class Round:
             params_url: Union[str, None] = '',
             timing: dict = {},
             sample_size: Union[int, None] = None
-    ) -> Dict[str, Any]:
+    ) -> Message:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
@@ -419,6 +428,9 @@ class Round:
             success: Declares whether training/validation is successful
             params_url: URL where parameters are uploaded
             timing: Timing statistics
+
+        Returns:
+            reply message object
         """
 
         # If round is not successful log error message

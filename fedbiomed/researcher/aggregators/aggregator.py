@@ -12,7 +12,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
+from fedbiomed.common.secagg import SecaggCrypter
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 
@@ -43,6 +43,9 @@ class Aggregator:
             aggregation_round: The round of the aggregation.
             total_sample_size: Sum of sample sizes used for training
             training_plan: Training plan instance used for the training.
+
+        Returns:
+            aggregated model parameters
         """
 
         # TODO: verify with secagg context number of parties
@@ -79,7 +82,7 @@ class Aggregator:
             FedbiomedAggregatorError: If the method is not defined by inheritor
         """
         msg = ErrorNumbers.FB401.value + \
-              ": aggreate method should be overloaded by the choosen strategy"
+            ": aggregate method should be overloaded by the choosen strategy"
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
 
@@ -96,7 +99,7 @@ class Aggregator:
 
     def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
         """Returns aggregator arguments that are expecting by the nodes
-        
+
         Returns:
         dict: contains `Aggregator` parameters that will be sent through MQTT message
                 service

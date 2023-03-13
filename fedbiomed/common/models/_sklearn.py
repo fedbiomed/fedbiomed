@@ -7,7 +7,7 @@ import sys
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 from io import StringIO
-from typing import Any, ClassVar, Dict, Generic, Iterable, List, Optional, Tuple, Type, Union, Iterator
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 from contextlib import contextmanager
 
 import joblib
@@ -210,6 +210,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
         """
 
         super().unflatten(weights_vector)

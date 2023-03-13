@@ -6,6 +6,9 @@
 
 from typing import Dict, Union, Mapping
 
+import torch # used by typing
+import numpy # used by typing
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -30,7 +33,7 @@ class FedAverage(Aggregator):
             weights: Dict[str, float],
             *args,
             **kwargs
-    ) -> Mapping[str, Union['torch.Tensor', 'np.ndarray']]:
+    ) -> Mapping[str, Union['torch.Tensor', 'numpy.ndarray']]:
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 

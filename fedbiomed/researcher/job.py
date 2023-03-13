@@ -149,7 +149,7 @@ class Job:
         self._training_plan_name = self._training_plan.__class__.__name__
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
-        
+
         self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
@@ -392,10 +392,12 @@ class Job:
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
-                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args' and logger.level != "DEBUG" }
+                msg_print = {key: value for key, value in msg.items() 
+                             if key != 'aggregator_args' and logger.level != "DEBUG" }
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: '
+                            f'{str(msg_print)} '
                             f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
@@ -490,7 +492,7 @@ class Job:
             is_model_params: whether params are models parameters or another value that must be sent
             through file exchange system. Defaults to True (argument are model parameters).
             variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
-        
+
         Returns:
             the name of the parameter file
             the URL of the uploaded file

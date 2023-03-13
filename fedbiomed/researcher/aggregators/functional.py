@@ -45,8 +45,8 @@ def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
     """Performs weighted sum operation
 
     Args:
-        model_params (List[Dict[str, Union[torch.Tensor, np.ndarray]]]): list that contains nodes' model parameters; each model is stored as an OrderedDict (maps
-            model layer name to the model weights)
+        model_params (List[Dict[str, Union[torch.Tensor, np.ndarray]]]): list that contains nodes'
+            model parameters; each model is stored as an OrderedDict (maps model layer name to the model weights)
         proportions (List[float]): weights of all items whithin model_params's list
 
     Returns:
@@ -76,4 +76,3 @@ def init_correction_states(model_params: Dict, node_ids: Dict) -> Dict:
     init_params = {key: initialize(tensor)[1] for key, tensor in model_params.items()}
     client_correction = {node_id: copy.deepcopy(init_params) for node_id in node_ids}
     return client_correction
-

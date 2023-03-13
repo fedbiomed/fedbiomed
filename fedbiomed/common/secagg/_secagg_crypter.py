@@ -4,7 +4,7 @@
 
 import time
 
-from typing import List
+from typing import List, Any
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -75,7 +75,6 @@ class SecaggCrypter:
     ) -> List[int]:
         """Encrypts model parameters.
 
-
         Args:
             num_nodes: Number of nodes that is expected to encrypt parameters for aggregation
             current_round: Current round of federated training
@@ -85,6 +84,10 @@ class SecaggCrypter:
 
         Returns:
             List of encrypted parameters
+
+        Raises:
+            FedbiomedSecaggCrypterError: bad parameters
+            FedbiomedSecaggCrypterError: encryption issue
         """
 
         start = time.process_time()
@@ -140,25 +143,31 @@ class SecaggCrypter:
             params: List[List[int]],
             key: int,
             total_sample_size: int
-    ):
+    ) -> Any:
         """Decrypt given parameters
 
         Args:
             current_round: The round that the aggregation will be done
             params: Aggregated/Summed encrypted parameters
-            num_nodes:
+            num_nodes: number of nodes
             key: The key that will be used for decryption
-            total_sample_size:
+            total_sample_size: sum of number of samples from all nodes
 
+        Returns:
+            Aggregated parameters
+
+        Raises:
+             FedbiomedSecaggCrypterError: bad parameters
+             FedbiomedSecaggCrypterError: aggregation issue
         """
         start = time.process_time()
 
         if len(params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
-                f"Num of parameters that are received from node does not match the num of "
-                f"nodes has been set for the encrypter. There might be some nodes did "
-                f"not answered to training request or num of clients of "
-                f"`ParameterEncrypter` has not been set properly before train request.")
+                "Num of parameters that are received from node does not match the num of "
+                "nodes has been set for the encrypter. There might be some nodes did "
+                "not answered to training request or num of clients of "
+                "`ParameterEncrypter` has not been set properly before train request.")
 
         if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB622}: The parameters to aggregate should "
@@ -202,7 +211,7 @@ class SecaggCrypter:
             num_nodes: int,
             total_sample_size: int
     ) -> List:
-        """Average
+        """Apply weight to parameters.
 
         Args:
             params: List of aggregated/summed parameters
@@ -216,10 +225,13 @@ class SecaggCrypter:
         return [param / num_nodes for param in params]
 
     def _convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
-        """Converts encrypted integers to EncryptedNumber
+        """Converts encrypted integers to `EncryptedNumber`
 
         Args:
             params: A list containing list of encrypted integers for each node
+
+        Returns:
+            list of `EncryptedNumber` objects
         """
 
         # Set public params
