@@ -9,7 +9,6 @@ Fed-BioMed training plans wrapping scikit-learn models.
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from fedbiomed.common.models import SkLearnModel
 
 import numpy as np
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
@@ -25,6 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, NativeSkLearnOptimizer, SkLearnOptimizer
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.models import SkLearnModel
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -55,14 +55,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model: SkLearnModel = SkLearnModel(self._model_cls)
-        #self._model_args = {}  # type: Dict[str, Any]
-        self._training_args: dict = {}  # type: Dict[str, Any]
-        self._optimizer_args: Optional[dict] = None
-        #self._param_list = []  # type: List[str]
+        self._model = SkLearnModel(self._model_cls)
+        self._training_args = {}  # type: Dict[str, Any]
         self.__type = TrainingPlans.SkLearnTrainingPlan
-        #self._is_classification = False
-        self._batch_maxnum: int = 0
+        self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self._optimizer: Optional[GenericOptimizer] = None
         self.add_dependency([
