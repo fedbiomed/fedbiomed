@@ -96,7 +96,7 @@ class FakeModel:
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
 
-    def after_training_params(self, vector = False) -> List[int]:
+    def after_training_params(self, flatten=False) -> List[int]:
         """Fakes `after_training_params` method of TrainingPlan classes.
         Originally used to get the parameters after training is performed.
         Passed arguments are unused.
