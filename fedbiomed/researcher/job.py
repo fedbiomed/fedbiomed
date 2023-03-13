@@ -350,7 +350,8 @@ class Job:
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
                                    do_training: bool = True,
-                                   secagg_id: Union[str, None] = None,
+                                   secagg_servkey_id: Union[str, None] = None,
+                                   secagg_biprime_id: Union[str, None] = None,
                                    secagg_random: Union[float, None] = None):
         """ Sends training request to nodes and waits for the responses
 
@@ -363,6 +364,9 @@ class Job:
             aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
                 via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
                 aggregator_args_thr_msg .
+            secagg_servkey_id: Secure aggregation ServerKey context id
+            secagg_biprime_id: Secure aggregation BiPrime context id
+            secagg_random: Random state to validate secure aggregation key correctness
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
 
@@ -372,7 +376,8 @@ class Job:
                    'training': do_training,
                    'model_args': self._model_args,
                    'round': round,
-                   'secagg_id': secagg_id,
+                   'secagg_servkey_id': secagg_servkey_id,
+                   'secagg_biprime_id': None,
                    'secagg_random': secagg_random,
                    'command': 'train',
                    'aggregator_args': {}}

@@ -338,7 +338,8 @@ class Node:
                             # iterate over each dataset found
                             # in the current round (here round refers
                             # to a round to be done on a specific dataset).
-                            msg = round.run_model_training(secagg_id=item.get_param('secagg_id'),
+                            msg = round.run_model_training(secagg_servkey_id=item.get_param('secagg_servkey_id'),
+                                                           secagg_biprime_id=item.get_param('secagg_biprime_id'),
                                                            secagg_random=item.get_param('secagg_random'))
                             self.messaging.send_message(msg)
                     except Exception as e:

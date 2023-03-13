@@ -48,7 +48,6 @@ class Round:
                  history_monitor: HistoryMonitor = None,
                  aggregator_args: dict = None,
                  node_args: Union[dict, None] = None,
-                 secagg_id: Union[str, None] = None,
                  round_number: int = 0,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
@@ -72,7 +71,6 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
-            secagg_id: server key secure aggregation context element
         """
 
         self._use_secagg: bool = False
@@ -97,7 +95,6 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
-        self._secagg_id = secagg_id
         self._sk_manager = sk_manager
         self._secagg_crypter = SecaggCrypter()
         self._round = round_number
@@ -172,7 +169,8 @@ class Round:
 
     @staticmethod
     def _validate_secagg(
-            secagg_id: Union[str, None] = None,
+            secagg_servkey_id: Union[str, None] = None,
+            secagg_biprime_id: Union[str, None] = None,
             secagg_random: Union[float, None] = None
     ):
         """Validates secure aggregation status
@@ -186,34 +184,36 @@ class Round:
         Raises:
             FedbiomedRoundError: incoherent secure aggregation status
         """
-        if environ["FORCE_SECURE_AGGREGATION"] and secagg_id is None:
+        if environ["FORCE_SECURE_AGGREGATION"] and secagg_servkey_id is None:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
                                       f"is not set. Node requires to apply secure aggregation")
 
-        if secagg_id is not None and not environ["SECURE_AGGREGATION"]:
+        if secagg_servkey_id is not None and not environ["SECURE_AGGREGATION"]:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
             )
 
-        if secagg_id is not None and secagg_random is None:
+        if secagg_servkey_id is not None and secagg_random is None:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
                 f"secure aggregation correctness. Please add `secagg_random` to the train request"
             )
 
-        return True if secagg_id is not None else False
+        return True if secagg_servkey_id is not None else False
 
     def run_model_training(
             self,
-            secagg_id: Union[str, None] = None,
+            secagg_servkey_id: Union[str, None] = None,
+            secagg_biprime_id: Union[str, None] = None,
             secagg_random: Union[float, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
 
         Args:
-            secagg_id: Secure aggregation id. None means that the parameters
+            secagg_servkey_id: Secure aggregation Servkey context id. None means that the parameters
                 are not going to be encrypted
+            secagg_biprime_id: Secure aggregation Biprime context ID.
             secagg_random: Float value to validate secure aggregation on the researcher side
 
         Returns:
@@ -223,7 +223,10 @@ class Round:
 
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-        self._use_secagg = self._validate_secagg(secagg_id=secagg_id, secagg_random=secagg_random)
+        self._use_secagg = self._validate_secagg(
+            secagg_servkey_id=secagg_servkey_id,
+            secagg_biprime_id=secagg_biprime_id,
+            secagg_random=secagg_random)
 
         # Initialize and validate requested experiment/training arguments
         try:
