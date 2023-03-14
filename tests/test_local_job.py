@@ -30,11 +30,7 @@ class TestLocalJob(ResearcherTestCase):
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
 
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += "from unittest import mock\n"
-        content += "from fedbiomed.common.models import Model\n"
-        content += inspect.getsource(FakeModel)
+        content = "from testsupport.fake_training_plan import FakeModel"
         with open(tmp_dir_model, "w", encoding="utf-8") as file:
             file.write(content)
 

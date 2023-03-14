@@ -514,13 +514,13 @@ class Job:
             # Case when uploading a pre-existing file: load the parameters.
             if filename:
                 params = Serializer.load(filename)["model_weights"]
-                self._training_plan.fbm_model.set_weights(params)
+                self._training_plan.set_model_params(params)
             # Case when exporting current parameters: create a local dump file.
             else:
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
                 params = {
                     "researcher_id": self._researcher_id,
-                    "model_weights": self._training_plan.fbm_model.get_weights(),
+                    "model_weights": self._training_plan.get_model_params(),
                 }
                 Serializer.dump(params, filename)
             # Upload the file and record its local and remote locations.

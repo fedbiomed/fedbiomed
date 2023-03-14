@@ -42,12 +42,7 @@ class TestJob(ResearcherTestCase):
         tmp_dir_model = os.path.join(tmp_dir, name)
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
-
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += "from unittest import mock\n"
-        content += "from fedbiomed.common.models import Model\n"
-        content += inspect.getsource(FakeModel)
+        content = "from testsupport.fake_training_plan import FakeModel"
         with open(tmp_dir_model, "w", encoding="utf-8") as file:
             file.write(content)
 
@@ -102,9 +97,11 @@ class TestJob(ResearcherTestCase):
         self.mock_request_create.side_effect = TestJob.msg_side_effect
 
         # Build Global Job that will be used in most of the tests
-        self.job = Job(training_plan_class=self.model,
-                       training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                       data=self.fds)
+        self.job = Job(
+            training_plan_class=self.model,
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=self.fds
+        )
 
     def tearDown(self) -> None:
 
@@ -484,11 +481,11 @@ class TestJob(ResearcherTestCase):
 
         params = {'params': [1, 2, 3, 4]}
         # Test without passing filename
-        with patch.object(self.job.training_plan.fbm_model, "get_weights") as patch_get:
+        with patch.object(self.job.training_plan, "get_model_params") as patch_get:
             patch_get.return_value = params
             result = self.job.update_parameters(params=params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.model.fbm_model.get_weights.assert_called_once()
+        self.model.get_model_params.assert_called_once()
 
     def test_job_13_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """

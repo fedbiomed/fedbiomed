@@ -1,47 +1,47 @@
-""" This file contains dummy Classes for unit testing. It fakes a TrainingPlan
-(either from `fedbiomed.common.torchnn`` or from `fedbiomed.common.fedbiosklearn`)
-"""
+"""Fake `BaseTrainingPlan` subclass nullifying most methods, for tests use."""
 
-from typing import Dict, Any, List
+from typing import Any, Dict, Optional
 from unittest import mock
 import time
 
 from fedbiomed.common.models import Model
+from fedbiomed.common.training_plans import BaseTrainingPlan
 
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
-class FakeModel:
-    """Fakes a model (TrainingPlan, inheriting either from
-    `fedbiomed.common.torchnn` or from `fedbiomed.common.fedbiosklearn`)
-    Provides a few methods that mimicks the behaviour of
-    TrainingPlan models
+class FakeModel(BaseTrainingPlan):
+    """Fake `BaseTrainingPlan` subclass nullifying most methods.
 
+    This class is designed to be used in the context of tests.
+    Important notes:
+      - Its wrapped `Model` is an auto-spec mock object.
+      - The latter deterministically returns a list of int when queried
+        for its model parameters, that have values [1, 2, 3, 4].
+      - The `training_routine` method implements a 1-second sleep action.
     """
     SLEEPING_TIME = 1  # time that simulate training (in seconds)
 
-    def __init__(self, model_args: Dict = None, *args, **kwargs):
+    def __init__(self, model_args: Optional[Dict[str, Any]] = None, **kwargs):
+        super().__init__()
         # For testing Job model_args
         self.model_args = model_args
         self.__type = 'DummyTrainingPlan'
         self._optimizer_args = {}
         self._model = mock.create_autospec(Model, instance=True)
-        self._model.get_weights.return_value = {}
+        self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
 
-    @property
-    def fbm_model(self):
-        """Mock `Model` property."""
-        return self._model
-
-    def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):
-        pass
+    def post_init(
+        self,
+        model_args: Dict[str, Any],
+        training_args: Dict[str, Any],
+        aggregator_args: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Fake 'post_init', that does not make use of input arguments."""
+        return None
 
     def type(self):
-        """ Getter for TrainingPlan Type"""
+        """Getter for TrainingPlan Type."""
         return self.__type
-
-    def set_data_loaders(self, train_data_loader, test_data_loader):
-        self.training_data_loader = train_data_loader
-        self.testing_data_loader = test_data_loader
 
     def load(self, path: str, to_params: bool):
         """Fakes `load` method of TrainingPlan classes,
@@ -87,9 +87,6 @@ class FakeModel:
             Unused in this method.
         """
 
-    def optimizer_args(self):
-        return self._optimizer_args
-
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally
         used for training the model. Passed arguments are unused.
@@ -100,14 +97,3 @@ class FakeModel:
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
-
-    def after_training_params(self) -> List[int]:
-        """Fakes `after_training_params` method of TrainingPlan classes.
-        Originally used to get the parameters after training is performed.
-        Passed arguments are unused.
-
-        Returns:
-            List[int]: Mimicks return of trained parameters
-            (always returns a list of integers: [1, 2, 3, 4])
-        """
-        return {"coefs": [1, 2, 3, 4]}

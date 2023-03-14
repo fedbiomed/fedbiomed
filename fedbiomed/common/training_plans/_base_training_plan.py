@@ -79,12 +79,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-        return None
-
-    @property
-    def fbm_model(self) -> Model:
-        """Fed-BioMed Model instance wrapped by this training plan."""
-        return self._model
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -207,7 +201,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights()  # type: ignore
+        return self._model.get_weights()
+
+    def set_model_params(self, params: Dict[str, Any]) -> None:
+        """Assign new values to the model's trainable parameters.
+
+        The type of data structure used to store weights depends on the actual
+        framework of the wrapped model.
+
+        Args:
+            params: model weights, as a dictionary mapping parameters' names
+                to their value.
+        """
+        return self._model.set_weights(params)  # type: ignore
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
@@ -487,28 +493,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     batch_samples=num_samples_observed_till_now,
                     num_batches=n_batches
                 )
-
-    # @abstractmethod
-    # def predict(
-    #         self,
-    #         data: Any,
-    #     ) -> np.ndarray:
-    #     """Return model predictions for a given batch of input features.
-
-    #     This method is called as part of `testing_routine`, to compute
-    #     predictions based on which evaluation metrics are computed. It
-    #     will however be skipped if a `testing_step` method is attached
-    #     to the training plan, than wraps together a custom routine to
-    #     compute an output metric directly from a (data, target) batch.
-
-    #     Args:
-    #         data: Array-like (or tensor) structure containing batched
-    #             input features.
-    #     Returns:
-    #         Output predictions, converted to a numpy array (as per the
-    #             `fedbiomed.common.metrics.Metrics` specs).
-    #     """
-    #     return NotImplemented
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:

@@ -280,34 +280,13 @@ class TestRound(NodeTestCase):
 
         # create dummy_model
         dummy_training_plan_test = "\n".join([
-            "from unittest import mock",
-            "import numpy as np",
-            "from fedbiomed.common.models import Model",
-            "class MyTrainingPlan:\n",
-            "   dataset = [1,2,3,4]",
-            "   def __init__(self, **kwargs):",
-            "       self._kwargs = kwargs",
-            "       self.fbm_model = mock.create_autospec(Model, instance=True)",
-            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):",
-            "       pass",
-            "   def load(self, *args, **kwargs):",
-            "       pass ",
-            "   def save(self, *args, **kwargs):",
-            "       pass",
-            "   def training_routine(self, *args, **kwargs):",
-            "       pass",
-            "   def set_data_loaders(self, *args, **kwargs):",
+            "from testsupport.fake_training_plan import FakeModel",
+            "class MyTrainingPlan(FakeModel):",
+            "    dataset = [1, 2, 3, 4]",
+            "    def set_data_loaders(self, *args, **kwargs):",
             "       self.testing_data_loader = MyTrainingPlan",
             "       self.training_data_loader = MyTrainingPlan",
-            "       pass",
-            "   def set_dataset_path(self, *args, **kwargs):",
-            "       pass",
-            "   def optimizer_args(self):",
-            "       pass",
-            "   def after_training_params(self):",
-            "       return {'coefs': np.array([1,2,3,4])}",
         ])
-
 
         module_file_path = os.path.join(environ['TMP_DIR'],
                                         'training_plan_' + str(FakeUuid.VALUE) + '.py')
