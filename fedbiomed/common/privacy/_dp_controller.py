@@ -4,7 +4,7 @@
 """Diffenrential Privacy controller."""
 
 from typing import Dict, Tuple, Union
-from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, TorchOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 
 from opacus import PrivacyEngine
 from opacus.data_loader import DPDataLoader
@@ -37,8 +37,8 @@ class DPController:
             self._configure_dp_args()
 
     def before_training(self,
-                        optimizer: TorchOptimizer,
-                        loader: DataLoader) -> Tuple[TorchOptimizer, DPDataLoader]:
+                        optimizer: NativeTorchOptimizer,
+                        loader: DataLoader) -> Tuple[NativeTorchOptimizer, DPDataLoader]:
         """DP action before starting training.
 
         Args:
@@ -51,7 +51,7 @@ class DPController:
 
 
         if self._is_active:
-            if not isinstance(optimizer, TorchOptimizer):
+            if not isinstance(optimizer, NativeTorchOptimizer):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     "Optimizer must be an instance of torch.optim.Optimizer"

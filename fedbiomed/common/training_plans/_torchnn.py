@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterato
 
 
 from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, NativeTorchOptimizer, TorchOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import OptimizerBuilder
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -321,7 +321,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         #     self._optimizer = TorchOptimizer(self._model, optimizer)
         # else:
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
-        self._optimizer = GenericOptimizer.build(self.__type, self._model, optimizer)
+        optim_builder = OptimizerBuilder()
+        # step 1: set TrainingPlan type in the bulder
+        optim_builder.set_optimizers_for_training_plan(self.__type)
+        # step 2: build the optimizer wrapper
+        self._optimizer = optim_builder.build(self._model, optimizer)
+         
         # if not isinstance(self._optimizer, torch.optim.Optimizer):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
         

@@ -5,6 +5,7 @@
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import declearn
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
@@ -71,6 +72,12 @@ class Optimizer:
                 f" raised the following exception: {exc}"
             ) from exc
 
+    @classmethod
+    def from_declearn_optimizer(cls, declearn_optimizer: declearn.optimizer.Optimizer):
+        optim =  cls(lrate = declearn_optimizer.lrate)
+        optim._optimizer = declearn_optimizer  # shared references!
+        return cls
+    
     def init_round(self) -> None:
         """Trigger start-of-training-round behavior of wrapped regularizers."""
         try:

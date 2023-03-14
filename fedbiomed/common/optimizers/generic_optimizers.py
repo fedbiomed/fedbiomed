@@ -1,5 +1,5 @@
-from abc import abstractmethod
-from typing import Callable, Dict, List, Optional, Type, Union
+from abc import ABCMeta, abstractmethod
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 from fedbiomed.common.constants import TrainingPlans
 
 from fedbiomed.common. models import Model, SkLearnModel
@@ -15,63 +15,15 @@ from declearn.model.sklearn import NumpyVector
 import torch
 import numpy as np
 
+NoneType = type(None)
 
-class GenericOptimizer:
+class BaseOptimizer(metaclass=ABCMeta):
     model: Model
     optimizer: Union[FedOptimizer, None]
-    _step_method: Callable = NotImplemented
-    _return_type: Union[None, Callable]
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, None], return_type: Union[None, Callable] = None):
+
+    def __init__(self, model: Model, optimizer: Union[FedOptimizer, None]):
         self.model = model
         self.optimizer = optimizer
-        self._return_type = return_type
-        # if isinstance(optimizer, declearn.optimizer.Optimizer):
-        #     self._step_method = self.step_modules
-        # else:
-        #     if hasattr(self,'step_native'):
-        #         self._step_method = self.step_native
-        #     else:
-        #         raise FedbiomedOptimizerError(f"Optimizer {optimizer} has not `step_native` method, can not proceed")
-        
-            
-    # def step(self) -> Callable:
-    #     logger.debug("calling steps")
-    #     if self._step_method is NotImplemented:
-    #         raise FedbiomedOptimizerError("Error, method used for step not implemeted yet")
-    #     #self._step_method()
-    #     if isinstance(self.optimizer, declearn.optimizer.Optimizer):
-    #         self.step_modules()
-    #     else:
-    #         self.step_native()
-    
-    def step_modules(self):
-        logger.debug("calling step_modules: return type"+str(type(self._return_type)))
-        grad: Vector = self.model.get_gradients(self._return_type)
-        weights: Vector = self.model.get_weights(return_type=self._return_type)
-        updates = self.optimizer.step(grad, weights)
-        self.model.apply_updates(updates)
-
-    @classmethod
-    def build(cls, tp_type: TrainingPlans, model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
-        if tp_type == TrainingPlans.TorchTrainingPlan:
-            if isinstance(optimizer, (FedOptimizer)):
-                # TODO: add return types
-                return TorchOptimizer(model, optimizer, return_type=TorchVector)
-            elif isinstance(optimizer, torch.optim.Optimizer):
-                return NativeTorchOptimizer(model, optimizer)
-            else:
-                raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
-        elif tp_type == TrainingPlans.SkLearnTrainingPlan:
-            if isinstance(optimizer, (FedOptimizer)):
-                return SkLearnOptimizer(model, optimizer, return_type=NumpyVector)
-            elif optimizer is None:
-                return NativeSkLearnOptimizer(model, optimizer)
-            else:
-                raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
-        else:
-            
-            raise FedbiomedOptimizerError(f"Unknown Training Plan type {tp_type} ")
-            
     @classmethod
     def load_state(cls, state):
         # state: breakpoint content for optimizer
@@ -92,14 +44,7 @@ class GenericOptimizer:
     def step(self):
         """_summary_
         """
-    @abstractmethod
-    def step_native(self):
-        """_summary_
 
-        Raises:
-            FedbiomedOptimizerError: _description_
-            FedbiomedOptimizerError: _description_
-        """
     @abstractmethod
     def get_learning_rate(self)-> List[float]:
         """_summary_
@@ -113,14 +58,104 @@ class GenericOptimizer:
             _type_: _description_
         """
 
+
+class OptimizerBuilder:
+    def __init__(self) -> None:    
+ 
+        self._training_plan_type: Union[None, TrainingPlans] = None
+        self._optimizers_available: Union[None, Dict] = None
+        # if isinstance(optimizer, declearn.optimizer.Optimizer):
+        #     self._step_method = self.step_modules
+        # else:
+        #     if hasattr(self,'step_native'):
+        #         self._step_method = self.step_native
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Optimizer {optimizer} has not `step_native` method, can not proceed")
+        
+            
+    # def step(self) -> Callable:
+    #     logger.debug("calling steps")
+    #     if self._step_method is NotImplemented:
+    #         raise FedbiomedOptimizerError("Error, method used for step not implemeted yet")
+    #     #self._step_method()
+    #     if isinstance(self.optimizer, declearn.optimizer.Optimizer):
+    #         self.step_modules()
+    #     else:
+    #         self.step_native()
+    
+    def set_optimizers_for_training_plan(self, tp_type: TrainingPlans):
+        self._training_plan_type: TrainingPlans = tp_type
+        try:
+            self._optimizers_available: Dict = TRAININGPLAN_OPTIMIZERS[tp_type]
+        except KeyError:
+            raise FedbiomedOptimizerError(f"Unknown TrainingPlan: {tp_type}")
+    
+    def build(self,  model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
+        if self._optimizers_available is None:
+            raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
+        try:
+            optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
+        except KeyError:
+            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}"
+            if self._training_plan_type == TrainingPlans.SkLearnTrainingPlan:
+                err_msg += "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
+            raise FedbiomedOptimizerError(err_msg)
+        return optimizer_wrapper(model, optimizer)
+        # if tp_type == TrainingPlans.TorchTrainingPlan:
+        #     if isinstance(optimizer, (FedOptimizer)):
+        #         # TODO: add return types
+        #         return DeclearnTorchOptimizer(model, optimizer, return_type=TorchVector)
+        #     elif isinstance(optimizer, torch.optim.Optimizer):
+        #         return NativeTorchOptimizer(model, optimizer)
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
+        # elif tp_type == TrainingPlans.SkLearnTrainingPlan:
+        #     if isinstance(optimizer, (FedOptimizer)):
+        #         return DeclearnSkLearnOptimizer(model, optimizer, return_type=NumpyVector)
+        #     elif optimizer is None:
+        #         return NativeSkLearnOptimizer(model, optimizer)
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
+        # else:
+            
+        #     raise FedbiomedOptimizerError(f"Unknown Training Plan type {tp_type} ")
+
+    @staticmethod
+    def get_parent_class(optimizer: Union[None, Any]) -> Union[None, Type]:
+        if optimizer is None:
+            return None
+        if hasattr(type(optimizer), '__bases__'):
+            if type(optimizer).__bases__[0]  is object:
+                # in this case, `optimizer` is already the parent class (it only has `object`as parent class)
+                return type(optimizer)
+            else:
+                return type(optimizer).__bases__[0]
+        else:
+            raise FedbiomedOptimizerError(f"Cannot find parent class of Optimizer {optimizer}")
 # class GenericOptimizer(BaseOptimizer):
 #     def __init__(self):
 #         pass
     
 
+class BaseDeclearnOptimizer(BaseOptimizer):
+    def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer, None]):
+        logger.debug("Using declearn optimizer")
+        if isinstance(optimizer, declearn.optimizer.Optimizer):
+            optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
+        super().__init__(model, optimizer)
+    def step_modules(self):
+        logger.debug("calling step_modules:")
+        grad: Vector = self.model.get_gradients(as_vector=True)
+        weights: Vector = self.model.get_weights(as_vector=True)
+        updates = self.optimizer.step(grad, weights)
+        self.model.apply_updates(updates)
 
-       
-class TorchOptimizer(GenericOptimizer):
+    def step(self):
+        self.step_modules()
+    def get_learning_rate(self) -> List[float]:
+        return self.model.get_learning_rate()
+
+class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     def zero_grad(self):
         # warning: specific for pytorch
         try:
@@ -131,20 +166,29 @@ class TorchOptimizer(GenericOptimizer):
         # for pytorch specifically
         self.model.send_to_device(device)
 
-    def step(self):
-        self.step_modules()
+
         
     def get_learning_rate(self) -> List[float]:
         return [self.optimizer._optimizer.lrate]
 
+class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
+    def optimizer_post_processing(self, model_args: Dict):
+        self.model.disable_internal_optimizer()
+        is_param_changed, param_changed = self.model.check_changed_optimizer_params(model_args)
+        if is_param_changed:
+            msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
+            msg += "\nParameters changed:\n"
+            msg += param_changed
+            logger.warning(msg)    
 
-class NativeTorchOptimizer(GenericOptimizer):
-    def __init__(self, model, optimizer: torch.optim.Optimizer, return_type=None):
+class NativeTorchOptimizer(BaseOptimizer):
+    def __init__(self, model, optimizer: torch.optim.Optimizer):
         if not isinstance(optimizer, torch.optim.Optimizer):
             raise FedbiomedOptimizerError(f"Error, expected a `torch.optim` optimizer, but got {type(optimizer)}")
-        super().__init__(model, optimizer, return_type=None)
+        super().__init__(model, optimizer)
+        logger.debug("using native torch optimizer")
 
-    def setp(self):
+    def step(self):
         self.optimizer.step()
         
     def zero_grad(self):
@@ -192,34 +236,52 @@ class NativeTorchOptimizer(GenericOptimizer):
         return norm
     
 
-class SkLearnOptimizer(GenericOptimizer):
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, None], return_type: Union[None, Callable] = None):
-        super().__init__(model, optimizer, return_type)
-        # self.model.disable_internal_optimizer()
-        # is_param_changed, param_changed = self.model.check_changed_optimizer_params()
-        # if is_param_changed:
-        #     msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-        #     msg += param_changed
-        #     logger.warning(msg)
-    def get_learning_rate(self) -> List[float]:
-        return self.model.get_learning_rate()
+# class DeclearnSkLearnOptimizer(BaseOptimizer):
+#     def __init__(self, model: Model, optimizer: Union[FedOptimizer, None], return_type: Union[None, Callable] = None):
+#         super().__init__(model, optimizer, return_type)
+#         # self.model.disable_internal_optimizer()
+#         # is_param_changed, param_changed = self.model.check_changed_optimizer_params()
+#         # if is_param_changed:
+#         #     msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
+#         #     msg += param_changed
+#         #     logger.warning(msg)
+
     
-    def step(self):
-        self.step_modules()
+#     def step(self):
+#         self.step_modules()
         
-class NativeSkLearnOptimizer(GenericOptimizer):
+class NativeSkLearnOptimizer(BaseOptimizer):
     
-    def __init__(self, model: SkLearnModel, optimizer=None, return_type=None):
+    def __init__(self, model: SkLearnModel, optimizer=None):
         if not isinstance(model, SkLearnModel):
             raise FedbiomedOptimizerError(f"Error in model argument: expected a `SkLearnModel` object, but got {type(model)}")
-        super().__init__(model, optimizer, return_type=None)
+        super().__init__(model, optimizer)
+        logger.debug("Using native Sklearn Optimizer")
 
     def step(self):
         gradients = self.model.get_gradients()
         lrate = self.model.get_learning_rate()[0]
         # revert back gradients to the batch averaged gradients
         gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
-            
+
         self.model.apply_updates(gradients)
 
+    def optimizer_post_processing(self, model_args: Dict):
+        pass
+    
+    def get_learning_rate(self) -> List[float]:
+        return self.model.get_learning_rate()
 
+TORCH_OPTIMIZERS = {
+    FedOptimizer: DeclearnTorchOptimizer,
+    torch.optim.Optimizer: NativeTorchOptimizer
+}
+
+SKLEARN_OPTIMIZERS = {
+    FedOptimizer: DeclearnSklearnOptimizer,
+    None: NativeSkLearnOptimizer
+}
+TRAININGPLAN_OPTIMIZERS = {
+    TrainingPlans.TorchTrainingPlan: TORCH_OPTIMIZERS,
+    TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS,
+}

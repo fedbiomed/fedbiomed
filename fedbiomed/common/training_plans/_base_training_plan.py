@@ -8,7 +8,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 import torch
 
 from collections import OrderedDict
@@ -50,7 +50,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
     _model: Model
-    _optimizer: GenericOptimizer
+    _optimizer: BaseOptimizer
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []

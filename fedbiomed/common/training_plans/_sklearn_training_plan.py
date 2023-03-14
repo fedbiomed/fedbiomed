@@ -22,7 +22,7 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers.generic_optimizers import GenericOptimizer, NativeSkLearnOptimizer, SkLearnOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder, NativeSkLearnOptimizer
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.models import SkLearnModel
 
@@ -60,7 +60,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
-        self._optimizer: Optional[GenericOptimizer] = None
+        self._optimizer: Optional[BaseOptimizer] = None
         self.add_dependency([
             "import inspect",
             "import numpy as np",
@@ -112,15 +112,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         self._optimizer.model.set_init_params(model_args)
         
-        if isinstance(self._optimizer, SkLearnOptimizer):
-            # disable internal optimizer if optimizer is non native (ie declearn optimizer)
-            self._optimizer.model.disable_internal_optimizer()
-            is_param_changed, param_changed = self._optimizer.model.check_changed_optimizer_params(model_args)
-            if is_param_changed:
-                msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-                msg += "\nParameters changed:\n"
-                msg += param_changed
-                logger.warning(msg)            
+        self._optimizer.optimizer_post_processing(model_args)
+        # if isinstance(self._optimizer, NativeSkLearnOptimizer):
+        #     # disable internal optimizer if optimizer is non native (ie declearn optimizer)
+        #     self._optimizer.model.disable_internal_optimizer()
+        #     is_param_changed, param_changed = self._optimizer.model.check_changed_optimizer_params(model_args)
+        #     if is_param_changed:
+        #         msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
+        #         msg += "\nParameters changed:\n"
+        #         msg += param_changed
+        #         logger.warning(msg)            
 
     # @abstractmethod
     # def set_init_params(self) -> None:
@@ -202,19 +203,27 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  method="init_optimizer",
                                                                  keys=list(init_optim_spec.keys()),
                                                                  alternative="self.optimizer_args()"))
-        # validate optimizer
-        if optimizer is None:
-            # default case: no optimizer is passed, using native sklearn optimizer
-            logger.debug("Using native sklearn optimizer")
-            self._optimizer = NativeSkLearnOptimizer(self._model)
-        elif isinstance(optimizer, (DeclearnOptimizer, FedOptimizer)):
-            logger.debug("using a declearn Optimizer")
-            if isinstance(optimizer, FedOptimizer):
-                optimizer = FedOptimizer(optimizer)
-            self._optimizer = SkLearnOptimizer(self._model, optimizer)
+        # create optimizer builder
+        optim_builder = OptimizerBuilder()
+        
+        # step 1: build optimizer based on TrainingPlan
+        optim_builder.set_optimizers_for_training_plan(self.__type)
+        
+        # step 2: build optimizer wrapper given model and optimizer
+        self._optimizer = optim_builder.build(self._model, optimizer) 
+        
+        # if optimizer is None:
+        #     # default case: no optimizer is passed, using native sklearn optimizer
+        #     logger.debug("Using native sklearn optimizer")
+        #     self._optimizer = NativeSkLearnOptimizer(self._model)
+        # elif isinstance(optimizer, (DeclearnOptimizer, FedOptimizer)):
+        #     logger.debug("using a declearn Optimizer")
+        #     if isinstance(optimizer, FedOptimizer):
+        #         optimizer = FedOptimizer(optimizer)
+        #     self._optimizer = SkLearnOptimizer(self._model, optimizer)
             
-        else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be a declearn optimizer, but got {type(optimizer)}. If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan")
+        # else:
+        #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be a declearn optimizer, but got {type(optimizer)}. If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan")
 
     def init_optimizer(self) -> None:
         """Default optimizer, which basically returns None (meaning native inner scikit learn optimization will be used)"""

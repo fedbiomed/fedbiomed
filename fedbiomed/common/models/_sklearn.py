@@ -241,12 +241,13 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             for key in self.param_list:
                 # Accumulate updated weights (weights + sum of gradients).
                 # Reset the model's weights and iteration counter.
-                self.w_updt[key] += getattr(self.model, key)
-                setattr(self.model, key, self.init_param[key])  # resetting parameter to initial values
+                w_updt[key] += getattr(self.model, key)
+                
+                setattr(self.model, key, w_init[key])  # resetting parameter to initial values
 
             self.model.n_iter_ -= 1
 
-    
+
         # compute gradients
 
         self._gradients: Dict[str, np.ndarray] = {}
