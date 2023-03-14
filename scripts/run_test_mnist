@@ -47,6 +47,7 @@ sleep 3
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --add-mnist $path_mnist
+$basedir/scripts/fedbiomed_run node config config-n1.ini --add-mnist $path_mnist
 
 # launch node
 echo "INFO: launching fedbiomed node"
