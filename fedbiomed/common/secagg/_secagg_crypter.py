@@ -110,8 +110,7 @@ class SecaggCrypter:
                 f"{ErrorNumbers.FB622.value}: The argument `key` must be integer"
             )
 
-        if weight is not None:
-            params = [param * 1 for param in params]
+        params = self.apply_weighing(params, weight)
 
         params = quantize(weights=params).tolist()
         public_param = self._setup_public_param()
@@ -198,7 +197,7 @@ class SecaggCrypter:
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         aggregated_params = reverse_quantize(
-            self.quantized_divide(sum_of_weights, num_nodes, total_sample_size)
+            self.apply_average(sum_of_weights, num_nodes, total_sample_size)
         ).tolist()
 
         time_elapsed = time.process_time() - start
@@ -207,16 +206,16 @@ class SecaggCrypter:
         return aggregated_params
 
     @staticmethod
-    def quantized_divide(
-            params: List,
+    def apply_average(
+            params: List[int],
             num_nodes: int,
             total_sample_size: int
     ) -> List:
-        """Apply weight to parameters.
+        """Takes the average of summed quantized parameters.
 
         Args:
             params: List of aggregated/summed parameters
-            num_nodes:
+            num_nodes: Number of nodes participated in the training
             total_sample_size: Num of total samples used for federated training
 
         Returns:
@@ -224,6 +223,25 @@ class SecaggCrypter:
         """
 
         return [param / num_nodes for param in params]
+
+    @staticmethod
+    def apply_weighing(
+            params: List[int],
+            weight: int,
+    ) -> List[int]:
+        """Takes the average of summed parameters.
+
+        Args:
+            params: A list containing list of parameters
+            weight: The weight factor to apply
+
+        Returns:
+            Weighed parameters
+        """
+
+        # TODO: Currently weighing is not activated due to CLIPPING_RANGE problem.
+        #  Implement weighing.
+        return [param * 1 for param in params]
 
     def _convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
         """Converts encrypted integers to `EncryptedNumber`

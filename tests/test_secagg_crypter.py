@@ -43,11 +43,11 @@ class TestSecaggCrypter(unittest.TestCase):
         self.assertEqual(l_encrypted_num[0][0].ciphertext, 1)
         self.assertEqual(l_encrypted_num[2][3].ciphertext, 4)
 
-    def test_secagg_crypter_03_quantized_divide(self):
+    def test_secagg_crypter_03_apply_average(self):
         """Tests quantized divide"""
 
         vector = [4, 8, 12]
-        result = self.secagg_crypter.quantized_divide(vector, 2, 0)
+        result = self.secagg_crypter.apply_average(vector, 2, 0)
 
         # Test division
         self.assertListEqual(result, [v / 2 for v in vector])
