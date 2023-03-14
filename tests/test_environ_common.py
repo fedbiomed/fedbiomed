@@ -218,7 +218,7 @@ class TestEnviron(TestCase):
         uploads_url = "http"
         public_key = "text_public_key"
         private_key = "test_private_key"
-
+        allow_default_biprimes = True
 
 
         self.environ._cfg["mqtt"] = {'broker_ip': broker_ip, 'port': broker_port}
@@ -227,6 +227,7 @@ class TestEnviron(TestCase):
             'mpspdz_port': mpspdz_port,
             'public_key': public_key,
             'private_key': private_key,
+            'allow_default_biprimes': allow_default_biprimes,
             }
 
         self.environ._cfg["default"] = {'uploads_url': uploads_url}
@@ -243,6 +244,9 @@ class TestEnviron(TestCase):
         if "MQTT_BROKER_PORT" in os.environ:
             del os.environ["MQTT_BROKER_PORT"]
 
+        if "ALLOW_DEFAULT_BIPRIMES" in os.environ:
+            del os.environ["ALLOW_DEFAULT_BIPRIMES"]
+
         # MPSPDZ key paths requires CONFIG_DIR is set in values
         self.environ._values["CONFIG_DIR"] = self.config_dir
 
@@ -256,6 +260,7 @@ class TestEnviron(TestCase):
         self.assertEqual(self.environ._values["MQTT_BROKER_PORT"], broker_port)
         self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_KEY"], os.path.join(self.config_dir, private_key))
         self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_PEM"], os.path.join(self.config_dir, public_key))
+        self.assertEqual(self.environ._values["ALLOW_DEFAULT_BIPRIMES"], allow_default_biprimes)
 
     def test_environ_09_getters_and_setters(self):
         with self.assertRaises(FedbiomedEnvironError):
