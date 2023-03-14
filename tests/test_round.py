@@ -90,7 +90,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.serializers.JsonSerializer.load')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -100,7 +100,7 @@ class TestRound(NodeTestCase):
                                                      repository_download_patch,
                                                      tp_security_manager_patch,
                                                      import_module_patch,
-                                                     json_load_patch,
+                                                     serialize_load_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
@@ -138,7 +138,7 @@ class TestRound(NodeTestCase):
 
         # check results
         self.assertTrue(msg_test1.get('success', False))
-        json_load_patch.assert_called_once()
+        serialize_load_patch.assert_called_once()
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
         self.assertEqual(msg_test1.get('command', False), 'train')
 
@@ -157,20 +157,20 @@ class TestRound(NodeTestCase):
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
-        json_load_patch.reset_mock()
+        serialize_load_patch.reset_mock()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
         self.assertTrue(msg_test2.get('success', False))
-        json_load_patch.assert_called_once()
+        serialize_load_patch.assert_called_once()
         self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
         self.assertEqual('train', msg_test2.get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.serializers.JsonSerializer.dump')
-    @patch('fedbiomed.common.serializers.JsonSerializer.load')
+    @patch('fedbiomed.common.serializer.Serializer.dump')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -180,8 +180,8 @@ class TestRound(NodeTestCase):
                                                              repository_download_patch,
                                                              tp_security_manager_patch,
                                                              import_module_patch,
-                                                             json_load_patch,
-                                                             json_dump_patch,
+                                                             serialize_load_patch,
+                                                             serialize_dump_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -215,7 +215,7 @@ class TestRound(NodeTestCase):
                            'dataset_id': 'id_1234'}
 
         # arguments of `save` method
-        _model_filename = environ['TMP_DIR'] + '/node_params_1234.json'
+        _model_filename = os.path.join(environ["TMP_DIR"], "node_params_1234.mpk")
         _model_results = {
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
@@ -237,7 +237,7 @@ class TestRound(NodeTestCase):
             self.assertTrue(msg.get("success"))
 
             # Check that the model weights were loaded.
-            json_load_patch.assert_called_once()
+            serialize_load_patch.assert_called_once()
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
@@ -250,19 +250,19 @@ class TestRound(NodeTestCase):
 
             # Check that the model weights were saved.
             mock_after_training_params.assert_called_once()
-            json_dump_patch.assert_called_once_with(_model_results, _model_filename)
+            serialize_dump_patch.assert_called_once_with(_model_results, _model_filename)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.serializers.JsonSerializer.load')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
                                                               repository_download_patch,
-                                                              json_load_patch,
+                                                              serialize_load_patch,
                                                               tp_security_manager_patch,
                                                               repository_upload_patch,
                                                               node_msg_patch,
@@ -320,7 +320,7 @@ class TestRound(NodeTestCase):
         msg_test = self.r1.run_model_training()
         print("MESSAGE", msg_test)
         # checks
-        json_load_patch.assert_called_once_with('my_python_model')
+        serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
         self.assertEqual('train', msg_test.get('command', False))

@@ -20,7 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, Fed
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.serializers import JsonSerializer
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
@@ -192,7 +192,7 @@ class Round:
 
             if not is_failed:
 
-                success, params_path, error_msg = self.download_file(self.params_url, f"my_model_{uuid.uuid4()}.json")
+                success, params_path, error_msg = self.download_file(self.params_url, f"my_model_{uuid.uuid4()}.mpk")
                 if success:
                     # retrieving arggegator args
                     success, error_msg = self.download_aggregator_args()
@@ -227,7 +227,7 @@ class Round:
 
         # import model params into the training plan instance
         try:
-            params = JsonSerializer.load(params_path)["model_weights"]
+            params = Serializer.load(params_path)["model_weights"]
             self.training_plan.fbm_model.set_weights(params)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: {e}"
@@ -312,8 +312,8 @@ class Round:
             try:
                 # TODO: add validation status to these results?
                 # Dump the results to a JSON file.
-                filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.json")
-                JsonSerializer.dump(results, filename)
+                filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.mpk")
+                Serializer.dump(results, filename)
                 # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")

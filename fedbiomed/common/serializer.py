@@ -1,80 +1,81 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""JSON serialization utils, wrapped into a namespace class."""
+"""MsgPack serialization utils, wrapped into a namespace class."""
 
-import json
 from typing import Any
 
+import msgpack
 import numpy as np
 import torch
 
 
 __all__ = [
-    "JsonSerializer",
+    "Serializer",
 ]
 
 
-class JsonSerializer:
-    """JSON-based (de)serialization utils, wrapped into a namespace class.
+class Serializer:
+    """MsgPack-based (de)serialization utils, wrapped into a namespace class.
 
     This class has no value being instantiated: it merely acts as a namespace
     to pack together encoding and decoding utils to convert data to and from
-    JSON dump strings or text files.
+    MsgPack dump bytes or binary files.
 
-    The JSON encoding and decoding capabilities are enhanced to add support
+    The MsgPack encoding and decoding capabilities are enhanced to add support
     for the following non-standard object types:
         - numpy arrays and scalars
         - torch tensors (that are always loaded on CPU)
+        - tuples (which would otherwise be converted to lists)
     """
 
     @classmethod
-    def dumps(cls, obj: Any) -> str:
-        """Serialize data into a JSON-encoded string.
+    def dumps(cls, obj: Any) -> bytes:
+        """Serialize data into MsgPack-encoded bytes.
 
         Args:
             obj: Data that needs encoding.
 
         Returns:
-            JSON-encoded string that contains the input data.
+            MsgPack-encoded bytes that contains the input data.
         """
-        return json.dumps(obj, default=cls._default)
+        return msgpack.packb(obj, default=cls._default, strict_types=True)
 
     @classmethod
     def dump(cls, obj: Any, path: str) -> None:
-        """Serialize data into a JSON dump file.
+        """Serialize data into a MsgPack binary dump file.
 
         Args:
             obj: Data that needs encoding.
             path: Path to the created dump file.
         """
-        with open(path, "w", encoding="utf-8") as file:
-            json.dump(obj, file, default=cls._default)
+        with open(path, "wb") as file:
+            msgpack.pack(obj, file, default=cls._default, strict_types=True)
 
     @classmethod
-    def loads(cls, string: str) -> Any:
-        """Load serialized data from a JSON-encoded string.
+    def loads(cls, data: bytes) -> Any:
+        """Load serialized data from a MsgPack-encoded string.
 
         Args:
-            string: JSON-encoded string that needs decoding.
+            data: MsgPack-encoded bytes that needs decoding.
 
         Returns:
-            Data loaded and decoded from the input string.
+            Data loaded and decoded from the input bytes.
         """
-        return json.loads(string, object_hook=cls._object_hook)
+        return msgpack.unpackb(data, object_hook=cls._object_hook)
 
     @classmethod
     def load(cls, path: str) -> Any:
-        """Load serialized data from a JSON dump file.
+        """Load serialized data from a MsgPack dump file.
 
         Args:
-            path: Path to a JSON file, the contents of which to decode.
+            path: Path to a MsgPack file, the contents of which to decode.
 
         Returns:
             Data loaded and decoded from the target file.
         """
-        with open(path, "r", encoding="utf-8") as file:
-            return json.load(file, object_hook=cls._object_hook)
+        with open(path, "rb") as file:
+            return msgpack.unpack(file, object_hook=cls._object_hook)
 
     @staticmethod
     def _default(obj: Any) -> Any:
@@ -83,15 +84,17 @@ class JsonSerializer:
         The counterpart static method `unpack` may be used to recover
         the input objects from their encoded data.
         """
+        if isinstance(obj, tuple):
+            return {"__type__": "tuple", "value": list(obj)}
         if isinstance(obj, np.ndarray):
-            spec = [obj.tobytes().hex(), obj.dtype.name, list(obj.shape)]
+            spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "np.ndarray", "value": spec}
         if isinstance(obj, np.generic):
-            spec = [obj.tobytes().hex(), obj.dtype.name]
+            spec = [obj.tobytes(), obj.dtype.name]
             return {"__type__": "np.generic", "value": spec}
         if isinstance(obj, torch.Tensor):
             obj = obj.cpu().numpy()
-            spec = [obj.tobytes().hex(), obj.dtype.name, list(obj.shape)]
+            spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "torch.Tensor", "value": spec}
         # Raise on unsupported types.
         raise TypeError(f"Cannot serialize object of type '{type(obj)}'.")
@@ -106,15 +109,12 @@ class JsonSerializer:
             return tuple(obj["value"])
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
-            data = bytes.fromhex(data)
             return np.frombuffer(data, dtype=dtype).reshape(shape)
         if objtype == "np.generic":
             data, dtype = obj["value"]
-            data = bytes.fromhex(data)
             return np.frombuffer(data, dtype=dtype)[0]
         if objtype == "torch.Tensor":
             data, dtype, shape = obj["value"]
-            data = bytes.fromhex(data)
             array = np.frombuffer(data, dtype=dtype).reshape(shape)
             return torch.from_numpy(array)
         return obj

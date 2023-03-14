@@ -23,7 +23,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.serializers import JsonSerializer
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -438,12 +438,12 @@ class Job:
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:
-                        _, params_path = self.repo.download_file(m["params_url"], f"node_params_{uuid.uuid4()}.json")
+                        _, params_path = self.repo.download_file(m["params_url"], f"node_params_{uuid.uuid4()}.mpk")
                     except FedbiomedRepositoryError as err:
                         logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
                                      f" stops working (details: {err})")
                         return
-                    results = JsonSerializer.load(params_path)
+                    results = Serializer.load(params_path)
                     params = results["model_weights"]
                     optimizer_args = results.get("optimizer_args")
                 else:
@@ -513,16 +513,16 @@ class Job:
                 raise ValueError("'update_parameters' received both filename and params: only one may be used.")
             # Case when uploading a pre-existing file: load the parameters.
             if filename:
-                params = JsonSerializer.load(filename)["model_weights"]
+                params = Serializer.load(filename)["model_weights"]
                 self._training_plan.fbm_model.set_weights(params)
             # Case when exporting current parameters: create a local dump file.
             else:
-                filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.json")
+                filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
                 params = {
                     "researcher_id": self._researcher_id,
                     "model_weights": self._training_plan.fbm_model.get_weights(),
                 }
-                JsonSerializer.dump(params, filename)
+                Serializer.dump(params, filename)
             # Upload the file and record its local and remote locations.
             self._model_params_file = filename
             repo_response = self.repo.upload_file(filename)

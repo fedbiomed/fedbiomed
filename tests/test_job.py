@@ -351,7 +351,7 @@ class TestJob(ResearcherTestCase):
         result = self.job.waiting_for_nodes(responses)
         self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
 
-    @patch('fedbiomed.common.serializers.JsonSerializer.load')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('fedbiomed.researcher.responses.Responses')
@@ -359,7 +359,7 @@ class TestJob(ResearcherTestCase):
                                          mock_responses,
                                          mock_requests_get_responses,
                                          mock_requests_send_message,
-                                         json_load_patch,
+                                         serialize_load_patch,
                                          ):
         """ Test Job - start_training_round method with 3 different scenarios
 
@@ -433,11 +433,11 @@ class TestJob(ResearcherTestCase):
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
-        self.assertEqual(json_load_patch.call_count, 3)
+        self.assertEqual(serialize_load_patch.call_count, 3)
 
         # Test - 2 When one of the nodes returns error without extra_msg and
         # check node-2 is removed since it returned error in the previous test call
-        json_load_patch.reset_mock()
+        serialize_load_patch.reset_mock()
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
@@ -445,7 +445,7 @@ class TestJob(ResearcherTestCase):
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
-        self.assertEqual(json_load_patch.call_count, 1)
+        self.assertEqual(serialize_load_patch.call_count, 1)
 
     def test_job_11_update_parameters_with_invalid_arguments(self):
         """ Testing update_parameters method with all available arguments"""
@@ -488,7 +488,7 @@ class TestJob(ResearcherTestCase):
             patch_get.return_value = params
             result = self.job.update_parameters(params=params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.model.fbm_model.get_weights.assert_called_once_with(as_vector=True)
+        self.model.fbm_model.get_weights.assert_called_once()
 
     def test_job_13_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """
