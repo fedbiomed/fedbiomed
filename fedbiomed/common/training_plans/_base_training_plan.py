@@ -156,7 +156,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         except FedbiomedError as exc:
             msg = f"{ErrorNumbers.FB605.value}: error while getting source of the model class: {exc}"
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
 
         # Preparing content of the module
         content = "\n".join(self._dependencies)
@@ -167,19 +167,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             with open(filepath, "w", encoding="utf-8") as file:
                 file.write(content)
             logger.debug("Model file has been saved: " + filepath)
-        except PermissionError:
+        except PermissionError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
                    ", can't write the model content into it"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except MemoryError:
+            raise FedbiomedTrainingPlanError(_msg) from exc
+        except MemoryError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except OSError:
+            raise FedbiomedTrainingPlanError(_msg) from exc
+        except OSError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
+            raise FedbiomedTrainingPlanError(_msg) from exc
 
     def training_data(self):
         """All subclasses must provide a training_data routine the purpose of this actual code is to detect
@@ -213,7 +213,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
         """
-        return self._model.set_weights(params)  # type: ignore
+        return self._model.set_weights(params)
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
@@ -312,7 +312,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"preprocess method `{method.__name__}` -> {exc}"
             )
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
         logger.debug(
             f"The process `{method.__name__}` has been successfully executed."
         )
@@ -380,7 +380,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"metric values to float - {exc}"
                 )
                 logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+                raise FedbiomedTrainingPlanError(msg) from exc
             return dict(zip(metric_names, values))
         # Raise if `metric` is of unproper input type.
         msg = (
@@ -472,7 +472,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"while computing the {metric_name} metric: {exc}"
                 )
                 logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+                raise FedbiomedTrainingPlanError(msg) from exc
             # Log the computed value.
             logger.debug(
                 f"Validation: Batch {idx}/{n_batches} "
