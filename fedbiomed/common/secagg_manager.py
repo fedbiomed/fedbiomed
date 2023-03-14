@@ -17,9 +17,9 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 _DefaultBiprimeValidator = SchemeValidator({
-    'secagg_id': { "rules" : [str] , "required": True},
-    'biprime': { "rules" : [int] , "required": True},
-    'max_keysize': { "rules" : [int] , "required": True},
+    'secagg_id': {"rules": [str], "required": True},
+    'biprime': {"rules": [int], "required": True},
+    'max_keysize': {"rules": [int], "required": True},
 })
 
 
@@ -380,7 +380,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
             if not biprime['secagg_id']:
                 errmess = f'{ErrorNumbers.FB623.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
-                    'must be a non-empty string'
+                          'must be a non-empty string'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
@@ -429,7 +429,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             self._table.remove(self._query.secagg_id.one_of(bp_remove_ids))
         except Exception as e:
             errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
-                f'obsolete default biprimes {bp_remove_ids}: {e}'
+                      f'obsolete default biprimes {bp_remove_ids}: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -450,6 +450,6 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 )
             except Exception as e:
                 errmess = f'{ErrorNumbers.FB623.value}: database upsert operation failed for ' \
-                    f'default biprime {bp["secagg_id"]}: {e}'
+                          f'default biprime {bp["secagg_id"]}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
