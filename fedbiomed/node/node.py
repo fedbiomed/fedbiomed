@@ -54,7 +54,6 @@ class Node:
         self.tp_security_manager = tp_security_manager
 
         self.node_args = node_args
-        self._secagg_servkey_manager = SecaggServkeyManager()
 
 
     def add_task(self, task: dict):
