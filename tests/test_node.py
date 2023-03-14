@@ -456,7 +456,7 @@ class TestNode(NodeTestCase):
         self.assertIsInstance(round, Round)
 
         self.assertEqual(round_patch.call_count, 1)
-        round_patch.assert_called_with(self.n1._secagg_servkey_manager,
+        round_patch.assert_called_with(
                                        dict_msg_1_dataset['model_args'],
                                        dict_msg_1_dataset['training_args'],
                                        True,
@@ -567,7 +567,7 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(self.n1._secagg_servkey_manager,
+        round_patch.assert_called_once_with(
                                             dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             True,
@@ -622,8 +622,7 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg_1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(self.n1._secagg_servkey_manager,
-                                            dict_msg_1_dataset['model_args'],
+        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             True,
                                             self.database_id,

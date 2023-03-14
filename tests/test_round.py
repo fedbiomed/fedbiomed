@@ -68,8 +68,7 @@ class TestRound(NodeTestCase):
                         training_plan_class='MyTrainingPlan',
                         params_url='https://url/to/model/params?ok=True',
                         training_kwargs={},
-                        training=True,
-                        sk_manager= SecaggServkeyManager()
+                        training=True
                         )
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
@@ -83,8 +82,7 @@ class TestRound(NodeTestCase):
                         training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
-                        training=True,
-                        sk_manager=SecaggServkeyManager()
+                        training=True
                         )
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
@@ -665,9 +663,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        r3 = Round(training_kwargs={},
-                   sk_manager=SecaggServkeyManager()
-                   )
+        r3 = Round(training_kwargs={})
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -677,8 +673,7 @@ class TestRound(NodeTestCase):
 
         dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
         r4 = Round(training_kwargs={},
-                   dlp_and_loading_block_metadata=dlp.serialize(),
-                   sk_manager=SecaggServkeyManager()
+                   dlp_and_loading_block_metadata=dlp.serialize()
                    )
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock

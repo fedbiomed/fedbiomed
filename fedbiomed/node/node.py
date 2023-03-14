@@ -285,7 +285,6 @@ class Node:
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
             round = Round(
-                self._secagg_servkey_manager,
                 model_kwargs,
                 training_kwargs,
                 training_status,

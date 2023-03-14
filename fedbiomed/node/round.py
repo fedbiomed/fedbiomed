@@ -24,7 +24,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.secagg_manager import SecaggServkeyManager
+from fedbiomed.node.secagg_manager import SKManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
 
@@ -35,7 +35,6 @@ class Round:
     """
 
     def __init__(self,
-                 sk_manager: SecaggServkeyManager,
                  model_kwargs: dict = None,
                  training_kwargs: dict = None,
                  training: bool = True,
@@ -95,7 +94,7 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
-        self._sk_manager = sk_manager
+        self._sk_manager = SKManager
         self._secagg_crypter = SecaggCrypter()
         self._round = round_number
 
