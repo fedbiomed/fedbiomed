@@ -156,21 +156,18 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     @abstractmethod
     def init_model(self):
-        """Abstract method where model should be defined """
-        pass
+        """Abstract method where model should be defined."""
 
     @abstractmethod
     def training_step(self):
-        """Abstract method, all subclasses must provide a training_step.
-        """
-        pass
+        """Abstract method, all subclasses must provide a training_step."""
 
     @abstractmethod
     def training_data(self):
         """Abstract method to return training data"""
-        pass
 
     def model(self) -> torch.nn.Module:
+        """Return the torch model wrapped by this instance."""
         return self._model.model
 
     def optimizer(self):
@@ -578,30 +575,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         finally:
             self.model().train()  # restore training behaviors
 
-    # def predict(
-    #         self,
-    #         data: Any,
-    # ) -> np.ndarray:
-    #     """Return model predictions for a given batch of input features.
-
-    #     This method is called as part of `testing_routine`, to compute
-    #     predictions based on which evaluation metrics are computed. It
-    #     will however be skipped if a `testing_step` method is attached
-    #     to the training plan, than wraps together a custom routine to
-    #     compute an output metric directly from a (data, target) batch.
-
-    #     Args:
-    #         data: Array-like (or tensor) structure containing batched
-    #             input features.
-
-    #     Returns:
-    #         np.ndarray: Output predictions, converted to a numpy array
-    #             (as per the `fedbiomed.common.metrics.Metrics` specs).
-    #     """
-    #     with torch.no_grad():
-    #         pred = self._model(data)
-    #     return pred.numpy()
-
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
         """Save the torch training parameters from this training plan or from given `params` to a file
@@ -651,28 +624,32 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 with open(aggregator_arg["param_path"], "rb") as file:
                     self.correction_state = pickle.load(file)
 
-    def after_training_params(self) -> dict:
-        """Retrieve parameters after training is done
+    def after_training_params(self) -> Dict[str, torch.Tensor]:
+        """Return the wrapped model's parameters for aggregation.
 
-        Call the user defined postprocess function:
-            - if provided, the function is part of pytorch model defined by the researcher
-            - and expect the model parameters as argument
+        This method returns a dict containing parameters that need to be
+        reported back and aggregated in a federated learning setting.
+
+        If the `postprocess` method exists (i.e. has been defined by end-users)
+        it is called in the context of this method. DP-required adjustments are
+        also set to happen as part of this method.
 
         Returns:
-            The state_dict of the model, or modified state_dict if preprocess is present
+            The trained parameters to aggregate.
         """
-
-        # Check whether postprocess method exists, and use it
-
+        params = super().after_training_params()
+        # Check whether postprocess method exists, and use it.
         params = self.model().state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self.model().state_dict())  # Post process
-            except Exception as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
-                                                 f"{e}")
-
+                params = self.postprocess(params)
+            except Exception as exc:
+                raise FedbiomedTrainingPlanError(
+                    f"{ErrorNumbers.FB605.value}: Error while running post-"
+                    f"process: {exc}"
+                ) from exc
+        # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
         return params
 

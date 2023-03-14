@@ -349,15 +349,3 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
-
-    def after_training_params(self) -> Dict[str, np.ndarray]:
-        """Return the wrapped model's trainable parameters' current values.
-
-        This method returns a dict containing parameters that need
-        to be reported back and aggregated in a federated learning
-        setting.
-
-        Returns:
-            dict[str, np.ndarray]: the trained parameters to aggregate.
-        """
-        return self.get_model_params()

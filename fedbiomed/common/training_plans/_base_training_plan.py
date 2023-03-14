@@ -533,3 +533,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # case `data` is a torch.Tensor or a np.ndarray
             batch_size = len(data)
             return batch_size
+
+    def after_training_params(self) -> Dict[str, Any]:
+        """Return the wrapped model's parameters for aggregation.
+
+        This method returns a dict containing parameters that need to be
+        reported back and aggregated in a federated learning setting.
+
+        It may also implement post-processing steps to make these parameters
+        suitable for sharing with the researcher after training - hence its
+        being used over `get_model_params` at the end of training rounds.
+
+        Returns:
+            The trained parameters to aggregate.
+        """
+        return self.get_model_params()
