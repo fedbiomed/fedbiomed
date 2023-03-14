@@ -71,12 +71,13 @@ class Aggregator:
                                       total_sample_size=total_sample_size
                                       )
         # Validation
+        print(encryption_factors)
         encryption_factors = [f for k, f in encryption_factors.items()]
         validation: List[int] = aggregate(params=encryption_factors)
 
         print(secagg_random)
         print(validation)
-        if len(validation) > 1 and not math.isclose(validation[0], secagg_random, abs_tol=0.01):
+        if len(validation) != 1 or not math.isclose(validation[0], secagg_random, abs_tol=0.01):
             raise FedbiomedAggregatorError("Aggregation is failed due to incorrect decryption.")
 
         aggregated_params = aggregate(params=params)
