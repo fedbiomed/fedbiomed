@@ -95,19 +95,19 @@ class SecaggCrypter:
 
         if not isinstance(params, list):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB622.value}: Expected argument `params` type list but got {type(params)}"
+                f"{ErrorNumbers.FB624.value}: Expected argument `params` type list but got {type(params)}"
             )
 
         if not all([isinstance(p, float) for p in params]):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB622.value}: The parameters to encrypt should list of floats. "
+                f"{ErrorNumbers.FB624.value}: The parameters to encrypt should list of floats. "
                 f"There are one or more than a value that is not type of float."
             )
 
         # Make use the key is instance of
         if not isinstance(key, int):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB622.value}: The argument `key` must be integer"
+                f"{ErrorNumbers.FB624.value}: The argument `key` must be integer"
             )
 
         params = self.apply_weighing(params, weight)
@@ -129,7 +129,7 @@ class SecaggCrypter:
             )
         except (TypeError, ValueError) as exp:
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB623} Error during parameter encryption. {exp}") from exp
+                f"{ErrorNumbers.FB624.value} Error during parameter encryption. {exp}") from exp
 
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
@@ -164,17 +164,17 @@ class SecaggCrypter:
 
         if len(params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
-                "Num of parameters that are received from node does not match the num of "
-                "nodes has been set for the encrypter. There might be some nodes did "
-                "not answered to training request or num of clients of "
+                f"{ErrorNumbers.FB624.value}Num of parameters that are received from node "
+                f"does not match the num of nodes has been set for the encrypter. There might "
+                f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
 
         if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
-            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB622}: The parameters to aggregate should "
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should "
                                               f"list containing list of parameters")
 
         if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
-            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB622}: Invalid parameter type. The parameters "
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be type of integers.")
 
         params = self._convert_to_encrypted_number(params)
@@ -191,8 +191,8 @@ class SecaggCrypter:
                 list_y_u_tau=params
             )
         except (ValueError, TypeError) as e:
-            raise FedbiomedSecaggCrypterError(f"The aggregation of encrypted parameters is not "
-                                              f"successful: {e}")
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
+                                              f"is not successful: {e}")
 
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
