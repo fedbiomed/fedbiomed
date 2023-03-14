@@ -8,7 +8,6 @@ import copy
 import importlib
 import inspect
 import os
-import pickle
 import re
 import sys
 import shutil
@@ -333,9 +332,8 @@ class Job:
                 args_thr_msg[node_id][arg_name] = {}
                 args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
                 try:
-                    filename = os.path.join(self._keep_files_dir, f"{arg_name}_{uuid.uuid4()}.pkl")
-                    with open(filename, "wb") as file:
-                        pickle.dump(aggr_param, file)
+                    filename = os.path.join(self._keep_files_dir, f"{arg_name}_{uuid.uuid4()}.mpk")
+                    Serializer.dump(aggr_param, filename)
                     url = self.repo.upload_file(filename)["file"]
                 except Exception as exc:
                     logger.critical("Failed to export %s to local file and upload it: %s", arg_name, exc)

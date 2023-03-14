@@ -118,11 +118,10 @@ class Round:
                     if any((url, arg_name)):
                         # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
                         # exchanged system
-                        success, param_path, error_msg = self.download_file(url, f"{arg_name}_{uuid.uuid4()}.pkl")
+                        success, param_path, error_msg = self.download_file(url, f"{arg_name}_{uuid.uuid4()}.mpk")
                         if not success:
                             return success, error_msg
-                        # FIXME: should we load parameters here or in the training plan
-                        self.aggregator_args[arg_name] = {'param_path': param_path}
+                        self.aggregator_args[arg_name] = Serializer.load(param_path)
             return True, ''
         else:
             return True, "no file downloads required for aggregator args"

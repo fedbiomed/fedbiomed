@@ -672,13 +672,16 @@ class TestRound(NodeTestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
 
-
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
+    def test_round_10_download_aggregator_args(
+        self, uuid_patch, repository_download_patch, serializer_load_patch,
+    ):
         uuid_patch.return_value = FakeUuid()
 
         repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
+        serializer_load_patch.side_effect = (i for i in range(3, 5))
         success, _ = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         # if attribute `aggregator_args` is None, then do nothing
@@ -698,8 +701,8 @@ class TestRound(NodeTestCase):
             self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
 
         for var in ('var3', 'var4'):
-            self.assertNotIn('url', self.r1.aggregator_args[var].keys())
-            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
+            serializer_load_patch.assert_any_call(f"my_model_{var}")
+            self.assertEqual(self.r1.aggregator_args[var], int(var[-1]))
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')

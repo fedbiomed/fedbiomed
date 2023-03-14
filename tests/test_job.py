@@ -851,7 +851,7 @@ class TestJob(ResearcherTestCase):
                 for var in ('var4', 'var5'):
                     # check that `t_a` doesnot contain any params field
                     self.assertIsNone(t_a[node_id][var].get('params'))
-                    filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.pkl")
+                    filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.mpk")
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
 

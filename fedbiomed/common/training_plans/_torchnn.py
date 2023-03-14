@@ -614,15 +614,18 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             'aggregator_correction' with correction states)
         """
         self.aggregator_name = aggregator_args.get('aggregator_name') or self.aggregator_name
-
+        # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
+        # by an aggregator handler that contains all keys for all strategies
+        # implemented in fedbiomed
+        # here we ae loading all args that have been sent from file exchange system
         for arg_name, aggregator_arg in aggregator_args.items():
-            if arg_name == 'aggregator_correction' and aggregator_arg.get('param_path', False):
-                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
-                # by an aggregator handler that contains all keys for all strategies implemented
-                # in fedbiomed
-                # here we ae loading all args that have been sent from file exchange system
-                with open(aggregator_arg["param_path"], "rb") as file:
-                    self.correction_state = pickle.load(file)
+            if arg_name == 'aggregator_correction':
+                if not isinstance(aggregator_arg, torch.Tensor):
+                    raise FedbiomedTrainingPlanError(
+                        f"{ErrorNumbers.FB309.value}: TorchTrainingPlan received "
+                        "non-torch-Tensor 'aggregator_correction' aggregator args."
+                    )
+                self.correction_state = aggregator_arg
 
     def after_training_params(self) -> Dict[str, torch.Tensor]:
         """Return the wrapped model's parameters for aggregation.
