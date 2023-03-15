@@ -183,7 +183,22 @@ class Optimizer:
         try:
             config = self._optimizer.get_config()
             states = self._optimizer.get_state()
-            return {"config": config, "states": states}
+            aux = self.get_aux()
+            # modules = {str(mod) : {
+            #     'class':  type(mod).__name__,
+            #     'module': mod.__module__ 
+            #             }
+            #            for mod in self._optimizer.modules
+            # }
+            # regularizers =  {str(mod) : {
+            #     'class':  type(mod).__name__,
+            #     'module': mod.__module__ 
+            #             }
+            #            for mod in self._optimizer.regularizers
+            # }
+            
+            
+            return {"config": config, "states": states, "aux": aux}
         except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB620.value}: error in 'get_state': {exc}"
@@ -206,6 +221,9 @@ class Optimizer:
         try:
             optim = DeclearnOptimizer.from_config(state["config"])
             optim.set_state(state["states"])
+            optim.process_aux_var(state["aux"])
+        except KeyError as ke:
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621.value}: Missing field in the breakpoints state: {ke}") from ke
         except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: `Optimizer.load_state`: {exc}"

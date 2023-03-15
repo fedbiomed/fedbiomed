@@ -24,16 +24,7 @@ class BaseOptimizer(metaclass=ABCMeta):
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, None]):
         self.model = model
         self.optimizer = optimizer
-    @classmethod
-    def load_state(cls, state):
-        # state: breakpoint content for optimizer
-        return cls
-    def save_state(self):
-        pass
-    def set_aux(self):
-        pass
-    def get_aux(self):
-        pass
+
     def init_training(self):
         self.model.init_training()
 
@@ -71,6 +62,8 @@ class BaseDeclearnOptimizer(BaseOptimizer):
         if isinstance(optimizer, declearn.optimizer.Optimizer):
             optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
         super().__init__(model, optimizer)
+        self.optimizer.init_round()
+
     def step_modules(self):
         logger.debug("calling step_modules:")
         grad: Vector = self.model.get_gradients(as_vector=True)
@@ -82,6 +75,25 @@ class BaseDeclearnOptimizer(BaseOptimizer):
         self.step_modules()
     def get_learning_rate(self) -> List[float]:
         return self.model.get_learning_rate()
+    
+    def set_aux(self, aux: Dict[str, Any]):
+        self.optimizer.process_aux_var(aux)
+        
+    def get_aux(self) -> Optional[Dict[str, Any]]:
+        aux = self.optimizer.collect_aux_var()
+        return aux
+
+    @classmethod
+    def load_state(cls, model, optim_state: Dict):
+        # state: breakpoint content for optimizer
+        relaoded_optim = FedOptimizer.load_state(optim_state)
+        return cls(model, relaoded_optim)
+
+    def save_state(self) -> Dict:
+        # TODO: implement this method for loading state on Researcher side
+        optim_state = self.optimizer.get_state()
+        return optim_state
+
 
 class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     def zero_grad(self):
@@ -227,10 +239,7 @@ class OptimizerBuilder:
     }
 
     def __init__(self) -> None:    
- 
-        self._training_plan_type: Union[None, TrainingPlans] = None
-        self._optimizers_available: Union[None, Dict] = None
-        
+         
         self.builder = {
             TrainingPlans.TorchTrainingPlan: self.build_torch,
             TrainingPlans.SkLearnTrainingPlan: self.build_sklearn
@@ -263,20 +272,22 @@ class OptimizerBuilder:
     #     except KeyError:
     #         raise FedbiomedOptimizerError(f"Unknown TrainingPlan: {tp_type}")
     
-    def build_torch(self, model, optimizer):
+    @staticmethod
+    def build_torch(tp_type, model, optimizer):
         try:
-            optimizer_wrapper: BaseOptimizer = self.TORCH_OPTIMIZERS[self.get_parent_class(optimizer)]
+            optimizer_wrapper: BaseOptimizer = OptimizerBuilder.TORCH_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
         except KeyError:
-            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}"
+            err_msg = f"Optimizer {optimizer} is not compatible with training plan {tp_type}"
             
             raise FedbiomedOptimizerError(err_msg)
         return optimizer_wrapper(model, optimizer)
     
-    def build_sklearn(self, model, optimizer):
+    @staticmethod
+    def build_sklearn(tp_type, model, optimizer):
         try:
-            optimizer_wrapper: BaseOptimizer = self.SKLEARN_OPTIMIZERS[self.get_parent_class(optimizer)]
+            optimizer_wrapper: BaseOptimizer = OptimizerBuilder.SKLEARN_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
         except KeyError:
-            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}" + \
+            err_msg = f"Optimizer {optimizer} is not compatible with training plan {tp_type}" + \
             "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
             
             raise FedbiomedOptimizerError(err_msg)
@@ -287,7 +298,7 @@ class OptimizerBuilder:
         # if self._optimizers_available is None:
         #     raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
         try:
-            return self.builder[tp_type](model, optimizer)
+            return self.builder[tp_type](tp_type, model, optimizer)
             #optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
         except KeyError:
             err_msg = f"Unknown Training Plan type {tp_type} "
