@@ -15,7 +15,7 @@ from declearn.model.sklearn import NumpyVector
 import torch
 import numpy as np
 
-NoneType = type(None)
+
 
 class BaseOptimizer(metaclass=ABCMeta):
     model: Model

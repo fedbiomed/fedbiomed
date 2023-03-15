@@ -1,4 +1,5 @@
 import unittest
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 import torch
 
 from torch.nn import Module
@@ -107,33 +108,31 @@ class TestDPController(unittest.TestCase):
     def test_dep_controller_06_before_training(self, validate_and_fix):
         """Tests before training method with different scenarios"""
 
-        model_false = MagicMock()
+        #model_false = MagicMock()
         opt_false = MagicMock()
         loader_false = MagicMock()
 
         model = Module()
         opt = Adam([torch.zeros([2, 4])])
         loader = DataLoader(TestDPController.DS())
+        optim_wrapper = NativeTorchOptimizer(model, opt)
 
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model_false, opt, loader)
+            self.dpl.before_training(opt_false, loader)
 
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt_false, loader)
-
-        with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt, loader_false)
+            self.dpl.before_training(optim_wrapper, loader_false)
 
         validate_and_fix.return_value = model
         self.privacy_engine_make_private.side_effect = Exception
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt, loader)
+            self.dpl.before_training(optim_wrapper, loader)
 
         self.privacy_engine_make_private.side_effect = None
         self.privacy_engine_make_private.reset_mock()
-        self.dpl.before_training(model, opt, loader)
-        self.privacy_engine_make_private.assert_called_once_with(module=model,
-                                                                 optimizer=opt,
+        self.dpl.before_training(optim_wrapper, loader)
+        self.privacy_engine_make_private.assert_called_once_with(
+                                                                 optimizer=optim_wrapper,
                                                                  data_loader=loader,
                                                                  noise_multiplier=self.dp_args_l.get('sigma'),
                                                                  max_grad_norm=self.dp_args_l.get('clip'))
