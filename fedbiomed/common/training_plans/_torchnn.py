@@ -322,10 +322,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # else:
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
         optim_builder = OptimizerBuilder()
-        # step 1: set TrainingPlan type in the bulder
-        optim_builder.set_optimizers_for_training_plan(self.__type)
-        # step 2: build the optimizer wrapper
-        self._optimizer = optim_builder.build(self._model, optimizer)
+        #  build the optimizer wrapper
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
          
         # if not isinstance(self._optimizer, torch.optim.Optimizer):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")

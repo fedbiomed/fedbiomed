@@ -206,11 +206,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # create optimizer builder
         optim_builder = OptimizerBuilder()
         
-        # step 1: build optimizer based on TrainingPlan
-        optim_builder.set_optimizers_for_training_plan(self.__type)
-        
-        # step 2: build optimizer wrapper given model and optimizer
-        self._optimizer = optim_builder.build(self._model, optimizer) 
+        # then build optimizer wrapper given model and optimizer
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
         
         # if optimizer is None:
         #     # default case: no optimizer is passed, using native sklearn optimizer

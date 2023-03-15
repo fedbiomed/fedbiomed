@@ -59,79 +59,7 @@ class BaseOptimizer(metaclass=ABCMeta):
         """
 
 
-class OptimizerBuilder:
-    def __init__(self) -> None:    
- 
-        self._training_plan_type: Union[None, TrainingPlans] = None
-        self._optimizers_available: Union[None, Dict] = None
-        # if isinstance(optimizer, declearn.optimizer.Optimizer):
-        #     self._step_method = self.step_modules
-        # else:
-        #     if hasattr(self,'step_native'):
-        #         self._step_method = self.step_native
-        #     else:
-        #         raise FedbiomedOptimizerError(f"Optimizer {optimizer} has not `step_native` method, can not proceed")
-        
-            
-    # def step(self) -> Callable:
-    #     logger.debug("calling steps")
-    #     if self._step_method is NotImplemented:
-    #         raise FedbiomedOptimizerError("Error, method used for step not implemeted yet")
-    #     #self._step_method()
-    #     if isinstance(self.optimizer, declearn.optimizer.Optimizer):
-    #         self.step_modules()
-    #     else:
-    #         self.step_native()
-    
-    def set_optimizers_for_training_plan(self, tp_type: TrainingPlans):
-        self._training_plan_type: TrainingPlans = tp_type
-        try:
-            self._optimizers_available: Dict = TRAININGPLAN_OPTIMIZERS[tp_type]
-        except KeyError:
-            raise FedbiomedOptimizerError(f"Unknown TrainingPlan: {tp_type}")
-    
-    def build(self,  model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
-        if self._optimizers_available is None:
-            raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
-        try:
-            optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
-        except KeyError:
-            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}"
-            if self._training_plan_type == TrainingPlans.SkLearnTrainingPlan:
-                err_msg += "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
-            raise FedbiomedOptimizerError(err_msg)
-        return optimizer_wrapper(model, optimizer)
-        # if tp_type == TrainingPlans.TorchTrainingPlan:
-        #     if isinstance(optimizer, (FedOptimizer)):
-        #         # TODO: add return types
-        #         return DeclearnTorchOptimizer(model, optimizer, return_type=TorchVector)
-        #     elif isinstance(optimizer, torch.optim.Optimizer):
-        #         return NativeTorchOptimizer(model, optimizer)
-        #     else:
-        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
-        # elif tp_type == TrainingPlans.SkLearnTrainingPlan:
-        #     if isinstance(optimizer, (FedOptimizer)):
-        #         return DeclearnSkLearnOptimizer(model, optimizer, return_type=NumpyVector)
-        #     elif optimizer is None:
-        #         return NativeSkLearnOptimizer(model, optimizer)
-        #     else:
-        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
-        # else:
-            
-        #     raise FedbiomedOptimizerError(f"Unknown Training Plan type {tp_type} ")
 
-    @staticmethod
-    def get_parent_class(optimizer: Union[None, Any]) -> Union[None, Type]:
-        if optimizer is None:
-            return None
-        if hasattr(type(optimizer), '__bases__'):
-            if type(optimizer).__bases__[0]  is object:
-                # in this case, `optimizer` is already the parent class (it only has `object`as parent class)
-                return type(optimizer)
-            else:
-                return type(optimizer).__bases__[0]
-        else:
-            raise FedbiomedOptimizerError(f"Cannot find parent class of Optimizer {optimizer}")
 # class GenericOptimizer(BaseOptimizer):
 #     def __init__(self):
 #         pass
@@ -285,3 +213,115 @@ TRAININGPLAN_OPTIMIZERS = {
     TrainingPlans.TorchTrainingPlan: TORCH_OPTIMIZERS,
     TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS,
 }
+
+
+class OptimizerBuilder:
+    TORCH_OPTIMIZERS = {
+    FedOptimizer: DeclearnTorchOptimizer,
+    torch.optim.Optimizer: NativeTorchOptimizer
+}
+
+    SKLEARN_OPTIMIZERS = {
+        FedOptimizer: DeclearnSklearnOptimizer,
+        None: NativeSkLearnOptimizer
+    }
+
+    def __init__(self) -> None:    
+ 
+        self._training_plan_type: Union[None, TrainingPlans] = None
+        self._optimizers_available: Union[None, Dict] = None
+        
+        self.builder = {
+            TrainingPlans.TorchTrainingPlan: self.build_torch,
+            TrainingPlans.SkLearnTrainingPlan: self.build_sklearn
+            }
+        # if isinstance(optimizer, declearn.optimizer.Optimizer):
+        #     self._step_method = self.step_modules
+        # else:
+        #     if hasattr(self,'step_native'):
+        #         self._step_method = self.step_native
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Optimizer {optimizer} has not `step_native` method, can not proceed")
+        
+            
+    # def step(self) -> Callable:
+    #     logger.debug("calling steps")
+    #     if self._step_method is NotImplemented:
+    #         raise FedbiomedOptimizerError("Error, method used for step not implemeted yet")
+    #     #self._step_method()
+    #     if isinstance(self.optimizer, declearn.optimizer.Optimizer):
+    #         self.step_modules()
+    #     else:
+    #         self.step_native()
+    
+
+
+    # def set_optimizers_for_training_plan(self, tp_type: TrainingPlans):
+    #     self._training_plan_type: TrainingPlans = tp_type
+    #     try:
+    #         self._optimizers_available: Dict = TRAININGPLAN_OPTIMIZERS[tp_type]
+    #     except KeyError:
+    #         raise FedbiomedOptimizerError(f"Unknown TrainingPlan: {tp_type}")
+    
+    def build_torch(self, model, optimizer):
+        try:
+            optimizer_wrapper: BaseOptimizer = self.TORCH_OPTIMIZERS[self.get_parent_class(optimizer)]
+        except KeyError:
+            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}"
+            
+            raise FedbiomedOptimizerError(err_msg)
+        return optimizer_wrapper(model, optimizer)
+    
+    def build_sklearn(self, model, optimizer):
+        try:
+            optimizer_wrapper: BaseOptimizer = self.SKLEARN_OPTIMIZERS[self.get_parent_class(optimizer)]
+        except KeyError:
+            err_msg = f"Optimizer {optimizer} is not compatible with training plan {self._training_plan_type}" + \
+            "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
+            
+            raise FedbiomedOptimizerError(err_msg)
+        return optimizer_wrapper(model, optimizer)
+
+    def build(self, tp_type: TrainingPlans, model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
+
+        # if self._optimizers_available is None:
+        #     raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
+        try:
+            return self.builder[tp_type](model, optimizer)
+            #optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
+        except KeyError:
+            err_msg = f"Unknown Training Plan type {tp_type} "
+            
+            raise FedbiomedOptimizerError(err_msg)
+        #return optimizer_wrapper(model, optimizer)
+        # if tp_type == TrainingPlans.TorchTrainingPlan:
+        #     if isinstance(optimizer, (FedOptimizer)):
+        #         # TODO: add return types
+        #         return DeclearnTorchOptimizer(model, optimizer, return_type=TorchVector)
+        #     elif isinstance(optimizer, torch.optim.Optimizer):
+        #         return NativeTorchOptimizer(model, optimizer)
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
+        # elif tp_type == TrainingPlans.SkLearnTrainingPlan:
+        #     if isinstance(optimizer, (FedOptimizer)):
+        #         return DeclearnSkLearnOptimizer(model, optimizer, return_type=NumpyVector)
+        #     elif optimizer is None:
+        #         return NativeSkLearnOptimizer(model, optimizer)
+        #     else:
+        #         raise FedbiomedOptimizerError(f"Can not build optimizer from {optimizer}")
+        # else:
+            
+        #     raise FedbiomedOptimizerError(f"Unknown Training Plan type {tp_type} ")
+
+    @staticmethod
+    def get_parent_class(optimizer: Union[None, Any]) -> Union[None, Type]:
+        if optimizer is None:
+            return None
+        if hasattr(type(optimizer), '__bases__'):
+            if type(optimizer).__bases__[0]  is object:
+                # in this case, `optimizer` is already the parent class (it only has `object`as parent class)
+                return type(optimizer)
+            else:
+                return type(optimizer).__bases__[0]
+        else:
+            raise FedbiomedOptimizerError(f"Cannot find parent class of Optimizer {optimizer}")
