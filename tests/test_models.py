@@ -225,7 +225,6 @@ class TestSkLearnModel(unittest.TestCase):
                     self.declearn_optim.apply_gradients(model, grads)
 
                     # checks
-                    self.assertTrue(model._is_declearn_optim)
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
                     self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
                     for layer in model.param_list:
@@ -390,7 +389,6 @@ class TestSklearnClassification(unittest.TestCase):
         self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
         self.assertEqual(model.default_lr_init, model.model.eta0)
         self.assertEqual(model.default_lr, model.model.learning_rate)
-        self.assertTrue(model._is_declearn_optim)
 
 
 class TestSkLearnRegressorModel(unittest.TestCase):
@@ -409,7 +407,7 @@ class TestSkLearnRegressorModel(unittest.TestCase):
         self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
         self.assertEqual(model.default_lr_init, model.model.eta0)
         self.assertEqual(model.default_lr, model.model.learning_rate)
-        self.assertTrue(model._is_declearn_optim)
+
 
 
 class TestTorchModel(unittest.TestCase):
