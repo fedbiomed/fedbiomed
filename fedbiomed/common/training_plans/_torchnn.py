@@ -601,6 +601,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         try:
+            print("MODEL", self._optimizer.model)
             self._optimizer.model.model.eval()  # pytorch switch for model inference-mode TODO should be removed
             with torch.no_grad():
                 super().testing_routine(
