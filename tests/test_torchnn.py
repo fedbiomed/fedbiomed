@@ -6,10 +6,12 @@ import os
 import logging
 import re
 from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer, OptimizerBuilder
 
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import declearn
 
 from unittest.mock import patch, MagicMock
 from torch.utils.data import DataLoader, Dataset
@@ -17,9 +19,10 @@ from torch.optim import Adam, SGD
 from torch.nn import Module
 from torch.optim.lr_scheduler import LambdaLR
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedTrainingPlanError, FedbiomedModelError
 from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import Model
 
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
@@ -36,8 +39,8 @@ class FakeDPController:
     def validate_and_fix_model(self, model):
         return model
 
-    def before_training(self, model, optimizer, loader):
-        return model, optimizer, loader
+    def before_training(self,  optimizer: NativeTorchOptimizer, loader: DataLoader):
+        return optimizer, loader
 
 
 class TestTorchnn(unittest.TestCase):
@@ -46,7 +49,7 @@ class TestTorchnn(unittest.TestCase):
     """
 
     model = Module()
-    optimizer = Adam([torch.zeros([2, 4])])
+    optimizer = NativeTorchOptimizer(TorchModel(model), Adam([torch.zeros([2, 4])]))
 
     class FakeTrainingArgs:
 
@@ -166,14 +169,14 @@ class TestTorchnn(unittest.TestCase):
                 return TestTorchnn.model
 
             def init_optimizer(self):
-                return TestTorchnn.optimizer
+                return TestTorchnn.optimizer.optimizer
 
         tp = FakeTP()
         tp._optimizer_args = {}
         #tp._model_args = {}
         tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer(model_args={})
-        self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
+        self.assertEqual(tp._optimizer.optimizer, TestTorchnn.optimizer.optimizer)
         self.assertEqual(tp._model.model, TestTorchnn.model)
         # ---------------------------------------------------------------------------------
 
@@ -185,14 +188,14 @@ class TestTorchnn(unittest.TestCase):
                 return TestTorchnn.model
 
             def init_optimizer(self, optimizer_args):
-                return TestTorchnn.optimizer
+                return TestTorchnn.optimizer.optimizer
 
         tp = FakeTP()
         tp._optimizer_args = {}
         #tp._model_args = {}
         tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer(model_args={})
-        self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
+        self.assertEqual(tp._optimizer.optimizer, TestTorchnn.optimizer.optimizer)
         self.assertEqual(tp._model.model, TestTorchnn.model)
         # -----------------------------------------------------------------------------------
 
@@ -204,7 +207,7 @@ class TestTorchnn(unittest.TestCase):
                 return TestTorchnn.model
 
             def init_optimizer(self, optimizer_args):
-                return TestTorchnn.optimizer
+                return TestTorchnn.optimizer.optimizer
 
         tp = FakeTP()
         tp._optimizer_args = {}
@@ -212,7 +215,7 @@ class TestTorchnn(unittest.TestCase):
         tp._dp_controller = MagicMock()
         tp._dp_controller.validate_and_fix_model(return_value=None)
 
-        with self.assertRaises(FedbiomedTrainingPlanError):
+        with self.assertRaises(FedbiomedModelError):
             tp._configure_model_and_optimizer(model_args={})
 
         # -----------------------------------------------------------------------------------
@@ -228,7 +231,8 @@ class TestTorchnn(unittest.TestCase):
         tp._optimizer_args = {}
         #tp._model_args = {}
         tp._dp_controller = FakeDPController()
-        with self.assertRaises(FedbiomedTrainingPlanError):
+
+        with self.assertRaises(FedbiomedOptimizerError):
             tp._configure_model_and_optimizer(model_args={})
 
     def test_torch_training_plan_07_configure_model_and_optimizer_test_invalid_types(self):
@@ -280,10 +284,10 @@ class TestTorchnn(unittest.TestCase):
         ta = {"t": 13}
         oa = {"y": 14}
         ip = {"s": 15}
-        tp._model.model_args = ma
+        tp._optimizer.model.model_args = ma
         tp._training_args = ta
         tp._optimizer_args = oa
-        tp._model.init_params = ip
+        tp._optimizer.model.init_params = ip
 
         r_ma = tp.model_args()
         r_ta = tp.training_args()
@@ -298,8 +302,10 @@ class TestTorchnn(unittest.TestCase):
     def test_torch_training_plan_09_save_and_load_params(self):
         """ Test save and load parameters """
         tp1 = TorchTrainingPlan()
-        tp1._model = TorchModel(torch.nn.Module())
-        paramfile = self.tmpdir + '/tmp_params.pt'
+        model = TorchModel(torch.nn.Module())
+        tp1._model = model
+        tp1._optimizer = NativeTorchOptimizer(model=model, optimizer=MagicMock(spec=torch.optim.Optimizer))
+        paramfile = os.path.join(self.tmpdir , 'tmp_params.pt')
 
         if os.path.isfile(paramfile):
             os.remove(paramfile)
@@ -315,7 +321,9 @@ class TestTorchnn(unittest.TestCase):
         # save/load from/to object params
         tp1.save(paramfile)
         tp2 = TorchTrainingPlan()
-        tp2._model = TorchModel(torch.nn.Module())
+        model = TorchModel(torch.nn.Module())
+        tp2._model = model
+        tp2._optimizer = NativeTorchOptimizer(model, MagicMock(spec=torch.optim.Optimizer))
         tp2.load(paramfile)
         self.assertTrue(type(params2) is dict)
 
@@ -342,7 +350,9 @@ class TestTorchnn(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
         tp = TorchTrainingPlan()
         tp._model = TorchModel(torch.nn.Module())
-
+        optimizer_wrapper = MagicMock()
+        optimizer_wrapper.model = MagicMock(return_value=tp._model)
+        
         # Create custom test data and set data loader for training plan
         test_dataset = TestTorchnn.CustomDataset()
         data_loader = DataLoader(test_dataset, batch_size=len(test_dataset))
@@ -500,17 +510,19 @@ class TestTorchnn(unittest.TestCase):
 
     def test_torchnn_05_num_updates(self):
         """Test that num_updates parameter is respected correctly.
-e
+
         In the following test, we make sure that no matter the dataset size, nor the batch size, we always perform the
         number of updates requested by the researcher. Remember each update corresponds to one optimizer step, i.e.
         one batch.
         """
         tp = TorchTrainingPlan()
-        tp._model = MagicMock()
+        tp._model = MagicMock(spec=TorchModel)
         tp._set_device = MagicMock()
         tp._batch_maxnum = 0
-        tp._optimizer = MagicMock()
-        tp._optimizer.step = MagicMock()
+        optim = MagicMock(spec=torch.optim.Optimizer)  # spec arg needed to pass optimizer type check
+        optim.step = MagicMock()
+        tp._optimizer = NativeTorchOptimizer(tp._model, optim)
+        
         tp.training_step = MagicMock(return_value=Variable(torch.Tensor([0]), requires_grad=True))
         tp._log_interval = 1000  # essentially disable logging
         tp._dry_run = False
@@ -519,7 +531,7 @@ e
 
         def setup_tp(tp, num_samples, batch_size, num_updates):
             """Utility function to prepare the TrainingPlan test"""
-            tp._optimizer.step.reset_mock()
+            tp._optimizer.optimizer.step.reset_mock()
             num_batches_per_epoch = num_samples // batch_size
             tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)),
                                                 dataset=[1,2],
@@ -539,41 +551,41 @@ e
         # Case where we do 1 single epoch with 1 batch
         tp = setup_tp(tp, num_samples=5, batch_size=5, num_updates=1)
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 1)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 1)
 
         # Case where researcher asks for less updates than would be needed to complete even the first epoch
         tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=2)
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 2)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 2)
 
         # Case where researcher asks for a num_updates that is not a multiple of the num batches per epoch
         tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=7)
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 7)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 7)
 
         # Case where researcher asks for a num_updates that is a multiple of the num batches per epoch
         tp = setup_tp(tp, num_samples=15, batch_size=5, num_updates=9)
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 9)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 9)
 
         # Case where researcher also set batch_maxnum. In this case we still respect the num_updates, therefore
         # more epochs (each one with only batch_maxnum iterations_ will be performed)
         tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
         tp._batch_maxnum = 1
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 3)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 3)
 
         # Case where the batch_maxnum is the same as the num_updates
         tp = setup_tp(tp, num_samples=45, batch_size=5, num_updates=3)
         tp._batch_maxnum = 3
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 3)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 3)
 
         
         tp = setup_tp(tp, num_samples=10, batch_size=5, num_updates=6)
         tp._batch_maxnum = 3
         tp.training_routine(None, None)
-        self.assertEqual(tp._optimizer.step.call_count, 6)
+        self.assertEqual(tp._optimizer.optimizer.step.call_count, 6)
 
     def test_torch_nn_06_compute_corrected_loss(self):
         """test_torch_nn_06_compute_corrected_loss: 
@@ -624,7 +636,8 @@ e
             tp._training_args = {'batch_size': batch_size}
             
             tp._optimizer_args = {"lr" : 1e-3}
-            tp._optimizer = torch.optim.Adam(model.parameters(), **tp._optimizer_args)
+            optim = torch.optim.Adam(model.parameters(), **tp._optimizer_args)
+            tp._optimizer = NativeTorchOptimizer(tp._model, optim)
             tp._dp_controller = FakeDPController()
             tp._training_args = {'batch_size': batch_size,
                                  'optimizer_args': tp._optimizer_args,
@@ -654,22 +667,22 @@ e
         """
         # first test wih basic optimizer (eg without learning rate scheduler)
         tp = TorchTrainingPlan()
-        tp._model = torch.nn.Linear(2, 3)
+        tp._model = TorchModel(torch.nn.Linear(2, 3))
         lr = .1
         dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
         target = torch.Tensor([1, 2, 2])
-        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
+        tp._optimizer = NativeTorchOptimizer(tp._model, SGD(tp._model.model.parameters(), lr=lr))
         
-        lr_extracted = tp.get_learning_rate()
+        lr_extracted = tp._optimizer.get_learning_rate()
         self.assertListEqual(lr_extracted, [lr])
         
-        # last test using a pytorch scheduler
-        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
+        # then test using a pytorch scheduler
+        scheduler = LambdaLR(tp._optimizer.optimizer, lambda e: 2*e)
         # this pytorch scheduler increase earning rate by twice its previous value
         for e, (x,y) in enumerate(zip(dataset, target)):
             # training a simple model in pytorch fashion
             # `e` represents epoch
-            out = tp._model.forward(x)
+            out = tp._optimizer.model.model.forward(x)
             tp._optimizer.zero_grad()
             loss = torch.mean(out) - y
             loss.backward()
@@ -677,7 +690,7 @@ e
             scheduler.step()
             
             # checks
-            lr_extracted = tp.get_learning_rate()
+            lr_extracted = tp._optimizer.get_learning_rate()
             self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
 
 

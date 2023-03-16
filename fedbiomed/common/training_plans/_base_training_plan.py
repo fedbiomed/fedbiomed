@@ -210,9 +210,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_learning_rate(self) -> List[float]:
-        raise FedbiomedTrainingPlanError("method not implemented")
-
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
 

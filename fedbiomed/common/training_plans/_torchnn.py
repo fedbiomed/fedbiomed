@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterato
 
 
 from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import OptimizerBuilder
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -69,8 +69,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # Differential privacy support
         self._dp_controller: Optional[DPController] = None
 
-        self._optimizer: Optional[GenericOptimizer] = None
         self._model: Optional[TorchModel] = None
+        self._optimizer: Optional[BaseOptimizer] = None
 
         self._training_args: Optional[dict] = None
         self._model_args: Optional[dict] = None
@@ -178,7 +178,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         pass
 
     def model(self) -> torch.nn.Module:
-        return self._model.model
+        if self._optimizer is None:
+            # this should be used  only when initialiazing optimizer
+            return self._model.model
+        else:
+            return self._optimizer.model.model
 
     def optimizer(self):
         return self._optimizer
@@ -189,7 +193,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Model arguments arguments
         """
-        return self._model.model_args
+        return self._optimizer.model.model_args
 
     # def get_learning_rate(self) -> List[float]:
     #     """Gets learning rate from value set in optimizer.
@@ -256,12 +260,12 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             State dictionary of torch Module
         """
-        return self._model.init_params
+        return self._optimizer.model.init_params
 
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
+            self._optimizer = torch.optim.Adam(self._optimizer.model.model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}") from e
@@ -294,12 +298,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                                  keys=list(init_model_spec.keys()),
                                                                  alternative="self.model_args()"))
 
-        self._model = TorchModel(model)
-        self._model.model_args = model_args
+        tmp_model = TorchModel(model)
+        tmp_model.model_args = model_args
         # Validate model
-        if not isinstance(self._model.model, nn.Module):
+        if not isinstance(tmp_model.model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
+        self._model = tmp_model
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
         if not init_optim_spec:
@@ -323,13 +328,17 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
         optim_builder = OptimizerBuilder()
         #  build the optimizer wrapper
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+        self._optimizer = optim_builder.build(self.__type, tmp_model, optimizer)
          
         # if not isinstance(self._optimizer, torch.optim.Optimizer):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
         
         # Validate and fix model
-        self._optimizer.model.model = self._dp_controller.validate_and_fix_model(self._optimizer.model.model)
+        validated_model = self._dp_controller.validate_and_fix_model(self._optimizer.model.model)
+        self._optimizer.model.set_model(validated_model)
+        
+        # resetting `model`` attribute to the TrainingPlan object to `None``
+        self._model = None
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -452,7 +461,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # DP actions
         self._optimizer, self.training_data_loader = \
-            self._dp_controller.before_training(self._optimizer, self.training_data_loader)
+            self._dp_controller.before_training(optimizer= self._optimizer, loader=self.training_data_loader)
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -612,7 +621,10 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         if params is not None:
             return torch.save(params, filename)
         else:
-            return self._optimizer.model.save(filename)
+            if self._optimizer is not None:
+                return self._optimizer.model.save(filename)
+            else:
+                raise FedbiomedTrainingPlanError("No model to be saved found, have you called `post_init` beforehand?")
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
@@ -683,7 +695,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         norm = 0
 
-        for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
+        for current_model, init_model in zip(self.model().parameters(), self._optimizer.model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
 

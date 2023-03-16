@@ -51,11 +51,11 @@ class DPController:
 
 
         if self._is_active:
-            if not isinstance(optimizer, NativeTorchOptimizer):
+            if not isinstance(optimizer.optimizer, Optimizer):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     f"Optimizer must be an instance of torch.optim.Optimizer, but got {optimizer}"
-                    "\nDeclearn optimizers are yet not compatible with Differential Privacy"
+                    "\nDeclearn optimizers are not yet compatible with Differential Privacy"
             )
             if not isinstance(loader, DataLoader):
                 raise FedbiomedDPControllerError(

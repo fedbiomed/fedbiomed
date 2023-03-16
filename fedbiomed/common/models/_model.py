@@ -6,6 +6,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, ClassVar, Dict, Optional, Union, Type
 
+import torch
+from sklearn.base import BaseEstimator
 from declearn.model.api import Vector
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -24,12 +26,21 @@ class Model(metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[Any]]
 
-    def __init__(self, model: Any):
+    def __init__(self, model: Union[BaseEstimator, torch.nn.Module]):
         """Constructor of Model abstract class
 
         Args:
             model: native model wrapped, of child-class-specific type.
         """
+        self._validate_model_type(model)
+        self.model: Any = model
+        self.model_args: Optional[Dict[str, Any]] = None
+
+    def set_model(self, model: Union[BaseEstimator, torch.nn.Module]):
+        self._validate_model_type(model)
+        self.model = model
+        
+    def _validate_model_type(self, model: Union[BaseEstimator, torch.nn.Module]):
         if not isinstance(model, self._model_type):
             err_msg = (
                 f"{ErrorNumbers.FB622.value}: unproper 'model' input type: "
@@ -37,8 +48,6 @@ class Model(metaclass=ABCMeta):
             )
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
-        self.model: Any = model
-        self.model_args: Optional[Dict[str, Any]] = None
 
     @abstractmethod
     def init_training(self):

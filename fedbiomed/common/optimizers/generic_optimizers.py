@@ -22,6 +22,8 @@ class BaseOptimizer(metaclass=ABCMeta):
     optimizer: Union[FedOptimizer, None]
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, None]):
+        if not isinstance(model, Model):
+            raise FedbiomedOptimizerError(f"Expected an instance of fedbiomed.common.model.Model but got {model}")
         self.model = model
         self.optimizer = optimizer
 
@@ -65,7 +67,7 @@ class BaseDeclearnOptimizer(BaseOptimizer):
         self.optimizer.init_round()
 
     def step_modules(self):
-        logger.debug("calling step_modules:")
+
         grad: Vector = self.model.get_gradients(as_vector=True)
         weights: Vector = self.model.get_weights(as_vector=True)
         updates = self.optimizer.step(grad, weights)
