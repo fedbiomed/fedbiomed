@@ -1,0 +1,7 @@
+{
+    "name": "celeba",
+    "description": "celeba DATASET",
+    "tags": "#celeba,#dataset",
+    "data_type": "images",
+    "path": "$HOME/Data/fedbiomed/celeba"
+}
