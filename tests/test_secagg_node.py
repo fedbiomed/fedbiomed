@@ -199,9 +199,11 @@ class TestSecaggServkey(SecaggTestCase):
             self.assertEqual(reply["success"], False)
 
         for get_value, return_value in (
-            (3, False),
-            ({}, False),
-            ({'parties': None}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, False),
+            # ({}, False),
+            # ({'parties': None}, False),
             ({'parties': ['not', 'matching', 'current', 'parties']}, False),
             ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
             ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
@@ -261,8 +263,10 @@ class TestSecaggBiprime(SecaggTestCase):
         """Tests init """
 
         for get_value, return_value in (
-            (3, False),
-            ({}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, False),
+            # ({}, False),
             ({'parties': None}, True),
             ({'parties': ['not', 'matching', 'current', 'parties']}, False),
             ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),

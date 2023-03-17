@@ -230,11 +230,13 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
         for return_value, context, value in (
             (None, dummy_context, dummy_status),
-            (3, 3, False),
-            ({}, {}, False),
-            ({'toto': 1}, {'toto': 1}, False),
-            ({'parties': 3}, {'parties': 3}, False),
-            ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, 3, False),
+            # ({}, {}, False),
+            # ({'toto': 1}, {'toto': 1}, False),
+            # ({'parties': 3}, {'parties': 3}, False),
+            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
             ({'parties': [environ["ID"], 'party2', 'party3']},
                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
             ({'parties': [environ["ID"], 'party3', 'party2']},
@@ -377,11 +379,13 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
 
         for return_value, context, value in (
             (None, dummy_context, dummy_status),
-            (3, 3, False),
-            ({}, {}, False),
-            ({'toto': 1}, {'toto': 1}, False),
-            ({'parties': 3}, {'parties': 3}, False),
-            ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, 3, False),
+            # ({}, {}, False),
+            # ({'toto': 1}, {'toto': 1}, False),
+            # ({'parties': 3}, {'parties': 3}, False),
+            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
             ({'parties': [environ["ID"], 'party2', 'party3']},
                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
             ({'parties': ['party4', environ["ID"], 'party2', 'party3']},

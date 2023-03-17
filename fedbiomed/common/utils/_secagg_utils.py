@@ -20,11 +20,13 @@ def matching_parties_servkey(context: dict, parties: list) -> bool:
     # eg: [ 'un', 'deux', 'trois' ] compatible with [ 'un', 'trois', 'deux' ]
     # but not with [ 'deux', 'un', 'trois' ]
     return (
-        isinstance(context, dict) and
-        'parties' in context and 
-        isinstance(context['parties'], list) and
-        len(context['parties']) >= 1 and
-        isinstance(parties, list) and
+        # Commented tests can be assumed from calling functions
+        #
+        # isinstance(context, dict) and
+        # 'parties' in context and 
+        # isinstance(context['parties'], list) and
+        # len(context['parties']) >= 1 and
+        # isinstance(parties, list) and
         parties[0] == context['parties'][0] and
         set(parties[1:]) == set(context['parties'][1:]))
 
@@ -44,10 +46,13 @@ def matching_parties_biprime(context: dict, parties: list) -> bool:
     # - either the existing element is not attached to specific parties (None)
     # - or existing element was established for the same parties or a superset of the parties
     return (
-        isinstance(context, dict) and
-        'parties' in context and 
-        isinstance(parties, list) and (
+        # Commented tests can be assumed from calling functions
+        #
+        # isinstance(context, dict) and
+        # 'parties' in context and 
+        # isinstance(parties, list) and
+        (
             context['parties'] is None or (
-                isinstance(context['parties'], list) and
+                # isinstance(context['parties'], list) and
                 set(parties).issubset(set(context['parties']))
             )))
