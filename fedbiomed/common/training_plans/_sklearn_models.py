@@ -248,7 +248,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
-        if self._model.model_args["n_classes"] == 2:
+        if self._optimizer.model.model_args["n_classes"] == 2:
             return super()._parse_batch_loss(stdout, inputs, target)
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.
@@ -272,13 +272,7 @@ class FedPerceptron(FedSGDClassifier):
     _model_dep = (
         "from sklearn.linear_model import SGDClassifier",
         "from fedbiomed.common.training_plans import FedPerceptron"
-    )
-
-    def __init__(self) -> None:
-        """Class constructor."""
-        super().__init__()
-        # here self._optimizer is None
-        self._model.set_params(loss="perceptron")
+    )      
 
     def post_init(
             self,
@@ -288,3 +282,4 @@ class FedPerceptron(FedSGDClassifier):
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
+        self._optimizer.model.set_params(loss="perceptron")

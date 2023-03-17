@@ -22,8 +22,8 @@ class BaseOptimizer(metaclass=ABCMeta):
     optimizer: Union[FedOptimizer, None]
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, None]):
-        if not isinstance(model, Model):
-            raise FedbiomedOptimizerError(f"Expected an instance of fedbiomed.common.model.Model but got {model}")
+        if not isinstance(model, (Model, SkLearnModel)):
+            raise FedbiomedOptimizerError(f"Expected an instance of fedbiomed.common.model.Model or fedbiomed.common.model.SkLearnModel but got {model}")
         self.model = model
         self.optimizer = optimizer
 
@@ -104,16 +104,28 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
             self.model.model.zero_grad()
         except AttributeError as err:
             raise FedbiomedOptimizerError(f"Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?. Details {err}") from err
+
     def send_model_to_device(self, device: torch.device):
         # for pytorch specifically
         self.model.send_to_device(device)
 
-
-        
     def get_learning_rate(self) -> List[float]:
         return [self.optimizer._optimizer.lrate]
 
 class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
+    
+    def step(self):
+        # convert batch averaged gradients into gradients efore conputation
+        lrate = self.model.get_learning_rate()[0]
+        if int(lrate) != 0:
+            
+            gradients = self.model.get_gradients()
+            self.model.gradients = {layer: val / lrate for layer, val in gradients.items()}
+        else:
+            # Nota: if learning rate equals 0, there will be no updates applied during SGD
+            logger.warning("Learning rate set to 0: no gradient descent will be performed!")   
+        super().step()
+
     def optimizer_post_processing(self, model_args: Dict):
         self.model.disable_internal_optimizer()
         is_param_changed, param_changed = self.model.check_changed_optimizer_params(model_args)
@@ -202,9 +214,9 @@ class NativeSkLearnOptimizer(BaseOptimizer):
 
     def step(self):
         gradients = self.model.get_gradients()
-        lrate = self.model.get_learning_rate()[0]
+        #lrate = self.model.get_learning_rate()[0]
         # revert back gradients to the batch averaged gradients
-        gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
+        #gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
 
         self.model.apply_updates(gradients)
 

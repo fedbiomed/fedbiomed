@@ -55,7 +55,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model = SkLearnModel(self._model_cls)
+        self._model: Union[SkLearnModel, None] = None
         self._training_args = {}  # type: Dict[str, Any]
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
@@ -86,6 +86,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
         self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
@@ -113,6 +114,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._optimizer.model.set_init_params(model_args)
         
         self._optimizer.optimizer_post_processing(model_args)
+        
+        # reset _model to its initial value: None
+        self._model = None
         # if isinstance(self._optimizer, NativeSkLearnOptimizer):
         #     # disable internal optimizer if optimizer is non native (ie declearn optimizer)
         #     self._optimizer.model.disable_internal_optimizer()
@@ -157,7 +161,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        return self._model.model_args
+        if self._optimizer is None:
+            return self._model.model_args
+        else:
+            return self._optimizer.model.model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.
@@ -176,13 +183,18 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     #         raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
     #     return [lr]
 
-    def model(self) -> BaseEstimator:
+    def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
 
         Returns:
             Scikit-learn model instance
         """
-        return self._optimizer.model.model
+        if self._model is not None:
+            return self._model.model
+        elif self._optimizer is not None:
+            return self._optimizer.model.model
+        else:
+            return self._model
 
     def _configure_optimizer(self):
         # Message to format for unexpected argument definitions in special methods
@@ -192,6 +204,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                        "method can be defined without argument and `{alternative}` can be used for " \
                                        "accessing {prefix} arguments defined in the experiment."
         
+        if self._model is None:
+            raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
         if not init_optim_spec:
@@ -251,8 +265,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
         """
-        if self._model is None:
-            raise FedbiomedTrainingPlanError('model is None')
+        if self._optimizer is None:
+            raise FedbiomedTrainingPlanError('Optimizer is None, please run `post_init` beforehand')
 
         # Run preprocesses
         self._preprocess()
@@ -341,12 +355,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._optimizer.model._is_classification and not hasattr(self.model(), 'classes_'):
+        if self._optimizer.model.is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._optimizer.model._is_classification:
+            if self._optimizer.model.is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR

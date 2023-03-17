@@ -177,12 +177,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """Abstract method to return training data"""
         pass
 
-    def model(self) -> torch.nn.Module:
-        if self._optimizer is None:
+    def model(self) -> Optional[torch.nn.Module]:
+        if self._model is not None:
             # this should be used  only when initialiazing optimizer
             return self._model.model
-        else:
+        elif self._optimizer is not None:
             return self._optimizer.model.model
+        else:
+            return self._model
 
     def optimizer(self):
         return self._optimizer

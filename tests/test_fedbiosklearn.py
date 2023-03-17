@@ -18,6 +18,7 @@ import logging
 import numpy as np
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
+from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer
 
 import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -26,6 +27,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
+from fedbiomed.common.models import SkLearnModel
 from sklearn.linear_model import SGDClassifier
 
 class Custom:
@@ -34,6 +36,10 @@ class Custom:
 
 
 class FakeTrainingArgs:
+    """Mimics TrainingArgs class
+    """
+    def optimizer_arguments(self):
+        return {'lr': 1e-2}
 
     def pure_training_arguments(self):
         return {"epochs": 1,
@@ -196,6 +202,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         test_y = np.array([1, 0, 1, 0])
         train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=1)
         training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
+        training_plan._optimizer = NativeSkLearnOptimizer(SkLearnModel(self._model_cls), None)
         training_plan._training_args['epochs'] = 1
         training_plan._training_args['num_updates'] = None
         training_plan._training_args['batch_size'] = train_data_loader.batch_size()
@@ -284,7 +291,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # training plan type
             self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
             # ensure that the model args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan._model.model_args,
+            self.assertDictEqual(training_plan._optimizer.model.model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
@@ -298,11 +305,11 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
 
             # --------- Check that model's param_list is correctly populated after initialization
             # check that param_list is a list
-            self.assertIsInstance(training_plan._model.param_list, list)
+            self.assertIsInstance(training_plan._optimizer.model.param_list, list)
             # check that param_list is not empty
-            self.assertTrue(training_plan._model.param_list)
+            self.assertTrue(training_plan._optimizer.model.param_list)
             # check that param_list is a list of str
-            for param in training_plan._model.param_list:
+            for param in training_plan._optimizer.model.param_list:
                 self.assertIsInstance(param, str)
 
     def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
@@ -428,7 +435,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
 
             self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.model.n_iter_, 1)
+            self.assertEqual(training_plan._optimizer.model.model.n_iter_, 1)
 
             # When report is False, expected return value is NaN
             loss = training_plan._train_over_batch(inputs, target, report=False)
@@ -436,7 +443,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                             f"{training_plan.__class__.__name__} loss should be NaN")
             self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
+            self.assertEqual(training_plan._optimizer.model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
