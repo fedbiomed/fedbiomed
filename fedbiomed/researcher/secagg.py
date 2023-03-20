@@ -15,7 +15,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
-
+from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
@@ -177,6 +177,17 @@ class SecaggContext(ABC):
 
         self._job_id = job_id
 
+    @abstractmethod
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+
     def _payload(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for a secagg context element
 
@@ -188,19 +199,8 @@ class SecaggContext(ABC):
         if context is None:
             context, status = self._payload_create()
         else:
-            # Need to ensure that:
-            # - either the existing element is not attached to specific parties (None)
-            # - or existing element was established for the same parties or a superset of the parties
-            #
-            # Note: for servkey, we should not find an entry where
-            # `parties` are `None` in database, as we don't create such entry
-            # but this is not a problem admitting such scenario
-            if (not isinstance(context, dict) or
-                    'parties' not in context or (
-                        context['parties'] is not None and (
-                            not isinstance(context['parties'], list) or
-                            not set(self._parties).issubset(set(context['parties']))
-                        ))):
+            # Need to ensure the read context has compatible parties with this element
+            if (not self._matching_parties(context)):
                 logger.error(
                     f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
                     f"but parties do not match")
@@ -491,6 +491,17 @@ class SecaggServkeyContext(SecaggContext):
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = _SKManager
 
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+        return matching_parties_servkey(context, self._parties)
+
     def _payload_create(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for creating server key secagg context element
 
@@ -558,6 +569,17 @@ class SecaggBiprimeContext(SecaggContext):
 
         self._element = SecaggElementTypes.BIPRIME
         self._secagg_manager = _BPrimeManager
+
+    def _matching_parties(self, context: dict) -> bool:
+        """Check if parties of given context are compatible with the secagg context element.
+
+        Args:
+            context: context to be compared with the secagg context element
+
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
+        return matching_parties_biprime(context, self._parties)
 
     def _payload_create(self) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for creating biprime secagg context element

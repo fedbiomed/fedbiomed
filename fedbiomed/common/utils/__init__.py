@@ -19,6 +19,10 @@ from ._config_utils import (
     get_all_existing_certificates,
     get_existing_component_db_names,
 )
+from ._secagg_utils import (
+    matching_parties_servkey,
+    matching_parties_biprime
+)
 
 __all__ = [
     # _utils
@@ -37,4 +41,6 @@ __all__ = [
     "get_all_existing_config_files",
     "get_all_existing_certificates",
     "get_existing_component_db_names",
+    "matching_parties_servkey",
+    "matching_parties_biprime",
 ]
