@@ -1600,8 +1600,8 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_servkey_id=self._secagg_servkey.secagg_id if self._secagg_servkey is not None else None,
-                                                 secagg_biprime_id=self._secagg_biprime.secagg_id if self._secagg_biprime is not None else None,
+                                                 secagg_servkey_id=self._secagg_servkey.secagg_id if self._use_secagg else None,
+                                                 secagg_biprime_id=self._secagg_biprime.secagg_id if self._use_secagg else None,
                                                  secagg_random=secagg_random)
         
         # refining/normalizing model weights received from nodes
@@ -1622,7 +1622,7 @@ class Experiment(object):
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
                                                        n_round=self._round_current,
-                                                       secure_aggregation=True)
+                                                       secure_aggregation=self._use_secagg)
 
         # write results of the aggregated model in a temp file
 
