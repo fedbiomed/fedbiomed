@@ -47,7 +47,7 @@ class FakeAggregator(Aggregator):
 
 class FakeStrategy(Strategy):
     pass
-        
+
 
 class TestExperiment(ResearcherTestCase):
     """ Test for Experiment class """
@@ -1160,7 +1160,7 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_job()
         # Set strategy again (it was removed)
         self.test_exp.set_strategy(None)
-        
+
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
         mock_job_training.assert_called_once()
@@ -1207,7 +1207,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(mock_job_training.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
-    
+
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
@@ -1216,7 +1216,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')  
+    @patch('fedbiomed.researcher.job.Job.__init__')
     def test_experiment_23_run_once_with_scaffold_and_training_args(self,
                                                                     mock_job_init,
                                                                     mock_job_updates_params,
@@ -1260,7 +1260,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')  
+    @patch('fedbiomed.researcher.job.Job.__init__')
     def test_experiment_24_strategy(self,
                                     mock_job_init,
                                     mock_job_updates_params,
@@ -1270,22 +1270,22 @@ class TestExperiment(ResearcherTestCase):
                                     mock_fedavg_aggregate):
         """test_experiment_24_strategy: testing several case where strategy may fail"""
         # FIXME: this is more of an integration test than a unit test
-        
+
         # set up:
         model_param = [1, 2, 3]
         num_updates = 1000
         node_ids = ['node-1', 'node-2']
         node_sample_size = [10, 20]  # size of samples parsedby each node
-        
+
         assert len(node_ids) == len(node_sample_size), "wrong setup for test: node_ids and node_sample_size should be" \
             "of the same size"
-        
+
         training_plan = MagicMock()
         training_plan.type = MagicMock()
-        # mocking job 
+        # mocking job
         mock_job_init.return_value = None
         mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
+        mock_job_training_replies.return_value = {self.test_exp.round_current():
             Responses( [{ 'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
@@ -1297,7 +1297,7 @@ class TestExperiment(ResearcherTestCase):
                         ])}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
-        
+
         # mocking aggregator
         mock_fedavg_aggregate.return_value = None
 
@@ -1313,7 +1313,7 @@ class TestExperiment(ResearcherTestCase):
                                                     'node-1': [{'dataset_id': 'dataset-id-1',
                                                                 'shape': [100, 100]}],
                                                     'node-2': [{'dataset_id': 'dataset-id-2',
-                                                                'shape': [120, 120], 
+                                                                'shape': [120, 120],
                                                                 'test_ratio': .0}],
                                                 })))
         # set training_args
@@ -1322,7 +1322,7 @@ class TestExperiment(ResearcherTestCase):
         # removing breakpoints (otherwise test will fail)
         self.test_exp.set_save_breakpoints(False)
         result = self.test_exp.run_once()
-        
+
         weigths = {node_id: sample_size/sum(node_sample_size) for node_id, sample_size in zip(node_ids,
                                                                                               node_sample_size)}
         model_params = {node_id: model_param for node_id in node_ids}
@@ -1333,11 +1333,11 @@ class TestExperiment(ResearcherTestCase):
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
                                                  n_round=0,)
-        
+
         # repeat experiment but with a wrong sample_size
-        
+
         node_sample_size = [10, None]
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
+        mock_job_training_replies.return_value = {self.test_exp.round_current():
             Responses( [{ 'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
@@ -1347,7 +1347,7 @@ class TestExperiment(ResearcherTestCase):
                              'sample_size': sample_size
                              } for node_id, sample_size in zip(node_ids, node_sample_size)
                         ])}
-        
+
         with self.assertRaises(SystemExit):
             # should raise a FedbiomedStrategyError, describing the error
             self.test_exp.run_once()
@@ -1603,8 +1603,7 @@ class TestExperiment(ResearcherTestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self, training_plan: BaseTrainingPlan,
-                           breakpoint_path: str, **kwargs):
+            def save_state(self, breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
@@ -1648,7 +1647,7 @@ class TestExperiment(ResearcherTestCase):
                 self._training_plan = None
             def save_state(self, breakpoint_path):
                 return job_state
-            
+
             @property
             def training_plan(self):
                 return self._training_plan
@@ -1760,7 +1759,7 @@ class TestExperiment(ResearcherTestCase):
         use_secagg = True
         secagg_servkey = {'secagg_id': '1234',
                           'researcher_id': '1234',
-                          'status': True, 
+                          'status': True,
                           'context': None,
                           'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'],
                           'job_id': 'A JOB1 ID',
@@ -1772,7 +1771,7 @@ class TestExperiment(ResearcherTestCase):
 
         fake_aggregator = FakeAggregator()
         fake_aggregator._aggregator_args = aggregator_params
-        
+
         fake_strategy = FakeStrategy(data=training_args)
         fake_strategy._parameters = strategy_params
         # breakpoint structure
@@ -1837,7 +1836,7 @@ class TestExperiment(ResearcherTestCase):
         final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
                                 'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
-        
+
         # def side_create_object(args, **kwargs):
         #     return args
 

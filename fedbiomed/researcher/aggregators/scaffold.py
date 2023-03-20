@@ -438,9 +438,11 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(self, training_plan: BaseTrainingPlan,
-                   breakpoint_path: str,
-                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
+    def save_state(
+        self,
+        breakpoint_path: str,
+        global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
+    ) -> Dict[str, Any]:
         # adding aggregator parameters to the breakpoint that wont be sent to nodes
         self._aggregator_args['server_lr'] = self.server_lr
         
@@ -449,12 +451,11 @@ class Scaffold(Aggregator):
         training_plan.save(filename, self.global_state)
         self._aggregator_args['global_state_filename'] = filename
         # adding aggregator parameters that will be sent to nodes afterwards
-        return super().save_state(training_plan,
-                                  breakpoint_path,
-                                  global_model=global_model,
-                                  node_ids=self._fds.node_ids())
+        return super().save_state(
+            breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
+        )
 
-    def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
+    def load_state(self, state: Dict[str, Any] = None):
         super().load_state(state)
 
         self.server_lr = self._aggregator_args['server_lr']
@@ -465,5 +466,4 @@ class Scaffold(Aggregator):
 
         for node_id in self._aggregator_args['aggregator_correction'].keys():
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-
-            self.nodes_correction_states[node_id] = training_plan.load(arg_filename)
+            self.nodes_correction_states[node_id] = Serializer.load(arg_filename)
