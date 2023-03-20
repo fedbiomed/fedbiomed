@@ -1600,8 +1600,8 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_servkey_id="DUMMY_SECAGG",
-                                                 secagg_biprime_id=None,
+                                                 secagg_servkey_id=self._secagg_servkey.secagg_id if self._secagg_servkey is not None else None,
+                                                 secagg_biprime_id=self._secagg_biprime.secagg_id if self._secagg_biprime is not None else None,
                                                  secagg_random=secagg_random)
         
         # refining/normalizing model weights received from nodes
