@@ -131,30 +131,23 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
+        # Assign scalar attributes.
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
-
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
-
-        # aggregator args
-        self._fedprox_mu = self._training_args.get('fedprox_mu')
-        # TODO: put fedprox mu inside strategy_args
-        self._aggregator_args = aggregator_args or {}
-
-        self.set_aggregator_args(self._aggregator_args)
-        # self.aggregator_name = self._aggregator_args.get('aggregator_name')
-        # FIXME: we should have a AggregatorHandler that handles aggregator args
-
+        # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
-
         # Add dependencies
         self._configure_dependencies()
-
+        # Configure aggregator-related arguments
+        # TODO: put fedprox mu inside strategy_args
+        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        self.set_aggregator_args(aggregator_args or {})
         # Configure model and optimizer
         self._configure_model_and_optimizer(model_args)
 
@@ -587,17 +580,17 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
             'aggregator_correction' with correction states)
         """
-        self.aggregator_name = aggregator_args.get('aggregator_name') or self.aggregator_name
+        self.aggregator_name = aggregator_args.get('aggregator_name', self.aggregator_name)
         # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
         # by an aggregator handler that contains all keys for all strategies
         # implemented in fedbiomed
         # here we ae loading all args that have been sent from file exchange system
         for arg_name, aggregator_arg in aggregator_args.items():
             if arg_name == 'aggregator_correction':
-                if not isinstance(aggregator_arg, torch.Tensor):
+                if not isinstance(aggregator_arg, dict):
                     raise FedbiomedTrainingPlanError(
                         f"{ErrorNumbers.FB309.value}: TorchTrainingPlan received "
-                        "non-torch-Tensor 'aggregator_correction' aggregator args."
+                        "invalid 'aggregator_correction' aggregator args."
                     )
                 self.correction_state = aggregator_arg
 
