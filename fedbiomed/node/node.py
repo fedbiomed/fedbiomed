@@ -21,7 +21,7 @@ from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
-from fedbiomed.node.secagg_manager import SecaggManager, SecaggServkeyManager
+from fedbiomed.node.secagg_manager import SecaggManager
 
 import validators
 

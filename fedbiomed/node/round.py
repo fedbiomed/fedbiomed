@@ -18,7 +18,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, Message
+from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 
@@ -382,7 +382,7 @@ class Round:
                     self._secagg_crypter.encrypt,
                     num_nodes=2,
                     current_round=self._round,
-                    #key=10,
+                    # key=10,
                     key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
                     weight=sample_size,
                 )
