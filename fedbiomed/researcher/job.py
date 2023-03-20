@@ -472,9 +472,6 @@ class Job:
         self,
         params: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None,
-        # DEPRECATED arguments:
-        is_model_params: bool = True,
-        variable_name: str = "",
     ) -> Tuple[str, str]:
         """Save and upload global model parameters, optionally after updating them.
 
@@ -484,14 +481,12 @@ class Job:
         a pre-exported dump file.
 
         Args:
-            params: Optional data structure containing the new version of the aggregated parameters for this job.
-                If None (default), export and upload the current model parameters.
-            filename: Optional path to a pre-existing file containing the aggregated parameters to load an upload.
+            params: Optional dict storing new aggregated parameters that are to
+                be assigned to this job's training plan's model.
+                If None, export and upload the current model parameters.
+            filename: Optional path to a pre-existing file containing the
+                aggregated parameters to load an upload.
                 If `params` is not None, `filename` has to be None.
-            is_model_params: **DEPRECATED**
-                Whether params are models parameters or another value that must be sent through file exchange system.
-            variable_name: **DEPRECATED**
-                Prefix to the created file's name. Defaults to 'aggregated_prams'.
 
         Returns:
             filename: path to the local parameters file
@@ -504,9 +499,6 @@ class Job:
               that is also updated by this method.
         """
         try:
-            # Raise on invalid parameter values or combinations.
-            if (not is_model_params) or variable_name:
-                raise ValueError("'update_parameters' received a deprecated argument, that will be ignored.")
             if params and filename:
                 raise ValueError("'update_parameters' received both filename and params: only one may be used.")
             # Case when uploading a pre-existing file: load the parameters.
@@ -515,12 +507,15 @@ class Job:
                 self._training_plan.set_model_params(params)
             # Case when exporting current parameters: create a local dump file.
             else:
+                # Case when uploading a new set of parameters: assign them.
+                if params:
+                    self._training_plan.set_model_params(params)
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
-                params = {
+                params_dump = {
                     "researcher_id": self._researcher_id,
                     "model_weights": self._training_plan.get_model_params(),
                 }
-                Serializer.dump(params, filename)
+                Serializer.dump(params_dump, filename)
             # Upload the file and record its local and remote locations.
             self._model_params_file = filename
             repo_response = self.repo.upload_file(filename)

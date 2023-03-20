@@ -455,24 +455,6 @@ class TestJob(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.job.update_parameters(params=params, filename='dummy/file/name/')
 
-        # case where arg is_model_params=False - DEPRECATED (hence SystemExit)
-        with self.assertRaises(SystemExit):
-            self.job.update_parameters(params=params, filename=None, is_model_params=False)
-
-        # test with specified variable name - DEPRECATED (hence SystemExit)
-        variable_name = "my_variable"
-        with self.assertRaises(SystemExit):
-            self.job.update_parameters(
-                params=params, filename=None, is_model_params=False, variable_name=variable_name
-            )
-
-        # same test but with `is_model_params` - DEPRECATED (hence SystemExit)
-        variable_name = "my_variable"
-        with self.assertRaises(SystemExit):
-            self.job.update_parameters(
-                params=params, filename=None, is_model_params=False, variable_name=variable_name
-            )
-
     def test_job_12_update_parameters_with_passing_params_only(self):
         """ Testing update_parameters by passing only params """
 
