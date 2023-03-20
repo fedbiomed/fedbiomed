@@ -267,7 +267,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
         try:
-            self._optimizer = torch.optim.Adam(self._optimizer.model.model.parameters(), **self._optimizer_args)
+            self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
         except AttributeError as e:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Invalid argument for default "
                                              f"optimizer Adam. Error: {e}") from e
@@ -340,7 +340,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         self._optimizer.model.set_model(validated_model)
         
         # resetting `model`` attribute to the TrainingPlan object to `None``
-        self._model = None
+        # self._model = None
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -528,8 +528,25 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         self._optimizer.send_model_to_device(self._device_init)
         torch.cuda.empty_cache()
+        
+        # # test (to be removed)
+        # assert id(self._optimizer.model.model) == id(self._model.model)
+        
+        # assert id(self._optimizer.model) == id(self._model)
+        
+        # for (layer, val), (layer2, val2) in zip(self._model.model.state_dict().items(), self._optimizer.model.model.state_dict().items()):
+        #     assert layer == layer2
+        #     print(val, layer2)
+        #     assert torch.isclose(val, val2).all()
+            
+        # for attributes, values in self._model.__dict__.items():
+        #     print("ATTRIBUTES", values)
+        #     assert values == getattr(self._optimizer.model, attributes)
 
-        return iterations_accountant.num_samples_observed_in_total
+        # for attributes, values in self._model.model.__dict__.items():
+        #     print("ATTRIBUTES", values)
+        #     assert values == getattr(self._optimizer.model.model, attributes) 
+        # return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
         """Train the model over a single batch of data.

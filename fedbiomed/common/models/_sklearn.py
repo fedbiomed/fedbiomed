@@ -251,9 +251,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         # compute gradients
 
         self._gradients: Dict[str, np.ndarray] = {}
-        lrate = self.get_learning_rate()[0]
+
+        # get batch averaged gradients
         self._gradients = {
-            key: (w_init[key] - (w_updt[key] / batch_size)) / lrate for key in self.param_list
+            key: (w_init[key] - (w_updt[key] / batch_size)) for key in self.param_list
         }
         
 

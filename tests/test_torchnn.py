@@ -443,6 +443,15 @@ class TestTorchnn(unittest.TestCase):
         with patch.object(TrainingPlanWithTestingStep, 'testing_step') as patch_testing_step:
             patch_testing_step.side_effect = Exception
             with self.assertRaises(FedbiomedTrainingPlanError):
+                tp = TorchTrainingPlan()
+
+        # Special methods without arguments ----------------------------------------------
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self):
+                return TestTorchnn.model.model
+
+            def init_optimizer(self):
+                return TestTorchnn.optimizer.optimizer
                 tp.testing_routine(metric=MetricTypes.ACCURACY,
                                    metric_args={},
                                    history_monitor=history_monitor,
@@ -498,6 +507,14 @@ class TestTorchnn(unittest.TestCase):
         tp.training_data_loader.__len__.return_value = num_batches
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
+
+        # Special methods without arguments ----------------------------------------------
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self):
+                return TestTorchnn.model.model
+
+            def init_optimizer(self):
+                return TestTorchnn.optimizer.optimizer
 
         tp._dp_controller = FakeDPController()
 
@@ -700,6 +717,21 @@ class TestTorchnn(unittest.TestCase):
             lr_extracted = tp._optimizer.get_learning_rate()
             self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
 
+    def test_torch_model_same_object(self):
+        tp = TorchTrainingPlan()
+
+        # Special methods without arguments ----------------------------------------------
+        class FakeTP(BaseFakeTrainingPlan):
+            def init_model(self):
+                return TestTorchnn.model.model
+
+            def init_optimizer(self):
+                return TestTorchnn.optimizer.optimizer
+
+        tp = FakeTP()
+        tp._optimizer_args = {}
+        tp.post_init({}, {})
+        tp.training_routine(None, None)
 
 class TestSendToDevice(unittest.TestCase):
 
