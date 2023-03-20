@@ -17,8 +17,9 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
-    FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
@@ -28,15 +29,16 @@ from fedbiomed.common.utils import is_ipython
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
-    create_unique_link, create_unique_file_link, find_breakpoint_path
+from fedbiomed.researcher.filetools import (
+    create_exp_folder, choose_bkpt_file, create_unique_link, create_unique_file_link, find_breakpoint_path
+)
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
 _E = TypeVar("Experiment")  # only for typing
 
