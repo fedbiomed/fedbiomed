@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedModelError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import SkLearnModel
@@ -299,7 +299,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             #     setattr(self._model, key, val)
             self._model.set_weights(params)
         # Save the wrapped model (using joblib, hence pickle).
-        self._model.save(filename)
+        self._model.export(filename)
 
     def load(
             self,
@@ -330,15 +330,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Dictionary with the loaded parameters.
         """
         # Deserialize the dump, type-check the instance and assign it.
-        self._model.load(filename)
-        if not isinstance(self.model(), self._model_cls):
-            msg = (
-                f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
-                f"to expectations: should be of type {self._model_cls}, not "
-                f"{type(self.model())}."
-            )
+        try:
+            self._model.reload(filename)
+        except FedbiomedModelError as exc:
+            msg = f"{ErrorNumbers.FB304.value}: failed to reload wrapped model: {exc}"
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
 
         # Optionally return the model's pseudo state dict instead of it.
         if to_params:

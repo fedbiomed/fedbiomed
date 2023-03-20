@@ -13,11 +13,14 @@ from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
 
 
-DT = TypeVar("DT")
-VT = TypeVar("VT", bound=Vector)
+# Generic type variables for annotations: specify types that are abstract
+# at this level, but have to be coherent when defined by children classes.
+MT = TypeVar("MT")  # model type
+DT = TypeVar("DT")  # data array type
+VT = TypeVar("VT", bound=Vector)  # declearn vector type
 
 
-class Model(Generic[DT, VT], metaclass=ABCMeta):
+class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
@@ -28,7 +31,7 @@ class Model(Generic[DT, VT], metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[Any]]
 
-    def __init__(self, model: Any):
+    def __init__(self, model: MT):
         """Constructor of Model abstract class
 
         Args:
@@ -118,17 +121,50 @@ class Model(Generic[DT, VT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def load(self, filename: str) -> None:
-        """Loads model from a file.
+    def export(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
 
         Args:
-            filename: path towards the file where the model has been saved.
+            filename: path to the file where the model will be saved.
+
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
         """
 
-    @abstractmethod
-    def save(self, filename: str) -> None:
-        """Saves model into a file.
+    def reload(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
 
         Args:
-            filename: path to the file, where will be saved the model.
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+        """
+        model = self._reload(filename)
+        if not isinstance(model, self._model_type):
+            err_msg = (
+                f"{ErrorNumbers.FB622.value}: unproper type for imported model"
+                f": expected '{self._model_type}', but 'got {type(model)}'."
+            )
+            logger.critical(err_msg)
+            raise FedbiomedModelError(err_msg)
+        self.model = model
+
+    @abstractmethod
+    def _reload(self, filename: str) -> MT:
+        """Model-class-specific backend to the `reload` method.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        Returns:
+            model: reloaded model instance to be wrapped, that will be type-
+                checked as part of the calling `reload` method.
         """

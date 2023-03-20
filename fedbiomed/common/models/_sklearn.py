@@ -311,25 +311,39 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self.model.set_params(**params)
         return params
 
-    def load(self, filename: str) -> None:
-        """Loads model from a file.
+    def export(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
 
         Args:
-            filename: path towards the file where the model has been saved.
-        """
-        # FIXME: Security issue using pickles!
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-        self.model = model
+            filename: path to the file where the model will be saved.
 
-    def save(self, filename: str) -> None:
-        """Saves model into a file.
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
 
-        Args:
-            filename: path to the file, where will be saved the model.
+        !!! warning "Warning":
+            This method uses `joblib.dump`, which relies on pickle and
+            is therefore hard to trust by third-party loading methods.
         """
         with open(filename, "wb") as file:
             joblib.dump(self.model, file)
+
+    def _reload(self, filename: str) -> None:
+        """Model-class-specific backend to the `reload` method.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        Returns:
+            model: reloaded model instance to be wrapped, that will be type-
+                checked as part of the calling `reload` method.
+        """
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+        return model
 
     # ---- abstraction for sklearn models
     @abstractmethod

@@ -19,6 +19,8 @@ import numpy as np
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
+from sklearn.linear_model import SGDClassifier
+
 import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
@@ -26,7 +28,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-from sklearn.linear_model import SGDClassifier
+
 
 class Custom:
     def testing_step(mydata, mytarget):
@@ -118,36 +120,35 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             saved_params.append(obj)
 
         # Base case where params are not provided to save function
-        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
+        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.export',
                    side_effect=mocked_joblib_dump):
             training_plan.save('filename')
             self.assertEqual(saved_params[-1], 'filename')
 
-
-        for  param in ({'coef_': 0.42, 'intercept_': 0.42}, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}}):
-            with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
-                    side_effect=mocked_joblib_dump),
-                    patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.set_weights') as patch_set_weights):
-
+        for param in ({'coef_': 0.42, 'intercept_': 0.42}, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}}):
+            with (
+                patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.export', side_effect=mocked_joblib_dump),
+                patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.set_weights') as patch_set_weights
+            ):
                 training_plan.save('filename', params=param)
                 self.assertEqual(saved_params[-1], 'filename')
                 patch_set_weights.assert_called_once_with({'coef_': 0.42, 'intercept_': 0.42})
 
     def test_sklearntrainingplanbasicinheritance_04_load(self):
         training_plan = SKLearnTrainingPlan()
-            
+
         # Saved object is not the correct type
-        with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load') as patch_model_loader,
-                   patch('fedbiomed.common.training_plans._sklearn_training_plan.SKLearnTrainingPlan.model',
-                         return_value=FedSGDRegressor._model_cls())):
-            
+        with patch(
+            'fedbiomed.common.models.BaseSkLearnModel._reload',
+            return_value=MagicMock()
+        ):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.load('filename')
 
         # Option to retrieve model parameters instead of full model from load function
         init_params = {'coef_': 0.42, 'intercept_': 0.42}
         with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.get_weights', return_value=init_params),
-              patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load')):
+              patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.reload')):
             params = training_plan.load('filename', to_params=True)
             self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
             params = training_plan.after_training_params()

@@ -2,14 +2,13 @@ import copy
 import logging
 import unittest
 import urllib.request
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, create_autospec, mock_open, patch
 
 import numpy as np
 import torch
 from declearn.optimizer import Optimizer
 from declearn.optimizer.modules import MomentumModule
 from declearn.model.torch import TorchVector
-from declearn.model.sklearn import NumpyVector
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
@@ -113,23 +112,26 @@ class TestSkLearnModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 model = SkLearnModel(invalid_model)
 
-    def test_sklearnmodel_02_method_save(self):
+    def test_sklearnmodel_02_method_export(self):
+        """Test that 'SklearnModel.export' works - in one specific case."""
         saved_params = []
-        def mocked_joblib_dump(obj, *args, **kwargs):
+        def mocked_joblib_dump(obj, *_):
             saved_params.append(obj)
         coefs = {
             'coef_': np.array([[0.42]]),
             'intercept_': np.array([0.42]),
         }
         self.sgdclass_model.set_weights(coefs)
-        with patch('fedbiomed.common.models._sklearn.joblib.dump',
-                   side_effect=mocked_joblib_dump), \
-                patch('builtins.open', mock_open()):
-            self.sgdclass_model.save('filename')
+        with (
+            patch('joblib.dump', side_effect=mocked_joblib_dump),
+            patch('builtins.open', mock_open())
+        ):
+            self.sgdclass_model.export('filename')
             self.assertEqual(saved_params[-1].coef_, coefs["coef_"])
             self.assertEqual(saved_params[-1].intercept_, coefs["intercept_"])
 
-    def test_sklearnmodel_03_method_load(self):
+    def test_sklearnmodel_03_method_reload(self):
+        """Test that 'SklearnModel.reload' works - in one specific case."""
         self.sgdclass_model.set_init_params({'n_classes':3, 'n_features':5})
         coefs = {
             'coef_': np.array([[0.42]]),  # true shape would be (3, 5)
@@ -138,11 +140,10 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdclass_model.model.coef_ = coefs["coef_"]
         self.sgdclass_model.model.intercept_ = coefs["intercept_"]
         with (
-                patch('fedbiomed.common.models._sklearn.joblib.load',
-                    return_value=self.sgdclass_model.model),
-                patch('builtins.open', mock_open())
-                ):
-            self.sgdclass_model.load('filename')
+            patch('joblib.load', return_value=self.sgdclass_model.model),
+            patch('builtins.open', mock_open())
+        ):
+            self.sgdclass_model.reload('filename')
             self.assertDictEqual(self.sgdclass_model.get_weights(), coefs)
 
     def test_sklearnmodel_04_set_init_params(self):
@@ -527,7 +528,11 @@ class TestTorchModel(unittest.TestCase):
             torch.randn(1,   4, requires_grad=True),
             torch.randn(1, requires_grad=True)
         )
-        corrections = {layer_name: val for (layer_name, _), val in zip(self.model.model.named_parameters(), correction_values)}
+        corrections = {
+            layer_name: val
+            for (layer_name, _), val
+            in zip(self.model.model.named_parameters(), correction_values)
+        }
 
         # zeroes gradients model
         self.model.model.zero_grad()
@@ -579,6 +584,28 @@ class TestTorchModel(unittest.TestCase):
         for key, wgt in declearn_optimized_model_weights.items():
             self.assertTrue(key in self.model.init_params)
             self.assertFalse(torch.all(wgt == self.model.init_params[key]))
+
+    def test_torchmodel_9_export(self):
+        """Test that 'TorchModel.export' works properly."""
+        with patch("torch.save") as save_patch:
+            self.model.export("filename")
+        save_patch.assert_called_once_with(self.torch_model, "filename")
+
+    def test_torchmodel_10_reload(self):
+        """Test that 'TorchModel.reload' works properly."""
+        module = create_autospec(torch.nn.Module, instance=True)
+        with patch("torch.load", return_value=module) as load_patch:
+            self.model.reload("filename")
+        load_patch.assert_called_once_with("filename")
+        self.assertIs(self.model.model, module)
+
+    def test_torchmodel_11_reload_fails(self):
+        """Test that 'TorchModel.reload' fails with a non-torch dump object."""
+        with patch("torch.load", return_value=MagicMock()) as load_patch:
+            with self.assertRaises(FedbiomedModelError):
+                self.model.reload("filename")
+        load_patch.assert_called_once_with("filename")
+        self.assertIs(self.model.model, self.torch_model)
 
 
 if __name__ == '__main__':  # pragma: no cover
