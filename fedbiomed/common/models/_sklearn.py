@@ -296,7 +296,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             Dictionary mapping model hyperparameter names to their values
         """
         if value is not None:
-            return self.model.get_params(value)
+            return self.model.get_params().get(value)
         return self.model.get_params()
 
     def set_params(self, **params: Any) -> Dict[str, Any]:
