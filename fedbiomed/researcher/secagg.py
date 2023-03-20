@@ -80,10 +80,7 @@ class SecaggContext(ABC):
                 f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
             )
 
-        if secagg_id is None:
-            self._secagg_id = 'secagg_' + str(uuid.uuid4())
-        else:
-            self._secagg_id = secagg_id
+        self._secagg_id = secagg_id if secagg_id is not None else 'secagg_' + str(uuid.uuid4())
         self._parties = parties
         self._researcher_id = environ['RESEARCHER_ID']
         self._requests = Requests()
