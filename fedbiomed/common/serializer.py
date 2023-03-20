@@ -109,12 +109,12 @@ class Serializer:
             return tuple(obj["value"])
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
-            return np.frombuffer(data, dtype=dtype).reshape(shape)
+            return np.frombuffer(data, dtype=dtype).reshape(shape).copy()
         if objtype == "np.generic":
             data, dtype = obj["value"]
             return np.frombuffer(data, dtype=dtype)[0]
         if objtype == "torch.Tensor":
             data, dtype, shape = obj["value"]
-            array = np.frombuffer(data, dtype=dtype).reshape(shape)
+            array = np.frombuffer(data, dtype=dtype).reshape(shape).copy()
             return torch.from_numpy(array)
         return obj
