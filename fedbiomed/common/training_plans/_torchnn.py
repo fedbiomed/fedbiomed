@@ -31,11 +31,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
     will be:
 
-    1. saved  on a '*.py' (resp. '*.pt') files,
+    1. saved  on a '*.py' (resp. '*.mpk') files,
     2. uploaded on a HTTP server (network layer),
     3. then Downloaded from the HTTP server on node side,
     4. finally, read and executed on node side.
-
 
     Researcher must define/override:
     - a `training_data()` function
@@ -52,6 +51,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         correction_state: an OrderedDict of {'parameter name': torch.Tensor} where the keys correspond to the names of
             the model parameters contained in self._model.named_parameters(), and the values correspond to the
             correction to be applied to that parameter.
+
+    !!! info "Notes"
+        The trained model may be exported via the `export_model` method,
+        resulting in a dump file that may be reloded using `torch.save`
+        outside of Fed-BioMed.
     """
 
     def __init__(self):
@@ -574,36 +578,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 )
         finally:
             self.model().train()  # restore training behaviors
-
-    # provided by fedbiomed
-    def save(self, filename: str, params: dict = None) -> None:
-        """Save the torch training parameters from this training plan or from given `params` to a file
-
-        Args:
-            filename (str): Path to the destination file
-            params (dict): Parameters to save to a file, should be structured as a torch state_dict()
-
-        """
-        if params is not None:
-            return torch.save(params, filename)
-        else:
-            return self._model.export(filename)
-
-    # provided by fedbiomed
-    def load(self, filename: str, to_params: bool = False) -> dict:
-        """Load the torch training parameters to this training plan or to a data structure from a file
-
-        Args:
-            filename: path to the source file
-            to_params: if False, load params to this pytorch object; if True load params to a data structure
-
-        Returns:
-            Contains parameters
-        """
-        params = torch.load(filename)
-        if to_params is False:
-            self._model.reload(filename)
-        return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         """Handles and loads aggregators arguments sent through MQTT and

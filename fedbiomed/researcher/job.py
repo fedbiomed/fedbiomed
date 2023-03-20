@@ -534,8 +534,9 @@ class Job:
             sys.exit(-1)
 
     def save_state(self, breakpoint_path: str) -> dict:
-        """Creates current state of the job to be included in a breakpoint. Includes creating links to files included
-        in the job state.
+        """Creates current state of the job to be included in a breakpoint.
+
+        Includes creating links to files included in the job state.
 
         Args:
             breakpoint_path: path to the existing breakpoint directory
@@ -554,15 +555,15 @@ class Job:
         }
 
         state['model_params_path'] = create_unique_link(
-            breakpoint_path,
-            'aggregated_params_current', '.pt',
+            breakpoint_path, 'aggregated_params_current', '.mpk',
             os.path.join('..', os.path.basename(state["model_params_path"]))
         )
 
         for round_replies in state['training_replies']:
             for response in round_replies:
-                node_params_path = create_unique_file_link(breakpoint_path,
-                                                           response['params_path'])
+                node_params_path = create_unique_file_link(
+                    breakpoint_path, response['params_path']
+                )
                 response['params_path'] = node_params_path
 
         return state
@@ -580,12 +581,11 @@ class Job:
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reloadthe latest training replies.
         self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies'),
-            self._training_plan.load
+            saved_state.get('training_replies')
         )
 
     @staticmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[dict]]:
+    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
@@ -609,13 +609,11 @@ class Job:
         return converted_training_replies
 
     @staticmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]],
-                               func_load_params: Callable) -> Dict[int, Responses]:
+    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Responses]:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
             bkpt_training_replies: Extract from training replies saved in breakpoint
-            func_load_params: Function for loading parameters from file to training replies data structure
 
         Returns:
             Training replies of already executed rounds of the job
@@ -626,9 +624,7 @@ class Job:
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node['params'] = func_load_params(
-                    node['params_path'], to_params=True)['model_params']
-
+                node['params'] = Serializer.load(node['params_path'])['model_params']
             training_replies[round_] = loaded_training_reply
 
         return training_replies
@@ -776,38 +772,31 @@ class localJob:
 
     def start_training(self):
         """Sends training task to nodes and waits for the responses"""
-
+        # Run import statements (very unsafely).
         for i in self._training_plan._dependencies:
             exec(i, globals())
 
-        is_failed = False
-        error_message = ''
+        error = ""
 
-        # Run the training routine
-        if not is_failed:
-            results = {}
+        # Run the training routine.
+        try:
+            self._training_plan.set_dataset_path(self.dataset_path)
+            data_manager = self._training_plan.training_data()
+            tp_type = self._training_plan.type()
+            data_manager.load(tp_type=tp_type)
+            train_loader, test_loader = data_manager.split(test_ratio=0)
+            self._training_plan.training_data_loader = train_loader
+            self._training_plan.testing_data_loader = test_loader
+            self._training_plan.training_routine()
+        except Exception as exc:
+            logger.error("Cannot train model in job: %s", repr(exc))
+        # Save the current parameters.
+        else:
             try:
-                self._training_plan.set_dataset_path(self.dataset_path)
-                data_manager = self._training_plan.training_data()
-                tp_type = self._training_plan.type()
-                data_manager.load(tp_type=tp_type)
-                train_loader, test_loader = data_manager.split(test_ratio=0)
-                self._training_plan.training_data_loader = train_loader
-                self._training_plan.testing_data_loader = test_loader
-                self._training_plan.training_routine()
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot train model in job : " + str(e)
-
-        if not is_failed:
-            try:
-                # TODO : should test status code but not yet returned
-                # by upload_file
-                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
-                self._training_plan.save(filename, results)
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot write results: " + str(e)
-
-        if error_message != '':
-            logger.error(error_message)
+                # TODO: should test status code but not yet returned by upload_file
+                path = os.path.join(
+                    environ["TMP_DIR"], f"local_params_{uuid.uuid4()}.mpk"
+                )
+                Serializer.dump(self._training_plan.get_model_params(), path)
+            except Exception as exc:
+                logger.error("Cannot write results: %s", repr(exc))

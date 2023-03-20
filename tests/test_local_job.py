@@ -127,6 +127,7 @@ class TestLocalJob(ResearcherTestCase):
         self.model.training_routine.assert_called_once()
 
         # Test failure during training
+        mock_logger_error.reset_mock()
         self.model.training_routine.side_effect = Exception
         self.local_job.start_training()
         mock_logger_error.assert_called_once()

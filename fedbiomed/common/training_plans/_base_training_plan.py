@@ -14,7 +14,9 @@ from torch.utils.data import DataLoader
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import (
+    FedbiomedError, FedbiomedModelError, FedbiomedTrainingPlanError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
@@ -532,3 +534,50 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             The trained parameters to aggregate.
         """
         return self.get_model_params()
+
+    def export_model(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
+
+        Args:
+            filename: path to the file where the model will be saved.
+
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
+
+            To save the model parameters for sharing as part of the FL process,
+            use the `after_training_params` method (or `get_model_params` one
+            outside of a training context) and export results using
+            [`Serializer`][fedbiomed.common.serializer.Serializer].
+        """
+        self._model.export(filename)
+
+    def import_model(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+
+            To load model parameters shared as part of the FL process, use the
+            [`Serializer`][fedbiomed.common.serializer.Serializer] to read the
+            network-exchanged file, and the `set_model_params` method to assign
+            the loaded values into the wrapped model.
+        """
+        try:
+            self._model.reload(filename)
+        except FedbiomedModelError as exc:
+            msg = (
+                f"{ErrorNumbers.FB304.value}: failed to import a model from "
+                f"a dump file: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc

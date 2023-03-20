@@ -1,11 +1,10 @@
 import copy
-import inspect
 import os
 import shutil
-from typing import Dict, Any
 import unittest
-from unittest.mock import patch, MagicMock
 import uuid
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import torch
@@ -21,11 +20,12 @@ from testsupport.fake_responses import FakeResponses
 from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.common.training_args import TrainingArgs
+
 
 
 class TestJob(ResearcherTestCase):
@@ -616,8 +616,7 @@ class TestJob(ResearcherTestCase):
         """tests if `_load_training_replies` is loading file content from path file
         and is building a proper training replies structure from breakpoint info
         """
-
-        # first test with a model done with pytorch
+        # Declare mock model parameters, for torch and scikit-learn.
         pytorch_params = {
             # dont need other fields
             'model_params': torch.Tensor([1, 3, 5, 7])
@@ -629,11 +628,6 @@ class TestJob(ResearcherTestCase):
         # mock FederatedDataSet
         fds = MagicMock()
         fds.data = MagicMock(return_value={})
-
-        # mock Pytorch model object
-        model_torch = MagicMock(return_value=None)
-        model_torch.save = MagicMock(return_value=None)
-        func_torch_loadparams = MagicMock(return_value=pytorch_params)
 
         # mock Responses
         #
@@ -650,10 +644,12 @@ class TestJob(ResearcherTestCase):
         patch_responses_init.return_value = None
         patch_responses_getitem.side_effect = side_responses_getitem
 
-        # instantiate job
-        test_job_torch = Job(training_plan_class=model_torch,
-                             training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                             data=fds)
+        # instantiate job with a mock training plan
+        test_job_torch = Job(
+            training_plan_class=MagicMock(),
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=fds
+        )
         # second create a `training_replies` variable
         loaded_training_replies_torch = [
             [
@@ -661,35 +657,44 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_1234",
                  "node_id": "node_1234",
-                 "params_path": "/path/to/file/param.pt",
+                 "params_path": "/path/to/file/param.mpk",
                  "timing": {"time": 0}
                  },
                 {"success": True,
                  "msg": "",
                  "dataset_id": "dataset_4567",
                  "node_id": "node_4567",
-                 "params_path": "/path/to/file/param2.pt",
+                 "params_path": "/path/to/file/param2.mpk",
                  "timing": {"time": 0}
                  }
             ]
         ]
 
         # action
-        torch_training_replies = test_job_torch._load_training_replies(
-            loaded_training_replies_torch,
-            func_torch_loadparams
+        with patch(
+            "fedbiomed.common.serializer.Serializer.load", return_value=pytorch_params
+        ) as load_patch:
+            torch_training_replies = test_job_torch._load_training_replies(
+                loaded_training_replies_torch
+            )
+        self.assertEqual(load_patch.call_count, 2)
+        load_patch.assert_called_with(
+            loaded_training_replies_torch[0][1]["params_path"],
         )
-
-        self.assertTrue(type(torch_training_replies) is dict)
+        self.assertIsInstance(torch_training_replies, dict)
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
             torch_training_replies[0][0]['node_id'],
             loaded_training_replies_torch[0][0]['node_id'])
         # check `training_replies` for pytorch models
-        self.assertTrue(torch.isclose(torch_training_replies[0][1]['params'],
-                                      pytorch_params['model_params']).all())
-        self.assertTrue(torch_training_replies[0][1]['params_path'],
-                        "/path/to/file/param2.pt")
+        self.assertTrue(torch.eq(
+            torch_training_replies[0][1]['params'],
+            pytorch_params['model_params']
+        ).all())
+        self.assertEqual(
+            torch_training_replies[0][1]['params_path'],
+            "/path/to/file/param2.mpk"
+        )
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
         # #### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
@@ -698,7 +703,7 @@ class TestJob(ResearcherTestCase):
             [
                 {
                     # dummy
-                    "params_path": "/path/to/file/param_sklearn.pt"
+                    "params_path": "/path/to/file/param_sklearn.mpk"
                 }
             ],
             [
@@ -706,36 +711,43 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_8888",
                  "node_id": "node_8888",
-                 "params_path": "/path/to/file/param2_sklearn.pt",
+                 "params_path": "/path/to/file/param2_sklearn.mpk",
                  "timing": {"time": 6}
                  }
             ]
         ]
 
-        # mock sklearn model object
-        model_sklearn = MagicMock(return_value=None)
-        model_sklearn.save = MagicMock(return_value=None)
-        func_sklearn_loadparams = MagicMock(return_value=sklearn_params)
         # instantiate job
-        test_job_sklearn = Job(training_plan_class=model_sklearn,
-                               training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                               data=fds)
-
-        # action
-        sklearn_training_replies = test_job_sklearn._load_training_replies(
-            loaded_training_replies_sklearn,
-            func_sklearn_loadparams
+        test_job_sklearn = Job(
+            training_plan_class=MagicMock(),
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=fds
         )
 
+        # action
+        with patch(
+            "fedbiomed.common.serializer.Serializer.load", return_value=sklearn_params
+        ) as load_patch:
+            sklearn_training_replies = test_job_sklearn._load_training_replies(
+                loaded_training_replies_sklearn
+            )
+        self.assertEqual(load_patch.call_count, 2)
+        load_patch.assert_called_with(
+            loaded_training_replies_sklearn[1][0]["params_path"],
+        )
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
             sklearn_training_replies[1][0]['node_id'],
             loaded_training_replies_sklearn[1][0]['node_id'])
         # check `training_replies` for sklearn models
-        self.assertTrue(np.allclose(sklearn_training_replies[1][0]['params'],
-                                    sklearn_params['model_params']))
-        self.assertTrue(sklearn_training_replies[1][0]['params_path'],
-                        "/path/to/file/param2_sklearn.pt")
+        self.assertTrue(np.allclose(
+            sklearn_training_replies[1][0]['params'],
+            sklearn_params['model_params']
+        ))
+        self.assertEqual(
+            sklearn_training_replies[1][0]['params_path'],
+            "/path/to/file/param2_sklearn.mpk"
+        )
         self.assertTrue(isinstance(sklearn_training_replies[0],
                                    Responses))
 

@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedModelError, FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import SkLearnModel
@@ -42,6 +42,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
+
+    !!! info "Notes"
+        The trained model may be exported via the `export_model` method,
+        resulting in a dump file that may be reloded using `joblib.load`
+        outside of Fed-BioMed.
     """
 
     _model_cls: Type[BaseEstimator]        # wrapped model class
@@ -265,83 +270,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             in the training and testing NPDataLoader instances.
         """
         return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
-
-    def save(
-            self,
-            filename: str,
-            params: Union[None, Dict[str, np.ndarray], Dict[str, Any]] = None
-        ) -> None:
-        """Save the wrapped model and its trainable parameters.
-
-        This method is designed for parameter communication. It
-        uses the joblib.dump function, which in turn uses pickle
-        to serialize the model. Note that unpickling objects can
-        lead to arbitrary code execution; hence use with care.
-
-        Args:
-            filename: Path to the output file.
-            params: Model parameters to enforce and save.
-                This may either be a {name: array} parameters dict, or a
-                nested dict that stores such a parameters dict under the
-                'model_params' key (in the context of the Round class).
-
-        Notes:
-            Save can be called from Job or Round.
-            * From [`Round`][fedbiomed.node.round.Round] it is called with params (as a complex dict).
-            * From [`Job`][fedbiomed.researcher.job.Job] it is called with no params in constructor, and
-                with params in update_parameters.
-        """
-        # Optionally overwrite the wrapped model's weights.
-        if params:
-            if isinstance(params.get('model_params'), dict):  # in a Round
-                params = params["model_params"]
-            # for key, val in params.items():
-            #     setattr(self._model, key, val)
-            self._model.set_weights(params)
-        # Save the wrapped model (using joblib, hence pickle).
-        self._model.export(filename)
-
-    def load(
-            self,
-            filename: str,
-            to_params: bool = False
-        ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
-        """Load a scikit-learn model dump, overwriting the wrapped model.
-
-        This method uses the joblib.load function, which in turn uses
-        pickle to deserialize the model. Note that unpickling objects
-        can lead to arbitrary code execution; hence use with care.
-
-        This function updates the `_model` private attribute with the
-        loaded instance, and returns either that same model or a dict
-        wrapping its trainable parameters.
-
-        Args:
-            filename: The path to the pickle file to load.
-            to_params: Whether to return the model's parameters
-                wrapped as a dict rather than the model instance.
-
-        Notes:
-            Load can be called from a Job or Round:
-            * From [`Round`][fedbiomed.node.round.Round] it is called to return the model.
-            * From [`Job`][fedbiomed.researcher.job.Job] it is called with to return its parameters dict.
-
-        Returns:
-            Dictionary with the loaded parameters.
-        """
-        # Deserialize the dump, type-check the instance and assign it.
-        try:
-            self._model.reload(filename)
-        except FedbiomedModelError as exc:
-            msg = f"{ErrorNumbers.FB304.value}: failed to reload wrapped model: {exc}"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg) from exc
-
-        # Optionally return the model's pseudo state dict instead of it.
-        if to_params:
-            params = self._model.get_weights()
-            return {"model_params": params}
-        return self.model()
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
