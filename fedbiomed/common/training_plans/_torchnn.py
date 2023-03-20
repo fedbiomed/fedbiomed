@@ -616,7 +616,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         params = super().after_training_params()
         # Check whether postprocess method exists, and use it.
-        params = self.model().state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
