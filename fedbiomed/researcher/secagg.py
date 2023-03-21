@@ -200,7 +200,7 @@ class SecaggContext(ABC):
             context, status = self._payload_create()
         else:
             # Need to ensure the read context has compatible parties with this element
-            if (not self._matching_parties(context)):
+            if not self._matching_parties(context):
                 logger.error(
                     f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
                     f"but parties do not match")
