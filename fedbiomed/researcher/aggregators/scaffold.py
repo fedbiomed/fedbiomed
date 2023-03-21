@@ -41,7 +41,7 @@ class Scaffold(Aggregator):
     Roughly, our implementation follows these steps (following the notation of the original Scaffold
     [paper](https://arxiv.org/abs/1910.06378)):
 
-    0. let \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
+    0. let \(\delta_i = \mathbf{c} - \mathbf{c}_i \)
     1. foreach(round):
     2. sample \( S \) nodes participating in this round out of \( N \) total
     3. the server communicates the global model \( \mathbf{x} \) and the correction states \( \delta_i \) to all clients
@@ -50,8 +50,8 @@ class Scaffold(Aggregator):
     6. foreach(update) until K updates have been performed
     7. obtain a data batch
     8. compute the gradients for this batch \( g(\mathbf{y}_i) \)
-    9. add correction term to gradients \( g(\mathbf{y}_i) -= \delta_i \)
-    10. update model with one optimizer step \( \mathbf{y}_i -= \eta_i g(\mathbf{y}_i) \)
+    9. add correction term to gradients \( g(\mathbf{y}_i) += \delta_i \)
+    10. update model with one optimizer step \( \mathbf{y}_i += \eta_i g(\mathbf{y}_i) \)
     11. end foreach(update)
     12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
     13. end parallel section on each client
@@ -60,9 +60,6 @@ class Scaffold(Aggregator):
     16. the server updates the correction states of each client \(\delta_i = \mathbf{ACG}_i - \mathbf{c} - \delta_i \)
     17. the server updates the global model by average \( \mathbf{x} = (1-\eta)\mathbf{x} + \eta/S\sum_{i \in S} \mathbf{y}_i \)
     18. end foreach(round)
-
-    This [diagram](http://www.plantuml.com/plantuml/dsvg/xLR1Rjiw4BppA_PemL4S9-yXhMseIGEq1mEvk3qLHK5BAsiHYYH8gcdwzIKZEfLTmN9ozYaATwcPsV5GlB6E6zVKWZq_CFPOaK0ObSeWpoimgf45E209q_FpBmbZCyjhxLjM2zlep2qcuGzelvboqjoHt81K1LfGZGDL0XS2xjkbkT-Ugxfk9ENS8Mo4MdC1jQy9u1ueTALMOqubvP0hOp1tf2GuD3LRhBF5r_75rSTtsMBYdpi4pg2j_1TMrnc5rTqEZrqAjUNd40IMRZQu3GeiIM81t8B7poDmVsyQMtQNFR0o3ruwIN8WLFuYkIleq7jzq-Nq_KK61oOm_yUxHXTXo0_Hl6NIJbytOVA65uJIWMy6Lv65DNT-Jq2wlBZE1fcTFRp0phZMucdVBN3g1SMoLx-te_dLMzDZVWopE9xMYKTo5IY9eBIZcdwZ0UjG0pi2TJmTjcc8wlLEqrjSG5b4_tdfqC0o-c-JlT2L97So9v0R6L9XV7LOxrlKBkCM3zUhTzv61FY6apm5vHIKNggde4JwyNCIUEz_HNjezL8PJTFj-vC3MO4nZBPzarNo_7XxjQKK_llqVxQA4eO7ClmbzZX05bo5OD7yHFD362_rBgRHhxTtX4Uo2DpN-GP1bTjCOT69qktTvow9ZlX3YbCuMaW24nZrsRHCEhbnrTQYlWjDFk3IQdAVXBO-PwQ-Tj2ItGdqd7nXba3ntBlt0Q0IHc6nSw738jJ3qTVU1ZyaGPA4qLE83C2i_mpfLxJ7QFW42YtzOvep51O3tTUo6COSHypZgSY2ohzd2qk_LLGKAB-d6GCeqFbfCpRpzNQ8y-DwyPT6GpLADsVMASrk_6fJYpy0)
-    provides a visual representation of the algorithm.
 
     References:
 
@@ -104,8 +101,8 @@ class Scaffold(Aggregator):
         #self.update_aggregator_params()FedbiomedAggregatorError:
 
     def aggregate(self,
-                  model_params: list,
-                  weights: List[Dict[str, float]],
+                  model_params: Dict,
+                  weights: Dict[str, float],
                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
                   training_replies: Responses,
@@ -137,15 +134,15 @@ class Scaffold(Aggregator):
             y_i: node i 's local model parameters
 
         Args:
-            model_params (list): list of models parameters recieved from nodes
-            weights (List[Dict[str, float]]): weights depciting sample proportions available
+            model_params: list of models parameters received from nodes
+            weights: weights depicting sample proportions available
                 on each node. Unused for Scaffold.
-            global_model (Mapping[str, Union[torch.Tensor, np.ndarray]]): global model,
-                ie aggregated model
+            global_model: global model, ie aggregated model
             training_plan (BaseTrainingPlan): instance of TrainingPlan
-            node_ids (Iterable[str]): iterable containing node_id (string) participating in the current round.
-            n_updates (int, optional): number of updates (number of batch performed). Defaults to 1.
-            n_round (int, optional): current round. Defaults to 0.
+            training_replies: Training replies from each node that participates in the current round
+            node_ids: iterable containing node_id (string) participating in the current round.
+            n_updates: number of updates (number of batch performed). Defaults to 1.
+            n_round: current round. Defaults to 0.
 
         Returns:
             Dict: aggregated parameters, ie mapping of layer names and layer values.
@@ -153,11 +150,8 @@ class Scaffold(Aggregator):
 
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
         self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
-        
-        # Unpack input local model parameters to {node_id: {name: value, ...}, ...} format.
-        model_params = {list(node_content.keys())[0]: list(node_content.values())[0] for node_content in model_params}
+
         # Compute the new aggregated model parameters.
-        
         aggregated_parameters = self.scaling(model_params, global_model)
         
         # At round 0, initialize zero-valued correction states.
@@ -352,13 +346,13 @@ class Scaffold(Aggregator):
         c <- (1 - S/N) c + ACG_i , where ACG_i = sum_i( 1/ (K * eta_l)(x - y_i))
 
         where (according to Scaffold paper):
-        c: is the correction term
-        S: the number of nodes participating in the current round
-        N: the total number of node participating in the experiment
-        K: number of updates
-        eta_l: nodes' learning rate
-        x: global model before updates
-        y_i: local model updates
+            c: is the correction term
+            S: the number of nodes participating in the current round
+            N: the total number of node participating in the experiment
+            K: number of updates
+            eta_l: nodes' learning rate
+            x: global model before updates
+            y_i: local model updates
         
         Remark: 
         c^{t=0} = 0
