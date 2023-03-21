@@ -151,7 +151,7 @@ class TestJob(ResearcherTestCase):
 
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
-    def test_job_02_init_building_model_from_path(self):
+    def test_job_04_init_building_model_from_path(self):
         """ Test model is passed as static python file with training_plan_path """
 
         # Get source of the model and save in tmp directory for just test purposes
@@ -174,7 +174,7 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(self.mock_upload_file.call_count, 2)
 
     @patch('fedbiomed.common.logger.logger.critical')
-    def test_job_init_03_build_wrongly_saved_model(self, mock_logger_critical):
+    def test_job_init_05_build_wrongly_saved_model(self, mock_logger_critical):
         """ Testing when model code saved with unsupported module name
 
             - This test will catch raise SystemExit
@@ -193,7 +193,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.common.logger.logger.critical')
     @patch('inspect.isclass')
-    def test_job_04_init_isclass_raises_error(self,
+    def test_job_06_init_isclass_raises_error(self,
                                               mock_isclass,
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
@@ -206,7 +206,7 @@ class TestJob(ResearcherTestCase):
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_job_05_initialization_raising_exception_save_and_save_code(self,
+    def test_job_07_initialization_raising_exception_save_and_save_code(self,
                                                                         mock_logger_error):
 
         """ Test Job initialization when model_instance.save and save_code raises Exception """
@@ -231,7 +231,7 @@ class TestJob(ResearcherTestCase):
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
-    def test_job_06_properties_setters(self):
+    def test_job_08_properties_setters(self):
         """ Testing all properties and setters of Job class
             TODO: Change this part after refactoring getters and setters
         """
@@ -256,7 +256,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_job_07_check_training_plan_is_approved_by_nodes(self,
+    def test_job_09_check_training_plan_is_approved_by_nodes(self,
                                                              mock_requests_get_responses,
                                                              mock_requests_send_message):
         """ Testing the method that check training plan approval status of the nodes"""
@@ -326,7 +326,7 @@ class TestJob(ResearcherTestCase):
         self.assertListEqual(responses.data(), result.data(),
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
-    def test_job_08_waiting_for_nodes(self):
+    def test_job_10_waiting_for_nodes(self):
         """ Testing the method waiting_for_nodes method that runs during federated training """
 
         responses = FakeResponses([
@@ -352,7 +352,7 @@ class TestJob(ResearcherTestCase):
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('fedbiomed.researcher.responses.Responses')
-    def test_job_09_start_training_round(self,
+    def test_job_11_start_training_round(self,
                                          mock_responses,
                                          mock_requests_get_responses,
                                          mock_requests_send_message,
@@ -444,7 +444,7 @@ class TestJob(ResearcherTestCase):
         self.assertListEqual(nodes, ['node-1'])
         self.assertEqual(serialize_load_patch.call_count, 1)
 
-    def test_job_11_update_parameters_with_invalid_arguments(self):
+    def test_job_12_update_parameters_with_invalid_arguments(self):
         """ Testing update_parameters method with all available arguments"""
 
         # Reset calls that comes from init time
@@ -455,7 +455,7 @@ class TestJob(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.job.update_parameters(params=params, filename='dummy/file/name/')
 
-    def test_job_12_update_parameters_with_passing_params_only(self):
+    def test_job_13_update_parameters_with_passing_params_only(self):
         """ Testing update_parameters by passing only params """
 
         # Reset model.save mock
@@ -469,7 +469,7 @@ class TestJob(ResearcherTestCase):
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
         self.model.get_model_params.assert_called_once()
 
-    def test_job_13_update_parameters_assert(self):
+    def test_job_14_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """
 
         # Test without passing parameters should raise ValueError
@@ -477,7 +477,7 @@ class TestJob(ResearcherTestCase):
             self.job.update_parameters()
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_job__14_check_dataset_quality(self, mock_logger_error):
+    def test_job_15_check_dataset_quality(self, mock_logger_error):
         """ Test for checking data quality in Job by providing different FederatedDatasets """
 
         # CSV - Check dataset when everything is okay
@@ -554,7 +554,7 @@ class TestJob(ResearcherTestCase):
         self.job.check_data_quality()
         self.assertEqual(mock_logger_error.call_count, 2)
 
-    def test_job_15_save_private_training_replies(self):
+    def test_job_16_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
@@ -590,7 +590,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.responses.Responses.__getitem__')
     @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_16_private_load_training_replies(
+    def test_job_17_private_load_training_replies(
             self,
             patch_responses_init,
             patch_responses_getitem
@@ -735,7 +735,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_17_load_state(
+    def test_job_18_load_state(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
@@ -768,7 +768,7 @@ class TestJob(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_18_save_state(
+    def test_job_19_save_state(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -824,7 +824,7 @@ class TestJob(ResearcherTestCase):
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
 
-    def test_job_19_upload_aggregator_args(self):
+    def test_job_20_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
         tensor = torch.Tensor([[1, 2, 4], [2, 3, 4]])
