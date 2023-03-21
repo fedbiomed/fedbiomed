@@ -24,7 +24,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.secagg_manager import SKManager
+from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
 
@@ -94,9 +94,10 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
-        self._sk_manager = SKManager
         self._secagg_crypter = SecaggCrypter()
         self._round = round_number
+        self._biprime = None
+        self._servkey = None
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -166,16 +167,18 @@ class Round:
 
             return True, params_path, ''
 
-    @staticmethod
-    def _validate_secagg(
+    def _configure_secagg(
+            self,
             secagg_servkey_id: Union[str, None] = None,
             secagg_biprime_id: Union[str, None] = None,
-            secagg_random: Union[float, None] = None
+            secagg_random: Union[float, None] = None,
     ):
         """Validates secure aggregation status
 
         Args:
-            secagg_id: Secure aggregation ID attached to the train request
+            secagg_servkey_id: Secure aggregation ID attached to the train request
+            secagg_biprime_id: Secure aggregation Biprime context id that is going to be used for encryption
+            secagg_random: Random number to validate encryption
 
         Returns:
             True if secure aggregation should be used.
@@ -183,22 +186,42 @@ class Round:
         Raises:
             FedbiomedRoundError: incoherent secure aggregation status
         """
-        if environ["FORCE_SECURE_AGGREGATION"] and secagg_servkey_id is None:
+        secagg_all_none = all([s is None for s in (secagg_servkey_id, secagg_biprime_id)])
+        secagg_all_defined = all([s is not None for s in (secagg_servkey_id, secagg_biprime_id)])
+
+        if not secagg_all_none and not secagg_all_defined:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Please make sure that the secagg request"
+                                      f"contains both `secagg_servkey_id` and `secagg_biprime_id`.")
+
+        if environ["FORCE_SECURE_AGGREGATION"] and secagg_all_none:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
                                       f"is not set. Node requires to apply secure aggregation")
 
-        if secagg_servkey_id is not None and not environ["SECURE_AGGREGATION"]:
+        if secagg_all_defined and not environ["SECURE_AGGREGATION"]:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
             )
 
-        if secagg_servkey_id is not None and secagg_random is None:
+        if secagg_all_defined and secagg_random is None:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
                 f"secure aggregation correctness. Please add `secagg_random` to the train request"
             )
 
-        return True if secagg_servkey_id is not None else False
+        if secagg_all_defined:
+            self._biprime = BPrimeManager.get(secagg_id=secagg_biprime_id)
+            self._servkey = SKManager.get(secagg_id=secagg_servkey_id, job_id=self.job_id)
+
+            if self._biprime is None:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_servkey_id} "
+                                          f"is not existing. Aborting train request.")
+
+            if self._servkey is None:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
+                                          f"secagg: {secagg_servkey_id} is not existing. "
+                                          f"Aborting train request.")
+
+        return secagg_all_defined
 
     def run_model_training(
             self,
@@ -222,7 +245,7 @@ class Round:
 
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-        self._use_secagg = self._validate_secagg(
+        self._use_secagg = self._configure_secagg(
             secagg_servkey_id=secagg_servkey_id,
             secagg_biprime_id=secagg_biprime_id,
             secagg_random=secagg_random)
@@ -380,10 +403,10 @@ class Round:
 
                 encrypt = functools.partial(
                     self._secagg_crypter.encrypt,
-                    num_nodes=2,
+                    num_nodes=len(self._servkey["context"]["parties"]),
                     current_round=self._round,
-                    #key=10,
-                    key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
+                    key=self._servkey["context"]["server_key"],
+                    biprime=self._biprime["context"]["biprime"],
                     weight=sample_size,
                 )
                 model_params = encrypt(params=model_params)
