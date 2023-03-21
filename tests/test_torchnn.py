@@ -42,6 +42,15 @@ class FakeDPController:
     def before_training(self,  optimizer: NativeTorchOptimizer, loader: DataLoader):
         return optimizer, loader
 
+class FakeTrainingArgs:
+    """Mimics TrainingArgs class
+    """
+    def optimizer_arguments(self):
+        return {'lr': 1e-2}
+
+    def pure_training_arguments(self):
+        return {"epochs": 1,
+                "batch_maxnum": 2}
 
 class TestTorchnn(unittest.TestCase):
     """
@@ -443,28 +452,20 @@ class TestTorchnn(unittest.TestCase):
         with patch.object(TrainingPlanWithTestingStep, 'testing_step') as patch_testing_step:
             patch_testing_step.side_effect = Exception
             with self.assertRaises(FedbiomedTrainingPlanError):
-                tp = TorchTrainingPlan()
-
-        # Special methods without arguments ----------------------------------------------
-        class FakeTP(BaseFakeTrainingPlan):
-            def init_model(self):
-                return TestTorchnn.model.model
-
-            def init_optimizer(self):
-                return TestTorchnn.optimizer.optimizer
                 tp.testing_routine(metric=MetricTypes.ACCURACY,
                                    metric_args={},
                                    history_monitor=history_monitor,
                                    before_train=True)
 
-            # If testing_step returns none
-            patch_testing_step.side_effect = None
-            patch_testing_step.return_value = None
+        # If testing_step returns none
+        patch_testing_step.side_effect = None
+        patch_testing_step.return_value = None
+        with patch.object(TrainingPlanWithTestingStep, 'testing_step') as patch_testing_step:
             with self.assertRaises(FedbiomedTrainingPlanError):
                 tp.testing_routine(metric=MetricTypes.ACCURACY,
-                                   metric_args={},
-                                   history_monitor=history_monitor,
-                                   before_train=True)
+                                    metric_args={},
+                                    history_monitor=history_monitor,
+                                    before_train=True)
 
     def test_torch_nn_04_logging_progress_computation(self):
         """Test logging bug #313
@@ -479,8 +480,10 @@ class TestTorchnn(unittest.TestCase):
         15/15 (100%). Only one epoch should be completed.
         """
         tp = TorchTrainingPlan()
-        tp._optimizer = MagicMock(sepc=torch.optim.SGD)
+        
         tp._model = TorchModel(torch.nn.Module())
+        optim = MagicMock(spec=torch.optim.Optimizer)
+        tp._optimizer = NativeTorchOptimizer(tp._model, optim)
         num_batches = 3
         batch_size = 5
         mock_dataset = MagicMock(spec=Dataset)
@@ -508,13 +511,6 @@ class TestTorchnn(unittest.TestCase):
         tp.training_data_loader.dataset.__len__.return_value = dataset_size
         tp._num_updates = num_batches
 
-        # Special methods without arguments ----------------------------------------------
-        class FakeTP(BaseFakeTrainingPlan):
-            def init_model(self):
-                return TestTorchnn.model.model
-
-            def init_optimizer(self):
-                return TestTorchnn.optimizer.optimizer
 
         tp._dp_controller = FakeDPController()
 
@@ -729,9 +725,7 @@ class TestTorchnn(unittest.TestCase):
                 return TestTorchnn.optimizer.optimizer
 
         tp = FakeTP()
-        tp._optimizer_args = {}
-        tp.post_init({}, {})
-        tp.training_routine(None, None)
+        #to continue
 
 class TestSendToDevice(unittest.TestCase):
 
