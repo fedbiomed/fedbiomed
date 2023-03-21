@@ -62,7 +62,9 @@ class Serializer:
         Returns:
             Data loaded and decoded from the input bytes.
         """
-        return msgpack.unpackb(data, object_hook=cls._object_hook)
+        return msgpack.unpackb(
+            data, object_hook=cls._object_hook, strict_map_key=False
+        )
 
     @classmethod
     def load(cls, path: str) -> Any:
@@ -75,7 +77,9 @@ class Serializer:
             Data loaded and decoded from the target file.
         """
         with open(path, "rb") as file:
-            return msgpack.unpack(file, object_hook=cls._object_hook)
+            return msgpack.unpack(
+                file, object_hook=cls._object_hook, strict_map_key=False
+            )
 
     @staticmethod
     def _default(obj: Any) -> Any:
