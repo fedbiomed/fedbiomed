@@ -1575,8 +1575,8 @@ class TestExperiment(ResearcherTestCase):
 
         # aggregated_params
         agg_params = {
-            'entry1': {'params_path': '/dummy/path/to/aggparams/params_path.pt'},
-            'entry2': {'params_path': '/yet/another/path/other_params_path.pt'}
+            'entry1': {'params_path': '/dummy/path/to/aggparams/params_path.mpk'},
+            'entry2': {'params_path': '/yet/another/path/other_params_path.mpk'}
         }
         self.test_exp._aggregated_params = agg_params
 
@@ -1675,10 +1675,10 @@ class TestExperiment(ResearcherTestCase):
                 'model_' + str("{:04d}".format(round_current - 1)) + '.py')
             final_agg_params = {
                 'entry1': {
-                    'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
+                    'params_path': os.path.join(self.experimentation_folder_path, 'params_path.mpk')
                 },
                 'entry2': {
-                    'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
+                    'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.mpk')
                 }
             }
             # better : catch exception if cannot read file or not json
@@ -1723,7 +1723,6 @@ class TestExperiment(ResearcherTestCase):
 
 
     @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
-    #@patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
@@ -1752,8 +1751,8 @@ class TestExperiment(ResearcherTestCase):
                       'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
         strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
         aggregated_params = {
-            '1': {'params_path': '/path/to/my/params_path_1.pt'},
-            2: {'params_path': '/path/to/my/params_path_2.pt'}
+            '1': {'params_path': '/path/to/my/params_path_1.mpk'},
+            2: {'params_path': '/path/to/my/params_path_2.mpk'}
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
         use_secagg = True
@@ -1814,8 +1813,8 @@ class TestExperiment(ResearcherTestCase):
 
         # target aggregated params
         final_aggregated_params = {
-            1: {'params_path': '/path/to/my/params_path_1.pt'},
-            2: {'params_path': '/path/to/my/params_path_2.pt'}
+            1: {'params_path': '/path/to/my/params_path_1.mpk'},
+            2: {'params_path': '/path/to/my/params_path_2.mpk'}
         }
         for aggpar in final_aggregated_params.values():
             aggpar['params'] = model_params
@@ -1836,18 +1835,6 @@ class TestExperiment(ResearcherTestCase):
         final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
                                 'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
 
-
-        # def side_create_object(args, **kwargs):
-        #     return args
-
-        # patch_create_object.side_effect = side_create_object
-
-        class FakeModelInstance:
-            def load(self, aggreg, to_params):
-                return model_params
-
-        patch_training_plan.return_value = FakeModelInstance()
-
         # could not have it working with a decorator or by patching the whole class
         # (we are in a special case : constructor of
         # an object instantiated from the `cls` of a class function)
@@ -1867,9 +1854,10 @@ class TestExperiment(ResearcherTestCase):
             Experiment.load_breakpoint(breakpoint_folder_path=True)  # Not str
 
         # Test if open `open`  and json.load returns exception
-        with patch.object(fedbiomed.researcher.experiment, 'open') as m_open, \
-                patch.object(fedbiomed.researcher.experiment.json, 'load') as m_load:
-
+        with (
+            patch.object(fedbiomed.researcher.experiment, 'open') as m_open,
+            patch('json.load') as m_load,
+        ):
             m_load = MagicMock()
             m_open.side_effect = OSError
             with self.assertRaises(SystemExit):
@@ -1881,14 +1869,14 @@ class TestExperiment(ResearcherTestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test if model instance is None
-        with patch.object(fedbiomed.researcher.experiment.Experiment, 'training_plan') as m_mi:
+        with patch.object(Experiment, 'training_plan') as m_mi:
             m_mi.return_value = None
             with self.assertRaises(SystemExit):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
-        # Test when everything is OK
-
-        loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
+        # Test when everything is OK, overloading `Serializer.load`.
+        with patch('fedbiomed.common.serializer.Serializer.load', return_value=model_params):
+            loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
         for p in patches_experiment:
             p.stop()
@@ -1949,18 +1937,11 @@ class TestExperiment(ResearcherTestCase):
 
 
     def test_experiment_31_static_load_aggregated_params(self):
-        """ Testing static method for loading aggregated params of Experiment"""
-
-        def load_func(x, to_params):
-            return False
+        """Testing static method for loading aggregated params of Experiment"""
 
         # Test invalid type of aggregated params (should be dict)
         with self.assertRaises(SystemExit):
-            Experiment._load_aggregated_params(True, load_func)
-
-        # Test invalid type of load func params (should be callable)
-        with self.assertRaises(SystemExit):
-            Experiment._load_aggregated_params({}, True)
+            Experiment._load_aggregated_params(True)
 
         # Test invalid key in aggregated params
         agg_params = {
@@ -1968,7 +1949,7 @@ class TestExperiment(ResearcherTestCase):
             "node-2": {'params_path': '/test/path/'}
         }
         with self.assertRaises(SystemExit):
-            Experiment._load_aggregated_params(agg_params, load_func)
+            Experiment._load_aggregated_params(agg_params)
 
         # Test normal scenario
         agg_params = {
@@ -1977,7 +1958,8 @@ class TestExperiment(ResearcherTestCase):
         }
         expected = {0: {'params_path': '/test/path/', 'params': False},
                     1: {'params_path': '/test/path/', 'params': False}}
-        result = Experiment._load_aggregated_params(agg_params, load_func)
+        with patch('fedbiomed.common.serializer.Serializer.load', return_value=False):
+            result = Experiment._load_aggregated_params(agg_params)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
 
