@@ -242,7 +242,7 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
-
+    FB417 = "FB417: Secure aggregation error"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

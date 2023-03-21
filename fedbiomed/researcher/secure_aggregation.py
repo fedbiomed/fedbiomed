@@ -5,6 +5,8 @@ import random
 from typing import List, Union, Dict
 
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.logger import logger
 
@@ -20,16 +22,45 @@ class SecureAggregation:
 
     def __init__(self,
                  active: bool = False,
-                 timeout: int = 10
+                 timeout: int = 10,
+                 clipping_range: Union[None, int] = None
     ) -> None:
         """Class constructor
 
         Assign default values for attributes
+
+        Args:
+            active: True if secure aggregation is activated for the experiment
+            timeout: Timeout for the communication between parties during the context/element setup
+            clipping_range: Clipping range that will be used for quantization of model parameters on the node side
+                The default will be [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters]. The
+                default value will be automatically set on the node side.
+
         """
+
+        if not isinstance(active, bool):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: The argument `active` should be  bool of type, "
+                f"but got {type(active)} "
+            )
+
+        if not isinstance(timeout, int):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: The argument `timeout` should be  an integer, "
+                f"but got {type(active)} "
+            )
+
+        if clipping_range is not None and not isinstance(clipping_range, int):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Clipping range should be None or an integer, "
+                f"but got not {type(clipping_range)}"
+            )
+
         self.parties = []
         self.experiment_id = None
         self.active = active
         self.timeout = timeout
+        self.clipping_range = clipping_range
 
         self._servkey = None
         self._biprime = None
@@ -43,6 +74,13 @@ class SecureAggregation:
         Returns:
             Status of secure aggregation True if it is activated
         """
+
+        if not isinstance(status, bool):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: The argument `status` for activation should be True or False, "
+                f"but got {type(status)} "
+            )
+
         self.active = status
 
         return self.active
