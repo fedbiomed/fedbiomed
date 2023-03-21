@@ -537,7 +537,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             for name, param in self.model().named_parameters():
                 correction = self.correction_state.get(name)
                 if correction is not None:
-                    param.grad.add_(correction.to(param.grad.device))
+                    param.grad.sub_(correction.to(param.grad.device))
 
         # Have the optimizer collect, refine and apply gradients
         self._optimizer.step()
