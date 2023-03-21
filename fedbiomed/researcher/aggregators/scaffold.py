@@ -41,7 +41,7 @@ class Scaffold(Aggregator):
     Roughly, our implementation follows these steps (following the notation of the original Scaffold
     [paper](https://arxiv.org/abs/1910.06378)):
 
-    0. let \(\delta_i = \mathbf{c} - \mathbf{c}_i \)
+    0. let \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
     1. foreach(round):
     2. sample \( S \) nodes participating in this round out of \( N \) total
     3. the server communicates the global model \( \mathbf{x} \) and the correction states \( \delta_i \) to all clients
@@ -50,8 +50,8 @@ class Scaffold(Aggregator):
     6. foreach(update) until K updates have been performed
     7. obtain a data batch
     8. compute the gradients for this batch \( g(\mathbf{y}_i) \)
-    9. add correction term to gradients \( g(\mathbf{y}_i) += \delta_i \)
-    10. update model with one optimizer step \( \mathbf{y}_i += \eta_i g(\mathbf{y}_i) \)
+    9. apply correction term to gradients \( g(\mathbf{y}_i) -= \delta_i \)
+    10. update model with one optimizer step \( \mathbf{y}_i -= \eta_i g(\mathbf{y}_i) \)
     11. end foreach(update)
     12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
     13. end parallel section on each client
@@ -60,6 +60,9 @@ class Scaffold(Aggregator):
     16. the server updates the correction states of each client \(\delta_i = \mathbf{ACG}_i - \mathbf{c} - \delta_i \)
     17. the server updates the global model by average \( \mathbf{x} = (1-\eta)\mathbf{x} + \eta/S\sum_{i \in S} \mathbf{y}_i \)
     18. end foreach(round)
+
+    This [diagram](http://www.plantuml.com/plantuml/dsvg/xLR1Rjiw4BppA_PemL4S9-yXhMseIGEq1mEvk3qLHK5BAsiHYYH8gcdwzIKZEfLTmN9ozYaATwcPsV5GlB6E6zVKWZq_CFPOaK0ObSeWpoimgf45E209q_FpBmbZCyjhxLjM2zlep2qcuGzelvboqjoHt81K1LfGZGDL0XS2xjkbkT-Ugxfk9ENS8Mo4MdC1jQy9u1ueTALMOqubvP0hOp1tf2GuD3LRhBF5r_75rSTtsMBYdpi4pg2j_1TMrnc5rTqEZrqAjUNd40IMRZQu3GeiIM81t8B7poDmVsyQMtQNFR0o3ruwIN8WLFuYkIleq7jzq-Nq_KK61oOm_yUxHXTXo0_Hl6NIJbytOVA65uJIWMy6Lv65DNT-Jq2wlBZE1fcTFRp0phZMucdVBN3g1SMoLx-te_dLMzDZVWopE9xMYKTo5IY9eBIZcdwZ0UjG0pi2TJmTjcc8wlLEqrjSG5b4_tdfqC0o-c-JlT2L97So9v0R6L9XV7LOxrlKBkCM3zUhTzv61FY6apm5vHIKNggde4JwyNCIUEz_HNjezL8PJTFj-vC3MO4nZBPzarNo_7XxjQKK_llqVxQA4eO7ClmbzZX05bo5OD7yHFD362_rBgRHhxTtX4Uo2DpN-GP1bTjCOT69qktTvow9ZlX3YbCuMaW24nZrsRHCEhbnrTQYlWjDFk3IQdAVXBO-PwQ-Tj2ItGdqd7nXba3ntBlt0Q0IHc6nSw738jJ3qTVU1ZyaGPA4qLE83C2i_mpfLxJ7QFW42YtzOvep51O3tTUo6COSHypZgSY2ohzd2qk_LLGKAB-d6GCeqFbfCpRpzNQ8y-DwyPT6GpLADsVMASrk_6fJYpy0)
+    provides a visual representation of the algorithm.
 
     References:
 
