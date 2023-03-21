@@ -2034,7 +2034,7 @@ class Experiment(object):
         if bkpt_secagg_biprime_args:
             loaded_exp._secagg_biprime = cls._create_object(
                 bkpt_secagg_biprime_args,
-                parties = bkpt_secagg_biprime_args['parties']
+                parties=bkpt_secagg_biprime_args['parties']
             )
 
         loaded_exp._use_secagg = saved_state.get('use_secagg')

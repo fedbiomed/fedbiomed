@@ -18,7 +18,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, Message
+from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.training_args import TrainingArgs
 

@@ -1334,7 +1334,7 @@ class TestExperiment(ResearcherTestCase):
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
                                                  n_round=0,
-                                                 secure_aggregation=True,
+                                                 secure_aggregation=False,
                                                  secagg_random=unittest.mock.ANY,
                                                  encryption_factors={'node-1': None, 'node-2': None}
                                                  )
