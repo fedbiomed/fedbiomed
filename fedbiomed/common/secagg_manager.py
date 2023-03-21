@@ -73,12 +73,12 @@ class BaseSecaggManager(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if (len(entries) > 1):
+        if len(entries) > 1:
             errmess = f'{ErrorNumbers.FB623.value}: database table "{self._table}" is inconsistent: ' \
                       f'found {len(entries)} entries with unique secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
-        elif (len(entries) == 1):
+        elif len(entries) == 1:
             element = entries[0]
         else:
             element = None
