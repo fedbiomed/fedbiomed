@@ -1540,9 +1540,13 @@ class Experiment(object):
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_servkey_id=self._secagg.secagg_servkey_id(),
-                                                 secagg_biprime_id=self._secagg.secagg_biprime_id(),
-                                                 secagg_random=self._secagg.secagg_random())
+                                                 secagg_arguments={
+                                                     'secagg_servkey_id': self._secagg.secagg_servkey_id(),
+                                                     'secagg_biprime_id':self._secagg.secagg_biprime_id(),
+                                                     'secagg_random': self._secagg.secagg_random(),
+                                                     'secagg_clipping_range': self._secagg.clipping_range
+
+                                                 })
         
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(

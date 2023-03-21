@@ -349,10 +349,8 @@ class Job:
                                    round: int,
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
-                                   do_training: bool = True,
-                                   secagg_servkey_id: Union[str, None] = None,
-                                   secagg_biprime_id: Union[str, None] = None,
-                                   secagg_random: Union[float, None] = None):
+                                   secagg_arguments: Dict,
+                                   do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -376,9 +374,10 @@ class Job:
                    'training': do_training,
                    'model_args': self._model_args,
                    'round': round,
-                   'secagg_servkey_id': secagg_servkey_id,
-                   'secagg_biprime_id': None,
-                   'secagg_random': secagg_random,
+                   'secagg_servkey_id': secagg_arguments['secagg_servkey_id'],
+                   'secagg_biprime_id': secagg_arguments['secagg_biprime_id'],
+                   'secagg_random': secagg_arguments['secagg_random'],
+                   'secagg_clipping_range': secagg_arguments['secagg_clipping_range'],
                    'command': 'train',
                    'aggregator_args': {}}
 
