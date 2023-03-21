@@ -59,7 +59,7 @@ def quantize(
     weights: List[float],
     clipping_range: int = VEParameters.CLIPPING_RANGE,
     target_range: int = VEParameters.TARGET_RANGE,
-) -> np.ndarray:
+) -> List[int]:
     """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
     This function returns a vector in the range [0, target_range-1].
@@ -87,14 +87,14 @@ def quantize(
     )
     quantized_list = f(weights).astype(int)
 
-    return quantized_list
+    return quantized_list.tolist()
 
 
 def reverse_quantize(
     weights: List[int],
     clipping_range: float = VEParameters.CLIPPING_RANGE,
     target_range: int = VEParameters.TARGET_RANGE,
-) -> np.ndarray:
+) -> List[float]:
     """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
      Args:
@@ -113,7 +113,7 @@ def reverse_quantize(
     weights = np.array(weights)
     reverse_quantized_list = f(weights.astype(float))
 
-    return reverse_quantized_list
+    return reverse_quantized_list.tolist()
 
 
 def invert(

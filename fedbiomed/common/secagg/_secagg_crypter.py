@@ -6,7 +6,6 @@ import time
 
 from typing import List
 from gmpy2 import mpz
-import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers, VEParameters
@@ -23,10 +22,6 @@ from ._jls import JoyeLibert, \
 
 
 
-"""
-Default clipping value that is going to be used to quantize list of parameters 
-"""
-
 
 class SecaggCrypter:
     """Secure aggregation encryption and decryiton manager.
@@ -42,7 +37,7 @@ class SecaggCrypter:
         self._jls = JoyeLibert()
 
     @staticmethod
-    def _setup_public_param() -> PublicParam:
+    def _setup_public_param(biprime: int) -> PublicParam:
         """Creates public parameter for encryption
 
         Returns:
@@ -50,19 +45,12 @@ class SecaggCrypter:
         """
 
         key_size = VEParameters.KEY_SIZE
+        biprime = mpz(biprime)
 
-        # TODO: Used hard-coded/pre-saved Biprime
-        p = mpz(
-            7801876574383880214548650574033350741129913580793719706746361606042541080141291132224899113047934760791108387050756752894517232516965892712015132079112571
-        )
-        q = mpz(
-            7755946847853454424709929267431997195175500554762787715247111385596652741022399320865688002114973453057088521173384791077635017567166681500095602864712097
-        )
+        fdh = FDH(bits_size=key_size,
+                  n_modulus=biprime * biprime)
 
-        n = p * q
-        fdh = FDH(key_size, n * n)
-
-        return PublicParam(n_modulus=n,
+        return PublicParam(n_modulus=biprime,
                            bits=key_size // 2,
                            hashing_function=fdh.H)
 
@@ -72,6 +60,7 @@ class SecaggCrypter:
             current_round: int,
             params: List[float],
             key: int,
+            biprime: int,
             weight: int = None
     ) -> List[int]:
         """Encrypts model parameters.
@@ -81,6 +70,7 @@ class SecaggCrypter:
             current_round: Current round of federated training
             params: List of flatten parameters
             key: Key to encrypt
+            biprime: Prime number to create public parameter
             weight: Weight for the params
 
         Returns:
@@ -112,8 +102,8 @@ class SecaggCrypter:
 
         params = self.apply_weighing(params, weight)
 
-        params = quantize(weights=params).tolist()
-        public_param = self._setup_public_param()
+        params = quantize(weights=params)
+        public_param = self._setup_public_param(biprime=biprime)
 
         # Instantiates UserKey object
         key = UserKey(public_param, key)
@@ -142,8 +132,9 @@ class SecaggCrypter:
             num_nodes: int,
             params: List[List[int]],
             key: int,
+            biprime: int,
             total_sample_size: int
-    ) -> np.ndarray:
+    ) -> List[float]:
         """Decrypt given parameters
 
         Args:
@@ -151,6 +142,7 @@ class SecaggCrypter:
             params: Aggregated/Summed encrypted parameters
             num_nodes: number of nodes
             key: The key that will be used for decryption
+            biprime: Biprime number of `PublicParam`
             total_sample_size: sum of number of samples from all nodes
 
         Returns:
@@ -181,7 +173,7 @@ class SecaggCrypter:
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
-        public_param = self._setup_public_param()
+        public_param = self._setup_public_param(biprime=biprime)
         key = ServerKey(public_param, key)
 
         try:
@@ -196,9 +188,9 @@ class SecaggCrypter:
 
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
-        aggregated_params = reverse_quantize(
+        aggregated_params: List[float] = reverse_quantize(
             self.apply_average(sum_of_weights, num_nodes, total_sample_size)
-        ).tolist()
+        )
 
         time_elapsed = time.process_time() - start
         logger.debug(f"Secure aggregation took {time_elapsed} seconds.")
@@ -226,9 +218,9 @@ class SecaggCrypter:
 
     @staticmethod
     def apply_weighing(
-            params: List[int],
+            params: List[float],
             weight: int,
-    ) -> List[int]:
+    ) -> List[float]:
         """Takes the average of summed parameters.
 
         Args:
