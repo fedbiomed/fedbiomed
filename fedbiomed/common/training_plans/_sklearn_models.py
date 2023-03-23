@@ -29,27 +29,6 @@ __all__ = [
 ]
 
 
-@contextmanager
-def capture_stdout() -> Iterator[List[str]]:
-    """Context manager to capture console outputs (stdout).
-
-    Returns:
-        A list, empty at first, that will be populated with the line-wise
-        strings composing the captured stdout upon exiting the context.
-    """
-    output = []  # type: List[str]
-    stdout = sys.stdout
-    str_io = StringIO()
-    # Capture stdout outputs into the StringIO. Return yet-empty list.
-    try:
-        sys.stdout = str_io
-        yield output
-    # Restore sys.stdout, then parse captured outputs for loss values.
-    finally:
-        sys.stdout = stdout
-        output.extend(str_io.getvalue().splitlines())
-
-
 class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
     """Base SKLearnTrainingPlan for models implementing `partial_fit`."""
 
@@ -91,8 +70,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 history_monitor.add_scalar,
                 train=True,
             )
-            verbose = self._optimizer.model.get_params("verbose")  # force verbose = 1 to print losses
-            self._optimizer.model.set_params(verbose=1)
+            verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
+            self._model.set_params(verbose=1)
         # Iterate over epochs.
         for epoch in iterations_accountant.iterate_epochs():
             training_data_iter: Iterator = iter(self.training_data_loader)
@@ -131,7 +110,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                     )
         # Reset model verbosity to its initial value.
         if report:
-            self._optimizer.model.set_params(verbose=verbose)
+            self._model.set_params(verbose=verbose)
 
         return iterations_accountant.num_samples_observed_in_total
 
@@ -248,7 +227,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
-        if self._optimizer.model.model_args["n_classes"] == 2:
+        if self._model.model_args["n_classes"] == 2:
             return super()._parse_batch_loss(stdout, inputs, target)
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.
@@ -282,4 +261,4 @@ class FedPerceptron(FedSGDClassifier):
         ) -> None:
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
-        self._optimizer.model.set_params(loss="perceptron")
+        self._model.set_params(loss="perceptron")

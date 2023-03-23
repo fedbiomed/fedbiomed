@@ -186,7 +186,8 @@ class TestTorchnn(unittest.TestCase):
         tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer(model_args={})
         self.assertEqual(tp._optimizer.optimizer, TestTorchnn.optimizer.optimizer)
-        self.assertEqual(tp._optimizer.model.model, TestTorchnn.model.model)
+        self.assertEqual(tp._optimizer._model.model, TestTorchnn.model.model)
+        self.assertEqual(tp._model.model, TestTorchnn.model.model)
         # ---------------------------------------------------------------------------------
 
     def test_torch_training_plan_05_configure_model_and_optimizer_2(self):
@@ -205,7 +206,8 @@ class TestTorchnn(unittest.TestCase):
         tp._dp_controller = FakeDPController()
         tp._configure_model_and_optimizer(model_args={})
         self.assertEqual(tp._optimizer.optimizer, TestTorchnn.optimizer.optimizer)
-        self.assertEqual(tp._optimizer.model.model, TestTorchnn.model.model)
+        self.assertEqual(tp._optimizer._model.model, TestTorchnn.model.model)
+        self.assertEqual(tp._model.model, TestTorchnn.model.model)
         # -----------------------------------------------------------------------------------
 
     def test_torch_training_plan_06_configure_model_and_optimizer_test_invalid_types(self):
@@ -293,10 +295,10 @@ class TestTorchnn(unittest.TestCase):
         ta = {"t": 13}
         oa = {"y": 14}
         ip = {"s": 15}
-        tp._optimizer.model.model_args = ma
+        tp._model.model_args = ma
         tp._training_args = ta
         tp._optimizer_args = oa
-        tp._optimizer.model.init_params = ip
+        tp._model.init_params = ip
 
         r_ma = tp.model_args()
         r_ta = tp.training_args()
@@ -361,7 +363,7 @@ class TestTorchnn(unittest.TestCase):
         model = TorchModel(torch.nn.Module())
         optimizer_wrapper = MagicMock(spec=NativeTorchOptimizer)
         #optimizer_wrapper.model=MagicMock(spec=TorchModel, return_value=model)
-        optimizer_wrapper.model = model
+        tp._model = model
 
         tp._optimizer = optimizer_wrapper
         # Create custom test data and set data loader for training plan
@@ -432,7 +434,7 @@ class TestTorchnn(unittest.TestCase):
         #tp._model = TorchModel(torch.nn.Module())
         model = TorchModel(torch.nn.Module())
         optimizer_wrapper = MagicMock(spec=NativeTorchOptimizer)
-        optimizer_wrapper.model = model
+        tp._model = model
         tp._optimizer = optimizer_wrapper
 
         tp.set_data_loaders(test_data_loader=data_loader, train_data_loader=data_loader)
@@ -702,7 +704,7 @@ class TestTorchnn(unittest.TestCase):
         for e, (x,y) in enumerate(zip(dataset, target)):
             # training a simple model in pytorch fashion
             # `e` represents epoch
-            out = tp._optimizer.model.model.forward(x)
+            out = tp._model.model.forward(x)
             tp._optimizer.zero_grad()
             loss = torch.mean(out) - y
             loss.backward()

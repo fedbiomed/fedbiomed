@@ -226,8 +226,8 @@ class Scaffold(Aggregator):
         if self._fds is None:
             raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`")
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
-            if not isinstance(training_plan._optimizer, torch.optim.SGD):
-                logger.warning(f"Found optimizer {training_plan._optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
+            if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
+                logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
 
         return True
 

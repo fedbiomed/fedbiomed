@@ -18,20 +18,20 @@ import numpy as np
 
 
 class BaseOptimizer(metaclass=ABCMeta):
-    model: Model
+    _model: Model
     optimizer: Union[FedOptimizer, None]
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, None]):
         if not isinstance(model, (Model, SkLearnModel)):
             raise FedbiomedOptimizerError(f"Expected an instance of fedbiomed.common.model.Model or fedbiomed.common.model.SkLearnModel but got {model}")
-        self.model = model
+        self._model = model
         self.optimizer = optimizer
 
     def init_training(self):
-        self.model.init_training()
+        self._model.init_training()
 
     def train_model(self, inputs, target, stdout: Optional[List] = None):
-        self.model.train(inputs, target, stdout)
+        self._model.train(inputs, target, stdout)
 
     @abstractmethod
     def step(self):
@@ -68,15 +68,15 @@ class BaseDeclearnOptimizer(BaseOptimizer):
 
     def step_modules(self):
 
-        grad: Vector = self.model.get_gradients(as_vector=True)
-        weights: Vector = self.model.get_weights(as_vector=True)
+        grad: Vector = self._model.get_gradients(as_vector=True)
+        weights: Vector = self._model.get_weights(as_vector=True)
         updates = self.optimizer.step(grad, weights)
-        self.model.apply_updates(updates)
+        self._model.apply_updates(updates)
 
     def step(self):
         self.step_modules()
     def get_learning_rate(self) -> List[float]:
-        return self.model.get_learning_rate()
+        return self._model.get_learning_rate()
     
     def set_aux(self, aux: Dict[str, Any]):
         self.optimizer.process_aux_var(aux)
@@ -101,13 +101,13 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     def zero_grad(self):
         # warning: specific for pytorch
         try:
-            self.model.model.zero_grad()
+            self._model.model.zero_grad()
         except AttributeError as err:
             raise FedbiomedOptimizerError(f"Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?. Details {err}") from err
 
     def send_model_to_device(self, device: torch.device):
         # for pytorch specifically
-        self.model.send_to_device(device)
+        self._model.send_to_device(device)
 
     def get_learning_rate(self) -> List[float]:
         return [self.optimizer._optimizer.lrate]
@@ -116,19 +116,19 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
     
     def step(self):
         # convert batch averaged gradients into gradients efore conputation
-        lrate = self.model.get_learning_rate()[0]
+        lrate = self._model.get_learning_rate()[0]
         if int(lrate) != 0:
             
-            gradients = self.model.get_gradients()
-            self.model.gradients = {layer: val / lrate for layer, val in gradients.items()}
+            gradients = self._model.get_gradients()
+            self._model.gradients = {layer: val / lrate for layer, val in gradients.items()}
         else:
             # Nota: if learning rate equals 0, there will be no updates applied during SGD
             logger.warning("Learning rate set to 0: no gradient descent will be performed!")   
         super().step()
 
     def optimizer_post_processing(self, model_args: Dict):
-        self.model.disable_internal_optimizer()
-        is_param_changed, param_changed = self.model.check_changed_optimizer_params(model_args)
+        self._model.disable_internal_optimizer()
+        is_param_changed, param_changed = self._model.check_changed_optimizer_params(model_args)
         if is_param_changed:
             msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
             msg += "\nParameters changed:\n"
@@ -168,7 +168,7 @@ class NativeTorchOptimizer(BaseOptimizer):
 
     def send_model_to_device(self, device: torch.device):
         # for pytorch specifically
-        self.model.send_to_device(device)
+        self._model.send_to_device(device)
 
     def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> torch.float:
         loss += float(mu) / 2. * self.__norm_l2()
@@ -185,7 +185,7 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         norm = 0
 
-        for current_model, init_model in zip(self.model.model().parameters(), self.model.init_params):
+        for current_model, init_model in zip(self._model.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
     
@@ -213,18 +213,18 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         logger.debug("Using native Sklearn Optimizer")
 
     def step(self):
-        gradients = self.model.get_gradients()
+        gradients = self._model.get_gradients()
         #lrate = self.model.get_learning_rate()[0]
         # revert back gradients to the batch averaged gradients
         #gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
 
-        self.model.apply_updates(gradients)
+        self._model.apply_updates(gradients)
 
     def optimizer_post_processing(self, model_args: Dict):
         pass
     
     def get_learning_rate(self) -> List[float]:
-        return self.model.get_learning_rate()
+        return self._model.get_learning_rate()
 
 TORCH_OPTIMIZERS = {
     FedOptimizer: DeclearnTorchOptimizer,

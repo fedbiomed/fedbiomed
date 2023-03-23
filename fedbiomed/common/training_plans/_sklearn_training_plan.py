@@ -108,15 +108,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
-        self._optimizer.model.set_params(**params)
+        self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
 
-        self._optimizer.model.set_init_params(model_args)
+        self._model.set_init_params(model_args)
         
         self._optimizer.optimizer_post_processing(model_args)
         
-        # reset _model to its initial value: None
-        self._model = None
         # if isinstance(self._optimizer, NativeSkLearnOptimizer):
         #     # disable internal optimizer if optimizer is non native (ie declearn optimizer)
         #     self._optimizer.model.disable_internal_optimizer()
@@ -161,10 +159,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        if self._optimizer is None:
-            return self._model.model_args
-        else:
-            return self._optimizer.model.model_args
+        return self._model.model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.
@@ -191,8 +186,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         if self._model is not None:
             return self._model.model
-        elif self._optimizer is not None:
-            return self._optimizer.model.model
         else:
             return self._model
 
@@ -319,7 +312,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         child classes, and is called as part of `training_routine`
         (that notably enforces preprocessing and exception catching).
         """
-        return None
 
     def testing_routine(
             self,
@@ -355,12 +347,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._optimizer.model.is_classification and not hasattr(self.model(), 'classes_'):
+        if self._model.is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
             setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
-            if self._optimizer.model.is_classification:
+            if self._model.is_classification:
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
@@ -409,9 +401,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 params = params["model_params"]
             # for key, val in params.items():
             #     setattr(self._model, key, val)
-            self._optimizer.model.set_weights(params)
+            self._model.set_weights(params)
         # Save the wrapped model (using joblib, hence pickle).
-        self._optimizer.model.save(filename)
+        self._model.save(filename)
 
     def load(
             self,
@@ -424,7 +416,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         pickle to deserialize the model. Note that unpickling objects
         can lead to arbitrary code execution; hence use with care.
 
-        This function updates the `_optimizer.model.model` private attribute with the
+        This function updates the `_model.model` private attribute with the
         loaded instance, and returns either that same model or a dict
         wrapping its trainable parameters.
 
@@ -442,7 +434,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Dictionary with the loaded parameters.
         """
         # Deserialize the dump, type-check the instance and assign it.
-        self._optimizer.model.load(filename)
+        self._model.load(filename)
         if not isinstance(self.model(), self._model_cls):
             msg = (
                 f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
@@ -454,7 +446,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Optionally return the model's pseudo state dict instead of it.
         if to_params:
-            params = self._optimizer.model.get_weights()
+            params = self._model.get_weights()
             return {"model_params": params}
         return self.model()
 
@@ -473,4 +465,4 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             dict[str, np.ndarray]: the trained parameters to aggregate.
         """
         #return {key: getattr(self._model, key) for key in self._param_list}
-        return self._optimizer.model.get_weights()
+        return self._model.get_weights()

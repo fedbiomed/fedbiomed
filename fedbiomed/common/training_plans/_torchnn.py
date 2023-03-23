@@ -179,10 +179,8 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
     def model(self) -> Optional[torch.nn.Module]:
         if self._model is not None:
-            # this should be used  only when initialiazing optimizer
+
             return self._model.model
-        elif self._optimizer is not None:
-            return self._optimizer.model.model
         else:
             return self._model
 
@@ -195,7 +193,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             Model arguments arguments
         """
-        return self._optimizer.model.model_args
+        return self._model.model_args
 
     # def get_learning_rate(self) -> List[float]:
     #     """Gets learning rate from value set in optimizer.
@@ -262,7 +260,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         Returns:
             State dictionary of torch Module
         """
-        return self._optimizer.model.init_params
+        return self._model.init_params
 
     def init_optimizer(self):
         """Abstract method for declaring optimizer by default """
@@ -300,13 +298,13 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                                                                  keys=list(init_model_spec.keys()),
                                                                  alternative="self.model_args()"))
 
-        tmp_model = TorchModel(model)
-        tmp_model.model_args = model_args
+        model = TorchModel(model)
+        model.model_args = model_args
         # Validate model
-        if not isinstance(tmp_model.model, nn.Module):
+        if not isinstance(model.model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
 
-        self._model = tmp_model
+        self._model = model
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = get_method_spec(self.init_optimizer)
         if not init_optim_spec:
@@ -330,14 +328,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
         optim_builder = OptimizerBuilder()
         #  build the optimizer wrapper
-        self._optimizer = optim_builder.build(self.__type, tmp_model, optimizer)
+        self._optimizer = optim_builder.build(self.__type, model, optimizer)
          
         # if not isinstance(self._optimizer, torch.optim.Optimizer):
         #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
         
         # Validate and fix model
-        validated_model = self._dp_controller.validate_and_fix_model(self._optimizer.model.model)
-        self._optimizer.model.set_model(validated_model)
+        validated_model = self._dp_controller.validate_and_fix_model(self._model.model)
+        self._model.set_model(validated_model)
         
         # resetting `model`` attribute to the TrainingPlan object to `None``
         # self._model = None
@@ -546,7 +544,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # for attributes, values in self._model.model.__dict__.items():
         #     print("ATTRIBUTES", values)
         #     assert values == getattr(self._optimizer.model.model, attributes) 
-        # return iterations_accountant.num_samples_observed_in_total
+        return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
         """Train the model over a single batch of data.
@@ -620,14 +618,14 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         try:
-            print("MODEL", self._optimizer.model)
-            self._optimizer.model.model.eval()  # pytorch switch for model inference-mode TODO should be removed
+
+            self._model.model.eval()  # pytorch switch for model inference-mode TODO should be removed
             with torch.no_grad():
                 super().testing_routine(
                     metric, metric_args, history_monitor, before_train
                 )
         finally:
-            self._optimizer.model.model.train()  # restore training behaviors
+            self._model.model.train()  # restore training behaviors
 
     # provided by fedbiomed
     def save(self, filename: str, params: dict = None) -> None:
@@ -642,7 +640,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             return torch.save(params, filename)
         else:
             if self._optimizer is not None:
-                return self._optimizer.model.save(filename)
+                return self._model.save(filename)
             else:
                 raise FedbiomedTrainingPlanError("No model to be saved found, have you called `post_init` beforehand?")
 
@@ -659,7 +657,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         params = torch.load(filename)
         if to_params is False:
-            self._optimizer.model.load(filename)
+            self._model.load(filename)
         return params
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
@@ -695,11 +693,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
 
         # Check whether postprocess method exists, and use it
 
-        params = self._optimizer.model.model.state_dict()
+        params = self._model.model.state_dict()
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self._optimizer.model.model.state_dict())  # Post process
+                params = self.postprocess(self._model.model.state_dict())  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
                                                  f"{e}") from e
@@ -715,7 +713,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         """
         norm = 0
 
-        for current_model, init_model in zip(self.model().parameters(), self._optimizer.model.init_params):
+        for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
 
