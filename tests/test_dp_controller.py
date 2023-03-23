@@ -1,5 +1,5 @@
 import unittest
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+
 import torch
 
 from torch.nn import Module
@@ -7,6 +7,8 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 
 from unittest.mock import patch, MagicMock
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.exceptions import FedbiomedDPControllerError
 
@@ -113,9 +115,11 @@ class TestDPController(unittest.TestCase):
         loader_false = MagicMock()
 
         model = Module()
+        model_wrapper = MagicMock(spec=TorchModel)
+        model_wrapper.model = model
         opt = Adam([torch.zeros([2, 4])])
         loader = DataLoader(TestDPController.DS())
-        optim_wrapper = NativeTorchOptimizer(model, opt)
+        optim_wrapper = NativeTorchOptimizer(model_wrapper, opt)
 
         with self.assertRaises(FedbiomedDPControllerError):
             self.dpl.before_training(opt_false, loader)
@@ -132,7 +136,8 @@ class TestDPController(unittest.TestCase):
         self.privacy_engine_make_private.reset_mock()
         self.dpl.before_training(optim_wrapper, loader)
         self.privacy_engine_make_private.assert_called_once_with(
-                                                                 optimizer=optim_wrapper,
+                                                                 module=model,
+                                                                 optimizer=opt,
                                                                  data_loader=loader,
                                                                  noise_multiplier=self.dp_args_l.get('sigma'),
                                                                  max_grad_norm=self.dp_args_l.get('clip'))
@@ -167,3 +172,7 @@ class TestDPController(unittest.TestCase):
         # Post processes with DPC
         p = self.dpc.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
+
+
+if __name__ == '__main__':  # pragma: no cover
+    unittest.main()
