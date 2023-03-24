@@ -88,6 +88,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
+        # FIXME: this method `model_args` of model seems not very useful (unless i am mistaken, i would be in favour of remove it)
         self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
         
@@ -102,32 +103,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             key: model_args.get(key, val)
             for key, val in self._model.get_params().items()
         }
-
+        
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
         
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
-        self._model.set_params(**params)
+        
+        with self._optimizer.optimizer_processing():
+            self._model.set_params(**params)
+            
         # Set up additional parameters (normally created by `self._model.fit`).
-
         self._model.set_init_params(model_args)
         
-        self._optimizer.optimizer_post_processing(model_args)
-        
-        # if isinstance(self._optimizer, NativeSkLearnOptimizer):
-        #     # disable internal optimizer if optimizer is non native (ie declearn optimizer)
-        #     self._optimizer.model.disable_internal_optimizer()
-        #     is_param_changed, param_changed = self._optimizer.model.check_changed_optimizer_params(model_args)
-        #     if is_param_changed:
-        #         msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-        #         msg += "\nParameters changed:\n"
-        #         msg += param_changed
-        #         logger.warning(msg)            
-
-    # @abstractmethod
-    # def set_init_params(self) -> None:
-    #     """Initialize the model's trainable parameters."""
+        # this is a second (an easier solution)
+        #self._optimizer.optimizer_post_processing(model_args)
 
     def set_data_loaders(
             self,
@@ -190,6 +180,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             return self._model
 
     def _configure_optimizer(self):
+        """Configures declearn Optimizer for scikit-learn if method
+        `init_optimizer` is provided in the TrainingPlan, otherwise considers
+        only scikit-learn internal optimization.
+
+        Raises:
+            FedbiomedTrainingPlanError: raised if no model has been found
+            FedbiomedTrainingPlanError: raised if more than one argument has been provided
+                to the `init_optim` method.
+        """
         # Message to format for unexpected argument definitions in special methods
         method_error = \
             ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \

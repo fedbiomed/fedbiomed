@@ -20,7 +20,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
-
+from fedbiomed.common.logger import logger
 
 @contextmanager
 def capture_stdout() -> Iterator[List[str]]:
@@ -67,6 +67,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
     model: BaseEstimator  # merely for the docstring builder
+    model_args: Dict[str, Any]
     default_lr_init: ClassVar[float] = 0.1
     default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
@@ -282,9 +283,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     #     for key in self.param_list:
     #         gradients[key] = self.updates[key] / self._batch_size - weights[key]
 
-
-        
-
     def get_gradients(
         self,
         as_vector: bool = False,
@@ -308,6 +306,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         gradients = self._gradients
         if as_vector:
             return NumpyVector(gradients)
+        return gradients
+
+    def set_gradients(self, gradients: Union[Dict[str, np.ndarray], NumpyVector]) -> Dict[str, Any]:
+        if isinstance(gradients, NumpyVector):
+            gradients = gradients.coefs
+        self._gradients = gradients
         return gradients
 
     def get_params(self, value: Any = None) -> Dict[str, Any]:
@@ -347,8 +351,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     def check_changed_optimizer_params(self, init_model_args: Dict, to_string: bool = True) -> Tuple[bool, Union[List[str], str]]:
         new_params: Dict = self.get_params()
         changed_params: Union[List, str] = []
-        for k, v in new_params.items():
-            _param = init_model_args.get(k)
+        for k, v in init_model_args.items():
+            _param = new_params.get(k)
             if _param is not None and _param != v:
                 changed_params.append(k)
         is_params_changed: bool = changed_params != []
