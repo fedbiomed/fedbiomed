@@ -230,15 +230,21 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
         for return_value, context, value in (
             (None, dummy_context, dummy_status),
-            (3, 3, False),
-            ({}, {}, False),
-            ({'toto': 1}, {'toto': 1}, False),
-            ({'parties': 3}, {'parties': 3}, False),
-            ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, 3, False),
+            # ({}, {}, False),
+            # ({'toto': 1}, {'toto': 1}, False),
+            # ({'parties': 3}, {'parties': 3}, False),
+            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
             ({'parties': [environ["ID"], 'party2', 'party3']},
                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
-            ({'parties': ['party4', environ["ID"], 'party2', 'party3']},
-                {'parties': ['party4', environ["ID"], 'party2', 'party3']}, True),
+            ({'parties': [environ["ID"], 'party3', 'party2']},
+                {'parties': [environ["ID"], 'party3', 'party2']}, True),
+            ({'parties': [environ["ID"], 'party2', 'party3', 'party4']},
+                {'parties': [environ["ID"], 'party2', 'party3', 'party4']}, False),
+            ({'parties': ['party2', environ["ID"], 'party3']},
+                {'parties': ['party2', environ["ID"], 'party3']}, False),
         ):
             self.mock_skmanager.get.return_value = return_value
             srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
@@ -373,11 +379,13 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
 
         for return_value, context, value in (
             (None, dummy_context, dummy_status),
-            (3, 3, False),
-            ({}, {}, False),
-            ({'toto': 1}, {'toto': 1}, False),
-            ({'parties': 3}, {'parties': 3}, False),
-            ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+            # Not tested by _matching_parties* 
+            #
+            # (3, 3, False),
+            # ({}, {}, False),
+            # ({'toto': 1}, {'toto': 1}, False),
+            # ({'parties': 3}, {'parties': 3}, False),
+            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
             ({'parties': [environ["ID"], 'party2', 'party3']},
                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
             ({'parties': ['party4', environ["ID"], 'party2', 'party3']},
