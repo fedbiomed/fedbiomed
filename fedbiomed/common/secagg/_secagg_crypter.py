@@ -169,12 +169,13 @@ class SecaggCrypter:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be type of integers.")
 
-        params = self._convert_to_encrypted_number(params)
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param(biprime=biprime)
         key = ServerKey(public_param, key)
+
+        params = self._convert_to_encrypted_number(params, public_param)
 
         try:
             sum_of_weights = self._jls.aggregate(
@@ -235,18 +236,19 @@ class SecaggCrypter:
         #  Implement weighing.
         return [param * 1 for param in params]
 
-    def _convert_to_encrypted_number(self, params: List[List[int]]) -> List[List[EncryptedNumber]]:
+    @staticmethod
+    def _convert_to_encrypted_number(
+            params: List[List[int]],
+            public_param: PublicParam
+    ) -> List[List[EncryptedNumber]]:
         """Converts encrypted integers to `EncryptedNumber`
 
         Args:
             params: A list containing list of encrypted integers for each node
-
+            public_param: Public parameter used while encrypting the model parameters
         Returns:
             list of `EncryptedNumber` objects
         """
-
-        # Set public params
-        public_param = self._setup_public_param()
 
         encrypted_number = []
         for parameters in params:

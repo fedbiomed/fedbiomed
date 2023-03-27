@@ -54,7 +54,8 @@ class SecureAggregation:
                 f"but got {type(active)} "
             )
 
-        if clipping_range is not None and not isinstance(clipping_range, int):
+        if clipping_range is not None and \
+                (not isinstance(clipping_range, int) or isinstance(clipping_range, bool)):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Clipping range should be None or an integer, "
                 f"but got not {type(clipping_range)}"
@@ -133,12 +134,17 @@ class SecureAggregation:
 
         return True
 
-    def _set_secagg_contexts(self) -> None:
+    def _set_secagg_contexts(self, parties: List[str]) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
 
+        Args:
+            parties: Parties that participates secure aggregation
+
         """
+
+        self.parties = parties
 
         # TODO: support other options than using `default_biprime0`
         self._biprime = SecaggBiprimeContext(
@@ -175,39 +181,53 @@ class SecureAggregation:
         # FIXME: Use only `__init__` `experiment_id` argument once experiment class creates and id instead of
         #  using `Job.id`
         if self.experiment_id is None and experiment_id is None:
-            raise f"There is no experiment (job) id associated to the secure aggregation. Please provide and " \
-                  f"experiment id using the argument `experiment_id`"
+            raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}There is no experiment (job) id associated to the "
+                    f"secure aggregation. Please provide and experiment id using the argument `experiment_id`"
+            )
 
         # Sets given experiment id by validating previous experiment id
         if experiment_id is not None:
-            if self.self.experiment_id is not None and self.experiment_id != experiment_id:
-                raise f"Experiment id of the secure aggregation can not be change in the " \
-                      f"middle of an experiment. Please create new experiment."
+            if self.experiment_id is not None and self.experiment_id != experiment_id:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}Experiment id of the secure aggregation can not "
+                    f"be change in the middle of an experiment. Please create new experiment."
+                )
             else:
                 self.experiment_id = experiment_id
 
         if not self.parties:
-            self.parties = parties
-            self._set_secagg_contexts()
+            self._set_secagg_contexts(parties)
 
         elif set(self.parties) != set(parties):
+            print("Here")
             logger.info(f"Parties of the experiment has changed. Re-creating secure "
                         f"aggregation context creation for the experiment {self.experiment_id}")
-            self._set_secagg_contexts()
+            self._set_secagg_contexts(parties)
 
     def aggregate(
             self,
             round_: int,
             total_sample_size: int,
-            encryption_factors: List[Dict[str, List[int]]],
-            model_params: List[List[int]]
+            model_params: Dict[str, List[int]],
+            encryption_factors: Union[Dict[str, List[int]], None] = None,
     ) -> List[float]:
         """Aggregates given model parameters
 
         """
 
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"not configured. Please setup secure aggregation before the aggregation.")
+
+        if not self._biprime.status or not self._servkey.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"not set properly")
+
         biprime = self._biprime.context["context"]["biprime"]
-        key = self._biprime.context["context"]["server_key"]
+        key = self._servkey.context["context"]["server_key"]
 
         num_nodes = len(model_params)
 
@@ -221,11 +241,25 @@ class SecureAggregation:
                                       biprime=biprime)
 
         # Validate secure aggregation
-        encryption_factors = [f for k, f in encryption_factors.items()]
-        validation: List[float] = aggregate(params=encryption_factors)
+        if self._secagg_random is not None:
 
-        if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.01):
-            raise "Aggregation is failed due to incorrect decryption."
+            if encryption_factors is None:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
+                    f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
+                    f"Or to not set/get `secagg_random()` before the aggregation.")
+
+            encryption_factors = [f for k, f in encryption_factors.items()]
+            validation: List[float] = aggregate(params=encryption_factors)
+
+            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.01):
+                raise FedbiomedSecureAggregationError(
+                        f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
+                )
+
+        elif encryption_factors is not None:
+            logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
+                           "aggregation steps are applied correctly.")
 
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
