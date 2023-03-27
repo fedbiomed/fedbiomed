@@ -26,7 +26,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import SGDClassifier, Perceptron
 
 
 class Custom:
@@ -657,6 +657,51 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                 # since we should have guessed once the first class, and once the last class, the final loss
                 # is the mean of 0.5 and 1.0, i.e. it should be 0.75
                 self.assertEqual(loss, 0.75)
+
+
+class TestSklearnFedPerceptron(unittest.TestCase):
+    """Specific tests for Federated Perceptron model"""
+    def setUp(self) -> None:
+        pass
+    
+    def tearDown(self) -> None:
+        pass
+    
+    def test_sklearnperceptron_01_defaultvalues(self):
+        """Test for bug related to issue #498: Incorrect Perceptron defaultvalues for sklearn models
+        
+        Purpose of the test is to make sure default values of Perceptron are the same for FedPerceptron and for the regular sklearn
+        Perceptron model
+        """
+        # with default values
+        fed_perp = FedPerceptron()
+        fed_perp.post_init({'n_classes': 2, 'n_features': 2}, FakeTrainingArgs())
+        sk_perceptron = Perceptron()
+        
+        for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
+            if fed_name_param != 'verbose':
+                self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
+            
+        
+        # with a few values set by end-user
+        
+        values_sets = (
+            {'penalty': None, 'shuffle': True, 'tol': .03},
+            {'penalty': 'l1', 'fit_intercept': True, 'tol': .06, 'eta0': .01},
+        )
+        
+        additional_inputs_for_fed_model = {'n_classes': 2, 'n_features': 2}
+        for values_set in values_sets:
+            sk_perceptron = Perceptron(**values_set)
+            
+            values_set.update(additional_inputs_for_fed_model)
+            fed_perp = FedPerceptron()
+            fed_perp.post_init(values_set, FakeTrainingArgs())
+            
+            
+            for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
+                if fed_name_param != 'verbose':
+                    self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
 
 
 if __name__ == '__main__':  # pragma: no cover
