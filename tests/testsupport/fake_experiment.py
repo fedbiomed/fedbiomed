@@ -4,7 +4,7 @@
 from typing import Union, TypeVar, Type, List
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.experiment import SecureAggregation
 
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
@@ -14,7 +14,8 @@ Type_TrainingPlan = TypeVar("Type_TrainingPlan")
 TrainingPlan = TypeVar("TrainingPlan")
 _E = TypeVar("Experiment")
 
-class ExperimentMock():
+
+class ExperimentMock:
     """Provides an interface that behave like the Experiment,
     for a subset of methods
     """
@@ -32,7 +33,8 @@ class ExperimentMock():
                 training_args: dict = {},
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
-                experimentation_folder: Union[str, None] = None
+                experimentation_folder: Union[str, None] = None,
+                secagg: Union[bool, SecureAggregation] = False,
                 ):
         """ Constructor of the class.
 
@@ -59,7 +61,7 @@ class ExperimentMock():
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
         self._monitor = tensorboard # minimal
-
+        self._secagg = secagg
 
     def _set_round_current(self, round_current: int) -> int:
         """Set `round_current` in mocked class

@@ -1,8 +1,7 @@
-
 import functools
 import math
 import random
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Any
 
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
@@ -12,7 +11,6 @@ from fedbiomed.common.logger import logger
 
 
 class SecureAggregation:
-
     parties: List[str]
     experiment_id: Union[None, str]
 
@@ -23,18 +21,24 @@ class SecureAggregation:
     def __init__(self,
                  active: bool = False,
                  timeout: int = 10,
-                 clipping_range: Union[None, int] = None
-    ) -> None:
+                 clipping_range: Union[None, int] = None,
+                 experiment_id: Union[None, str] = None
+                 ) -> None:
         """Class constructor
 
-        Assign default values for attributes
+        Assigns default values for attributes
 
         Args:
             active: True if secure aggregation is activated for the experiment
-            timeout: Timeout for the communication between parties during the context/element setup
-            clipping_range: Clipping range that will be used for quantization of model parameters on the node side
-                The default will be [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters]. The
-                default value will be automatically set on the node side.
+            timeout: Maximum time waiting for answers from other nodes for each
+                secagg context element (server key and biprime). Thus total secagg
+                setup is at most twice the `timeout`, plus the local setup payload
+                execution time for server key and biprime. Defaults to `environ['TIMEOUT']`
+                if unset or equals 0.
+            clipping_range: Clipping range that will be used for quantization of model
+                parameters on the node side The default will be
+                [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
+                The default value will be automatically set on the node side.
 
         """
 
@@ -57,7 +61,7 @@ class SecureAggregation:
             )
 
         self.parties = []
-        self.experiment_id = None
+        self.experiment_id = experiment_id
         self.active = active
         self.timeout = timeout
         self.clipping_range = clipping_range
@@ -103,7 +107,7 @@ class SecureAggregation:
         Returns:
             Server-key context id
         """
-        return self._servkey.secagg_id
+        return self._servkey.secagg_id if self._servkey is not None else None
 
     def secagg_servkey_id(self):
         """Gets secure aggregation Biprime element id from `SecaggBiprimeContext`
@@ -112,7 +116,7 @@ class SecureAggregation:
         Returns:
             Biprime context id
         """
-        return self._biprime.secagg_id
+        return self._biprime.secagg_id if self._biprime is not None else None
 
     def setup(self):
         """Setup secure aggregation instruments
@@ -150,7 +154,7 @@ class SecureAggregation:
     def configure_round(
             self,
             parties: List[str],
-            experiment_id: str
+            experiment_id: Union[None, str] = None
     ) -> None:
         """Configures secure aggregation for each round.
 
@@ -166,12 +170,21 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: Inconsistent experiment ID compare to
                 previous rounds of the experiments.
         """
-        # Make sure that secure aggregation for the round is for same experiment
-        if experiment_id is None:
-            self.experiment_id = experiment_id
-        elif self.experiment_id != experiment_id:
-            raise f"Experiment id of the secure aggregation can not be change in the " \
-                  f"middle of an experiment. Please create new experiment."
+        # Experiment id can be also set thorough this method since on Experiment level `SecureAggregation` intance
+        # is instantiated before instantiating the job class that hold experiment id
+        # FIXME: Use only `__init__` `experiment_id` argument once experiment class creates and id instead of
+        #  using `Job.id`
+        if self.experiment_id is None and experiment_id is None:
+            raise f"There is no experiment (job) id associated to the secure aggregation. Please provide and " \
+                  f"experiment id using the argument `experiment_id`"
+
+        # Sets given experiment id by validating previous experiment id
+        if experiment_id is not None:
+            if self.self.experiment_id is not None and self.experiment_id != experiment_id:
+                raise f"Experiment id of the secure aggregation can not be change in the " \
+                      f"middle of an experiment. Please create new experiment."
+            else:
+                self.experiment_id = experiment_id
 
         if not self.parties:
             self.parties = parties
@@ -220,3 +233,46 @@ class SecureAggregation:
 
         return aggregated_params
 
+    def save_state(self) -> Dict[str, Any]:
+        """Saves stat of the secagg """
+
+        state = {
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "arguments": {
+                'experiment_id': self.experiment_id,
+                'active': self.active,
+                'timeout': self.timeout,
+                'clipping_range': self.clipping_range,
+            },
+            "attributes": {
+                "_biprime": self._biprime.save_state() if self._biprime is not None else None,
+                "_servkey": self._servkey.save_state() if self._servkey is not None else None,
+                "parties": self.parties
+            }
+        }
+
+        return state
+
+    @classmethod
+    def load_state(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+
+        secagg = cls(**state["arguments"])
+        secagg.parties = state["attributes"]["parties"]
+
+        if state["attributes"]["_biprime"] is not None:
+            state["attributes"]["_biprime"] = SecaggBiprimeContext.\
+                load_state(state=state["attributes"]["_biprime"])
+
+        if state["attributes"]["_servkey"] is not None:
+            state["attributes"]["_servkey"] = SecaggServkeyContext.\
+                load_state(state=state["attributes"]["_servkey"])
+
+        # Set attributes
+        for name, val in state["attributes"].items():
+            setattr(secagg, name, val)
+
+        return secagg

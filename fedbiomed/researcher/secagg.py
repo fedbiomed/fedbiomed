@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation management on the researcher"""
+import importlib
 import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
@@ -15,7 +16,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
+from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
@@ -433,33 +434,47 @@ class SecaggContext(ABC):
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "secagg_id": self._secagg_id,
-            "parties": self._parties,
-            "job_id": self._job_id,
-            "researcher_id": self._researcher_id,
-            "status": self._status,
-            "context": self._context
-            # No need to save self._secagg_manager, value restored when instantiated from breakpoint
+            "arguments": {
+                "secagg_id": self._secagg_id,
+                "parties": self._parties,
+                "job_id": self._job_id,
+
+            },
+            "attributes": {
+                "_status": self._status,
+                "_context": self._context,
+                "_researcher_id": self._researcher_id,
+            }
         }
         return state
 
+    @staticmethod
     def load_state(
-            self,
-            state: Dict[str, Any] = None,
-            **kwargs
-    ) -> None:
+            state: Dict[str, Any]
+    ) -> 'SecaggContext':
+
         """
         Method for loading secagg state from breakpoint state
 
         Args:
             state: The state that will be loaded
         """
-        self._secagg_id = state['secagg_id']
-        self._parties = state['parties']
-        self._job_id = state['job_id']
-        self._researcher_id = state['researcher_id']
-        self._status = state['status']
-        self._context = state['context']
+
+        # Get class
+        cls = getattr(importlib.import_module(state["module"]), state["class"])
+
+        # Validate job id
+        spec = get_method_spec(cls)
+        if 'job_id' in spec:
+            secagg = cls(**state["arguments"])
+        else:
+            state["arguments"].pop('job_id')
+            secagg = cls(**state["arguments"])
+
+        for key, value in state["attributes"].items():
+            setattr(secagg, key, value)
+
+        return secagg
 
 
 class SecaggServkeyContext(SecaggContext):
@@ -471,7 +486,7 @@ class SecaggServkeyContext(SecaggContext):
         """Constructor of the class.
 
         Args:
-            parties: list of parties participating to the secagg context element setup, named
+            parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.

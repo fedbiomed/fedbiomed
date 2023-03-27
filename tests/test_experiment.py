@@ -38,16 +38,19 @@ import fedbiomed.researcher.experiment
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.secure_aggregation import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
+from fedbiomed.common.utils import get_method_spec
 
 class FakeAggregator(Aggregator):
     aggregator_name: str = 'dummy-aggregator'
 
+
 class FakeStrategy(Strategy):
     pass
-        
+
 
 class TestExperiment(ResearcherTestCase):
     """ Test for Experiment class """
@@ -57,6 +60,7 @@ class TestExperiment(ResearcherTestCase):
         """ Should inherit TorchTrainingPlan to pass the condition
             `issubclass` of `TorchTrainingPlan`
         """
+
         def init_model(self, args):
             pass
 
@@ -84,7 +88,6 @@ class TestExperiment(ResearcherTestCase):
 
         return tmp_dir_model
 
-
     @classmethod
     def setUpClass(cls) -> None:
 
@@ -100,7 +103,6 @@ class TestExperiment(ResearcherTestCase):
 
         cls.fake_strategy = FakeStrategy
         cls.fake_aggregator = FakeAggregator
-
 
     def setUp(self):
 
@@ -147,8 +149,6 @@ class TestExperiment(ResearcherTestCase):
         self.patcher_request_init = patch('fedbiomed.researcher.requests.Requests.__init__',
                                           MagicMock(return_value=None))
         self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search', MagicMock(return_value={}))
-
-
 
         for patcher in self.patchers:
             patcher.start()
@@ -214,7 +214,6 @@ class TestExperiment(ResearcherTestCase):
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
 
-
     def assertSubDictInDict(self, sub_dict: Dict, dict: Dict, msg: str = ''):
         ok_array = [False] * len(sub_dict)
         for i, (s_key, s_val) in enumerate(sub_dict.items()):
@@ -279,7 +278,8 @@ class TestExperiment(ResearcherTestCase):
 
         # Test getter for training_plan_path
         training_plan_path = self.test_exp.training_plan_path()
-        self.assertIsNone(training_plan_path, 'Getter for training_plan_path did not return expected training_plan_path')
+        self.assertIsNone(training_plan_path,
+                          'Getter for training_plan_path did not return expected training_plan_path')
 
         # Test getter for model arguments
         model_args = self.test_exp.model_args()
@@ -351,13 +351,9 @@ class TestExperiment(ResearcherTestCase):
         # Should be false
         self.assertEqual(test, False, 'Getter for test on local updates has returned unexpected value')
 
-        test = self.test_exp.use_secagg()
+        test = self.test_exp.secagg
         # Should be false
-        self.assertEqual(test, False, 'Getter for secagg usage has returned unexpected value')
-
-        test1, test2 = self.test_exp.secagg_context()
-        self.assertEqual(test1, None, 'Getter for test on secagg context has returned unexpected value')
-        self.assertEqual(test2, None, 'Getter for test on secagg context has returned unexpected value')
+        self.assertIsInstance(test, SecureAggregation, 'Getter for secagg usage has returned unexpected value')
 
     def test_experiment_02_info(self):
         """Testing the method .info() of experiment class """
@@ -369,7 +365,6 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._training_plan_is_defined = True
         self.test_exp.info()
 
-
     @patch('builtins.eval')
     @patch('builtins.print')
     def test_experiment_02_info_exception(self, mock_print, mock_eval):
@@ -379,7 +374,6 @@ class TestExperiment(ResearcherTestCase):
         mock_eval.side_effect = Exception
         with self.assertRaises(SystemExit):
             self.test_exp.info()
-
 
     def test_experiment_03_set_tags(self):
         """ Testing setter for _tags attribute of Experiment """
@@ -409,7 +403,6 @@ class TestExperiment(ResearcherTestCase):
         tags_expected = None
         tags = self.test_exp.set_tags(tags_expected)
         self.assertEqual(tags, tags_expected, f'Expected tags should be None not {tags}')
-
 
     def test_experiment_04_set_nodes(self):
 
@@ -449,7 +442,6 @@ class TestExperiment(ResearcherTestCase):
         nodes_expected = None
         nodes = self.test_exp.set_nodes(nodes_expected)
         self.assertEqual(nodes, nodes_expected, f'Expected nodes should be None not {nodes}')
-
 
     def test_experiment_04_set_training_data(self):
         """ Testing setter for ._fds attribute of Experiment """
@@ -507,7 +499,7 @@ class TestExperiment(ResearcherTestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 4, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
 
     def test_experiment_05_set_aggregator(self):
         """Testing setter for aggregator attribute of Experiment class"""
@@ -535,7 +527,6 @@ class TestExperiment(ResearcherTestCase):
         agg_expected = 13
         with self.assertRaises(SystemExit):
             self.test_exp.set_aggregator(aggregator=agg_expected)
-
 
     def test_experiment_06_set_strategy(self):
         """Testing setter for node_selection_strategy attribute of Experiment class"""
@@ -577,7 +568,6 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
 
-
     def test_experiment_07_set_round_limit(self):
         """Testing setter for round limit"""
 
@@ -615,7 +605,6 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_round_limit(round_limit=rl_expected)
 
-
     def test_experiment_08_private_set_round_current(self):
         """ Testing private method for setting round current for the experiment """
 
@@ -636,7 +625,6 @@ class TestExperiment(ResearcherTestCase):
         rcurrent_expected = 2
         rcurrent = self.test_exp._set_round_current(rcurrent_expected)
         self.assertEqual(rcurrent, rcurrent_expected, 'Setter for round current did not properly set the current round')
-
 
     def test_experiment_09_set_experimentation_folder(self):
         """ Test setting experimentation folder for the experiment """
@@ -665,7 +653,6 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._job = MagicMock(return_value=True)
         self.test_exp.set_experimentation_folder('12')
         self.mock_logger_debug.assert_called_once()
-
 
     def test_experiment_10_set_training_plan_class(self):
         """ Testing setter for training_plan  """
@@ -730,7 +717,8 @@ class TestExperiment(ResearcherTestCase):
         # Test passing path for training_plan_file
         fake_training_plan_path = self.create_fake_training_plan_file('fake_model_2.py')
         training_plan_path = self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(training_plan_path, fake_training_plan_path, 'Setter for training_plan_path did not set training_plan_path properly')
+        self.assertEqual(training_plan_path, fake_training_plan_path,
+                         'Setter for training_plan_path did not set training_plan_path properly')
 
         # Test
         with patch.object(fedbiomed.researcher.experiment, 'sanitize_filepath') as m:
@@ -745,8 +733,9 @@ class TestExperiment(ResearcherTestCase):
         # Test when mode class is also set
         self.test_exp.set_training_plan_class('FakeModel')
         self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(self.test_exp._training_plan_is_defined, True, '_training_plan_is_defined returns False even training_plan and '
-                                                                'training_plan_path is fully configured')
+        self.assertEqual(self.test_exp._training_plan_is_defined, True,
+                         '_training_plan_is_defined returns False even training_plan and '
+                         'training_plan_path is fully configured')
         # Test if `._job` is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
@@ -754,7 +743,6 @@ class TestExperiment(ResearcherTestCase):
         # There will be one debug call. If model_is_defined is False there might be two calls.
         # Since _training_plan_is_defined has become True with previous test block there will be only one call
         self.mock_logger_debug.assert_called_once()
-
 
     def test_experiment_12_set_model_arguments(self):
         """ Testing setter for model arguments of Experiment """
@@ -820,16 +808,16 @@ class TestExperiment(ResearcherTestCase):
             'test_metric_args': {}
         }
         train_args = self.test_exp.set_training_args(expected_train_args, reset=True)
-        #self.assertDictEqual(train_args, expected_train_args)
+        # self.assertDictEqual(train_args, expected_train_args)
 
         # cannot be checked ye with TrainingArgs
         # the validation_hook will be difficult to write, since
         # it may depend on the order of the keys
         # Raises error - can not set test metric argument without setting metric
-        #expected_train_args = {
+        # expected_train_args = {
         #    'test_metric_args': {}
-        #}
-        #with self.assertRaises(SystemExit):
+        # }
+        # with self.assertRaises(SystemExit):
         #    self.test_exp.set_training_args(expected_train_args, reset=False)
 
         # Raises error since test_metric_args is not of type dict
@@ -878,19 +866,18 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_test_ratio(ratio_3_1)
 
         # check good interval values
-        ratio_in  = 0.0
+        ratio_in = 0.0
         ratio_out = self.test_exp.set_test_ratio(ratio_in)
         self.assertEqual(ratio_in, ratio_out)
 
-        ratio_in  = 1.0
+        ratio_in = 1.0
         ratio_out = self.test_exp.set_test_ratio(ratio_in)
         self.assertEqual(ratio_in, ratio_out)
 
         # check bad values
-        for ratio in ( -1.0, -0.001, 1.0001, 2.0):
+        for ratio in (-1.0, -0.001, 1.0001, 2.0):
             with self.assertRaises(SystemExit):
                 self.test_exp.set_test_ratio(ratio)
-
 
     @patch('fedbiomed.researcher.job.Job')
     @patch('fedbiomed.researcher.job.Job.__init__')
@@ -920,11 +907,9 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_metric('ABBURACY')
 
-
         # case 4: Update jobs training arguments
         self.test_exp.set_job()
         self.test_exp.set_test_metric('ACCURACY')
-
 
     def test_experiment_17_set_test_on_global_updates(self):
 
@@ -937,7 +922,6 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_on_global_updates('NotBool')
 
-
     def test_experiment_18_set_test_on_local_updates(self):
 
         # Set job
@@ -947,7 +931,6 @@ class TestExperiment(ResearcherTestCase):
         # Test wrong type
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_on_local_updates('NotBool')
-
 
     @patch('fedbiomed.researcher.job.Job')
     @patch('fedbiomed.researcher.job.Job.__init__')
@@ -997,96 +980,21 @@ class TestExperiment(ResearcherTestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    @patch('fedbiomed.researcher.experiment.Job')
-    @patch('fedbiomed.researcher.experiment.SecaggServkeyContext')
-    @patch('fedbiomed.researcher.experiment.SecaggBiprimeContext')
-    def test_experiment_21_set_use_secagg(
-        self,
-        mock_secaggbiprimecontext,
-        mock_secaggservkeycontext,
-        mock_job,
-    ):
+    def test_experiment_21_set_secagg(self):
         """ Test setter for use_secagg attr of experiment class """
 
         # Test invalid type of arguments
-        use_secaggs = [ None, 3, 'toto', [True], {False} ]
-        timeouts = [ None, 'titi', [2.4], {3.5}]
-        for u in use_secaggs:
-            for t in timeouts:
-                with self.assertRaises(SystemExit):
-                    self.test_exp.set_use_secagg(use_secagg=u)
-                with self.assertRaises(SystemExit):
-                    self.test_exp.set_use_secagg(timeout=t)
+        self.test_exp.set_secagg(True)
+        self.assertTrue(self.test_exp.secagg.active)
 
-        # Test valid arguments + succeeds setting secagg context
-        tags_cases = [
-            None,
-            ['tag1', 'tag2'],
-        ]
-        parties = ['party1', 'party2', 'party3', 'party4']
-        job_id = 'my_test_job_id'
+        self.test_exp.set_secagg(False)
+        self.assertFalse(self.test_exp.secagg.active)
 
-        class FakeJob:
-            def __init__(self):
-                self.id = job_id
+        self.test_exp.set_secagg(SecureAggregation(active=True))
+        self.assertTrue(self.test_exp.secagg.active)
 
-        for tags in tags_cases:
-            exp = Experiment(tags=tags)
-            mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
-            mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
-            mock_job.return_value = FakeJob()
-            # we should not set directly exp._job (internal to exp) for unit tests
-            # but ...
-            exp._job = mock_job
-
-            use_false = exp.set_use_secagg(False)
-            context_false_servkey, context_false_biprime = exp.secagg_context()
-            use_true = exp.set_use_secagg(True)
-            context_true_servkey, context_true_biprime = exp.secagg_context()
-
-            self.assertFalse(use_false)
-            self.assertEqual(context_false_servkey, None)
-            self.assertEqual(context_false_biprime, None)
-            self.assertTrue(use_true)
-            self.assertEqual(context_true_servkey.cont, FAKE_CONTEXT_VALUE)
-            self.assertEqual(context_true_biprime.cont, FAKE_CONTEXT_VALUE)
-
-        # Test valid arguments + fails setting secagg context
-        tags_cases = [
-            None,
-            ['tag1', 'tag2'],
-        ]
-        parties = ['party1', 'party2', 'party3', 'party4']
-        job_id = 'my_test_job_id'
-        setup_results = [
-            [True, False],
-            [False, True],
-            [False, False]
-        ]
-
-        for tags in tags_cases:
-            for result in setup_results:
-                exp = Experiment(tags=tags)
-                mock_secaggservkeycontext.return_value = FakeSecaggServkeyContext(parties, job_id)
-                mock_secaggbiprimecontext.return_value = FakeSecaggBiprimeContext(parties)
-                mock_secaggservkeycontext.return_value.set_setup_success(result[0])
-                mock_secaggbiprimecontext.return_value.set_setup_success(result[1])
-                mock_job.return_value = FakeJob()
-                # we should not set directly exp._job (internal to exp) for unit tests
-                # but ...
-                exp._job = mock_job
-
-                use_false = exp.set_use_secagg(False)
-                context_false_servkey, context_false_biprime = exp.secagg_context()
-                use_true = exp.set_use_secagg(True)
-                context_true_servkey, context_true_biprime = exp.secagg_context()
-
-                self.assertFalse(use_false)
-                self.assertEqual(context_false_servkey, None)
-                self.assertEqual(context_false_biprime, None)
-                self.assertFalse(use_true)
-                self.assertTrue(context_true_servkey.cont is None or context_true_biprime.cont is None)
-
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_secagg("non-valid-type")
 
 
     def test_experiment_22_set_tensorboard(self):
@@ -1103,7 +1011,6 @@ class TestExperiment(ResearcherTestCase):
         # test valid type of argument
         sb = self.test_exp.set_tensorboard(False)
         self.assertFalse(sb, 'tensorboard has not been set correctly')
-
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
@@ -1131,7 +1038,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10,  {'node-1': [1234], 'node-2': [1234]})
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
@@ -1160,7 +1067,7 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_job()
         # Set strategy again (it was removed)
         self.test_exp.set_strategy(None)
-        
+
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
         mock_job_training.assert_called_once()
@@ -1207,7 +1114,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(mock_job_training.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
-    
+
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
@@ -1216,7 +1123,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')  
+    @patch('fedbiomed.researcher.job.Job.__init__')
     def test_experiment_23_run_once_with_scaffold_and_training_args(self,
                                                                     mock_job_init,
                                                                     mock_job_updates_params,
@@ -1260,7 +1167,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')  
+    @patch('fedbiomed.researcher.job.Job.__init__')
     def test_experiment_24_strategy(self,
                                     mock_job_init,
                                     mock_job_updates_params,
@@ -1270,34 +1177,35 @@ class TestExperiment(ResearcherTestCase):
                                     mock_fedavg_aggregate):
         """test_experiment_24_strategy: testing several case where strategy may fail"""
         # FIXME: this is more of an integration test than a unit test
-        
+
         # set up:
         model_param = [1, 2, 3]
         num_updates = 1000
         node_ids = ['node-1', 'node-2']
         node_sample_size = [10, 20]  # size of samples parsedby each node
-        
+
         assert len(node_ids) == len(node_sample_size), "wrong setup for test: node_ids and node_sample_size should be" \
-            "of the same size"
-        
+                                                       "of the same size"
+
         training_plan = MagicMock()
         training_plan.type = MagicMock()
         # mocking job 
         mock_job_init.return_value = None
         mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
-            Responses( [{ 'success': True,
-                         'msg': "this is a sucessful training",
-                             'dataset_id': 'dataset-id-123abc',
-                             'node_id': node_id,
-                             'params_path': '/path/to/my/file',
-                             'params': model_param,
-                             'sample_size': sample_size
-                             } for node_id, sample_size in zip(node_ids, node_sample_size)
-                        ])}
+        mock_job_training_replies.return_value = {self.test_exp.round_current():
+                                                      Responses([{'success': True,
+                                                                  'msg': "this is a sucessful training",
+                                                                  'dataset_id': 'dataset-id-123abc',
+                                                                  'node_id': node_id,
+                                                                  'params_path': '/path/to/my/file',
+                                                                  'params': model_param,
+                                                                  'sample_size': sample_size
+                                                                  } for node_id, sample_size in
+                                                                 zip(node_ids, node_sample_size)
+                                                                 ])}
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
-        
+
         # mocking aggregator
         mock_fedavg_aggregate.return_value = None
 
@@ -1310,49 +1218,46 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_job()
         # Set strategy
         self.test_exp.set_strategy(DefaultStrategy(data=FederatedDataSet({
-                                                    'node-1': [{'dataset_id': 'dataset-id-1',
-                                                                'shape': [100, 100]}],
-                                                    'node-2': [{'dataset_id': 'dataset-id-2',
-                                                                'shape': [120, 120], 
-                                                                'test_ratio': .0}],
-                                                })))
+            'node-1': [{'dataset_id': 'dataset-id-1',
+                        'shape': [100, 100]}],
+            'node-2': [{'dataset_id': 'dataset-id-2',
+                        'shape': [120, 120],
+                        'test_ratio': .0}],
+        })))
         # set training_args
         self.test_exp.set_training_args({'num_updates': num_updates})
         self.test_exp.set_aggregator(FedAverage())
         # removing breakpoints (otherwise test will fail)
         self.test_exp.set_save_breakpoints(False)
         result = self.test_exp.run_once()
-        
-        weigths = {node_id: sample_size/sum(node_sample_size) for node_id, sample_size in zip(node_ids,
-                                                                                              node_sample_size)}
+
+        weigths = {node_id: sample_size / sum(node_sample_size) for node_id, sample_size in zip(node_ids,
+                                                                                                node_sample_size)}
         model_params = {node_id: model_param for node_id in node_ids}
         mock_fedavg_aggregate.assert_called_with(model_params, weigths,
                                                  global_model=unittest.mock.ANY,
-                                                 total_sample_size=30,
                                                  training_plan=unittest.mock.ANY,
                                                  training_replies=mock_job_training_replies(),
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
-                                                 n_round=0,
-                                                 secure_aggregation=False,
-                                                 secagg_random=unittest.mock.ANY,
-                                                 encryption_factors={'node-1': None, 'node-2': None}
+                                                 n_round=0
                                                  )
-        
+
         # repeat experiment but with a wrong sample_size
-        
+
         node_sample_size = [10, None]
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 
-            Responses( [{ 'success': True,
-                         'msg': "this is a sucessful training",
-                             'dataset_id': 'dataset-id-123abc',
-                             'node_id': node_id,
-                             'params_path': '/path/to/my/file',
-                             'params': model_param,
-                             'sample_size': sample_size
-                             } for node_id, sample_size in zip(node_ids, node_sample_size)
-                        ])}
-        
+        mock_job_training_replies.return_value = {self.test_exp.round_current():
+                                                      Responses([{'success': True,
+                                                                  'msg': "this is a sucessful training",
+                                                                  'dataset_id': 'dataset-id-123abc',
+                                                                  'node_id': node_id,
+                                                                  'params_path': '/path/to/my/file',
+                                                                  'params': model_param,
+                                                                  'sample_size': sample_size
+                                                                  } for node_id, sample_size in
+                                                                 zip(node_ids, node_sample_size)
+                                                                 ])}
+
         with self.assertRaises(SystemExit):
             # should raise a FedbiomedStrategyError, describing the error
             self.test_exp.run_once()
@@ -1447,8 +1352,8 @@ class TestExperiment(ResearcherTestCase):
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
     def test_experiment_25_training_plan_file(self,
-                                      mock_training_plan_file,
-                                      mock_open):
+                                              mock_training_plan_file,
+                                              mock_open):
         """ Testing getter training_plan_file of the experiment class """
 
         m_open = MagicMock()
@@ -1488,8 +1393,8 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.check_training_plan_is_approved_by_nodes')
     def test_experiment_26_check_training_plan_status(self,
-                                              mock_job_model_is_approved,
-                                              mock_job):
+                                                      mock_job_model_is_approved,
+                                                      mock_job):
         """Testing method that checks model status """
 
         # Test error if ._job is not defined
@@ -1502,7 +1407,8 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         self.test_exp.set_job()
         result = self.test_exp.check_training_plan_status()
-        self.assertDictEqual(result, expected_approved_result, 'check_training_plan_status did not return expected value')
+        self.assertDictEqual(result, expected_approved_result,
+                             'check_training_plan_status did not return expected value')
 
     def test_experiment_27_breakpoint_raises(self):
         """ Testing the scenarios where the method breakpoint() raises error """
@@ -1532,7 +1438,6 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.breakpoint()
 
-
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
@@ -1555,7 +1460,7 @@ class TestExperiment(ResearcherTestCase):
         training_data = {'node1': [{'name': 'dataset1', 'test_ratio': .0}],
                          'node2': [{'name': 'dataset2', 'test_ratio': .0}]}
         # we want to test with non null values
-        training_args = TrainingArgs( only_required = False )
+        training_args = TrainingArgs(only_required=False)
         self.test_exp._training_args = training_args
         model_args = {'modelarg1': 'value1', 'modelarg2': 234, 'modelarg3': False}
         self.test_exp._model_args = model_args
@@ -1565,18 +1470,6 @@ class TestExperiment(ResearcherTestCase):
         aggregator_state = {'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True}
         strategy_state = {'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45}
         job_state = {'jobparam1': {'sub1': 1, 'sub2': 'two'}, 'jobparam2': 'myjob_value'}
-        use_secagg = [
-            False,
-            True
-        ]
-        secagg_servkey_context = [
-            None,
-            {'param1': 'val1', 'param2': 34}
-        ]
-        secagg_biprime_context = [
-            None,
-            {'biprime1': False, 'biprime2': 'myval'}
-        ]
 
         # aggregated_params
         agg_params = {
@@ -1585,7 +1478,6 @@ class TestExperiment(ResearcherTestCase):
         }
         self.test_exp._aggregated_params = agg_params
 
-
         # patch choose_bkpt_file create_unique_{file_}link  with minimal functions
         def side_bkpt_file(exp_folder, round):
             # save directly in experiment folder to avoid creating additional dirs
@@ -1593,12 +1485,10 @@ class TestExperiment(ResearcherTestCase):
 
         patch_choose_bkpt_file.side_effect = side_bkpt_file
 
-
         def side_create_ul(bkpt_folder_path, link_src_prefix, link_src_postfix, link_target_path):
             return os.path.join(bkpt_folder_path, link_src_prefix + link_src_postfix)
 
         patch_create_ul.side_effect = side_create_ul
-
 
         def side_create_ufl(bkpt_folder_path, file_path):
             return os.path.join(bkpt_folder_path, os.path.basename(file_path))
@@ -1620,27 +1510,6 @@ class TestExperiment(ResearcherTestCase):
 
         self.test_exp._node_selection_strategy = Strategy()
 
-        class SecaggContext():
-            pass
-
-        class SecaggServkeyContext(SecaggContext):
-            def save_state(self):
-                return secagg_servkey_context[1]
-
-        secagg_servkey = [
-            None,
-            SecaggServkeyContext()
-        ]
-
-        class SecaggBiprimeContext(SecaggContext):
-            def save_state(self):
-                return secagg_biprime_context[1]
-
-        secagg_biprime = [
-            None,
-            SecaggBiprimeContext()
-        ]
-
         # use the mocked FederatedDataSet
         self.test_exp._fds = FederatedDataSet(training_data)
 
@@ -1651,9 +1520,10 @@ class TestExperiment(ResearcherTestCase):
         class DummyJob():
             def __init__(self):
                 self._training_plan = None
+
             def save_state(self, breakpoint_path):
                 return job_state
-            
+
             @property
             def training_plan(self):
                 return self._training_plan
@@ -1664,49 +1534,41 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._job.training_plan_name = training_plan_class
 
 
-        for secagg_i in range(2):
-            self.test_exp._use_secagg = use_secagg[secagg_i]
-            self.test_exp._secagg_servkey = secagg_servkey[secagg_i]
-            self.test_exp._secagg_biprime = secagg_biprime[secagg_i]
 
-            # action
-            patcher_secagg_context = patch('fedbiomed.researcher.experiment.SecaggContext', SecaggContext)
-            patcher_secagg_context.start()
-            self.test_exp.breakpoint()
-            patcher_secagg_context.start()
+        self.test_exp.breakpoint()
 
-            # verification
-            final_training_plan_path = os.path.join(
-                self.experimentation_folder_path,
-                'model_' + str("{:04d}".format(round_current - 1)) + '.py')
-            final_agg_params = {
-                'entry1': {
-                    'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
-                },
-                'entry2': {
-                    'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
-                }
+
+        # verification
+        final_training_plan_path = os.path.join(
+            self.experimentation_folder_path,
+            'model_' + str("{:04d}".format(round_current - 1)) + '.py')
+        final_agg_params = {
+            'entry1': {
+                'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
+            },
+            'entry2': {
+                'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
             }
-            # better : catch exception if cannot read file or not json
-            with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
-                final_state = json.load(f)
+        }
+        # better : catch exception if cannot read file or not json
+        with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
+            final_state = json.load(f)
 
-            self.assertEqual(final_state['training_data'], training_data)
-            self.assertEqual(final_state['training_args'], training_args.dict())
-            self.assertEqual(final_state['model_args'], model_args)
-            self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
-            self.assertEqual(final_state['training_plan_class'], training_plan_class)
-            self.assertEqual(final_state['round_current'], round_current)
-            self.assertEqual(final_state['round_limit'], self.round_limit)
-            self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
-            self.assertEqual(final_state['aggregator'], aggregator_state)
-            self.assertEqual(final_state['node_selection_strategy'], strategy_state)
-            self.assertEqual(final_state['tags'], self.tags)
-            self.assertEqual(final_state['aggregated_params'], final_agg_params)
-            self.assertEqual(final_state['job'], job_state)
-            self.assertEqual(final_state['use_secagg'], use_secagg[secagg_i])
-            self.assertEqual(final_state['secagg_servkey'], secagg_servkey_context[secagg_i])
-            self.assertEqual(final_state['secagg_biprime'], secagg_biprime_context[secagg_i])
+        self.assertEqual(final_state['training_data'], training_data)
+        self.assertEqual(final_state['training_args'], training_args.dict())
+        self.assertEqual(final_state['model_args'], model_args)
+        self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
+        self.assertEqual(final_state['training_plan_class'], training_plan_class)
+        self.assertEqual(final_state['round_current'], round_current)
+        self.assertEqual(final_state['round_limit'], self.round_limit)
+        self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
+        self.assertEqual(final_state['aggregator'], aggregator_state)
+        self.assertEqual(final_state['node_selection_strategy'], strategy_state)
+        self.assertEqual(final_state['tags'], self.tags)
+        self.assertEqual(final_state['aggregated_params'], final_agg_params)
+        self.assertEqual(final_state['job'], job_state)
+        self.assertEqual(final_state['secagg']["class"], 'SecureAggregation')
+        self.assertEqual(final_state['secagg']["module"], 'fedbiomed.researcher.secure_aggregation')
 
         # Test errors while writing brkp json file
         with patch.object(fedbiomed.researcher.experiment, 'open') as m:
@@ -1727,16 +1589,13 @@ class TestExperiment(ResearcherTestCase):
             with self.assertRaises(SystemExit):
                 self.test_exp.breakpoint()
 
-
     @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
-    #@patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
     def test_experiment_29_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
-                                                  #patch_create_object,
                                                   patch_training_plan
                                                   ):
         """ test `load_breakpoint` :
@@ -1748,36 +1607,64 @@ class TestExperiment(ResearcherTestCase):
         bkpt_file = 'file_4_breakpoint'
 
         training_data = {'train_node1': {'name': 'my_first_dataset', 2: 243}}
-        training_args = TrainingArgs( only_required = False )
+        training_args = TrainingArgs(only_required=False)
         model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
         training_plan_path = '/path/to/breakpoint_training_plan_file.py'
         training_plan_class = 'ThisIsTheTrainingPlan'
         round_current = 1
         experimentation_folder = 'My_experiment_folder_258'
         aggregator_params = {'aggregator_name': 'dummy-aggregator',
-                      'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
+                             'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
         strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
         aggregated_params = {
             '1': {'params_path': '/path/to/my/params_path_1.pt'},
             2: {'params_path': '/path/to/my/params_path_2.pt'}
         }
         job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
-        use_secagg = True
-        secagg_servkey = {'secagg_id': '1234',
-                          'researcher_id': '1234',
-                          'status': True, 
-                          'context': None,
-                          'servkey1': 'A VALUE', 2: 247, 'parties': ['one', 'two'],
-                          'job_id': 'A JOB1 ID',
-                          'class': 'FakeSecaggServkeyContext',
-                          'module': self.__module__}
-        secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
-                          'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
-
+        secagg_state = {
+            'class': "SecureAggregation",
+            'module': 'fedbiomed.researcher.secure_aggregation',
+            'attributes': {
+                '_servkey': {
+                    'class': 'SecaggServkeyContext',
+                    'module': 'fedbiomed.researcher.secagg',
+                    'arguments': {
+                        'secagg_id': 'secagg_id_1',
+                        'parties': [environ["ID"], 'node-1', 'node-2'],
+                        'job_id': 'A JOB2 ID'},
+                    "attributes": {
+                        'biprime1': 'ANOTHER VALUE',
+                        '_status': True,
+                        '_context': {'z': 'y'},
+                        '_researcher_id': 'A researhcer_id',
+                    }
+                },
+                '_biprime': {
+                    'class': 'SecaggBiprimeContext',
+                    'module': 'fedbiomed.researcher.secagg',
+                    'arguments': {
+                        'secagg_id': 'secagg_id_1',
+                        'parties': [environ["ID"], 'node-1', 'node-2'],
+                        'job_id': 'A JOB2 ID'},
+                    "attributes": {
+                        'biprime1': 'ANOTHER VALUE',
+                        '_status': True,
+                        '_context': {'z': 'y'},
+                        '_researcher_id': 'A researhcer_id',
+                    }
+                },
+                'parties': ['node-1', 'node-2']
+            },
+            'arguments': {
+                'active': True,
+                'experiment_id': 'xxxx',
+                'timeout': 10
+            }
+        }
 
         fake_aggregator = FakeAggregator()
         fake_aggregator._aggregator_args = aggregator_params
-        
+
         fake_strategy = FakeStrategy(data=training_args)
         fake_strategy._parameters = strategy_params
         # breakpoint structure
@@ -1791,22 +1678,20 @@ class TestExperiment(ResearcherTestCase):
             'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
             'aggregator': {
-                            "class": 'FakeAggregator',
-                            "module": self.__module__,
-                            "parameters": aggregator_params
-                        },
+                "class": 'FakeAggregator',
+                "module": self.__module__,
+                "parameters": aggregator_params
+            },
             'node_selection_strategy': {
-                            "class": 'FakeStrategy',
-                            "module": self.__module__,
-                            "parameters": strategy_params,
-                            "fds": training_data
-                        },
+                "class": 'FakeStrategy',
+                "module": self.__module__,
+                "parameters": strategy_params,
+                "fds": training_data
+            },
             'tags': self.tags,
             'aggregated_params': aggregated_params,
             'job': job,
-            'use_secagg': use_secagg,
-            'secagg_servkey': secagg_servkey,
-            'secagg_biprime': secagg_biprime,
+            'secagg': secagg_state,
         }
         # create breakpoint file
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "w") as f:
@@ -1829,24 +1714,13 @@ class TestExperiment(ResearcherTestCase):
         final_tags = self.tags
         final_experimentation_folder = experimentation_folder
         final_training_data = {'train_node1': {'name': 'my_first_dataset',
-                                                '2': 243}}
+                                               '2': 243}}
 
         final_training_args = TrainingArgs(only_required=False)
         final_aggregator = {'aggregator_name': 'dummy-aggregator',
                             'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
-        final_use_secagg = True
-        final_secagg_servkey = {'servkey1': 'A VALUE', '2': 247, 'parties': ['one', 'two'], 'job_id': 'A JOB1 ID',
-                                }
-        final_secagg_biprime = {'biprime1': 'ANOTHER VALUE', 'bip': 'rhyme', 'parties': ['three', 'four'], 'job_id': 'A JOB2 ID',
-                                'class': 'FakeSecaggBiprimeContext', 'module': self.__module__}
-
-        
-        # def side_create_object(args, **kwargs):
-        #     return args
-
-        # patch_create_object.side_effect = side_create_object
 
         class FakeModelInstance:
             def load(self, aggreg, update_model):
@@ -1893,7 +1767,6 @@ class TestExperiment(ResearcherTestCase):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
 
         # Test when everything is OK
-
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
         for p in patches_experiment:
@@ -1918,9 +1791,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(loaded_exp._aggregated_params, final_aggregated_params)
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
-        self.assertEqual(loaded_exp._use_secagg, final_use_secagg)
-        self.assertEqual(loaded_exp._secagg_servkey.parties, final_secagg_servkey['parties'])
-        self.assertEqual(loaded_exp._secagg_biprime.parties, final_secagg_biprime['parties'])
+        self.assertTrue(loaded_exp.secagg.active)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     def test_experiment_30_static_save_aggregated_params(self,
@@ -1953,7 +1824,6 @@ class TestExperiment(ResearcherTestCase):
         agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
-
     def test_experiment_31_static_load_aggregated_params(self):
         """ Testing static method for loading aggregated params of Experiment"""
 
@@ -1985,7 +1855,6 @@ class TestExperiment(ResearcherTestCase):
                     1: {'params_path': '/test/path/', 'params': False}}
         result = Experiment._load_aggregated_params(agg_params, load_func)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
-
 
     def test_experiment_32_private_create_object(self):
         """tests `_create_object_ method :
@@ -2091,7 +1960,6 @@ class TestExperiment(ResearcherTestCase):
 
         # clean after tests
         del test_class
-
 
 
 if __name__ == '__main__':  # pragma: no cover
