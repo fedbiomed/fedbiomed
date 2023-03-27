@@ -3,12 +3,13 @@
 
 """MsgPack serialization utils, wrapped into a namespace class."""
 
-import warnings
 from typing import Any
 
 import msgpack
 import numpy as np
 import torch
+
+from fedbiomed.common.logger import logger
 
 
 __all__ = [
@@ -122,8 +123,7 @@ class Serializer:
             data, dtype, shape = obj["value"]
             array = np.frombuffer(data, dtype=dtype).reshape(shape).copy()
             return torch.from_numpy(array)
-        warnings.warn(
-            "Encountered an object that cannot be properly deserialized.",
-            category=RuntimeWarning,
+        logger.warning(
+            "Encountered an object that cannot be properly deserialized."
         )
         return obj

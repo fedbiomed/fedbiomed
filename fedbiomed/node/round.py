@@ -310,7 +310,7 @@ class Round:
 
             try:
                 # TODO: add validation status to these results?
-                # Dump the results to a JSON file.
+                # Dump the results to a msgpack file.
                 filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.mpk")
                 Serializer.dump(results, filename)
                 # Upload that file to the remote repository.

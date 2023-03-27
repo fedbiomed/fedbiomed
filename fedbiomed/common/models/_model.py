@@ -15,12 +15,12 @@ from fedbiomed.common.logger import logger
 
 # Generic type variables for annotations: specify types that are abstract
 # at this level, but have to be coherent when defined by children classes.
-MT = TypeVar("MT")  # model type
-DT = TypeVar("DT")  # data array type
-VT = TypeVar("VT", bound=Vector)  # declearn vector type
+_MT = TypeVar("_MT")  # model type
+_DT = TypeVar("_DT")  # data array type
+_VT = TypeVar("_VT", bound=Vector)  # declearn vector type
 
 
-class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
+class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
@@ -31,7 +31,7 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[Any]]
 
-    def __init__(self, model: MT):
+    def __init__(self, model: _MT):
         """Constructor of Model abstract class
 
         Args:
@@ -88,7 +88,7 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, DT], VT]:
+    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, _DT], _VT]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -100,7 +100,7 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def set_weights(self, weights: Union[Dict[str, DT], VT]) -> None:
+    def set_weights(self, weights: Union[Dict[str, _DT], _VT]) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
@@ -109,7 +109,7 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], VT]:
+    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], _VT]:
         """Return computed gradients attached to the model.
 
         Args:
@@ -146,6 +146,9 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
             file, that might not be in a trustworthy format. It should
             therefore only be used to re-load data exported locally and
             not received from someone else, including other FL peers.
+
+        Raises:
+            FedbiomedModelError: if the reloaded instance is of unproper type.
         """
         model = self._reload(filename)
         if not isinstance(model, self._model_type):
@@ -158,7 +161,7 @@ class Model(Generic[MT, DT, VT], metaclass=ABCMeta):
         self.model = model
 
     @abstractmethod
-    def _reload(self, filename: str) -> MT:
+    def _reload(self, filename: str) -> _MT:
         """Model-class-specific backend to the `reload` method.
 
         Args:

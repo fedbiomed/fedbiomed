@@ -3,7 +3,6 @@
 
 """TrainingPlan definition for the pytorch deep learning framework."""
 
-import pickle
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
 

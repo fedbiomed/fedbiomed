@@ -492,11 +492,17 @@ class Job:
             filename: path to the local parameters file
             url: url at which the file was uploaded
 
+        Raises:
+            ValueError: if both `params` and `filename` are provoided: these parameters are mutually-exclusive.
+
         !!! info "Notes":
             * The path to the created and/or uploaded file is stored under the `_model_params_file` attribute,
               that is updated by this method.
             * The url of the uploaded file is stored under the `_repository_args["params_url"]` attribute,
               that is also updated by this method.
+
+        !!! warning "Warning":
+            * The `params` and `filename` parameters are mutually-exclusive.
         """
         try:
             if params and filename:
@@ -770,8 +776,6 @@ class localJob:
         # Run import statements (very unsafely).
         for i in self._training_plan._dependencies:
             exec(i, globals())
-
-        error = ""
 
         # Run the training routine.
         try:

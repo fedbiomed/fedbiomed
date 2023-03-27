@@ -4,7 +4,7 @@ import shutil
 import unittest
 import uuid
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import numpy as np
 import torch
@@ -21,6 +21,7 @@ from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
@@ -86,11 +87,7 @@ class TestJob(ResearcherTestCase):
         self.mock_atexit = self.patcher5.start()
 
         # Globally create mock for Model and FederatedDataset
-        self.model = MagicMock(return_value=None)
-        self.model.save = MagicMock(return_value=None)
-        self.model.save_code = MagicMock(return_value=None)
-        self.model.load = MagicMock(return_value={'model_params': True,
-                                                  'optimizer_args': True})
+        self.model = create_autospec(BaseTrainingPlan, instance=False)
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
@@ -225,7 +222,7 @@ class TestJob(ResearcherTestCase):
         mock_logger_error.reset_mock()
 
         # Test TRY/EXCEPT when model.save() raises Exception
-        self.model.save.side_effect = Exception
+        self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds)
@@ -237,7 +234,7 @@ class TestJob(ResearcherTestCase):
         """
         self.assertEqual(self.model, self.job.training_plan,
                          'Can not get Requests attribute from Job properly')
-        self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
+        self.assertEqual('BaseTrainingPlan', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
         model_file = self.job.training_plan_file
@@ -421,16 +418,18 @@ class TestJob(ResearcherTestCase):
         _ = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1', 'node-2'])
+        self.assertEqual(serialize_load_patch.call_count, 2)
 
         # Test - 2 When one of the nodes returns error
         mock_requests_send_message.reset_mock()
+        serialize_load_patch.reset_mock()
         responses = FakeResponses([response_1, response_3])
         mock_requests_get_responses.return_value = responses
         nodes = self.job.start_nodes_training_round(2, aggregator_args_thr_msg=aggregator_args,
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
-        self.assertEqual(serialize_load_patch.call_count, 3)
+        self.assertEqual(serialize_load_patch.call_count, 1)  # resp_3 has no params
 
         # Test - 2 When one of the nodes returns error without extra_msg and
         # check node-2 is removed since it returned error in the previous test call
@@ -445,7 +444,7 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(serialize_load_patch.call_count, 1)
 
     def test_job_12_update_parameters_with_invalid_arguments(self):
-        """ Testing update_parameters method with all available arguments"""
+        """ Testing update_parameters method with invalid arguments.s"""
 
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
@@ -457,17 +456,20 @@ class TestJob(ResearcherTestCase):
 
     def test_job_13_update_parameters_with_passing_params_only(self):
         """ Testing update_parameters by passing only params """
-
-        # Reset model.save mock
-        self.model.save.reset_mock()
-
         params = {'params': [1, 2, 3, 4]}
         # Test without passing filename
-        with patch.object(self.job.training_plan, "get_model_params") as patch_get:
+        with (
+            patch("fedbiomed.common.serializer.Serializer.dump") as patch_dump,
+            patch.object(self.job.training_plan, "get_model_params") as patch_get
+        ):
             patch_get.return_value = params
             result = self.job.update_parameters(params=params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
         self.model.get_model_params.assert_called_once()
+        patch_dump.assert_called_with(
+            {"researcher_id": self.job._researcher_id, "model_weights": params},
+            self.job._model_params_file,
+        )
 
     def test_job_14_update_parameters_assert(self):
         """ Testing assertion of update_parameters by not providing any arguments """
