@@ -327,13 +327,13 @@ class FedPerceptron(FedSGDClassifier):
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
-        # get default values of Perceptron model (different from Perceptron default values)
+        # get default values of Perceptron model (different from SGDClassifier model default values)
         perceptron_default_values = Perceptron().get_params()
         sgd_classifier_default_values = SGDClassifier().get_params()
-        
+
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
-        
+
         # collect default values of Perceptron and set it to the model FedPerceptron
         model_hyperparameters = self._model.get_params()
         for hyperparameter_name, val in perceptron_default_values.items():
