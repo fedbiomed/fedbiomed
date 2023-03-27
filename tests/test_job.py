@@ -445,19 +445,19 @@ class TestJob(ResearcherTestCase):
 
     def test_job_12_update_parameters_with_invalid_arguments(self):
         """ Testing update_parameters method with invalid arguments.s"""
-
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
         params = {'params': [1, 2, 3, 4]}
-
         # Test by passing both params and filename: raises.
         with self.assertRaises(SystemExit):
             self.job.update_parameters(params=params, filename='dummy/file/name/')
+        # Test without passing parameters should raise ValueError
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters()
 
-    def test_job_13_update_parameters_with_passing_params_only(self):
-        """ Testing update_parameters by passing only params """
+    def test_job_13_update_parameters_from_params(self):
+        """Testing update_parameters when passing 'params'."""
         params = {'params': [1, 2, 3, 4]}
-        # Test without passing filename
         with (
             patch("fedbiomed.common.serializer.Serializer.dump") as patch_dump,
             patch.object(self.job.training_plan, "get_model_params") as patch_get
@@ -471,12 +471,17 @@ class TestJob(ResearcherTestCase):
             self.job._model_params_file,
         )
 
-    def test_job_14_update_parameters_assert(self):
-        """ Testing assertion of update_parameters by not providing any arguments """
-
-        # Test without passing parameters should raise ValueError
-        with self.assertRaises(SystemExit):
-            self.job.update_parameters()
+    def test_job_14_update_parameters_from_file(self):
+        """Testing update_parameters when passing 'filename'."""
+        params = {"params": [1, 2, 3, 4]}
+        with (
+            patch("fedbiomed.common.serializer.Serializer.load") as patch_load
+        ):
+            patch_load.return_value = {"researcher_id": 1234, "model_weights": params}
+            result = self.job.update_parameters(filename="mock_path")
+        patch_load.assert_called_with("mock_path")
+        self.model.set_model_params.assert_called_once_with(params)
+        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job_15_check_dataset_quality(self, mock_logger_error):
