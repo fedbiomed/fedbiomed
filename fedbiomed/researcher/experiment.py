@@ -1516,15 +1516,12 @@ class Experiment:
         if self._secagg.active:
             self._secagg.configure_round(
                 parties=[environ["ID"]] + self._job.nodes,
-                experiment_id=self._job.id
-            )
+                experiment_id=self._job.id)
             self._secagg.setup()
-            secagg_arguments = {
-                                 'secagg_servkey_id': self._secagg.secagg_servkey_id(),
-                                 'secagg_biprime_id': self._secagg.secagg_biprime_id(),
-                                 'secagg_random': self._secagg.secagg_random(),
-                                 'secagg_clipping_range': self._secagg.clipping_range
-                             }
+            secagg_arguments = {'secagg_servkey_id': self._secagg.secagg_servkey_id(),
+                                'secagg_biprime_id': self._secagg.secagg_biprime_id(),
+                                'secagg_random': self._secagg.secagg_random(),
+                                'secagg_clipping_range': self._secagg.clipping_range}
         # --------------------------------------------------------------------------------------------------------
 
         # Check aggregator parameter(s) before starting a round
