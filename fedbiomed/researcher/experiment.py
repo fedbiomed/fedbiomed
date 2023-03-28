@@ -1512,12 +1512,19 @@ class Experiment:
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         # If secure aggregation is activated ---------------------------------------------------------------------
+        secagg_arguments = None
         if self._secagg.active:
             self._secagg.configure_round(
                 parties=[environ["ID"]] + self._job.nodes,
                 experiment_id=self._job.id
             )
             self._secagg.setup()
+            secagg_arguments = {
+                                 'secagg_servkey_id': self._secagg.secagg_servkey_id(),
+                                 'secagg_biprime_id': self._secagg.secagg_biprime_id(),
+                                 'secagg_random': self._secagg.secagg_random(),
+                                 'secagg_clipping_range': self._secagg.clipping_range
+                             }
         # --------------------------------------------------------------------------------------------------------
 
         # Check aggregator parameter(s) before starting a round
@@ -1529,17 +1536,11 @@ class Experiment:
                                                                                         self._job.nodes)
 
         # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round=self._round_current,
+        _ = self._job.start_nodes_training_round(round_=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_arguments={
-                                                     'secagg_servkey_id': self._secagg.secagg_servkey_id(),
-                                                     'secagg_biprime_id': self._secagg.secagg_biprime_id(),
-                                                     'secagg_random': self._secagg.secagg_random(),
-                                                     'secagg_clipping_range': self._secagg.clipping_range
-
-                                                 })
+                                                 secagg_arguments=secagg_arguments)
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
@@ -1554,8 +1555,9 @@ class Experiment:
                 total_sample_size=total_sample_size,
                 model_params=model_params
             )
+            # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union['torch.tensor', 'nd.ndarray']] = \
-                self._job.training_plan.model.unflatten(flatten_params)
+                self._job.training_plan._model.unflatten(flatten_params)
 
         else:
             # aggregate models from nodes to a global model

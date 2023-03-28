@@ -346,15 +346,15 @@ class Job:
         return args_thr_msg
 
     def start_nodes_training_round(self,
-                                   round: int,
+                                   round_: int,
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
-                                   secagg_arguments: Dict,
+                                   secagg_arguments: Union[Dict, None] = None,
                                    do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
-            round: current number of round the algorithm is performing (a round is considered to be all the
+            round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
             aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
                 strategy, useful to transfer some data when it's required by am aggregator. First key should be the
@@ -362,22 +362,24 @@ class Job:
             aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
                 via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
                 aggregator_args_thr_msg .
-            secagg_servkey_id: Secure aggregation ServerKey context id
-            secagg_biprime_id: Secure aggregation BiPrime context id
-            secagg_random: Random state to validate secure aggregation key correctness
+            secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
+
+        # Assign empty dict to secagg arguments if it is None
+        if secagg_arguments is None:
+            secagg_arguments = {}
 
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
                    'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
-                   'round': round,
-                   'secagg_servkey_id': secagg_arguments['secagg_servkey_id'],
-                   'secagg_biprime_id': secagg_arguments['secagg_biprime_id'],
-                   'secagg_random': secagg_arguments['secagg_random'],
-                   'secagg_clipping_range': secagg_arguments['secagg_clipping_range'],
+                   'round': round_,
+                   'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
+                   'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
+                   'secagg_random': secagg_arguments.get('secagg_random'),
+                   'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
                    'command': 'train',
                    'aggregator_args': {}}
 
@@ -412,8 +414,8 @@ class Job:
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round] = Responses([])
-        while self.waiting_for_nodes(self._training_replies[round]):
+        self._training_replies[round_] = Responses([])
+        while self.waiting_for_nodes(self._training_replies[round_]):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             # models_done = self._reqs.get_responses(look_for_commands=['train'])
@@ -480,7 +482,7 @@ class Job:
                                'encryption_factor': encryption_factor,
                                'timing': timing})
 
-                self._training_replies[round].append(r)
+                self._training_replies[round_].append(r)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
