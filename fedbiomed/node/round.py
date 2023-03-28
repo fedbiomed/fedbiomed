@@ -213,7 +213,7 @@ class Round:
             self._servkey = SKManager.get(secagg_id=secagg_servkey_id, job_id=self.job_id)
 
             if self._biprime is None:
-                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_servkey_id} "
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
                                           f"is not existing. Aborting train request.")
 
             if self._servkey is None:
@@ -403,7 +403,7 @@ class Round:
 
                 encrypt = functools.partial(
                     self._secagg_crypter.encrypt,
-                    num_nodes=len(self._servkey["context"]["parties"]),
+                    num_nodes=len(self._servkey["parties"])-1,  # -1: don't count researcher
                     current_round=self._round,
                     key=self._servkey["context"]["server_key"],
                     biprime=self._biprime["context"]["biprime"],
