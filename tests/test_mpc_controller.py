@@ -42,7 +42,7 @@ class TestMPCController(unittest.TestCase):
 
         with patch.object(fedbiomed.common.mpc_controller, "subprocess") as mock_process:
             mock_process.Popen.return_value.returncode = 0
-            mock_process.Popen.return_value.communicate.return_value = "Opps", False
+            mock_process.Popen.return_value.communicate.return_value = b"Opps", False
             status = self.mpc_controller._exec(["shamir-server-key"])
             self.assertTrue(status)
 
@@ -64,7 +64,7 @@ class TestMPCController(unittest.TestCase):
         # Test invalid num parties type
         with patch.object(fedbiomed.common.mpc_controller, "subprocess") as mock_process:
             mock_process.Popen.return_value.returncode = 0
-            mock_process.Popen.return_value.communicate.return_value = "Opps", True
+            mock_process.Popen.return_value.communicate.return_value = b"Opps", True
             result = self.mpc_controller.exec_shamir(party_number=0,
                                                      num_parties=3,
                                                      ip_addresses="dummy/path/to/files")
