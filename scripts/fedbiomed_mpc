@@ -228,11 +228,12 @@ function compile(){
     error "MPC script '$SCRIPT' is not supported or not existing."
   fi
 
-  echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
-  # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
-    error "Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts "
+    error "Unknown MPC program '$SCRIPT'. Please make sure MP_SPDZ is installed properly. Please run \n
+    \r 'fedbiomed_configure_secagg' to make sure and please run --help to see available MPC scripts "
   fi
+
+  echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
 
   # Retrieve long prime
   longprime=$(cat $basedir/MP-SPDZ/longprime)
