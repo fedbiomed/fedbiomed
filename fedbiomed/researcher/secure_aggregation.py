@@ -108,7 +108,7 @@ class SecureAggregation:
         Returns:
             Server-key context id
         """
-        return self._servkey.secagg_id if self._servkey is not None else None
+        return self._biprime.secagg_id if self._biprime is not None else None
 
     def secagg_servkey_id(self):
         """Gets secure aggregation Biprime element id from `SecaggBiprimeContext`
@@ -117,19 +117,25 @@ class SecureAggregation:
         Returns:
             Biprime context id
         """
-        return self._biprime.secagg_id if self._biprime is not None else None
+        return self._servkey.secagg_id if self._servkey is not None else None
 
-    def setup(self):
+    def setup(self, force: bool = False):
         """Setup secure aggregation instruments
 
         Returns:
             Status of setup
         """
 
-        if not self._biprime.status:
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: server key or biprime contexts are not configured. Please run  "
+                f"`configure_round` first."
+            )
+
+        if not self._biprime.status or force:
             self._biprime.setup(timeout=self.timeout)
 
-        if not self._servkey.status:
+        if not self._servkey.status or force:
             self._servkey.setup(timeout=self.timeout)
 
         return True
@@ -182,7 +188,7 @@ class SecureAggregation:
         #  using `Job.id`
         if self.experiment_id is None and experiment_id is None:
             raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}There is no experiment (job) id associated to the "
+                    f"{ErrorNumbers.FB417.value}: There is no experiment (job) id associated to the "
                     f"secure aggregation. Please provide and experiment id using the argument `experiment_id`"
             )
 
@@ -190,7 +196,7 @@ class SecureAggregation:
         if experiment_id is not None:
             if self.experiment_id is not None and self.experiment_id != experiment_id:
                 raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}Experiment id of the secure aggregation can not "
+                    f"{ErrorNumbers.FB417.value}: Experiment id of the secure aggregation can not "
                     f"be change in the middle of an experiment. Please create new experiment."
                 )
             else:
@@ -231,8 +237,6 @@ class SecureAggregation:
 
         num_nodes = len(model_params)
 
-        logger.info("Securely aggregating model parameters...")
-
         aggregate = functools.partial(self._secagg_crypter.aggregate,
                                       current_round=round_,
                                       num_nodes=num_nodes,
@@ -249,18 +253,20 @@ class SecureAggregation:
                     f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
                     f"Or to not set/get `secagg_random()` before the aggregation.")
 
+            logger.info("Validating secure aggregation results...")
             encryption_factors = [f for k, f in encryption_factors.items()]
             validation: List[float] = aggregate(params=encryption_factors)
-
-            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.01):
+            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.001):
                 raise FedbiomedSecureAggregationError(
                         f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
                 )
+            logger.info("Validation is completed.")
 
         elif encryption_factors is not None:
             logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
                            "aggregation steps are applied correctly.")
 
+        logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
         aggregated_params = aggregate(params=params)
