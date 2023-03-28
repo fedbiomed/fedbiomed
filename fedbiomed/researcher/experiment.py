@@ -38,9 +38,6 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secure_aggregation import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
-
-from fedbiomed.common.utils import get_method_spec
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 
@@ -615,16 +612,6 @@ class Experiment:
         else:
             return self._job.training_plan
 
-    # @exp_exceptions
-    # def secagg_context(self) -> Tuple[Union[SecaggServkeyContext, None], Union[SecaggBiprimeContext, None]]:
-    #     """Retrieves the secure aggregation context of the experiment.
-    # 
-    #     Returns:
-    #         a tuple of the server key secagg component (or None if it doesn't exist), and the
-    #             biprime secagg component (or None if it doesn't exist).
-    #     """
-    # 
-    #     return self._secagg_servkey, self._secagg_biprime
 
     # a specific getter-like
     @exp_exceptions
