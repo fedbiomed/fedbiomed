@@ -227,7 +227,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
-        if self._model.model_args["n_classes"] == 2:
+        if self.model_args()["n_classes"] == 2:
             return super()._parse_batch_loss(stdout, inputs, target)
         # Handle multilabel classification case.
         # Compute and batch-average sample-wise label-wise losses.

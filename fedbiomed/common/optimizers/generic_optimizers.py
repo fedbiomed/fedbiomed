@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
-from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 
 from fedbiomed.common. models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
@@ -72,6 +72,7 @@ class SklearnOptimizerProcessing:
 class BaseOptimizer(metaclass=ABCMeta):
     _model: Model
     optimizer: Union[FedOptimizer, None]
+    _model_cls: Union[Type[Model], Type[SkLearnModel]]
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, torch.optim.Optimizer, None]):
         """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
@@ -83,10 +84,10 @@ class BaseOptimizer(metaclass=ABCMeta):
                 a `torch.optim.Optimizer` (in case of native pytorch optimizer) or None (in case sklearn native optimizers).
 
         Raises:
-            FedbiomedOptimizerError: Raised if model is not an instance of Model (or SkLearnModel)
+            FedbiomedOptimizerError: Raised if model is not an instance of `_model_cls` (which should be either `TorchModel` or `SkLearnModel` objects)
         """
-        if not isinstance(model, (Model, SkLearnModel)):
-            raise FedbiomedOptimizerError(f"Expected an instance of fedbiomed.common.model.Model or fedbiomed.common.model.SkLearnModel but got {model}")
+        if not isinstance(model, self._model_cls):
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance of {self._model_cls} but got {model}")
         
         self._model = model
         self.optimizer = optimizer
@@ -183,6 +184,7 @@ class BaseDeclearnOptimizer(BaseOptimizer):
 class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     """Optimizer wrapper for declearn optimizers applied to pytorch models
     """
+    _model_cls: Type[TorchModel] = TorchModel
     def zero_grad(self):
         """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad` 
         method of the model.
@@ -194,7 +196,8 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
         try:
             self._model.model.zero_grad()
         except AttributeError as err:
-            raise FedbiomedOptimizerError(f"Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?. Details {err}") from err
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?."
+                                          f"Details {err}") from err
 
     def send_model_to_device(self, device: torch.device):
         """Sends Pytorch model to device - useful if GPU is needed"""
@@ -205,6 +208,7 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
     """Optimizer wrapper for declearn optimizers applied to sklearn models
     """
     model_args: Dict[str, Any]
+    _model_cls: Type[SkLearnModel] = SkLearnModel
     def __init__(self, model: SkLearnModel, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer, None]):
         super().__init__(model, optimizer)
         self.model_args = {}
@@ -214,16 +218,15 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
         """
         # convert batch averaged gradients into gradients before computation
         lrate = self._model.get_learning_rate()[0]
-        if lrate > 0:
+        if abs(lrate) > 0:
             
             gradients = self._model.get_gradients()
             gradients = {layer: val / lrate for layer, val in gradients.items()}
             self._model.set_gradients(gradients)
+            super().step()
         else:
             # Nota: if learning rate equals 0, there will be no updates applied during SGD
-            logger.warning(f"LEARING RATE {self._model.get_params('eta0')}")
             logger.warning(f"Learning rate set to {lrate}: no gradient descent will be performed!")   
-        super().step()
 
     def optimizer_post_processing(self, model_args: Optional[Dict[str, Any]] = None):
         """Does some actions after setting up an Optimizer, mainly disabling scikit-learn
@@ -272,6 +275,7 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
 class NativeTorchOptimizer(BaseOptimizer):
     """Optimizer wrapper for pytorch native optimizers and models.
     """
+    _model_cls: Type[TorchModel] = TorchModel
     def __init__(self, model: TorchModel, optimizer: torch.optim.Optimizer):
         """Constructor of the optimizer wrapper
 
@@ -283,7 +287,7 @@ class NativeTorchOptimizer(BaseOptimizer):
             FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer` object.
         """
         if not isinstance(optimizer, torch.optim.Optimizer):
-            raise FedbiomedOptimizerError(f"Expected a native pytorch `torch.optim` optimizer, but got {type(optimizer)}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Expected a native pytorch `torch.optim` optimizer, but got {type(optimizer)}")
         super().__init__(model, optimizer)
         logger.debug("using native torch optimizer")
 
@@ -348,18 +352,19 @@ class NativeSkLearnOptimizer(BaseOptimizer):
     """Optimizer wrapper for scikit-learn native models.
     """
     model_args: Dict[str, Any]
+    _model_cls: Type[SkLearnModel] = SkLearnModel
     def __init__(self, model: SkLearnModel, optimizer: Optional[None] = None):
         """Constructor of the Optimizer wrapper for scikit-learn native models.
 
         Args:
             model: SkLearnModel model that builds a scikit-learn model.
             optimizer: unused. Defaults to None.
-
-        Raises:
-            FedbiomedOptimizerError: raised if model is not a SkLearnModel instance.
         """
-        if not isinstance(model, SkLearnModel):
-            raise FedbiomedOptimizerError(f"In model argument: expected a `SkLearnModel` object, but got {type(model)}")
+        # if not isinstance(model, SkLearnModel):
+        #     raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} In model argument: expected a `SkLearnModel` object, but got {type(model)}")
+        
+        if optimizer is  not None:
+            logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
         super().__init__(model, None)
         self.model_args = {}
         logger.debug("Using native Sklearn Optimizer")
@@ -409,6 +414,7 @@ class OptimizerBuilder:
     
     Usage:
     Example for plain Pytorch model
+    >>> import torch
     >>> import torch.nn as nn
     >>> opt_builder = OptimizerBuilder()
     >>> model = nn.Linear(4,2)
@@ -461,7 +467,7 @@ class OptimizerBuilder:
         try:
             optimizer_wrapper: BaseOptimizer = OptimizerBuilder.TORCH_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
         except KeyError:
-            err_msg = f"Optimizer {optimizer} is not compatible with training plan {TrainingPlans.TorchTrainingPlan.value}"
+            err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.TorchTrainingPlan.value}"
             
             raise FedbiomedOptimizerError(err_msg)
         return optimizer_wrapper(model, optimizer)
@@ -487,10 +493,12 @@ class OptimizerBuilder:
             Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer, 
                 that contains a SkLearnModel and a Optimizer (or None).
         """
+        if not isinstance(model, SkLearnModel):
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} in `model` argument. Expected a SkLearnModel object but got {model}")
         try:
             optimizer_wrapper: BaseOptimizer = OptimizerBuilder.SKLEARN_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
         except KeyError:
-            err_msg = f"Optimizer {optimizer} is not compatible with training plan {TrainingPlans.SkLearnTrainingPlan}" + \
+            err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.SkLearnTrainingPlan}" + \
             "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
             
             raise FedbiomedOptimizerError(err_msg)
@@ -513,12 +521,12 @@ class OptimizerBuilder:
         """
         # if self._optimizers_available is None:
         #     raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
-        # TODO: raise error if model and training plan type are not compatible
+
         try:
             return self.builder[tp_type](model, optimizer)
             #optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
         except KeyError:
-            err_msg = f"Unknown Training Plan type {tp_type} "
+            err_msg = f"{ErrorNumbers.FB621_b.value} Unknown Training Plan type {tp_type} "
             
             raise FedbiomedOptimizerError(err_msg)
 
@@ -548,5 +556,5 @@ class OptimizerBuilder:
             else:
                 return type(optimizer).__bases__[0]
         else:
-            raise FedbiomedOptimizerError(f"Cannot find parent class of Optimizer {optimizer}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Cannot find parent class of Optimizer {optimizer}")
     

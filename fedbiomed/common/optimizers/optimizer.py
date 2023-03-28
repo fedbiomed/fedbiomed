@@ -84,7 +84,7 @@ class Optimizer:
             self._optimizer.start_round()
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'init_round': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'init_round': {exc}"
             ) from exc
 
     def step(self, grads: Vector, weights: Vector) -> Vector:
@@ -145,7 +145,7 @@ class Optimizer:
             return self._optimizer.collect_aux_var()
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'get_aux': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'get_aux': {exc}"
             ) from exc
 
     def set_aux(self, aux: Dict[str, Dict[str, Any]]) -> None:
@@ -201,7 +201,7 @@ class Optimizer:
             return {"config": config, "states": states, "aux": aux}
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'get_state': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'get_state': {exc}"
             ) from exc
 
     @classmethod
