@@ -13,7 +13,7 @@ from io import StringIO
 from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
-from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.linear_model import SGDClassifier, SGDRegressor, Perceptron
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -253,12 +253,30 @@ class FedPerceptron(FedSGDClassifier):
         "from fedbiomed.common.training_plans import FedPerceptron"
     )      
 
+    def __init__(self) -> None:
+        """Class constructor."""
+        super().__init__()
+        
+        # make sure loss used is perceptron loss - can not be changed by user
+        self._model.set_params(loss="perceptron")
+
     def post_init(
             self,
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
+        # get default values of Perceptron model (different from SGDClassifier model default values)
+        perceptron_default_values = Perceptron().get_params()
+        sgd_classifier_default_values = SGDClassifier().get_params()
+
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
         self._model.set_params(loss="perceptron")
+
+        # collect default values of Perceptron and set it to the model FedPerceptron
+        model_hyperparameters = self._model.get_params()
+        for hyperparameter_name, val in perceptron_default_values.items():
+            if model_hyperparameters[hyperparameter_name] == sgd_classifier_default_values[hyperparameter_name]:
+                # this means default parameter of SGDClassifier has not been changed by user
+                self._model.set_params(**{hyperparameter_name: val})
