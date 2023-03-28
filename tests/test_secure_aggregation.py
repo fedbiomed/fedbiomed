@@ -91,6 +91,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.assertListEqual(self.secagg._biprime.parties, [environ["ID"], "node-1", "node-2", "new_party"])
         self.assertListEqual(self.secagg._servkey.parties, [environ["ID"], "node-1", "node-2", "new_party"])
 
+
         pass
 
     def test_secure_aggregation_05_secagg_context_ids(self):
@@ -101,10 +102,13 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         )
 
         s_id = self.secagg.secagg_servkey_id()
-        b_id = self.secagg.secagg_servkey_id()
+        b_id = self.secagg.secagg_biprime_id()
 
         self.assertTrue(s_id is not None)
         self.assertTrue(b_id is not None)
+
+        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.secagg_biprime_id())
+        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.secagg_servkey_id())
 
     @patch('fedbiomed.researcher.secure_aggregation.SecaggServkeyContext.setup')
     @patch('fedbiomed.researcher.secure_aggregation.SecaggBiprimeContext.setup')
