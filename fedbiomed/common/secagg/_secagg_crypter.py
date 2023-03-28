@@ -169,7 +169,6 @@ class SecaggCrypter:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be type of integers.")
 
-
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param(biprime=biprime)
@@ -194,7 +193,7 @@ class SecaggCrypter:
         )
 
         time_elapsed = time.process_time() - start
-        logger.debug(f"Secure aggregation took {time_elapsed} seconds.")
+        logger.debug(f"Aggregation is completed in {round(time_elapsed, ndigits=2)} seconds.")
 
         return aggregated_params
 
