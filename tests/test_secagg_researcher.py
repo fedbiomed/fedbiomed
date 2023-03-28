@@ -248,26 +248,27 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 # ({'toto': 1}, {'toto': 1}, False),
                 # ({'parties': 3}, {'parties': 3}, False),
                 # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
-                ({'parties': [environ["ID"], 'party2', 'party3']},
-                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
-                ({'parties': [environ["ID"], 'party3', 'party2']},
-                 {'parties': [environ["ID"], 'party3', 'party2']}, True),
-                ({'parties': [environ["ID"], 'party2', 'party3', 'party4']},
-                 {'parties': [environ["ID"], 'party2', 'party3', 'party4']}, False),
-                ({'parties': ['party2', environ["ID"], 'party3']},
-                 {'parties': ['party2', environ["ID"], 'party3']}, False),
+                ({'parties': [environ["ID"], 'party2', 'party3'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party2', 'party3'], 'context': {'servkey': '123456'}}, True),
+                ({'parties': [environ["ID"], 'party3', 'party2'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party3', 'party2'], 'context': {'servkey': '123456'}}, True),
+                ({'parties': [environ["ID"], 'party2', 'party3', 'party4'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party2', 'party3', 'party4'], 'context': {'servkey': '123456'}}, False),
+                ({'parties': ['party2', environ["ID"], 'party3'], 'context': {'servkey': '123456'}},
+                 {'parties': ['party2', environ["ID"], 'party3'], 'context': {'servkey': '123456'}}, False),
         ):
-            self.mock_skmanager.get.return_value = return_value
+            self.mock_skmanager.get.side_effect = [return_value, context]
             srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
                                                   job_id="job-id")
 
             payload_context, payload_value = srvkey_context._payload()
             self.assertEqual(payload_context, context)
             self.assertEqual(payload_value, value)
+            self.mock_skmanager.get.side_effect = []
 
     def test_servkey_context_03_payload_create(self):
         with patch("builtins.open") as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = "key"
+            mock_open.return_value.__enter__.return_value.read.return_value = "123456789"
 
             context, status = self.srvkey_context._payload_create()
 
@@ -288,7 +289,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 ip_addresses='dummy/ip'
             )
 
-            self.assertEqual(context['server_key'], "key")
+            self.assertEqual(context['server_key'], 123456789)
             self.assertEqual(status, True)
 
             mock_open.side_effect = Exception
@@ -394,17 +395,19 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
                 # ({'toto': 1}, {'toto': 1}, False),
                 # ({'parties': 3}, {'parties': 3}, False),
                 # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
-                ({'parties': [environ["ID"], 'party2', 'party3']},
-                 {'parties': [environ["ID"], 'party2', 'party3']}, True),
-                ({'parties': ['party4', environ["ID"], 'party2', 'party3']},
-                 {'parties': ['party4', environ["ID"], 'party2', 'party3']}, True),
+                ({'parties': [environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}},
+                 {'parties': [environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}}, True),
+                ({'parties': ['party4', environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}},
+                 {'parties': ['party4', environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}}, True),
         ):
-            self.mock_bpmanager.get.return_value = return_value
+            self.mock_bpmanager.get.side_effect = [return_value, context]
             biprime_context = SecaggBiprimeContext(parties=[environ["ID"], 'party2', 'party3'])
 
             payload_context, payload_value = biprime_context._payload()
             self.assertEqual(payload_context, context)
             self.assertEqual(payload_value, value)
+            self.mock_bpmanager.get.side_effect = None
+
 
     @patch('time.sleep')
     def test_biprime_context_04_secagg_delete(

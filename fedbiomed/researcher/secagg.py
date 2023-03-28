@@ -198,7 +198,8 @@ class SecaggContext(ABC):
         context = self._secagg_manager.get(self._secagg_id, self._job_id)
 
         if context is None:
-            context, status = self._payload_create()
+            _, status = self._payload_create()
+            context = self._secagg_manager.get(self._secagg_id, self._job_id)
         else:
             # Need to ensure the read context has compatible parties with this element
             if not self._matching_parties(context):
@@ -548,17 +549,18 @@ class SecaggServkeyContext(SecaggContext):
         try:
             with open(output, "r") as file:
                 server_key = file.read()
-                file.close
+                file.close()
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB415.value}: Can not read server key from created after MPC execution. {e}"
             )
 
-        context = {'server_key': server_key.strip()}
+        context = {'server_key': int(server_key.strip())}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.debug(
             f"Server key successfully created for researcher_id='{environ['RESEARCHER_ID']}' "
             f"secagg_id='{self._secagg_id}'")
+
         return context, True
 
 
