@@ -297,7 +297,6 @@ class TestRound(NodeTestCase):
 
         # action
         msg_test = self.r1.run_model_training()
-        print("MESSAGE", msg_test)
         # checks
         serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))

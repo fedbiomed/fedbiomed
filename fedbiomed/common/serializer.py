@@ -9,6 +9,7 @@ import msgpack
 import numpy as np
 import torch
 
+from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 
 
@@ -103,7 +104,9 @@ class Serializer:
             spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "torch.Tensor", "value": spec}
         # Raise on unsupported types.
-        raise TypeError(f"Cannot serialize object of type '{type(obj)}'.")
+        raise FedbiomedTypeError(
+            f"Cannot serialize object of type '{type(obj)}'."
+        )
 
     @staticmethod
     def _object_hook(obj: Any) -> Any:

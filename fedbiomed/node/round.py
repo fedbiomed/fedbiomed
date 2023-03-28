@@ -166,7 +166,7 @@ class Round:
             return self._send_round_reply(success=False, message=repr(e))
         except Exception as e:
             msg = 'Unexpected error while validating training argument'
-            logger.debug(f"{msg}: {e}")
+            logger.debug(f"{msg}: {repr(e)}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
         try:
             # module name cannot contain dashes
@@ -229,7 +229,7 @@ class Round:
             params = Serializer.load(params_path)["model_weights"]
             self.training_plan.set_model_params(params)
         except Exception as e:
-            error_message = f"Cannot initialize model parameters: {e}"
+            error_message = f"Cannot initialize model parameters: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data
@@ -258,7 +258,7 @@ class Round:
                                  f"{repr(e)}")
                 except Exception as e:
                     logger.error(f"Undetermined error during the testing phase on global parameter updates: "
-                                 f"{e}")
+                                 f"{repr(e)}")
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
@@ -294,7 +294,7 @@ class Round:
                             f"{repr(e)}")
                     except Exception as e:
                         logger.error(f"Undetermined error during the validation phase on local parameter updates"
-                                     f"{e}")
+                                     f"{repr(e)}")
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
@@ -324,7 +324,7 @@ class Round:
                 del self.training_plan
                 del import_module
             except Exception as e:
-                logger.debug(f'Exception raise while deleting training plan instance: {e}')
+                logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,

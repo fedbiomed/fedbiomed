@@ -7,10 +7,13 @@ import os
 import tempfile
 import unittest
 from typing import Any, Callable, Optional
+from unittest import mock
 
 import numpy as np
 import torch
 
+from fedbiomed.common.exceptions import FedbiomedTypeError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 
 
@@ -84,7 +87,7 @@ class TestSerializer(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             # Test that the data can be serialized to the target file.
             path = os.path.join(folder, "serialized.dat")
-            self.assertTrue(not os.path.isfile(path))
+            self.assertFalse(os.path.isfile(path))
             Serializer.dump(data, path)
             self.assertTrue(os.path.isfile(path))
             # Test that the data can properly be recovered from the file.
@@ -100,23 +103,24 @@ class TestSerializer(unittest.TestCase):
         )
 
     def test_serializer_06_raises_dump_error(self) -> None:
-        """Test that 'Serializer.dumps' raises the expected TypeError."""
+        """Test that 'Serializer.dumps' raises the expected error."""
 
         class UnsupportedType:
             """Empty custom type."""
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(FedbiomedTypeError):
             Serializer.dumps(UnsupportedType())
 
     def test_serializer_07_warns_load_error(self) -> None:
-        """Test that 'Serializer.loads' raises the expected RuntimeWarning."""
+        """Test that 'Serializer.loads' logs the expected warning."""
         # Build a dict that looks like the specification for a non-standard
         # type dump (e.g. numpy array, torch tensor...).
         obj = {"__type__": "toto", "value": "mock"}
         data = Serializer.dumps(obj)
-        # Test that loading such a structure raises a RuntimeWarning.
-        with self.assertWarns(RuntimeWarning):
+        # Test that loading such a structure logs a warning.
+        with mock.patch("fedbiomed.common.serializer.logger") as p_logger:
             bis = Serializer.loads(data)
+        p_logger.warning.assert_called_once()
         self.assertDictEqual(obj, bis)
 
 
