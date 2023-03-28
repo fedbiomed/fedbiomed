@@ -118,6 +118,9 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
                                          ):
         """Test secagg setup by setting Biprime and Servkey"""
 
+        with self.assertRaises(FedbiomedSecureAggregationError):
+            self.secagg.setup()
+
         # First configure secagg
         self.secagg.configure_round(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
@@ -135,7 +138,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                  encryption_factors={'node-1': 1, 'node-2': 1}
+                                  encryption_factors={'node-1': [1], 'node-2': [1]}
                                   )
 
         # Configure for round
@@ -149,7 +152,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                  encryption_factors={'node-1': 1, 'node-2': 1}
+                                  encryption_factors={'node-1': [1], 'node-2': [1]}
                                   )
 
         # Force to set status True
@@ -157,8 +160,8 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.secagg._servkey._status = True
 
         # Force to set context
-        self.secagg._biprime._context = {'context': {'biprime': 12345}}
-        self.secagg._servkey._context = {'context': {'server_key': 12345}}
+        self.secagg._biprime._context = {'context': {'biprime': 1234}}
+        self.secagg._servkey._context = {'context': {'server_key': 1234}}
 
         # raises error if secagg_random is set but encryption factors are not provided
         with self.assertRaises(FedbiomedSecureAggregationError):
@@ -170,6 +173,17 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         # Aggregation without secagg_random validation
         self.secagg._secagg_random = None
+        agg_params = self.secagg.aggregate(round_=1,
+                                           total_sample_size=100,
+                                           model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
+                                           encryption_factors={'node-1': [1], 'node-2': [1]}
+                                           )
+        self.assertTrue(len(agg_params) == 5)
+
+        # IMPORTANT: this value has been set for biprime 1234 and servkey 1234
+        # aggregation of [1], [1] will be closer to -2.8131
+        self.secagg._secagg_random = -2.8131
+
         agg_params = self.secagg.aggregate(round_=1,
                                            total_sample_size=100,
                                            model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
