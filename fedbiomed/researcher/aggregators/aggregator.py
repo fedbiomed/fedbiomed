@@ -48,26 +48,22 @@ class Aggregator:
     def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
         self._fds = fds
         return self._fds
-    
+
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
         self._training_plan_type = training_plan_type
         return self._training_plan_type
 
     def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
         """Returns aggregator arguments that are expecting by the nodes
-        
+
         Returns:
         dict: contains `Aggregator` parameters that will be sent through MQTT message
                 service
         dict: contains parameters that will be sent through file exchange message.
-                Both dictionaries are mapping node_id to 'Aggregator` parameters specific 
+                Both dictionaries are mapping node_id to 'Aggregator` parameters specific
                 to each Node.
         """
         return self._aggregator_args or {}, {}
-
-    # def scaling(self, model_param: dict, *args, **kwargs) -> dict:
-    #     """Should be overwritten by child if a scaling operation is involved in aggregator"""
-    #     return model_param
 
     def save_state(self,
                    training_plan: Optional[BaseTrainingPlan] = None,
@@ -91,7 +87,7 @@ class Aggregator:
                                 filename = self._save_arg_to_file(training_plan, breakpoint_path,
                                                                   arg_name, node_id, aggregator_arg)
                                 self._aggregator_args.setdefault(arg_name, {})
-                                    
+
 
                                 self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
                     else:
@@ -106,7 +102,7 @@ class Aggregator:
 
     def _save_arg_to_file(self, training_plan: BaseTrainingPlan, breakpoint_path: str, arg_name: str,
                           node_id: str, arg: Any) -> str:
-        
+
         filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
         training_plan.save(filename, arg)
         return filename
