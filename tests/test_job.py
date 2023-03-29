@@ -608,11 +608,11 @@ class TestJob(ResearcherTestCase):
         # Declare mock model parameters, for torch and scikit-learn.
         pytorch_params = {
             # dont need other fields
-            'model_params': torch.Tensor([1, 3, 5, 7])
+            "model_weights": torch.Tensor([1, 3, 5, 7])
         }
         sklearn_params = {
             # dont need other fields
-            'model_params': np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
+            "model_weights": np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
         }
         # mock FederatedDataSet
         fds = MagicMock()
@@ -678,7 +678,7 @@ class TestJob(ResearcherTestCase):
         # check `training_replies` for pytorch models
         self.assertTrue(torch.eq(
             torch_training_replies[0][1]['params'],
-            pytorch_params['model_params']
+            pytorch_params['model_weights']
         ).all())
         self.assertEqual(
             torch_training_replies[0][1]['params_path'],
@@ -731,7 +731,7 @@ class TestJob(ResearcherTestCase):
         # check `training_replies` for sklearn models
         self.assertTrue(np.allclose(
             sklearn_training_replies[1][0]['params'],
-            sklearn_params['model_params']
+            sklearn_params['model_weights']
         ))
         self.assertEqual(
             sklearn_training_replies[1][0]['params_path'],

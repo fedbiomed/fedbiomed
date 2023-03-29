@@ -629,7 +629,7 @@ class Job:
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node['params'] = Serializer.load(node['params_path'])['model_params']
+                node["params"] = Serializer.load(node["params_path"])["model_weights"]
             training_replies[round_] = loaded_training_reply
 
         return training_replies
