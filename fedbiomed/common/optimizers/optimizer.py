@@ -73,8 +73,8 @@ class Optimizer:
             ) from exc
 
     @classmethod
-    def from_declearn_optimizer(cls, declearn_optimizer: declearn.optimizer.Optimizer):
-        optim =  cls(lrate = declearn_optimizer.lrate)
+    def from_declearn_optimizer(cls, declearn_optimizer: DeclearnOptimizer):
+        optim =  cls(lr = declearn_optimizer.lrate)
         optim._optimizer = declearn_optimizer  # shared references!
         return cls
     

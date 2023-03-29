@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, Union
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 
 from fedbiomed.common. models import Model, SkLearnModel, TorchModel
@@ -11,8 +11,7 @@ from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 import declearn
 from declearn.model.api import Vector
-from declearn.model.torch import TorchVector
-from declearn.model.sklearn import NumpyVector
+
 import torch
 import numpy as np
 
@@ -131,8 +130,8 @@ class BaseOptimizer(metaclass=ABCMeta):
         """
 
 
-class BaseDeclearnOptimizer(BaseOptimizer):
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer, None]):
+class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
+    def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
         Args:
@@ -144,6 +143,8 @@ class BaseDeclearnOptimizer(BaseOptimizer):
         if isinstance(optimizer, declearn.optimizer.Optimizer):
             # convert declearn optimizer into a fedbiomed optimizer wrapper
             optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
+        elif not isinstance(optimizer, FedOptimizer):
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} excpected a declearn optimizer, but got {optimizer}")
         super().__init__(model, optimizer)
         self.optimizer.init_round()
 
@@ -170,7 +171,7 @@ class BaseDeclearnOptimizer(BaseOptimizer):
         return aux
 
     @classmethod
-    def load_state(cls, model, optim_state: Dict):
+    def load_state(cls, model: Model, optim_state: Dict) -> 'BaseDeclearnOptimizer':
         # state: breakpoint content for optimizer
         relaoded_optim = FedOptimizer.load_state(optim_state)
         return cls(model, relaoded_optim)
