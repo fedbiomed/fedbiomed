@@ -514,7 +514,7 @@ class Job:
             # Case when exporting current parameters: create a local dump file.
             else:
                 # Case when uploading a new set of parameters: assign them.
-                if params:
+                if params is not None:
                     self._training_plan.set_model_params(params)
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
                 params_dump = {
