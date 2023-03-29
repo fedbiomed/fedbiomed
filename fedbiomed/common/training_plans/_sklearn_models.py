@@ -256,9 +256,6 @@ class FedPerceptron(FedSGDClassifier):
     def __init__(self) -> None:
         """Class constructor."""
         super().__init__()
-        
-        # make sure loss used is perceptron loss - can not be changed by user
-        self._model.set_params(loss="perceptron")
 
     def post_init(
             self,
@@ -269,7 +266,7 @@ class FedPerceptron(FedSGDClassifier):
         # get default values of Perceptron model (different from SGDClassifier model default values)
         perceptron_default_values = Perceptron().get_params()
         sgd_classifier_default_values = SGDClassifier().get_params()
-
+        # make sure loss used is perceptron loss - can not be changed by user
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args)
         self._model.set_params(loss="perceptron")
