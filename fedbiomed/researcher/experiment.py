@@ -2166,7 +2166,6 @@ class Experiment(object):
 
         for aggreg in aggregated_params.values():
             aggreg['params'] = Serializer.load(aggreg['params_path'])
-            # errors should be handled in training plan loader function
 
         return aggregated_params
 
