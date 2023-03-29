@@ -8,9 +8,11 @@ exec 3>"$bats_file" # associating a file descriptor with the temp file, so that 
 for notebook in ./notebooks/*.py; do
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
+bats_require_minimum_version 1.5.0
 @test "$(basename ${notebook})" {
-    run ./scripts/run_integration_test -s ${notebook}  \
-        -d ./tests/datasets/mnist.json
+    run -0 ./scripts/run_integration_test -s ${notebook}  \
+        -d ./tests/datasets/mnist.json \
+        -d ./tests/datasets/celeba.json >&3
 }
 EOF
 done

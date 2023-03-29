@@ -38,7 +38,9 @@ Common Global Variables:
 - MQTT_BROKER             : MQTT broker IP address
 - MQTT_BROKER_PORT        : MQTT broker port
 - UPLOADS_URL             : Upload URL for file repository
-- MPSPDZ_IP               : MPSPDZ endpoint IP of component
+- MPSPDZ_IP               : MP-SPDZ endpoint IP of component
+- DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
+- ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
 '''
 
 import configparser
@@ -47,7 +49,7 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
@@ -182,13 +184,14 @@ class Environ(metaclass=SingletonABCMeta):
 
         # main directories
         self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
-        self._values['VAR_DIR'] = os.path.join(root_dir, 'var')
+        self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
         self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
         self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")
         self._values['CERT_DIR'] = os.path.join(root_dir, "etc", "certs")
+        self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
-        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR':
+        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR', 'DEFAULT_BIPRIMES_DIR':
             dir_ = self._values[_key]
             if not os.path.isdir(dir_):
                 try:
@@ -276,6 +279,10 @@ class Environ(metaclass=SingletonABCMeta):
         mpspdz_port = self.from_config("mpspdz", "mpspdz_port")
         self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", mpspdz_ip)
         self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", mpspdz_port)
+
+        allow_dbp = self.from_config('mpspdz', 'allow_default_biprimes')
+        self._values['ALLOW_DEFAULT_BIPRIMES'] = os.getenv('ALLOW_DEFAULT_BIPRIMES', allow_dbp) \
+            .lower() in ('true', '1', 't', True)
 
         public_key = self.from_config("mpspdz", "public_key")
         private_key = self.from_config("mpspdz", "private_key")
@@ -377,6 +384,8 @@ class Environ(metaclass=SingletonABCMeta):
 
         component_id = self.from_config("default", "id")
 
+        allow_default_biprimes = os.getenv('ALLOW_DEFAULT_BIPRIMES', True)
+
         # Generate self-signed certificates
         key_file, pem_file = self._generate_certificate(
             component_id=component_id
@@ -386,7 +395,8 @@ class Environ(metaclass=SingletonABCMeta):
             'private_key': os.path.relpath(key_file, self._values["CONFIG_DIR"]),
             'public_key': os.path.relpath(pem_file, self._values["CONFIG_DIR"]),
             'mpspdz_ip': ip,
-            'mpspdz_port': port
+            'mpspdz_port': port,
+            'allow_default_biprimes': allow_default_biprimes
         }
 
     @staticmethod

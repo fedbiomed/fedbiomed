@@ -18,6 +18,7 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
     get_method_spec, \
     get_fedbiomed_root
+from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -134,7 +135,7 @@ class CommonCLI:
                  "If the configuration file exists, leave it unchanged"
         )
 
-        create.set_defaults(func=self._create_component_configuration)
+        create.set_defaults(func=self._create_component)
 
     def initialize_certificate_parser(self):
         """Common arguments """
@@ -248,9 +249,9 @@ class CommonCLI:
         certificates = get_all_existing_certificates()
 
         if len(certificates) <= 2:
-            print(f"\n{RED}Warning!{NC}")
-            print(f"{BOLD}There are {len(certificates)} Fed-BioMed component created. For 'certificate-dev-setup' "
-                  f"you should have at least 3 components created{NC}\n")
+            print(f"\n{RED}Error!{NC}")
+            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component(s) created.For 'certificate-dev-setup' "
+                  f"you should have at least 2 components created{NC}\n")
             return
 
         for id_, db_name in db_names.items():
@@ -275,18 +276,26 @@ class CommonCLI:
 
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
-    def _create_component_configuration(self, args):
-        """CLI Handler for creating configuration file for given component
+    def _create_component(self, args):
+        """CLI Handler for creating configuration file and assets for given component
 
-        TODO: This method doesn't do specific action for creating configuration file for
+        TODO: This method doesn't yet concentrate all actions for creating configuration file for
             given component. Since, `environ` will be imported through component CLI, configuration
             file will be automatically created. In future, it might be useful to generate configuration
             files.
         """
 
-        print(f"{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
+        # Update secure aggregation biprimes in component database
+        print(
+            "Updating secure aggregation default biprimes with:\n" 
+            f"ALLOW_DEFAULT_BIPRIMES : {self._environ['ALLOW_DEFAULT_BIPRIMES']}\n"
+            f"DEFAULT_BIPRIMES_DIR   : {self._environ['DEFAULT_BIPRIMES_DIR']}\n"
+        )
+        BPrimeManager = SecaggBiprimeManager(self._environ['DB_PATH'])
+        BPrimeManager.update_default_biprimes(
+            self._environ['ALLOW_DEFAULT_BIPRIMES'], self._environ['DEFAULT_BIPRIMES_DIR'])
 
-        pass
+        print(f"\n{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
 
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates certificate using Certificate Manager
