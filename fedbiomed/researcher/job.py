@@ -513,13 +513,17 @@ class Job:
                 self._training_plan.set_model_params(params)
             # Case when exporting current parameters: create a local dump file.
             else:
+                # Case when uploading the current parameters: gather them.
+                if params is None:
+                    params = self._training_plan.get_model_params()
                 # Case when uploading a new set of parameters: assign them.
-                if params is not None:
+                else:
                     self._training_plan.set_model_params(params)
+                # At any rate, create a local dump file.
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
                 params_dump = {
                     "researcher_id": self._researcher_id,
-                    "model_weights": self._training_plan.get_model_params(),
+                    "model_weights": params,
                 }
                 Serializer.dump(params_dump, filename)
             # Upload the file and record its local and remote locations.
