@@ -155,7 +155,11 @@ class TestTorchBasedOptimizer(unittest.TestCase):
         
         self._torch_model = (nn.Linear(4, 2),)
         self._fed_models = (TorchModel(model) for model in self._torch_model)
-    
+        self._zero_models = [copy.deepcopy(model) for model in self._torch_model]
+        for model in self._zero_models:
+            for p in model.parameters():
+                p.data.fill_(0)
+
     def tearDown(self) -> None:
         return super().tearDown()
     
@@ -204,8 +208,47 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             
     def test_torchbasedoptimizer_03_step(self):
         # check that declearn based and torch based give the same result
-        pass
+        declearn_optim = FedOptimizer(lr=1)
+        torch_optim_type = torch.optim.SGD
+        
+        data = torch.Tensor([[1,1,1,1]])
+        targets = torch.Tensor([[1, 1]])
+        
+        loss_func = torch.nn.MSELoss()
+
+        for model in self._zero_models:
+            model = TorchModel(model)
+            # initialisation of declearn optimizer wrapper
+            declearn_optim_wrapper = DeclearnTorchOptimizer(model, declearn_optim)
+            declearn_optim_wrapper.zero_grad()
             
+            
+            output = declearn_optim_wrapper._model.model.forward(data)
+            
+            loss = loss_func(output, targets)
+            
+            loss.backward()
+            declearn_optim_wrapper.step()
+            
+            # initialisation of native torch optimizer wrapper
+            torch_optim = torch_optim_type(model.model.parameters(), 1)
+            native_torch_optim_wrapper = NativeTorchOptimizer(model, torch_optim)
+            native_torch_optim_wrapper.zero_grad()
+            
+            output = native_torch_optim_wrapper._model.model.forward(data)
+            
+            loss = loss_func(output, targets)
+            
+            loss.backward()
+            
+            native_torch_optim_wrapper.step()
+            
+            # checks
+            for (l, dec_optim_val), (l, torch_optim_val) in zip(declearn_optim_wrapper._model.get_weights().items(),
+                                                                 native_torch_optim_wrapper._model.get_weights().items()):
+                self.assertTrue(torch.isclose(dec_optim_val, torch_optim_val).all())
+
+
 class TestSklearnBasedOptimizer(unittest.TestCase):
     pass
     # to be completed
