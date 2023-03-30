@@ -770,7 +770,7 @@ class Experiment:
         return self._nodes
 
     @exp_exceptions
-    def set_training_data(
+    def     set_training_data(
             self,
             training_data: Union[FederatedDataSet, dict, None],
             from_tags: bool = False) -> \
@@ -1501,10 +1501,8 @@ class Experiment:
         # If secure aggregation is activated ---------------------------------------------------------------------
         secagg_arguments = None
         if self._secagg.active:
-            self._secagg.configure_round(
-                parties=[environ["ID"]] + self._job.nodes,
-                experiment_id=self._job.id)
-            self._secagg.setup()
+            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
+                               job_id=self._job.id)
             secagg_arguments = {'secagg_servkey_id': self._secagg.secagg_servkey_id(),
                                 'secagg_biprime_id': self._secagg.secagg_biprime_id(),
                                 'secagg_random': self._secagg.secagg_random(),
