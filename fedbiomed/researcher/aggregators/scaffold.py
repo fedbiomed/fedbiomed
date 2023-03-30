@@ -6,7 +6,6 @@
 import copy
 import os
 import uuid
-from collections import defaultdict
 from typing import Any, Dict, Collection, List, Optional, Tuple, Union
 
 import numpy as np
@@ -328,12 +327,20 @@ class Scaffold(Aggregator):
         if n_updates is None:
             raise FedbiomedAggregatorError("Cannot perform Scaffold: missing 'num_updates' entry in the training_args")
         elif n_updates <= 0 or int(n_updates) != float(n_updates):
-            raise FedbiomedAggregatorError(f"n_updates should be a positive non zero integer, but got n_updates: {n_updates} in SCAFFOLD aggregator")
+            raise FedbiomedAggregatorError(
+                "n_updates should be a positive non zero integer, but got "
+                f"n_updates: {n_updates} in SCAFFOLD aggregator"
+            )
         if self._fds is None:
-            raise FedbiomedAggregatorError(" Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`")
+            raise FedbiomedAggregatorError(
+                "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
+            )
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
             if not isinstance(training_plan._optimizer, torch.optim.SGD):
-                logger.warning(f"Found optimizer {training_plan._optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
+                logger.warning(
+                    f"Found optimizer {training_plan._optimizer}, but SCAFFOLD requieres SGD optimizer."
+                    "Results may be inconsistants"
+                )
         return True
 
     def set_nodes_learning_rate_after_training(
