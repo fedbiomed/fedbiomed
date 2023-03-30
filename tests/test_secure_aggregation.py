@@ -93,7 +93,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         pass
 
-    def test_secure_aggregation_05_secagg_context_ids(self):
+    def test_secure_aggregation_05_secagg_context_ids_and_context(self):
         """Test getters for secagg biprime and servkey context ids"""
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
@@ -109,6 +109,16 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.secagg_biprime_id())
         self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.secagg_servkey_id())
 
+        self.secagg._biprime._context = "Test biprime"
+        self.secagg._servkey._context = "Test servkey"
+
+        s_context = self.secagg.secagg_servkey_context()
+        b_context = self.secagg.secagg_biprime_context()
+
+        self.assertEqual("Test biprime", b_context)
+        self.assertEqual("Test servkey", s_context)
+
+
     def test_secure_aggregation_06_setup(self):
         """Test secagg setup by setting Biprime and Servkey"""
 
@@ -123,6 +133,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         # Execute setup
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
                           job_id="exp-id-1")
+
 
         pass
 
