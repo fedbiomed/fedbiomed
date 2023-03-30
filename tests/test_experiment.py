@@ -1653,11 +1653,11 @@ class TestExperiment(ResearcherTestCase):
                         '_researcher_id': 'A researhcer_id',
                     }
                 },
+                'job_id': 'xxxx',
                 'parties': ['node-1', 'node-2']
             },
             'arguments': {
                 'active': True,
-                'experiment_id': 'xxxx',
                 'timeout': 10
             }
         }
