@@ -57,7 +57,7 @@ def _check_clipping_range(
 
 def quantize(
     weights: List[float],
-    clipping_range: int = VEParameters.CLIPPING_RANGE,
+    clipping_range: Union[int, None] = None,
     target_range: int = VEParameters.TARGET_RANGE,
 ) -> List[int]:
     """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
@@ -73,6 +73,8 @@ def quantize(
         Quantized model weights as numpy array.
 
     """
+    if clipping_range is None:
+        clipping_range = VEParameters.CLIPPING_RANGE
 
     # Check clipping range
     _check_clipping_range(weights, clipping_range)
@@ -92,7 +94,7 @@ def quantize(
 
 def reverse_quantize(
     weights: List[int],
-    clipping_range: float = VEParameters.CLIPPING_RANGE,
+    clipping_range: Union[int, None] = None,
     target_range: int = VEParameters.TARGET_RANGE,
 ) -> List[float]:
     """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
@@ -105,6 +107,9 @@ def reverse_quantize(
     Returns:
         Reversed quantized model weights as numpy array.
     """
+
+    if clipping_range is None:
+        clipping_range = VEParameters.CLIPPING_RANGE
 
     f = np.vectorize(
         lambda x: x / target_range * (2 * clipping_range) - clipping_range

@@ -118,7 +118,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.assertEqual("Test biprime", b_context)
         self.assertEqual("Test servkey", s_context)
 
-
     def test_secure_aggregation_06_setup(self):
         """Test secagg setup by setting Biprime and Servkey"""
 

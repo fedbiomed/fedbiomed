@@ -4,7 +4,7 @@
 
 import time
 
-from typing import List
+from typing import List, Union
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -19,8 +19,6 @@ from ._jls import JoyeLibert, \
     PublicParam, \
     quantize, \
     reverse_quantize
-
-
 
 
 class SecaggCrypter:
@@ -61,7 +59,8 @@ class SecaggCrypter:
             params: List[float],
             key: int,
             biprime: int,
-            weight: int = None
+            clipping_range: Union[int, None] = None,
+            weight: int = None,
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -72,6 +71,8 @@ class SecaggCrypter:
             key: Key to encrypt
             biprime: Prime number to create public parameter
             weight: Weight for the params
+            clipping_range: Clipping-range for quantization of float model parameters. Clipping range
+                must grater than minimum model parameters
 
         Returns:
             List of encrypted parameters
@@ -102,7 +103,8 @@ class SecaggCrypter:
 
         params = self.apply_weighing(params, weight)
 
-        params = quantize(weights=params)
+        params = quantize(weights=params,
+                          clipping_range=clipping_range)
         public_param = self._setup_public_param(biprime=biprime)
 
         # Instantiates UserKey object
@@ -133,7 +135,8 @@ class SecaggCrypter:
             params: List[List[int]],
             key: int,
             biprime: int,
-            total_sample_size: int
+            total_sample_size: int,
+            clipping_range: Union[int, None] = None
     ) -> List[float]:
         """Decrypt given parameters
 
@@ -144,7 +147,8 @@ class SecaggCrypter:
             key: The key that will be used for decryption
             biprime: Biprime number of `PublicParam`
             total_sample_size: sum of number of samples from all nodes
-
+            clipping_range: Clipping range for reverse-quantization, should be the
+                same clipping range used for quantization
         Returns:
             Aggregated parameters decrypted and structured
 
@@ -189,7 +193,8 @@ class SecaggCrypter:
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         aggregated_params: List[float] = reverse_quantize(
-            self.apply_average(sum_of_weights, num_nodes, total_sample_size)
+            self.apply_average(sum_of_weights, num_nodes, total_sample_size),
+            clipping_range=clipping_range
         )
 
         time_elapsed = time.process_time() - start

@@ -95,6 +95,7 @@ class Round:
         self.loader_arguments = None
         self.training_arguments = None
         self._secagg_crypter = SecaggCrypter()
+        self._secagg_clipping_range = None
         self._round = round_number
         self._biprime = None
         self._servkey = None
@@ -186,6 +187,8 @@ class Round:
         Raises:
             FedbiomedRoundError: incoherent secure aggregation status
         """
+
+
         secagg_all_none = all([s is None for s in (secagg_servkey_id, secagg_biprime_id)])
         secagg_all_defined = all([s is not None for s in (secagg_servkey_id, secagg_biprime_id)])
 
@@ -225,18 +228,17 @@ class Round:
 
     def run_model_training(
             self,
-            secagg_servkey_id: Union[str, None] = None,
-            secagg_biprime_id: Union[str, None] = None,
-            secagg_random: Union[float, None] = None,
+            secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
 
         Args:
-            secagg_servkey_id: Secure aggregation Servkey context id. None means that the parameters
-                are not going to be encrypted
-            secagg_biprime_id: Secure aggregation Biprime context ID.
-            secagg_random: Float value to validate secure aggregation on the researcher side
+            secagg_arguments:
+                - secagg_servkey_id: Secure aggregation Servkey context id. None means that the parameters
+                    are not going to be encrypted
+                - secagg_biprime_id: Secure aggregation Biprime context ID.
+                - secagg_random: Float value to validate secure aggregation on the researcher side
 
         Returns:
             Returns the corresponding node message, training reply instance
@@ -245,10 +247,13 @@ class Round:
 
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
+
+        secagg_arguments = {} if secagg_arguments is None else secagg_arguments
         self._use_secagg = self._configure_secagg(
-            secagg_servkey_id=secagg_servkey_id,
-            secagg_biprime_id=secagg_biprime_id,
-            secagg_random=secagg_random)
+            secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+            secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+            secagg_random=secagg_arguments.get('secagg_random')
+        )
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -408,10 +413,11 @@ class Round:
                     key=self._servkey["context"]["server_key"],
                     biprime=self._biprime["context"]["biprime"],
                     weight=sample_size,
+                    clipping_range=secagg_arguments.get('secagg_clipping_range')
                 )
                 model_params = encrypt(params=model_params)
                 results["encrypted"] = True
-                results["encryption_factor"] = encrypt(params=[secagg_random])
+                results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
 
                 logger.info("Encryption in completed!")
 
@@ -539,7 +545,6 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
-        print(self.training_plan.dataset_path)
         training_plan_type = self.training_plan.type()
 
         # Inspect the arguments of the method `training_data`, because this

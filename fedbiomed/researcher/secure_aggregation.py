@@ -20,7 +20,7 @@ class SecureAggregation:
 
     def __init__(
             self,
-            active: bool = False,
+            active: bool = True,
             timeout: int = 10,
             clipping_range: Union[None, int] = None,
     ) -> None:
@@ -270,7 +270,8 @@ class SecureAggregation:
                                       num_nodes=num_nodes,
                                       key=key,
                                       total_sample_size=total_sample_size,
-                                      biprime=biprime)
+                                      biprime=biprime,
+                                      clipping_range=self.clipping_range)
 
         # Validate secure aggregation
         if self._secagg_random is not None:
