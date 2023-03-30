@@ -296,7 +296,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             for param in training_plan._model.param_list:
                 self.assertIsInstance(param, str)
 
-    def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
+    def test_sklearntrainingplancommonfunctionalities_02_export_reload(self):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
             training_plan.export_model(randomfile.name)
@@ -308,12 +308,15 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             new_tp = self.subclass_types[training_plan.parent_type]()
             new_tp.post_init({'n_classes': 2, 'n_features': 1}, FakeTrainingArgs())
             new_tp.import_model(randomfile.name)
-            # ensure output of load is the same as original parameters
+            # Ensure the imported model has the same weights as the exported one.
             load_params = new_tp.get_model_params()
             self.assertEqual(load_params.keys(), orig_params.keys())
             self.assertTrue(all(
                 np.all(load_params[k] == orig_params[k]) for k in load_params
             ))
+            # Ensure the import model has the same hyper-parameters as the exported one.
+            # Note: here `get_params` is `sklearn.base.BaseEstimator.get_params`.
+            self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
     @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
     def test_sklearntrainingplancommonfunctionalities_03_getters(self):
