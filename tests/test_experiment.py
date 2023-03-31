@@ -1016,6 +1016,8 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.id', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.nodes', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
@@ -1027,6 +1029,8 @@ class TestExperiment(ResearcherTestCase):
                                     mock_job_training,
                                     mock_job_training_replies,
                                     mock_job_training_plan_type,
+                                    mock_job_nodes,
+                                    mock_job_id,
                                     mock_strategy_refine,
                                     mock_fedavg_create_aggregator_args,
                                     mock_fedavg_aggregate,
@@ -1034,6 +1038,8 @@ class TestExperiment(ResearcherTestCase):
         """ Testing run_once method of Experiment class """
         training_plan = MagicMock()
         training_plan.type = MagicMock()
+        mock_job_id.return_value = "dummy-job-id"
+        mock_job_nodes.return_value = ["node-1", "node-2"]
         mock_job_init.return_value = None
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
@@ -1044,7 +1050,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
         mock_experiment_breakpoint.return_value = None
 
-        # Test invalid `increase` arguments
+        #Test invalid `increase` arguments
         with self.assertRaises(SystemExit):
             self.test_exp.run_once(1)
         with self.assertRaises(SystemExit):
@@ -1114,6 +1120,33 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(mock_job_training.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
+
+
+        # Test experiment secagg run_once ----------------------------------------------------------------------
+        # Set secagg true
+        self.test_exp.set_secagg(True)
+
+        # Return encrypted params
+        mock_strategy_refine.return_value = ({'node-1': [1, 1, 1, 1], 'node-2': [1, 1, 1, 1]},
+                                             [0.1, 0.9],
+                                             10,
+                                             {'node-1': [1], 'node-2': [1]})
+
+        # Prepare secure aggregation context
+        self.test_exp.secagg._configure_round(parties=[environ["ID"], "node-1", "node-2"],
+                                              job_id="dummy-job-id")
+        self.test_exp.secagg._biprime._status = True
+        self.test_exp.secagg._servkey._status = True
+        self.test_exp.secagg._biprime._context = {"context": {"biprime": 1234}}
+        self.test_exp.secagg._servkey._context = {"context": {"server_key": 1234}}
+
+        # Run experiment with secure aggregation
+        # Fix secagg_random value to pass validation step
+        with patch("fedbiomed.researcher.experiment.SecureAggregation.secagg_random") as s_m:
+            s_m.return_value = -2.8131
+            self.test_exp.secagg._secagg_random = -2.8131  # hard coded for validation of encryption
+            self.test_exp._round_current = 1
+            self.test_exp.run_once()
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
