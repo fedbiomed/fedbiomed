@@ -390,7 +390,7 @@ class Round:
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_random])
 
-                logger.info("Encryption in completed!")
+                logger.info("Encryption is completed!")
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id

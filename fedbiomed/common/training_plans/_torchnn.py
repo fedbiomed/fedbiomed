@@ -5,8 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-from collections import OrderedDict
-from typing import Any, Dict, List, Tuple, Optional, Union, Iterator
+from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
 import torch
 from torch import nn
@@ -595,7 +594,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     )
                 self.correction_state = aggregator_arg
 
-    def after_training_params(self) -> Dict[str, torch.Tensor]:
+    def after_training_params(self, flatten: bool = False) -> Dict[str, torch.Tensor]:
         """Return the wrapped model's parameters for aggregation.
 
         This method returns a dict containing parameters that need to be
@@ -621,6 +620,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 ) from exc
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
+
+        if flatten:
+            params = self._model.flatten()
+
         return params
 
     def __norm_l2(self) -> float:

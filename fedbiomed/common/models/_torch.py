@@ -101,7 +101,7 @@ class TorchModel(Model):
     def unflatten(
             self,
             weights_vector: List[float]
-    ) -> Dict[str, np.ndarray]:
+    ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
         This method does not manipulate current model weights modify model parameters.
@@ -127,7 +127,7 @@ class TorchModel(Model):
                 f"{ErrorNumbers.FB622.value} Can not unflatten model parameters. {e}"
             )
 
-        return model.state_dict()
+        return TorchModel(model).get_weights()
 
     def set_weights(
         self,
