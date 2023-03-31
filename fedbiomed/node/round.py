@@ -5,14 +5,17 @@
 implementation of Round class of the node component
 '''
 
+import importlib
+import inspect
 import os
 import sys
 import time
 import inspect
 import importlib
 import functools
-from typing import Dict, Union, Any, Optional, Tuple, List
 import uuid
+from typing import Dict, Union, Any, Optional, Tuple, List
+
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -20,6 +23,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, Fed
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
@@ -125,8 +129,7 @@ class Round:
                         # if both `filename` and `arg_name` fields are present, it means that parameters
                         # should be retrieved using file
                         # exchanged system
-                        success, param_path, error_msg = self.download_file(url, arg_name)
-
+                        success, param_path, error_msg = self.download_file(url, f"{arg_name}_{uuid.uuid4()}.mpk")
                         if not success:
                             return success, error_msg
                         else:
@@ -135,6 +138,7 @@ class Round:
                                                               # 'params': training_plan.load(param_path,
                                                               # update_model=True)
                                                               }
+                        self.aggregator_args[arg_name] = Serializer.load(param_path)
             return True, ''
         else:
             return True, "no file downloads required for aggregator args"
@@ -154,16 +158,13 @@ class Round:
                 string if operation successful.
         """
 
-        status, params_path = self.repository.download_file(
-            url,
-            file_path + str(uuid.uuid4()) + '.pt')
+        status, params_path = self.repository.download_file(url, file_path)
 
         if (status != 200) or params_path is None:
 
             error_message = f"Cannot download param file: {url}"
             return False, '', error_message
         else:
-
             return True, params_path, ''
 
     @staticmethod
@@ -231,12 +232,11 @@ class Round:
         try:
             self.initialize_validate_training_arguments()
         except FedbiomedUserInputError as e:
-            return self._send_round_reply(success=False, message=str(e))
+            return self._send_round_reply(success=False, message=repr(e))
         except Exception as e:
             msg = 'Unexpected error while validating training argument'
-            logger.debug(f"{msg}: {e}")
+            logger.debug(f"{msg}: {repr(e)}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
-
         try:
             # module name cannot contain dashes
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
@@ -260,7 +260,7 @@ class Round:
 
             if not is_failed:
 
-                success, params_path, error_msg = self.download_file(self.params_url, 'my_model_')
+                success, params_path, error_msg = self.download_file(self.params_url, f"my_model_{uuid.uuid4()}.mpk")
                 if success:
                     # retrieving aggregator args
                     success, error_msg = self.download_aggregator_args()
@@ -271,7 +271,7 @@ class Round:
         except Exception as e:
             is_failed = True
             # FIXME: this will trigger if model is not approved by node
-            error_message = f"Cannot download training plan files: {str(e)}"
+            error_message = f"Cannot download training plan files: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         # import module, declare the training plan, load parameters
@@ -282,7 +282,7 @@ class Round:
             self.training_plan = train_class()
             sys.path.pop(0)
         except Exception as e:
-            error_message = f"Cannot instantiate training plan object: {str(e)}"
+            error_message = f"Cannot instantiate training plan object: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         try:
@@ -290,26 +290,26 @@ class Round:
                                          training_args=self.training_arguments,
                                          aggregator_args=self.aggregator_args)
         except Exception as e:
-            error_message = f"Can't initialize training plan with the arguments: {e}"
+            error_message = f"Can't initialize training plan with the arguments: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the training plan instance
         try:
-
-            self.training_plan.load(params_path)
+            params = Serializer.load(params_path)["model_weights"]
+            self.training_plan.set_model_params(params)
         except Exception as e:
-            error_message = f"Cannot initialize model parameters: f{str(e)}"
+            error_message = f"Cannot initialize model parameters: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data
         try:
             self._set_training_testing_data_loaders()
         except FedbiomedError as e:
-            error_message = f"Can not create validation/train data: {str(e)}"
+            error_message = f"Can not create validation/train data: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \
-                            f"validation/train data: {str(e)}"
+                            f"validation/train data: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         # Validation Before Training
@@ -324,10 +324,10 @@ class Round:
                                                        before_train=True)
                 except FedbiomedError as e:
                     logger.error(f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
-                                 f"{str(e)}")
+                                 f"{repr(e)}")
                 except Exception as e:
                     logger.error(f"Undetermined error during the testing phase on global parameter updates: "
-                                 f"{e}")
+                                 f"{repr(e)}")
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
@@ -344,7 +344,7 @@ class Round:
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
-                    error_message = f"Cannot train model in round: {str(e)}"
+                    error_message = f"Cannot train model in round: {repr(e)}"
                     return self._send_round_reply(success=False, message=error_message)
 
             # Validation after training
@@ -360,10 +360,10 @@ class Round:
                     except FedbiomedError as e:
                         logger.error(
                             f"{ErrorNumbers.FB314.value}: During the validation phase on local parameter updates; "
-                            f"{str(e)}")
+                            f"{repr(e)}")
                     except Exception as e:
                         logger.error(f"Undetermined error during the validation phase on local parameter updates"
-                                     f"{e}")
+                                     f"{repr(e)}")
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
@@ -374,7 +374,7 @@ class Round:
             results["encrypted"] = False
 
             # Upload results
-            model_params = self.training_plan.after_training_params(flatten=self._use_secagg)
+            model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
             if self._use_secagg:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.")
 
@@ -386,7 +386,7 @@ class Round:
                     key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
                     weight=sample_size,
                 )
-                model_params = encrypt(params=model_params)
+                model_params = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_random])
 
@@ -394,30 +394,27 @@ class Round:
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = model_params
+            results['model_weights'] = model_weights
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
 
             try:
-                # TODO : should validation status code but not yet returned
-                # by upload_file
-                filename = os.path.join(environ['TMP_DIR'], 'node_params_' + str(uuid.uuid4()) + '.pt')
-                self.training_plan.save(filename, results)
+                # TODO: add validation status to these results?
+                # Dump the results to a msgpack file.
+                filename = os.path.join(environ["TMP_DIR"], f"node_params_{uuid.uuid4()}.mpk")
+                Serializer.dump(results, filename)
+                # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-
-            except Exception as e:
-                is_failed = True
-                error_message = f"Cannot upload results: {str(e)}"
-                return self._send_round_reply(success=False, message=error_message)
+            except Exception as exc:
+                return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
             # end : clean the namespace
             try:
                 del self.training_plan
                 del import_module
             except Exception as e:
-                logger.debug(f'Exception raise while deleting training plan instance: {e}')
-                pass
+                logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
@@ -516,7 +513,6 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
-        print(self.training_plan.dataset_path)
         training_plan_type = self.training_plan.type()
 
         # Inspect the arguments of the method `training_data`, because this
@@ -540,7 +536,7 @@ class Round:
                 data_manager = self.training_plan.training_data()
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
-                                      f"{str(training_plan_type.value)} has failed: {str(e)}")
+                                      f"{str(training_plan_type.value)} has failed: {repr(e)}")
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
@@ -554,7 +550,7 @@ class Round:
             # This data manager can be data manager for PyTorch or Sk-Learn
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
-            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
 
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):

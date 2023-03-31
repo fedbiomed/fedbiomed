@@ -129,6 +129,30 @@ class TorchModel(Model):
 
         return model.state_dict()
 
+    def set_weights(
+        self,
+        weights: Union[Dict[str, torch.Tensor], TorchVector],
+    ) -> None:
+        """Sets model weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                torch tensor, or as a declearn TorchVector wrapping such a dict.
+        """
+        state_dict = dict(self._get_iterator_model_params(weights))
+        incompatible = self.model.load_state_dict(state_dict, strict=False)
+        if incompatible.missing_keys:
+            logger.warning(
+                "'TorchModel.set_weights' received inputs that did not cover all"
+                "model parameters; missing weights: %s",
+                incompatible.missing_keys
+            )
+        if incompatible.unexpected_keys:
+            logger.warning(
+                "'TorchModel.set_weights' received inputs with unexpected names: %s",
+                incompatible.unexpected_keys
+            )
+
     def apply_updates(
         self,
         updates: Union[TorchVector, Dict[str, torch.Tensor]],
@@ -240,23 +264,33 @@ class TorchModel(Model):
                 f"{ErrorNumbers.FB622.value}. Training has not been initialized, please initialize it beforehand"
             )
 
-    def load(self, filename: str) -> None:
-        """Loads model from a file.
+    def export(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
 
         Args:
-            filename: path towards the file where the model has been saved.
+            filename: path to the file where the model will be saved.
+
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
+
+        !!! warning "Warning":
+            This method uses `torch.save`, which relies on pickle and
+            is therefore hard to trust by third-party loading methods.
+        """
+        torch.save(self.model, filename)
+
+    def _reload(self, filename: str) -> None:
+        """Model-class-specific backend to the `reload` method.
+
+        Args:
+            filename: path to the file where the model has been exported.
 
         Returns:
-            model_parameters stored in an OrderedDict.
+            model: reloaded model instance to be wrapped, that will be type-
+                checked as part of the calling `reload` method.
         """
-        # loads model from a file
-        params = torch.load(filename)
-        self.model.load_state_dict(params)
-
-    def save(self, filename: str) -> None:
-        """Saves model into a file.
-
-        Args:
-            filename: path to the file, where will be saved the model.
-        """
-        torch.save(self.model.state_dict(), filename)
+        return torch.load(filename)
