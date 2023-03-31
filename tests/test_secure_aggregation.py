@@ -100,20 +100,20 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             job_id="exp-id-1",
         )
 
-        s_id = self.secagg.secagg_servkey_id()
-        b_id = self.secagg.secagg_biprime_id()
+        s_id = self.secagg.servkey_id()
+        b_id = self.secagg.biprime_id()
 
         self.assertTrue(s_id is not None)
         self.assertTrue(b_id is not None)
 
-        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.secagg_biprime_id())
-        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.secagg_servkey_id())
+        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.biprime_id())
+        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.servkey_id())
 
         self.secagg._biprime._context = "Test biprime"
         self.secagg._servkey._context = "Test servkey"
 
-        s_context = self.secagg.secagg_servkey_context()
-        b_context = self.secagg.secagg_biprime_context()
+        s_context = self.secagg.servkey_context()
+        b_context = self.secagg.biprime_context()
 
         self.assertEqual("Test biprime", b_context)
         self.assertEqual("Test servkey", s_context)
@@ -230,16 +230,16 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             job_id="exp-id-1",
         )
 
-        biprime_id = self.secagg.secagg_biprime_id()
-        servkey_id = self.secagg.secagg_servkey_id()
+        biprime_id = self.secagg.biprime_id()
+        servkey_id = self.secagg.servkey_id()
 
         state = self.secagg.save_state()
 
         # Load from state
         secagg = SecureAggregation.load_state(state)
 
-        self.assertEqual(secagg.secagg_biprime_id(), biprime_id)
-        self.assertEqual(secagg.secagg_servkey_id(), servkey_id)
+        self.assertEqual(secagg.biprime_id(), biprime_id)
+        self.assertEqual(secagg.servkey_id(), servkey_id)
         self.assertEqual(secagg.job_id, job_id)
         self.assertListEqual(secagg.parties, parties)
 

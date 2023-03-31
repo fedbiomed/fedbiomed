@@ -101,7 +101,7 @@ class SecureAggregation:
 
         return self._secagg_random
 
-    def secagg_biprime_context(self) -> Union[Dict, None]:
+    def biprime_context(self) -> Union[Dict, None]:
         """Gets biprime context
 
         Returns:
@@ -110,7 +110,7 @@ class SecureAggregation:
 
         return self._biprime.context if self._biprime is not None else None
 
-    def secagg_servkey_context(self) -> Union[Dict, None]:
+    def servkey_context(self) -> Union[Dict, None]:
         """Gets server-key context
 
         Returns:
@@ -119,7 +119,7 @@ class SecureAggregation:
 
         return self._servkey.context if self._servkey is not None else None
 
-    def secagg_biprime_id(self) -> str:
+    def biprime_id(self) -> str:
         """Gets secure aggregation server-key element id from `SecaggServkeyContext`
 
 
@@ -128,7 +128,7 @@ class SecureAggregation:
         """
         return self._biprime.secagg_id if self._biprime is not None else None
 
-    def secagg_servkey_id(self):
+    def servkey_id(self):
         """Gets secure aggregation Biprime element id from `SecaggBiprimeContext`
 
 
