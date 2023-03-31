@@ -1575,7 +1575,7 @@ class Experiment:
         if test_after:
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            self._job._nodes)
+                                                                                            self._job.nodes)
             self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
