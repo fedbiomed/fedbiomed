@@ -1,11 +1,10 @@
 import copy
-import inspect
 import os
 import shutil
-from typing import Dict, Any
 import unittest
-from unittest.mock import patch, MagicMock
 import uuid
+from typing import Any, Dict
+from unittest.mock import MagicMock, create_autospec, patch
 
 import numpy as np
 import torch
@@ -21,11 +20,13 @@ from testsupport.fake_responses import FakeResponses
 from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.common.training_args import TrainingArgs
+
 
 
 class TestJob(ResearcherTestCase):
@@ -42,13 +43,9 @@ class TestJob(ResearcherTestCase):
         tmp_dir_model = os.path.join(tmp_dir, name)
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
-
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
+        content = "from testsupport.fake_training_plan import FakeModel"
+        with open(tmp_dir_model, "w", encoding="utf-8") as file:
+            file.write(content)
 
         return tmp_dir_model
 
@@ -90,20 +87,18 @@ class TestJob(ResearcherTestCase):
         self.mock_atexit = self.patcher5.start()
 
         # Globally create mock for Model and FederatedDataset
-        self.model = MagicMock(return_value=None)
-        self.model.save = MagicMock(return_value=None)
-        self.model.save_code = MagicMock(return_value=None)
-        self.model.load = MagicMock(return_value={'model_params': True,
-                                                  'optimizer_args': True})
+        self.model = create_autospec(BaseTrainingPlan, instance=False)
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
         self.mock_request_create.side_effect = TestJob.msg_side_effect
 
         # Build Global Job that will be used in most of the tests
-        self.job = Job(training_plan_class=self.model,
-                       training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                       data=self.fds)
+        self.job = Job(
+            training_plan_class=self.model,
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=self.fds
+        )
 
     def tearDown(self) -> None:
 
@@ -153,7 +148,7 @@ class TestJob(ResearcherTestCase):
 
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
-    def test_job_02_init_building_model_from_path(self):
+    def test_job_04_init_building_model_from_path(self):
         """ Test model is passed as static python file with training_plan_path """
 
         # Get source of the model and save in tmp directory for just test purposes
@@ -176,7 +171,7 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(self.mock_upload_file.call_count, 2)
 
     @patch('fedbiomed.common.logger.logger.critical')
-    def test_job_init_03_build_wrongly_saved_model(self, mock_logger_critical):
+    def test_job_init_05_build_wrongly_saved_model(self, mock_logger_critical):
         """ Testing when model code saved with unsupported module name
 
             - This test will catch raise SystemExit
@@ -195,7 +190,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.common.logger.logger.critical')
     @patch('inspect.isclass')
-    def test_job_04_init_isclass_raises_error(self,
+    def test_job_06_init_isclass_raises_error(self,
                                               mock_isclass,
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
@@ -208,7 +203,7 @@ class TestJob(ResearcherTestCase):
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_job_05_initialization_raising_exception_save_and_save_code(self,
+    def test_job_07_initialization_raising_exception_save_and_save_code(self,
                                                                         mock_logger_error):
 
         """ Test Job initialization when model_instance.save and save_code raises Exception """
@@ -227,19 +222,19 @@ class TestJob(ResearcherTestCase):
         mock_logger_error.reset_mock()
 
         # Test TRY/EXCEPT when model.save() raises Exception
-        self.model.save.side_effect = Exception
+        self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
                 training_args=TrainingArgs({"batch_size": 12}, only_required=False),
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
-    def test_job_06_properties_setters(self):
+    def test_job_08_properties_setters(self):
         """ Testing all properties and setters of Job class
             TODO: Change this part after refactoring getters and setters
         """
         self.assertEqual(self.model, self.job.training_plan,
                          'Can not get Requests attribute from Job properly')
-        self.assertEqual('MagicMock', self.job.training_plan_name, 'Can not model class properly')
+        self.assertEqual('BaseTrainingPlan', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
         model_file = self.job.training_plan_file
@@ -258,7 +253,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_job_07_check_training_plan_is_approved_by_nodes(self,
+    def test_job_09_check_training_plan_is_approved_by_nodes(self,
                                                              mock_requests_get_responses,
                                                              mock_requests_send_message):
         """ Testing the method that check training plan approval status of the nodes"""
@@ -328,7 +323,7 @@ class TestJob(ResearcherTestCase):
         self.assertListEqual(responses.data(), result.data(),
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
-    def test_job_08_waiting_for_nodes(self):
+    def test_job_10_waiting_for_nodes(self):
         """ Testing the method waiting_for_nodes method that runs during federated training """
 
         responses = FakeResponses([
@@ -350,13 +345,15 @@ class TestJob(ResearcherTestCase):
         result = self.job.waiting_for_nodes(responses)
         self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
 
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('fedbiomed.researcher.responses.Responses')
-    def test_job_09_start_training_round(self,
+    def test_job_11_start_training_round(self,
                                          mock_responses,
                                          mock_requests_get_responses,
-                                         mock_requests_send_message
+                                         mock_requests_send_message,
+                                         serialize_load_patch,
                                          ):
         """ Test Job - start_training_round method with 3 different scenarios
 
@@ -421,18 +418,22 @@ class TestJob(ResearcherTestCase):
         _ = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1', 'node-2'])
+        self.assertEqual(serialize_load_patch.call_count, 2)
 
         # Test - 2 When one of the nodes returns error
         mock_requests_send_message.reset_mock()
+        serialize_load_patch.reset_mock()
         responses = FakeResponses([response_1, response_3])
         mock_requests_get_responses.return_value = responses
         nodes = self.job.start_nodes_training_round(2, aggregator_args_thr_msg=aggregator_args,
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
+        self.assertEqual(serialize_load_patch.call_count, 1)  # resp_3 has no params
 
         # Test - 2 When one of the nodes returns error without extra_msg and
         # check node-2 is removed since it returned error in the previous test call
+        serialize_load_patch.reset_mock()
         mock_requests_send_message.reset_mock()
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
@@ -440,86 +441,50 @@ class TestJob(ResearcherTestCase):
                                                     aggregator_args_thr_files={})
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
+        self.assertEqual(serialize_load_patch.call_count, 1)
 
-    def test_job_11_update_parameters_with_all_arguments(self):
-        """ Testing update_parameters method with all available arguments"""
-
+    def test_job_12_update_parameters_with_invalid_arguments(self):
+        """ Testing update_parameters method with invalid arguments.s"""
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
-
         params = {'params': [1, 2, 3, 4]}
-        # Test by passing all arguments
-        result = self.job.update_parameters(params=params, filename='dummy/file/name/')
-        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.assertEqual( self.job.repo.uploads_url , self.job._repository_args['params_url'])
-        self.mock_upload_file.assert_called_once_with('dummy/file/name/')
-
-        self.mock_upload_file.reset_mock()
-        file_url = 'http://some/file/uploaded'
-        self.mock_upload_file.return_value = {"file": file_url}
-        # case where arg is_model_params is False and filename is not defined
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
-
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None, is_model_params=False)
-            filename = os.path.join(self.job._keep_files_dir, 'aggregated_params' + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job.repo.uploads_url)
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
-
-        self.mock_upload_file.reset_mock()
-
-        # test with specified variable name
-        variable_name = "my_variable"
-
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
-
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None,
-                                                is_model_params=False, variable_name=variable_name)
-            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
-
-        # same test but with `is_model_params` set to True
-        self.mock_upload_file.reset_mock()
-
-        variable_name = "my_variable"
-
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
-
-            patch_uuid.return_value = FakeUuid()
-            result = self.job.update_parameters(params=params, filename=None,
-                                                is_model_params=False, variable_name=variable_name)
-            filename = os.path.join(self.job._keep_files_dir, variable_name + str(FakeUuid.VALUE) + '.pt')
-            self.mock_upload_file.assert_called_once_with(filename)
-            self.assertEqual(result, (filename, file_url))
-            self.assertNotEqual(result[1], self.job._repository_args['params_url'])
-
-    def test_job_12_update_parameters_with_passing_params_only(self):
-        """ Testing update_parameters by passing only params """
-
-        # Reset model.save mock
-        self.model.save.reset_mock()
-
-        params = {'params': [1, 2, 3, 4]}
-        # Test without passing filename
-
-        result = self.job.update_parameters(params=params)
-        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
-        self.model.save.assert_called_once()
-
-    def test_job_13_update_parameters_assert(self):
-        """ Testing assertion of update_parameters by not providing any arguments """
-
+        # Test by passing both params and filename: raises.
+        with self.assertRaises(SystemExit):
+            self.job.update_parameters(params=params, filename='dummy/file/name/')
         # Test without passing parameters should raise ValueError
         with self.assertRaises(SystemExit):
-            _ = self.job.update_parameters()
+            self.job.update_parameters()
+
+    def test_job_13_update_parameters_from_params(self):
+        """Testing update_parameters when passing 'params'."""
+        params = {'params': [1, 2, 3, 4]}
+        with (
+            patch("fedbiomed.common.serializer.Serializer.dump") as patch_dump,
+            patch.object(self.job.training_plan, "get_model_params") as patch_get
+        ):
+            patch_get.return_value = params
+            result = self.job.update_parameters(params=params)
+        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
+        self.model.get_model_params.assert_called_once()
+        patch_dump.assert_called_with(
+            {"researcher_id": self.job._researcher_id, "model_weights": params},
+            self.job._model_params_file,
+        )
+
+    def test_job_14_update_parameters_from_file(self):
+        """Testing update_parameters when passing 'filename'."""
+        params = {"params": [1, 2, 3, 4]}
+        with (
+            patch("fedbiomed.common.serializer.Serializer.load") as patch_load
+        ):
+            patch_load.return_value = {"researcher_id": 1234, "model_weights": params}
+            result = self.job.update_parameters(filename="mock_path")
+        patch_load.assert_called_with("mock_path")
+        self.model.set_model_params.assert_called_once_with(params)
+        self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_job__14_check_dataset_quality(self, mock_logger_error):
+    def test_job_15_check_dataset_quality(self, mock_logger_error):
         """ Test for checking data quality in Job by providing different FederatedDatasets """
 
         # CSV - Check dataset when everything is okay
@@ -596,7 +561,7 @@ class TestJob(ResearcherTestCase):
         self.job.check_data_quality()
         self.assertEqual(mock_logger_error.call_count, 2)
 
-    def test_job_15_save_private_training_replies(self):
+    def test_job_16_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
@@ -632,7 +597,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.responses.Responses.__getitem__')
     @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_16_private_load_training_replies(
+    def test_job_17_private_load_training_replies(
             self,
             patch_responses_init,
             patch_responses_getitem
@@ -640,24 +605,18 @@ class TestJob(ResearcherTestCase):
         """tests if `_load_training_replies` is loading file content from path file
         and is building a proper training replies structure from breakpoint info
         """
-
-        # first test with a model done with pytorch
+        # Declare mock model parameters, for torch and scikit-learn.
         pytorch_params = {
             # dont need other fields
-            'model_params': torch.Tensor([1, 3, 5, 7])
+            "model_weights": torch.Tensor([1, 3, 5, 7])
         }
         sklearn_params = {
             # dont need other fields
-            'model_params': np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
+            "model_weights": np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
         }
         # mock FederatedDataSet
         fds = MagicMock()
         fds.data = MagicMock(return_value={})
-
-        # mock Pytorch model object
-        model_torch = MagicMock(return_value=None)
-        model_torch.save = MagicMock(return_value=None)
-        func_torch_loadparams = MagicMock(return_value=pytorch_params)
 
         # mock Responses
         #
@@ -674,10 +633,12 @@ class TestJob(ResearcherTestCase):
         patch_responses_init.return_value = None
         patch_responses_getitem.side_effect = side_responses_getitem
 
-        # instantiate job
-        test_job_torch = Job(training_plan_class=model_torch,
-                             training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                             data=fds)
+        # instantiate job with a mock training plan
+        test_job_torch = Job(
+            training_plan_class=MagicMock(),
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=fds
+        )
         # second create a `training_replies` variable
         loaded_training_replies_torch = [
             [
@@ -685,35 +646,44 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_1234",
                  "node_id": "node_1234",
-                 "params_path": "/path/to/file/param.pt",
+                 "params_path": "/path/to/file/param.mpk",
                  "timing": {"time": 0}
                  },
                 {"success": True,
                  "msg": "",
                  "dataset_id": "dataset_4567",
                  "node_id": "node_4567",
-                 "params_path": "/path/to/file/param2.pt",
+                 "params_path": "/path/to/file/param2.mpk",
                  "timing": {"time": 0}
                  }
             ]
         ]
 
         # action
-        torch_training_replies = test_job_torch._load_training_replies(
-            loaded_training_replies_torch,
-            func_torch_loadparams
+        with patch(
+            "fedbiomed.common.serializer.Serializer.load", return_value=pytorch_params
+        ) as load_patch:
+            torch_training_replies = test_job_torch._load_training_replies(
+                loaded_training_replies_torch
+            )
+        self.assertEqual(load_patch.call_count, 2)
+        load_patch.assert_called_with(
+            loaded_training_replies_torch[0][1]["params_path"],
         )
-
-        self.assertTrue(type(torch_training_replies) is dict)
+        self.assertIsInstance(torch_training_replies, dict)
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
             torch_training_replies[0][0]['node_id'],
             loaded_training_replies_torch[0][0]['node_id'])
         # check `training_replies` for pytorch models
-        self.assertTrue(torch.isclose(torch_training_replies[0][1]['params'],
-                                      pytorch_params['model_params']).all())
-        self.assertTrue(torch_training_replies[0][1]['params_path'],
-                        "/path/to/file/param2.pt")
+        self.assertTrue(torch.eq(
+            torch_training_replies[0][1]['params'],
+            pytorch_params['model_weights']
+        ).all())
+        self.assertEqual(
+            torch_training_replies[0][1]['params_path'],
+            "/path/to/file/param2.mpk"
+        )
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
         # #### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
@@ -722,7 +692,7 @@ class TestJob(ResearcherTestCase):
             [
                 {
                     # dummy
-                    "params_path": "/path/to/file/param_sklearn.pt"
+                    "params_path": "/path/to/file/param_sklearn.mpk"
                 }
             ],
             [
@@ -730,42 +700,49 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_8888",
                  "node_id": "node_8888",
-                 "params_path": "/path/to/file/param2_sklearn.pt",
+                 "params_path": "/path/to/file/param2_sklearn.mpk",
                  "timing": {"time": 6}
                  }
             ]
         ]
 
-        # mock sklearn model object
-        model_sklearn = MagicMock(return_value=None)
-        model_sklearn.save = MagicMock(return_value=None)
-        func_sklearn_loadparams = MagicMock(return_value=sklearn_params)
         # instantiate job
-        test_job_sklearn = Job(training_plan_class=model_sklearn,
-                               training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                               data=fds)
-
-        # action
-        sklearn_training_replies = test_job_sklearn._load_training_replies(
-            loaded_training_replies_sklearn,
-            func_sklearn_loadparams
+        test_job_sklearn = Job(
+            training_plan_class=MagicMock(),
+            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            data=fds
         )
 
+        # action
+        with patch(
+            "fedbiomed.common.serializer.Serializer.load", return_value=sklearn_params
+        ) as load_patch:
+            sklearn_training_replies = test_job_sklearn._load_training_replies(
+                loaded_training_replies_sklearn
+            )
+        self.assertEqual(load_patch.call_count, 2)
+        load_patch.assert_called_with(
+            loaded_training_replies_sklearn[1][0]["params_path"],
+        )
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
             sklearn_training_replies[1][0]['node_id'],
             loaded_training_replies_sklearn[1][0]['node_id'])
         # check `training_replies` for sklearn models
-        self.assertTrue(np.allclose(sklearn_training_replies[1][0]['params'],
-                                    sklearn_params['model_params']))
-        self.assertTrue(sklearn_training_replies[1][0]['params_path'],
-                        "/path/to/file/param2_sklearn.pt")
+        self.assertTrue(np.allclose(
+            sklearn_training_replies[1][0]['params'],
+            sklearn_params['model_weights']
+        ))
+        self.assertEqual(
+            sklearn_training_replies[1][0]['params_path'],
+            "/path/to/file/param2_sklearn.mpk"
+        )
         self.assertTrue(isinstance(sklearn_training_replies[0],
                                    Responses))
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_17_load_state(
+    def test_job_18_load_state(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
@@ -798,7 +775,7 @@ class TestJob(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_18_save_state(
+    def test_job_19_save_state(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -854,17 +831,17 @@ class TestJob(ResearcherTestCase):
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
 
-    def test_job_19_upload_aggregator_args(self):
+    def test_job_20_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
-        tensor = torch.tensor([[1, 2, 4], [2, 3, 4]])
+        tensor = torch.Tensor([[1, 2, 4], [2, 3, 4]])
         arr = np.array([1, 4, 5])
         training_args_thr_files = {'node-1':{ 'aggregator_name': 'my_aggregator',
                                     'var4': {'params': tensor}, 'var5': {'params': arr}},
                                    'node-2':{ 'aggregator_name': 'my_aggregator',
                                              'var4': {'params': tensor.T}, 'var5': {'params':arr}}
                                    }
-        with patch.object(uuid, 'uuid4' ) as patch_uuid:
+        with patch.object(uuid, 'uuid4') as patch_uuid:
             patch_uuid.return_value = FakeUuid()
             t_a = self.job.upload_aggregator_args(copy.deepcopy(training_args_thr_msg), training_args_thr_files)
             # first we check `training_args_thr_msg` are contained into `t_a` (be careful about references!)
@@ -875,7 +852,7 @@ class TestJob(ResearcherTestCase):
                 for var in ('var4', 'var5'):
                     # check that `t_a` doesnot contain any params field
                     self.assertIsNone(t_a[node_id][var].get('params'))
-                    filename = os.path.join(self.job._keep_files_dir, var + str(FakeUuid.VALUE) + '.pt')
+                    filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.mpk")
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
 

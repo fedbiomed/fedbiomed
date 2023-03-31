@@ -17,7 +17,9 @@ import unittest
 import logging
 import numpy as np
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
+
+from sklearn.linear_model import SGDClassifier, Perceptron
 
 import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -26,7 +28,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-from sklearn.linear_model import SGDClassifier, Perceptron
+
 
 class Custom:
     def testing_step(mydata, mytarget):
@@ -110,48 +112,37 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             [x for x in np.unique(X)]
         )
 
-    def test_sklearntrainingplanbasicinheritance_03_save(self):
+    def test_sklearntrainingplanbasicinheritance_03_export_model(self):
         training_plan = SKLearnTrainingPlan()
         saved_params = []
 
         def mocked_joblib_dump(obj, *args, **kwargs):
             saved_params.append(obj)
 
-        # Base case where params are not provided to save function
-        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
+        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.export',
                    side_effect=mocked_joblib_dump):
-            training_plan.save('filename')
+            training_plan.export_model('filename')
             self.assertEqual(saved_params[-1], 'filename')
 
-
-        for  param in ({'coef_': 0.42, 'intercept_': 0.42}, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}}):
-            with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.save',
-                    side_effect=mocked_joblib_dump),
-                    patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.set_weights') as patch_set_weights):
-
-                training_plan.save('filename', params=param)
-                self.assertEqual(saved_params[-1], 'filename')
-                patch_set_weights.assert_called_once_with({'coef_': 0.42, 'intercept_': 0.42})
-
-    def test_sklearntrainingplanbasicinheritance_04_load(self):
+    def test_sklearntrainingplanbasicinheritance_04_import_model(self):
         training_plan = SKLearnTrainingPlan()
-            
+
         # Saved object is not the correct type
-        with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load') as patch_model_loader,
-                   patch('fedbiomed.common.training_plans._sklearn_training_plan.SKLearnTrainingPlan.model',
-                         return_value=FedSGDRegressor._model_cls())):
-            
+        with patch(
+            'fedbiomed.common.models.BaseSkLearnModel._reload',
+            return_value=MagicMock()
+        ):
             with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.load('filename')
+                training_plan.import_model('filename')
 
         # Option to retrieve model parameters instead of full model from load function
-        init_params = {'coef_': 0.42, 'intercept_': 0.42}
-        with (patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.get_weights', return_value=init_params),
-              patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.load')):
-            params = training_plan.load('filename', to_params=True)
-            self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-            params = training_plan.after_training_params()
-            self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
+        model = create_autospec(SGDClassifier, instance=True)
+        with patch(
+            'fedbiomed.common.models.BaseSkLearnModel._reload',
+            return_value=model
+        ):
+            training_plan.import_model('filename')
+            self.assertIs(training_plan._model.model, model)
 
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
@@ -305,22 +296,26 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             for param in training_plan._model.param_list:
                 self.assertIsInstance(param, str)
 
-    def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
+    def test_sklearntrainingplancommonfunctionalities_02_export_reload(self):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
-            training_plan.save(randomfile.name)
-            orig_params = deepcopy(training_plan.model().get_params())
+            training_plan.export_model(randomfile.name)
+            orig_params = deepcopy(training_plan.get_model_params())
 
             # ensure file has been created and has size > 0
             self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
 
             new_tp = self.subclass_types[training_plan.parent_type]()
             new_tp.post_init({'n_classes': 2, 'n_features': 1}, FakeTrainingArgs())
-
-            m = new_tp.load(randomfile.name)
-            # ensure output of load is the same as original parameters
-            self.assertDictEqual(m.get_params(), orig_params)
-            # ensure that the newly loaded model has the same params as the original model
+            new_tp.import_model(randomfile.name)
+            # Ensure the imported model has the same weights as the exported one.
+            load_params = new_tp.get_model_params()
+            self.assertEqual(load_params.keys(), orig_params.keys())
+            self.assertTrue(all(
+                np.all(load_params[k] == orig_params[k]) for k in load_params
+            ))
+            # Ensure the import model has the same hyper-parameters as the exported one.
+            # Note: here `get_params` is `sklearn.base.BaseEstimator.get_params`.
             self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
     @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())

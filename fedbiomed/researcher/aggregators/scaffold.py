@@ -10,9 +10,11 @@ import uuid
 
 import numpy as np
 import torch
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -96,7 +98,7 @@ class Scaffold(Aggregator):
         self.nodes_lr: Dict[str, List[float]] = {}
         if fds is not None:
             self.set_fds(fds)
-        
+
         self._aggregator_args = {}  # we need `_aggregator_args` to be not None
         #self.update_aggregator_params()FedbiomedAggregatorError:
 
@@ -153,7 +155,7 @@ class Scaffold(Aggregator):
 
         # Compute the new aggregated model parameters.
         aggregated_parameters = self.scaling(model_params, global_model)
-        
+
         # At round 0, initialize zero-valued correction states.
         if n_round == 0:
             self.init_correction_states(global_model, node_ids)
@@ -175,7 +177,7 @@ class Scaffold(Aggregator):
         Returns:
             Tuple[Dict, Dict]: first dictionary contains parameters that will be sent through MQTT message
                 service, second dictionary parameters that will be sent through file exchange message.
-                Aggregators args are dictionary mapping node_id to SCAFFOLD parameters specific to 
+                Aggregators args are dictionary mapping node_id to SCAFFOLD parameters specific to
                 each `Nodes`.
         """
 
@@ -208,7 +210,7 @@ class Scaffold(Aggregator):
         Args:
 
             n_updates (int): number of updates. Must be non-zero and an integer.
-            training_plan (BaseTrainingPlan): training plan. used for checking if optimizer is SGD, otherwise, 
+            training_plan (BaseTrainingPlan): training plan. used for checking if optimizer is SGD, otherwise,
                 triggers warning.
 
         Raises:
@@ -217,7 +219,7 @@ class Scaffold(Aggregator):
             FedbiomedAggregatorError: triggered if number of updates equals 0 or is not an integer
             FedbiomedAggregatorError: triggered if [FederatedDataset][fedbiomed.researcher.datasets.FederatedDataset]
                 has not been set.
-             
+
         """
         if n_updates is None:
             raise FedbiomedAggregatorError("Cannot perform Scaffold: missing 'num_updates' entry in the training_args")
@@ -353,8 +355,8 @@ class Scaffold(Aggregator):
             eta_l: nodes' learning rate
             x: global model before updates
             y_i: local model updates
-        
-        Remark: 
+
+        Remark:
         c^{t=0} = 0
 
         Args:
@@ -374,7 +376,7 @@ class Scaffold(Aggregator):
         total_nb_nodes = len(self._fds.node_ids())
         # Compute the node-wise average of corrected gradients (ACG_i).
         # i.e. (x^t - y_i^t}) / (K * eta_l)
-        local_state_updates: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]] = {} 
+        local_state_updates: Dict[str, Mapping[str, Union[torch.Tensor, np.ndarray]]] = {}
         for node_id, params in local_models.items():
             local_state_updates[node_id] = {
                 key: (global_model[key] - val) / (self.nodes_lr[node_id][idx] * n_updates)
@@ -438,32 +440,32 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(self, training_plan: BaseTrainingPlan,
-                   breakpoint_path: str,
-                   global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
+    def save_state(
+        self,
+        breakpoint_path: str,
+        global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
+    ) -> Dict[str, Any]:
         # adding aggregator parameters to the breakpoint that wont be sent to nodes
         self._aggregator_args['server_lr'] = self.server_lr
-        
+
         # saving global state variable into a file
-        filename = os.path.join(breakpoint_path, 'global_state_' + str(uuid.uuid4()) + '.pt')
-        training_plan.save(filename, self.global_state)
+        filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
+        Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
         # adding aggregator parameters that will be sent to nodes afterwards
-        return super().save_state(training_plan,
-                                  breakpoint_path,
-                                  global_model=global_model,
-                                  node_ids=self._fds.node_ids())
+        return super().save_state(
+            breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
+        )
 
-    def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
+    def load_state(self, state: Dict[str, Any] = None):
         super().load_state(state)
 
         self.server_lr = self._aggregator_args['server_lr']
 
         # loading global state
         global_state_filename = self._aggregator_args['global_state_filename']
-        self.global_state = training_plan.load(global_state_filename, to_params=True)
+        self.global_state = Serializer.load(global_state_filename)
 
         for node_id in self._aggregator_args['aggregator_correction'].keys():
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-
-            self.nodes_correction_states[node_id] = training_plan.load(arg_filename)
+            self.nodes_correction_states[node_id] = Serializer.load(arg_filename)
