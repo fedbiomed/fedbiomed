@@ -160,8 +160,8 @@ class SecaggCrypter:
 
         if len(params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB624.value}Num of parameters that are received from node "
-                f"does not match the num of nodes has been set for the encrypter. There might "
+                f"{ErrorNumbers.FB624.value}: Num of parameters that are received from nodes "
+                f"does not match the number of nodes has been set for the encrypter. There might "
                 f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
 
