@@ -53,18 +53,18 @@ class Scaffold(Aggregator):
     7. obtain a data batch
     8. compute the gradients for this batch \( g(\mathbf{y}_i) \)
     9. apply correction term to gradients \( g(\mathbf{y}_i) -= \delta_i \)
-    10. update model with one optimizer step \( \mathbf{y}_i -= \eta_i g(\mathbf{y}_i) \)
+    10. update model with one optimizer step \( e.g. for SGD \mathbf{y}_i -= \eta_i g(\mathbf{y}_i) \)
     11. end foreach(update)
     12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
     13. end parallel section on each client
-    14. the server computes the node-wise model update \( \mathbf{\delta y}_i = \mathbf{y}_i - x \)
-    15. the server updates the global model by averaging \( \mathbf{x} -= \eta \sum_{i \in S} \mathbf{\delta y}_i \)
-    16. the server updates the node-wise states \( \mathbf{c}_i = \delta_i + \mathbf{\delta y}_i / (\eta_i K) \)
-    17. the server updates the global state \( \mathbf{c} = \sum_{i=1}^N \mathbf{c}_i \)
-    18. the server updates the node-wise correction state \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
+    14. the server computes the node-wise model update \( \mathbf{\delta y}_i =  x - \mathbf{y}_i \)
+    15. the server updates the node-wise states \( \mathbf{c}_i = \delta_i + \frac{\mathbf{\delta y}_i}{\eta_i K} \)
+    16. the server updates the global state \( \mathbf{c} = \frac{1}{N} \sum_{i \in N} \mathbf{c}_i \)
+    17. the server updates the node-wise correction state \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
+    18. the server updates the global model by averaging \( \mathbf{x} -= \frac{\eta}{|S|} \sum_{i \in S} \mathbf{\delta y}_i \)
     19. end foreach(round)
 
-    This [diagram](http://www.plantuml.com/plantuml/dsvg/xLR1Rjiw4BppA_PemL4S9-yXhMseIGEq1mEvk3qLHK5BAsiHYYH8gcdwzIKZEfLTmN9ozYaATwcPsV5GlB6E6zVKWZq_CFPOaK0ObSeWpoimgf45E209q_FpBmbZCyjhxLjM2zlep2qcuGzelvboqjoHt81K1LfGZGDL0XS2xjkbkT-Ugxfk9ENS8Mo4MdC1jQy9u1ueTALMOqubvP0hOp1tf2GuD3LRhBF5r_75rSTtsMBYdpi4pg2j_1TMrnc5rTqEZrqAjUNd40IMRZQu3GeiIM81t8B7poDmVsyQMtQNFR0o3ruwIN8WLFuYkIleq7jzq-Nq_KK61oOm_yUxHXTXo0_Hl6NIJbytOVA65uJIWMy6Lv65DNT-Jq2wlBZE1fcTFRp0phZMucdVBN3g1SMoLx-te_dLMzDZVWopE9xMYKTo5IY9eBIZcdwZ0UjG0pi2TJmTjcc8wlLEqrjSG5b4_tdfqC0o-c-JlT2L97So9v0R6L9XV7LOxrlKBkCM3zUhTzv61FY6apm5vHIKNggde4JwyNCIUEz_HNjezL8PJTFj-vC3MO4nZBPzarNo_7XxjQKK_llqVxQA4eO7ClmbzZX05bo5OD7yHFD362_rBgRHhxTtX4Uo2DpN-GP1bTjCOT69qktTvow9ZlX3YbCuMaW24nZrsRHCEhbnrTQYlWjDFk3IQdAVXBO-PwQ-Tj2ItGdqd7nXba3ntBlt0Q0IHc6nSw738jJ3qTVU1ZyaGPA4qLE83C2i_mpfLxJ7QFW42YtzOvep51O3tTUo6COSHypZgSY2ohzd2qk_LLGKAB-d6GCeqFbfCpRpzNQ8y-DwyPT6GpLADsVMASrk_6fJYpy0)
+    This [diagram](http://www.plantuml.com/plantuml/dsvg/xLRDJjmm4BxxAUR82fPbWOe2guYsKYyhSQ6SgghosXDYuTYMFIbjdxxE3r7MIac3UkH4i6Vy_SpCsZU1kAUgrApvOEofK1hX8BSUkIZ0syf88506riV7NnQCNGLUkXXojmcLosYpgl-0YybAACT9cGSmLc80Mn7O7BZMSDikNSTqOSkoCafmGdZGTiSrb75F0pUoYLe6XqBbIe2mtgCWPGqG-f9jTjdc_l3axEFxRBEAtmC2Hz3kdDUhkqpLg_iH4JlNzfaV8MZCwMeo3IJcog047Y3YYmvuF7RPXmoN8x3rZr6wCef0Mz5B7WXwyTmOTBg-FCcIX4HVMhlAoThanwvusqNhlgjgvpsN2Wr130OgL80T9r4qIASd5zaaiwF77lQAEwT_fTK2iZrAO7FEJJNFJbr27tl-eh4r-SwbjY1FYWgm1i4wKgNwZHu2eGFs3-27wvJv7CPjuCLUq6kAWKPsRS1pGW_RhWt28fczN9czqTF8lQc7myVTQRslKRljKYBSgDxhTbA0Ft1btkPbwjotUNcRbqY_krm-TPrA1RRNw9CA-2o6DUcNvzd_u9bUU9C7zhrpNxCPq1lCGAWj5BCuJVSh7C9iuQk3CQjXknW8eA9_koHJF50nplnWlRfTD0WVpZg4vh_FxxBR5ch_X57pGA8c7jY43MFuKoudhvYqWdL3fI-tfFbVsKYzxQkxl_XprxATLz69br_40nMQWWRqFz1_rvunjlnQA2dHV5jc340YSL54zMXa-o8U_72y58i_7NfLeg5h5iWwTXDNgrB_0G00)
     provides a visual representation of the algorithm.
 
     References:
@@ -180,7 +180,7 @@ class Scaffold(Aggregator):
         }
         # Update all Scaffold state variables.
         self.update_correction_states(model_updates, n_updates)
-        # Compute and reutrn the aggregated model parameters.
+        # Compute and return the aggregated model parameters.
         global_new = {}  # type: Dict[str, Union[torch.Tensor, np.ndarray]]
         for key, val in global_model.items():
             upd = sum(model_updates[node_id][key] for node_id in model_params)
