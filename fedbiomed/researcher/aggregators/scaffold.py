@@ -6,7 +6,7 @@
 import copy
 import os
 import uuid
-from typing import Any, Dict, Collection, List, Optional, Tuple, Union
+from typing import Any, Dict, Collection, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ import torch
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -417,36 +418,32 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(self, training_plan: BaseTrainingPlan,
-                   breakpoint_path: str,
-                   global_model: Dict[str, Union[torch.Tensor, np.ndarray]]) -> Dict[str, Any]:
+    def save_state(
+        self,
+        breakpoint_path: str,
+        global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
+    ) -> Dict[str, Any]:
         # adding aggregator parameters to the breakpoint that wont be sent to nodes
         self._aggregator_args['server_lr'] = self.server_lr
 
         # saving global state variable into a file
-        filename = os.path.join(breakpoint_path, 'global_state_' + str(uuid.uuid4()) + '.pt')
-        training_plan.save(filename, self.global_state)
+        filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
+        Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
         # adding aggregator parameters that will be sent to nodes afterwards
-        return super().save_state(training_plan,
-                                  breakpoint_path,
-                                  global_model=global_model,
-                                  node_ids=self._fds.node_ids())
+        return super().save_state(
+            breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
+        )
 
-    def load_state(self, state: Dict[str, Any] = None, training_plan: BaseTrainingPlan = None):
+    def load_state(self, state: Dict[str, Any] = None):
         super().load_state(state)
 
         self.server_lr = self._aggregator_args['server_lr']
 
         # loading global state
         global_state_filename = self._aggregator_args['global_state_filename']
-        self.global_state = training_plan.load(global_state_filename, to_params=True)
+        self.global_state = Serializer.load(global_state_filename)
 
         for node_id in self._aggregator_args['aggregator_correction']:
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-
-            self.nodes_deltas[node_id] = training_plan.load(arg_filename)
-            self.nodes_states[node_id] = {
-                key: self.nodes_deltas[node_id][key] + val
-                for key, val in self.global_state.items()
-            }
+            self.nodes_correction_states[node_id] = Serializer.load(arg_filename)

@@ -4,7 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Optional, Union, Type
+from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar
 
 from declearn.model.api import Vector
 
@@ -13,7 +13,14 @@ from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
 
 
-class Model(metaclass=ABCMeta):
+# Generic type variables for annotations: specify types that are abstract
+# at this level, but have to be coherent when defined by children classes.
+_MT = TypeVar("_MT")  # model type
+_DT = TypeVar("_DT")  # data array type
+_VT = TypeVar("_VT", bound=Vector)  # declearn vector type
+
+
+class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
@@ -24,7 +31,7 @@ class Model(metaclass=ABCMeta):
 
     _model_type: ClassVar[Type[Any]]
 
-    def __init__(self, model: Any):
+    def __init__(self, model: _MT):
         """Constructor of Model abstract class
 
         Args:
@@ -81,7 +88,7 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
+    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, _DT], _VT]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -93,7 +100,16 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], Vector]:
+    def set_weights(self, weights: Union[Dict[str, _DT], _VT]) -> None:
+        """Assign new values to the model's trainable weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                value, or as a declearn Vector structure wrapping such a dict.
+        """
+
+    @abstractmethod
+    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], _VT]:
         """Return computed gradients attached to the model.
 
         Args:
@@ -105,17 +121,53 @@ class Model(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def load(self, filename: str) -> None:
-        """Loads model from a file.
+    def export(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
 
         Args:
-            filename: path towards the file where the model has been saved.
+            filename: path to the file where the model will be saved.
+
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
         """
 
-    @abstractmethod
-    def save(self, filename: str) -> None:
-        """Saves model into a file.
+    def reload(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
 
         Args:
-            filename: path to the file, where will be saved the model.
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+
+        Raises:
+            FedbiomedModelError: if the reloaded instance is of unproper type.
+        """
+        model = self._reload(filename)
+        if not isinstance(model, self._model_type):
+            err_msg = (
+                f"{ErrorNumbers.FB622.value}: unproper type for imported model"
+                f": expected '{self._model_type}', but 'got {type(model)}'."
+            )
+            logger.critical(err_msg)
+            raise FedbiomedModelError(err_msg)
+        self.model = model
+
+    @abstractmethod
+    def _reload(self, filename: str) -> _MT:
+        """Model-class-specific backend to the `reload` method.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        Returns:
+            model: reloaded model instance to be wrapped, that will be type-
+                checked as part of the calling `reload` method.
         """

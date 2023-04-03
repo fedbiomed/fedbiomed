@@ -228,7 +228,6 @@ class TestScaffold(ResearcherTestCase):
         # check `agg_thr_file` contains node correction state
         for node_id in self.node_ids:
             self.assertDictEqual(agg_thr_file[node_id]['aggregator_correction'], agg.nodes_deltas[node_id])
-
         # checking case where a node has been added to the training (repeating same tests above)
         self.n_nodes += 1
         self.node_ids.append(f'node_{self.n_nodes}')
@@ -248,78 +247,76 @@ class TestScaffold(ResearcherTestCase):
     def test_7_save_state(self, uuid_patch):
         uuid_patch.return_value = FakeUuid()
         server_lr = .5
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
-        training_plan = MagicMock()
-        scaffold = Scaffold(server_lr, fds=self.fds)
+        scaffold = Scaffold(server_lr, fds=fds)
         scaffold.init_correction_states(self.model.state_dict())
-        state = scaffold.save_state(training_plan=training_plan,
-                                    breakpoint_path=bkpt_path,
-                                    global_model=self.model.state_dict())
-        self.assertEqual(training_plan.save.call_count, self.n_nodes + 1,
-                        f"training_plan 'save' method should be called {self.n_nodes} times for each nodes + \
+        with patch("fedbiomed.common.serializer.Serializer.dump") as save_patch:
+            state = scaffold.save_state(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
+        self.assertEqual(save_patch.call_count, self.n_nodes + 1,
+                        f"'Serializer.dump' should be called {self.n_nodes} times: once for each node + \
                         one more time for global_state")
 
         for node_id in self.node_ids:
             self.assertEqual(state['parameters']['aggregator_correction'][node_id],
-                             os.path.join(bkpt_path, 'aggregator_correction_' + str(node_id) + '.pt'))
+                             os.path.join(bkpt_path, 'aggregator_correction_' + str(node_id) + '.mpk'))
 
         self.assertEqual(state['parameters']['server_lr'], server_lr)
         self.assertEqual(state['parameters']['global_state_filename'], os.path.join(bkpt_path,
                                                                                     'global_state_'
-                                                                                    + str(FakeUuid.VALUE) + '.pt'))
+                                                                                    + str(FakeUuid.VALUE) + '.mpk'))
         self.assertEqual(state['class'], Scaffold.__name__)
         self.assertEqual(state['module'], Scaffold.__module__)
 
     def test_8_load_state(self):
-        """test_8_load_state: check how many time `save` method of training plan is called"""
-        server_lr = .5
-        bkpt_path = '/path/to/my/breakpoint'
-        training_plan = MagicMock()
-        scaffold = Scaffold(server_lr, fds=self.fds)
-
-        # first we create a state before trying to load it
-        scaffold.init_correction_states(self.model.state_dict())
-        state = scaffold.save_state(training_plan=training_plan,
-                                    breakpoint_path=bkpt_path,
-                                    global_model=self.model.state_dict())
-
-        training_plan.reset_mock()
-        # action
-        scaffold.load_state(state, training_plan)
-
-        training_plan.load.return_value = self.model.state_dict()
-        self.assertEqual(training_plan.load.call_count, self.n_nodes + 1,
-                         f"training_plan 'load' method should be called {self.n_nodes} times for each nodes + \
-                         one more time for global_state")
-
-    def test_9_load_state_2(self):
-        """test_9_load_state_2: check loaded parameters are correctly reloaded"""
+        """Test that 'load_state' triggers the proper amount of calls."""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
-        training_plan = MagicMock()
         scaffold = Scaffold(server_lr, fds=fds)
 
-        # first we create a correction state before trying to load it
-        #scaffold.init_correction_states(self.model.state_dict(), self.node_ids)
-        state = scaffold.save_state(training_plan=training_plan,
-                                    breakpoint_path=bkpt_path,
-                                    global_model=self.model.state_dict())
-
-        training_plan.load = MagicMock(return_value=self.model.state_dict())
+        # create a state (not actually saving the associated contents)
+        with patch("fedbiomed.common.serializer.Serializer.dump"):
+            state = scaffold.save_state(
+                breakpoint_path=bkpt_path, global_model=self.model.state_dict()
+            )
 
         # action
-        scaffold.load_state(state, training_plan)
+        with patch("fedbiomed.common.serializer.Serializer.load") as load_patch:
+            scaffold.load_state(state)
+
+        self.assertEqual(load_patch.call_count, self.n_nodes + 1,
+                         f"'Serializer.load' should be called {self.n_nodes} times: once for each node + \
+                         one more time for global_state")
+
+    def test_9_load_state_2(self):
+        """Test that 'load_state' properly assigns loaded values."""
+        server_lr = .5
+        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        bkpt_path = '/path/to/my/breakpoint'
+        scaffold = Scaffold(server_lr, fds=fds)
+
+        # create a state (not actually saving the associated contents)
+        with patch("fedbiomed.common.serializer.Serializer.dump"):
+            state = scaffold.save_state(
+                breakpoint_path=bkpt_path, global_model=self.model.state_dict()
+            )
+
+        # action
+        with patch(
+            "fedbiomed.common.serializer.Serializer.load",
+            return_value=self.model.state_dict()
+        ):
+            scaffold.load_state(state)
+
         # tests
         for node_id in self.node_ids:
             for (k,v), (k_ref, v_ref) in zip(scaffold.nodes_deltas[node_id].items(),
                                              self.model.state_dict().items()):
-
                 self.assertTrue(torch.isclose(v, v_ref).all())
 
             for (k, v), (k_0, v_0) in zip(scaffold.global_state.items(),
                                           self.model.state_dict().items()):
-
                 self.assertTrue(torch.isclose(v, v_0).all())
         self.assertEqual(scaffold.server_lr, server_lr)
 

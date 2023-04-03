@@ -7,12 +7,12 @@ top class for all aggregators
 
 
 import os
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
@@ -65,10 +65,15 @@ class Aggregator:
         """
         return self._aggregator_args or {}, {}
 
-    def save_state(self,
-                   training_plan: Optional[BaseTrainingPlan] = None,
-                   breakpoint_path: Optional[str] = None,
-                   **aggregator_args_create) -> Dict[str, Any]:
+    # def scaling(self, model_param: dict, *args, **kwargs) -> dict:
+    #     """Should be overwritten by child if a scaling operation is involved in aggregator"""
+    #     return model_param
+
+    def save_state(
+        self,
+        breakpoint_path: Optional[str] = None,
+        **aggregator_args_create: Any,
+    ) -> Dict[str, Any]:
         """
         use for breakpoints. save the aggregator state
         """
@@ -84,14 +89,13 @@ class Aggregator:
 
                         for arg_name, aggregator_arg in node_arg.items():
                             if arg_name != 'aggregator_name': # do not save `aggregator_name` as a file
-                                filename = self._save_arg_to_file(training_plan, breakpoint_path,
-                                                                  arg_name, node_id, aggregator_arg)
+                                filename = self._save_arg_to_file(breakpoint_path, arg_name, node_id, aggregator_arg)
                                 self._aggregator_args.setdefault(arg_name, {})
 
 
                                 self._aggregator_args[arg_name][node_id] = filename  # replacing value by a path towards a file
                     else:
-                        filename = self._save_arg_to_file(training_plan, breakpoint_path, arg_name, node_id, node_arg)
+                        filename = self._save_arg_to_file(breakpoint_path, arg_name, node_id, node_arg)
                         self._aggregator_args[arg_name] = filename
         state = {
             "class": type(self).__name__,
@@ -100,14 +104,13 @@ class Aggregator:
         }
         return state
 
-    def _save_arg_to_file(self, training_plan: BaseTrainingPlan, breakpoint_path: str, arg_name: str,
-                          node_id: str, arg: Any) -> str:
+    def _save_arg_to_file(self, breakpoint_path: str, arg_name: str, node_id: str, arg: Any) -> str:
 
-        filename = os.path.join(breakpoint_path, arg_name + '_' + node_id + '.pt')
-        training_plan.save(filename, arg)
+        filename = os.path.join(breakpoint_path, f"{arg_name}_{node_id}.mpk")
+        Serializer.dump(arg, filename)
         return filename
 
-    def load_state(self, state: Dict[str, Any] = None, **kwargs):
+    def load_state(self, state: Dict[str, Any], **kwargs) -> None:
         """
         use for breakpoints. load the aggregator state
         """
