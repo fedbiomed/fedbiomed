@@ -9,6 +9,9 @@ from abc import ABC, abstractmethod
 import time
 import random
 
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.requests import Requests
+
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -17,9 +20,6 @@ from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
-
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests
 
 
 _CManager = CertificateManager(
