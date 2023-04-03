@@ -3,17 +3,10 @@
 
 """TrainingPlan definition for the pytorch deep learning framework."""
 
+from abc import ABCMeta, abstractmethod
 
-from abc import ABC, abstractmethod
-import functools
-from collections import OrderedDict
-from typing import Any, Dict, List, Tuple, Optional, Union, Iterator
+from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
-from copy import deepcopy
-
-import numpy as np
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.training_args import TrainingArgs
 import torch
 from torch import nn
 
@@ -21,25 +14,27 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.privacy import DPController
-from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
+from fedbiomed.common.utils import get_method_spec
+
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
-class TorchTrainingPlan(BaseTrainingPlan, ABC):
+class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
     will be:
 
-    1. saved  on a '*.py' (resp. '*.pt') files,
+    1. saved  on a '*.py' (resp. '*.mpk') files,
     2. uploaded on a HTTP server (network layer),
     3. then Downloaded from the HTTP server on node side,
     4. finally, read and executed on node side.
-
 
     Researcher must define/override:
     - a `training_data()` function
@@ -56,6 +51,11 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         correction_state: an OrderedDict of {'parameter name': torch.Tensor} where the keys correspond to the names of
             the model parameters contained in self._model.named_parameters(), and the values correspond to the
             correction to be applied to that parameter.
+
+    !!! info "Notes"
+        The trained model may be exported via the `export_model` method,
+        resulting in a dump file that may be reloded using `torch.save`
+        outside of Fed-BioMed.
     """
 
     def __init__(self):
@@ -131,52 +131,40 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-
-
+        # Assign scalar attributes.
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
-
         self._log_interval = self._training_args.get('log_interval')
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
-
-        # aggregator args
-        self._fedprox_mu = self._training_args.get('fedprox_mu')
-        # TODO: put fedprox mu inside strategy_args
-        self._aggregator_args = aggregator_args or {}
-
-        self.set_aggregator_args(self._aggregator_args)
-        # self.aggregator_name = self._aggregator_args.get('aggregator_name')
-        # FIXME: we should have a AggregatorHandler that handles aggregator args
-
+        # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
-
         # Add dependencies
         self._configure_dependencies()
-
+        # Configure aggregator-related arguments
+        # TODO: put fedprox mu inside strategy_args
+        self._fedprox_mu = self._training_args.get('fedprox_mu')
+        self.set_aggregator_args(aggregator_args or {})
         # Configure model and optimizer
         self._configure_model_and_optimizer(model_args)
 
     @abstractmethod
     def init_model(self):
-        """Abstract method where model should be defined """
-        pass
+        """Abstract method where model should be defined."""
 
     @abstractmethod
     def training_step(self):
-        """Abstract method, all subclasses must provide a training_step.
-        """
-        pass
+        """Abstract method, all subclasses must provide a training_step."""
 
     @abstractmethod
     def training_data(self):
         """Abstract method to return training data"""
-        pass
 
     def model(self) -> torch.nn.Module:
+        """Return the torch model wrapped by this instance."""
         return self._model.model
 
     def optimizer(self):
@@ -227,9 +215,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             self._optimizer_args = {}
         self._optimizer_args['lr'] = self.get_learning_rate()
         return self._optimizer_args
-
-    def get_model_params(self) -> OrderedDict:
-        return self.model().state_dict()
 
     def training_args(self) -> Dict:
         """Retrieves training args
@@ -437,8 +422,9 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         # self._init_params = deepcopy(list(self.model().parameters()))
 
         # DP actions
-        self._model.model, self._optimizer, self.training_data_loader = \
-            self._dp_controller.before_training(self.model(), self._optimizer, self.training_data_loader)
+        self._model.model, self._optimizer, self.training_data_loader = self._dp_controller.before_training(
+            self.model(), self._optimizer, self.training_data_loader
+        )
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
@@ -539,7 +525,7 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             for name, param in self.model().named_parameters():
                 correction = self.correction_state.get(name)
                 if correction is not None:
-                    param.grad.add_(correction.to(param.grad.device))
+                    param.grad.sub_(correction.to(param.grad.device))
 
         # Have the optimizer collect, refine and apply gradients
         self._optimizer.step()
@@ -586,37 +572,6 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
         finally:
             self.model().train()  # restore training behaviors
 
-    def save(self, filename: str, params: dict = None) -> None:
-        """Save the torch training parameters from this training plan or from given `params` to a file
-
-        Args:
-            filename (str): Path to the destination file
-            params (dict): Parameters to save to a file, should be structured as a torch state_dict()
-
-        """
-        if params is not None:
-            return torch.save(params, filename)
-        else:
-            return self._model.save(filename)
-
-    # provided by fedbiomed
-    def load(self, filename: str, update_model: bool = True) -> dict:
-        """Load the torch training parameters to this training plan or to a data structure from a file
-
-        Args:
-            filename: path to the source file
-            update_model: if False, load params to this pytorch object; if True load params to a data structure
-
-        Returns:
-            Contains parameters
-        """
-        params = torch.load(filename)
-
-        if update_model is True:
-            self.model().load_state_dict(params)
-
-        return params
-
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         """Handles and loads aggregators arguments sent through MQTT and
         file exchanged system. If sent through file exchanged system, loads the arguments.
@@ -625,40 +580,45 @@ class TorchTrainingPlan(BaseTrainingPlan, ABC):
             aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
             'aggregator_correction' with correction states)
         """
-        self.aggregator_name = aggregator_args.get('aggregator_name') or self.aggregator_name
-
+        self.aggregator_name = aggregator_args.get('aggregator_name', self.aggregator_name)
+        # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
+        # by an aggregator handler that contains all keys for all strategies
+        # implemented in fedbiomed
+        # here we ae loading all args that have been sent from file exchange system
         for arg_name, aggregator_arg in aggregator_args.items():
-            if arg_name == 'aggregator_correction' and aggregator_arg.get('param_path', False):
-                # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
-                # by an aggregator handler that contains all keys for all strategies implemented
-                # in fedbiomed
+            if arg_name == 'aggregator_correction':
+                if not isinstance(aggregator_arg, dict):
+                    raise FedbiomedTrainingPlanError(
+                        f"{ErrorNumbers.FB309.value}: TorchTrainingPlan received "
+                        "invalid 'aggregator_correction' aggregator args."
+                    )
+                self.correction_state = aggregator_arg
 
-                # setattr(self, arg_name, aggregator_arg)
-                # here we ae loading all args that have been sent from file exchange system
-                self.correction_state = torch.load(aggregator_arg.get('param_path'))
+    def after_training_params(self, flatten: bool = False) -> Dict[str, torch.Tensor]:
+        """Return the wrapped model's parameters for aggregation.
 
-    def after_training_params(self, flatten: bool = False) -> dict:
-        """Retrieve parameters after training is done
+        This method returns a dict containing parameters that need to be
+        reported back and aggregated in a federated learning setting.
 
-        Call the user defined postprocess function:
-            - if provided, the function is part of pytorch model defined by the researcher
-            - and expect the model parameters as argument
+        If the `postprocess` method exists (i.e. has been defined by end-users)
+        it is called in the context of this method. DP-required adjustments are
+        also set to happen as part of this method.
 
         Returns:
-            The state_dict of the model, or modified state_dict if preprocess is present
+            The trained parameters to aggregate.
         """
-
-        # Check whether postprocess method exists, and use it
-
-        params = self.model().state_dict()
+        params = super().after_training_params()
+        # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self.model().state_dict())  # Post process
-            except Exception as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post process "
-                                                 f"{e}")
-
+                params = self.postprocess(params)
+            except Exception as exc:
+                raise FedbiomedTrainingPlanError(
+                    f"{ErrorNumbers.FB605.value}: Error while running post-"
+                    f"process: {exc}"
+                ) from exc
+        # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
 
         if flatten:

@@ -12,16 +12,18 @@ import inspect
 import traceback
 from copy import deepcopy
 from re import findall
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
-    FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common.utils import is_ipython
@@ -29,8 +31,9 @@ from fedbiomed.common.utils import is_ipython
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
-    create_unique_link, create_unique_file_link, find_breakpoint_path
+from fedbiomed.researcher.filetools import (
+    create_exp_folder, choose_bkpt_file, create_unique_link, create_unique_file_link, find_breakpoint_path
+)
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
@@ -770,7 +773,7 @@ class Experiment:
         return self._nodes
 
     @exp_exceptions
-    def     set_training_data(
+    def set_training_data(
             self,
             training_data: Union[FederatedDataSet, dict, None],
             from_tags: bool = False) -> \
@@ -1554,6 +1557,8 @@ class Experiment:
 
         # write results of the aggregated model in a temp file
 
+        # Export aggregated parameters to a local file and upload it.
+        # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
         aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
@@ -1842,10 +1847,7 @@ class Experiment:
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(
-                self._job.training_plan,
-                breakpoint_path,
-                global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -1905,8 +1907,10 @@ class Experiment:
         """
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
-            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                  f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed, `breakpoint_folder_path`"
+                f" has bad type {type(breakpoint_folder_path)}"
+            )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1915,17 +1919,22 @@ class Experiment:
         breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
         try:
-            with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
-                saved_state = json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
+            path = os.path.join(breakpoint_folder_path, state_file)
+            with open(path, "r", encoding="utf-8") as file:
+                saved_state = json.load(file)
+        except (json.JSONDecodeError, OSError) as exc:
             # OSError: heuristic for catching file access issues
-            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                  f'reading breakpoint file failed with message {str(e)}'
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed,"
+                f" reading breakpoint file failed with message {exc}"
+            )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from exc
         if not isinstance(saved_state, dict):
-            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                  f'breakpoint file seems corrupted. Type should be `dict` not {type(saved_state)}'
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed, breakpoint file seems"
+                f" corrupted. Type should be `dict` not {type(saved_state)}"
+            )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1966,8 +1975,7 @@ class Experiment:
             raise FedbiomedExperimentError(msg)
         else:
             loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
-                saved_state.get('aggregated_params'),
-                training_plan.load
+                saved_state.get('aggregated_params')
             )
 
         # retrieve and change federator
@@ -2028,15 +2036,13 @@ class Experiment:
 
     @staticmethod
     @exp_exceptions
-    def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
-                                ) -> Dict[int, dict]:
+    def _load_aggregated_params(aggregated_params: Dict[str, dict]) -> Dict[int, Dict[str, Any]]:
         """Reconstruct experiment's aggregated params.
 
         Aggregated parameters structure from a breakpoint. It is identical to a classical `_aggregated_params`.
 
         Args:
             aggregated_params: JSON formatted aggregated_params extract from a breakpoint
-            func_load_params: function for loading parameters from file to aggregated params data structure
 
         Returns:
             Reconstructed aggregated params from breakpoint
@@ -2050,18 +2056,10 @@ class Experiment:
                   f'Bad type for aggregated params, should be `dict` not {type(aggregated_params)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        if not callable(func_load_params):
-            msg = ErrorNumbers.FB413.value + ' - load failed. ' + \
-                  'Bad type for aggregated params loader function, ' + \
-                  f'should be `Callable` not {type(func_load_params)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
-            # needed for iteration on dict for renaming keys
-        keys = [key for key in aggregated_params.keys()]
         # JSON converted all keys from int to string, need to revert
         try:
-            for key in keys:
+            for key in list(aggregated_params):
                 aggregated_params[int(key)] = aggregated_params.pop(key)
         except (TypeError, ValueError):
             msg = ErrorNumbers.FB413.value + ' - load failed. ' + \
@@ -2070,8 +2068,7 @@ class Experiment:
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = func_load_params(aggreg['params_path'], update_model=False)
-            # errors should be handled in training plan loader function
+            aggreg['params'] = Serializer.load(aggreg['params_path'])
 
         return aggregated_params
 
@@ -2151,7 +2148,10 @@ class Experiment:
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        object_instance.load_state(args, training_plan=training_plan)
+        if "training_plan" in inspect.signature(object_instance.load_state).parameters:
+            object_instance.load_state(args, training_plan=training_plan)
+        else:
+            object_instance.load_state(args)
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
