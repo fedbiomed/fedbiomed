@@ -189,21 +189,20 @@ class Round:
             FedbiomedRoundError: incoherent secure aggregation status
         """
 
-
         secagg_all_none = all([s is None for s in (secagg_servkey_id, secagg_biprime_id)])
         secagg_all_defined = all([s is not None for s in (secagg_servkey_id, secagg_biprime_id)])
 
         if not secagg_all_none and not secagg_all_defined:
-            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Please make sure that the secagg request"
-                                      f"contains both `secagg_servkey_id` and `secagg_biprime_id`.")
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Missing secagg context. Please make sure that "
+                                      f"train request contains both `secagg_servkey_id` and `secagg_biprime_id`.")
 
         if environ["FORCE_SECURE_AGGREGATION"] and secagg_all_none:
-            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
-                                      f"is not set. Node requires to apply secure aggregation")
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Node requires to apply secure aggregation but "
+                                      f"Secure aggregation context for the training is not defined.")
 
         if secagg_all_defined and not environ["SECURE_AGGREGATION"]:
             raise FedbiomedRoundError(
-                f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
+                f"{ErrorNumbers.FB314.value} Secure aggregation is not activated on the node."
             )
 
         if secagg_all_defined and secagg_random is None:
