@@ -4,8 +4,8 @@ from unittest.mock import patch
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestMessaging
 
-from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 
 
