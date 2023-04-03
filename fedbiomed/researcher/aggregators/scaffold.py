@@ -57,11 +57,11 @@ class Scaffold(Aggregator):
     11. end foreach(update)
     12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
     13. end parallel section on each client
-    14. the server computes the node-wise model update \( \mathbf{\delta y}_i =  x - \mathbf{y}_i \)
-    15. the server updates the node-wise states \( \mathbf{c}_i = \delta_i + (\mathbf{\delta y}_i) / (\eta_i K) \)
+    14. the server computes the node-wise model update \( \mathbf{\Delta y}_i =  x - \mathbf{y}_i \)
+    15. the server updates the node-wise states \( \mathbf{c}_i = \delta_i + (\mathbf{\Delta y}_i) / (\eta_i K) \)
     16. the server updates the global state \( \mathbf{c} = (1/N) \sum_{i \in N} \mathbf{c}_i \)
     17. the server updates the node-wise correction state \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
-    18. the server updates the global model by averaging \( \mathbf{x} -= (\eta/|S|) \sum_{i \in S} \mathbf{\delta y}_i \)
+    18. the server updates the global model by averaging \( \mathbf{x} = \mathbf{x} - (\eta/|S|) \sum_{i \in S} \mathbf{\Delta y}_i \)
     19. end foreach(round)
 
     This [diagram](http://www.plantuml.com/plantuml/dsvg/xLRDJjmm4BxxAUR82fPbWOe2guYsKYyhSQ6SgghosXDYuTYMFIbjdxxE3r7MIac3UkH4i6Vy_SpCsZU1kAUgrApvOEofK1hX8BSUkIZ0syf88506riV7NnQCNGLUkXXojmcLosYpgl-0YybAACT9cGSmLc80Mn7O7BZMSDikNSTqOSkoCafmGdZGTiSrb75F0pUoYLe6XqBbIe2mtgCWPGqG-f9jTjdc_l3axEFxRBEAtmC2Hz3kdDUhkqpLg_iH4JlNzfaV8MZCwMeo3IJcog047Y3YYmvuF7RPXmoN8x3rZr6wCef0Mz5B7WXwyTmOTBg-FCcIX4HVMhlAoThanwvusqNhlgjgvpsN2Wr130OgL80T9r4qIASd5zaaiwF77lQAEwT_fTK2iZrAO7FEJJNFJbr27tl-eh4r-SwbjY1FYWgm1i4wKgNwZHu2eGFs3-27wvJv7CPjuCLUq6kAWKPsRS1pGW_RhWt28fczN9czqTF8lQc7myVTQRslKRljKYBSgDxhTbA0Ft1btkPbwjotUNcRbqY_krm-TPrA1RRNw9CA-2o6DUcNvzd_u9bUU9C7zhrpNxCPq1lCGAWj5BCuJVSh7C9iuQk3CQjXknW8eA9_koHJF50nplnWlRfTD0WVpZg4vh_FxxBR5ch_X57pGA8c7jY43MFuKoudhvYqWdL3fI-tfFbVsKYzxQkxl_XprxATLz69br_40nMQWWRqFz1_rvunjlnQA2dHV5jc340YSL54zMXa-o8U_72y58i_7NfLeg5h5iWwTXDNgrB_0G00)
