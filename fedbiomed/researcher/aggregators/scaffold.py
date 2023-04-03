@@ -57,7 +57,7 @@ class Scaffold(Aggregator):
     11. end foreach(update)
     12. communicate updated model \( \mathbf{y}_i \) and learning rate \( \eta_i \)
     13. end parallel section on each client
-    14. the server computes the node-wise model update \( \mathbf{\Delta y}_i =  x - \mathbf{y}_i \)
+    14. the server computes the node-wise model update \( \mathbf{\Delta y}_i =  \mathbf{x} - \mathbf{y}_i \)
     15. the server updates the node-wise states \( \mathbf{c}_i = \delta_i + (\mathbf{\Delta y}_i) / (\eta_i K) \)
     16. the server updates the global state \( \mathbf{c} = (1/N) \sum_{i \in N} \mathbf{c}_i \)
     17. the server updates the node-wise correction state \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
@@ -76,10 +76,16 @@ class Scaffold(Aggregator):
     Attributes:
      aggregator_name: name of the aggregator
      server_lr: value of the server learning rate
-     nodes_correction_states: a nested dictionary
+     global_state: a dictionary representing the global correction state \( \mathbf{c} \) in the format
+        {parameter name: correction value}
+     nodes_states: a nested dictionary
         of correction parameters obtained for each client, in the format {node id: node-wise corrections}. The
         node-wise corrections are a dictionary in the format {parameter name: correction value} where the
         model parameters are those contained in each node's model.named_parameters().
+     nodes_deltas: a nested dictionary of deltas for each client, in the same format as nodes_states. The deltas
+        are defined as \(\delta_i = \mathbf{c}_i - \mathbf{c} \)
+     nodes_lr: dictionary of learning rates observed at end of the latest round, in the format
+        {node id: learning rate}
     """
 
     def __init__(self, server_lr: float = 1., fds: Optional[FederatedDataSet] = None):
