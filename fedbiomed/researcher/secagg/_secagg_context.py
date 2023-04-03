@@ -76,14 +76,15 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if environ['RESEARCHER_ID'] != parties[0]:
+        print(environ['ID'])
+        if environ['ID'] != parties[0]:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
             )
 
         self._secagg_id = secagg_id if secagg_id is not None else 'secagg_' + str(uuid.uuid4())
         self._parties = parties
-        self._researcher_id = environ['RESEARCHER_ID']
+        self._researcher_id = environ['ID']
         self._requests = Requests()
         self._status = False
         self._context = None
@@ -210,7 +211,7 @@ class SecaggContext(ABC):
             else:
                 logger.debug(
                     f"Secagg context for {self._secagg_id} is already existing on researcher "
-                    f"researcher_id='{environ['RESEARCHER_ID']}'")
+                    f"researcher_id='{environ['ID']}'")
                 status = True
 
         return context, status
@@ -233,12 +234,12 @@ class SecaggContext(ABC):
         status = self._secagg_manager.remove(self._secagg_id, self.job_id)
         if status:
             logger.debug(
-                f"Context element successfully deleted for researcher_id='{environ['RESEARCHER_ID']}' "
+                f"Context element successfully deleted for researcher_id='{environ['ID']}' "
                 f"secagg_id='{self._secagg_id}'")
         else:
             logger.error(
                 f"{ErrorNumbers.FB415.value}: No such context element secagg_id={self._secagg_id} "
-                f"on researcher researcher_id='{environ['RESEARCHER_ID']}'")
+                f"on researcher researcher_id='{environ['ID']}'")
 
         return None, status
 
@@ -558,7 +559,7 @@ class SecaggServkeyContext(SecaggContext):
         context = {'server_key': int(server_key.strip())}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.debug(
-            f"Server key successfully created for researcher_id='{environ['RESEARCHER_ID']}' "
+            f"Server key successfully created for researcher_id='{environ['ID']}' "
             f"secagg_id='{self._secagg_id}'")
 
         return context, True
@@ -616,7 +617,7 @@ class SecaggBiprimeContext(SecaggContext):
         # TODO: add a mode where biprime is restricted for `self._parties`
         self._secagg_manager.add(self._secagg_id, None, context)
         logger.debug(
-            f"Biprime successfully created for researcher_id='{environ['RESEARCHER_ID']}' secagg_id='{self._secagg_id}'")
+            f"Biprime successfully created for researcher_id='{environ['ID']}' secagg_id='{self._secagg_id}'")
         # end dummy payload
 
         return context, True

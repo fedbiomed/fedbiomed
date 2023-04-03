@@ -223,6 +223,9 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         job_id = "exp-id-1"
         parties = [environ["ID"], "node-1", "node-2", "new_party"]
 
+        print("##############################################################################")
+        print(environ["ID"])
+
         # Configure for round
         self.secagg.setup(
             parties=parties,
