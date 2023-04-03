@@ -1,9 +1,12 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import functools
 import math
 import random
 from typing import List, Union, Dict, Any
 
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext
+from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.secagg import SecaggCrypter

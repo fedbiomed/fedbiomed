@@ -6,10 +6,9 @@ from unittest.mock import patch
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
 #############################################################
-import fedbiomed.researcher.secagg
+import fedbiomed.researcher.secagg._secagg_context
 
 from fedbiomed.researcher.environ import environ
-from testsupport.fake_requests import FakeRequests
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
@@ -19,11 +18,11 @@ from fedbiomed.researcher.responses import Responses
 class BaseTestCaseSecaggContext(ResearcherTestCase):
 
     def setUp(self) -> None:
-        self.patch_cm = patch.object(fedbiomed.researcher.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPCController")
-        self.patch_requests = patch("fedbiomed.researcher.secagg.Requests")
-        self.patch_skmanager = patch.object(fedbiomed.researcher.secagg, "_SKManager")
-        self.patch_bpmanager = patch.object(fedbiomed.researcher.secagg, "_BPrimeManager")
+        self.patch_cm = patch.object(fedbiomed.researcher.secagg._secagg_context, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.researcher.secagg._secagg_context, "MPCController")
+        self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
+        self.patch_skmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_SKManager")
+        self.patch_bpmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_BPrimeManager")
 
         self.mock_cm = self.patch_cm.start()
         self.mock_mpc = self.patch_mpc.start()

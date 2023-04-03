@@ -19,12 +19,8 @@ from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_researcher_secagg import (
-    FAKE_CONTEXT_VALUE, FakeSecaggServkeyContext, FakeSecaggBiprimeContext
-)
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 import fedbiomed.researcher.experiment
@@ -37,12 +33,10 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.secagg import SecaggBiprimeContext, SecaggContext, SecaggServkeyContext
-from fedbiomed.researcher.secure_aggregation import SecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
-from fedbiomed.common.utils import get_method_spec
 
 class FakeAggregator(Aggregator):
     aggregator_name: str = 'dummy-aggregator'
@@ -1598,7 +1592,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(final_state['aggregated_params'], final_agg_params)
         self.assertEqual(final_state['job'], job_state)
         self.assertEqual(final_state['secagg']["class"], 'SecureAggregation')
-        self.assertEqual(final_state['secagg']["module"], 'fedbiomed.researcher.secure_aggregation')
+        self.assertEqual(final_state['secagg']["module"], 'fedbiomed.researcher.secagg._secure_aggregation')
 
         # Test errors while writing brkp json file
         with patch.object(fedbiomed.researcher.experiment, 'open') as m:

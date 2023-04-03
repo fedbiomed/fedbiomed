@@ -5,7 +5,6 @@
 
 import functools
 import os
-import random
 import sys
 import json
 import inspect
@@ -38,7 +37,7 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.secure_aggregation import SecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 

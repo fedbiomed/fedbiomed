@@ -1,21 +1,20 @@
 import unittest
-import fedbiomed.common.messaging
 from unittest.mock import patch
 
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestMessaging
 
-from fedbiomed.researcher.secure_aggregation import SecureAggregation
-from fedbiomed.researcher.secure_aggregation import FedbiomedSecureAggregationError
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.environ import environ
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 
 
 class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
     def setUp(self) -> None:
 
-        self.p1 = patch('fedbiomed.researcher.secure_aggregation.SecaggServkeyContext.setup')
-        self.p2 = patch('fedbiomed.researcher.secure_aggregation.SecaggBiprimeContext.setup')
+        self.p1 = patch('fedbiomed.researcher.secagg.SecaggServkeyContext.setup')
+        self.p2 = patch('fedbiomed.researcher.secagg.SecaggBiprimeContext.setup')
 
         self.p1.start()
         self.p2.start()
@@ -214,7 +213,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         state = self.secagg.save_state()
 
         self.assertEqual(state["class"], "SecureAggregation")
-        self.assertEqual(state["module"], "fedbiomed.researcher.secure_aggregation")
+        self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
         self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', 'job_id', 'parties'])
         self.assertEqual(list(state["arguments"].keys()), ['active', 'timeout', 'clipping_range'])
 

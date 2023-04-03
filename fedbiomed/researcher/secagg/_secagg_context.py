@@ -40,7 +40,7 @@ class SecaggContext(ABC):
         """Constructor of the class.
 
         Args:
-            parties: list of parties participating to the secagg context element setup, named
+            parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
