@@ -446,4 +446,4 @@ class Scaffold(Aggregator):
 
         for node_id in self._aggregator_args['aggregator_correction']:
             arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-            self.nodes_correction_states[node_id] = Serializer.load(arg_filename)
+            self.nodes_deltas[node_id] = Serializer.load(arg_filename)
