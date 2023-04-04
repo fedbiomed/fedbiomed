@@ -119,7 +119,7 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], context: str, job_id: Union[str, None]):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: Union[str, None]):
         """Add a new data entry in component secagg element database"""
 
     def _remove_generic(self, secagg_id: str) -> bool:
@@ -204,7 +204,7 @@ class SecaggServkeyManager(BaseSecaggManager):
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, Union[int, str]], job_id: str):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: str):
         """Add a new data entry for a context element in the servkey table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -297,7 +297,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             self,
             secagg_id: str,
             parties: List[str],
-            context: str,
+            context: Dict[str, int],
             job_id: None = None
     ) -> None:
         """Add a new data entry for a context element in the biprime table 

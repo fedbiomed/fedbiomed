@@ -373,7 +373,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         # create a (currently dummy) context if it does not exist yet
         time.sleep(3)
         context = {
-            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'biprime': int(random.randrange(10**12)),   # dummy biprime
             'max_keysize': 0                            # prevent using the dummy biprime for real
         }
         logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
