@@ -85,6 +85,8 @@ class DefaultStrategy(Strategy):
                 The computation of correction states at round i is dependant to client states and correction states of round i-1.
                 Since training_replies can potentially order the node replies differently from round to round, the bridge between
                 all these parameters is represented by the node_id.
+            total_rows: sum of number of samples used by all nodes
+            encryption_factors: encryption factors from the participating nodes
 
         Raises:
             FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes

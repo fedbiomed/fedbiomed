@@ -43,6 +43,8 @@ class SecureAggregation:
                 [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
                 The default value will be automatically set on the node side.
 
+        Raises:
+            FedbiomedSecureAggregationError: bad argument type
         """
 
         if not isinstance(active, bool):
@@ -153,7 +155,6 @@ class SecureAggregation:
 
         Returns:
             Arguments that is going tobe attached to the experiment.
-
         """
         return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
                 'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
@@ -176,11 +177,11 @@ class SecureAggregation:
             job_id: The id of the job of experiment
             force: Forces secagg setup even context is already existing
 
-        Raises
-            FedbiomedSecureAggregationError: Invalid argument type
-
         Returns:
             Status of setup
+
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
         """
 
         if not isinstance(parties, list):
@@ -263,6 +264,18 @@ class SecureAggregation:
     ) -> List[float]:
         """Aggregates given model parameters
 
+        Args:
+            round: current training round number
+            total_sample_size: sum of number of samples used by all nodes
+            model_params: model parameters from the participating nodes 
+            encryption_factors: encryption factors from the participating nodes
+
+        Returns:
+            Aggregated parameters
+
+        Raises:
+            FedbiomedSecureAggregationError: secure aggregation context not properly configured
+            FedbiomedSecureAggregationError: secure aggregation computation error
         """
 
         if self._biprime is None or self._servkey is None:
@@ -319,7 +332,11 @@ class SecureAggregation:
         return aggregated_params
 
     def save_state(self) -> Dict[str, Any]:
-        """Saves stat of the secagg """
+        """Saves state of the secagg
+
+        Returns:
+            The secagg state to be saved
+        """
 
         state = {
             "class": type(self).__name__,
@@ -344,6 +361,14 @@ class SecureAggregation:
             cls,
             state: Dict
     ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
 
         secagg = cls(**state["arguments"])
         secagg._parties = state["attributes"]["_parties"]
