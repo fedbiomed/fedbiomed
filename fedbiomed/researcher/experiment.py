@@ -1505,10 +1505,7 @@ class Experiment:
         if self._secagg.active:
             self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
                                job_id=self._job.id)
-            secagg_arguments = {'secagg_servkey_id': self._secagg.servkey_id(),
-                                'secagg_biprime_id': self._secagg.biprime_id(),
-                                'secagg_random': self._secagg.secagg_random(),
-                                'secagg_clipping_range': self._secagg.clipping_range}
+            secagg_arguments = self._secagg.train_arguments()
         # --------------------------------------------------------------------------------------------------------
 
         # Check aggregator parameter(s) before starting a round

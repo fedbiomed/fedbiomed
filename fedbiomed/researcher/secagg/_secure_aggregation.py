@@ -72,9 +72,26 @@ class SecureAggregation:
 
         self._servkey = None
         self._biprime = None
-        self._clipping_range = None
         self._secagg_random = None
         self._secagg_crypter = SecaggCrypter()
+
+    @property
+    def biprime(self) -> Union[None, SecaggBiprimeContext]:
+        """Gets biprime object
+
+        Returns:
+            Biprime object, None if biprime is not setup
+        """
+        return self._biprime
+
+    @property
+    def servkey(self) -> Union[None, SecaggServkeyContext]:
+        """Gets servkey object
+
+        Returns:
+            Servkey object, None if servkey is not setup
+        """
+        return self._servkey
 
     def activate(self, status):
         """Set activate status of secure aggregation
@@ -104,41 +121,17 @@ class SecureAggregation:
 
         return self._secagg_random
 
-    def biprime_context(self) -> Union[Dict, None]:
-        """Gets biprime context
+    def train_arguments(self) -> Dict:
+        """Gets train arguments for secagg train request
 
         Returns:
-            Biprime context. None if context is not set
+            Arguments that is going tobe attached to the experiment.
+
         """
-
-        return self._biprime.context if self._biprime is not None else None
-
-    def servkey_context(self) -> Union[Dict, None]:
-        """Gets server-key context
-
-        Returns:
-            Server-key context. None if context is not set
-        """
-
-        return self._servkey.context if self._servkey is not None else None
-
-    def biprime_id(self) -> str:
-        """Gets secure aggregation server-key element id from `SecaggServkeyContext`
-
-
-        Returns:
-            Server-key context id
-        """
-        return self._biprime.secagg_id if self._biprime is not None else None
-
-    def servkey_id(self):
-        """Gets secure aggregation Biprime element id from `SecaggBiprimeContext`
-
-
-        Returns:
-            Biprime context id
-        """
-        return self._servkey.secagg_id if self._servkey is not None else None
+        return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
+                'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
+                'secagg_random': self.secagg_random(),
+                'secagg_clipping_range': self.clipping_range}
 
     def setup(self,
               parties: List[str],

@@ -99,20 +99,20 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             job_id="exp-id-1",
         )
 
-        s_id = self.secagg.servkey_id()
-        b_id = self.secagg.biprime_id()
+        s_id = self.secagg.servkey
+        b_id = self.secagg.biprime
 
         self.assertTrue(s_id is not None)
         self.assertTrue(b_id is not None)
 
-        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.biprime_id())
-        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.servkey_id())
+        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.biprime.secagg_id)
+        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.servkey.secagg_id)
 
         self.secagg._biprime._context = "Test biprime"
         self.secagg._servkey._context = "Test servkey"
 
-        s_context = self.secagg.servkey_context()
-        b_context = self.secagg.biprime_context()
+        s_context = self.secagg.servkey.context
+        b_context = self.secagg.biprime.context
 
         self.assertEqual("Test biprime", b_context)
         self.assertEqual("Test servkey", s_context)
@@ -132,10 +132,17 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
                           job_id="exp-id-1")
 
+    def test_secure_aggregation_07_train_arguments(self):
 
-        pass
+        self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
+                          job_id="exp-id-1")
 
-    def test_secure_aggregation_07_aggregate(self):
+        args = self.secagg.train_arguments()
+
+        self.assertListEqual(list(args.keys()), ["secagg_servkey_id", "secagg_biprime_id", "secagg_random",
+                                                 "secagg_clipping_range"])
+
+    def test_secure_aggregation_08_aggregate(self):
         """Tests aggregate method"""
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.aggregate(round_=1,
@@ -203,7 +210,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
                                   encryption_factors={'node-1': [1], 'node-2': [1]}
                                   )
 
-    def test_secure_aggregation_08_save_state(self):
+    def test_secure_aggregation_09_save_state(self):
         # Configure for round
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
@@ -219,12 +226,9 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         pass
 
-    def test_secure_aggregation_09_load_state(self):
+    def test_secure_aggregation_10_load_state(self):
         job_id = "exp-id-1"
         parties = [environ["ID"], "node-1", "node-2", "new_party"]
-
-        print("##############################################################################")
-        print(environ["ID"])
 
         # Configure for round
         self.secagg.setup(
@@ -232,16 +236,16 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
             job_id="exp-id-1",
         )
 
-        biprime_id = self.secagg.biprime_id()
-        servkey_id = self.secagg.servkey_id()
+        biprime_id = self.secagg.biprime.secagg_id
+        servkey_id = self.secagg.servkey.secagg_id
 
         state = self.secagg.save_state()
 
         # Load from state
         secagg = SecureAggregation.load_state(state)
 
-        self.assertEqual(secagg.biprime_id(), biprime_id)
-        self.assertEqual(secagg.servkey_id(), servkey_id)
+        self.assertEqual(secagg.biprime.secagg_id, biprime_id)
+        self.assertEqual(secagg.servkey.secagg_id, servkey_id)
         self.assertEqual(secagg.job_id, job_id)
         self.assertListEqual(secagg.parties, parties)
 
