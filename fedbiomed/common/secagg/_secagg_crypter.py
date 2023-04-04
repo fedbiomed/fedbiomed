@@ -22,7 +22,7 @@ from ._jls import JoyeLibert, \
 
 
 class SecaggCrypter:
-    """Secure aggregation encryption and decryiton manager.
+    """Secure aggregation encryption and decryption manager.
 
     This class is responsible for encrypting model parameters using Joye-Libert secure
     aggregation scheme. It also aggregates encrypted model parameters and decrypts
@@ -101,7 +101,7 @@ class SecaggCrypter:
                 f"{ErrorNumbers.FB624.value}: The argument `key` must be integer"
             )
 
-        params = self.apply_weighing(params, weight)
+        params = self._apply_weighing(params, weight)
 
         params = quantize(weights=params,
                           clipping_range=clipping_range)
@@ -193,7 +193,7 @@ class SecaggCrypter:
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         aggregated_params: List[float] = reverse_quantize(
-            self.apply_average(sum_of_weights, num_nodes, total_sample_size),
+            self._apply_average(sum_of_weights, num_nodes, total_sample_size),
             clipping_range=clipping_range
         )
 
@@ -203,7 +203,7 @@ class SecaggCrypter:
         return aggregated_params
 
     @staticmethod
-    def apply_average(
+    def _apply_average(
             params: List[int],
             num_nodes: int,
             total_sample_size: int
@@ -222,7 +222,7 @@ class SecaggCrypter:
         return [param / num_nodes for param in params]
 
     @staticmethod
-    def apply_weighing(
+    def _apply_weighing(
             params: List[float],
             weight: int,
     ) -> List[float]:
