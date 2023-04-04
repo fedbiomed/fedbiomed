@@ -369,7 +369,7 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
     @patch("time.sleep")
     def test_biprime_context_01_payload_create(self, mock_time, mock_randrange):
 
-        dummy_random = '123456'
+        dummy_random = 123456
         mock_randrange.return_value = dummy_random
 
         context, status = self.biprime_context._payload_create()
