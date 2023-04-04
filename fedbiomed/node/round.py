@@ -399,8 +399,6 @@ class Round:
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
-
-            # Upload results
             model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
             if self._use_secagg:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.")
@@ -417,7 +415,6 @@ class Round:
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-
                 logger.info("Encryption is completed!")
 
             results['researcher_id'] = self.researcher_id
