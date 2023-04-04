@@ -14,8 +14,8 @@ from fedbiomed.common.logger import logger
 
 
 class SecureAggregation:
-    parties: List[str]
-    job_id: Union[None, str]
+    _parties: List[str]
+    _job_id: Union[None, str]
 
     _servkey: Union[SecaggServkeyContext, None]
     _biprime: Union[SecaggBiprimeContext, None]
@@ -64,9 +64,9 @@ class SecureAggregation:
                 f"but got not {type(clipping_range)}"
             )
 
-        self.parties = None
-        self.job_id = None
-        self.active = active
+        self._parties = None
+        self._job_id = None
+        self._active = active
         self.timeout = timeout
         self.clipping_range = clipping_range
 
@@ -74,6 +74,33 @@ class SecureAggregation:
         self._biprime = None
         self._secagg_random = None
         self._secagg_crypter = SecaggCrypter()
+
+    @property
+    def parties(self) -> Union[List[str], None]:
+        """Gets secagg parties
+
+        Returns:
+            List of secagg parties if it exists, or None
+        """
+        return self._parties
+
+    @property
+    def job_id(self) -> Union[str, None]:
+        """Gets secagg associated job_id
+
+        Returns:
+            str of associated job_id if it exists, or None
+        """
+        return self._job_id
+
+    @property
+    def active(self) -> bool:
+        """Gets secagg activation status
+
+        Returns:
+            bool, True if secagg is activated
+        """
+        return self._active
 
     @property
     def biprime(self) -> Union[None, SecaggBiprimeContext]:
@@ -106,9 +133,9 @@ class SecureAggregation:
                 f"but got {type(status)} "
             )
 
-        self.active = status
+        self._active = status
 
-        return self.active
+        return self._active
 
     def secagg_random(self) -> float:
         """Assigns and returns random float to validate secure aggregation
@@ -149,19 +176,24 @@ class SecureAggregation:
             job_id: The id of the job of experiment
             force: Forces secagg setup even context is already existing
 
-        raises
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
 
         Returns:
             Status of setup
         """
 
-        self._configure_round(parties, job_id)
-
-        if self._biprime is None or self._servkey is None:
+        if not isinstance(parties, list):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: server key or biprime contexts are not configured. Please run  "
-                f"`configure_round` first."
+                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
             )
+
+        if not isinstance(job_id, str):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Expected argument `job_id` string but got {type(parties)}"
+            )
+
+        self._configure_round(parties, job_id)
 
         if not self._biprime.status or force:
             self._biprime.setup(timeout=self.timeout)
@@ -181,21 +213,21 @@ class SecureAggregation:
             job_id: The id of the job of experiment
         """
 
-        self.parties = parties
+        self._parties = parties
 
         # Updates job id if it is provided
         if job_id is not None:
-            self.job_id = job_id
+            self._job_id = job_id
 
         # TODO: support other options than using `default_biprime0`
         self._biprime = SecaggBiprimeContext(
-            parties=self.parties,
+            parties=self._parties,
             secagg_id='default_biprime0'
         )
 
         self._servkey = SecaggServkeyContext(
-            parties=self.parties,
-            job_id=self.job_id
+            parties=self._parties,
+            job_id=self._job_id
         )
 
     def _configure_round(
@@ -212,27 +244,14 @@ class SecureAggregation:
         Args:
             parties: Nodes that participates federated training
             job_id: The id of the job of experiment
-
-        Raises
-            FedbiomedSecureAggregationError: Invalid argument type
         """
 
-        if not isinstance(parties, list):
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
-            )
-
-        if not isinstance(job_id, str):
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `job_id` string but got {type(parties)}"
-            )
-
-        if self.parties is None or self.job_id != job_id:
+        if self._parties is None or self._job_id != job_id:
             self._set_secagg_contexts(parties, job_id)
 
-        elif set(self.parties) != set(parties):
+        elif set(self._parties) != set(parties):
             logger.info(f"Parties of the experiment has changed. Re-creating secure "
-                        f"aggregation context creation for the experiment {self.job_id}")
+                        f"aggregation context creation for the experiment {self._job_id}")
             self._set_secagg_contexts(parties)
 
     def aggregate(
@@ -306,15 +325,15 @@ class SecureAggregation:
             "class": type(self).__name__,
             "module": self.__module__,
             "arguments": {
-                'active': self.active,
+                'active': self._active,
                 'timeout': self.timeout,
                 'clipping_range': self.clipping_range,
             },
             "attributes": {
                 "_biprime": self._biprime.save_state() if self._biprime is not None else None,
                 "_servkey": self._servkey.save_state() if self._servkey is not None else None,
-                "job_id": self.job_id,
-                "parties": self.parties
+                "_job_id": self._job_id,
+                "_parties": self._parties
             }
         }
 
@@ -327,7 +346,7 @@ class SecureAggregation:
     ) -> 'SecureAggregation':
 
         secagg = cls(**state["arguments"])
-        secagg.parties = state["attributes"]["parties"]
+        secagg._parties = state["attributes"]["_parties"]
 
         if state["attributes"]["_biprime"] is not None:
             state["attributes"]["_biprime"] = SecaggBiprimeContext. \

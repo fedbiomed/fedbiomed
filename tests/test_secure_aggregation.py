@@ -61,18 +61,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
     def test_secure_aggregation_04_configure_round(self):
         """Test round configuration for """
 
-        with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg._configure_round(
-                parties=[environ["ID"], "node-1", "node-2"],
-                job_id=None,
-            )
-
-        with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg._configure_round(
-                parties="oops",
-                job_id="exp-id-1",
-            )
-
         self.secagg._configure_round(
             parties=[environ["ID"], "node-1", "node-2"],
             job_id="exp-id-1",
@@ -221,7 +209,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         self.assertEqual(state["class"], "SecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
-        self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', 'job_id', 'parties'])
+        self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_job_id', '_parties'])
         self.assertEqual(list(state["arguments"].keys()), ['active', 'timeout', 'clipping_range'])
 
         pass
