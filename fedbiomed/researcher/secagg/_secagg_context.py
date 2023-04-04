@@ -76,7 +76,6 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        print(environ['ID'])
         if environ['ID'] != parties[0]:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
