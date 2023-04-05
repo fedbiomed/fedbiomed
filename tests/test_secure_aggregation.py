@@ -6,7 +6,7 @@ from testsupport.base_mocks import MockRequestMessaging
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecureAggregation
-from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggError
 
 
 class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
@@ -115,6 +115,14 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
                               job_id=1345)
+
+        # iterate twice with same incorrect arguments
+        with self.assertRaises(FedbiomedSecaggError):
+            self.secagg.setup(parties=["oops"],
+                              job_id="exp-id-1")
+        with self.assertRaises(FedbiomedSecureAggregationError):
+            self.secagg.setup(parties=["oops"],
+                              job_id="exp-id-1")
 
         # Execute setup
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],

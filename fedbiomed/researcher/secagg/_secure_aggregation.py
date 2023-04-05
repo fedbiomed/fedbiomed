@@ -196,6 +196,11 @@ class SecureAggregation:
 
         self._configure_round(parties, job_id)
 
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
+            )
+
         if not self._biprime.status or force:
             self._biprime.setup(timeout=self.timeout)
 
