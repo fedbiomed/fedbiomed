@@ -14,9 +14,36 @@ from fedbiomed.common.logger import logger
 
 
 class SecureAggregation:
+    """Secure aggregation controller of researcher component.
+
+    This class is responsible for;
+
+        - setting up the context for Joye-Libert secure aggregation
+        - Applying secure aggregation after receiving encrypted model parameters from nodes
+
+    Attributes:
+        timeout: Maximum time waiting for answers from other nodes for each secagg context
+            element (server key and biprime).
+        clipping_range: Clipping range that will be used for quantization of model
+            parameters on the node side.
+
+        _biprime: Biprime-key context setup instance.
+        _parties: Nodes and researcher that participates federated training
+        _job_id: ID of the current Job launched by the experiment.
+        _servkey: Server-key context setup instance.
+        _secagg_crypter: Secure aggregation encrypter and decrypter to decrypt encrypted model
+            parameters.
+        _secagg_random: Random float generated tobe sent to node to validate secure aggregation
+            after aggregation encrypted parameters.
+    """
+
+    timeout: int
+    clipping_range: Union[None, int]
+
+    _active: bool
     _parties: List[str]
     _job_id: Union[None, str]
-
+    _secagg_random: Union[None, float]
     _servkey: Union[SecaggServkeyContext, None]
     _biprime: Union[SecaggBiprimeContext, None]
     _secagg_crypter: SecaggCrypter
@@ -39,7 +66,7 @@ class SecureAggregation:
                 execution time for server key and biprime. Defaults to `environ['TIMEOUT']`
                 if unset or equals 0.
             clipping_range: Clipping range that will be used for quantization of model
-                parameters on the node side The default will be
+                parameters on the node side. The default will be
                 [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
                 The default value will be automatically set on the node side.
 
@@ -66,12 +93,12 @@ class SecureAggregation:
                 f"but got not {type(clipping_range)}"
             )
 
-        self._parties = None
-        self._job_id = None
-        self._active = active
         self.timeout = timeout
         self.clipping_range = clipping_range
 
+        self._active = active
+        self._parties = None
+        self._job_id = None
         self._servkey = None
         self._biprime = None
         self._secagg_random = None
@@ -270,7 +297,7 @@ class SecureAggregation:
         """Aggregates given model parameters
 
         Args:
-            round: current training round number
+            round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes 
             encryption_factors: encryption factors from the participating nodes
