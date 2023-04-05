@@ -166,17 +166,6 @@ class SecureAggregation:
 
         return self._active
 
-    def secagg_random(self) -> float:
-        """Assigns and returns random float to validate secure aggregation
-
-        Returns:
-            A random value for validation purposes
-        """
-
-        self._secagg_random = round(random.uniform(0, 1), 3)
-
-        return self._secagg_random
-
     def train_arguments(self) -> Dict:
         """Gets train arguments for secagg train request
 
@@ -185,7 +174,7 @@ class SecureAggregation:
         """
         return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
                 'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
-                'secagg_random': self.secagg_random(),
+                'secagg_random': self._secagg_random,
                 'secagg_clipping_range': self.clipping_range}
 
     def setup(self,
@@ -278,6 +267,9 @@ class SecureAggregation:
             parties: Nodes that participates federated training
             job_id: The id of the job of experiment
         """
+
+        # For each round it generates new secagg random float
+        self._secagg_random = round(random.uniform(0, 1), 3)
 
         if self._parties is None or self._job_id != job_id:
             self._set_secagg_contexts(parties, job_id)

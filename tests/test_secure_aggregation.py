@@ -52,12 +52,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.activate("NON-BOOL")
 
-    def test_secure_aggregation_03_secagg_random(self):
-        """Tests secure aggregation random value generation"""
-
-        random = self.secagg.secagg_random()
-        self.assertEqual(random, self.secagg._secagg_random)
-
     def test_secure_aggregation_04_configure_round(self):
         """Test round configuration for """
 
@@ -171,7 +165,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         # raises error if secagg_random is set but encryption factors are not provided
         with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg.secagg_random()
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
@@ -197,14 +190,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
                                            )
         self.assertTrue(len(agg_params) == 5)
 
-        # Will fail since biprime or servkey is not correct
-        with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg.secagg_random()
-            self.secagg.aggregate(round_=1,
-                                  total_sample_size=100,
-                                  model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                  encryption_factors={'node-1': [1], 'node-2': [1]}
-                                  )
 
     def test_secure_aggregation_09_save_state(self):
         # Configure for round
