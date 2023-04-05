@@ -5,10 +5,10 @@
 
 import sys
 from abc import abstractmethod, ABCMeta
+from contextlib import contextmanager
 from copy import deepcopy
 from io import StringIO
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
-from contextlib import contextmanager
 
 import joblib
 import numpy as np
@@ -20,7 +20,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
-from fedbiomed.common.logger import logger
+
 
 @contextmanager
 def capture_stdout() -> Iterator[List[str]]:
@@ -53,7 +53,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     Attributes:
         model: Wrapped model
-        _is_declearn_optim: Switch that allows the use of Declearn's optimizers
+        model_args: Dict storing additional parameters used to initialize the wrapped model.
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
 
     Attributes: Class attributes:
@@ -66,8 +66,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     """
 
     _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
-    model: BaseEstimator  # merely for the docstring builder
+    # Instance attributes' annotations - merely for the docs parser.
+    model: BaseEstimator
     model_args: Dict[str, Any]
+    # Class attributes
     default_lr_init: ClassVar[float] = 0.1
     default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
@@ -85,7 +87,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             FedbiomedModelError: if model is not as scikit learn [BaseEstimator][sklearn.base.BaseEstimator] object
         """
         super().__init__(model)
-        #self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
         self._gradients: Dict[str, np.ndarray] = {}
         self.param_list: List[str] = []
 
@@ -235,66 +236,37 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             # Accumulate updated weights (weights + sum of gradients).
             # Reset the model's weights and iteration counter.
             for key in self.param_list:
-                # Accumulate updated weights (weights + sum of gradients).
-                # Reset the model's weights and iteration counter.
                 w_updt[key] += getattr(self.model, key)
-                
-                setattr(self.model, key, w_init[key])  # resetting parameter to initial values
-
+                setattr(self.model, key, w_init[key])
             self.model.n_iter_ -= 1
-
-
-        # compute gradients
-
-        self._gradients: Dict[str, np.ndarray] = {}
-
-        # get batch averaged gradients
+        # Compute the batch-averaged, learning-rate-scaled gradients.
+        # Note: w_init: {w_t}, w_updt: {w_t - eta_t * sum_{s=1}^B(grad_s)}
+        #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
         self._gradients = {
-            key: (w_init[key] - (w_updt[key] / batch_size)) for key in self.param_list
+            key: w_init[key] - (w_updt[key] / batch_size)
+            for key in self.param_list
         }
-        
-
-        # if self._is_declearn_optim:
-        #     adjust = self._batch_size * self.get_learning_rate()[0]
-
-        #     for key in self.param_list:
-        #         self._gradients[key] = (w[key] * (1 - adjust) - self.updates[key]) / adjust
-        # else:
-        #     # Compute the batch-averaged updated weights and apply them.
-        #     for key in self.param_list:
-        #         self._gradients[key] = self.updates[key] / self._batch_size - w[key]
         # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
-
-
-    # def _native_gradients_computation(self, weights, gradients):
-    #     adjust = self._batch_size * self.get_learning_rate()[0]
-
-    #     for key in self.param_list:
-    #         gradients[key] = (weights[key] * (1 - adjust) - self.updates[key]) / adjust
-    
-    # def _declearn_gradients_computation(self, weights, gradients):
-    #     # Compute the batch-averaged updated weights and apply them.
-    #     for key in self.param_list:
-    #         gradients[key] = self.updates[key] / self._batch_size - weights[key]
 
     def get_gradients(
         self,
         as_vector: bool = False,
     ) -> Union[Dict[str, np.ndarray], NumpyVector]:
-        """Gets computed gradients
+        """Return computed gradients attached to the model.
 
         Args:
             as_vector: Whether to wrap returned gradients into a declearn Vector.
 
         Raises:
-            FedbiomedModelError: raised if gradients have not been computed yet (ie model has not been trained)
+            FedbiomedModelError: If no gradients have been computed yet
+                (i.e. the model has not been trained).
 
         Returns:
             Gradients, as a dictionary mapping parameters' names to their gradient's
                 numpy array, or as a declearn NumpyVector wrapping such a dict.
         """
-        if self._gradients is None:
+        if not self._gradients:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Cannot get gradients if model has not been trained beforehand!"
             )
@@ -351,7 +323,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             if _param is not None and _param != v:
                 changed_params.append(k)
         is_params_changed: bool = changed_params != []
-        
+
         if to_string:
             changed_params = "\n".join(p + ",\n" for p in changed_params)
         return is_params_changed, changed_params
@@ -424,6 +396,25 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 Method implementation will depend on the attribute used to set up
                 these arbitrary arguments.
         """
+        # NOTE for developers:
+        # subclasses should call `self._warn_overridden_optim_params`
+        # on the first call to this function
+
+    def _warn_overridden_optim_parameters(
+        self, params: Collection[str]
+    ) -> None:
+        """Warn about non-default model parameters being overridden."""
+        default = inspect.signature(type(self.model)).params
+        changed = ", ".join(
+            f"'{key}'"
+            for key in params
+            if self.model.get_parameter(key) != default[key].default
+        )
+        if changed:
+            logger.warns(
+                "The following non-default model parameters will be overridden"
+                f" due to the disabling of the internal optimizer: {changed}."
+            )
 
 
 class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
@@ -435,10 +426,9 @@ class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
 
-    def disable_internal_optimizer(self):
+    def disable_internal_optimizer(self) -> None:
         self.model.eta0 = self.default_lr_init
         self.model.learning_rate = self.default_lr
-        #self._is_declearn_optim = True
 
 
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
@@ -498,10 +488,9 @@ class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of 
     def get_learning_rate(self) -> List[float]:
         return [self.model.learning_rate_init]
 
-    def disable_internal_optimizer(self):
+    def disable_internal_optimizer(self) -> None:
         self.model.learning_rate_init = self.default_lr_init
         self.model.learning_rate = self.default_lr
-        #self._is_declearn_optim = True
 
 
 SKLEARN_MODELS = {

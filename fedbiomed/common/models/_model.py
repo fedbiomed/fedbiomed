@@ -6,8 +6,6 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar
 
-import torch
-from sklearn.base import BaseEstimator
 from declearn.model.api import Vector
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -43,11 +41,17 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
         self.model: Any = model
         self.model_args: Optional[Dict[str, Any]] = None
 
-    def set_model(self, model: Union[BaseEstimator, torch.nn.Module]):
+    def set_model(self, model: _MT) -> None:
+        """Replace the wrapped model with a new one.
+
+        Args:
+            model: New model instance that needs assignment as the `model`
+                attribute.
+        """
         self._validate_model_type(model)
         self.model = model
-        
-    def _validate_model_type(self, model: Union[BaseEstimator, torch.nn.Module]):
+
+    def _validate_model_type(self, model: _MT) -> None:
         if not isinstance(model, self._model_type):
             err_msg = (
                 f"{ErrorNumbers.FB622.value}: unproper 'model' input type: "
