@@ -120,30 +120,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         """
         if isinstance(model_params, NumpyVector):
             return model_params.coefs.items()
-        elif isinstance(model_params, dict):
+        if isinstance(model_params, dict):
             return model_params.items()
-        else:
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
-                "while expecting a NumpyVector or a dict"
-            )
-
-    def set_weights(
-        self,
-        weights: Union[Dict[str, np.ndarray], NumpyVector],
-    ) -> BaseEstimator:
-        """Sets model weights.
-
-        Args:
-            weights: Model weights contained in a dictionary mapping layers names
-                to its model parameters (in numpy arrays)
-
-        Returns:
-            Model wrapped updated with incoming weights
-        """
-        for key, val in self._get_iterator_model_params(weights):
-            setattr(self.model, key, val.copy())
-        return self.model
+        raise FedbiomedModelError(
+            f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
+            "while expecting a NumpyVector or a dict"
+        )
 
     def get_weights(
         self,
@@ -187,6 +169,19 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         if as_vector:
             return NumpyVector(weights)
         return weights
+
+    def set_weights(
+        self,
+        weights: Union[Dict[str, np.ndarray], NumpyVector],
+    ) -> None:
+        """Assign new values to the model's trainable weights.
+
+        Args:
+            weights: Model weights, as a dict mapping parameters' names to their
+                numpy array, or as a declearn NumpyVector wrapping such a dict.
+        """
+        for key, val in self._get_iterator_model_params(weights):
+            setattr(self.model, key, val.copy())
 
     def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
         """Apply incoming updates to the wrapped model's parameters.
@@ -360,26 +355,40 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         if to_string:
             changed_params = "\n".join(p + ",\n" for p in changed_params)
         return is_params_changed, changed_params
-        
-    def load(self, filename: str) -> None:
-        """Loads model from a file.
+
+    def export(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
 
         Args:
-            filename: path towards the file where the model has been saved.
-        """
-        # FIXME: Security issue using pickles!
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-        self.model = model
+            filename: path to the file where the model will be saved.
 
-    def save(self, filename: str) -> None:
-        """Saves model into a file.
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
 
-        Args:
-            filename: path to the file, where will be saved the model.
+        !!! warning "Warning":
+            This method uses `joblib.dump`, which relies on pickle and
+            is therefore hard to trust by third-party loading methods.
         """
         with open(filename, "wb") as file:
             joblib.dump(self.model, file)
+
+    def _reload(self, filename: str) -> None:
+        """Model-class-specific backend to the `reload` method.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        Returns:
+            model: reloaded model instance to be wrapped, that will be type-
+                checked as part of the calling `reload` method.
+        """
+        with open(filename, "rb") as file:
+            model = joblib.load(file)
+        return model
 
     # ---- abstraction for sklearn models
     @abstractmethod

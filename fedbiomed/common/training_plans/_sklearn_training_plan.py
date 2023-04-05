@@ -8,7 +8,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
@@ -47,6 +47,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
         testing_data_loader: Data loader used in the validation routine.
+
+    !!! info "Notes"
+        The trained model may be exported via the `export_model` method,
+        resulting in a dump file that may be reloded using `joblib.load`
+        outside of Fed-BioMed.
     """
 
     _model_cls: Type[BaseEstimator]        # wrapped model class
@@ -240,9 +245,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._optimizer_args
 
-    def get_model_params(self) -> Dict:
-        return self.after_training_params()
-
     def training_routine(
             self,
             history_monitor: Optional['HistoryMonitor'] = None,
@@ -262,14 +264,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run preprocesses
         self._preprocess()
-
-        # if not isinstance(self.model(), BaseEstimator):
-        #     msg = (
-        #         f"{ErrorNumbers.FB320.value}: model should be a scikit-learn "
-        #         f"estimator, but is of type {type(self.model())}"
-        #     )
-        #     logger.critical(msg)
-        #     raise FedbiomedTrainingPlanError(msg)
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
@@ -369,99 +363,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
 
-    def save(
-            self,
-            filename: str,
-            params: Union[None, Dict[str, np.ndarray], Dict[str, Any]] = None
-        ) -> None:
-        """Save the wrapped model and its trainable parameters.
-
-        This method is designed for parameter communication. It
-        uses the joblib.dump function, which in turn uses pickle
-        to serialize the model. Note that unpickling objects can
-        lead to arbitrary code execution; hence use with care.
-
-        Args:
-            filename: Path to the output file.
-            params: Model parameters to enforce and save.
-                This may either be a {name: array} parameters dict, or a
-                nested dict that stores such a parameters dict under the
-                'model_params' key (in the context of the Round class).
-
-        Notes:
-            Save can be called from Job or Round.
-            * From [`Round`][fedbiomed.node.round.Round] it is called with params (as a complex dict).
-            * From [`Job`][fedbiomed.researcher.job.Job] it is called with no params in constructor, and
-                with params in update_parameters.
-        """
-        # Optionally overwrite the wrapped model's weights.
-        if params:
-            if isinstance(params.get('model_params'), dict):  # in a Round
-                params = params["model_params"]
-            # for key, val in params.items():
-            #     setattr(self._model, key, val)
-            self._model.set_weights(params)
-        # Save the wrapped model (using joblib, hence pickle).
-        self._model.save(filename)
-
-    def load(
-            self,
-            filename: str,
-            to_params: bool = False
-        ) -> Union[BaseEstimator, Dict[str, Dict[str, np.ndarray]]]:
-        """Load a scikit-learn model dump, overwriting the wrapped model.
-
-        This method uses the joblib.load function, which in turn uses
-        pickle to deserialize the model. Note that unpickling objects
-        can lead to arbitrary code execution; hence use with care.
-
-        This function updates the `_model.model` private attribute with the
-        loaded instance, and returns either that same model or a dict
-        wrapping its trainable parameters.
-
-        Args:
-            filename: The path to the pickle file to load.
-            to_params: Whether to return the model's parameters
-                wrapped as a dict rather than the model instance.
-
-        Notes:
-            Load can be called from a Job or Round:
-            * From [`Round`][fedbiomed.node.round.Round] it is called to return the model.
-            * From [`Job`][fedbiomed.researcher.job.Job] it is called with to return its parameters dict.
-
-        Returns:
-            Dictionary with the loaded parameters.
-        """
-        # Deserialize the dump, type-check the instance and assign it.
-        self._model.load(filename)
-        if not isinstance(self.model(), self._model_cls):
-            msg = (
-                f"{ErrorNumbers.FB304.value}: reloaded model does not conform "
-                f"to expectations: should be of type {self._model_cls}, not "
-                f"{type(self.model())}."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        # Optionally return the model's pseudo state dict instead of it.
-        if to_params:
-            params = self._model.get_weights()
-            return {"model_params": params}
-        return self.model()
-
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
-
-    def after_training_params(self) -> Dict[str, np.ndarray]:
-        """Return the wrapped model's trainable parameters' current values.
-
-        This method returns a dict containing parameters that need
-        to be reported back and aggregated in a federated learning
-        setting.
-
-        Returns:
-            dict[str, np.ndarray]: the trained parameters to aggregate.
-        """
-        #return {key: getattr(self._model, key) for key in self._param_list}
-        return self._model.get_weights()

@@ -6,10 +6,7 @@
 """SKLearnTrainingPlan subclasses for models implementing `partial_fit`."""
 
 import functools
-import sys
 from abc import ABCMeta
-from contextlib import contextmanager
-from io import StringIO
 from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
@@ -50,7 +47,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         Args:
             history_monitor (HistoryMonitor, None): optional HistoryMonitor
                 instance, recording the loss value during training.
-                
+
         Returns:
             number of data processed during training. This should be sent to Node,
             in order to weight accordingly the participation of each Node, in the
@@ -137,7 +134,6 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         # Gather start weights of the model and initialize zero gradients.
 
         self._optimizer.init_training()
-        
         stdout = []  # type: List[List[str]]
 
         self._optimizer.train_model(inputs, target, stdout)
