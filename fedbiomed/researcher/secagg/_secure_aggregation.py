@@ -395,7 +395,6 @@ class SecureAggregation:
         """
 
         secagg = cls(**state["arguments"])
-        secagg._parties = state["attributes"]["_parties"]
 
         if state["attributes"]["_biprime"] is not None:
             state["attributes"]["_biprime"] = SecaggBiprimeContext. \
