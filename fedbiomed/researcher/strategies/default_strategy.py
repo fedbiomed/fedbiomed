@@ -48,8 +48,8 @@ class DefaultStrategy(Strategy):
             round_i: number of round.
 
         Returns:
-          node_ids: list of all node ids considered for training during
-            this round `round_i`.
+            node_ids: list of all node ids considered for training during
+                this round `round_i`.
         """
         self._sampling_node_history[round_i] = self._fds.node_ids()
 
@@ -59,7 +59,10 @@ class DefaultStrategy(Strategy):
             self,
             training_replies: Responses,
             round_i: int
-    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]], Dict[str, float]]:
+    ) -> Tuple[Dict[str, float],
+               Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+               int,
+               Dict[str, List[int]]]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
