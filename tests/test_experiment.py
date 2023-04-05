@@ -1136,7 +1136,7 @@ class TestExperiment(ResearcherTestCase):
 
         # Run experiment with secure aggregation
         # Fix secagg_random value to pass validation step
-        with patch("fedbiomed.researcher.experiment.SecureAggregation.secagg_random") as s_m:
+        with patch("fedbiomed.researcher.secagg._secure_aggregation.random.uniform") as s_m:
             s_m.return_value = -2.8131
             self.test_exp.secagg._secagg_random = -2.8131  # hard coded for validation of encryption
             self.test_exp._round_current = 1
