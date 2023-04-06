@@ -137,8 +137,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         Args:
             as_vector: Whether to wrap returned weights into a declearn Vector.
-            only_trainable (bool, optional): unused. Defaults to False, (trainable and
-                frozen ones)
+            only_trainable: Unused for scikit-learn models. (Whether to ignore
+                non-trainable model parameters.)
+
         Raises:
             FedbiomedModelError: If the list of parameters are not defined.
 
