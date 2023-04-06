@@ -5,7 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 import declearn
 import numpy as np
@@ -16,6 +16,9 @@ from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
+
+
+_OT = TypeVar("_OT")  # generic type-annotation for wrapped optimizers
 
 
 class SklearnOptimizerProcessing:
@@ -69,26 +72,28 @@ class SklearnOptimizerProcessing:
                 logger.warning(msg)
 
 
-class BaseOptimizer(metaclass=ABCMeta):
-    _model: Model
-    optimizer: Union[FedOptimizer, None]
+class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
+    """Abstract base class for Optimizer and Model wrappers."""
+
     _model_cls: Union[Type[Model], Type[SkLearnModel]]
 
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, torch.optim.Optimizer, None]):
+    def __init__(self, model: Model, optimizer: _OT):
         """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
 
         Args:
-            model: model object that wraps model framework
-            optimizer: optimizer that will be used for optimizing
-                the model. It should be a `fedbiomed.common.optimizers.optimizer` Optimizer (that handles declearn's Optimizers),
-                a `torch.optim.Optimizer` (in case of native pytorch optimizer) or None (in case sklearn native optimizers).
+            model: model to train, interfaced via a framework-specific Model.
+            optimizer: optimizer that will be used for optimizing the model.
 
         Raises:
-            FedbiomedOptimizerError: Raised if model is not an instance of `_model_cls` (which should be either `TorchModel` or `SkLearnModel` objects)
+            FedbiomedOptimizerError:
+                Raised if model is not an instance of `_model_cls` (which may
+                be a subset of the generic Model type).
         """
         if not isinstance(model, self._model_cls):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance of {self._model_cls} but got {model}")
-
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance "
+                f"of {self._model_cls} but got an object of type {type(model)}."
+            )
         self._model = model
         self.optimizer = optimizer
 
@@ -132,6 +137,8 @@ class BaseOptimizer(metaclass=ABCMeta):
 
 
 class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
+    """Base Optimizer subclass to use a declearn-backed Optimizer."""
+
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
@@ -145,7 +152,10 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             # convert declearn optimizer into a fedbiomed optimizer wrapper
             optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
         elif not isinstance(optimizer, FedOptimizer):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} excpected a declearn optimizer, but got {optimizer}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621_b.value}: expected a declearn optimizer,"
+                f" but got an object with type {type(optimizer)}."
+            )
         super().__init__(model, optimizer)
         self.optimizer.init_round()
 
