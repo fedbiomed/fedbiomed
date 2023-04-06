@@ -1,20 +1,21 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+"""API and wrappers to interface framework-specific and generic optimizers."""
+
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Type, Union
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-
-from fedbiomed.common. models import Model, SkLearnModel, TorchModel
-from fedbiomed.common.exceptions import FedbiomedOptimizerError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-
 
 import declearn
-from declearn.model.api import Vector
-
-import torch
 import numpy as np
+import torch
 
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.models import Model, SkLearnModel, TorchModel
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 
 class SklearnOptimizerProcessing:
@@ -150,8 +151,8 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
 
     def step(self):
         """Performs one optimization step"""
-        grad: Vector = self._model.get_gradients(as_vector=True)
-        weights: Vector = self._model.get_weights(as_vector=True)
+        grad: declearn.model.api.Vector = self._model.get_gradients(as_vector=True)
+        weights: declearn.model.api.Vector = self._model.get_weights(as_vector=True)
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates)
 
