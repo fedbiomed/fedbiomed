@@ -72,10 +72,28 @@ class Optimizer:
             ) from exc
 
     @classmethod
-    def from_declearn_optimizer(cls, declearn_optimizer: DeclearnOptimizer):
-        optim =  cls(lr = declearn_optimizer.lrate)
-        optim._optimizer = declearn_optimizer  # shared references!
-        return cls
+    def from_declearn_optimizer(
+        cls,
+        declearn_optimizer: DeclearnOptimizer,
+    ) -> Self:
+        """Wrap a declearn Optimizer into a fed-biomed one.
+
+        Args:
+            declearn_optimizer: [declearn.optimizer.Optimizer][] instance that
+                needs to be wrapped.
+
+        Returns:
+            Fed-BioMed `Optimizer` instance wrapping a copy of the input optimizer.
+        """
+        config = declearn_optimizer.get_config()
+        optim = cls(
+            lr=config["lrate"],
+            decay=config["w_decay"],
+            modules=config["modules"],
+            regularizers=config["regularizer"],
+        )
+        optim._optimizer.set_state(declearn_optimizer.get_state())
+        return optim
 
     def init_round(self) -> None:
         """Trigger start-of-training-round behavior of wrapped regularizers."""
