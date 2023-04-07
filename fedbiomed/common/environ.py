@@ -49,13 +49,12 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
+from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
-from fedbiomed.common.constants import MPSPDZ_certificate_prefix
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.utils import get_fedbiomed_root
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -66,7 +65,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         Args:
             root_dir: if not provided the directory is deduced from the package location
-                (mainly used by the test files)
+                (specifying root_dir is mainly used by the test files)
 
         Raises:
             FedbiomedEnvironError: If component type is invalid
@@ -175,18 +174,25 @@ class Environ(metaclass=SingletonABCMeta):
 
         # guess the fedbiomed package top dir if no root dir is given
         if self._root_dir is None:
-            root_dir = get_fedbiomed_root()
+            root_dir = ROOT_DIR
+
+            # initialize main directories
+            self._values['ROOT_DIR'] = root_dir
+            self._values['CONFIG_DIR'] = CONFIG_DIR
+            self._values['VAR_DIR'] = VAR_DIR
+            self._values['CACHE_DIR'] = CACHE_DIR
+            self._values['TMP_DIR'] = TMP_DIR
         else:
             root_dir = self._root_dir
+            # initialize main directories
 
-        # Initialize all environment values
-        self._values['ROOT_DIR'] = root_dir
+            self._values['ROOT_DIR'] = root_dir
+            self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
+            self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
+            self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
+            self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
 
-        # main directories
-        self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
-        self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
-        self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
-        self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
+        # initialize other directories
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")
         self._values['CERT_DIR'] = os.path.join(root_dir, "etc", "certs")
         self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')

@@ -13,6 +13,11 @@ from ._utils import (
 )
 from ._config_utils import (
     get_fedbiomed_root,
+    ROOT_DIR,
+    CONFIG_DIR,
+    VAR_DIR,
+    CACHE_DIR,
+    TMP_DIR,
     get_component_config,
     get_component_certificate_from_config,
     get_all_existing_config_files,
@@ -36,6 +41,11 @@ __all__ = [
     "compute_dot_product",
     # _config_utils
     "get_fedbiomed_root",
+    ROOT_DIR,
+    CONFIG_DIR,
+    VAR_DIR,
+    CACHE_DIR,
+    TMP_DIR,
     "get_component_config",
     "get_component_certificate_from_config",
     "get_all_existing_config_files",

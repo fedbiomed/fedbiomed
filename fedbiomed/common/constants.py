@@ -5,6 +5,9 @@
 
 from enum import Enum
 
+"""Directory/folder name where tensorboard logs are saved"""
+TENSORBOARD_FOLDER_NAME = "runs"
+
 """Directory/folder name where variable files are saved"""
 VAR_FOLDER_NAME = "var"
 

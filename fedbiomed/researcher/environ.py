@@ -21,7 +21,8 @@ import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX, \
+    TENSORBOARD_FOLDER_NAME
 from fedbiomed.common.environ import Environ
 
 
@@ -52,7 +53,7 @@ class ResearcherEnviron(Environ):
         self._values['ID'] = self._values['RESEARCHER_ID']
 
         # more directories
-        self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(self._values['ROOT_DIR'], 'runs')
+        self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(self._values['ROOT_DIR'], TENSORBOARD_FOLDER_NAME)
         self._values['EXPERIMENTS_DIR'] = os.path.join(self._values['VAR_DIR'], "experiments")
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
         self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],

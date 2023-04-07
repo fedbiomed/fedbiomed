@@ -8,7 +8,7 @@ import configparser
 from typing import List, Dict
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.constants import DB_PREFIX
+from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME
 
 
 def get_fedbiomed_root() -> str:
@@ -19,6 +19,14 @@ def get_fedbiomed_root() -> str:
     """
 
     return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
+
+
+"Main directories definition"
+ROOT_DIR = get_fedbiomed_root()
+CONFIG_DIR = os.path.join(ROOT_DIR, 'etc')
+VAR_DIR = os.path.join(ROOT_DIR, VAR_FOLDER_NAME)
+CACHE_DIR = os.path.join(VAR_DIR, 'cache')
+TMP_DIR = os.path.join(VAR_DIR, 'tmp')
 
 
 def get_component_config(
@@ -39,7 +47,7 @@ def get_component_config(
 
     try:
         config.read(config_path)
-    except Exception as e:
+    except Exception:
         raise FedbiomedError(f"Can not read config file. Please make sure it is existing or it has valid format. "
                              f"{config_path}")
 
