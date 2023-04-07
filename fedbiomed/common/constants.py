@@ -5,6 +5,15 @@
 
 from enum import Enum
 
+"""Directory/folder name where configurations are saved"""
+CONFIG_FOLDER_NAME = "etc"
+
+"""Directory/folder name where cache files are saved"""
+CACHE_FOLDER_NAME = "cache"
+
+"""Directory/folder name where temporary files are saved"""
+TMP_FOLDER_NAME = "tmp"
+
 """Directory/folder name where tensorboard logs are saved"""
 TENSORBOARD_FOLDER_NAME = "runs"
 

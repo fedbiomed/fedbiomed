@@ -49,7 +49,8 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
+    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
 from fedbiomed.common.logger import logger
@@ -187,14 +188,14 @@ class Environ(metaclass=SingletonABCMeta):
             # initialize main directories
 
             self._values['ROOT_DIR'] = root_dir
-            self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
+            self._values['CONFIG_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME)
             self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
-            self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
-            self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
+            self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], CACHE_FOLDER_NAME)
+            self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], TMP_FOLDER_NAME)
 
         # initialize other directories
-        self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")
-        self._values['CERT_DIR'] = os.path.join(root_dir, "etc", "certs")
+        self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")
+        self._values['CERT_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "certs")
         self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
         for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR', 'DEFAULT_BIPRIMES_DIR':

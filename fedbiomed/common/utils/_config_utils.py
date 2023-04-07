@@ -8,10 +8,11 @@ import configparser
 from typing import List, Dict
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME
+from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME, \
+    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
 
 
-def get_fedbiomed_root() -> str:
+def _get_fedbiomed_root() -> str:
     """Gets fedbiomed root.
 
     Returns:
@@ -22,11 +23,11 @@ def get_fedbiomed_root() -> str:
 
 
 "Main directories definition"
-ROOT_DIR = get_fedbiomed_root()
-CONFIG_DIR = os.path.join(ROOT_DIR, 'etc')
+ROOT_DIR = _get_fedbiomed_root()
+CONFIG_DIR = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME)
 VAR_DIR = os.path.join(ROOT_DIR, VAR_FOLDER_NAME)
-CACHE_DIR = os.path.join(VAR_DIR, 'cache')
-TMP_DIR = os.path.join(VAR_DIR, 'tmp')
+CACHE_DIR = os.path.join(VAR_DIR, CACHE_FOLDER_NAME)
+TMP_DIR = os.path.join(VAR_DIR, TMP_FOLDER_NAME)
 
 
 def get_component_config(
@@ -101,7 +102,7 @@ def get_component_certificate_from_config(
 
 def get_all_existing_config_files():
     """Gets all existing config files from Fed-BioMed `etc` directory"""
-    etc = os.path.join(get_fedbiomed_root(), 'etc', '')
+    etc = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME, '')
     return [file for file in glob.glob(f"{etc}*.ini")]
 
 

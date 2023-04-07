@@ -12,7 +12,6 @@ from ._utils import (
     compute_dot_product,
 )
 from ._config_utils import (
-    get_fedbiomed_root,
     ROOT_DIR,
     CONFIG_DIR,
     VAR_DIR,
@@ -40,7 +39,6 @@ __all__ = [
     "convert_iterator_to_list_of_python_floats",
     "compute_dot_product",
     # _config_utils
-    "get_fedbiomed_root",
     ROOT_DIR,
     CONFIG_DIR,
     VAR_DIR,
