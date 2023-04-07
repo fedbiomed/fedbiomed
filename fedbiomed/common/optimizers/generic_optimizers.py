@@ -1,26 +1,30 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+"""API and wrappers to interface framework-specific and generic optimizers."""
+
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Type, Union
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-from fedbiomed.common. models import Model, SkLearnModel, TorchModel
+import declearn
+import numpy as np
+import torch
+
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 
-import declearn
-from declearn.model.api import Vector
-
-import torch
-import numpy as np
-
+_OT = TypeVar("_OT")  # generic type-annotation for wrapped optimizers
 
 
 class SklearnOptimizerProcessing:
     """Context manager used for scikit-learn model, that checks if model parameter(s) has(ve) been changed
     when disabling scikit-learn internal optimizer - ie when calling `disable_internal_optimizer` method
-    
+
     """
     _model: SkLearnModel
     _disable_internal_optimizer: bool
@@ -42,20 +46,20 @@ class SklearnOptimizerProcessing:
     def __enter__(self) -> 'SklearnOptimizerProcessing':
         """Called when entering context manager"""
         return self
-        
+
     def __exit__(
                 self,
                 type: Union[type[BaseException], None],
                 value: Union[BaseException, None],
                 traceback: Union[TracebackType, None]):
-        """Called when leaving context manager. 
+        """Called when leaving context manager.
 
         Args:
             type: default argument for `__exit__` method in context manager. Unused.
             value: default argument for `__exit__` method in context manager. Unused.
             traceback: default argument for `__exit__` method in context manager. Unused.
         """
-        
+
         if self._disable_internal_optimizer:
 
             self._model.disable_internal_optimizer()
@@ -65,29 +69,31 @@ class SklearnOptimizerProcessing:
                 msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
                 msg += "\nParameters changed:\n"
                 msg += param_changed
-                logger.warning(msg) 
+                logger.warning(msg)
 
 
-class BaseOptimizer(metaclass=ABCMeta):
-    _model: Model
-    optimizer: Union[FedOptimizer, None]
+class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
+    """Abstract base class for Optimizer and Model wrappers."""
+
     _model_cls: Union[Type[Model], Type[SkLearnModel]]
 
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, torch.optim.Optimizer, None]):
+    def __init__(self, model: Model, optimizer: _OT):
         """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
 
         Args:
-            model: model object that wraps model framework
-            optimizer: optimizer that will be used for optimizing
-                the model. It should be a `fedbiomed.common.optimizers.optimizer` Optimizer (that handles declearn's Optimizers),
-                a `torch.optim.Optimizer` (in case of native pytorch optimizer) or None (in case sklearn native optimizers).
+            model: model to train, interfaced via a framework-specific Model.
+            optimizer: optimizer that will be used for optimizing the model.
 
         Raises:
-            FedbiomedOptimizerError: Raised if model is not an instance of `_model_cls` (which should be either `TorchModel` or `SkLearnModel` objects)
+            FedbiomedOptimizerError:
+                Raised if model is not an instance of `_model_cls` (which may
+                be a subset of the generic Model type).
         """
         if not isinstance(model, self._model_cls):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance of {self._model_cls} but got {model}")
-        
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance "
+                f"of {self._model_cls} but got an object of type {type(model)}."
+            )
         self._model = model
         self.optimizer = optimizer
 
@@ -118,25 +124,27 @@ class BaseOptimizer(metaclass=ABCMeta):
     @abstractmethod
     def get_learning_rate(self)-> List[float]:
         """Returns learning rate(s) of the optimizer.
-        
+
         !!! warning
-            For pytorch and scikit-learn native optimizers, returned learning rate might be 
+            For pytorch and scikit-learn native optimizers, returned learning rate might be
             initial learning rate, and not the actual learning rate got over several model iteration.
 
         Returns:
             List[float]: learning-rate(s) contained in a list. Size of list
-                depends of the optimizer specifed: if pytorch optimizer with several learning rates, 
-                size is of the number of layers contained in the model, size is of one otherwise. 
+                depends of the optimizer specifed: if pytorch optimizer with several learning rates,
+                size is of the number of layers contained in the model, size is of one otherwise.
         """
 
 
 class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
+    """Base Optimizer subclass to use a declearn-backed Optimizer."""
+
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
         Args:
             model: Model that wraps the actual model
-            optimizer: declearn optimizer, 
+            optimizer: declearn optimizer,
                 or fedbiomed optimizer (that wraps declearn optimizer)
         """
         logger.debug("Using declearn optimizer")
@@ -144,14 +152,17 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             # convert declearn optimizer into a fedbiomed optimizer wrapper
             optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
         elif not isinstance(optimizer, FedOptimizer):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} excpected a declearn optimizer, but got {optimizer}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621_b.value}: expected a declearn optimizer,"
+                f" but got an object with type {type(optimizer)}."
+            )
         super().__init__(model, optimizer)
         self.optimizer.init_round()
 
     def step(self):
         """Performs one optimization step"""
-        grad: Vector = self._model.get_gradients(as_vector=True)
-        weights: Vector = self._model.get_weights(as_vector=True)
+        grad: declearn.model.api.Vector = self._model.get_gradients(as_vector=True)
+        weights: declearn.model.api.Vector = self._model.get_weights(as_vector=True)
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates)
 
@@ -162,10 +173,10 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             List[float]: a list with the learning rate value
         """
         return [self.optimizer._optimizer.lrate]
-    
+
     def set_aux(self, aux: Dict[str, Any]):
         self.optimizer.process_aux_var(aux)
-        
+
     def get_aux(self) -> Optional[Dict[str, Any]]:
         aux = self.optimizer.collect_aux_var()
         return aux
@@ -187,7 +198,7 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     """
     _model_cls: Type[TorchModel] = TorchModel
     def zero_grad(self):
-        """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad` 
+        """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad`
         method of the model.
 
         Raises:
@@ -220,19 +231,19 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
         # convert batch averaged gradients into gradients before computation
         lrate = self._model.get_learning_rate()[0]
         if abs(lrate) > 0:
-            
+
             gradients = self._model.get_gradients()
             gradients = {layer: val / lrate for layer, val in gradients.items()}
             self._model.set_gradients(gradients)
             super().step()
         else:
             # Nota: if learning rate equals 0, there will be no updates applied during SGD
-            logger.warning(f"Learning rate set to {lrate}: no gradient descent will be performed!")   
+            logger.warning(f"Learning rate set to {lrate}: no gradient descent will be performed!")
 
     def optimizer_post_processing(self, model_args: Optional[Dict[str, Any]] = None):
         """Does some actions after setting up an Optimizer, mainly disabling scikit-learn
-        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that 
-        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer ( 
+        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
+        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
         such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
         to such changes, displays a warning.
 
@@ -240,35 +251,35 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
             model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
                 Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
         """
-        
+
         self._model.disable_internal_optimizer()
         is_param_changed, param_changed = self._model.check_changed_optimizer_params(model_args)
         if is_param_changed:
             msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
             msg += "\nParameters changed:\n"
             msg += param_changed
-            logger.warning(msg)    
-            
+            logger.warning(msg)
+
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
         """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
-        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that 
-        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer ( 
+        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
+        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
         such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
         to such changes, displays a warning.
 
         Args:
             model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
                 Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
-        
+
         Returns:
-            SklearnOptimizerProcessing: context manager providing extra logic 
-            
+            SklearnOptimizerProcessing: context manager providing extra logic
+
         Usage:
             >>> dlo = DeclearnSklearnOptimizer(model, optimizer)
             >>> dlo.model_args = {'eta0': .05}
             >>> with dlo.optimizer_processing():
                     model.set_params()
-                    
+
         """
         return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
 
@@ -296,13 +307,13 @@ class NativeTorchOptimizer(BaseOptimizer):
         """Performs an optimization step and updates model weights
         """
         self.optimizer.step()
-        
+
     def zero_grad(self):
-        """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad` 
+        """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad`
         method of the optimizer.
         """
         self.optimizer.zero_grad()
-        
+
     def get_learning_rate(self) -> List[float]:
         """Gets learning rate from value set in Pytorch optimizer.
 
@@ -323,7 +334,7 @@ class NativeTorchOptimizer(BaseOptimizer):
 
     def send_model_to_device(self, device: torch.device):
         """Sends Pytorch model to device - useful if GPU is needed
-        
+
         Args:
             device: device to send the data to
         """
@@ -332,7 +343,7 @@ class NativeTorchOptimizer(BaseOptimizer):
     def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> torch.float:
         loss += float(mu) / 2. * self.__norm_l2()
         return loss
-    
+
     def scaffold(self):
         pass # FIXME: should we implement scaffold here?
 
@@ -347,8 +358,8 @@ class NativeTorchOptimizer(BaseOptimizer):
         for current_model, init_model in zip(self._model.model().parameters(), self._model.init_params):
             norm += ((current_model - init_model) ** 2).sum()
         return norm
-    
-        
+
+
 class NativeSkLearnOptimizer(BaseOptimizer):
     """Optimizer wrapper for scikit-learn native models.
     """
@@ -363,7 +374,7 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         """
         # if not isinstance(model, SkLearnModel):
         #     raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} In model argument: expected a `SkLearnModel` object, but got {type(model)}")
-        
+
         if optimizer is  not None:
             logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
         super().__init__(model, None)
@@ -412,7 +423,7 @@ TRAININGPLAN_OPTIMIZERS = {
 class OptimizerBuilder:
     """Optimizer wrapper builder that creates the appropriate Optimizer given the nature of
     the optimizer.
-    
+
     Usage:
     Example for plain Pytorch model
     >>> import torch
@@ -420,7 +431,7 @@ class OptimizerBuilder:
     >>> opt_builder = OptimizerBuilder()
     >>> model = nn.Linear(4,2)
     >>> optimizer = torch.optim.SGD(.1, model.paramaters())
-    >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan, 
+    >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan,
                                           model, optimizer)
     >>> optim_wrapper
         NativeTorchOptimizer
@@ -444,7 +455,7 @@ class OptimizerBuilder:
             TrainingPlans.TorchTrainingPlan: self.build_torch,
             TrainingPlans.SkLearnTrainingPlan: self.build_sklearn
             }
-    
+
     @staticmethod
     def build_torch(model: TorchModel,
                     optimizer: Union[FedOptimizer,
@@ -462,17 +473,17 @@ class OptimizerBuilder:
             FedbiomedOptimizerError: raised if Optimizer is not handled by the builder.
 
         Returns:
-            Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer, 
+            Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer,
                 that contains a TorchModel and a Optimizer.
         """
         try:
             optimizer_wrapper: BaseOptimizer = OptimizerBuilder.TORCH_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
         except KeyError:
             err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.TorchTrainingPlan.value}"
-            
+
             raise FedbiomedOptimizerError(err_msg)
         return optimizer_wrapper(model, optimizer)
-    
+
     @staticmethod
     def build_sklearn(model: SkLearnModel,
                       optimizer: Union[FedOptimizer,
@@ -491,7 +502,7 @@ class OptimizerBuilder:
             FedbiomedOptimizerError: raised if Optimizer is not handled by the builder.
 
         Returns:
-            Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer, 
+            Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer,
                 that contains a SkLearnModel and a Optimizer (or None).
         """
         if not isinstance(model, SkLearnModel):
@@ -501,7 +512,7 @@ class OptimizerBuilder:
         except KeyError:
             err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.SkLearnTrainingPlan}" + \
             "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
-            
+
             raise FedbiomedOptimizerError(err_msg)
         return optimizer_wrapper(model, optimizer)
 
@@ -514,7 +525,7 @@ class OptimizerBuilder:
             optimizer: optimizer used to optimize model. For using plain Scikit-Learn model, should be set to None (meaning only model optimization will be used). Defaults to None.
 
         Raises:
-            FedbiomedOptimizerError: raised if training plan type `tp_type` and `optimizer` 
+            FedbiomedOptimizerError: raised if training plan type `tp_type` and `optimizer`
                 are not compatible (eg using torch optimizer with sklearn models)
 
         Returns:
@@ -528,7 +539,7 @@ class OptimizerBuilder:
             #optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
         except KeyError:
             err_msg = f"{ErrorNumbers.FB621_b.value} Unknown Training Plan type {tp_type} "
-            
+
             raise FedbiomedOptimizerError(err_msg)
 
     @staticmethod
@@ -558,4 +569,3 @@ class OptimizerBuilder:
                 return type(optimizer).__bases__[0]
         else:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Cannot find parent class of Optimizer {optimizer}")
-    

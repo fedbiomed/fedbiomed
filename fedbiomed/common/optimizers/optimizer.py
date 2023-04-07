@@ -5,7 +5,6 @@
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-import declearn
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
@@ -73,11 +72,29 @@ class Optimizer:
             ) from exc
 
     @classmethod
-    def from_declearn_optimizer(cls, declearn_optimizer: DeclearnOptimizer):
-        optim =  cls(lr = declearn_optimizer.lrate)
-        optim._optimizer = declearn_optimizer  # shared references!
-        return cls
-    
+    def from_declearn_optimizer(
+        cls,
+        declearn_optimizer: DeclearnOptimizer,
+    ) -> Self:
+        """Wrap a declearn Optimizer into a fed-biomed one.
+
+        Args:
+            declearn_optimizer: [declearn.optimizer.Optimizer][] instance that
+                needs to be wrapped.
+
+        Returns:
+            Fed-BioMed `Optimizer` instance wrapping a copy of the input optimizer.
+        """
+        config = declearn_optimizer.get_config()
+        optim = cls(
+            lr=config["lrate"],
+            decay=config["w_decay"],
+            modules=config["modules"],
+            regularizers=config["regularizer"],
+        )
+        optim._optimizer.set_state(declearn_optimizer.get_state())
+        return optim
+
     def init_round(self) -> None:
         """Trigger start-of-training-round behavior of wrapped regularizers."""
         try:
@@ -183,22 +200,7 @@ class Optimizer:
         try:
             config = self._optimizer.get_config()
             states = self._optimizer.get_state()
-            aux = self.get_aux()
-            # modules = {str(mod) : {
-            #     'class':  type(mod).__name__,
-            #     'module': mod.__module__ 
-            #             }
-            #            for mod in self._optimizer.modules
-            # }
-            # regularizers =  {str(mod) : {
-            #     'class':  type(mod).__name__,
-            #     'module': mod.__module__ 
-            #             }
-            #            for mod in self._optimizer.regularizers
-            # }
-            
-            
-            return {"config": config, "states": states, "aux": aux}
+            return {"config": config, "states": states}
         except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: error in 'get_state': {exc}"
@@ -221,9 +223,10 @@ class Optimizer:
         try:
             optim = DeclearnOptimizer.from_config(state["config"])
             optim.set_state(state["states"])
-            optim.process_aux_var(state["aux"])
-        except KeyError as ke:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621.value}: Missing field in the breakpoints state: {ke}") from ke
+        except KeyError as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621.value}: Missing field in the breakpoints state: {exc}"
+            ) from exc
         except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: `Optimizer.load_state`: {exc}"

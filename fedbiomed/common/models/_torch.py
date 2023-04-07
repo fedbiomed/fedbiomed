@@ -68,9 +68,10 @@ class TorchModel(Model):
 
         Args:
             as_vector: Whether to wrap returned weights into a declearn Vector.
-            only_trainable (bool, optional): whether to gather weights only on trainable layers (ie
-                non-frozen layers) or all layers (trainable and frozen). Defaults to False, (trainable and
-                frozen ones)
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor, or as a declearn TorchVector wrapping such a dict.
