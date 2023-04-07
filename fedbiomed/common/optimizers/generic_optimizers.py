@@ -94,8 +94,8 @@ class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
                 f"{ErrorNumbers.FB621_b.value}, in `model` argument, expected an instance "
                 f"of {self._model_cls} but got an object of type {type(model)}."
             )
-        self._model = model
-        self.optimizer = optimizer
+        self._model: Model = model
+        self.optimizer: _OT = optimizer
 
     def init_training(self):
         """Sets up training and misceallenous parameters so the model is ready for training
@@ -105,16 +105,14 @@ class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
     def train_model(self,
                     inputs: Union[torch.Tensor, np.ndarray],
                     target: Union[torch.Tensor, np.ndarray],
-                    stdout: Optional[List] = None):
+                    **kwargs):
         """Performs a training of the model
 
         Args:
             inputs: inputs data
             target: targeted data
-            stdout: list made for storing model losses displayed in the console stdout (mainly for scikit-learn
-                models). Defaults to None.
         """
-        self._model.train(inputs, target, stdout)
+        self._model.train(inputs, target, **kwargs)
 
     @abstractmethod
     def step(self):
@@ -170,15 +168,16 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         """Returns current learning rate of the optimizer
 
         Returns:
-            List[float]: a list with the learning rate value
+            a list containing the learning rate value (of size 1)
         """
-        return [self.optimizer._optimizer.lrate]
+        states = self.optimizer.get_state()['config']
+        return [states['lrate']]
 
     def set_aux(self, aux: Dict[str, Any]):
-        self.optimizer.process_aux_var(aux)
+        self.optimizer.set_aux(aux)
 
     def get_aux(self) -> Optional[Dict[str, Any]]:
-        aux = self.optimizer.collect_aux_var()
+        aux = self.optimizer.get_aux()
         return aux
 
     @classmethod
@@ -426,6 +425,7 @@ class OptimizerBuilder:
 
     Usage:
     Example for plain Pytorch model
+    ```python
     >>> import torch
     >>> import torch.nn as nn
     >>> opt_builder = OptimizerBuilder()
@@ -435,6 +435,7 @@ class OptimizerBuilder:
                                           model, optimizer)
     >>> optim_wrapper
         NativeTorchOptimizer
+    ```
     """
     TORCH_OPTIMIZERS = {
     FedOptimizer: DeclearnTorchOptimizer,

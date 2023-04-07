@@ -90,7 +90,7 @@ class Optimizer:
             lr=config["lrate"],
             decay=config["w_decay"],
             modules=config["modules"],
-            regularizers=config["regularizer"],
+            regularizers=config["regularizers"],
         )
         optim._optimizer.set_state(declearn_optimizer.get_state())
         return optim

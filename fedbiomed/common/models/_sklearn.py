@@ -3,12 +3,13 @@
 
 """Scikit-learn interfacing Model classes."""
 
+import inspect
 import sys
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
 from copy import deepcopy
 from io import StringIO
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
+from typing import Any, ClassVar, Collection, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
 
 import joblib
 import numpy as np
@@ -20,6 +21,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
+from fedbiomed.common.logger import logger
 
 
 @contextmanager
@@ -70,7 +72,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     model: BaseEstimator
     model_args: Dict[str, Any]
     # Class attributes
-    default_lr_init: ClassVar[float] = 0.1
+    default_lr_init: ClassVar[float] = 1.
     default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
 
