@@ -198,7 +198,7 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
             self._model.model.zero_grad()
         except AttributeError as err:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?."
-                                          f"Details {err}") from err
+                                          f"Details {repr(err)}") from err
 
     def send_model_to_device(self, device: torch.device):
         """Sends Pytorch model to device - useful if GPU is needed"""

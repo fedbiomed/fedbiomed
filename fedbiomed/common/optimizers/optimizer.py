@@ -69,7 +69,7 @@ class Optimizer:
         except (KeyError, TypeError) as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: declearn Optimizer instantiation"
-                f" raised the following exception: {exc}"
+                f" raised the following exception: {repr(exc)}"
             ) from exc
 
     @classmethod

@@ -1,6 +1,6 @@
 import copy
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 
 import numpy as np
@@ -147,10 +147,13 @@ class TestBaseDeclearnOptimizer(unittest.TestCase):
             retrieved_lr = optim_wrapper.get_learning_rate()
             
             self.assertEqual(learning_rate, retrieved_lr[0])
-            
+    
+    def test_basedeclearn_05_declearn_optimizers(self):
+        # TODO: test here several declearn optimizers, regardless of the framework used
+        pass 
 
 class TestTorchBasedOptimizer(unittest.TestCase):
-    # make sure torch based optimizer does the same action on torch models
+    # make sure torch based optimizers does the same action on torch models - regardless of their nature
     def setUp(self):
         
         self._torch_model = (nn.Linear(4, 2),)
@@ -252,6 +255,19 @@ class TestTorchBasedOptimizer(unittest.TestCase):
 class TestSklearnBasedOptimizer(unittest.TestCase):
     pass
     # to be completed
+
+class TestDeclearnTorchOptimizer(unittest.TestCase):
+    
+    def test_declearntorchoptimizer_01_zero_grad_error(self):
+        declearn_optim = FedOptimizer(lr=.1)
+        model = MagicMock(spec=TorchModel)
+        model.model = Mock(spec=torch.nn.Module)
+        del model.model.zero_grad  # remove zero_grad method
+        
+        dto = DeclearnTorchOptimizer(model, declearn_optim)
+        with self.assertRaises(FedbiomedOptimizerError):
+            dto.zero_grad()
+        
 
 class TestNativeTorchOptimizer(unittest.TestCase):
     pass
