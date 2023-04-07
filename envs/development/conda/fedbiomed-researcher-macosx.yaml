@@ -49,7 +49,7 @@ dependencies:
       - persist-queue >=0.5.1,<0.6.0
       - pandas >=1.2.3,<2.0.0
       - openpyxl >= 3.0.9,<3.1
-      - scikit-learn >=1.2.0,<1.3.0
+      - scikit-learn >=1.0.0,<1.1.0
       - itk
       - python-minifier ==2.5.0
       - tensorboard
