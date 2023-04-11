@@ -209,9 +209,10 @@ function clone_mpspdz(){
   if [ $? -ne 0 ] ; then
     echo -e "${GRN}Cloning MP-SPDZ into the MPC working directory ...${NC}\n"
 
-    cp -rnT "$REFDIR/" "$BASEDIR/"
+    # "$REFDIR/." is equivalent to `cp -T` + portable to MacOS
+    cp -rn "$REFDIR/." "$BASEDIR/"
     if [ $? -ne 0 ] ; then
-      error "Cannot create the MPC working directory $BASEDIR"
+      error "Cannot populate the MPC working directory $BASEDIR"
     fi
   fi
 }
