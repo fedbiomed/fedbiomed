@@ -7,7 +7,10 @@ echo ${bats_file}
 exec 3>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 #for notebook in ./notebooks/*.py; do
-for notebook in ${list_notebooks[@]:0:1}; do
+cat <<EOF >${bats_file}
+#!/bin/bash -xv
+EOF
+for notebook in ${list_notebooks[@]:0:3}; do
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
     ./scripts/run_integration_test -s ${notebook}  \
