@@ -13,7 +13,6 @@ from typing import Any, ClassVar, Collection, Dict, Iterable, List, Optional, Tu
 
 import joblib
 import numpy as np
-from declearn.model.sklearn import NumpyVector
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
@@ -104,46 +103,18 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
 
-    @staticmethod
-    def _get_iterator_model_params(
-        model_params: Union[Dict[str, np.ndarray], NumpyVector]
-    ) -> Iterable[Tuple[str, np.ndarray]]:
-        """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
-
-        Args:
-            model_params: model parameters or gradients
-
-        Raises:
-            FedbiomedModelError: raised if argument `model_params` type is neither
-                a NumpyVector nor a dictionary
-
-        Returns:
-            Iterable containing model parameters, that returns a mapping of model's layer names
-                (actually model's  name attributes corresponding to layer) and its value.
-        """
-        if isinstance(model_params, NumpyVector):
-            return model_params.coefs.items()
-        if isinstance(model_params, dict):
-            return model_params.items()
-        raise FedbiomedModelError(
-            f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
-            "while expecting a NumpyVector or a dict"
-        )
-
     def get_weights(
         self,
-        as_vector: bool = False,
         only_trainable: bool = False,
-    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
-        """Returns model's parameters, optionally as a declearn NumpyVector.
+    ) -> Dict[str, np.ndarray]:
+        """Return a copy of the model's trainable weights.
 
         Args:
-            as_vector: Whether to wrap returned weights into a declearn Vector.
             only_trainable: Unused for scikit-learn models. (Whether to ignore
                 non-trainable model parameters.)
 
         Raises:
-            FedbiomedModelError: If the list of parameters are not defined.
+            FedbiomedModelError: If the model parameters are not initialized.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
@@ -169,35 +140,41 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 f"{ErrorNumbers.FB622.value}. Unable to access weights of BaseEstimator "
                 f"model {self.model} (details {err}"
             ) from err
-        # Optionally encapsulate into a NumpyVector, else return as a dict.
-        if as_vector:
-            return NumpyVector(weights)
         return weights
 
     def set_weights(
         self,
-        weights: Union[Dict[str, np.ndarray], NumpyVector],
+        weights: Dict[str, np.ndarray],
     ) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
-            weights: Model weights, as a dict mapping parameters' names to their
-                numpy array, or as a declearn NumpyVector wrapping such a dict.
+            weights: Model weights, as a dict mapping parameters' names
+                to their numpy array.
         """
-        for key, val in self._get_iterator_model_params(weights):
+        self._assert_dict_inputs(weights)
+        for key, val in weights.items():
             setattr(self.model, key, val.copy())
 
-    def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
+    def apply_updates(
+        self,
+        updates: Dict[str, np.ndarray],
+    ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
 
         Args:
-            updates: Model parameters' updates to add/apply existing model parameters.
+            updates: Model parameters' updates to add (apply) to existing
+                parameters' values.
         """
-        for key, val in self._get_iterator_model_params(updates):
+        self._assert_dict_inputs(updates)
+        for key, val in updates.items():
             wgt = getattr(self.model, key)
             setattr(self.model, key, wgt + val)
 
-    def predict(self, inputs: np.ndarray) -> np.ndarray:
+    def predict(
+        self,
+        inputs: np.ndarray,
+    ) -> np.ndarray:
         """Computes prediction given input data.
 
         Args:
@@ -215,19 +192,20 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         stdout: Optional[List[List[str]]] = None,
         **kwargs,
     ) -> None:
-        """Trains scikit learn model and internally computes gradients
+        """Run a training step, and record associated gradients.
 
         Args:
             inputs: inputs data.
-            targets: targets, to be fit with inputs data
+            targets: targets, to be fit with inputs data.
             stdout: list of console outputs that have been collected
-                during training, that contains losses values. Used to plot model losses. Defaults to None.
+                during training, that contains losses values.
+                Used to plot model losses. Defaults to None.
 
         Raises:
-            FedbiomedModelError: raised if training has not been initialized
+            FedbiomedModelError: if training has not been initialized.
         """
         batch_size = inputs.shape[0]
-        w_init = self.get_weights(as_vector=False)  # type: Dict[str, np.ndarray]
+        w_init = self.get_weights()
         w_updt = {key: np.zeros_like(val) for key, val in w_init.items()}
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
         for idx in range(batch_size):
@@ -254,42 +232,35 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     def get_gradients(
         self,
-        as_vector: bool = False,
-    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
+    ) -> Dict[str, np.ndarray]:
         """Return computed gradients attached to the model.
-
-        Args:
-            as_vector: Whether to wrap returned gradients into a declearn Vector.
 
         Raises:
             FedbiomedModelError: If no gradients have been computed yet
                 (i.e. the model has not been trained).
 
         Returns:
-            Gradients, as a dictionary mapping parameters' names to their gradient's
-                numpy array, or as a declearn NumpyVector wrapping such a dict.
+            Gradients, as a dict mapping parameters' names to their
+                gradient's numpy array.
         """
         if not self._gradients:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Cannot get gradients if model has not been trained beforehand!"
+                f"{ErrorNumbers.FB622.value}. Cannot get gradients if the "
+                "model has not been trained beforehand."
             )
         gradients = self._gradients
-        if as_vector:
-            return NumpyVector(gradients)
         return gradients
 
-    def set_gradients(self, gradients: Union[Dict[str, np.ndarray], NumpyVector]) -> Dict[str, Any]:
-        if isinstance(gradients, NumpyVector):
-            gradients = gradients.coefs
+    def set_gradients(self, gradients: Dict[str, np.ndarray]) -> None:
+        # TODO: either document or remove this (useless) method
         self._gradients = gradients
-        return gradients
 
     def get_params(self, value: Any = None) -> Dict[str, Any]:
-        """Gets scikit learn model hyperparameters.
+        """Return the wrapped scikit-learn model's hyperparameters.
 
         Please refer to [`baseEstimator documentation`]
         [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `get_params` method
-        for further details
+        for further details.
 
         Args:
             value: if specified, returns a specific hyperparameter, otherwise, returns a dictionary
@@ -303,22 +274,26 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return self.model.get_params()
 
     def set_params(self, **params: Any) -> Dict[str, Any]:
-        """Sets scikit learn model hyperparameters.
+        """Assign some hyperparameters to the wrapped scikit-learn model.
 
         Please refer to [BaseEstimator][sklearn.base.BaseEstimator]
         [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `set_params` method
-        for further details
+        for further details.
 
         Args:
-            params: new hyperparameters to set up the model.
+            params: new hyperparameters to assign to the model.
 
         Returns:
-            Dict[str, Any]: dictionary containing new hyperparameters values
+            Dict[str, Any]: dictionary containing new hyperparameter values.
         """
         self.model.set_params(**params)
         return params
 
-    def check_changed_optimizer_params(self, init_model_args: Dict, to_string: bool = True) -> Tuple[bool, Union[List[str], str]]:
+    def check_changed_optimizer_params(
+        self,
+        init_model_args: Dict,
+        to_string: bool = True,
+    ) -> Tuple[bool, Union[List[str], str]]:
         new_params: Dict = self.get_params()
         changed_params: Union[List, str] = []
         for k, v in init_model_args.items():
@@ -407,7 +382,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self, params: Collection[str]
     ) -> None:
         """Warn about non-default model parameters being overridden."""
-        default = inspect.signature(type(self.model)).params
+        default = inspect.signature(type(self.model)).parameters
         changed = ", ".join(
             f"'{key}'"
             for key in params
