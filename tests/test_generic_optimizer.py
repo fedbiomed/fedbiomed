@@ -253,8 +253,20 @@ class TestTorchBasedOptimizer(unittest.TestCase):
 
 
 class TestSklearnBasedOptimizer(unittest.TestCase):
-    pass
-    # to be completed
+    def setUp(self):
+        pass
+    
+    def tearDown(self):
+        pass
+
+    def test_sklearnbasedoptimizer_01_get_learning_rate(self):
+        pass
+    
+    def test_sklearnbasedoptimizer_02_step(self):
+        pass
+   
+    def test_sklearnbasedoptimizer_03_processing(self):
+        pass
 
 class TestDeclearnTorchOptimizer(unittest.TestCase):
     
