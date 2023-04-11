@@ -658,7 +658,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### mqtt
@@ -674,7 +674,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### restful
@@ -694,7 +694,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-restful
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node 
@@ -713,7 +713,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node gui
@@ -729,7 +729,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-gui
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### researcher
@@ -748,7 +748,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ## background / wireguard
