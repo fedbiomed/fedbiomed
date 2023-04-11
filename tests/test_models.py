@@ -224,9 +224,9 @@ class TestSkLearnModel(unittest.TestCase):
                     init_model = copy.deepcopy(model)
 
                     model.train(data, targets)
-                    grads = model.get_gradients(as_vector=True)
-
-                    self.declearn_optim.apply_gradients(model, grads)
+                    grads = NumpyVector(model.get_gradients())
+                    updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
+                    model.apply_updates(updts.coefs)
 
                     # checks
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
@@ -261,20 +261,12 @@ class TestSkLearnModel(unittest.TestCase):
                 # making sure updated model's weights are different than the initial ones
                 setattr(model.model, key, 10 + init_weights[key])
 
-            # action!
+            # Check that the weights-getter works properly.
             weights = model.get_weights()
-            vectorized_weights = model.get_weights(as_vector=True)
-
-            # checks
-
-            for (layer, val), (_, init_val), (vec_layer, vectorized_val) in zip(
-                weights.items(), init_weights.items(), vectorized_weights.coefs.items()
-                ):
-
-                self.assertFalse(np.any(np.isclose(val,init_val)))
-                self.assertFalse(np.any(np.isclose(vectorized_val, init_val)))
-                self.assertTrue(np.all(np.isclose(val, vectorized_val)))
-                self.assertEqual(vec_layer, layer)
+            self.assertEqual(weights.keys(), init_weights.keys())
+            for key, val in weights.items():
+                init_val = init_weights[key]
+                self.assertFalse(np.any(np.isclose(val, init_val)))
 
 
     def test_sklearnmodel_09_get_weights_failures(self):
@@ -299,18 +291,13 @@ class TestSkLearnModel(unittest.TestCase):
                 key: np.random.normal(size=wgt.shape).astype(wgt.dtype)
                 for key, wgt in model.get_weights().items()
             }
-            # Test that weights assignment works with a dict input.
+            # Test that weights assignment works.
             model.set_weights(weights)
             current = model.get_weights()
             self.assertEqual(current.keys(), weights.keys())
             self.assertTrue(
                 all(np.all(weights[key] == current[key]) for key in weights)
             )
-            # Test that weights assignment works with a declearn Vector input.
-            w_vector = NumpyVector(weights) + 1.
-            model.set_weights(w_vector)
-            c_vector = model.get_weights(as_vector=True)
-            self.assertEqual(w_vector, c_vector)
 
 
 class TestSklearnClassification(unittest.TestCase):
@@ -464,7 +451,6 @@ class TestTorchModel(unittest.TestCase):
         # case where no gradients have been found: model has not been trained
         self.assertDictEqual({}, self.model.get_gradients(), "get_gradients should return an empty dict since model hasnot been trained")
 
-
         # case model has been trained with pytorch optimizer
         self.torch_optim.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
@@ -475,43 +461,26 @@ class TestTorchModel(unittest.TestCase):
         for layer_name, values in grads.items():
             self.assertTrue(torch.all(values))
 
-        torch_vector_grads = self.model.get_weights(as_vector=True)
-        for layer_name, values in torch_vector_grads.coefs.items():
-            self.assertTrue(torch.all(values))
-            self.assertTrue(torch.all(torch.isclose(values, grads[layer_name])))
-
     def test_torchmodel_02_get_weights(self):
         # test case where model_wweitghs is retunred as a dict
         model_weights = self.model.get_weights()
-
-
         for (layer, wrapped_model_weight) in model_weights.items():
             self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
-        # test case where model weigths is returned as a TorchVector
-        torchvector_model_weights = self.model.get_weights(as_vector=True)
 
-        for (layer, wrapped_model_weight) in torchvector_model_weights.coefs.items():
-            self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
-
-    def test_sklearnmodel_03_set_weights(self):
+    def test_torchmodel_03_set_weights(self):
         """Test that 'TorchModel.set_weights' works properly."""
         # Create random weights that are suitable for the model.
         weights = {
             key: torch.randn(size=wgt.shape, dtype=wgt.dtype)
             for key, wgt in self.model.get_weights().items()
         }
-        # Test that weights assignment works with a dict input.
+        # Test that weights assignment works properly.
         self.model.set_weights(weights)
         current = self.model.get_weights()
         self.assertEqual(current.keys(), weights.keys())
         self.assertTrue(
             all(torch.all(weights[key] == current[key]) for key in weights)
         )
-        # Test that weights assignment works with a declearn Vector input.
-        w_vector = TorchVector(weights) + 1.
-        self.model.set_weights(w_vector)
-        c_vector = self.model.get_weights(as_vector=True)
-        self.assertEqual(w_vector, c_vector)
 
     def test_torchmodel_04_apply_updates_1(self):
         init_weights = copy.deepcopy(self.model.get_weights())
@@ -523,19 +492,6 @@ class TestTorchModel(unittest.TestCase):
 
         # checks
         for (layer, w), (_, updated_w) in zip(init_weights.items(), updated_weights.items()):
-            self.assertFalse(torch.all(torch.isclose(w, updated_w)))
-            self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
-
-    def test_torchmodel_04_apply_updates_2(self):
-        init_weights = copy.deepcopy(self.model.get_weights(as_vector=True))
-
-        updates = torch.nn.Linear(4, 1).state_dict()
-
-        self.model.apply_updates(TorchVector(updates))
-        updated_weights = self.model.get_weights(as_vector=True)
-
-        # checks
-        for (layer, w), (_, updated_w) in zip(init_weights.coefs.items(), updated_weights.coefs.items()):
             self.assertFalse(torch.all(torch.isclose(w, updated_w)))
             self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
 
@@ -620,8 +576,9 @@ class TestTorchModel(unittest.TestCase):
         loss = self.fake_training_step(self.data, self.targets)
 
         loss.backward()
-        grads = self.model.get_weights(as_vector=True)
-        self.declearn_optim.apply_gradients(self.model, grads)
+        grads = TorchVector(self.model.get_weights())
+        updts = self.declearn_optim.compute_updates_from_gradients(self.model, grads)
+        self.model.apply_updates(updts.coefs)
 
         declearn_optimized_model_weights = self.model.get_weights()
         # checks

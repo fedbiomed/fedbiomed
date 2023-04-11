@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 import declearn
+import declearn.model.torch
 import numpy as np
 import torch
 
@@ -159,10 +160,10 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
 
     def step(self):
         """Performs one optimization step"""
-        grad: declearn.model.api.Vector = self._model.get_gradients(as_vector=True)
-        weights: declearn.model.api.Vector = self._model.get_weights(as_vector=True)
+        grad = declearn.model.api.Vector.build(self._model.get_gradients())
+        weights = declearn.model.api.Vector.build(self._model.get_weights())
         updates = self.optimizer.step(grad, weights)
-        self._model.apply_updates(updates)
+        self._model.apply_updates(updates.coefs)
 
     def get_learning_rate(self) -> List[float]:
         """Returns current learning rate of the optimizer
