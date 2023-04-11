@@ -707,7 +707,9 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
-[user@node $] rm -rf ./node/run_mounts/{data,envs,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/envs/!\(common\)
+[user@node $] rm -rf ./node/run_mounts/envs/common/*
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
