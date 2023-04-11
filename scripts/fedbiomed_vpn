@@ -230,6 +230,7 @@ containers_clean() {
     if [[ $CLEAN -lt 2 ]] ; then
         return
     fi
+    echo "** Cleaning docker containers configuration files, container(s):" ${ALL_VPN_CONTAINERS[@]}
 
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
@@ -274,6 +275,7 @@ containers_clean() {
     if [[ $CLEAN -lt 3 ]] ; then
         return
     fi
+    echo "** Cleaning docker containers images, container(s):" ${ALL_VPN_CONTAINERS[@]}
 
     for i in ${ALL_VPN_CONTAINERS[@]} base basenode
     do
