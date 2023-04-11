@@ -29,7 +29,7 @@ TEST_OUTPUT="integration_tests_outputs${BUILD_NUMBER}"
 rm -fr ${TEST_OUTPUT}/*
 #bats --formatter tap --report-formatter tap --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
 chmod u+x ${bats_file}
-${bats_file}
+bash ${bats_file}
 
 # @test "flamby-integration-into-fedbiomed.py" {
 #   run ./scripts/run_integration_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
