@@ -249,22 +249,24 @@ containers_clean() {
     /bin/rm -f  ./restful/run_mounts/app/db.sqlite3            2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/* 2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/*  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
+    /bin/rm -rf ./node/run_mounts/data/*            2> /dev/null
+    /bin/rm -rf ./node/run_mounts/envs/!\(common\)  2> /dev/null
+    /bin/rm -rf ./node/run_mounts/envs/common/*     2> /dev/null
+    /bin/rm -rf ./node/run_mounts/etc/*             2> /dev/null
+    /bin/rm -rf ./node/run_mounts/var/*             2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/* 2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/*  2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/etc/*  2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/var/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/data/*           2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/!\(common\) 2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/common/*    2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/etc/*            2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/var/*            2> /dev/null
 
     # specific to researcher
-    /bin/rm -rf ./researcher/run_mounts/data/*     2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/etc/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/samples/*  2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/runs/*     2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/var/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/data/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/etc/*       2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*   2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/runs/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/var/*       2> /dev/null
 
     #
     # level3 : remove container images
@@ -275,8 +277,8 @@ containers_clean() {
 
     for i in ${ALL_VPN_CONTAINERS[@]} base basenode
     do
-        [[ "$i" = "node2" ]] || [[ "$i" = "gui2" ]] && { continue } # same as node/gui images
-        docker image rm -f fedbiomed/vpn-$i
+        [[ "$i" = "node2" ]] || [[ "$i" = "gui2" ]] && continue # same as node/gui images
+        docker image rm -f fedbiomed/vpn-$i 2>/dev/null
     done
 
     docker image prune -f
