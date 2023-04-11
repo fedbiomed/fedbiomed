@@ -19,8 +19,8 @@ from fedbiomed.common.models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 
-_OT = TypeVar("_OT")  # generic type-annotation for wrapped optimizers
-
+OT = TypeVar("OT")  # generic type-annotation for wrapped optimizers
+"""Generic TypeVar for framework-specific Optimizer types"""
 
 class SklearnOptimizerProcessing:
     """Context manager used for scikit-learn model, that checks if model parameter(s) has(ve) been changed
@@ -73,12 +73,12 @@ class SklearnOptimizerProcessing:
                 logger.warning(msg)
 
 
-class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
+class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
     """Abstract base class for Optimizer and Model wrappers."""
 
     _model_cls: Union[Type[Model], Type[SkLearnModel]]
 
-    def __init__(self, model: Model, optimizer: _OT):
+    def __init__(self, model: Model, optimizer: OT):
         """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
 
         Args:
@@ -96,7 +96,7 @@ class BaseOptimizer(Generic[_OT], metaclass=ABCMeta):
                 f"of {self._model_cls} but got an object of type {type(model)}."
             )
         self._model: Model = model
-        self.optimizer: _OT = optimizer
+        self.optimizer: OT = optimizer
 
     def init_training(self):
         """Sets up training and misceallenous parameters so the model is ready for training
