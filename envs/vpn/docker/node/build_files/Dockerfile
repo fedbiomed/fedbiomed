@@ -43,6 +43,8 @@ COPY envs/common /fedbiomed/envs/common
 COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
+COPY MP-SPDZ /fedbiomed/MP-SPDZ
+COPY modules /fedbiomed/modules
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 
 #    a long time if you have zillion files in notebooks/data)
