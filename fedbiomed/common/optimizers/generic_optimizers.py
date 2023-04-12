@@ -190,7 +190,6 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         return cls(model, relaoded_optim)
 
     def save_state(self) -> Dict:
-        # TODO: implement this method for loading state on Researcher side
         optim_state = self.optimizer.get_state()
         return optim_state
 
