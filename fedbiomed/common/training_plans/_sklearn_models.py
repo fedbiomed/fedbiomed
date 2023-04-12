@@ -137,7 +137,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         self._optimizer.init_training()
         stdout = []  # type: List[List[str]]
         
-        self._optimizer.train_model(inputs, target, stdout=stdout)
+        self._model.train(inputs, target, stdout=stdout)
         self._optimizer.step()
 
         # Optionally report the training loss over this batch.

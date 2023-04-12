@@ -141,7 +141,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         except AttributeError as err:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Unable to access weights of BaseEstimator "
-                f"model {self.model} (details {err}"
+                f"model {self.model} (details {err})"
             ) from err
         return weights
 

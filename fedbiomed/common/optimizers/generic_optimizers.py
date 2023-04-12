@@ -37,8 +37,6 @@ class SklearnOptimizerProcessing:
 
         Args:
             model: a SkLearnModel that wraps a scikit-learn model
-            model_args:  model_args sent by `Researcher` that instantiates a scikit-learn model.
-                Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
             is_declearn_optimizer: whether to disable scikit-learn model internal optimizer (True) in order
                 to apply declearn one or to keep it (False)
         """
@@ -241,26 +239,6 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
         else:
             # Nota: if learning rate equals 0, there will be no updates applied during SGD
             logger.warning(f"Learning rate set to {lrate}: no gradient descent will be performed!")
-
-    def optimizer_post_processing(self, model_args: Optional[Dict[str, Any]] = None):
-        """Does some actions after setting up an Optimizer, mainly disabling scikit-learn
-        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
-        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
-        such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
-        to such changes, displays a warning.
-
-        Args:
-            model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
-                Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
-        """
-
-        self._model.disable_internal_optimizer()
-        is_param_changed, param_changed = self._model.check_changed_optimizer_params(model_args)
-        if is_param_changed:
-            msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-            msg += "\nParameters changed:\n"
-            msg += param_changed
-            logger.warning(msg)
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
         """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
