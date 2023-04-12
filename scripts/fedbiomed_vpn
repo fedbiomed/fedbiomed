@@ -346,7 +346,7 @@ containers_build() {
             docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building 'nodebase' container"
+        echo "- building 'basenode' container"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
             docker-compose build basenode
