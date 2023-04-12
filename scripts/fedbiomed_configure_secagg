@@ -51,13 +51,17 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
-# Clone initialize github submodule if it is not existing
-echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
-cd $basedir
 [ -d "$mpspdz_basedir" ] && mkdir -p "$mpspdz_basedir"
 if [ "$2" != "noupdate" ] ; then
+  # Clone initialize github submodule if it is not existing
+  echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
   git submodule update --init modules/MP-SPDZ
+elif [[ -n "$MPSPDZ_COMMIT" ]] ; then
+  # Point to correct commit if passed by variable
+  cd "$mpspdz_basedir"
+  git checkout "$MPSPDZ_COMMIT"
 fi
+cd "$basedir"
 
 #################################
 # Linux Configuration

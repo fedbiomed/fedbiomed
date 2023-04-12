@@ -4,6 +4,7 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
+ARG MPSPDZ_COMMIT
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -12,6 +13,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
+ENV MPSPDZ_COMMIT=${MPSPDZ_COMMIT}
 
 RUN apt-get update && apt-get install -y apt-utils wget git
 RUN apt-get -y install rsync

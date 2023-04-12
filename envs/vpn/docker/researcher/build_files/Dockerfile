@@ -9,6 +9,7 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
+ARG MPSPDZ_COMMIT
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -17,6 +18,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
+ENV MPSPDZ_COMMIT=${MPSPDZ_COMMIT}
 
 RUN apt-get update && apt-get install -y apt-utils wget socat git
 
@@ -66,7 +68,7 @@ RUN conda env update --file ./envs/vpn/conda/fedbiomed-researcher.yaml && \
 # need clean/purge to be in the same command line to shrink image
 
 # Initialize secure aggregation
-#RUN /fedbiomed/scripts/fedbiomed_configure_secagg researcher noupdate
+RUN /fedbiomed/scripts/fedbiomed_configure_secagg researcher noupdate
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

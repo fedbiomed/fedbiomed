@@ -14,6 +14,7 @@ x-node:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
+      - MPSPDZ_COMMIT
   image: fedbiomed/vpn-node
   environment:
   # enable overloading build-time id with a run-time id
@@ -47,6 +48,7 @@ x-node2:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
+      - MPSPDZ_COMMIT
   image: fedbiomed/vpn-node
   environment:
   # enable overloading build-time id with a run-time id
@@ -246,6 +248,7 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
+        - MPSPDZ_COMMIT
     image: fedbiomed/vpn-researcher
     environment:
     # enable overloading build-time id with a run-time id
