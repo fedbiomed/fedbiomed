@@ -22,7 +22,7 @@ def _get_fedbiomed_root() -> str:
     return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
 
 
-"Main directories definition"
+# Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
 CONFIG_DIR = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME)
 VAR_DIR = os.path.join(ROOT_DIR, VAR_FOLDER_NAME)
