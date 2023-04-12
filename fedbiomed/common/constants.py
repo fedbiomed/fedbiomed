@@ -5,29 +5,29 @@
 
 from enum import Enum
 
-"""Directory/folder name where configurations are saved"""
 CONFIG_FOLDER_NAME = "etc"
+"""Directory/folder name where configurations are saved"""
 
-"""Directory/folder name where cache files are saved"""
 CACHE_FOLDER_NAME = "cache"
+"""Directory/folder name where cache files are saved"""
 
-"""Directory/folder name where temporary files are saved"""
 TMP_FOLDER_NAME = "tmp"
+"""Directory/folder name where temporary files are saved"""
 
-"""Directory/folder name where tensorboard logs are saved"""
 TENSORBOARD_FOLDER_NAME = "runs"
+"""Directory/folder name where tensorboard logs are saved"""
 
-"""Directory/folder name where variable files are saved"""
 VAR_FOLDER_NAME = "var"
+"""Directory/folder name where variable files are saved"""
 
-"""Directory/folder name where DB files are saved"""
 DB_FOLDER_NAME = VAR_FOLDER_NAME
+"""Directory/folder name where DB files are saved"""
 
-"""Prefix for database files name"""
 DB_PREFIX = 'db_'
+"""Prefix for database files name"""
 
-"""Prefix for node ID"""
 NODE_PREFIX = 'node_'
+"""Prefix for node ID"""
 
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
