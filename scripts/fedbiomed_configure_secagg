@@ -21,6 +21,7 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 
 fedbiomed_envs=(node researcher)
 fedbiomed_env=$1
+gitsub_update=$2
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
@@ -52,7 +53,11 @@ fi
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
 # Clone initialize github submodule if it is not existing
 echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
-git submodule update --init modules/MP-SPDZ
+cd $basedir
+[ -d "$mpspdz_basedir" ] && mkdir -p "$mpspdz_basedir"
+if [ "$2" != "noupdate" ] ; then
+  git submodule update --init modules/MP-SPDZ
+fi
 
 #################################
 # Linux Configuration

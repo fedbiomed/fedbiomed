@@ -13,7 +13,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget
+RUN apt-get update && apt-get install -y apt-utils wget git
 RUN apt-get -y install rsync
 
 # read config.env in interactive shells & setup for reading it in entrypoint
@@ -44,7 +44,8 @@ COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY MP-SPDZ /fedbiomed/MP-SPDZ
-COPY modules /fedbiomed/modules
+RUN mkdir -p /fedbiomed/modules && cd /fedbiomed/modules && \
+        git clone https://github.com/data61/MP-SPDZ.git
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 
 #    a long time if you have zillion files in notebooks/data)
@@ -60,6 +61,9 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml && \
 	pip cache purge && conda clean -a -y
 # need clean/purge to be in the same command line to shrink image
+
+# Initialize secure aggregation
+RUN /fedbiomed/scripts/fedbiomed_configure_secagg node noupdate
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
