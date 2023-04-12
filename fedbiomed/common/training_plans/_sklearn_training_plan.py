@@ -115,8 +115,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
         
-        with self._optimizer.optimizer_processing():
-            self._model.set_params(**params)
+        
+        self._model.set_params(**params)
             
         # Set up additional parameters (normally created by `self._model.fit`).
         self._model.set_init_params(model_args)

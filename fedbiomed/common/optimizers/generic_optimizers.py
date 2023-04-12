@@ -31,22 +31,24 @@ class SklearnOptimizerProcessing:
     _disable_internal_optimizer: bool
 
     def __init__(self, model: SkLearnModel,
-                 disable_internal_optimizer: bool):
+
+                 is_declearn_optimizer: bool):
         """Constructor of the object. Sets internal variables
 
         Args:
             model: a SkLearnModel that wraps a scikit-learn model
             model_args:  model_args sent by `Researcher` that instantiates a scikit-learn model.
                 Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
-            disable_internal_optimizer: whether to disable scikit-learn model optimizer (True) in order
+            is_declearn_optimizer: whether to disable scikit-learn model internal optimizer (True) in order
                 to apply declearn one or to keep it (False)
         """
         self._model = model
-        self._disable_internal_optimizer = disable_internal_optimizer
+        self._is_declearn_optimizer = is_declearn_optimizer
 
     def __enter__(self) -> 'SklearnOptimizerProcessing':
         """Called when entering context manager"""
-        return self
+        if self._is_declearn_optimizer:
+            self._model.disable_internal_optimizer()
 
     def __exit__(
                 self,
@@ -60,17 +62,17 @@ class SklearnOptimizerProcessing:
             value: default argument for `__exit__` method in context manager. Unused.
             traceback: default argument for `__exit__` method in context manager. Unused.
         """
+        self._model.enable_internal_optimizer()
+        # if self._disable_internal_optimizer:
 
-        if self._disable_internal_optimizer:
-
-            self._model.disable_internal_optimizer()
-            # FIXME: this method `model_args` seems a bit ill to me
-            is_param_changed, param_changed = self._model.check_changed_optimizer_params(self._model.model_args)
-            if is_param_changed:
-                msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-                msg += "\nParameters changed:\n"
-                msg += param_changed
-                logger.warning(msg)
+        #     self._model.disable_internal_optimizer()
+        #     # FIXME: this method `model_args` seems a bit ill to me
+        #     is_param_changed, param_changed = self._model.check_changed_optimizer_params(self._model.model_args)
+        #     if is_param_changed:
+        #         msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
+        #         msg += "\nParameters changed:\n"
+        #         msg += param_changed
+        #         logger.warning(msg)
 
 
 class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
@@ -275,13 +277,13 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
             SklearnOptimizerProcessing: context manager providing extra logic
 
         Usage:
+        ```python
             >>> dlo = DeclearnSklearnOptimizer(model, optimizer)
-            >>> dlo.model_args = {'eta0': .05}
             >>> with dlo.optimizer_processing():
-                    model.set_params()
-
+                    model.train(inputs,targets)
+        ```
         """
-        return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
+        return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)
 
 
 class NativeTorchOptimizer(BaseOptimizer):
@@ -340,7 +342,7 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         self._model.send_to_device(device)
 
-    def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> torch.float:
+    def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> 'torch.float':
         loss += float(mu) / 2. * self.__norm_l2()
         return loss
 
@@ -392,7 +394,7 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         self._model.apply_updates(gradients)
 
     def optimizer_processing(self):
-        return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=False)
+        return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=False)
 
     def get_learning_rate(self) -> List[float]:
         """Returns scikit-learn model initial learning rate.

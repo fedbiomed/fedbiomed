@@ -70,41 +70,42 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
             self._model.set_params(verbose=1)
         # Iterate over epochs.
-        for epoch in iterations_accountant.iterate_epochs():
-            training_data_iter: Iterator = iter(self.training_data_loader)
-            # Iterate over data batches.
-            for batch in iterations_accountant.iterate_batches():
-                inputs, target = next(training_data_iter)
-                batch_size = self._infer_batch_size(inputs)
-                iterations_accountant.increment_sample_counters(batch_size)
-                loss = self._train_over_batch(inputs, target, report)
-                # Optionally report on the batch training loss.
-                if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
-                    # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
-                    num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
-                    num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
-                    epoch_to_report = iterations_accountant.reporting_on_epoch()
+        with self._optimizer.optimizer_processing():
+            for epoch in iterations_accountant.iterate_epochs():
+                training_data_iter: Iterator = iter(self.training_data_loader)
+                # Iterate over data batches.
+                for batch in iterations_accountant.iterate_batches():
+                    inputs, target = next(training_data_iter)
+                    batch_size = self._infer_batch_size(inputs)
+                    iterations_accountant.increment_sample_counters(batch_size)
+                    loss = self._train_over_batch(inputs, target, report)
+                    # Optionally report on the batch training loss.
+                    if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
+                        # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
+                        num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
+                        num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                        epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                    logger.debug('Train {}| '
-                                 'Iteration {}/{} | '
-                                 'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
-                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                                    num_iter,
-                                    num_iter_max,
-                                    num_samples,
-                                    num_samples_max,
-                                    100. * num_iter / num_iter_max,
-                                    loss))
+                        logger.debug('Train {}| '
+                                    'Iteration {}/{} | '
+                                    'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
+                                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                                        num_iter,
+                                        num_iter_max,
+                                        num_samples,
+                                        num_samples_max,
+                                        100. * num_iter / num_iter_max,
+                                        loss))
 
-                    record_loss(
-                        metric={loss_name: loss},
-                        iteration=num_iter,
-                        epoch=epoch_to_report,
-                        num_samples_trained=num_samples,
-                        num_batches=num_iter_max,
-                        total_samples=num_samples_max,
-                        batch_samples=batch_size
-                    )
+                        record_loss(
+                            metric={loss_name: loss},
+                            iteration=num_iter,
+                            epoch=epoch_to_report,
+                            num_samples_trained=num_samples,
+                            num_batches=num_iter_max,
+                            total_samples=num_samples_max,
+                            batch_samples=batch_size
+                        )
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
@@ -135,7 +136,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         self._optimizer.init_training()
         stdout = []  # type: List[List[str]]
-
+        
         self._optimizer.train_model(inputs, target, stdout=stdout)
         self._optimizer.step()
 

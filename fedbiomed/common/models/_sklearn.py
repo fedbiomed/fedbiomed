@@ -70,6 +70,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     # Instance attributes' annotations - merely for the docs parser.
     model: BaseEstimator
     model_args: Dict[str, Any]
+    _null_optim_params: Dict[str, Any]
+    _optim_params: Dict[str, Any] # optimizer parameters set by user
     # Class attributes
     default_lr_init: ClassVar[float] = 1.
     default_lr: ClassVar[str] = "constant"
@@ -90,6 +92,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         super().__init__(model)
         self._gradients: Dict[str, np.ndarray] = {}
         self.param_list: List[str] = []
+        self._optim_params: Dict[str, Any] = {}
 
     def init_training(self):
         """Initialises the training by setting up attributes.
@@ -168,8 +171,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         """
         self._assert_dict_inputs(updates)
         for key, val in updates.items():
-            wgt = getattr(self.model, key)
-            setattr(self.model, key, wgt + val)
+            weights = getattr(self.model, key)
+            setattr(self.model, key, weights + val)
 
     def predict(
         self,
@@ -289,22 +292,38 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self.model.set_params(**params)
         return params
 
-    def check_changed_optimizer_params(
-        self,
-        init_model_args: Dict,
-        to_string: bool = True,
-    ) -> Tuple[bool, Union[List[str], str]]:
-        new_params: Dict = self.get_params()
+    def disable_internal_optimizer(self) -> None:
+        """Disables scikit learn internal optimizer by setting arbitrary learning rate parameters to the
+        scikit learn model, in order to then compute its gradients.
+
+        ''' warning "Call it only if using `declearn` optimizers"
+                Method implementation will depend on the attribute used to set up
+                these arbitrary arguments.
+        """
+        # NOTE for developers:
+        # should call `self._warn_overridden_optim_params`
+        # on the first call to this function
+        self._optim_params = self.get_params()
+        self.set_params(**self._null_optim_params)
+        self._warn_overridden_optim_parameters()
+        
+    def _warn_overridden_optim_parameters(self) -> Tuple[bool, Union[List[str], str]]:
         changed_params: Union[List, str] = []
-        for k, v in init_model_args.items():
-            _param = new_params.get(k)
+
+        for k, v in self._null_optim_params.items():
+
+            _param = self._optim_params.get(k)
             if _param is not None and _param != v:
                 changed_params.append(k)
-        is_params_changed: bool = changed_params != []
-
-        if to_string:
+        if changed_params:
             changed_params = "\n".join(p + ",\n" for p in changed_params)
-        return is_params_changed, changed_params
+            logger.warning("The following non-default model parameters will be overridden" +
+                f" due to the disabling of the internal optimizer: {changed_params}")
+
+    def enable_internal_optimizer(self):
+        if self._optim_params:
+            self.set_params(**self._optim_params)
+            logger.debug("Internal Optimizer restored")
 
     def export(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
@@ -363,36 +382,11 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 a list of several learning rates, one for each layer of the model.
         """
 
-    @abstractmethod
-    def disable_internal_optimizer(self) -> None:
-        """Abstract method to apply;
+    # @abstractmethod
+    # def disable_internal_optimizer(self) -> None:
+    #     """Abstract method to apply;
 
-        Disables scikit learn internal optimizer by setting arbitrary learning rate parameters to the
-        scikit learn model, in order to then compute its gradients.
-
-        ''' warning "Call it only if using `declearn` optimizers"
-                Method implementation will depend on the attribute used to set up
-                these arbitrary arguments.
-        """
-        # NOTE for developers:
-        # subclasses should call `self._warn_overridden_optim_params`
-        # on the first call to this function
-
-    def _warn_overridden_optim_parameters(
-        self, params: Collection[str]
-    ) -> None:
-        """Warn about non-default model parameters being overridden."""
-        default = inspect.signature(type(self.model)).parameters
-        changed = ", ".join(
-            f"'{key}'"
-            for key in params
-            if self.model.get_parameter(key) != default[key].default
-        )
-        if changed:
-            logger.warns(
-                "The following non-default model parameters will be overridden"
-                f" due to the disabling of the internal optimizer: {changed}."
-            )
+        
 
 
 class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
@@ -400,13 +394,14 @@ class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
 
     _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
     model: Union[SGDClassifier, SGDRegressor]  # merely for the docstring builder
-
+    def __init__(self, model: BaseEstimator) -> None:
+        super().__init__(model)
+        self._null_optim_params: Dict[str, Any] = {
+            'eta0': self.default_lr_init,
+            'learning_rate': self.default_lr
+        }
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
-
-    def disable_internal_optimizer(self) -> None:
-        self.model.eta0 = self.default_lr_init
-        self.model.learning_rate = self.default_lr
 
 
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
@@ -463,12 +458,15 @@ class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of 
     _model_type: ClassVar[Union[Type[MLPClassifier], Type[MLPRegressor]]]
     model: Union[MLPClassifier, MLPRegressor]  # merely for the docstring builder
 
+    def __init__(self, model: BaseEstimator) -> None:
+        self._null_optim_params: Dict[str, Any] = {
+            "learning_rate_init": self.default_lr_init,
+            "learning_rate": self.default_lr
+        }
+        super().__init__(model)
+
     def get_learning_rate(self) -> List[float]:
         return [self.model.learning_rate_init]
-
-    def disable_internal_optimizer(self) -> None:
-        self.model.learning_rate_init = self.default_lr_init
-        self.model.learning_rate = self.default_lr
 
 
 SKLEARN_MODELS = {
