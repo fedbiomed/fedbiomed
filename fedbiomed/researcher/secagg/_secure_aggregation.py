@@ -4,7 +4,7 @@
 import functools
 import math
 import random
-from typing import List, Union, Dict, Any
+from typing import List, Union, Dict, Any, Optional
 
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
@@ -18,8 +18,8 @@ class SecureAggregation:
 
     This class is responsible for;
 
-        - setting up the context for Joye-Libert secure aggregation
-        - Applying secure aggregation after receiving encrypted model parameters from nodes
+    - setting up the context for Joye-Libert secure aggregation
+    - Applying secure aggregation after receiving encrypted model parameters from nodes
 
     Attributes:
         timeout: Maximum time waiting for answers from other nodes for each secagg context
@@ -36,17 +36,6 @@ class SecureAggregation:
         _secagg_random: Random float generated tobe sent to node to validate secure aggregation
             after aggregation encrypted parameters.
     """
-
-    timeout: int
-    clipping_range: Union[None, int]
-
-    _active: bool
-    _parties: List[str]
-    _job_id: Union[None, str]
-    _secagg_random: Union[None, float]
-    _servkey: Union[SecaggServkeyContext, None]
-    _biprime: Union[SecaggBiprimeContext, None]
-    _secagg_crypter: SecaggCrypter
 
     def __init__(
             self,
@@ -93,16 +82,16 @@ class SecureAggregation:
                 f"but got not {type(clipping_range)}"
             )
 
-        self.timeout = timeout
-        self.clipping_range = clipping_range
+        self.timeout: int = timeout
+        self.clipping_range: Optional[int] = clipping_range
 
-        self._active = active
-        self._parties = None
-        self._job_id = None
-        self._servkey = None
-        self._biprime = None
-        self._secagg_random = None
-        self._secagg_crypter = SecaggCrypter()
+        self._active: bool = active
+        self._parties: Optional[List[str]] = None
+        self._job_id: Optional[str] = None
+        self._servkey: Optional[SecaggServkeyContext] = None
+        self._biprime: Optional[SecaggBiprimeContext] = None
+        self._secagg_random: Optional[float] = None
+        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -149,7 +138,7 @@ class SecureAggregation:
         """
         return self._servkey
 
-    def activate(self, status):
+    def activate(self, status) -> bool:
         """Set activate status of secure aggregation
 
         Returns:
@@ -291,7 +280,7 @@ class SecureAggregation:
         Args:
             round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
-            model_params: model parameters from the participating nodes 
+            model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
 
         Returns:

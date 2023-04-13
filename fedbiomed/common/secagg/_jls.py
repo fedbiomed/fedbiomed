@@ -5,7 +5,7 @@ This module contains a python implementation of the Joye-Libert scheme and the
 threshold-variant of Joye-Libert scheme. The original scheme of Joye-Libert can be
 found here [1]. The threshold variant is defined here [2].
 
-**Implemented by:** Mohamad Mansouri (mohamad.mansouri@thalesgroup.com) under Apache Licence Version 2.0
+**Implemented by:** Mohamad Mansouri (mohamad.mansouri@thalesgroup.com) under MIT License
 
 [1] *Marc Joye and Benoît Libert. A scalable scheme for privacy-preserving aggregation
 of time-series data. In Ahmad-Reza Sadeghi, editor, Financial Cryptography
