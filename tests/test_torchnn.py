@@ -812,7 +812,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     def test_data_loader_returns_tensors(self, patch_tensor_backward):
         batch_size = 1
         tp = TorchTrainingPlan()
-        #tp._model = TorchModel(torch.nn.Module())
+        tp._model = MagicMock(spec=TorchModel)
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
         tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
@@ -837,7 +837,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
     def test_data_loader_returns_tuples(self, patch_tensor_backward):
         batch_size = 1
         tp = TorchTrainingPlan()
-        #tp._model = TorchModel(torch.nn.Module())
+        tp._model = MagicMock(spec=TorchModel)
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
         tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
@@ -865,6 +865,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         #tp._model = TorchModel(torch.nn.Module())
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
+        tp._model = MagicMock(spec=TorchModel)
         tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
 

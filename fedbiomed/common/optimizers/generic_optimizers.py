@@ -31,7 +31,6 @@ class SklearnOptimizerProcessing:
     _disable_internal_optimizer: bool
 
     def __init__(self, model: SkLearnModel,
-
                  is_declearn_optimizer: bool):
         """Constructor of the object. Sets internal variables
 
@@ -178,6 +177,8 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         return [states['lrate']]
 
     def set_aux(self, aux: Dict[str, Any]):
+        # attention: for imported tensors in PyTorch sent as auxiliary variables,
+        # we should push it on the appropriate device (ie cpu/gpu)
         self.optimizer.set_aux(aux)
 
     def get_aux(self) -> Optional[Dict[str, Any]]:
@@ -212,10 +213,6 @@ class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
         except AttributeError as err:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?."
                                           f"Details {repr(err)}") from err
-
-    def send_model_to_device(self, device: torch.device):
-        """Sends Pytorch model to device - useful if GPU is needed"""
-        self._model.send_to_device(device)
 
 
 class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
@@ -298,14 +295,6 @@ class NativeTorchOptimizer(BaseOptimizer):
         for param in params:
             learning_rates.append(param['lr'])
         return learning_rates
-
-    def send_model_to_device(self, device: torch.device):
-        """Sends Pytorch model to device - useful if GPU is needed
-
-        Args:
-            device: device to send the data to
-        """
-        self._model.send_to_device(device)
 
     def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> 'torch.float':
         loss += float(mu) / 2. * self.__norm_l2()

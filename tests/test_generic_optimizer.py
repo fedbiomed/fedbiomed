@@ -189,26 +189,6 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             for l, val in grads.items():
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
-    @patch('torch.nn.Module.to')
-    def test_torchbasedoptimizer_02_send_to_device(self, to_device_patch):
-        declearn_optim = FedOptimizer(lr=.1)
-        torch_optim_type = torch.optim.SGD
-        device = torch.device('cpu')
-        for model in self._fed_models:
-            # initialisation of declearn optimizer wrapper
-            declearn_optim_wrapper = DeclearnTorchOptimizer(model, declearn_optim)
-
-            declearn_optim_wrapper.send_model_to_device(device)
-            to_device_patch.assert_called_once_with(device)
-
-            # initialisation of native torch optimizer wrapper
-            to_device_patch.reset_mock()
-            torch_optim = torch_optim_type(model.model.parameters(), .1)
-            native_torch_optim_wrapper = NativeTorchOptimizer(model, torch_optim)
-
-            native_torch_optim_wrapper.send_model_to_device(device)
-            to_device_patch.assert_called_once_with(device)
-
     def test_torchbasedoptimizer_03_step(self):
         # check that declearn based and torch based give the same result
         declearn_optim = FedOptimizer(lr=1)
