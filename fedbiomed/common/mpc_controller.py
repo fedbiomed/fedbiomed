@@ -60,7 +60,6 @@ class MPCController:
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
                 )
 
-
     @property
     def mpc_data_dir(self) -> str:
         """Getter for MPC config data directory
@@ -149,12 +148,11 @@ class MPCController:
             process.wait()
             status = True if process.returncode == 0 else False
             output, _ = process.communicate()
-            output = str(output)
-            logger.debug(f"MPC protocol output: {output}")
+            logger.debug("MPC protocol output: " + f"\n {output.decode('utf-8')}".replace('\n', '\n\t\t\t\t\t\t'))
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")
             raise FedbiomedMPCControllerError(
                 f"{ErrorNumbers.FB620.value}: Unexpected error while executing MPC protocol. {e}"
             )
 
-        return status, output
+        return status, output.decode('utf-8')

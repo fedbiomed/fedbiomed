@@ -12,6 +12,8 @@ from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 class TestSecaggCrypter(unittest.TestCase):
 
+    biprime = 158820908809271716671659880613366104677813341255487834154303909761107215283569995523817428402987962641429395032343305343341950966867458277812575065022203120547706127493272939455658018882112230042773163870472621818892994896895819790062496734944602899772583591514631486212290112369502692304700112819186167541107
+
     def setUp(self) -> None:
         self.secagg_crypter = SecaggCrypter()
         pass
@@ -21,15 +23,17 @@ class TestSecaggCrypter(unittest.TestCase):
 
     def tests_secagg_crypter_01_setup_public_param(self):
         """Tests biprime setup"""
-        pp = self.secagg_crypter._setup_public_param()
+        pp = self.secagg_crypter._setup_public_param(biprime=12345)
         self.assertIsInstance(pp, PublicParam)
-        self.assertEqual(ceil(log2(pp.n_modulus)), 1023)
+        self.assertEqual(pp.n_modulus, 12345)
 
     def tests_secagg_crypter_02_convert_to_encrypted_number(self):
         """Tests convertion from int to encrypted number"""
         vector = [[1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4]]
 
-        l_encrypted_num = self.secagg_crypter._convert_to_encrypted_number(vector)
+        pp = self.secagg_crypter._setup_public_param(biprime=12345)
+
+        l_encrypted_num = self.secagg_crypter._convert_to_encrypted_number(vector, pp)
 
         # Check each element of list is EncryptedNumber
         self.assertIsInstance(l_encrypted_num[0][0], EncryptedNumber)
@@ -47,7 +51,7 @@ class TestSecaggCrypter(unittest.TestCase):
         """Tests quantized divide"""
 
         vector = [4, 8, 12]
-        result = self.secagg_crypter.apply_average(vector, 2, 0)
+        result = self.secagg_crypter._apply_average(vector, 2, 0)
 
         # Test division
         self.assertListEqual(result, [v / 2 for v in vector])
@@ -63,29 +67,33 @@ class TestSecaggCrypter(unittest.TestCase):
         result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                              current_round=current_round,
                                              params=params,
+                                             biprime=TestSecaggCrypter.biprime,
                                              key=key)
 
         self.assertIsInstance(result, list)
 
         # IMPORTANT = Bit size can change based on current_round and num_nodes
-        self.assertEqual(ceil(log2(int(result[0]))), 2045)
+        self.assertEqual(ceil(log2(int(result[0]))), TestSecaggCrypter.biprime.bit_length() * 2)
 
         with self.assertRaises(FedbiomedSecaggCrypterError):
             result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                                  current_round=current_round,
                                                  params="not-a-list",
+                                                 biprime=TestSecaggCrypter.biprime,
                                                  key=key)
 
         with self.assertRaises(FedbiomedSecaggCrypterError):
             result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                                  current_round=current_round,
                                                  params=["not-a-float", "not-a-float"],
+                                                 biprime=TestSecaggCrypter.biprime,
                                                  key=key)
         # Not a float
         with self.assertRaises(FedbiomedSecaggCrypterError):
             result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                                  current_round=current_round,
                                                  params=[0, 1, 2],
+                                                 biprime=TestSecaggCrypter.biprime,
                                                  key=key)
 
         # If JLS.aggregate raises
@@ -95,6 +103,7 @@ class TestSecaggCrypter(unittest.TestCase):
                 result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                                      current_round=current_round,
                                                      params=params,
+                                                     biprime=TestSecaggCrypter.biprime,
                                                      key=key)
 
     def test_secagg_crypter_03_decrypt(self):
@@ -107,19 +116,23 @@ class TestSecaggCrypter(unittest.TestCase):
         node_1 = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                              current_round=current_round,
                                              params=params,
+                                             biprime=TestSecaggCrypter.biprime,
                                              key=10)
 
         node_2 = self.secagg_crypter.encrypt(num_nodes=num_nodes,
                                              current_round=current_round,
                                              params=params,
+                                             biprime=TestSecaggCrypter.biprime,
                                              key=10)
 
         result = self.secagg_crypter.aggregate(current_round=current_round,
                                                num_nodes=num_nodes,
                                                params=[node_1, node_2],
+                                               biprime=TestSecaggCrypter.biprime,
                                                key=-20,
                                                total_sample_size=8)
 
+        print(result)
         self.assertEqual(len(result), len(params))
         self.assertTrue(result[0] > 0.4 or result[0] < 0.6,
                         "Secure aggregation result is not closer to expected avereage")
@@ -127,13 +140,14 @@ class TestSecaggCrypter(unittest.TestCase):
         # Test failure of JLS aggregate
         # If num of nodes does not match the number of parameters provided
         with patch("fedbiomed.common.secagg._secagg_crypter.SecaggCrypter._convert_to_encrypted_number") as m:
-            def side_effect(x):
+            def side_effect(x, p):
                 return x
             m.side_effect = side_effect
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter.aggregate(current_round=current_round,
                                               num_nodes=num_nodes,
                                               params=[node_1, node_2],
+                                              biprime=TestSecaggCrypter.biprime,
                                               key=-20,
                                               total_sample_size=8)
 
@@ -143,6 +157,7 @@ class TestSecaggCrypter(unittest.TestCase):
             self.secagg_crypter.aggregate(current_round=current_round,
                                           num_nodes=num_nodes,
                                           params=params,
+                                          biprime=TestSecaggCrypter.biprime,
                                           key=-20,
                                           total_sample_size=8)
 
@@ -153,6 +168,7 @@ class TestSecaggCrypter(unittest.TestCase):
                                           num_nodes=num_nodes,
                                           params=params,
                                           key=-20,
+                                          biprime=TestSecaggCrypter.biprime,
                                           total_sample_size=8)
 
         # Unsupported list shape
@@ -162,6 +178,7 @@ class TestSecaggCrypter(unittest.TestCase):
                                           num_nodes=num_nodes,
                                           params=params,
                                           key=-20,
+                                          biprime=TestSecaggCrypter.biprime,
                                           total_sample_size=8)
 
 

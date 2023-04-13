@@ -55,7 +55,6 @@ class Node:
 
         self.node_args = node_args
 
-
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
 
@@ -195,7 +194,7 @@ class Node:
                 message = 'Delete request is successful'
             else:
                 message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
-                    f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
+                          f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
         except Exception as e:
             message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
                       f'secagg_id={secagg_id}: {e}'
@@ -336,9 +335,14 @@ class Node:
                             # iterate over each dataset found
                             # in the current round (here round refers
                             # to a round to be done on a specific dataset).
-                            msg = round.run_model_training(secagg_servkey_id=item.get_param('secagg_servkey_id'),
-                                                           secagg_biprime_id=item.get_param('secagg_biprime_id'),
-                                                           secagg_random=item.get_param('secagg_random'))
+                            msg = round.run_model_training(
+                                secagg_arguments={
+                                    'secagg_servkey_id': item.get_param('secagg_servkey_id'),
+                                    'secagg_biprime_id': item.get_param('secagg_biprime_id'),
+                                    'secagg_random': item.get_param('secagg_random'),
+                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
+                                }
+                            )
                             self.messaging.send_message(msg)
                     except Exception as e:
                         # send an error message back to network if something

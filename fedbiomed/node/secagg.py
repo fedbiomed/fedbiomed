@@ -311,7 +311,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        context = {'server_key': key_share}
+        context = {'server_key': int(key_share)}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.info(
             "Server key share successfully created for "
@@ -373,7 +373,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         # create a (currently dummy) context if it does not exist yet
         time.sleep(3)
         context = {
-            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'biprime': int(random.randrange(10**12)),   # dummy biprime
             'max_keysize': 0                            # prevent using the dummy biprime for real
         }
         logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "

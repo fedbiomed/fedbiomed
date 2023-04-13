@@ -6,23 +6,23 @@ from unittest.mock import patch
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
 #############################################################
-import fedbiomed.researcher.secagg
+import fedbiomed.researcher.secagg._secagg_context
 
 from fedbiomed.researcher.environ import environ
-from testsupport.fake_requests import FakeRequests
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 from fedbiomed.researcher.responses import Responses
 
+
 class BaseTestCaseSecaggContext(ResearcherTestCase):
 
     def setUp(self) -> None:
-        self.patch_cm = patch.object(fedbiomed.researcher.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.researcher.secagg, "MPCController")
-        self.patch_requests = patch("fedbiomed.researcher.secagg.Requests")
-        self.patch_skmanager = patch.object(fedbiomed.researcher.secagg, "_SKManager")
-        self.patch_bpmanager = patch.object(fedbiomed.researcher.secagg, "_BPrimeManager")
+        self.patch_cm = patch.object(fedbiomed.researcher.secagg._secagg_context, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.researcher.secagg._secagg_context, "MPCController")
+        self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
+        self.patch_skmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_SKManager")
+        self.patch_bpmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_BPrimeManager")
 
         self.mock_cm = self.patch_cm.start()
         self.mock_mpc = self.patch_mpc.start()
@@ -67,8 +67,8 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         # Succeeded with various secagg_id
         for secagg_id in (None, 'one secagg id string', 'x'):
             context = SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
-                          job_id="job-id",
-                          secagg_id=secagg_id)
+                                    job_id="job-id",
+                                    secagg_id=secagg_id)
         self.assertEqual(context.secagg_id, secagg_id)
 
         # First party not matching researcher
@@ -168,12 +168,16 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         expected_state = {
             'class': type(self.secagg_context).__name__,
             'module': self.secagg_context.__module__,
-            'secagg_id': self.secagg_context.secagg_id,
-            'job_id': self.secagg_context.job_id,
-            'parties': self.secagg_context.parties,
-            'researcher_id': self.env['RESEARCHER_ID'],
-            'status': self.secagg_context.status,
-            'context': self.secagg_context.context,
+            "arguments": {
+                'secagg_id': self.secagg_context.secagg_id,
+                'job_id': self.secagg_context.job_id,
+                'parties': self.secagg_context.parties,
+            },
+            "attributes": {
+                '_researcher_id': self.env['RESEARCHER_ID'],
+                '_status': self.secagg_context.status,
+                '_context': self.secagg_context.context,
+            }
         }
 
         state = self.secagg_context.save_state()
@@ -184,20 +188,26 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
 
         # prepare
         state = {
-            'secagg_id': 'my_secagg_id',
-            'parties': ['ONE_PARTY', 'TWO_PARTIES', 'THREE_PARTIES'],
-            'researcher_id': 'my_researcher_id',
-            'job_id': 'my_job_id',
-            'status': False,
-            'context': 'MY CONTEXT'
+            'class': 'SecaggContext',
+            'module': 'fedbiomed.researcher.secagg',
+            'arguments': {
+                'secagg_id': 'my_secagg_id',
+                'parties': [environ['ID'], 'TWO_PARTIES', 'THREE_PARTIES'],
+                'job_id': 'my_job_id',
+            },
+            'attributes': {
+                '_researcher_id': environ['ID'],
+                '_status': False,
+                '_context': 'MY CONTEXT'
+            }
         }
 
-        self.secagg_context.load_state(state)
+        secagg_context = SecaggBiprimeContext.load_state(state)
 
-        self.assertEqual(state['status'], self.secagg_context.status)
-        self.assertEqual(state['secagg_id'], self.secagg_context.secagg_id)
-        self.assertEqual(state['job_id'], self.secagg_context.job_id)
-        self.assertEqual(state['context'], self.secagg_context.context)
+        self.assertEqual(state['attributes']['_status'], secagg_context.status)
+        self.assertEqual(state['arguments']['secagg_id'], secagg_context.secagg_id)
+        self.assertEqual(state['arguments']['job_id'], secagg_context.job_id)
+        self.assertEqual(state['attributes']['_context'], secagg_context.context)
 
 
 class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
@@ -229,35 +239,35 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
         patch_payload_create.return_value = (dummy_context, dummy_status)
 
         for return_value, context, value in (
-            (None, dummy_context, dummy_status),
-            # Not tested by _matching_parties* 
-            #
-            # (3, 3, False),
-            # ({}, {}, False),
-            # ({'toto': 1}, {'toto': 1}, False),
-            # ({'parties': 3}, {'parties': 3}, False),
-            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
-            ({'parties': [environ["ID"], 'party2', 'party3']},
-                {'parties': [environ["ID"], 'party2', 'party3']}, True),
-            ({'parties': [environ["ID"], 'party3', 'party2']},
-                {'parties': [environ["ID"], 'party3', 'party2']}, True),
-            ({'parties': [environ["ID"], 'party2', 'party3', 'party4']},
-                {'parties': [environ["ID"], 'party2', 'party3', 'party4']}, False),
-            ({'parties': ['party2', environ["ID"], 'party3']},
-                {'parties': ['party2', environ["ID"], 'party3']}, False),
+                (None, dummy_context, dummy_status),
+                # Not tested by _matching_parties*
+                #
+                # (3, 3, False),
+                # ({}, {}, False),
+                # ({'toto': 1}, {'toto': 1}, False),
+                # ({'parties': 3}, {'parties': 3}, False),
+                # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+                ({'parties': [environ["ID"], 'party2', 'party3'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party2', 'party3'], 'context': {'servkey': '123456'}}, True),
+                ({'parties': [environ["ID"], 'party3', 'party2'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party3', 'party2'], 'context': {'servkey': '123456'}}, True),
+                ({'parties': [environ["ID"], 'party2', 'party3', 'party4'], 'context': {'servkey': '123456'}},
+                 {'parties': [environ["ID"], 'party2', 'party3', 'party4'], 'context': {'servkey': '123456'}}, False),
+                ({'parties': ['party2', environ["ID"], 'party3'], 'context': {'servkey': '123456'}},
+                 {'parties': ['party2', environ["ID"], 'party3'], 'context': {'servkey': '123456'}}, False),
         ):
-            self.mock_skmanager.get.return_value = return_value
+            self.mock_skmanager.get.side_effect = [return_value, context]
             srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
-                                                       job_id="job-id")
+                                                  job_id="job-id")
 
             payload_context, payload_value = srvkey_context._payload()
             self.assertEqual(payload_context, context)
             self.assertEqual(payload_value, value)
-
+            self.mock_skmanager.get.side_effect = []
 
     def test_servkey_context_03_payload_create(self):
         with patch("builtins.open") as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = "key"
+            mock_open.return_value.__enter__.return_value.read.return_value = "123456789"
 
             context, status = self.srvkey_context._payload_create()
 
@@ -278,7 +288,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 ip_addresses='dummy/ip'
             )
 
-            self.assertEqual(context['server_key'], "key")
+            self.assertEqual(context['server_key'], 123456789)
             self.assertEqual(status, True)
 
             mock_open.side_effect = Exception
@@ -331,7 +341,6 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
     def test_servkey_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""
         for s in (None, True, False, 3, [], {'one': 1}):
-
             self.mock_skmanager.remove.return_value = s
 
             context, status = self.srvkey_context._delete_payload()
@@ -360,14 +369,13 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
     @patch("time.sleep")
     def test_biprime_context_01_payload_create(self, mock_time, mock_randrange):
 
-        dummy_random = '123456'
+        dummy_random = 123456
         mock_randrange.return_value = dummy_random
 
         context, status = self.biprime_context._payload_create()
         # current test for dummy biprime generation
         self.assertDictEqual(context, {'biprime': dummy_random, 'max_keysize': 0})
         self.assertTrue(status)
-
 
     @patch('fedbiomed.researcher.secagg.SecaggBiprimeContext._payload_create')
     def test_secagg_02_payload(self, patch_payload_create):
@@ -378,25 +386,27 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
         patch_payload_create.return_value = (dummy_context, dummy_status)
 
         for return_value, context, value in (
-            (None, dummy_context, dummy_status),
-            # Not tested by _matching_parties* 
-            #
-            # (3, 3, False),
-            # ({}, {}, False),
-            # ({'toto': 1}, {'toto': 1}, False),
-            # ({'parties': 3}, {'parties': 3}, False),
-            # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
-            ({'parties': [environ["ID"], 'party2', 'party3']},
-                {'parties': [environ["ID"], 'party2', 'party3']}, True),
-            ({'parties': ['party4', environ["ID"], 'party2', 'party3']},
-                {'parties': ['party4', environ["ID"], 'party2', 'party3']}, True),
+                (None, dummy_context, dummy_status),
+                # Not tested by _matching_parties*
+                #
+                # (3, 3, False),
+                # ({}, {}, False),
+                # ({'toto': 1}, {'toto': 1}, False),
+                # ({'parties': 3}, {'parties': 3}, False),
+                # ({'parties': ['only_one_party']}, {'parties': ['only_one_party']}, False),
+                ({'parties': [environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}},
+                 {'parties': [environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}}, True),
+                ({'parties': ['party4', environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}},
+                 {'parties': ['party4', environ["ID"], 'party2', 'party3'], "context": {"biprime": 1111}}, True),
         ):
-            self.mock_bpmanager.get.return_value = return_value
+            self.mock_bpmanager.get.side_effect = [return_value, context]
             biprime_context = SecaggBiprimeContext(parties=[environ["ID"], 'party2', 'party3'])
 
             payload_context, payload_value = biprime_context._payload()
             self.assertEqual(payload_context, context)
             self.assertEqual(payload_value, value)
+            self.mock_bpmanager.get.side_effect = None
+
 
     @patch('time.sleep')
     def test_biprime_context_04_secagg_delete(
@@ -438,7 +448,6 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
     def test_biprime_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""
         for s in (None, True, False, 3, [], {'one': 1}):
-
             self.mock_bpmanager.remove.return_value = s
 
             context, status = self.biprime_context._delete_payload()
