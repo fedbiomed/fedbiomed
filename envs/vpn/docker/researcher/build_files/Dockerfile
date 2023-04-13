@@ -49,8 +49,6 @@ COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
 COPY MP-SPDZ /fedbiomed/MP-SPDZ
-RUN mkdir -p /fedbiomed/modules && cd /fedbiomed/modules && \
-        git clone https://github.com/data61/MP-SPDZ.git
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 
 #    a long time if you have zillion files in notebooks/data)
@@ -68,7 +66,7 @@ RUN conda env update --file ./envs/vpn/conda/fedbiomed-researcher.yaml && \
 # need clean/purge to be in the same command line to shrink image
 
 # Initialize secure aggregation
-RUN /fedbiomed/scripts/fedbiomed_configure_secagg researcher noupdate
+RUN /fedbiomed/scripts/fedbiomed_configure_secagg researcher clone
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

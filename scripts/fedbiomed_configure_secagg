@@ -51,15 +51,31 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
-[ -d "$mpspdz_basedir" ] && mkdir -p "$mpspdz_basedir"
-if [ "$2" != "noupdate" ] ; then
+[ -d "$mpspdz_basedir" ] || mkdir -p "$mpspdz_basedir"
+if [ "$2" != "clone" ] ; then
   # Clone initialize github submodule if it is not existing
   echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
   git submodule update --init modules/MP-SPDZ
-elif [[ -n "$MPSPDZ_COMMIT" ]] ; then
-  # Point to correct commit if passed by variable
-  cd "$mpspdz_basedir"
-  git checkout "$MPSPDZ_COMMIT"
+else
+  # Clone repository and point to correct commit 
+  # Should be used only in case there is no submodule defined for MP-SPDZ
+  if [[ -z "$(ls -A $mpspdz_basedir)" ]] ; then
+    echo -e "${BOLD}Cloning MP-SPDZ repository${NC}\n"
+    cd "$mpspdz_basedir/.."
+    if ! git clone https://github.com/data61/MP-SPDZ.git ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that $mpspdz_basedir is empty directory."
+      exit 1
+    fi
+  fi
+  if [[ -n "$MPSPDZ_COMMIT" ]] ; then
+    cd "$mpspdz_basedir"
+    if ! git checkout "$MPSPDZ_COMMIT" ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that '$MPSPDZ_COMMIT' is an existing commit for MP-SPDZ."
+      exit 1    
+    fi
+  fi
 fi
 cd "$basedir"
 
