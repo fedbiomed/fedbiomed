@@ -13,8 +13,8 @@ for notebook in ${list_notebooks[@]:1:4}; do
 cat <<EOF >>${bats_file}
 @test "${test_counter} - $(basename ${notebook})" {
     ./scripts/run_integration_test -s ${notebook}  \
-        -d ./tests/datasets/mnist.json 3>&- \
-#        -d ./tests/datasets/celeba.json \
+        -d ./tests/datasets/mnist.json  \
+        -d ./tests/datasets/celeba.json 3>&- \
 #        3>&-   # indispensable to prevent the tests to hang.
 }
 EOF
