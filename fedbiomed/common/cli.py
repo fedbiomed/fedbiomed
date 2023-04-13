@@ -17,7 +17,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
     get_method_spec, \
-    get_fedbiomed_root
+    ROOT_DIR
 from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 
 RED = '\033[1;31m'  # red
@@ -259,7 +259,7 @@ class CommonCLI:
             # Sets DB
             self._certificate_manager.set_db(
                 os.path.join(
-                    get_fedbiomed_root(),
+                    ROOT_DIR,
                     DB_FOLDER_NAME,
                     f"{db_name}.json"
                 )

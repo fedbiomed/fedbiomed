@@ -311,11 +311,15 @@ containers_build() {
 
     if [ $BUILD_BASE -eq 1 ]; then
         echo "- building 'base' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
         echo "- building 'nodebase' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            docker-compose build basenode
     fi
 
     for i in ${ONLY_CONTAINERS[@]}
@@ -323,7 +327,9 @@ containers_build() {
         echo "- stopping '$i' container"
         docker-compose rm -sf $i >/dev/null
         echo "- building '$i' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build $i
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            docker-compose build $i
     done
 }
 
@@ -399,7 +405,9 @@ containers_start() {
     # if image is not build `docker-compose up ` will automatically build it
 
     # start vpnserver first
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d vpnserver
+    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+        CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+        docker-compose up -d vpnserver
 
     # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
@@ -418,7 +426,9 @@ containers_start() {
 
         echo "- starting $i container"
         docker-compose rm -sf $CONTAINER >/dev/null
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $CONTAINER
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            docker-compose up -d $CONTAINER
 
         case $i in
             mqtt|restful)

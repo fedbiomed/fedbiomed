@@ -2,14 +2,14 @@ import copy
 import logging
 import unittest
 import urllib.request
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, create_autospec, mock_open, patch
 
 import numpy as np
 import torch
 from declearn.optimizer import Optimizer
 from declearn.optimizer.modules import MomentumModule
-from declearn.model.torch import TorchVector
 from declearn.model.sklearn import NumpyVector
+from declearn.model.torch import TorchVector
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
@@ -113,23 +113,26 @@ class TestSkLearnModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 model = SkLearnModel(invalid_model)
 
-    def test_sklearnmodel_02_method_save(self):
+    def test_sklearnmodel_02_method_export(self):
+        """Test that 'SklearnModel.export' works - in one specific case."""
         saved_params = []
-        def mocked_joblib_dump(obj, *args, **kwargs):
+        def mocked_joblib_dump(obj, *_):
             saved_params.append(obj)
         coefs = {
             'coef_': np.array([[0.42]]),
             'intercept_': np.array([0.42]),
         }
         self.sgdclass_model.set_weights(coefs)
-        with patch('fedbiomed.common.models._sklearn.joblib.dump',
-                   side_effect=mocked_joblib_dump), \
-                patch('builtins.open', mock_open()):
-            self.sgdclass_model.save('filename')
+        with (
+            patch('joblib.dump', side_effect=mocked_joblib_dump),
+            patch('builtins.open', mock_open())
+        ):
+            self.sgdclass_model.export('filename')
             self.assertEqual(saved_params[-1].coef_, coefs["coef_"])
             self.assertEqual(saved_params[-1].intercept_, coefs["intercept_"])
 
-    def test_sklearnmodel_03_method_load(self):
+    def test_sklearnmodel_03_method_reload(self):
+        """Test that 'SklearnModel.reload' works - in one specific case."""
         self.sgdclass_model.set_init_params({'n_classes':3, 'n_features':5})
         coefs = {
             'coef_': np.array([[0.42]]),  # true shape would be (3, 5)
@@ -138,11 +141,10 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdclass_model.model.coef_ = coefs["coef_"]
         self.sgdclass_model.model.intercept_ = coefs["intercept_"]
         with (
-                patch('fedbiomed.common.models._sklearn.joblib.load',
-                    return_value=self.sgdclass_model.model),
-                patch('builtins.open', mock_open())
-                ):
-            self.sgdclass_model.load('filename')
+            patch('joblib.load', return_value=self.sgdclass_model.model),
+            patch('builtins.open', mock_open())
+        ):
+            self.sgdclass_model.reload('filename')
             self.assertDictEqual(self.sgdclass_model.get_weights(), coefs)
 
     def test_sklearnmodel_04_set_init_params(self):
@@ -285,6 +287,29 @@ class TestSkLearnModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 # should raise exception complaining about non reachable model layer
                 model.get_weights()
+
+    def test_sklearnmodel_10_set_weights(self):
+        """Test that 'SkLearnModel.set_weights' works properly."""
+        for skmodel in self.models:
+            # Instantiate a model, initialize it and create random weights.
+            model = SkLearnModel(skmodel)
+            model.set_init_params(model_args={'n_classes': 3, 'n_features': 2})
+            weights = {
+                key: np.random.normal(size=wgt.shape).astype(wgt.dtype)
+                for key, wgt in model.get_weights().items()
+            }
+            # Test that weights assignment works with a dict input.
+            model.set_weights(weights)
+            current = model.get_weights()
+            self.assertEqual(current.keys(), weights.keys())
+            self.assertTrue(
+                all(np.all(weights[key] == current[key]) for key in weights)
+            )
+            # Test that weights assignment works with a declearn Vector input.
+            w_vector = NumpyVector(weights) + 1.
+            model.set_weights(w_vector)
+            c_vector = model.get_weights(as_vector=True)
+            self.assertEqual(w_vector, c_vector)
 
 
 class TestSklearnClassification(unittest.TestCase):
@@ -435,7 +460,7 @@ class TestTorchModel(unittest.TestCase):
         loss   = torch.nn.functional.nll_loss(torch.squeeze(output), targets)
         return loss
 
-    def test_torchmodel_1_get_gradients_method(self):
+    def test_torchmodel_01_get_gradients_method(self):
         # case where no gradients have been found: model has not been trained
         self.assertDictEqual({}, self.model.get_gradients(), "get_gradients should return an empty dict since model hasnot been trained")
 
@@ -455,7 +480,7 @@ class TestTorchModel(unittest.TestCase):
             self.assertTrue(torch.all(values))
             self.assertTrue(torch.all(torch.isclose(values, grads[layer_name])))
 
-    def test_torchmodel_2_get_weights(self):
+    def test_torchmodel_02_get_weights(self):
         # test case where model_wweitghs is retunred as a dict
         model_weights = self.model.get_weights()
 
@@ -468,7 +493,27 @@ class TestTorchModel(unittest.TestCase):
         for (layer, wrapped_model_weight) in torchvector_model_weights.coefs.items():
             self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
 
-    def test_torchmodel_3_apply_updates_1(self):
+    def test_sklearnmodel_03_set_weights(self):
+        """Test that 'TorchModel.set_weights' works properly."""
+        # Create random weights that are suitable for the model.
+        weights = {
+            key: torch.randn(size=wgt.shape, dtype=wgt.dtype)
+            for key, wgt in self.model.get_weights().items()
+        }
+        # Test that weights assignment works with a dict input.
+        self.model.set_weights(weights)
+        current = self.model.get_weights()
+        self.assertEqual(current.keys(), weights.keys())
+        self.assertTrue(
+            all(torch.all(weights[key] == current[key]) for key in weights)
+        )
+        # Test that weights assignment works with a declearn Vector input.
+        w_vector = TorchVector(weights) + 1.
+        self.model.set_weights(w_vector)
+        c_vector = self.model.get_weights(as_vector=True)
+        self.assertEqual(w_vector, c_vector)
+
+    def test_torchmodel_04_apply_updates_1(self):
         init_weights = copy.deepcopy(self.model.get_weights())
 
         updates = torch.nn.Linear(4, 1).state_dict()
@@ -481,7 +526,7 @@ class TestTorchModel(unittest.TestCase):
             self.assertFalse(torch.all(torch.isclose(w, updated_w)))
             self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
 
-    def test_torchmodel_4_apply_updates_2(self):
+    def test_torchmodel_04_apply_updates_2(self):
         init_weights = copy.deepcopy(self.model.get_weights(as_vector=True))
 
         updates = torch.nn.Linear(4, 1).state_dict()
@@ -494,7 +539,7 @@ class TestTorchModel(unittest.TestCase):
             self.assertFalse(torch.all(torch.isclose(w, updated_w)))
             self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
 
-    def test_torchmodel_5_apply_updates_3_failures(self):
+    def test_torchmodel_05_apply_updates_3_failures(self):
         # check that error is raised when passing incorrect type
         incorrect_types = (
             "incorrect usage",
@@ -507,7 +552,7 @@ class TestTorchModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 self.model.apply_updates(incorrect_type)
 
-    def test_torchmodel_6_predict(self):
+    def test_torchmodel_06_predict(self):
         data = torch.randn(1, 1,  4, requires_grad=True)
 
         tested_prediction = self.model.predict(data)
@@ -517,7 +562,7 @@ class TestTorchModel(unittest.TestCase):
         self.assertIsInstance(tested_prediction, np.ndarray)
         self.assertListEqual(tested_prediction.tolist(), ground_truth_prediction.tolist())
 
-    def test_torchmodel_7_add_corrections_to_gradients(self):
+    def test_torchmodel_07_add_corrections_to_gradients(self):
         self.torch_optim.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
 
@@ -527,7 +572,11 @@ class TestTorchModel(unittest.TestCase):
             torch.randn(1,   4, requires_grad=True),
             torch.randn(1, requires_grad=True)
         )
-        corrections = {layer_name: val for (layer_name, _), val in zip(self.model.model.named_parameters(), correction_values)}
+        corrections = {
+            layer_name: val
+            for (layer_name, _), val
+            in zip(self.model.model.named_parameters(), correction_values)
+        }
 
         # zeroes gradients model
         self.model.model.zero_grad()
@@ -537,7 +586,7 @@ class TestTorchModel(unittest.TestCase):
         for (layer_name, param), val in zip(self.model.model.named_parameters(), correction_values):
             self.assertTrue(torch.all(torch.isclose(param.grad, val)))
 
-    def test_torchmodel_8_training(self):
+    def test_torchmodel_08_training(self):
         self.model.init_training()
 
         #  before training, check values contained in `init_training` are the same as in model
@@ -579,6 +628,28 @@ class TestTorchModel(unittest.TestCase):
         for key, wgt in declearn_optimized_model_weights.items():
             self.assertTrue(key in self.model.init_params)
             self.assertFalse(torch.all(wgt == self.model.init_params[key]))
+
+    def test_torchmodel_09_export(self):
+        """Test that 'TorchModel.export' works properly."""
+        with patch("torch.save") as save_patch:
+            self.model.export("filename")
+        save_patch.assert_called_once_with(self.torch_model, "filename")
+
+    def test_torchmodel_10_reload(self):
+        """Test that 'TorchModel.reload' works properly."""
+        module = create_autospec(torch.nn.Module, instance=True)
+        with patch("torch.load", return_value=module) as load_patch:
+            self.model.reload("filename")
+        load_patch.assert_called_once_with("filename")
+        self.assertIs(self.model.model, module)
+
+    def test_torchmodel_11_reload_fails(self):
+        """Test that 'TorchModel.reload' fails with a non-torch dump object."""
+        with patch("torch.load", return_value=MagicMock()) as load_patch:
+            with self.assertRaises(FedbiomedModelError):
+                self.model.reload("filename")
+        load_patch.assert_called_once_with("filename")
+        self.assertIs(self.model.model, self.torch_model)
 
 
 if __name__ == '__main__':  # pragma: no cover
