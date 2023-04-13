@@ -43,16 +43,10 @@ x-node2:
   &standard-node2
   container_name: fedbiomed-vpn-node2
   hostname: fedbiomed-vpn-node2
-  build:
-    context: ../../..
-    dockerfile: envs/vpn/docker/node/build_files/Dockerfile
-    args:
-      - CONTAINER_UID
-      - CONTAINER_GID
-      - CONTAINER_USER
-      - CONTAINER_GROUP
-      - MPSPDZ_COMMIT
-      - MPSPDZ_URL
+  # dont build images as they are the same as for `node`
+  # this might re-build the same image but with different IMAGE ID
+  # eg: `fedbiomed_vpn status` then fails, etc.
+  # eg: `docker container ps` shows node not attached to `fedbiomed/vpn-node` image
   image: fedbiomed/vpn-node
   environment:
   # enable overloading build-time id with a run-time id
@@ -218,14 +212,10 @@ services:
   gui2:
     container_name: fedbiomed-vpn-gui2
     hostname: fedbiomed-vpn-gui2
-    build:
-      context: ../../..
-      dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
-      args:
-        - CONTAINER_UID
-        - CONTAINER_GID
-        - CONTAINER_USER
-        - CONTAINER_GROUP
+    # dont build images as they are the same as for `gui`
+    # this might re-build the same image but with different IMAGE ID
+    # eg: `fedbiomed_vpn status` then fails, etc.
+    # eg: `docker container ps` shows gui not attached to `fedbiomed/vpn-gui` image
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
