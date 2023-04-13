@@ -5,7 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 import declearn
 import declearn.model.torch
@@ -75,7 +75,7 @@ class SklearnOptimizerProcessing:
 class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
     """Abstract base class for Optimizer and Model wrappers."""
 
-    _model_cls: Union[Type[Model], Type[SkLearnModel]]
+    _model_cls: Union[Type[Model], Type[SkLearnModel], Tuple[Type]]
 
     def __init__(self, model: Model, optimizer: OT):
         """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
@@ -136,7 +136,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
 
 class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
-
+    _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
@@ -156,11 +156,14 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             )
         super().__init__(model, optimizer)
         self.optimizer.init_round()
+        
+        if isinstance(model, SkLearnModel):
+            self.model_args = {}
 
     def step(self):
         """Performs one optimization step"""
         # NOTA: for sklearn, gradients retrieved are unscaled because we are using learning rate equal to 1.
-        # Therefore, it is necessary to disable the sklearn optimizer beforehand
+        # Therefore, it is necessary to disable the sklearn internal optimizer beforehand
         # otherwise, computation will be incorrect
         grad = declearn.model.api.Vector.build(self._model.get_gradients())
         weights = declearn.model.api.Vector.build(self._model.get_weights())
@@ -177,7 +180,7 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         return [states['lrate']]
 
     def set_aux(self, aux: Dict[str, Any]):
-        # attention: for imported tensors in PyTorch sent as auxiliary variables,
+        # FIXME: for imported tensors in PyTorch sent as auxiliary variables,
         # we should push it on the appropriate device (ie cpu/gpu)
         self.optimizer.set_aux(aux)
 
@@ -195,6 +198,43 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         optim_state = self.optimizer.get_state()
         return optim_state
 
+    # TorchModel specific methods
+
+    def zero_grad(self):
+        """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad`
+        method of the model.
+
+        Raises:
+            FedbiomedOptimizerError: triggered if model has no method called `zero_grad`
+        """
+        # warning: specific for pytorch
+        if not isinstance(self._model, TorchModel):
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}. This method can only be used for TorchModel, but got {self._model}")
+        self._model.model.zero_grad()
+
+    def optimizer_processing(self) -> SklearnOptimizerProcessing:
+        """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
+        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
+        won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
+        such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
+        to such changes, displays a warning.
+
+        Args:
+            model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
+                Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
+
+        Returns:
+            SklearnOptimizerProcessing: context manager providing extra logic
+
+        Usage:
+        ```python
+            >>> dlo = DeclearnSklearnOptimizer(model, optimizer)
+            >>> with dlo.optimizer_processing():
+                    model.train(inputs,targets)
+        ```
+        """
+        if isinstance(self._model, SkLearnModel):
+            return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)   
 
 class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
     """Optimizer wrapper for declearn optimizers applied to pytorch models
@@ -362,12 +402,12 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         return self._model.get_learning_rate()
 
 TORCH_OPTIMIZERS = {
-    FedOptimizer: DeclearnTorchOptimizer,
+    FedOptimizer: BaseDeclearnOptimizer,
     torch.optim.Optimizer: NativeTorchOptimizer
 }
 
 SKLEARN_OPTIMIZERS = {
-    FedOptimizer: DeclearnSklearnOptimizer,
+    FedOptimizer: BaseDeclearnOptimizer,
     None: NativeSkLearnOptimizer
 }
 TRAININGPLAN_OPTIMIZERS = {
@@ -395,14 +435,14 @@ class OptimizerBuilder:
     ```
     """
     TORCH_OPTIMIZERS = {
-    FedOptimizer: DeclearnTorchOptimizer,
-    declearn.optimizer.Optimizer: DeclearnTorchOptimizer,
-    torch.optim.Optimizer: NativeTorchOptimizer
-}
+        FedOptimizer: BaseDeclearnOptimizer,
+        declearn.optimizer.Optimizer: BaseDeclearnOptimizer,
+        torch.optim.Optimizer: NativeTorchOptimizer
+    }
 
     SKLEARN_OPTIMIZERS = {
-        FedOptimizer: DeclearnSklearnOptimizer,
-        declearn.optimizer.Optimizer: DeclearnSklearnOptimizer,
+        FedOptimizer: BaseDeclearnOptimizer,
+        declearn.optimizer.Optimizer: BaseDeclearnOptimizer,
         None: NativeSkLearnOptimizer
     }
 

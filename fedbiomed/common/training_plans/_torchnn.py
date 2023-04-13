@@ -439,7 +439,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # send all model to device, ensures having all the requested tensors
         self._set_device(self._use_gpu, node_args)
-        self._optimizer.send_model_to_device(self._device)
+        self._model.send_to_device(self._device)
 
         # Run preprocess when everything is ready before the training
         self._preprocess()
@@ -504,7 +504,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
                 # Handle dry run mode
                 if self._dry_run:
-                    self._optimizer.send_model_to_device(self._device_init)
+                    self._model.send_to_device(self._device_init)
                     torch.cuda.empty_cache()
                     return iterations_accountant.num_samples_observed_in_total
 
@@ -512,7 +512,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # - it should be done by deleting the object
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
 
-        self._optimizer.send_model_to_device(self._device_init)
+        self._model.send_to_device(self._device_init)
         torch.cuda.empty_cache()
         
         # # test (to be removed)
