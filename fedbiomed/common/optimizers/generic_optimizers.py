@@ -160,6 +160,9 @@ class BaseDeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
 
     def step(self):
         """Performs one optimization step"""
+        # NOTA: for sklearn, gradients retrieved are unscaled because we are using learning rate equal to 1.
+        # Therefore, it is necessary to disable the sklearn optimizer beforehand
+        # otherwise, computation will be incorrect
         grad = declearn.model.api.Vector.build(self._model.get_gradients())
         weights = declearn.model.api.Vector.build(self._model.get_weights())
         updates = self.optimizer.step(grad, weights)
@@ -223,21 +226,6 @@ class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
     def __init__(self, model: SkLearnModel, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer, None]):
         super().__init__(model, optimizer)
         self.model_args = {}
-
-    def step(self):
-        """Performs an optimization step and updates model weights
-        """
-        # convert batch averaged gradients into gradients before computation
-        lrate = self._model.get_learning_rate()[0]
-        if abs(lrate) > 0:
-
-            gradients = self._model.get_gradients()
-            gradients = {layer: val / lrate for layer, val in gradients.items()}
-            self._model.set_gradients(gradients)
-            super().step()
-        else:
-            # Nota: if learning rate equals 0, there will be no updates applied during SGD
-            logger.warning(f"Learning rate set to {lrate}: no gradient descent will be performed!")
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
         """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
