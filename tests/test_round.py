@@ -20,6 +20,7 @@ from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
+from fedbiomed.node.secagg_manager import SecaggServkeyManager
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.constants import DatasetTypes
@@ -82,7 +83,8 @@ class TestRound(NodeTestCase):
                         training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
-                        training=True)
+                        training=True
+                        )
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
@@ -222,6 +224,7 @@ class TestRound(NodeTestCase):
             'model_weights': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
+            'encrypted': False,
         }
 
         # define context managers for each model method

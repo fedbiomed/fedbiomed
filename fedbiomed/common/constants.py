@@ -187,6 +187,12 @@ class SecaggElementTypes(_BaseEnum):
     BIPRIME: int = 1
 
 
+class VEParameters:
+    CLIPPING_RANGE: int = 3
+    TARGET_RANGE: int = 10000
+    KEY_SIZE: int = 2048
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
@@ -280,6 +286,7 @@ class ErrorNumbers(_BaseEnum):
     FB621 = "FB621: declearn optimizer error"
     FB622 = "FB622: Model error"
     FB623 = "FB623: Secure aggregation database error"
+    FB624 = "FB620: Secure aggregation crypter error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

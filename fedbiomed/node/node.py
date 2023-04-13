@@ -9,7 +9,7 @@ from json import decoder
 from typing import Optional, Union
 
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
@@ -54,6 +54,7 @@ class Node:
         self.tp_security_manager = tp_security_manager
 
         self.node_args = node_args
+
 
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
@@ -249,6 +250,7 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
+        round_number = msg.get_param('round') or 0
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -294,6 +296,7 @@ class Node:
                 hist_monitor,
                 aggregator_args,
                 self.node_args,
+                round_number=round_number,
                 dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
             )
 
@@ -333,7 +336,9 @@ class Node:
                             # iterate over each dataset found
                             # in the current round (here round refers
                             # to a round to be done on a specific dataset).
-                            msg = round.run_model_training()
+                            msg = round.run_model_training(secagg_servkey_id=item.get_param('secagg_servkey_id'),
+                                                           secagg_biprime_id=item.get_param('secagg_biprime_id'),
+                                                           secagg_random=item.get_param('secagg_random'))
                             self.messaging.send_message(msg)
                     except Exception as e:
                         # send an error message back to network if something
@@ -349,6 +354,7 @@ class Node:
                                 }
                             ).get_dict()
                         )
+                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:

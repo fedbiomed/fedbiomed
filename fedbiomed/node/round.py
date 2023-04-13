@@ -10,6 +10,9 @@ import inspect
 import os
 import sys
 import time
+import inspect
+import importlib
+import functools
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
@@ -25,7 +28,9 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.secagg_manager import SKManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.common.secagg import SecaggCrypter
 
 
 class Round:
@@ -46,6 +51,7 @@ class Round:
                  history_monitor: HistoryMonitor = None,
                  aggregator_args: dict = None,
                  node_args: Union[dict, None] = None,
+                 round_number: int = 0,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
         """Constructor of the class
@@ -70,6 +76,7 @@ class Round:
                     doesn't request for using a GPU.
         """
 
+        self._use_secagg: bool = False
         self.dataset = dataset
         self.training_plan_url = training_plan_url
         self.training_plan_class = training_plan_class
@@ -91,6 +98,9 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
+        self._sk_manager = SKManager
+        self._secagg_crypter = SecaggCrypter()
+        self._round = round_number
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -116,11 +126,18 @@ class Round:
                     url = aggregator_arg.get('url', False)
 
                     if any((url, arg_name)):
-                        # if both `filename` and `arg_name` fields are present, it means that parameters should be retrieved using file
+                        # if both `filename` and `arg_name` fields are present, it means that parameters
+                        # should be retrieved using file
                         # exchanged system
                         success, param_path, error_msg = self.download_file(url, f"{arg_name}_{uuid.uuid4()}.mpk")
                         if not success:
                             return success, error_msg
+                        else:
+                            # FIXME: should we load parameters here or in the training plan
+                            self.aggregator_args[arg_name] = {'param_path': param_path,
+                                                              # 'params': training_plan.load(param_path,
+                                                              # update_model=True)
+                                                              }
                         self.aggregator_args[arg_name] = Serializer.load(param_path)
             return True, ''
         else:
@@ -150,14 +167,66 @@ class Round:
         else:
             return True, params_path, ''
 
-    def run_model_training(self) -> dict[str, Any]:
+    @staticmethod
+    def _validate_secagg(
+            secagg_servkey_id: Union[str, None] = None,
+            secagg_biprime_id: Union[str, None] = None,
+            secagg_random: Union[float, None] = None
+    ):
+        """Validates secure aggregation status
+
+        Args:
+            secagg_id: Secure aggregation ID attached to the train request
+
+        Returns:
+            True if secure aggregation should be used.
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
+        """
+        if environ["FORCE_SECURE_AGGREGATION"] and secagg_servkey_id is None:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value} Secure aggregation context for the training "
+                                      f"is not set. Node requires to apply secure aggregation")
+
+        if secagg_servkey_id is not None and not environ["SECURE_AGGREGATION"]:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation can not be activated."
+            )
+
+        if secagg_servkey_id is not None and secagg_random is None:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
+                f"secure aggregation correctness. Please add `secagg_random` to the train request"
+            )
+
+        return True if secagg_servkey_id is not None else False
+
+    def run_model_training(
+            self,
+            secagg_servkey_id: Union[str, None] = None,
+            secagg_biprime_id: Union[str, None] = None,
+            secagg_random: Union[float, None] = None,
+    ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
         and finally uploads model params to the file repository
+
+        Args:
+            secagg_servkey_id: Secure aggregation Servkey context id. None means that the parameters
+                are not going to be encrypted
+            secagg_biprime_id: Secure aggregation Biprime context ID.
+            secagg_random: Float value to validate secure aggregation on the researcher side
 
         Returns:
             Returns the corresponding node message, training reply instance
         """
         is_failed = False
+
+        # Validate secagg status. Raises error if the training request is compatible with
+        # secure aggregation settings
+        self._use_secagg = self._validate_secagg(
+            secagg_servkey_id=secagg_servkey_id,
+            secagg_biprime_id=secagg_biprime_id,
+            secagg_random=secagg_random)
 
         # Initialize and validate requested experiment/training arguments
         try:
@@ -193,7 +262,7 @@ class Round:
 
                 success, params_path, error_msg = self.download_file(self.params_url, f"my_model_{uuid.uuid4()}.mpk")
                 if success:
-                    # retrieving arggegator args
+                    # retrieving aggregator args
                     success, error_msg = self.download_aggregator_args()
 
                 if not success:
@@ -300,13 +369,34 @@ class Round:
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
+            sample_size = len(self.training_plan.training_data_loader.dataset)
+
+            results["encrypted"] = False
+
             # Upload results
+            model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
+            if self._use_secagg:
+                logger.info("Encrypting model parameters. This process can take some time depending on model size.")
+
+                encrypt = functools.partial(
+                    self._secagg_crypter.encrypt,
+                    num_nodes=2,
+                    current_round=self._round,
+                    # key=10,
+                    key=2260757152640263164762776250925485249039891452124112948393147805470505162677417064913250186706218493119506292103556873673625625590265425375604768842293472321890420091495434984922065738854716777674470693221420511630643937689992833130298317921661022054586391205651703515097226643704569097169143127326136781709059667828429584566037215689194678196477657522989801707350225314154489521604389933917917967701606500324519577976038434981338837975962455479718560304276929126953471279630446247107477953508603057603884619173981219053601057407081652801221229346652737917099857793966231626162340645155229158124690518984575700392390,
+                    weight=sample_size,
+                )
+                model_weights = encrypt(params=model_weights)
+                results["encrypted"] = True
+                results["encryption_factor"] = encrypt(params=[secagg_random])
+
+                logger.info("Encryption is completed!")
+
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_weights'] = self.training_plan.after_training_params()
+            results['model_weights'] = model_weights
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
-            sample_size = len(self.training_plan.training_data_loader.dataset)
 
             try:
                 # TODO: add validation status to these results?
@@ -335,12 +425,14 @@ class Round:
             # Only for validation
             return self._send_round_reply(success=True)
 
-    def _send_round_reply(self,
-                          message: str = '',
-                          success: bool = False,
-                          params_url: Union[str, None] = '',
-                          timing: dict = {},
-                          sample_size: Union[int, None] = None) -> NodeMessages:
+    def _send_round_reply(
+            self,
+            message: str = '',
+            success: bool = False,
+            params_url: Union[str, None] = '',
+            timing: dict = {},
+            sample_size: Union[int, None] = None
+    ) -> Dict[str, Any]:
         """
         Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
@@ -350,6 +442,9 @@ class Round:
             success: Declares whether training/validation is successful
             params_url: URL where parameters are uploaded
             timing: Timing statistics
+
+        Returns:
+            reply message
         """
 
         # If round is not successful log error message
@@ -433,6 +528,7 @@ class Round:
         # Check batch_size is one of the argument of training_data method
         # `batch_size` is in used for only TorchTrainingPlan. If it is based to
         # sklearn, it will raise argument error
+
         try:
             if 'batch_size' in args:
                 data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])

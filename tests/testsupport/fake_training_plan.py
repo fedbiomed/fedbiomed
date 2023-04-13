@@ -39,6 +39,9 @@ class FakeModel(BaseTrainingPlan):
         """Fake 'post_init', that does not make use of input arguments."""
         return None
 
+    def model(self):
+        return self._model
+
     def type(self):
         """Getter for TrainingPlan Type."""
         return self.__type

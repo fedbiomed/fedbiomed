@@ -125,12 +125,14 @@ class DefaultStrategy(Strategy):
         all_success = True
         model_params = {}
         sample_sizes = {}
+        encryption_factors = {}
         total_rows = 0
         for tr in training_replies:
             if tr['success'] is True:
 
                 # TODO: Attach sample_size, weights and params in a single dict object
                 model_params[tr["node_id"]] = tr["params"]
+                encryption_factors[tr["node_id"]] = tr.get("encryption_factor", None)
 
                 if tr["sample_size"] is None:
                     # if a Node `sample_size` is None, we cannot compute the weigths: in this case
@@ -154,4 +156,4 @@ class DefaultStrategy(Strategy):
 
         logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
 
-        return model_params, weights
+        return model_params, weights, total_rows, encryption_factors

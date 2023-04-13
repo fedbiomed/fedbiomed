@@ -5,6 +5,7 @@
 
 import functools
 import os
+import random
 import sys
 import json
 import inspect
@@ -40,6 +41,7 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
+from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
 _E = TypeVar("Experiment")  # only for typing
 
@@ -1191,7 +1193,8 @@ class Experiment(object):
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_plan_path` must be string, but got type: {type(training_plan_path)}'
+            msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
+                f'but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1583,7 +1586,8 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
-            self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
+            self._global_model = self._job.training_plan.get_model_params()
+            # initial server state, before optimization/aggregation
 
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
@@ -1597,28 +1601,37 @@ class Experiment(object):
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job._nodes)
 
+        secagg_random = round(random.uniform(0, 1), 3)
         # Trigger training round on sampled nodes
         _ = self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=True)
-
+                                                 do_training=True,
+                                                 secagg_servkey_id=self._secagg_servkey.secagg_id if self._use_secagg else None,
+                                                 secagg_biprime_id=self._secagg_biprime.secagg_id if self._use_secagg else None,
+                                                 secagg_random=secagg_random)
+        
         # refining/normalizing model weights received from nodes
-        model_params, weights = self._node_selection_strategy.refine(
+        model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
-
         # aggregate models from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
                                                        weights,
-                                                       global_model = self._global_model,
+                                                       encryption_factors=encryption_factors,
+                                                       secagg_random=secagg_random,
+                                                       total_sample_size=total_sample_size,
+                                                       global_model=self._global_model,
                                                        training_plan=self._job.training_plan,
                                                        training_replies=self._job.training_replies,
                                                        node_ids=self._job.nodes,
                                                        n_updates=self._training_args.get('num_updates'),
-                                                       n_round=self._round_current)
+                                                       n_round=self._round_current,
+                                                       secure_aggregation=self._use_secagg)
+
+        # write results of the aggregated model in a temp file
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
@@ -1975,8 +1988,8 @@ class Experiment(object):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()` method to pursue model
-                training.
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+                method to pursue model training.
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
@@ -2029,7 +2042,7 @@ class Experiment(object):
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                        # aggregator=bkpt_aggregator,
+                         # aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -2061,7 +2074,7 @@ class Experiment(object):
         # retrieve and change federator
         bkpt_aggregator_args = saved_state.get("aggregator")
 
-        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
@@ -2075,15 +2088,15 @@ class Experiment(object):
         if bkpt_secagg_servkey_args:
             loaded_exp._secagg_servkey = cls._create_object(
                 bkpt_secagg_servkey_args,
-                parties = bkpt_secagg_servkey_args['parties'],
-                job_id = bkpt_secagg_servkey_args['job_id']
+                parties=bkpt_secagg_servkey_args['parties'],
+                job_id=bkpt_secagg_servkey_args['job_id']
             )
 
         bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")
         if bkpt_secagg_biprime_args:
             loaded_exp._secagg_biprime = cls._create_object(
                 bkpt_secagg_biprime_args,
-                parties = bkpt_secagg_biprime_args['parties']
+                parties=bkpt_secagg_biprime_args['parties']
             )
 
         loaded_exp._use_secagg = saved_state.get('use_secagg')

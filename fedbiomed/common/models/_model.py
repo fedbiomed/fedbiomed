@@ -4,7 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar
+from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar, List
 
 from declearn.model.api import Vector
 
@@ -121,6 +121,14 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
         """
 
     @abstractmethod
+    def flatten(self) -> List[float]:
+        """Flattens model weights
+
+        Returns:
+            List of model weights as float.
+        """
+
+    @abstractmethod
     def export(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
 
@@ -171,3 +179,22 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
             model: reloaded model instance to be wrapped, that will be type-
                 checked as part of the calling `reload` method.
         """
+
+    @abstractmethod
+    def unflatten(
+            self,
+            weights_vector: List[float]
+    ) -> None:
+        """Revert flatten model weights back model-dict form.
+
+        Args:
+            weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
+        """
+
+        if not isinstance(weights_vector, list) or not all([isinstance(w, float) for w in weights_vector]):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
+            )

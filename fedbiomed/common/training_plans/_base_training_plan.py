@@ -65,6 +65,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
 
     @abstractmethod
+    def model(self):
+        """Gets model instance of the training plan"""
+
+    @abstractmethod
     def post_init(
             self,
             model_args: Dict[str, Any],
@@ -520,7 +524,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             batch_size = len(data)
             return batch_size
 
-    def after_training_params(self) -> Dict[str, Any]:
+    def after_training_params(
+            self,
+            flatten: bool = False
+    ) -> Union[Dict[str, Any], List[float]]:
         """Return the wrapped model's parameters for aggregation.
 
         This method returns a dict containing parameters that need to be
@@ -533,6 +540,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
+
+        # Get flatten model parameters
+        if flatten:
+            return self._model.flatten()
+
         return self.get_model_params()
 
     def export_model(self, filename: str) -> None:
