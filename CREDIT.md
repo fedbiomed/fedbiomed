@@ -27,3 +27,15 @@ Copyright (c) 2018, The University of Bristol, Bar-Ilan University
 
 * SCALE-MAMBA [https://github.com/KULeuven-COSIC/SCALE-MAMBA]
 Copyright (c) 2020, The University of Bristol, COSIC-KU Leuven
+
+
+## fault-tolerant-secure-agg
+
+[fault-tolerant-secure-agg](https://github.com/MohamadMansouri/fault-tolerant-secure-agg)
+is used in Fed-BioMed secure aggregation.
+Fed-BioMed Joye-Libert scheme implementation is a modified version of
+fault-tolerant-secure-agg implementation in `ftsa/protocols/buildingblocks/JoyeLibert.py`
+that can be found in Fed-BioMed in `fedbiomed/common/secagg/_jls.py`
+
+- version: main branch on 2023-04-13 commit f7806de
+- SPDZ-License-Identifier: MIT

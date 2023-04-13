@@ -27,6 +27,9 @@ class SimpleTrainingPlan(BaseTrainingPlan):
     ) -> None:
         pass
 
+    def model(self):
+        pass
+
     def predict(
             self,
             data: Any,

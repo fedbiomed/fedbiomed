@@ -170,6 +170,49 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             return NumpyVector(weights)
         return weights
 
+    def flatten(self) -> List[float]:
+        """Gets weights as flatten vector
+
+        Returns:
+            to_list: Convert np.ndarray to a list if it is True.
+        """
+
+        weights = self.get_weights()
+        flatten = []
+        for _, w in weights.items():
+            w_: List[float] = list(w.flatten().astype(float))
+            flatten.extend(w_)
+
+        return flatten
+
+    def unflatten(
+            self,
+            weights_vector: List[float]
+    ) -> Dict[str, np.ndarray]:
+        """Unflatten vectorized model weights
+
+        Args:
+            weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
+        """
+
+        super().unflatten(weights_vector)
+
+        weights_vector = np.array(weights_vector)
+        weights = self.get_weights()
+        pointer = 0
+
+        params = {}
+        for key, w in weights.items():
+            num_param = w.size
+            params[key] = weights_vector[pointer: pointer + num_param].reshape(w.shape)
+
+            pointer += num_param
+
+        return params
+
     def set_weights(
         self,
         weights: Union[Dict[str, np.ndarray], NumpyVector],

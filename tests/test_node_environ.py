@@ -66,7 +66,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256"]
+        self.environ.from_config.side_effect = [None, None, None, "SHA256", '', '']
         self.environ._set_component_specific_variables()
 
         self.assertEqual(self.environ._values["MESSAGES_QUEUE_DIR"],
@@ -76,12 +76,12 @@ class TestNodeEnviron(unittest.TestCase):
                                                                                   "training_plans_node-1"))
 
         self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, None, None, "SHA256BLABLA"]
+        self.environ.from_config.side_effect = [None, None, None, "SHA256BLABLA", '', '']
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
         self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, False, False, "SHA256"]
+        self.environ.from_config.side_effect = [None, False, False, "SHA256", '', '']
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
         self.environ._set_component_specific_variables()
@@ -107,7 +107,9 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertEqual(self.environ._cfg["security"], {
             'hashing_algorithm': "SHA256",
             'allow_default_training_plans': "True",
-            'training_plan_approval': "True"
+            'training_plan_approval': "True",
+            "secure_aggregation": "True",
+            'force_secure_aggregation': "False"
         })
 
     @patch("fedbiomed.common.logger.logger.info")
@@ -117,7 +119,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256"]
+        self.environ.from_config.side_effect = [None, None, None, "SHA256", "False", '']
         self.environ._set_component_specific_variables()
 
         self.environ.info()

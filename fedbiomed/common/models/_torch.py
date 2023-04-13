@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Torch interfacing Model class."""
-
-from typing import Dict, Iterable, Tuple, Union
+import copy
+from typing import Dict, Iterable, Tuple, Union, List
 
 import numpy as np
 import torch
@@ -84,6 +84,50 @@ class TorchModel(Model):
         if as_vector:
             return TorchVector(parameters)
         return parameters
+
+    def flatten(self) -> List[float]:
+        """Gets weights as flatten vector
+
+        Returns:
+            to_list: Convert np.ndarray to a list if it is True.
+        """
+
+        params: List[float] = torch.nn.utils.parameters_to_vector(
+            self.model.parameters()
+        ).tolist()
+
+        return params
+
+    def unflatten(
+            self,
+            weights_vector: List[float]
+    ) -> Dict[str, torch.Tensor]:
+        """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
+
+        This method does not manipulate current model weights modify model parameters.
+
+        Args:
+            weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
+        """
+
+        super().unflatten(weights_vector)
+
+        # Copy model to make sure global model parameters won't be overwritten
+        model = copy.deepcopy(self.model)
+        vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
+
+        # Following operation updates model parameters of copied model object
+        try:
+            torch.nn.utils.vector_to_parameters(vector, model.parameters())
+        except TypeError as e:
+            FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value} Can not unflatten model parameters. {e}"
+            )
+
+        return TorchModel(model).get_weights()
 
     def set_weights(
         self,

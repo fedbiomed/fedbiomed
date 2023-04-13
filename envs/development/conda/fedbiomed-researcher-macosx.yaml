@@ -60,6 +60,7 @@ dependencies:
       - git+https://github.com/owkin/FLamby@main
       # declearn
       - declearn[torch] ~= 2.1.0
+      - gmpy2 >=2.1,< 2.2
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7
