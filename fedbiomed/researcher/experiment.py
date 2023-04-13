@@ -1223,6 +1223,9 @@ class Experiment:
             self._training_args = deepcopy(training_args)
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
+        # Propagate training arguments to job
+        if self._job is not None:
+            self._job.training_args = self._training_args
 
         return self._training_args.dict()
 
