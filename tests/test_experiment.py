@@ -2087,10 +2087,6 @@ class TestExperiment(ResearcherTestCase):
         # clean after tests
         del test_class
 
-    def test_experiment_36_set_training_args(self):
-        """Test bug #492."""
-
-
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
