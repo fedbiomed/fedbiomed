@@ -801,6 +801,25 @@ class TestExperiment(ResearcherTestCase):
         self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
         self.assertNotIn(list(ma_expected_3.keys()), list(train_args_3.keys()))
 
+        # test bug #492: proper forwarding of training_args to Job
+        self.patcher_job.stop()  # We need to actually leverage the real Job class
+        self.test_exp._training_plan_is_defined = True  # required for set_job below
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)  # required for set_job below
+        with patch('fedbiomed.researcher.job.Repository', new=MagicMock()) as patched_repo, \
+             patch('fedbiomed.researcher.job.Job.update_parameters', return_value=None) as patched_update_params, \
+             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate:
+            self.test_exp.set_job()  # create an actual Job inside the experiment
+        # First, make sure that the training_args are the same as above
+        self.assertSubDictInDict(ma_expected_3, train_args_3)
+        new_args = {'batch_size': 42}
+        # Then we set new arguments
+        _ = self.test_exp.set_training_args(new_args)
+        # Test that the new args have been correctly set in the experiment
+        self.assertSubDictInDict(new_args, self.test_exp.training_args())
+        # Test that the new args have been correctly propagated to the job
+        self.assertSubDictInDict(new_args, self.test_exp.job().training_args)
+        self.patcher_job.start()  # Restart mocking the Job
+
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
