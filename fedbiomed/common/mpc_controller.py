@@ -7,7 +7,7 @@ import subprocess
 from typing import Tuple
 
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
-from fedbiomed.common.utils import get_fedbiomed_root
+from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 
@@ -32,7 +32,7 @@ class MPCController:
         """
 
         # Get root directory of fedbiomed
-        self._root = get_fedbiomed_root()
+        self._root = ROOT_DIR
         self._component_type = component_type
         mpc_controller_id = str(uuid.uuid4())
 
