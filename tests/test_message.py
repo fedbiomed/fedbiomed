@@ -1335,6 +1335,7 @@ class TestMessage(unittest.TestCase):
             secagg_servkey_id=None,
             secagg_biprime_id=None,
             secagg_random=None,
+            secagg_clipping_range=None,
             round=1,
             command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'})
@@ -1393,6 +1394,11 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             command='do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result=False,
+            secagg_clipping_range='non-int')
 
         self.check_class_args(
             message.TrainRequest,
@@ -1484,6 +1490,7 @@ class TestMessage(unittest.TestCase):
             dataset_id={"foo": "not_a_str"},
             training=False,
             secagg_random=None,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
@@ -1501,6 +1508,7 @@ class TestMessage(unittest.TestCase):
             training="not a bool",
             model_args={"c": 3, "d": 4},
             secagg_random=None,
+            secagg_clipping_range=None,
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
             command='do_it')
@@ -1530,6 +1538,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url=False,
             training_plan_class='my_model',
@@ -1545,6 +1554,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class=False,
@@ -1560,6 +1570,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             training_data="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class="my_model",
@@ -1692,6 +1703,7 @@ class TestMessage(unittest.TestCase):
             "secagg_servkey_id": "dummy",
             "secagg_biprime_id": "dummy",
             "secagg_random": 0.95,
+            "secagg_clipping_range" : None,
             "round": 1,
             "training_plan_url": "https://dev.null",
             "training_plan_class": "my_model",

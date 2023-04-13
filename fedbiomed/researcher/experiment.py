@@ -5,7 +5,6 @@
 
 import functools
 import os
-import random
 import sys
 import json
 import inspect
@@ -38,12 +37,11 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
 
-_E = TypeVar("Experiment")  # only for typing
+TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
@@ -117,7 +115,7 @@ def exp_exceptions(function):
 
 # Experiment
 
-class Experiment(object):
+class Experiment:
     """
     This class represents the orchestrator managing the federated training
     """
@@ -137,8 +135,7 @@ class Experiment(object):
                  save_breakpoints: bool = False,
                  tensorboard: bool = False,
                  experimentation_folder: Union[str, None] = None,
-                 use_secagg: bool = False,
-                 secagg_timeout: float = 0
+                 secagg: Union[bool, SecureAggregation] = False,
                  ):
 
         """Constructor of the class.
@@ -196,12 +193,8 @@ class Experiment(object):
                 experimentation by `load_breakpoint`
                 - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
-            use_secagg: whether to setup a secure aggregation context for this experiment, and use it
+            secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-            secagg_timeout: when `use_secagg` is `True`, maximum time waiting for answers from other nodes for each
-                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
-                plus the local setup payload execution time for server key and biprime.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
         # predefine all class variables, so no need to write try/except
@@ -216,6 +209,7 @@ class Experiment(object):
         self._node_selection_strategy = None
         self._tags = None
         self._monitor = None
+
         self._experimentation_folder = None
         self.aggregator_args = {}
         self._aggregator = None
@@ -224,24 +218,10 @@ class Experiment(object):
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
         self._server_state = None
+        self._secagg = None
 
-#        training_data: Union[FederatedDataSet, dict, None] = None,
-#        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-#        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-#        model_class: Union[Type_TrainingPlan, str, None] = None,
-#        model_args: dict = {},
-#        training_args: dict = {},
-#        save_breakpoints: bool = False,
-#        tensorboard: bool = False,
-#        experimentation_folder: Union[str, None] = None
-
-        self._use_secagg = False
-        self._secagg_servkey = None
-        self._secagg_biprime = None
-
-
-        #        use_secagg: bool = False,
-        #        secagg_timeout: float = 0
+        # set self._secagg
+        self.set_secagg(secagg)
 
         # set self._tags and self._nodes
         self.set_tags(tags)
@@ -294,8 +274,6 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
-        self.set_use_secagg(use_secagg, secagg_timeout)
-
     # destructor
     @exp_exceptions
     def __del__(self):
@@ -309,6 +287,15 @@ class Experiment(object):
 
         if self._monitor is not None and self._monitor is not False and self._monitor is not True:
             self._monitor.close_writer()
+
+    @property
+    def secagg(self) -> SecureAggregation:
+        """Gets secagg object `SecureAggregation`
+
+        Returns:
+            Secure aggregation object.
+        """
+        return self._secagg
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
@@ -627,29 +614,6 @@ class Experiment(object):
         else:
             return self._job.training_plan
 
-    @exp_exceptions
-    def use_secagg(self) -> bool:
-        """Retrieves the status of whether secure aggregation will be used for next rounds.
-
-        Please see also[`set_use_secagg`]
-        [fedbiomed.researcher.experiment.Experiment.set_use_secagg]
-
-        Returns:
-            True if secure aggregation will be used for next rounds.
-        """
-
-        return self._use_secagg
-
-    @exp_exceptions
-    def secagg_context(self) -> Tuple[Union[SecaggServkeyContext, None], Union[SecaggBiprimeContext, None]]:
-        """Retrieves the secure aggregation context of the experiment.
-
-        Returns:
-            a tuple of the server key secagg component (or None if it doesn't exist), and the
-                biprime secagg component (or None if it doesn't exist).
-        """
-
-        return self._secagg_servkey, self._secagg_biprime
 
     # a specific getter-like
     @exp_exceptions
@@ -700,8 +664,7 @@ class Experiment(object):
                 self._experimentation_folder,
                 self.experimentation_path(),
                 self._save_breakpoints,
-                f'- Using: {self._use_secagg}\n- Server key context: {self._secagg_servkey}\n' \
-                f'- Biprime context: {self._secagg_biprime}'
+                f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
             ]
             ]
         }
@@ -870,8 +833,6 @@ class Experiment(object):
             logger.debug('Training data changed, you may need to update `job`')
         if self._aggregator is not None:
             logger.debug('Training data changed, you may need to update `aggregator`')
-        if self._secagg_servkey is not None or self._secagg_biprime is not None:
-            logger.debug('Training data changed, you may need to update `use_secagg`')
 
         return self._fds
 
@@ -1194,7 +1155,7 @@ class Experiment(object):
         else:
             # bad type
             msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
-                f'but got type: {type(training_plan_path)}'
+                                             f'but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1392,8 +1353,6 @@ class Experiment(object):
             # a job is already defined, and it may also have run some rounds
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
-            # note:
-            # if self._secagg_servkey != None, then it should be redefined
 
         if self._training_plan_is_defined is not True:
             # training plan not properly defined yet
@@ -1469,67 +1428,20 @@ class Experiment(object):
 
         return self._tensorboard
 
-    # TODO: add setters for secagg context elements
-
     @exp_exceptions
-    def set_use_secagg(self, use_secagg: bool = False, timeout: float = 0) -> bool:
-        """Sets use of secure aggregation and create secure aggregation context if it doesn't exist.
+    def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
-        Args:
-            use_secagg: if `True` sets secure aggregation to be used for next rounds and
-                establish secagg context if it doesn't exist
-            timeout:  maximum time waiting for answers from other nodes for each
-                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
-                plus the local setup payload execution time for server key and biprime.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
-
-        Returns:
-            `True` if secure aggregation context could be established
-
-        Raises:
-            FedbiomedExperimentError : Bad argument type
-        """
-        if not isinstance(use_secagg, bool):
-            msg = ErrorNumbers.FB410.value + f' `use_secagg` : {type(use_secagg)}'
+        if isinstance(secagg, bool):
+            self._secagg = SecureAggregation(active=secagg, timeout=10)
+        elif isinstance(secagg, SecureAggregation):
+            self._secagg = secagg
+        else:
+            msg = f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
+                  f"but got {type(secagg)}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
-        if not isinstance(timeout, float):
-            errmess = f'{ErrorNumbers.FB410.value}: `timeout` : {type(timeout)}'
-            logger.error(errmess)
-            raise FedbiomedExperimentError(errmess)
 
-        # at this point _fds variable exist
-        if use_secagg:
-            # TODO: extend to support non-default strategy with a changing set of selected nodes
-            # using self._node_selection_strategy.sample_nodes(self._round_current)
-            if self._fds:
-                node_parties = self._fds.node_ids()
-            else:
-                node_parties = []
-            parties = [environ['RESEARCHER_ID']] + node_parties
-
-            if not self._secagg_servkey:
-                # a secagg servkey element must be attached to a job_id
-                if self._job:
-                    self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
-            if self._secagg_servkey and not self._secagg_servkey.status:
-                self._secagg_servkey.setup(timeout)
-            if not self._secagg_biprime:
-                # TODO: support other options than using `default_biprime0`
-                self._secagg_biprime = SecaggBiprimeContext(parties, 'default_biprime0')
-            if not self._secagg_biprime.status:
-                self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:
-                self._use_secagg = True
-                logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
-            else:
-                logger.debug('Experiment not fully configured yet: no secure aggregation')
-        else:
-            self._use_secagg = use_secagg
-
-        return self._use_secagg
+        return self._secagg
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
@@ -1556,7 +1468,7 @@ class Experiment(object):
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run_once` param `increase` : type {type(increase)}'
+                  f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1593,43 +1505,56 @@ class Experiment(object):
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
-        # check aggregator parameter(s) before starting a round
+        # If secure aggregation is activated ---------------------------------------------------------------------
+        secagg_arguments = None
+        if self._secagg.active:
+            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
+                               job_id=self._job.id)
+            secagg_arguments = self._secagg.train_arguments()
+        # --------------------------------------------------------------------------------------------------------
+
+        # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                        self._job._nodes)
+                                                                                        self._job.nodes)
 
-        secagg_random = round(random.uniform(0, 1), 3)
         # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round=self._round_current,
+        _ = self._job.start_nodes_training_round(round_=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=True,
-                                                 secagg_servkey_id=self._secagg_servkey.secagg_id if self._use_secagg else None,
-                                                 secagg_biprime_id=self._secagg_biprime.secagg_id if self._use_secagg else None,
-                                                 secagg_random=secagg_random)
-        
+                                                 secagg_arguments=secagg_arguments)
+
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
-        # aggregate models from nodes to a global model
-        aggregated_params = self._aggregator.aggregate(model_params,
-                                                       weights,
-                                                       encryption_factors=encryption_factors,
-                                                       secagg_random=secagg_random,
-                                                       total_sample_size=total_sample_size,
-                                                       global_model=self._global_model,
-                                                       training_plan=self._job.training_plan,
-                                                       training_replies=self._job.training_replies,
-                                                       node_ids=self._job.nodes,
-                                                       n_updates=self._training_args.get('num_updates'),
-                                                       n_round=self._round_current,
-                                                       secure_aggregation=self._use_secagg)
+        if self._secagg.active:
+            flatten_params = self._secagg.aggregate(
+                round_=self._round_current,
+                encryption_factors=encryption_factors,
+                total_sample_size=total_sample_size,
+                model_params=model_params
+            )
+            # FIXME: Access TorchModel through non-private getter once it is implemented
+            aggregated_params: Dict[str, Union['torch.tensor', 'nd.ndarray']] = \
+                self._job.training_plan._model.unflatten(flatten_params)
+
+        else:
+            # aggregate models from nodes to a global model
+            aggregated_params = self._aggregator.aggregate(model_params,
+                                                           weights,
+                                                           global_model=self._global_model,
+                                                           training_plan=self._job.training_plan,
+                                                           training_replies=self._job.training_replies,
+                                                           node_ids=self._job.nodes,
+                                                           n_updates=self._training_args.get('num_updates'),
+                                                           n_round=self._round_current)
 
         # write results of the aggregated model in a temp file
 
@@ -1656,7 +1581,7 @@ class Experiment(object):
         if test_after:
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            self._job._nodes)
+                                                                                            self._job.nodes)
             self._job.start_nodes_training_round(round=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
@@ -1847,7 +1772,7 @@ class Experiment(object):
         if self._job is None:
             # cannot check training plan status if job not defined
             msg = ErrorNumbers.FB412.value + \
-                ', in method `check_training_plan_status` : no `job` defined for experiment'
+                  ', in method `check_training_plan_status` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1876,9 +1801,7 @@ class Experiment(object):
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
-          - use_secagg
-          - secagg_servkey
-          - secagg_biprime
+          - secagg
 
         Raises:
             FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
@@ -1914,16 +1837,6 @@ class Experiment(object):
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
-        # prepare secagg contexts for saving
-        if isinstance(self._secagg_servkey, SecaggContext):
-            secagg_servkey = self._secagg_servkey.save_state()
-        else:
-            secagg_servkey = None
-        if isinstance(self._secagg_biprime, SecaggContext):
-            secagg_biprime = self._secagg_biprime.save_state()
-        else:
-            secagg_biprime = None
-
         state = {
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
@@ -1942,9 +1855,7 @@ class Experiment(object):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path),  # job state
-            'use_secagg': self._use_secagg,
-            'secagg_servkey': secagg_servkey,
-            'secagg_biprime': secagg_biprime
+            'secagg': self._secagg.save_state()
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1974,8 +1885,8 @@ class Experiment(object):
 
     @classmethod
     @exp_exceptions
-    def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder_path: Union[str, None] = None) -> _E:
+    def load_breakpoint(cls: Type[TExperiment],
+                        breakpoint_folder_path: Union[str, None] = None) -> TExperiment:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
@@ -2036,13 +1947,10 @@ class Experiment(object):
 
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
-
         # initializing experiment
-
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                         # aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -2050,8 +1958,8 @@ class Experiment(object):
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
-                         experimentation_folder=saved_state.get('experimentation_folder')
-                         )
+                         experimentation_folder=saved_state.get('experimentation_folder'),
+                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
@@ -2079,27 +1987,6 @@ class Experiment(object):
 
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
-
-
-        # nota: exceptions should be handled in Job, when refactoring it
-
-        # changing secagg attributes
-        bkpt_secagg_servkey_args = saved_state.get("secagg_servkey")
-        if bkpt_secagg_servkey_args:
-            loaded_exp._secagg_servkey = cls._create_object(
-                bkpt_secagg_servkey_args,
-                parties=bkpt_secagg_servkey_args['parties'],
-                job_id=bkpt_secagg_servkey_args['job_id']
-            )
-
-        bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")
-        if bkpt_secagg_biprime_args:
-            loaded_exp._secagg_biprime = cls._create_object(
-                bkpt_secagg_biprime_args,
-                parties=bkpt_secagg_biprime_args['parties']
-            )
-
-        loaded_exp._use_secagg = saved_state.get('use_secagg')
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp

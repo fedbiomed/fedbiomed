@@ -49,10 +49,6 @@ class FedAverage(Aggregator):
             Aggregated parameters
         """
 
-        secure_aggregation = kwargs.get('secure_aggregation', False)
-        encryption_factors = kwargs.get('encryption_factors', None)
-        secagg_random = kwargs.get('secagg_random', None)
-
         model_params_processed = []
         weights_processed = []
 
@@ -74,17 +70,6 @@ class FedAverage(Aggregator):
                 f"Sample sizes received from nodes might be corrupted."
             )
 
-        if secure_aggregation:
-            agg_params = self.secure_aggregation(
-                params=model_params_processed,
-                encryption_factors=encryption_factors,
-                secagg_random=secagg_random,
-                aggregation_round=kwargs.get('n_round'),
-                total_sample_size=kwargs.get('total_sample_size'),
-                training_plan=kwargs.get('training_plan')
-            )
-
-        else:
-            agg_params = federated_averaging(model_params_processed, weights_processed)
+        agg_params = federated_averaging(model_params_processed, weights_processed)
 
         return agg_params

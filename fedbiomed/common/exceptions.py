@@ -283,3 +283,9 @@ class FedbiomedSecaggCrypterError(FedbiomedError):
     """
     Secure aggregation encryption error
     """
+
+
+class FedbiomedSecureAggregationError(FedbiomedError):
+    """
+    Secure aggregation error
+    """

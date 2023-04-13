@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation management on the researcher"""
+import importlib
 import uuid
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 import random
+
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.requests import Requests
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
@@ -15,10 +19,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
-
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
 
 
 _CManager = CertificateManager(
@@ -39,7 +40,7 @@ class SecaggContext(ABC):
         """Constructor of the class.
 
         Args:
-            parties: list of parties participating to the secagg context element setup, named
+            parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
@@ -75,17 +76,14 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if environ['RESEARCHER_ID'] != parties[0]:
+        if environ['ID'] != parties[0]:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
             )
 
-        if secagg_id is None:
-            self._secagg_id = 'secagg_' + str(uuid.uuid4())
-        else:
-            self._secagg_id = secagg_id
+        self._secagg_id = secagg_id if secagg_id is not None else 'secagg_' + str(uuid.uuid4())
         self._parties = parties
-        self._researcher_id = environ['RESEARCHER_ID']
+        self._researcher_id = environ['ID']
         self._requests = Requests()
         self._status = False
         self._context = None
@@ -200,10 +198,11 @@ class SecaggContext(ABC):
         context = self._secagg_manager.get(self._secagg_id, self._job_id)
 
         if context is None:
-            context, status = self._payload_create()
+            _, status = self._payload_create()
+            context = self._secagg_manager.get(self._secagg_id, self._job_id)
         else:
             # Need to ensure the read context has compatible parties with this element
-            if (not self._matching_parties(context)):
+            if not self._matching_parties(context):
                 logger.error(
                     f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
                     f"but parties do not match")
@@ -211,7 +210,7 @@ class SecaggContext(ABC):
             else:
                 logger.debug(
                     f"Secagg context for {self._secagg_id} is already existing on researcher "
-                    f"researcher_id='{environ['RESEARCHER_ID']}'")
+                    f"researcher_id='{environ['ID']}'")
                 status = True
 
         return context, status
@@ -234,12 +233,12 @@ class SecaggContext(ABC):
         status = self._secagg_manager.remove(self._secagg_id, self.job_id)
         if status:
             logger.debug(
-                f"Context element successfully deleted for researcher_id='{environ['RESEARCHER_ID']}' "
+                f"Context element successfully deleted for researcher_id='{environ['ID']}' "
                 f"secagg_id='{self._secagg_id}'")
         else:
             logger.error(
                 f"{ErrorNumbers.FB415.value}: No such context element secagg_id={self._secagg_id} "
-                f"on researcher researcher_id='{environ['RESEARCHER_ID']}'")
+                f"on researcher researcher_id='{environ['ID']}'")
 
         return None, status
 
@@ -436,33 +435,47 @@ class SecaggContext(ABC):
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "secagg_id": self._secagg_id,
-            "parties": self._parties,
-            "job_id": self._job_id,
-            "researcher_id": self._researcher_id,
-            "status": self._status,
-            "context": self._context
-            # No need to save self._secagg_manager, value restored when instantiated from breakpoint
+            "arguments": {
+                "secagg_id": self._secagg_id,
+                "parties": self._parties,
+                "job_id": self._job_id,
+
+            },
+            "attributes": {
+                "_status": self._status,
+                "_context": self._context,
+                "_researcher_id": self._researcher_id,
+            }
         }
         return state
 
+    @staticmethod
     def load_state(
-            self,
-            state: Dict[str, Any] = None,
-            **kwargs
-    ) -> None:
+            state: Dict[str, Any]
+    ) -> 'SecaggContext':
+
         """
         Method for loading secagg state from breakpoint state
 
         Args:
             state: The state that will be loaded
         """
-        self._secagg_id = state['secagg_id']
-        self._parties = state['parties']
-        self._job_id = state['job_id']
-        self._researcher_id = state['researcher_id']
-        self._status = state['status']
-        self._context = state['context']
+
+        # Get class
+        cls = getattr(importlib.import_module(state["module"]), state["class"])
+
+        # Validate job id
+        spec = get_method_spec(cls)
+        if 'job_id' in spec:
+            secagg = cls(**state["arguments"])
+        else:
+            state["arguments"].pop('job_id')
+            secagg = cls(**state["arguments"])
+
+        for key, value in state["attributes"].items():
+            setattr(secagg, key, value)
+
+        return secagg
 
 
 class SecaggServkeyContext(SecaggContext):
@@ -474,7 +487,7 @@ class SecaggServkeyContext(SecaggContext):
         """Constructor of the class.
 
         Args:
-            parties: list of parties participating to the secagg context element setup, named
+            parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             job_id: ID of the job to which this secagg context element is attached.
@@ -536,17 +549,18 @@ class SecaggServkeyContext(SecaggContext):
         try:
             with open(output, "r") as file:
                 server_key = file.read()
-                file.close
+                file.close()
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB415.value}: Can not read server key from created after MPC execution. {e}"
             )
 
-        context = {'server_key': server_key.strip()}
+        context = {'server_key': int(server_key.strip())}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.debug(
-            f"Server key successfully created for researcher_id='{environ['RESEARCHER_ID']}' "
+            f"Server key successfully created for researcher_id='{environ['ID']}' "
             f"secagg_id='{self._secagg_id}'")
+
         return context, True
 
 
@@ -593,7 +607,7 @@ class SecaggBiprimeContext(SecaggContext):
         # start dummy payload
         time.sleep(3)
         context = {
-            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'biprime': int(random.randrange(10**12)),   # dummy biprime
             'max_keysize': 0                            # prevent using the dummy biprime for real
         }
         logger.info('Not yet implemented, PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
@@ -602,7 +616,7 @@ class SecaggBiprimeContext(SecaggContext):
         # TODO: add a mode where biprime is restricted for `self._parties`
         self._secagg_manager.add(self._secagg_id, None, context)
         logger.debug(
-            f"Biprime successfully created for researcher_id='{environ['RESEARCHER_ID']}' secagg_id='{self._secagg_id}'")
+            f"Biprime successfully created for researcher_id='{environ['ID']}' secagg_id='{self._secagg_id}'")
         # end dummy payload
 
         return context, True

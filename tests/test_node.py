@@ -548,6 +548,7 @@ class TestNode(NodeTestCase):
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
@@ -604,6 +605,7 @@ class TestNode(NodeTestCase):
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             "command": "train",
             "dataset_id": "dataset_id_1234",
@@ -662,6 +664,7 @@ class TestNode(NodeTestCase):
             'job_id': 'job_id_1234',
             "secagg_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             'researcher_id': resid,
             'dataset_id': 'dataset_id_1234'
@@ -754,6 +757,7 @@ class TestNode(NodeTestCase):
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
@@ -793,6 +797,7 @@ class TestNode(NodeTestCase):
             "command": "train",
             "secagg_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             "dataset_id": "dataset_id_1234"
         }
@@ -833,6 +838,7 @@ class TestNode(NodeTestCase):
             "command": "train",
             "secagg_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             "dataset_id": "dataset_id_1234"
         }
@@ -874,6 +880,7 @@ class TestNode(NodeTestCase):
             "job_id": "job_id_1234",
             "secagg_id": None,
             "secagg_random": None,
+            "secagg_clipping_range": None,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
@@ -1010,6 +1017,7 @@ class TestNode(NodeTestCase):
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
             "secagg_random": 0.95,
+            "secagg_clipping_range": None,
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",

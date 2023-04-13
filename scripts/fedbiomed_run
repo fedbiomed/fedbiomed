@@ -238,7 +238,7 @@ function forward_command_to_python_cli(){
       error "Please provide a command. See fedbiomed_run $COMPONENT -h"
     fi
 
-    source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
+    source "$basedir"/scripts/fedbiomed_environment "$COMPONENT" "$IP_ADDRESS"
 
     # dont write error message in this case, cli already does it
     python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
@@ -450,7 +450,6 @@ case $1 in
 
 
     node)
-
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -507,18 +506,19 @@ case $1 in
             export PARAMS=
         fi
 
-        # Get params starting from second
-        EXTRA_PARAMS=${@:2}
+        # TODO : better test with python module loading attempt and try/except
+#        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
 
         # silently initialize environment before any command
-        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null 2>&1 ; then
+        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS"  >/dev/null 2>&1; then
             echo -e "${RED}ERROR:${NC}"
             echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for node"
             exit 1
         fi
 
-        # TODO : better test with python module loading attempt and try/except
-        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
+        # Get params starting from second
+        EXTRA_PARAMS=${@:2}
+
         if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
