@@ -6,7 +6,7 @@ import os
 import shutil
 
 from unittest.mock import patch, MagicMock
-from fedbiomed.common.utils._config_utils import get_fedbiomed_root, get_component_config, \
+from fedbiomed.common.utils._config_utils import _get_fedbiomed_root, get_component_config, \
     get_component_certificate_from_config, get_all_existing_config_files, get_all_existing_certificates, \
     get_existing_component_db_names
 from fedbiomed.common.exceptions import FedbiomedError
@@ -22,7 +22,7 @@ class TestCommonConfigUtils(unittest.TestCase):
 
     def test_01_common_config_utils_get_fedbiomed_root(self):
         """Test fedbiomed get root """
-        root = get_fedbiomed_root()
+        root = _get_fedbiomed_root()
         self.assertTrue("/fedbiomed" in root)
 
     @patch("fedbiomed.common.utils._config_utils.configparser")
@@ -81,9 +81,7 @@ class TestCommonConfigUtils(unittest.TestCase):
                                         'port': '1234'}
                                  )
 
-    @patch("fedbiomed.common.utils._config_utils.get_fedbiomed_root")
-    def test_03_common_config_utils_get_all_existing_config_files(self,
-                                                                  mock_fedbiomed_root):
+    def test_03_common_config_utils_get_all_existing_config_files(self):
         test_dir = tempfile.mkdtemp()
         os.mkdir(os.path.join(test_dir, "etc"))
 
@@ -92,8 +90,8 @@ class TestCommonConfigUtils(unittest.TestCase):
             file.write("Hello world")
             file.close()
 
-        mock_fedbiomed_root.return_value = test_dir
-        files = get_all_existing_config_files()
+        with patch('fedbiomed.common.utils._config_utils.ROOT_DIR', test_dir):
+            files = get_all_existing_config_files()
 
         self.assertListEqual(files, [file_])
 
