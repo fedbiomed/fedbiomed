@@ -564,6 +564,7 @@ RUN_NODE=0
 RUN_RESEARCHER=0
 RUN_ARGS=""
 MPSPDZ_COMMIT="$(cd $basedir/modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')"
+MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ $basedir/.gitmodules | grep 'url =' | awk '{ print $3 }')"
 
 #
 check_prerequisite

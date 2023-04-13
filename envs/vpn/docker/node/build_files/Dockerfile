@@ -5,6 +5,7 @@ ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
 ARG MPSPDZ_COMMIT
+ARG MPSPDZ_URL
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -14,6 +15,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 ENV MPSPDZ_COMMIT=${MPSPDZ_COMMIT}
+ENV MPSPDZ_URL=${MPSPDZ_URL}
 
 RUN apt-get update && apt-get install -y apt-utils wget git
 RUN apt-get -y install rsync
@@ -63,6 +65,7 @@ RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml && \
 # need clean/purge to be in the same command line to shrink image
 
 # Initialize secure aggregation
+# passing MPSPDZ_COMMIT and MPSPDZ_URL variables to the script
 RUN /fedbiomed/scripts/fedbiomed_configure_secagg node clone
 
 # transmit build-time values to running container

@@ -59,10 +59,10 @@ if [ "$2" != "clone" ] ; then
 else
   # Clone repository and point to correct commit 
   # Should be used only in case there is no submodule defined for MP-SPDZ
-  if [[ -z "$(ls -A $mpspdz_basedir)" ]] ; then
+  if [ -n "$MPSPDZ_URL" -a -z "$(ls -A $mpspdz_basedir)" ] ; then
     echo -e "${BOLD}Cloning MP-SPDZ repository${NC}\n"
     cd "$mpspdz_basedir/.."
-    if ! git clone https://github.com/data61/MP-SPDZ.git ; then
+    if ! git clone $MPSPDZ_URL ; then
       echo -e "${RED}ERROR:${NC}"
       echo -e "${BOLD} Please make sure that $mpspdz_basedir is empty directory."
       exit 1
@@ -72,7 +72,7 @@ else
     cd "$mpspdz_basedir"
     if ! git checkout "$MPSPDZ_COMMIT" ; then
       echo -e "${RED}ERROR:${NC}"
-      echo -e "${BOLD} Please make sure that '$MPSPDZ_COMMIT' is an existing commit for MP-SPDZ."
+      echo -e "${BOLD} Please make sure that MP-SPDZ is already cloned and '$MPSPDZ_COMMIT' is an existing commit."
       exit 1    
     fi
   fi
