@@ -357,7 +357,8 @@ containers_build() {
         echo "- stopping '$i' container"
         docker-compose rm -sf $i >/dev/null
         echo "- building '$i' container"
-        MPSPDZ_COMMIT=$MPSPDZ_COMMIT CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+            CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
             docker-compose build $i
     done
@@ -438,7 +439,8 @@ containers_start() {
     # if image is not build `docker-compose up ` will automatically build it
 
     # start vpnserver first
-    MPSPDZ_COMMIT=$MPSPDZ_COMMIT CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+    MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
         CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
         docker-compose up -d vpnserver
 
@@ -459,7 +461,8 @@ containers_start() {
 
         echo "- starting $i container"
         docker-compose rm -sf $CONTAINER >/dev/null
-        MPSPDZ_COMMIT=$MPSPDZ_COMMIT CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+            CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
             docker-compose up -d $CONTAINER
 

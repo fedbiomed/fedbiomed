@@ -1,5 +1,10 @@
 FROM fedbiomed/vpn-basenode
 
+# MP-SPDZ negotiation for node1
+EXPOSE 14001
+# MP-SPDZ negotiation for node2
+EXPOSE 14002
+
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP

@@ -4,6 +4,8 @@ FROM fedbiomed/vpn-base
 EXPOSE 8888
 # tensorboard via socat proxy, should be exposed as 6006
 EXPOSE 6007
+# MP-SPDZ negotiation
+EXPOSE 14000
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
