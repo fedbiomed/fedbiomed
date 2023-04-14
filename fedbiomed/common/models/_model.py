@@ -15,10 +15,10 @@ from fedbiomed.common.logger import logger
 # Generic type variables for annotations: specify types that are abstract
 # at this level, but have to be coherent when defined by children classes.
 _MT = TypeVar("_MT")  # model type
-_DT = TypeVar("_DT")  # data array type
+DT = TypeVar("DT")  # data array type
 
 
-class Model(Generic[_MT, _DT], metaclass=ABCMeta):
+class Model(Generic[_MT, DT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
@@ -88,7 +88,7 @@ class Model(Generic[_MT, _DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def apply_updates(self, updates: Dict[str, _DT]):
+    def apply_updates(self, updates: Dict[str, DT]):
         """Applies updates to the model.
 
         Args:
@@ -96,7 +96,7 @@ class Model(Generic[_MT, _DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self) -> Dict[str, _DT]:
+    def get_weights(self) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -109,7 +109,7 @@ class Model(Generic[_MT, _DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def set_weights(self, weights: Dict[str, _DT]) -> None:
+    def set_weights(self, weights: Dict[str, DT]) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
@@ -118,7 +118,7 @@ class Model(Generic[_MT, _DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_gradients(self) -> Dict[str, _DT]:
+    def get_gradients(self) -> Dict[str, DT]:
         """Return computed gradients attached to the model.
 
         Returns:
