@@ -49,6 +49,7 @@ COPY ./envs/vpn/docker/researcher/build_files/entrypoint*.bash /
 RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
+COPY envs/common/default_biprimes /fedbiomed/envs/common/default_biprimes
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
