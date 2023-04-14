@@ -9,6 +9,7 @@ import msgpack
 import numpy as np
 import torch
 
+from math import ceil
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 
@@ -91,6 +92,12 @@ class Serializer:
         The counterpart static method `unpack` may be used to recover
         the input objects from their encoded data.
         """
+        # Big integer
+        if isinstance(obj, int):
+            return {"__type__": "int", "value": obj.to_bytes(
+                length=ceil(obj.bit_length()/8),
+                byteorder="big")}
+
         if isinstance(obj, tuple):
             return {"__type__": "tuple", "value": list(obj)}
         if isinstance(obj, np.ndarray):
@@ -104,6 +111,7 @@ class Serializer:
             spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "torch.Tensor", "value": spec}
         # Raise on unsupported types.
+
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
         )
@@ -116,6 +124,8 @@ class Serializer:
         objtype = obj["__type__"]
         if objtype == "tuple":
             return tuple(obj["value"])
+        if objtype == "int":
+            return int.from_bytes(obj["value"], byteorder="big")
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
             return np.frombuffer(data, dtype=dtype).reshape(shape).copy()

@@ -234,7 +234,9 @@ class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         ```
         """
         if isinstance(self._model, SkLearnModel):
-            return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)   
+            return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)
+        else:
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
 
 # class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
 #     """Optimizer wrapper for declearn optimizers applied to pytorch models

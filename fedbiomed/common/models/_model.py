@@ -4,8 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, Type, TypeVar
-
+from typing import Any, ClassVar, Dict, Generic, Type, TypeVar, List
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
@@ -127,6 +126,14 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
+    def flatten(self) -> List[float]:
+        """Flattens model weights
+
+        Returns:
+            List of model weights as float.
+        """
+
+    @abstractmethod
     def export(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
 
@@ -185,4 +192,23 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}: Got an object with type "
                 f"'{type(params)}' while expecting a dict."
+            )
+
+    @abstractmethod
+    def unflatten(
+            self,
+            weights_vector: List[float]
+    ) -> None:
+        """Revert flatten model weights back model-dict form.
+
+        Args:
+            weights_vector: Vectorized model weights to convert dict
+
+        Returns:
+            Model dictionary
+        """
+
+        if not isinstance(weights_vector, list) or not all([isinstance(w, float) for w in weights_vector]):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
             )

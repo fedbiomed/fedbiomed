@@ -5,17 +5,29 @@
 
 from enum import Enum
 
-"""Directory/folder name where variable files are saved"""
+CONFIG_FOLDER_NAME = "etc"
+"""Directory/folder name where configurations are saved"""
+
+CACHE_FOLDER_NAME = "cache"
+"""Directory/folder name where cache files are saved"""
+
+TMP_FOLDER_NAME = "tmp"
+"""Directory/folder name where temporary files are saved"""
+
+TENSORBOARD_FOLDER_NAME = "runs"
+"""Directory/folder name where tensorboard logs are saved"""
+
 VAR_FOLDER_NAME = "var"
+"""Directory/folder name where variable files are saved"""
 
-"""Directory/folder name where DB files are saved"""
 DB_FOLDER_NAME = VAR_FOLDER_NAME
+"""Directory/folder name where DB files are saved"""
 
-"""Prefix for database files name"""
 DB_PREFIX = 'db_'
+"""Prefix for database files name"""
 
-"""Prefix for node ID"""
 NODE_PREFIX = 'node_'
+"""Prefix for node ID"""
 
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
@@ -175,6 +187,12 @@ class SecaggElementTypes(_BaseEnum):
     BIPRIME: int = 1
 
 
+class VEParameters:
+    CLIPPING_RANGE: int = 3
+    TARGET_RANGE: int = 10000
+    KEY_SIZE: int = 2048
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
@@ -236,7 +254,7 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
-
+    FB417 = "FB417: Secure aggregation error"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
@@ -270,6 +288,7 @@ class ErrorNumbers(_BaseEnum):
     FB621_b = "FB621: Fed-BioMed optimizer error"
     FB622 = "FB622: Model error"
     FB623 = "FB623: Secure aggregation database error"
+    FB624 = "FB620: Secure aggregation crypter error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

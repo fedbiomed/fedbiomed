@@ -20,6 +20,7 @@ from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
+from fedbiomed.common.exceptions import FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.constants import DatasetTypes
@@ -82,7 +83,8 @@ class TestRound(NodeTestCase):
                         training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
-                        training=True)
+                        training=True
+                        )
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
@@ -222,6 +224,7 @@ class TestRound(NodeTestCase):
             'model_weights': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
+            'encrypted': False,
         }
 
         # define context managers for each model method
@@ -714,6 +717,159 @@ class TestRound(NodeTestCase):
         self.assertEqual(param_path, 'my_model')
         self.assertEqual(msg, '')
 
+    @patch("fedbiomed.node.round.BPrimeManager.get")
+    @patch("fedbiomed.node.round.SKManager.get")
+    def test_round_12_configure_secagg(self,
+                                       servkey_get,
+                                       biprime_get
+                                       ):
+        """Tests round secure aggregation configuration"""
+
+        servkey_get.return_value = {"context": {}}
+        biprime_get.return_value = {"context": {}}
+
+        environ["SECURE_AGGREGATION"] = True
+
+        result = self.r1._configure_secagg(
+            secagg_random=1.5,
+            secagg_biprime_id='123',
+            secagg_servkey_id='123'
+        )
+        self.assertTrue(result)
+
+        result = self.r1._configure_secagg(
+            secagg_random=None,
+            secagg_biprime_id=None,
+            secagg_servkey_id=None
+        )
+        self.assertFalse(result)
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id="1234",
+                secagg_servkey_id=None)
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id="1234",
+                secagg_servkey_id="1223")
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id=None,
+                secagg_servkey_id="1223")
+
+        with self.assertRaises(FedbiomedRoundError):
+            servkey_get.return_value = None
+            biprime_get.return_value = {"context": {}}
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+        with self.assertRaises(FedbiomedRoundError):
+            servkey_get.return_value = {"context": {}}
+            biprime_get.return_value = None
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+        # If node forces using secagg
+        environ["SECURE_AGGREGATION"] = True
+        environ["FORCE_SECURE_AGGREGATION"] = True
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id=None,
+                secagg_servkey_id=None
+            )
+
+        # If secagg is not activated
+        environ["SECURE_AGGREGATION"] = False
+        environ["FORCE_SECURE_AGGREGATION"] = False
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+
+
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.serializer.Serializer.load')
+    @patch('importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    @patch("fedbiomed.node.round.BPrimeManager.get")
+    @patch("fedbiomed.node.round.SKManager.get")
+    def test_round_13_run_model_training_secagg(self,
+                                                servkey_get,
+                                                biprime_get,
+                                                uuid_patch,
+                                                repository_download_patch,
+                                                tp_security_manager_patch,
+                                                import_module_patch,
+                                                serialize_load_patch,
+                                                repository_upload_patch,
+                                                node_msg_patch,
+                                                mock_split_test_train_data):
+        """tests correct execution and message parameters.
+        Besides  tests the training time.
+         """
+        # Tests details:
+        # - Test 1: normal case scenario where no model_kwargs has been passed during model instantiation
+        # - Test 2: normal case scenario where model_kwargs has been passed when during model instantiation
+
+        FakeModel.SLEEPING_TIME = 1
+
+        # initalisation of side effect function
+
+        def repository_side_effect(training_plan_url: str, model_name: str):
+            return 200, 'my_python_model'
+
+        class M(FakeModel):
+            def after_training_params(self, flatten):
+                return [0.1,0.2,0.3,0.4,0.5]
+
+        class FakeModule:
+            MyTrainingPlan = M
+            another_training_plan = M
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.side_effect = repository_side_effect
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
+        import_module_patch.return_value = FakeModule
+        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
+        node_msg_patch.side_effect = TestRound.node_msg_side_effect
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+
+        # Secagg configuration
+        servkey_get.return_value = {"parties": ["r-1", "n-1", "n-2"],  "context" : {"server_key": 123445}}
+        biprime_get.return_value = {"parties": ["r-1", "n-1", "n-2"], "context" : {"biprime": 123445}}
+        environ["SECURE_AGGREGATION"] = True
+        environ["FORCE_SECURE_AGGREGATION"] = True
+
+        msg_test1 = self.r1.run_model_training(secagg_arguments={
+            'secagg_random': 1.12,
+            'secagg_servkey_id': '1234',
+            'secagg_biprime_id': '1234',
+        })
+
+        # Back to normal
+        environ["SECURE_AGGREGATION"] = False
+        environ["FORCE_SECURE_AGGREGATION"] = False
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

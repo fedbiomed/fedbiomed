@@ -104,7 +104,7 @@ class TestTorchnn(unittest.TestCase):
         self.patcher.start()
 
         self.TrainingPlan = TrainingPlan
-        self.params = {'one': 1, '2': 'two'}
+        self.params = {'conv.1': 1, 'conv.2': 'two'}
         self.tmpdir = '.'
 
     # after the tests

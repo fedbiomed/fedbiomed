@@ -7,7 +7,7 @@ import subprocess
 from typing import Tuple
 
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
-from fedbiomed.common.utils import get_fedbiomed_root
+from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 
@@ -32,7 +32,7 @@ class MPCController:
         """
 
         # Get root directory of fedbiomed
-        self._root = get_fedbiomed_root()
+        self._root = ROOT_DIR
         self._component_type = component_type
         mpc_controller_id = str(uuid.uuid4())
 
@@ -59,7 +59,6 @@ class MPCController:
                 raise FedbiomedMPCControllerError(
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
                 )
-
 
     @property
     def mpc_data_dir(self) -> str:
@@ -149,12 +148,11 @@ class MPCController:
             process.wait()
             status = True if process.returncode == 0 else False
             output, _ = process.communicate()
-            output = str(output)
-            logger.debug(f"MPC protocol output: {output}")
+            logger.debug("MPC protocol output: " + f"\n {output.decode('utf-8')}".replace('\n', '\n\t\t\t\t\t\t'))
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")
             raise FedbiomedMPCControllerError(
                 f"{ErrorNumbers.FB620.value}: Unexpected error while executing MPC protocol. {e}"
             )
 
-        return status, output
+        return status, output.decode('utf-8')

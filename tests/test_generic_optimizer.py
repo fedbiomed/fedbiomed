@@ -216,10 +216,12 @@ class TestDeclearnOptimizer(unittest.TestCase):
             YogiModule()]
         self.regularizers = [FedProxRegularizer(), LassoRegularizer(), RidgeRegularizer()]
         
-        nb_tests = 10
+        nb_tests = 10  # number of time the following test will be executed
+        
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
                 for _ in range(nb_tests):
+                    # test DeclearnOptimizer with random modules and regularizers 
                     selected_modules = random.sample(self.modules, random.randint(0, len(self.modules)))
                     selected_reg = random.sample(self.regularizers, random.randint(0, len(self.regularizers)))
 
@@ -274,7 +276,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
     def test_torchbasedoptimizer_03_step(self):
-        # check that declearn based and torch based give the same result
+        # check that declearn and torch optimizers give the same result
         declearn_optim = FedOptimizer(lr=1)
         torch_optim_type = torch.optim.SGD
 
@@ -314,6 +316,16 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             for (l, dec_optim_val), (l, torch_optim_val) in zip(declearn_optim_wrapper._model.get_weights().items(),
                                                                  native_torch_optim_wrapper._model.get_weights().items()):
                 self.assertTrue(torch.isclose(dec_optim_val, torch_optim_val).all())
+
+    def test_torchbasedoptimizer_04_invalid_methods(self):
+        declearn_optim = FedOptimizer(lr=.1)
+
+        for model in self._fed_models:
+            # initialisation of declearn optimizer wrapper
+            declearn_optim_wrapper = DeclearnOptimizer(model, declearn_optim)
+            with self.assertRaises(FedbiomedOptimizerError):
+                with declearn_optim_wrapper.optimizer_processing():
+                    pass
 
 
 class TestSklearnBasedOptimizer(unittest.TestCase):

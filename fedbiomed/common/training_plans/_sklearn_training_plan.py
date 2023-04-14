@@ -15,7 +15,6 @@ from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
-from declearn.optimizer import Optimizer as DeclearnOptimizer
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.data import NPDataLoader
@@ -54,7 +53,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         outside of Fed-BioMed.
     """
 
-    _model_cls: Type[BaseEstimator]        # wrapped model class
+    _model_cls: Type[BaseEstimator]  # wrapped model class
     _model_dep: Tuple[str, ...] = tuple()  # model-specific dependencies
 
     def __init__(self) -> None:
@@ -80,7 +79,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
-        ) -> None:
+    ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -128,7 +127,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self,
             train_data_loader: Union[DataLoader, NPDataLoader, None],
             test_data_loader: Union[DataLoader, NPDataLoader, None]
-        ) -> None:
+    ) -> None:
         """Sets data loaders
 
         Args:
@@ -249,7 +248,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self,
             history_monitor: Optional['HistoryMonitor'] = None,
             node_args: Optional[Dict[str, Any]] = None
-        ) -> None:
+    ) -> None:
         """Training routine, to be called once per round.
 
         Args:
@@ -264,6 +263,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run preprocesses
         self._preprocess()
+
         if not isinstance(self.training_data_loader, NPDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
@@ -294,7 +294,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def _training_routine(
             self,
             history_monitor: Optional['HistoryMonitor'] = None
-        ) -> None:
+    ) -> None:
         """Model-specific training routine backend.
 
         Args:
@@ -312,7 +312,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
             before_train: bool
-        ) -> None:
+    ) -> None:
         """Evaluation routine, to be called once per round.
 
         !!! info "Note"

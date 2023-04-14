@@ -83,6 +83,15 @@ class NodeEnviron(Environ):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
+        secure_aggregation = self.from_config('security', 'secure_aggregation')
+        self._values["SECURE_AGGREGATION"] = os.getenv('SECURE_AGGREGATION',
+                                                       secure_aggregation).lower() in ('true', '1', 't', True)
+
+        force_secure_aggregation = self.from_config('security', 'force_secure_aggregation')
+        self._values["FORCE_SECURE_AGGREGATION"] = os.getenv(
+            'FORCE_SECURE_AGGREGATION',
+            force_secure_aggregation).lower() in ('true', '1', 't', True)
+
         self._values['EDITOR'] = os.getenv('EDITOR')
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
@@ -115,14 +124,12 @@ class NodeEnviron(Environ):
         }
 
         # Security variables
-        # Default hashing algorithm is SHA256
-        allow_default_training_plans = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True)
-        training_plan_approval = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False)
-
         self._cfg['security'] = {
             'hashing_algorithm': HashingAlgorithms.SHA256.value,
-            'allow_default_training_plans': allow_default_training_plans,
-            'training_plan_approval': training_plan_approval
+            'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
+            'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
+            'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
+            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
     def info(self):

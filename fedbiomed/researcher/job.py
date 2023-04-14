@@ -157,6 +157,7 @@ class Job:
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
+
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._training_plan_file)
 
@@ -344,14 +345,15 @@ class Job:
         return args_thr_msg
 
     def start_nodes_training_round(self,
-                                   round: int,
+                                   round_: int,
                                    aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
                                    aggregator_args_thr_files: Dict[str, Dict[str, Any]],
+                                   secagg_arguments: Union[Dict, None] = None,
                                    do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
-            round: current number of round the algorithm is performing (a round is considered to be all the
+            round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
             aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
                 strategy, useful to transfer some data when it's required by am aggregator. First key should be the
@@ -359,13 +361,24 @@ class Job:
             aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
                 via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
                 aggregator_args_thr_msg .
+            secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
+
+        # Assign empty dict to secagg arguments if it is None
+        if secagg_arguments is None:
+            secagg_arguments = {}
+
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
                    'training_args': self._training_args.dict(),
                    'training': do_training,
                    'model_args': self._model_args,
+                   'round': round_,
+                   'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
+                   'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
+                   'secagg_random': secagg_arguments.get('secagg_random'),
+                   'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
                    'command': 'train',
                    'aggregator_args': {}}
 
@@ -388,18 +401,20 @@ class Job:
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
-                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args' and logger.level != "DEBUG" }
+                msg_print = {key: value for key, value in msg.items()
+                             if key != 'aggregator_args' and logger.level != "DEBUG" }
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: '
+                            f'{str(msg_print)} '
                             f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round] = Responses([])
-        while self.waiting_for_nodes(self._training_replies[round]):
+        self._training_replies[round_] = Responses([])
+        while self.waiting_for_nodes(self._training_replies[round_]):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             # models_done = self._reqs.get_responses(look_for_commands=['train'])
@@ -444,6 +459,7 @@ class Job:
                     results = Serializer.load(params_path)
                     params = results["model_weights"]
                     optimizer_args = results.get("optimizer_args")
+                    encryption_factor = results.get('encryption_factor', None)
                 else:
                     params_path = None
                     params = None
@@ -461,9 +477,10 @@ class Job:
                                'params': params,
                                'optimizer_args': optimizer_args,
                                'sample_size': m["sample_size"],
+                               'encryption_factor': encryption_factor,
                                'timing': timing})
 
-                self._training_replies[round].append(r)
+                self._training_replies[round_].append(r)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -481,6 +498,14 @@ class Job:
         a pre-exported dump file.
 
         Args:
+            params: data structure containing the new version of the aggregated parameters for this job,
+            defaults to empty dictionary {}
+            filename: path to the file containing the new version of the aggregated parameters for this job,
+            defaults to None.
+            is_model_params: whether params are models parameters or another value that must be sent
+            through file exchange system. Defaults to True (argument are model parameters).
+            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
+
             params: Optional dict storing new aggregated parameters that are to
                 be assigned to this job's training plan's model.
                 If None, export and upload the current model parameters.

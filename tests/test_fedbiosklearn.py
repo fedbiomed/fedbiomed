@@ -18,7 +18,6 @@ import logging
 import numpy as np
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
-from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer
 from unittest.mock import MagicMock, create_autospec, patch
 
 from sklearn.linear_model import SGDClassifier, Perceptron
@@ -29,9 +28,11 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
 from fedbiomed.common.models import SkLearnModel, BaseSkLearnModel, SGDClassifierSKLearnModel
+
 
 
 
@@ -443,8 +444,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # Test that coefs are not updated.
             # Cannot test intercept because classes are internally converted to [-1, 1], and therefore intercept_
             # is updated even after a single iteration
-
-            self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
+            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
             self.assertEqual(training_plan._model.model.n_iter_, 1)
 
@@ -452,7 +452,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             loss = training_plan._train_over_batch(inputs, target, report=False)
             self.assertTrue(np.isnan(loss),
                             f"{training_plan.__class__.__name__} loss should be NaN")
-            self.assertTrue(np.all(training_plan.after_training_params()['coef_'] == 0),
+            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
             self.assertEqual(training_plan._model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
 

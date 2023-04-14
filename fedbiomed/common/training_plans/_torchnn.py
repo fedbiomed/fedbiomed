@@ -4,7 +4,8 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional, OrderedDict, Union, Iterator
+
+from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
 
 from fedbiomed.common.models import TorchModel
@@ -72,9 +73,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Differential privacy support
         self._dp_controller: Optional[DPController] = None
-
-        self._model: Optional[TorchModel] = None
-        self._optimizer: Optional[BaseOptimizer] = None
+        self._optimizer: Union[BaseOptimizer, None] = None
+        self._model: Union[TorchModel, None] = None
 
         self._training_args: Optional[dict] = None
         self._model_args: Optional[dict] = None
@@ -482,13 +482,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     logger.debug('Train {}| '
                                  'Iteration {}/{} | '
                                  'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
-                                    f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                                    num_iter,
-                                    num_iter_max,
-                                    num_samples,
-                                    num_samples_max,
-                                    100. * num_iter / num_iter_max,
-                                    loss.item()))
+                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                        num_iter,
+                        num_iter_max,
+                        num_samples,
+                        num_samples_max,
+                        100. * num_iter / num_iter_max,
+                        loss.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
@@ -637,7 +637,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     )
                 self.correction_state = aggregator_arg
 
-    def after_training_params(self) -> Dict[str, torch.Tensor]:
+    def after_training_params(self, flatten: bool = False) -> Dict[str, torch.Tensor]:
         """Return the wrapped model's parameters for aggregation.
 
         This method returns a dict containing parameters that need to be
@@ -664,6 +664,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
+
+        if flatten:
+            params = self._model.flatten()
+
         return params
 
     def __norm_l2(self) -> float:

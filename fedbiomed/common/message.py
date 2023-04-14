@@ -582,6 +582,11 @@ class TrainRequest(Message):
     training_plan_url: str
     training_plan_class: str
     command: str
+    secagg_servkey_id: (str, type(None))
+    secagg_biprime_id: (str, type(None))
+    secagg_random: (float, type(None))
+    secagg_clipping_range: (int, type(None))
+    round: int
     aggregator_args: dict
 
 

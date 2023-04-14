@@ -230,7 +230,7 @@ class TestSkLearnModel(unittest.TestCase):
 
                     # checks
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
+                    self.assertEqual(model.model.eta0, 1)
                     for layer in model.param_list:
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
@@ -268,8 +268,8 @@ class TestSkLearnModel(unittest.TestCase):
                 init_val = init_weights[key]
                 self.assertFalse(np.any(np.isclose(val, init_val)))
 
-
     def test_sklearnmodel_09_get_weights_failures(self):
+
         for skmodel in self.models:
             model = SkLearnModel(skmodel)
             with self.assertRaises(FedbiomedModelError):
@@ -281,7 +281,32 @@ class TestSkLearnModel(unittest.TestCase):
                 # should raise exception complaining about non reachable model layer
                 model.get_weights()
 
-    def test_sklearnmodel_10_set_weights(self):
+    def test_sklearn_model_10_flatten_and_unflatten(self):
+        """Tests flatten and unflatten methods of Sklearn methods"""
+
+        inputs = np.array([[1, 2], [1, 1], [0, 1]])
+        target = np.array([0, 2, 1])
+        for model in self.models:
+            model = SkLearnModel(model)
+            model.set_init_params(model_args={'n_classes': 3, 'n_features': 2})
+            model.model.partial_fit(inputs, target)
+            coef = model.model.coef_.astype(float).flatten()
+            intercepts = model.model.intercept_.astype(float).flatten()
+            flatten = model.flatten()
+
+            self.assertListEqual(flatten, [*intercepts, *coef])
+
+            unflatten = model.unflatten(flatten)
+            self.assertListEqual(unflatten["coef_"].tolist(), model.model.coef_.tolist())
+            self.assertListEqual(unflatten["intercept_"].tolist(), model.model.intercept_.tolist())
+
+            with self.assertRaises(FedbiomedModelError):
+                model.unflatten({"un-sported-type": "oopps"})
+
+            with self.assertRaises(FedbiomedModelError):
+                model.unflatten(["not-float-list"])
+
+    def test_sklearnmodel_11_set_weights(self):
         """Test that 'SkLearnModel.set_weights' works properly."""
         for skmodel in self.models:
             # Instantiate a model, initialize it and create random weights.
@@ -400,9 +425,9 @@ class TestSklearnClassification(unittest.TestCase):
         model.disable_internal_optimizer()
 
         # checks
-        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
-        self.assertEqual(model.default_lr_init, model.model.eta0)
-        self.assertEqual(model.default_lr, model.model.learning_rate)
+
+        self.assertEqual(model._null_optim_params['eta0'], model.model.eta0)
+        self.assertEqual(model._null_optim_params['learning_rate'], model.model.learning_rate)
 
 
 class TestSkLearnRegressorModel(unittest.TestCase):
@@ -418,10 +443,8 @@ class TestSkLearnRegressorModel(unittest.TestCase):
         model.disable_internal_optimizer()
 
         # checks
-        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
-        self.assertEqual(model.default_lr_init, model.model.eta0)
-        self.assertEqual(model.default_lr, model.model.learning_rate)
-
+        self.assertEqual(model._null_optim_params['eta0'], model.model.eta0)
+        self.assertEqual(model._null_optim_params['learning_rate'], model.model.learning_rate)
 
 
 class TestTorchModel(unittest.TestCase):
@@ -585,6 +608,29 @@ class TestTorchModel(unittest.TestCase):
         for key, wgt in declearn_optimized_model_weights.items():
             self.assertTrue(key in self.model.init_params)
             self.assertFalse(torch.all(wgt == self.model.init_params[key]))
+
+    def test_torch_model_9_flatten_and_unflatten(self):
+        """Tests flatten and unflatten methods of Sklearn methods"""
+
+        # Flatten model parameters
+        flatten = self.model.flatten()
+
+        weights = self.model.get_weights()
+
+        w = weights["weight"].flatten().tolist()
+        b = weights["bias"].flatten().tolist()
+        self.assertListEqual(flatten, [*w, *b])
+
+        unflatten = dict(self.model.unflatten(flatten))
+        self.assertListEqual(unflatten["weight"].tolist(), weights["weight"].tolist())
+        self.assertListEqual(unflatten["bias"].tolist(), weights["bias"].tolist())
+
+        # Test invalid argument types
+        with self.assertRaises(FedbiomedModelError):
+            self.model.unflatten({"un-sported-type": "oopps"})
+
+        with self.assertRaises(FedbiomedModelError):
+            self.model.unflatten(["not-float-list"])
 
     def test_torchmodel_09_export(self):
         """Test that 'TorchModel.export' works properly."""

@@ -96,13 +96,11 @@ class TestCommonCLI(unittest.TestCase):
 
     @patch("fedbiomed.common.cli.get_existing_component_db_names")
     @patch("fedbiomed.common.cli.get_all_existing_certificates")
-    @patch("fedbiomed.common.cli.get_fedbiomed_root")
     @patch("fedbiomed.common.cli.CertificateManager.insert")
     @patch("fedbiomed.common.cli.CommonCLI.error")
     def test_07_common_cli_create_magic_dev_environment(self,
                                                         mock_cm_error,
                                                         mock_cm_insert,
-                                                        mock_get_fedbiomed_root,
                                                         mock_get_all_certificates,
                                                         mock_get_components_db_names):
         mock_get_components_db_names.return_value = {"researcher": "db-researcher",
@@ -134,23 +132,24 @@ class TestCommonCLI(unittest.TestCase):
         ]
 
         mock_get_all_certificates.return_value = certificates
-        mock_get_fedbiomed_root.return_value = "path/to/root"
 
-        self.cli._create_magic_dev_environment()
+        with patch("fedbiomed.common.cli.ROOT_DIR", 'path/to/root'):
 
-        self.assertEqual(self.mock_set_db.call_count, 3)
-
-        self.assertEqual(mock_cm_insert.call_args_list[0].kwargs, {**certificates[1], "upsert": True})
-        self.assertEqual(mock_cm_insert.call_args_list[1].kwargs, {**certificates[2], "upsert": True})
-
-        mock_cm_insert.side_effect = FedbiomedError
-        self.cli._create_magic_dev_environment()
-        self.assertEqual(mock_cm_error.call_count, 6)
-
-        mock_get_all_certificates.return_value = ["test", "test"]
-        with patch('builtins.print') as mock_print:
             self.cli._create_magic_dev_environment()
-            self.assertEqual(mock_print.call_count, 2)
+
+            self.assertEqual(self.mock_set_db.call_count, 3)
+
+            self.assertEqual(mock_cm_insert.call_args_list[0].kwargs, {**certificates[1], "upsert": True})
+            self.assertEqual(mock_cm_insert.call_args_list[1].kwargs, {**certificates[2], "upsert": True})
+
+            mock_cm_insert.side_effect = FedbiomedError
+            self.cli._create_magic_dev_environment()
+            self.assertEqual(mock_cm_error.call_count, 6)
+
+            mock_get_all_certificates.return_value = ["test", "test"]
+            with patch('builtins.print') as mock_print:
+                self.cli._create_magic_dev_environment()
+                self.assertEqual(mock_print.call_count, 2)
 
     @patch('fedbiomed.common.cli.SecaggBiprimeManager')
     @patch("builtins.print")
