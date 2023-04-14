@@ -294,7 +294,7 @@ containers_status() {
     RUNNING_CONTAINERS=()
     for i in ${ONLY_CONTAINERS[@]}
     do
-        status=$(docker ps | grep fedbiomed/vpn-$i)
+        status=$(docker ps | grep fedbiomed-vpn-$i)
         if [ -z "$status" ]; then
             echo "- container $i is NOT running"
         else
