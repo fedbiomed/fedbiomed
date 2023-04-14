@@ -16,14 +16,18 @@ from fedbiomed.common.exceptions import FedbiomedOptimizerError
 
 
 class Optimizer:
-    """Optimizer class, interfacing the declearn one to provide with a modular SGD-core algorithm."""
+    """Optimizer class with a declearn-backed modular SGD-core algorithm."""
 
     def __init__(
         self,
         lr: float,
         decay: float = 0.0,
-        modules: Optional[Sequence[Union[OptiModule, str, Tuple[str, Dict[str, Any]]]]] = None,
-        regularizers: Optional[Sequence[Union[Regularizer, str, Tuple[str, Dict[str, Any]]]]] = None,
+        modules: Optional[
+            Sequence[Union[OptiModule, str, Tuple[str, Dict[str, Any]]]]
+        ] = None,
+        regularizers: Optional[
+            Sequence[Union[Regularizer, str, Tuple[str, Dict[str, Any]]]]
+        ] = None,
     ) -> None:
         """Instantiate the declearn-issued gradient-descent optimizer.
 
@@ -83,7 +87,8 @@ class Optimizer:
                 needs to be wrapped.
 
         Returns:
-            Fed-BioMed `Optimizer` instance wrapping a copy of the input optimizer.
+            Fed-BioMed `Optimizer` instance wrapping a copy of the input
+                declearn optimizer.
         """
         config = declearn_optimizer.get_config()
         optim = cls(
@@ -129,9 +134,9 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
-
+        # This code mostly replicates that of
+        # `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
         try:
-            # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
             # Add loss-regularization terms' derivatives to the raw gradients.
             for reg in self._optimizer.regularizers:
                 grads = reg.run(grads, weights)
@@ -151,12 +156,19 @@ class Optimizer:
             ) from exc
 
     def get_aux(self) -> Dict[str, Dict[str, Any]]:
-        """Return auxiliary variables that need to be shared between the nodes and the researcher.
+        """Return auxiliary variables that need to be shared across network.
 
         Returns:
             Aux-var dict that associates `module.collect_aux_var()` values to
                 `module.name` keys for each and every module plugged in this
                 Optimizer that has some auxiliary variables to share.
+
+        !!! info "Note"
+            "Auxiliary variables" are information that needs to be shared
+            between the nodes and the researcher between training rounds, to
+            synchronize some optimizer plug-ins that work by pair. Their
+            production via this method can have internal side effects;
+            `get_aux` should therefore be called sparingly.
         """
         try:
             return self._optimizer.collect_aux_var()
@@ -179,6 +191,13 @@ class Optimizer:
             FedbiomedOptimizerError: If a key from `aux_var` does not match the
                 name of any module plugged in this optimizer (i.e. if received
                 variables cannot be mapped to a destinatory module).
+
+        !!! info "Note"
+            "Auxiliary variables" are information that is shared between the
+            nodes and researcher between training rounds, to synchronize some
+            optimizer plug-ins that work by pair. The inputs to this method are
+            not simply stored by the Optimizer, but are processed into internal
+            side effects; this method should therefore be called sparingly.
         """
         try:
             self._optimizer.process_aux_var(aux)
