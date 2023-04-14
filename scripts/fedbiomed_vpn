@@ -411,8 +411,8 @@ containers_configure() {
             mqtt)       single_container_configure mqtt management ;;
             restful)    single_container_configure restful management ;;
             researcher) single_container_configure researcher1 researcher ;;
-            node)       single_container_configure node1 node ;;
-            node2)      single_container_configure node2 node ;;
+            node)       single_container_configure NODETAG node ;;
+            node2)      single_container_configure NODE2TAG node ;;
             *)  ;;
         esac
     done
@@ -482,14 +482,14 @@ containers_start() {
             node)
                 pubkey=$(docker-compose exec node wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node node1
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 $pubkey
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODETAG
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
                 ;;
             node2)
                 pubkey=$(docker-compose exec node2 wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node node2
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node2 $pubkey
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
                 ;;
             *)
                 ;;
