@@ -324,7 +324,9 @@ function start_gui() {
           CERTIFICATE_NAME="$CERTIFICATE_NAME" \
           PRIVATE_KEY_NAME="$PRIVATE_KEY_NAME" \
           FLASK_ENV="development" \
-          python app.py
+          SECRET_KEY="asdajwerj45345234ksad" \
+          gunicorn --workers 4 --bind $GUI_HOST:$GUI_PORT wsgi:app --worker-class sync --access-logfile -
+
     fi
 }
 
