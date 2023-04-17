@@ -60,16 +60,6 @@ class SklearnOptimizerProcessing:
             traceback: default argument for `__exit__` method in context manager. Unused.
         """
         self._model.enable_internal_optimizer()
-        # if self._disable_internal_optimizer:
-
-        #     self._model.disable_internal_optimizer()
-        #     # FIXME: this method `model_args` seems a bit ill to me
-        #     is_param_changed, param_changed = self._model.check_changed_optimizer_params(self._model.model_args)
-        #     if is_param_changed:
-        #         msg = "The following parameter(s) has(ve) been detected in the model_args but will be disabled when using a declearn Optimizer: please specify those values in the training_args or in the init_optimizer method"
-        #         msg += "\nParameters changed:\n"
-        #         msg += param_changed
-        #         logger.warning(msg)
 
 
 class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
@@ -119,7 +109,6 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """Performs an optimisation step and updates model weights.
         """
 
-    @abstractmethod
     def get_learning_rate(self)-> List[float]:
         """Returns learning rate(s) of the optimizer.
 
@@ -133,10 +122,13 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
                 size is of the number of layers contained in the model, size is of one otherwise.
         """
 
+        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
 
-class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
+
+class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
+
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
@@ -156,9 +148,6 @@ class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             )
         super().__init__(model, optimizer)
         self.optimizer.init_round()
-        
-        if isinstance(model, SkLearnModel):
-            self.model_args = {}
 
     def step(self):
         """Performs one optimization step"""
@@ -176,6 +165,7 @@ class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         Returns:
             a list containing the learning rate value (of size 1)
         """
+        super().get_learning_rate()
         states = self.optimizer.get_state()['config']
         return [states['lrate']]
 
@@ -219,10 +209,6 @@ class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
         such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
         to such changes, displays a warning.
 
-        Args:
-            model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
-                Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
-
         Returns:
             SklearnOptimizerProcessing: context manager providing extra logic
 
@@ -237,57 +223,6 @@ class DeclearnOptimizer(BaseOptimizer, metaclass=ABCMeta):
             return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)
         else:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
-
-# class DeclearnTorchOptimizer(BaseDeclearnOptimizer):
-#     """Optimizer wrapper for declearn optimizers applied to pytorch models
-#     """
-#     _model_cls: Type[TorchModel] = TorchModel
-#     def zero_grad(self):
-#         """Zeroes gradients of the Pytorch model. Basically calls the `zero_grad`
-#         method of the model.
-
-#         Raises:
-#             FedbiomedOptimizerError: triggered if model has no method called `zero_grad`
-#         """
-#         # warning: specific for pytorch
-#         try:
-#             self._model.model.zero_grad()
-#         except AttributeError as err:
-#             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} Model has no method named `zero_grad`: are you sure you are using a PyTorch TrainingPlan?."
-#                                           f"Details {repr(err)}") from err
-
-
-# class DeclearnSklearnOptimizer(BaseDeclearnOptimizer):
-#     """Optimizer wrapper for declearn optimizers applied to sklearn models
-#     """
-#     model_args: Dict[str, Any]
-#     _model_cls: Type[SkLearnModel] = SkLearnModel
-#     def __init__(self, model: SkLearnModel, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer, None]):
-#         super().__init__(model, optimizer)
-#         self.model_args = {}
-
-#     def optimizer_processing(self) -> SklearnOptimizerProcessing:
-#         """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
-#         internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
-#         won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
-#         such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
-#         to such changes, displays a warning.
-
-#         Args:
-#             model_args: model_args sent by `Researcher` that instantiates a scikit-learn model.
-#                 Should contain a mapping of scikit-learn parameter(s) and its(their) value(s).
-
-#         Returns:
-#             SklearnOptimizerProcessing: context manager providing extra logic
-
-#         Usage:
-#         ```python
-#             >>> dlo = DeclearnSklearnOptimizer(model, optimizer)
-#             >>> with dlo.optimizer_processing():
-#                     model.train(inputs,targets)
-#         ```
-#         """
-#         return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)
 
 
 class NativeTorchOptimizer(BaseOptimizer):
@@ -332,6 +267,7 @@ class NativeTorchOptimizer(BaseOptimizer):
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
+        super().get_learning_rate()
         learning_rates = []
         params = self.optimizer.param_groups
         for param in params:
@@ -361,7 +297,6 @@ class NativeTorchOptimizer(BaseOptimizer):
 class NativeSkLearnOptimizer(BaseOptimizer):
     """Optimizer wrapper for scikit-learn native models.
     """
-    model_args: Dict[str, Any]
     _model_cls: Type[SkLearnModel] = SkLearnModel
     def __init__(self, model: SkLearnModel, optimizer: Optional[None] = None):
         """Constructor of the Optimizer wrapper for scikit-learn native models.
@@ -376,7 +311,6 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         if optimizer is  not None:
             logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
         super().__init__(model, None)
-        self.model_args = {}
         logger.debug("Using native Sklearn Optimizer")
 
     def step(self):
@@ -401,6 +335,7 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         Returns:
             List[float]: initial learning rate of the model
         """
+        super().get_learning_rate()
         return self._model.get_learning_rate()
 
 
@@ -438,66 +373,6 @@ class OptimizerBuilder:
         TrainingPlans.TorchTrainingPlan: TORCH_OPTIMIZERS,
         TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS
     }
-
-    # @staticmethod
-    # def build_torch(model: TorchModel,
-    #                 optimizer: Union[FedOptimizer,
-    #                                  torch.optim.Optimizer,
-    #                                  declearn.optimizer.Optimizer]) -> Union[NativeTorchOptimizer,
-    #                                                                          DeclearnOptimizer]:
-    #     """Builds Pytorch optimizer wrapper.
-
-    #     Args:
-    #         model: model wrapper that contains Pytorch model
-    #         optimizer: either Fed-BioMed Optimizer wrapper (wrapping declearn's optimizer),
-    #             a plain declearn optimizer or plain pytorch optimizer.
-
-    #     Raises:
-    #         FedbiomedOptimizerError: raised if Optimizer is not handled by the builder.
-
-    #     Returns:
-    #         Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer,
-    #             that contains a TorchModel and a Optimizer.
-    #     """
-    #     try:
-    #         optimizer_wrapper: BaseOptimizer = OptimizerBuilder.TORCH_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
-    #     except KeyError:
-    #         err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.TorchTrainingPlan.value}"
-
-    #         raise FedbiomedOptimizerError(err_msg)
-    #     return optimizer_wrapper(model, optimizer)
-
-    # @staticmethod
-    # def build_sklearn(model: SkLearnModel,
-    #                   optimizer: Union[FedOptimizer,
-    #                                    declearn.optimizer.Optimizer,
-    #                                    None]) -> Union[NativeTorchOptimizer,
-    #                                                    DeclearnOptimizer]:
-    #     """Builds scikit-learn optimizer wrapper.
-
-    #     Args:
-    #         model: Scikit-learn wrapper model that contains scikit-learn model.
-    #         optimizer: either a declearn optimizer, a Fed-BioMed Optimizer wrapper that
-    #             wraps a declearn Optimizer, or None object (meaning only scikit-learn internal
-    #             optimizer will be used for updating the model).
-
-    #     Raises:
-    #         FedbiomedOptimizerError: raised if Optimizer is not handled by the builder.
-
-    #     Returns:
-    #         Union[NativeTorchOptimizer, DeclearnTorchOptimizer]: Built Generic Optimizer,
-    #             that contains a SkLearnModel and a Optimizer (or None).
-    #     """
-    #     if not isinstance(model, SkLearnModel):
-    #         raise FedbiomedOptimizerError(f"{ErrorNumbers.FB621_b.value} in `model` argument. Expected a SkLearnModel object but got {model}")
-    #     try:
-    #         optimizer_wrapper: BaseOptimizer = OptimizerBuilder.SKLEARN_OPTIMIZERS[OptimizerBuilder.get_parent_class(optimizer)]
-    #     except KeyError:
-    #         err_msg = f"{ErrorNumbers.FB621_b.value} Optimizer {optimizer} is not compatible with training plan {TrainingPlans.SkLearnTrainingPlan}" + \
-    #         "\nHint: If If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan"
-
-    #         raise FedbiomedOptimizerError(err_msg)
-    #     return optimizer_wrapper(model, optimizer)
 
     def build(self, tp_type: TrainingPlans, model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
         """Builds a Optimizer wrapper based on TrainingPlans and optimizer type

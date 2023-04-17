@@ -87,6 +87,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self._gradients: Dict[str, np.ndarray] = {}
         self.param_list: List[str] = []
         self._optim_params: Dict[str, Any] = {}
+        self.model_args = {}
 
     def init_training(self):
         """Initialises the training by setting up attributes.

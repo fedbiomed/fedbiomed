@@ -8,18 +8,18 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
 
+
+import torch
+from torch import nn
+
 from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
-import torch
-from torch import nn
-
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.models import TorchModel
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
@@ -186,27 +186,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._model.model_args
 
-    # def get_learning_rate(self) -> List[float]:
-    #     """Gets learning rate from value set in optimizer.
-
-    #     !!! warning
-    #         This function gathers the base learning rate applied to the model weights,
-    #         including alterations due to any LR scheduler. However, it does not catch
-    #         any adaptive component, e.g. due to RMSProp, Adam or such.
-
-    #     Returns:
-    #         List[float]: list of single learning rate or multiple learning rates
-    #             (as many as the number of the layers contained in the model)
-    #     """
-    #     if self._optimizer is None:
-    #         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer not found, please call "
-    #                                          f"`init_optimizer beforehand")
-    #     learning_rates = []
-    #     params = self._optimizer.param_groups
-    #     for param in params:
-    #         learning_rates.append(param['lr'])
-    #     return learning_rates
-
     def update_optimizer_args(self) -> Dict:
         """
         Updates `_optimizer_args` variable. Can prove useful
@@ -250,7 +229,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._model.init_params
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> Union[FedOptimizer, torch.optim.Optimizer]:
         """Abstract method for declaring optimizer by default """
         try:
             self._optimizer = torch.optim.Adam(self._model.model.parameters(), **self._optimizer_args)
@@ -550,6 +529,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         # zero-out gradients
         self._optimizer.zero_grad()
+        # FIXME: `self._optimizer.train()` is never called but should be. 
+        # FIXME 2: Should we move training process to `Optimizer` or `Model` class?
 
         # compute loss
         loss = self.training_step(data, target)  # raises an exception if not provided
@@ -607,7 +588,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         try:
 
-            self._model.model.eval()  # pytorch switch for model inference-mode TODO should be removed
             with torch.no_grad():
                 super().testing_routine(
                     metric, metric_args, history_monitor, before_train

@@ -11,8 +11,6 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
-from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-from fedbiomed.common.training_args import TrainingArgs
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
@@ -21,9 +19,11 @@ from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder, NativeSkLearnOptimizer
-from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.models import SkLearnModel
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common import utils
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -95,33 +95,27 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # FIXME: this method `model_args` of model seems not very useful (unless i am mistaken, i would be in favour of remove it)
         self._model.model_args = model_args
         self._aggregator_args = aggregator_args or {}
-        
+
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
 
         # Add dependencies
         self._configure_dependencies()
-        # Override default model parameters based on `self._model_args`.
-        params = {
-            key: model_args.get(key, val)
-            for key, val in self._model.get_params().items()
-        }
-        
+
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
         
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
-        
-        
+        # Override default model parameters based on `self._model_args`.
+        params = {
+            key: model_args.get(key, val)
+            for key, val in self._model.get_params().items()
+        }
         self._model.set_params(**params)
-            
         # Set up additional parameters (normally created by `self._model.fit`).
         self._model.set_init_params(model_args)
-        
-        # this is a second (an easier solution)
-        #self._optimizer.optimizer_post_processing(model_args)
 
     def set_data_loaders(
             self,
@@ -203,11 +197,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if self._model is None:
             raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
         # Get optimizer defined by researcher ---------------------------------------------------------------------
-        init_optim_spec = get_method_spec(self.init_optimizer)
+        init_optim_spec = utils.get_method_spec(self.init_optimizer)
         if not init_optim_spec:
             optimizer = self.init_optimizer()
         elif len(init_optim_spec.keys()) == 1:
-            optimizer = self.init_optimizer(self._optimizer_args)
+            optimizer = self.init_optimizer(self.optimizer_args())
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
                                                                  method="init_optimizer",
@@ -218,22 +212,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         
         # then build optimizer wrapper given model and optimizer
         self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
-        
-        # if optimizer is None:
-        #     # default case: no optimizer is passed, using native sklearn optimizer
-        #     logger.debug("Using native sklearn optimizer")
-        #     self._optimizer = NativeSkLearnOptimizer(self._model)
-        # elif isinstance(optimizer, (DeclearnOptimizer, FedOptimizer)):
-        #     logger.debug("using a declearn Optimizer")
-        #     if isinstance(optimizer, FedOptimizer):
-        #         optimizer = FedOptimizer(optimizer)
-        #     self._optimizer = SkLearnOptimizer(self._model, optimizer)
-            
-        # else:
-        #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be a declearn optimizer, but got {type(optimizer)}. If you want to use only native scikit learn optimizer, please do not define a `init_optimizer` method in the TrainingPlan")
 
-    def init_optimizer(self) -> None:
-        """Default optimizer, which basically returns None (meaning native inner scikit learn optimization will be used)"""
+    def init_optimizer(self) -> Optional[FedOptimizer]:
+        """Creates and configures optimizer. By default, returns None (meaning native inner scikit
+        learn optimization SGD based will be used).
+        
+        In the case a Declearn Optimizer is used, this method should be overridden in the Training Plan and return
+        a Fedbiomed [`Optimizer`][fedbiomed.common.optimizers.optimizer.Optimizer]"""
         pass
 
     def optimizer_args(self) -> Dict:

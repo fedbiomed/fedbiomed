@@ -6,12 +6,11 @@
 from typing import Dict, Tuple, Union
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 
+import torch
 from opacus import PrivacyEngine
 from opacus.data_loader import DPDataLoader
 from opacus.validators import ModuleValidator
-from torch import randn_like
 from torch.nn import Module
-from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from fedbiomed.common.validator import ValidateError
@@ -42,7 +41,7 @@ class DPController:
         """DP action before starting training.
 
         Args:
-            optimizer: TorchOptimizer for training
+            optimizer: NativeTorchOptimizer for training
             loader: Data loader for training
 
         Returns:
@@ -51,7 +50,7 @@ class DPController:
 
 
         if self._is_active:
-            if not isinstance(optimizer.optimizer, Optimizer):
+            if not isinstance(optimizer.optimizer, torch.optim.Optimizer):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     f"Optimizer must be an instance of torch.optim.Optimizer, but got {optimizer}"
@@ -165,6 +164,6 @@ class DPController:
         if self._dp_args['type'] == 'central':
             sigma = self._dp_args['sigma_CDP']
             for key, param in params.items():
-                noise = sigma * self._dp_args['clip'] * randn_like(param)
+                noise = sigma * self._dp_args['clip'] * torch.randn_like(param)
                 params[key] = param + noise
         return params

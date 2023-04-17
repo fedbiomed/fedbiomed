@@ -225,9 +225,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
 
-    def init_optimizer(self):
-        """Abstract method for declaring optimizer by default """
-        raise FedbiomedTrainingPlanError("method not implemented")
+    @abstractmethod
+    def init_optimizer(self) -> Any:
+        """Method for declaring optimizer by default
+        
+        Returns:
+            either framework specific optimizer (or None) or 
+            FedBiomed [`Optimizers`][`fedbiomed.common.optimizers.Optimizer`]
+        """
 
     def optimizer_args(self) -> Dict:
         """Retrieves optimizer arguments (to be overridden
