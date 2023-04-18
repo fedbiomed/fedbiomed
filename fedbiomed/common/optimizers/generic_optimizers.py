@@ -92,17 +92,17 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """
         self._model.init_training()
 
-    def train_model(self,
-                    inputs: Union[torch.Tensor, np.ndarray],
-                    target: Union[torch.Tensor, np.ndarray],
-                    **kwargs):
-        """Performs a training of the model
+    # def train_model(self,
+    #                 inputs: Union[torch.Tensor, np.ndarray],
+    #                 target: Union[torch.Tensor, np.ndarray],
+    #                 **kwargs):
+    #     """Performs a training of the model
 
-        Args:
-            inputs: inputs data
-            target: targeted data
-        """
-        self._model.train(inputs, target, **kwargs)
+    #     Args:
+    #         inputs: inputs data
+    #         target: targeted data
+    #     """
+    #     self._model.train(inputs, target, **kwargs)
 
     @abstractmethod
     def step(self):
