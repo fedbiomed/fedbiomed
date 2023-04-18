@@ -37,11 +37,6 @@ app.config['JWT_DECODE_ISSUER'] = app.config['ID']
 _default_secret_key = secrets.token_hex()
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', _default_secret_key)
 
-# Add certificate and private key paths for HTTPS
-CERTIFICATE_NAME = os.getenv('CERTIFICATE_NAME', None)
-PRIVATE_KEY_NAME = os.getenv('PRIVATE_KEY_NAME', None)
-
-
 assert app.config["JWT_ACCESS_TOKEN_EXPIRES"] < app.config["JWT_REFRESH_TOKEN_EXPIRES"], \
     "Error: Wrong JWT expiration times. Please make sure that JWT_ACCESS_TOKEN_EXPIRES < JWT_REFRESH_TOKEN_EXPIRES"
 
@@ -84,8 +79,5 @@ def hsts_header():
 
 # Run the application
 if __name__ == '__main__':
-
     # Start Flask
-    app.run(host=app.config['HOST'],
-            port=app.config['PORT'],
-            debug=app.config['DEBUG'])
+    app.run(debug=app.config['DEBUG'])

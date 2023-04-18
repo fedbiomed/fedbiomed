@@ -4,8 +4,15 @@ basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 
-HOST='localhost'
-PORT='8484'
+GUI_HOST='localhost'
+GUI_PORT='8484'
+
+# Print error and exists
+function error(){
+  echo -e "${RED}ERROR${NC}"
+  echo -e "$1"
+  exit 1
+}
 
 function start_gui() {
     # Check config file status
@@ -16,8 +23,7 @@ function start_gui() {
       echo -e "${YLW}INFO${NC}: Config file has not been provided, default config 'config_node.ini' will be used for GUI"
     fi
     if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${CONFIG_FILE}" ] ; then
-        echo "ERROR: 'etc/${CONFIG_FILE}' does not exist in Fed-BioMed root directory"
-        exit 1
+        error "'etc/${CONFIG_FILE}' does not exist in Fed-BioMed root directory"
     fi
 
     # Configure data path
@@ -25,21 +31,18 @@ function start_gui() {
       DATA_PATH="data"
       echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use \${FEDBIOMED_DIR}/data dir"
       if [ -z "${INSTALL_ONLY}" -a ! -d "$basedir/$DATA_PATH" ]; then
-        echo "ERROR: 'data' folder does not exist in  directory"
-        exit 1
+        error "'data' folder does not exist in  directory"
       fi
     else
         # If the path is absolute
         if [[ $DATA_PATH == /* ]]; then
             if [[ -z "${INSTALL_ONLY}"  && ! -d "$DATA_PATH" ]]; then
-              echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
-              exit 1
+              error "Folder '$DATA_PATH' does not exist. Can not continue.\n"
             fi
         # If the path is relative
         else
             if [ -z "${INSTALL_ONLY}"  -a ! -d "$basedir/$DATA_PATH" ]; then
-              echo -e "${RED}ERROR${NC}: folder '$basedir/${DATA_PATH}' does not exist. Can not continue.\n"
-              exit 1
+              error "folder '$basedir/${DATA_PATH}' does not exist. Can not continue.\n"
             else
               DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
             fi
@@ -70,120 +73,130 @@ function start_gui() {
         mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
     fi
 
-    # Froce workes to one
 
-    WORKERS=1
     if [ -z "$INSTALL_ONLY" ] ; then
-
+        echo "$PRODUCTION"
         # Change command according to development and production mode
         if [ "$PRODUCTION" == "True" ]; then
-          command="gunicorn --workers $WORKERS --bind $HOST:$PORT wsgi:app"
+          # Forces single worker
+          WORKERS=1
+          echo "$KEY $CERTIFICATE"
+          if [ -n "$KEY" -a -n "$CERTIFICATE" ]; then
+            key_command="--keyfile $KEY"
+            cert_command="--certfile $CERTIFICATE"
+          fi
+          command="gunicorn --workers $WORKERS $key_command $cert_command -b $GUI_HOST:$GUI_PORT --access-logfile - wsgi:app"
+          echo $command
         else
-          command="FLASK_APP=wsgi.py flask run --host $HOST --port $PORT"
+          command="FLASK_ENV=development FLASK_APP=wsgi.py flask run --host $GUI_HOST --port $GUI_PORT $key_command $cert_commnad "
         fi
 
         cd ../server
         # Starting flask
         echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
-        eval "FEDBIOMED_DIR="$basedir" \
-          NODE_CONFIG_FILE="$CONFIG_FILE" \
-          BUILD_DIR="$basedir/var/gui-build" \
-          DATA_PATH="$DATA_PATH" \
-          HOST="$GUI_HOST" \
-          PORT="$GUI_PORT" \
-          DEBUG="$GUI_DEBUG" \
-          CERTIFICATE_NAME="$CERTIFICATE_NAME" \
-          PRIVATE_KEY_NAME="$PRIVATE_KEY_NAME" \
-          FLASK_ENV="development" \
-          $command"
+
+        eval "FEDBIOMED_DIR=$basedir" \
+          "NODE_CONFIG_FILE=$CONFIG_FILE" \
+          "BUILD_DIR=$basedir/var/gui-build" \
+          "DATA_PATH=$DATA_PATH" \
+          "DEBUG=$GUI_DEBUG" \
+          "CERT_FILE=$CERTIFICATE_NAME" \
+          "KEY_FILE=$PRIVATE_KEY_NAME" \
+          "$command"
     fi
 }
 
-
-
-case $1 in
-  config|--config|-c)
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    config|--config|-c)
+          if [ $# -lt 3 ] ; then
+              echo -e "${RED}ERROR${NC}: missing config file name"
+              exit 1
+          fi
+          CONFIG_FILE=$2
+          shift
+          shift
+    ;;
+    data-folder|--data-folder|-df)
         if [ $# -lt 3 ] ; then
-            echo -e "${RED}ERROR${NC}: missing config file name"
+            echo -e "${RED}ERROR${NC}: missing data folder path"
             exit 1
         fi
-        CONFIG_FILE=$2
+        DATA_PATH="$2"
         shift
         shift
-  ;;
-  data-folder|--data-folder|-df)
-      if [ $# -lt 3 ] ; then
-          echo -e "${RED}ERROR${NC}: missing data folder path"
-          exit 1
-      fi
-      DATA_PATH="$2"
-      shift
-      shift
-      ;;
-  cert|--certificate|-ct)
-      if [ $# -lt 3 ] ; then
-          echo -e "${RED}ERROR${NC}: missing certificate path"
-          exit 1
-      fi
-      CERTIFICATE_NAME="$2"
-      if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${CERTIFICATE_NAME}" ] ; then
-        echo -e "${RED}ERROR${NC}: Certificate file 'etc/${CERTIFICATE_NAME}' does not exist in Fed-BioMed root directory"
-        exit 1
-      fi
-      echo -e "${YLW}INFO${NC}: Using 'etc/$CERTIFICATE_NAME' as GUI node SSL certificate"
-      shift
-      shift
-      ;;
-  key|--primary-key|-k)
-      if [ $# -lt 3 ] ; then
-          echo -e "${RED}ERROR${NC}: missing primary key path"
-          exit 1
-      fi
-      PRIVATE_KEY_NAME="$2"
-      if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${PRIVATE_KEY_NAME}" ] ; then
-        echo -e "${RED}ERROR${NC}: Private key file 'etc/${PRIVATE_KEY_NAME}' does not exist in Fed-BioMed root directory"
-        exit 1
-      fi
-      echo -e "${YLW}INFO${NC}: Using 'etc/$PRIVATE_KEY_NAME' as GUI node private key for SSL certificate"
-      shift
-      shift
-      ;;
-  port|--port |-p)
-      GUI_PORT="$2"
-      shift
-      shift
-      ;;
-  host|--host)
-      GUI_HOST="$2"
-      shift
-      shift
-      ;;
-  recreate | --recreate | -rc )
-      RECREATE=True
-      shift
-      ;;
-  install-only | --install-only | -io )
-      INSTALL_ONLY=True
-      shift
-      ;;
-  debug|--debug|-dbg)
-      GUI_DEBUG=True
-      shift
-      ;;
-  production|--production)
-      PRODUCTION=True
-      shift
-      ;;
-  help|-h|--help)
-      usage gui
-      ;;
-esac
+        ;;
+    cert-file|--cert-file|-ct)
+        if [ $# -lt 3 ] ; then
+            error "Missing certificate path"
+            exit 1
+        fi
+        CERTIFICATE="$2"
+        if [ -z "${INSTALL_ONLY}" -a ! -f "${CERTIFICATE}" ] ; then
+          error "Certificate file '${CERTIFICATE}' does not exist in Fed-BioMed root directory"
+        fi
+        echo -e "${YLW}INFO${NC}: Using $CERTIFICATE' as GUI node SSL certificate"
+        shift
+        shift
+        ;;
+    key-file|--key-file|-k)
+        if [ $# -lt 3 ] ; then
+            error "Missing primary key path"
+        fi
+        KEY="$2"
+        if [ -z "${INSTALL_ONLY}" -a ! -f "${KEY}" ] ; then
+          error "Private key file '${KEY}' does not exist in Fed-BioMed root directory"
+        fi
+        echo -e "${YLW}INFO${NC}: Using '$KEY' as GUI node private key for SSL certificate"
+        shift
+        shift
+        ;;
+    port|--port |-p)
+        GUI_PORT="$2"
+        shift
+        shift
+        ;;
+    host|--host)
+        GUI_HOST="$2"
+        shift
+        shift
+        ;;
+    recreate | --recreate | -rc )
+        RECREATE=True
+        shift
+        ;;
+    install-only | --install-only | -io )
+        INSTALL_ONLY=True
+        shift
+        ;;
+    debug|--debug|-dbg)
+        GUI_DEBUG=True
+        shift
+        ;;
+    production|--production)
+        PRODUCTION="True"
+        shift
+        ;;
+    help|-h|--help)
+        shift
+        usage gui
+        ;;
+    * )
+        break;
+  esac
+done
+
 case $1 in
     start)
-        start_gui
-        ;;
+      if [ -n "$2" ]; then
+        echo -e "${RED}ERROR:${NC}: The last command should be 'start' not $2"
+        exit 1
+      fi
+      start_gui
+      ;;
     *)
       echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make sure that your command is correct"
       exit 1
       ;;
 esac
+
