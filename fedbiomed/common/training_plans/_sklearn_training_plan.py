@@ -157,15 +157,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
-    # def get_learning_rate(self, lr_key: str = 'eta0') -> List[float]:
-    #     lr = self._model.model_args.get(lr_key)
-    #     if lr is None:
-    #         # get the default value
-    #         lr = self._model.__dict__.get(lr_key)
-    #     if lr is None:
-    #         raise FedbiomedTrainingPlanError("Cannot retrieve learning rate. As a quick fix, specify it in the Model_args")
-    #     return [lr]
-
     def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
 

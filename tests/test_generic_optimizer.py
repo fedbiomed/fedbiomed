@@ -18,7 +18,7 @@ from declearn.optimizer.regularizers import FedProxRegularizer, LassoRegularizer
 from declearn.model.torch import TorchVector
 from declearn.model.sklearn import NumpyVector
 
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer, DeclearnOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer, NativeTorchOptimizer, DeclearnOptimizer
 from fedbiomed.common.models import SkLearnModel, Model, TorchModel, BaseSkLearnModel
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
@@ -243,7 +243,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     
                     check_state(state, learning_rate, w_decay, selected_modules, selected_reg, model)
 
-    def test_declearnoptimizer_05_declearn_optimizers(self):
+    def test_declearnoptimizer_05_declearn_optimizers_1_sklearnModel(self):
         # TODO: test here several declearn optimizers, regardless of the framework used
         nb_tests = 10  # number of time the following test will be executed
         for _ in range(nb_tests):
@@ -260,18 +260,86 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                          regularizers=selected_reg)
                     optim_wrapper = DeclearnOptimizer(model, optim)
     
-    def test_declearnoptimizer_06_scaffold_1_sklearnModel(self):
+    def test_declearnoptimizer_06_declearn_scaffold_1_sklearnModel(self):
+        # FIXME: this test is more a funcitonal test and should belong to trainingplan tests
         # test with one server and one node on a SklearnModel
-        researcher_optim = FedOptimizer(lr=.01, modules=[ScaffoldServerModule()])
         
-        node_optim = FedOptimizer(lr=.01, modules=[ScaffoldClientModule()])
+        # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables
+        # in addition to model parameters
+        self.data = np.array([[1, 1, 1, 1,],
+                              [1, 0, 1, 0],
+                              [1, 1, 1, 1]])
         
-        for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
-                for model in model_wrappers:
-                    researcher_optim_wrapper = DeclearnOptimizer(model, researcher_optim)
-                    node_optim_wrapper = DeclearnOptimizer(model, node_optim)
+        self.targets = np.array([[1], [0], [1], [1]])
+        
+        num_features = 4
+        num_classes = 2
+        grad_patch_value = 3
+        researcher_lr, node_lr = .03, .5
 
+        for model in self._sklearn_model_wrappers:
+            researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule()])
+            node_optim = FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()])
+            # step 1: initializes and zeroes node model weights 
+            # zero sklearn model weights
+            model.set_init_params({'n_features': num_features, 'n_classes': num_classes})
 
+            # step 2: sends auxiliary variables from researcher to nodes
+            researcher_sklearn_optim_wrapper = DeclearnOptimizer(model, researcher_optim)
+            node_model = copy.deepcopy(model)
+            node_sklearn_optim_wrapper = DeclearnOptimizer(node_model, node_optim)
+            aux_var = researcher_sklearn_optim_wrapper.get_aux()
+            
+            self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
+
+            for _ in range(3):  # simulates 2 rounds
+                node_sklearn_optim_wrapper.set_aux(aux_var)
+                node_model.set_weights(model.get_weights())  # simulate sending researcher model weights to node model weights 
+
+                fake_retrieved_grads = copy.deepcopy(model.get_weights()) 
+                fake_retrieved_grads = NumpyVector(fake_retrieved_grads) + grad_patch_value
+
+                # step 3: performs (or simulates) a training on node side
+                with node_sklearn_optim_wrapper.optimizer_processing():
+
+                    with patch.object(BaseSkLearnModel, 'get_gradients') as get_gradients_patch:
+                        get_gradients_patch.return_value = fake_retrieved_grads.coefs
+
+                        # training process
+                        node_sklearn_optim_wrapper.init_training()
+                        model.train(self.data, self.targets, stdout=[])
+                        node_sklearn_optim_wrapper.step()
+                        # NOTA: due to patching `get_gradients` and since model weights are set to `0` at the begining, weights_t+1 equal weights_t - grad_patch_value * learning_rate
+                
+                # step 4: sends aux_var and node model params from node to researcher
+                aux_var = node_sklearn_optim_wrapper.get_aux()
+                aux_var = {'scaffold': {'node-1': aux_var['scaffold']}}
+                
+                model.set_weights(node_model.get_weights())  # simulate sending back node model weights to researcher model
+                researcher_sklearn_optim_wrapper.set_aux(aux_var)
+                # step 5: performs an update on researcher side
+                with researcher_sklearn_optim_wrapper.optimizer_processing():
+                    with patch.object(BaseSkLearnModel, 'get_gradients') as get_gradients_patch:
+                        get_gradients_patch.return_value = fake_retrieved_grads.coefs
+                        researcher_sklearn_optim_wrapper.step()
+
+                # step 6: retrieves researcher model parameters and aux_var, and then sends them to node (repeat step 2)
+
+                aux_var = researcher_sklearn_optim_wrapper.get_aux()
+                aux_var = {k: v.get('node-1') for k, v in aux_var.items() if v.get('node-1')}
+
+            final_aux_var = node_sklearn_optim_wrapper.get_aux()
+            # according to scaffold module in declearn, delta should be equal to gradients  (ie fake_retrieved_grads)
+            for (l, state), (_, val) in zip(final_aux_var['scaffold']['state'].coefs.items(), fake_retrieved_grads.coefs.items()):
+                # check state value sent from node to researcher
+                self.assertTrue(np.all(state == val))
+
+    def test_declearnoptimizer_06_declearn_scaffold_2_torchModel(self):
+        pass
+    
+    def test_declearnoptimizer_07_multiple_scaffold(self):
+        pass
+        
 class TestTorchBasedOptimizer(unittest.TestCase):
     # make sure torch based optimizers does the same action on torch models - regardless of their nature
     def setUp(self):
@@ -364,7 +432,8 @@ class TestTorchBasedOptimizer(unittest.TestCase):
 
 class TestSklearnBasedOptimizer(unittest.TestCase):
     def setUp(self):
-        pass
+        self._sklearn_model = (SkLearnModel(SGDClassifier),
+                                SkLearnModel(SGDRegressor))
     
     def tearDown(self):
         pass
@@ -376,12 +445,50 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
         pass
    
     def test_sklearnbasedoptimizer_03_optimizer_processing(self):
-        pass
+        self.data = np.array([[1, 1, 1, 1,],
+                              [1, 0,0, 1],
+                              [1, 1, 1, 1],
+                              [1, 1, 1, 0]])
+        
+        self.targets = np.array([[1], [0], [1], [1]])
+        learning_rate = .12345
+        num_features = 4
+        num_classes = 2
+        for model in self._sklearn_model:
+            # 1. test for declearn optimizers
+            optim = FedOptimizer(lr=learning_rate) 
+            optim_wrapper = DeclearnOptimizer(model, optim)
+            model.set_init_params({'n_features': num_features, 'n_classes': num_classes})
+            model.model.penality = None # disable penality
+            init_optim_hyperparameters = copy.deepcopy(model.get_params())
+
+            with optim_wrapper.optimizer_processing():
+                disabled_optim_hyperparameters = model.get_params()
+                model.train(self.data, self.targets)
+                model_weights_before_step = copy.deepcopy(model.get_weights())
+                optim_wrapper.step()
+                model_weights_after = model.get_weights()
+                for (l, grads), (l, w_before_step), (l, w_after) in zip(model.get_gradients().items(),
+                                                                        model_weights_before_step.items(),
+                                                                        model_weights_after.items()):
+                    # check that only the declearn learning rate is used for training the model
+                    self.assertTrue(np.all(np.isclose(w_after, w_before_step - learning_rate * grads)))
+                    self.assertNotEqual(disabled_optim_hyperparameters, init_optim_hyperparameters)
+                    
+            self.assertDictEqual(init_optim_hyperparameters, model.get_params())
 
     def test_sklearnbasedoptimizer_04_invalid_method(self):
-        # test that zero_grad raises error if model is pytorch
-        torch_model = MagicMock(spec=TorchModel)
-        pass
+        # test that zero_grad raises error if model is sklearn
+
+        for model in self._sklearn_model:
+
+            optim = FedOptimizer(lr=.12345) 
+            optim_wrapper = DeclearnOptimizer(model, optim)
+            
+            with self.assertRaises(FedbiomedOptimizerError):
+                optim_wrapper.zero_grad()
+            
+
 # class TestDeclearnTorchOptimizer(unittest.TestCase):
 
 #     def test_declearntorchoptimizer_01_zero_grad_error(self):
@@ -401,6 +508,10 @@ class TestNativeTorchOptimizer(unittest.TestCase):
 class TestDeclearnSklearnOptimizer(unittest.TestCase):
     def test_declearnsklearnoptimizer_01_optimizer_post_processing(self):
         pass
+
+class TestOptimizerBuilder(unittest.TestCase):
+    pass
+
 
 if __name__ == "__main__":
     unittest.main()
