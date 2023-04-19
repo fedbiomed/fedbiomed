@@ -92,18 +92,6 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """
         self._model.init_training()
 
-    # def train_model(self,
-    #                 inputs: Union[torch.Tensor, np.ndarray],
-    #                 target: Union[torch.Tensor, np.ndarray],
-    #                 **kwargs):
-    #     """Performs a training of the model
-
-    #     Args:
-    #         inputs: inputs data
-    #         target: targeted data
-    #     """
-    #     self._model.train(inputs, target, **kwargs)
-
     @abstractmethod
     def step(self):
         """Performs an optimisation step and updates model weights.
@@ -315,10 +303,6 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         """Performs an optimization step and updates model weights
         """
         gradients = self._model.get_gradients()
-        #lrate = self.model.get_learning_rate()[0]
-        # revert back gradients to the batch averaged gradients
-        #gradients: Dict[str, np.ndarray] = {layer: val * lrate for layer, val in gradients.items()}
-
         self._model.apply_updates(gradients)
 
     def optimizer_processing(self):
