@@ -25,7 +25,8 @@ def add_database(interactive: bool = True,
                  name: str = None,
                  tags: str = None,
                  description: str = None,
-                 data_type: str = None):
+                 data_type: str = None,
+                 dataset_parameters: dict = None):
     """Adds a dataset to the node database.
 
     Also queries interactively the user on the command line (and file browser)
@@ -41,7 +42,7 @@ def add_database(interactive: bool = True,
         data_type: Keyword for the data type of the dataset.
     """
 
-    dataset_parameters = None
+    dataset_parameters = dataset_parameters or None
     data_loading_plan = None
 
     # if all args are provided, just try to load the data
@@ -157,7 +158,7 @@ def add_database(interactive: bool = True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default', 'mednist', 'images' ]:
+        if data_type not in [ 'csv', 'default', 'mednist', 'images', 'medical-folder']:
             data_type = 'default'
 
         if not os.path.exists(path):
