@@ -201,6 +201,7 @@ services:
       - "${GUI_HOST:-127.0.0.1}:8484:443" # flask server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
@@ -225,10 +226,12 @@ services:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
+      - SSL_ON=True
     ports:
       - "${GUI_HOST:-127.0.0.1}:8485:443" # flask server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
       - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...

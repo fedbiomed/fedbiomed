@@ -10,15 +10,66 @@ init_misc_environ
 change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 
 
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/fedbiomed-node-gui.key \
-  -out /etc/ssl/certs/fedbiomed-node-gui.crt \
-  -subj "/CN=localhost/"
+# To avoid envsubst to over write default nginx variables
+export DOLAR='$'
+
+if [ -z "$GUI_SERVER_NAME" ]; then
+  export GUI_SERVER_NAME=127.0.0.1
+fi
+
+if [ -n "$SSL_ON" ]; then
+
+  if [ ! -d /certs ]; then
+    mkdir /certs
+  fi
+
+     echo "It is cool there is certs directory"
+
+   if [ -n "$(ls -A /certs)" ]; then
+       echo "Good directory is not empty"
+       num_cert=$(find /certs -mindepth 1 -type f -name "*.crt" -printf x | wc -c)
+       num_key=$(find /certs -mindepth 1 -type f -name "*.key" -printf x | wc -c)
+       echo "$num_key $num_cert"
+       if [ "$num_key" = 0 -a "$num_cert" = 0 ]; then
+           echo "ERROR: Mounted directory for certificates is not empty but. There is not file with extension
+           'crt' for certificate  and 'key' for the ssl key."
+            exit 1
+       elif [ "$num_key" = 0 -a "$num_cert" != 0 ] || [ "$num_key" != 0 -a "$num_cert" = 0 ]; then
+           echo "Opps something is wrong please make sure that the mounted certs directory contains both crt and key files.
+           There is only one of them existing."
+           exit 1
+       elif [ "$num_key" -gt 1 ] || [ "$num_cert" -gt 1 ]; then
+           echo "Please make sure you have only one key and one crt file."
+           exit 1
+       else
+          export SSL_CERTIFICATE=$(find /certs -type f -name "*.crt")
+          export SSL_KEY=$(find /certs -type f -name "*.key")
+          echo "Found certificates are: $SSL_CERTIFICATE and $SSL_KEY"
+       fi
+   else
+      echo "The mounted certificate folder is empty. Generating self-signed certificates."
+      export SSL_CERTIFICATE=/certs/fedbiomed-node-gui.crt
+      export SSL_KEY=/certs/fedbiomed-node-gui.key
+
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "$SSL_KEY" \
+        -out "$SSL_CERTIFICATE" \
+        -subj "/CN=localhost/"
+   fi
+
+   envsubst < /fedbiomed/nginx/ssl.conf.template > /etc/nginx/conf.d/default.conf
+else
+   envsubst < /fedbimed/nginx/no-ssl.conf.template > /etc/nginx/conf.d/default.conf
+fi
+
 
 # Start nginx server
 if ! service nginx restart; then
   echo "Error while starting nginx server"
   exit 1
 fi
+
+
+
 
 # caveat: expect `data-folder` to be mounted under same path as in `node` container
 # to avoid inconsistencies in dataset declaration

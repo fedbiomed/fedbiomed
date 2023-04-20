@@ -1,0 +1,43 @@
+upstream fedbiomed_gunicorn {
+       # Use default Gunicorn port
+       server localhost:${GUI_HOST};
+}
+
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name $GUI_SERVER_NAME;
+
+    location / {
+        return 301 https://${DOLLAR}host${DOLLAR}request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443;
+
+    server_name $GUI_SERVER_NAME;
+
+    ssl_certificate ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_KEY};
+
+    location / {
+        proxy_pass http://fedbiomed_gunicorn;
+        proxy_redirect     off;
+        proxy_http_version 1.1;
+        proxy_cache_bypass ${DOLLAR}http_upgrade;
+        proxy_set_header   Upgrade ${DOLLAR}http_upgrade;
+        proxy_set_header   Connection keep-alive;
+        proxy_set_header   Host ${DOLLAR}host;
+        proxy_set_header   X-Real-IP ${DOLLAR}remote_addr;
+        proxy_set_header   X-Forwarded-For ${DOLLAR}proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto ${DOLLAR}scheme;
+        proxy_set_header   X-Forwarded-Host ${DOLLAR}server_name;
+        proxy_buffer_size           128k;
+        proxy_buffers               4 256k;
+        proxy_busy_buffers_size     256k;
+    }
+}

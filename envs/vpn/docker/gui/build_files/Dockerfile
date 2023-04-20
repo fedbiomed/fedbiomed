@@ -16,7 +16,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget procps systemd
+RUN apt-get update && apt-get install -y apt-utils wget procps systemd gettext-base
 # Install Nginx along with the missing dependencies
 RUN apt-get install nginx -y --fix-missing
 
@@ -52,6 +52,9 @@ COPY gui /fedbiomed/gui
 #    a long time if you have zillion files in notebooks/data)
 #  - ensures using develop branch (good or bad)
 
+# Copy nginx configuration templates
+COPY  ./envs/vpn/docker/gui/build_files/nginx /fedbiomed/nginx
+
 # Prepare for work in context of alternate account
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
@@ -61,8 +64,7 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 
 
 
-# Copy enginx default configuration
-COPY  ./envs/vpn/docker/gui/build_files/nginx/default.conf /etc/nginx/conf.d/default.conf
+
 
 # Create link to access and error log
 # RUN ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log
