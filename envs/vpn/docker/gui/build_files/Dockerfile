@@ -16,7 +16,10 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget procps
+RUN apt-get update && apt-get install -y apt-utils wget procps systemd
+# Install Nginx along with the missing dependencies
+RUN apt-get install nginx -y --fix-missing
+
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/gui/build_files/bashrc_append /tmp
@@ -53,6 +56,16 @@ COPY gui /fedbiomed/gui
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
+
+
+
+
+
+# Copy enginx default configuration
+COPY  ./envs/vpn/docker/gui/build_files/nginx/default.conf /etc/nginx/conf.d/default.conf
+
+# Create link to access and error log
+# RUN ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log
 
 # Configure conda env in context of alternate account
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"

@@ -198,7 +198,7 @@ services:
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484" # flask server
+      - "${GUI_HOST:-127.0.0.1}:8484:443" # flask server
     volumes:
       # caution: /data /etc /var directory must be shared with node
       - ./node/run_mounts/data:/data # datasets can be added here
@@ -226,7 +226,7 @@ services:
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8485:8484" # flask server
+      - "${GUI_HOST:-127.0.0.1}:8485:443" # flask server
     volumes:
       # caution: /data /etc /var directory must be shared with node
       - ./node2/run_mounts/data:/data # datasets can be added here
