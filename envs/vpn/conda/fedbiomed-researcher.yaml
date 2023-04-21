@@ -49,7 +49,7 @@ dependencies:
       - torch >=1.8.0,<2.0.0
       - torchvision >=0.9.0,<0.15.0
       - opacus >=1.2.0,<1.3.0
-      - monai >=1.0.0,<1.1.0
+      - monai >=1.1.0,<1.2.0
       # other
       - msgpack ~=1.0
       - persist-queue >=0.5.1,<0.6.0
