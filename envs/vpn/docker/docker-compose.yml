@@ -193,6 +193,7 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=FALSE
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
@@ -222,11 +223,11 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=True
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
-      - SSL_ON=True
     ports:
       - "${GUI_HOST:-127.0.0.1}:8485:443" # flask server
     volumes:

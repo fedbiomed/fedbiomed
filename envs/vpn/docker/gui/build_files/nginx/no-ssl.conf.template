@@ -8,7 +8,7 @@ server {
     listen 80;
     listen [::]:80;
 
-    server_name $SERVER_NAME;
+    server_name $GUI_SERVER_NAME;
 
     location / {
         proxy_pass http://fedbiomed_gunicorn;
