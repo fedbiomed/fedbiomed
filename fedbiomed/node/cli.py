@@ -291,7 +291,7 @@ def launch_cli():
                      description=data["description"],
                      tags=data["tags"],
                      name=data["name"],
-                     dataset_parameters=data["dataset_parameters"]
+                     dataset_parameters=data.get("dataset_parameters")
                      )
 
     elif cli.arguments.list:
