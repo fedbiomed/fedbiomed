@@ -73,11 +73,17 @@ else
    envsubst < /fedbiomed/nginx/no-ssl.conf.template > /etc/nginx/conf.d/default.conf
 fi
 
+if ! rm /etc/nginx/sites-enabled/default; then
+  echo "No default configuration found in sites enabled"
+fi
+
 if ! service nginx restart; then
   echo "Error while starting nginx server: Here is the error log"
   cat /var/log/nginx/error.log
   exit 1
 fi
+
+
 
 # caveat: expect `data-folder` to be mounted under same path as in `node` container
 # to avoid inconsistencies in dataset declaration

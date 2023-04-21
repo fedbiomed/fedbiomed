@@ -193,7 +193,7 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
-      - SSL_ON=FALSE
+      - SSL_ON=true
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
@@ -223,7 +223,7 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
-      - SSL_ON=True
+      - SSL_ON=true
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER

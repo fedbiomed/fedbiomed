@@ -6,8 +6,8 @@ upstream fedbiomed_gunicorn {
 
 
 server {
-    listen 80;
-    listen [::]:80;
+    listen 80 default_server;
+    listen [::]:80 default_server;
 
     server_name $GUI_SERVER_NAME;
 
