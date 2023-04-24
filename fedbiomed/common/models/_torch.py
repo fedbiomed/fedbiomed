@@ -141,12 +141,20 @@ class TorchModel(Model):
         """
         state_dict = dict(self._get_iterator_model_params(weights))
         incompatible = self.model.load_state_dict(state_dict, strict=False)
+        # Warn about (probably-)missing trainable weights.
+        # Note: state_dict may include values that do not belong to the model's
+        # parameters, and/or input weights may exclude non-trainable weights,
+        # without requiring a warning.
         if incompatible.missing_keys:
-            logger.warning(
-                "'TorchModel.set_weights' received inputs that did not cover all"
-                "model parameters; missing weights: %s",
-                incompatible.missing_keys
-            )
+            params = {key for key, prm in self.model.named_parameters() if prm.requires_grad}
+            missing = params.intersection(incompatible.missing_keys)
+            if missing:
+                logger.warning(
+                    "'TorchModel.set_weights' received inputs that did not cover all"
+                    "trainable model parameters; missing weights: %s",
+                    missing
+                )
+        # Warn about invalid (hence, unused) inputs.
         if incompatible.unexpected_keys:
             logger.warning(
                 "'TorchModel.set_weights' received inputs with unexpected names: %s",
