@@ -341,14 +341,16 @@ containers_build() {
 
     if [ $BUILD_BASE -eq 1 ]; then
         echo "- building 'base' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
         echo "- building 'basenode' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             docker-compose build basenode
     fi
 
@@ -358,8 +360,9 @@ containers_build() {
         docker-compose rm -sf $i >/dev/null
         echo "- building '$i' container"
         MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-            CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             docker-compose build $i
     done
 }
@@ -401,8 +404,9 @@ containers_configure() {
     sed -i-XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 
     # start vpn server to generate config files
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-        CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+    CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
         docker-compose up -d vpnserver
 
     for i in ${ONLY_CONTAINERS[@]}
@@ -440,8 +444,9 @@ containers_start() {
 
     # start vpnserver first
     MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-        CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
         docker-compose up -d vpnserver
 
     # start other container(s)
@@ -462,8 +467,9 @@ containers_start() {
         echo "- starting $i container"
         docker-compose rm -sf $CONTAINER >/dev/null
         MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-            CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-            CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             docker-compose up -d $CONTAINER
 
         case $i in
@@ -538,7 +544,7 @@ run() {
     CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
     export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
-    docker-compose exec -u $(id -u) $container bash -c "$CMD"
+    docker-compose exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 
 
 
