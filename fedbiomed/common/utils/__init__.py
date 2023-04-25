@@ -12,12 +12,20 @@ from ._utils import (
     compute_dot_product,
 )
 from ._config_utils import (
-    get_fedbiomed_root,
+    ROOT_DIR,
+    CONFIG_DIR,
+    VAR_DIR,
+    CACHE_DIR,
+    TMP_DIR,
     get_component_config,
     get_component_certificate_from_config,
     get_all_existing_config_files,
     get_all_existing_certificates,
     get_existing_component_db_names,
+)
+from ._secagg_utils import (
+    matching_parties_servkey,
+    matching_parties_biprime
 )
 
 __all__ = [
@@ -31,10 +39,16 @@ __all__ = [
     "convert_iterator_to_list_of_python_floats",
     "compute_dot_product",
     # _config_utils
-    "get_fedbiomed_root",
+    ROOT_DIR,
+    CONFIG_DIR,
+    VAR_DIR,
+    CACHE_DIR,
+    TMP_DIR,
     "get_component_config",
     "get_component_certificate_from_config",
     "get_all_existing_config_files",
     "get_all_existing_certificates",
     "get_existing_component_db_names",
+    "matching_parties_servkey",
+    "matching_parties_biprime",
 ]

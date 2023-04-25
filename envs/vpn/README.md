@@ -65,7 +65,7 @@ Usually build each image separately when initializing each container (see after)
 ## **TODO**: check if we can use different id than the account building the images
 #
 ## when running on a single machine : build all needed containers at one time with
-#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build base vpnserver mqtt restful basenode node gui researcher
+#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker-compose build base vpnserver mqtt restful basenode node gui researcher
 ```
 
 ### initializing vpnserver
@@ -75,8 +75,8 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@network $] cd ./envs/vpn/docker
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build base
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build vpnserver
 ```
 * set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
 ```bash
@@ -92,7 +92,7 @@ Run this only at first launch of container or after cleaning :
 [user@network $] docker-compose exec vpnserver bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node node1
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node NODETAG
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf researcher researcher1
 ```
 
@@ -109,7 +109,7 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@network $] cd ./envs/vpn/docker
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker-compose build mqtt
 ```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
@@ -152,7 +152,7 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@network $] cd ./envs/vpn/docker
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker-compose build restful
 ```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
@@ -197,13 +197,13 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build basenode
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build node
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-no-gpu
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build basenode-no-gpu
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build node
 ```
 
 Then follow the common instructions for nodes (below).
@@ -283,19 +283,19 @@ Run this only at first launch of container or after cleaning :
 [user@node $] cd ./envs/vpn/docker
 [user@node $] vi ./node/run_mounts/config/config.env
 # add the content of the command below in the edited file above
-[user@network $] cat ./vpnserver/run_mounts/config/config_peers/node/node1/config.env
+[user@network $] cat ./vpnserver/run_mounts/config/config_peers/node/NODETAG/config.env
 ## if running on a single machine
-#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
+#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/NODETAG/config.env ./node/run_mounts/config/config.env
 ```
 * launch container
 ```bash
 [user@node $] NODE=node
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose up -d $NODE
 ```
 Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
 [user@node $] NODE=node-gpu
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose up -d $NODE
 ```
   * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the host machine's filesystem.
   * note : when using a different identity than at build time, `docker-compose up` may take up to a few dozen seconds to complete and node be ready for using. This is the time for re-assigning some installed resources in the container to the new account.
@@ -305,7 +305,7 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG *publickey*
 ```
 * check the container correctly established a VPN with vpnserver:
 ```bash
@@ -319,7 +319,7 @@ Run this for all launches of the container :
 * launch container
 ```bash
 # `CONTAINER_{UID,GID,USER,GROUP}` are not needed if they are the same as used for build
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose up -d $NODE
 ```
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
@@ -389,7 +389,7 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build gui
 ```
 
 #### specific instructions: building gui image on a different machine
@@ -440,7 +440,7 @@ Run this for all launches of the container :
 
 * launch container
 ```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d gui
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose up -d gui
 ```
   * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the node machine's filesystem.
   * note : when using a different identity than at build time, `docker-compose up` may take up to a few dozen seconds to complete and node be ready for using. This is the time for re-assigning some installed resources in the container to the new account.
@@ -467,8 +467,8 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
-[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
-[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build researcher
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build base
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose build researcher
 ```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
@@ -658,7 +658,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### mqtt
@@ -674,7 +674,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### restful
@@ -694,7 +694,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-restful
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node 
@@ -707,11 +707,13 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
-[user@node $] rm -rf ./node/run_mounts/{data,envs,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/envs/!\(common\)
+[user@node $] rm -rf ./node/run_mounts/envs/common/*
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node gui
@@ -727,7 +729,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-gui
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### researcher
@@ -746,7 +748,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ## background / wireguard
@@ -832,5 +834,5 @@ Different values at build time and runtime is also supported by `vpnserver` `mqt
 Example : build a researcher container with a default user/group `fedbiomed` (id `1234`), run it with the same account as the account on the researcher machine.
 ```bash
 [user@researcher $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build researcher
-[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d researcher
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker-compose up -d researcher
 ```

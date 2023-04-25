@@ -1,12 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+import uuid
 import os
 import subprocess
 from typing import Tuple
 
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
-from fedbiomed.common.utils import get_fedbiomed_root
+from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 
@@ -31,22 +32,12 @@ class MPCController:
         """
 
         # Get root directory of fedbiomed
-        self._root = get_fedbiomed_root()
+        self._root = ROOT_DIR
         self._component_type = component_type
-
-        self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
-        self._mpc_data_dir = os.path.join(self._root, 'modules', 'MP-SPDZ', 'Player-Data')
-
-        if not os.path.isdir(self._mpc_data_dir):
-            try:
-                os.makedirs(self._mpc_data_dir)
-            except Exception as e:
-                raise FedbiomedMPCControllerError(
-                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
-                )
+        mpc_controller_id = str(uuid.uuid4())
 
         # Use tmp dir to write files
-        self._tmp_dir = os.path.join(tmp_dir, 'MPC', component_id)
+        self._tmp_dir = os.path.join(tmp_dir, 'MPC', component_id, mpc_controller_id)
 
         # Create TMP dir for MPC logs if it is not existing
         if not os.path.isdir(self._tmp_dir):
@@ -55,6 +46,18 @@ class MPCController:
             except Exception as e:
                 raise FedbiomedMPCControllerError(
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC temporary files : {e}"
+                )
+
+        self._mpc_script = os.path.join(self._root, 'scripts', 'fedbiomed_mpc')
+        self._mpc_dir = os.path.join(self._tmp_dir, 'MP-SPDZ')
+        self._mpc_data_dir = os.path.join(self._mpc_dir , 'Player-Data')
+
+        if not os.path.isdir(self._mpc_data_dir):
+            try:
+                os.makedirs(self._mpc_data_dir)
+            except Exception as e:
+                raise FedbiomedMPCControllerError(
+                    f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
                 )
 
     @property
@@ -104,6 +107,7 @@ class MPCController:
         o_f_command = ["-of", output_file] if party_number == 0 else []
 
         command = [self._component_type.name.lower(),
+                   self._mpc_dir,
                    "shamir-server-key",
                    "-pn", str(party_number),
                    "-nop", str(num_parties),
@@ -144,12 +148,11 @@ class MPCController:
             process.wait()
             status = True if process.returncode == 0 else False
             output, _ = process.communicate()
-            output = str(output)
-            logger.debug(f"MPC protocol output: {output}")
+            logger.debug("MPC protocol output: " + f"\n {output.decode('utf-8')}".replace('\n', '\n\t\t\t\t\t\t'))
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")
             raise FedbiomedMPCControllerError(
                 f"{ErrorNumbers.FB620.value}: Unexpected error while executing MPC protocol. {e}"
             )
 
-        return status, output
+        return status, output.decode('utf-8')

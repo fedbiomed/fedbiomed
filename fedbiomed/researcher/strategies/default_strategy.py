@@ -48,8 +48,8 @@ class DefaultStrategy(Strategy):
             round_i: number of round.
 
         Returns:
-          node_ids: list of all node ids considered for training during
-            this round `round_i`.
+            node_ids: list of all node ids considered for training during
+                this round `round_i`.
         """
         self._sampling_node_history[round_i] = self._fds.node_ids()
 
@@ -59,7 +59,10 @@ class DefaultStrategy(Strategy):
             self,
             training_replies: Responses,
             round_i: int
-    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]], Dict[str, float]]:
+    ) -> Tuple[Dict[str, float],
+               Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+               int,
+               Dict[str, List[int]]]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
@@ -85,6 +88,8 @@ class DefaultStrategy(Strategy):
                 The computation of correction states at round i is dependant to client states and correction states of round i-1.
                 Since training_replies can potentially order the node replies differently from round to round, the bridge between
                 all these parameters is represented by the node_id.
+            total_rows: sum of number of samples used by all nodes
+            encryption_factors: encryption factors from the participating nodes
 
         Raises:
             FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
@@ -125,12 +130,14 @@ class DefaultStrategy(Strategy):
         all_success = True
         model_params = {}
         sample_sizes = {}
+        encryption_factors = {}
         total_rows = 0
         for tr in training_replies:
             if tr['success'] is True:
 
                 # TODO: Attach sample_size, weights and params in a single dict object
                 model_params[tr["node_id"]] = tr["params"]
+                encryption_factors[tr["node_id"]] = tr.get("encryption_factor", None)
 
                 if tr["sample_size"] is None:
                     # if a Node `sample_size` is None, we cannot compute the weigths: in this case
@@ -154,4 +161,4 @@ class DefaultStrategy(Strategy):
 
         logger.info(f"Nodes that successfully reply in round {round_i} {self._success_node_history[round_i]}")
 
-        return model_params, weights
+        return model_params, weights, total_rows, encryption_factors

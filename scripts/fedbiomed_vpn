@@ -14,7 +14,7 @@
 
 # main variables
 # --------------
-ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node gui )
+ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node node2 gui gui2 )
 
 # all functions
 # -------------
@@ -31,28 +31,33 @@ usage() {
         echo "$extra"
     fi
     echo "\
-Usage: ${0##*/} clean
+Usage: ${0##*/} clean                          [container|configuration|image]
        ${0##*/} build                          [CONTAINER...]
        ${0##*/} configure                      [CONTAINER...]
        ${0##*/} start [-g|--gpu] [-s|--status] [CONTAINER...]
        ${0##*/} stop                           [CONTAINER...]
        ${0##*/} status                         [CONTAINER...]
-       ${0##*/} node *
-       ${0##*/} researcher *
+       ${0##*/} {node,node2} *
+       ${0##*/} {researcher,researcher2} *
 
 manage (local) docker container(s) with Wireguard VPN support
 (cannot use build/clean/configure/start/status/stop on the same commannd line)
 
 Optional CONTAINER name(s) may be added to the build/configure/start/stop/status
 commands to manage a subset of docker container(s).
-The CONTAINER list may contain: vpnserver mqtt restful researcher node gui
+The CONTAINER list may contain: vpnserver mqtt restful researcher node node2 gui gui2
 
 Be aware that stopping/building/starting the network container(s)
 (vpnserver, mqtt, restful) when node/researcher container(s) are running may
 have unpredicatble consequences. It is strongly adviced do restart from
 scratch in this case (clean, build, configure, start)
 
-clean          clean everything
+clean          clean current configurations
+
+  Optional with clean:
+  container     stop and remove containers (level1)
+  configuration level1 + remove containers configuration files (level2, default)
+  image         level2 + remove container images (level3)
 
 build          build container(s)
 
@@ -67,14 +72,15 @@ start          start container(s)
 
 status         give information on running container(s)
 
-stop                   stop  all containers
+stop           stop and remove all containers
 
-node       *   start a 'fedbiomed_run node *'       command
-               inside node container (eg: ${0##*/} run node list)
-researcher *   start a 'fedbiomed_run researcher *' command
-               inside researcher container
+{node,node2} * start a 'fedbiomed_run node(2) *'       command
+               inside node(2) container (eg: ${0##*/} run node list)
+{researcher,researcher2} *
+               start a 'fedbiomed_run researcher(2) *' command
+               inside researcher(2) container
 
-  For node and researcher command, all extra arguments (*) are passed
+  For node(2) and researcher(2) commands, all extra arguments (*) are passed
   to the fedbiomed_run scripts which is launched inside the container.
   Run 'fedbiomed_run --help' for more help on valid arguments
   FYI: a jupyter notebook is already started when the researcher docker
@@ -172,7 +178,7 @@ add_container() {
     container=$1
 
     case $container in
-        vpnserver|mqtt|restful|researcher|node|gui)
+        vpnserver|mqtt|restful|researcher|node|node2|gui|gui2)
             # verify if container already in the list
             found=0
             for c in ${ONLY_CONTAINERS[@]}
@@ -193,7 +199,7 @@ add_container() {
 }
 
 
-containers_stop() {
+containers_remove() {
     echo "** Stopping docker VPN container(s):" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
     for i in ${ONLY_CONTAINERS[@]}
@@ -203,11 +209,35 @@ containers_stop() {
 }
 
 containers_clean() {
-    echo "** Cleaning docker container(s):" ${ALL_VPN_CONTAINERS[@]}
+    echo "** Cleaning docker level: $CLEAN, container(s):" ${ALL_VPN_CONTAINERS[@]}
 
     cd "$basedir/envs/vpn/docker"
 
-    containers_stop
+    #
+    # level1 : stop and remove containers
+    #
+
+    containers_remove
+
+    for i in base basenode
+    do
+        docker-compose rm -sf $i >/dev/null
+    done
+
+    #
+    # level2 : remove configuration files
+    #
+    if [[ $CLEAN -lt 2 ]] ; then
+        return
+    fi
+    echo "** Cleaning docker containers configuration files, container(s):" ${ALL_VPN_CONTAINERS[@]}
+
+    for i in ${ALL_VPN_CONTAINERS[@]}
+    do
+        [[ "$i" = "gui" ]] || [[ "$i" = "gui2" ]] && { continue ; } # gui containers do not use wireguard
+        /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
+        /bin/rm -rf ./$i/run_mounts/config/config.env 2> /dev/null
+    done
 
     # specific to vpnserver
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
@@ -220,40 +250,40 @@ containers_clean() {
     /bin/rm -f  ./restful/run_mounts/app/db.sqlite3            2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/* 2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/*  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
+    /bin/rm -rf ./node/run_mounts/data/*            2> /dev/null
+    /bin/rm -rf ./node/run_mounts/envs/!\(common\)  2> /dev/null
+    /bin/rm -rf ./node/run_mounts/envs/common/*     2> /dev/null
+    /bin/rm -rf ./node/run_mounts/etc/*             2> /dev/null
+    /bin/rm -rf ./node/run_mounts/var/*             2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/* 2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/*  2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/etc/*  2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/var/*  2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/data/*           2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/!\(common\) 2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/envs/common/*    2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/etc/*            2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/var/*            2> /dev/null
 
     # specific to researcher
-    /bin/rm -rf ./researcher/run_mounts/data/*     2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/etc/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/samples/*  2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/runs/*     2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/var/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/data/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/etc/*       2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*   2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/runs/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/var/*       2> /dev/null
 
     #
-    for i in base basenode
-    do
-        docker-compose rm -sf $i >/dev/null
-    done
-
-    # TODO: fully integrate node2 in this script
-    for i in ${ALL_VPN_CONTAINERS[@]} node2
-    do
-        docker-compose rm -sf $i >/dev/null
-        [[ "$i" = "gui" ]] && { continue ; } # gui container does not use wireguard
-        /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
-        /bin/rm -rf ./$i/run_mounts/config/config.env 2> /dev/null
-    done
-
+    # level3 : remove container images
     #
-    docker image prune -f
+    if [[ $CLEAN -lt 3 ]] ; then
+        return
+    fi
+    echo "** Cleaning docker containers images, container(s):" ${ALL_VPN_CONTAINERS[@]}
+
+    for i in ${ALL_VPN_CONTAINERS[@]} base basenode
+    do
+        [[ "$i" = "node2" ]] || [[ "$i" = "gui2" ]] && continue # same as node/gui images
+        docker image rm -f fedbiomed/vpn-$i 2>/dev/null
+    done
+
+    docker image prune -af
 
 }
 
@@ -264,7 +294,7 @@ containers_status() {
     RUNNING_CONTAINERS=()
     for i in ${ONLY_CONTAINERS[@]}
     do
-        status=$(docker ps | grep fedbiomed/vpn-$i)
+        status=$(docker ps | grep fedbiomed-vpn-$i)
         if [ -z "$status" ]; then
             echo "- container $i is NOT running"
         else
@@ -276,7 +306,7 @@ containers_status() {
     # ping inside the wg vpn
     for i in ${RUNNING_CONTAINERS[@]}
     do
-        [[ "$i" = "gui" ]] && { continue ; } # gui container does not use wireguard
+        [[ "$i" = "gui" ]] || [[ "$i" = "gui2" ]] && { continue ; } # gui containers do not use wireguard
         echo -n "- pinging VPN server from container $i -> "
         ping=$(docker-compose exec ${i} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
 
@@ -305,17 +335,23 @@ containers_build() {
     do
         case $i in
             vpnserver|researcher) BUILD_BASE=1;;
-            node)                 BUILD_NODEBASE=1;;
+            node|node2)           BUILD_NODEBASE=1;;
         esac
     done
 
     if [ $BUILD_BASE -eq 1 ]; then
         echo "- building 'base' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+            docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building 'nodebase' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
+        echo "- building 'basenode' container"
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+            docker-compose build basenode
     fi
 
     for i in ${ONLY_CONTAINERS[@]}
@@ -323,7 +359,11 @@ containers_build() {
         echo "- stopping '$i' container"
         docker-compose rm -sf $i >/dev/null
         echo "- building '$i' container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build $i
+        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+            docker-compose build $i
     done
 }
 
@@ -353,7 +393,7 @@ containers_configure() {
     echo "** Generating VPN/Wireguards keys:" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
-    containers_stop
+    containers_remove
 
     # replace IP in VPN main config file
     CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
@@ -364,7 +404,10 @@ containers_configure() {
     sed -i-XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 
     # start vpn server to generate config files
-    docker-compose up -d vpnserver
+    CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+        docker-compose up -d vpnserver
 
     for i in ${ONLY_CONTAINERS[@]}
     do
@@ -372,7 +415,8 @@ containers_configure() {
             mqtt)       single_container_configure mqtt management ;;
             restful)    single_container_configure restful management ;;
             researcher) single_container_configure researcher1 researcher ;;
-            node)       single_container_configure node1 node ;;
+            node)       single_container_configure NODETAG node ;;
+            node2)      single_container_configure NODE2TAG node ;;
             *)  ;;
         esac
     done
@@ -395,22 +439,26 @@ containers_start() {
     fi
 
 
-    # Use CONTAINER_UID variable again then starting container(s) because
+    # Use CONTAINER_UID variable again when starting container(s) because
     # if image is not build `docker-compose up ` will automatically build it
 
     # start vpnserver first
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d vpnserver
+    MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+        docker-compose up -d vpnserver
 
     # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
     do
         [[ $i = "vpnserver" ]] && { continue; }
         case $i in
-            node)
+            node|node2)
                 if [ $GPU -eq 1 ]; then
-                    CONTAINER=node-gpu
+                    CONTAINER=$i-gpu
                 else
-                    CONTAINER=node
+                    CONTAINER=$i
                 fi
                 ;;
             *  ) CONTAINER=$i ;;
@@ -418,7 +466,11 @@ containers_start() {
 
         echo "- starting $i container"
         docker-compose rm -sf $CONTAINER >/dev/null
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $CONTAINER
+        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
+            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+            CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+            CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
+            docker-compose up -d $CONTAINER
 
         case $i in
             mqtt|restful)
@@ -436,8 +488,14 @@ containers_start() {
             node)
                 pubkey=$(docker-compose exec node wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node node1
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 $pubkey
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODETAG
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
+                ;;
+            node2)
+                pubkey=$(docker-compose exec node2 wg show wg0 public-key | tr -d '\r')
+                # Remove key to avoid protocol error if keys are same
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
                 ;;
             *)
                 ;;
@@ -486,7 +544,7 @@ run() {
     CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
     export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
-    docker-compose exec -u $(id -u) $container bash -c "$CMD"
+    docker-compose exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 
 
 
@@ -514,6 +572,8 @@ GPU=0
 RUN_NODE=0
 RUN_RESEARCHER=0
 RUN_ARGS=""
+MPSPDZ_COMMIT="$(cd $basedir/modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')"
+MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ $basedir/.gitmodules | grep 'url =' | awk '{ print $3 }')"
 
 #
 check_prerequisite
@@ -533,7 +593,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage   ;;
-                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
+                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -541,10 +601,13 @@ while (($# > 0)); do
             ;;
 
         clean)
-            CLEAN=1
+            CLEAN=2
             shift
             while (($# > 0)); do
                 case $1 in
+                    container) CLEAN=1 ;;
+                    configuration) CLEAN=2 ;;
+                    image) CLEAN=3 ;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -557,8 +620,8 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    mqtt|restful|researcher|node) add_container $1;;
-                    vpnserver|gui)
+                    mqtt|restful|researcher|node|node2) add_container $1;;
+                    vpnserver|gui|gui2)
                         echo "it is not necessary to configure $i - ignoring" ;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
@@ -573,7 +636,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
+                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     -g|--gpu)       GPU=1 ;;
                     -s|--status)    STATUS=1 ;;
@@ -588,7 +651,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
+                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -601,7 +664,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
+                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -621,9 +684,33 @@ while (($# > 0)); do
             done
             ;;
 
+        node2)
+            shift
+            RUN_NODE2=1
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help|help) usage ;;
+                    *)              RUN_ARGS="${RUN_ARGS} $1" ;;
+                esac
+                shift
+            done
+            ;;
+
         researcher)
             shift
             RUN_RESEARCHER=1
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help|help) usage ;;
+                    *)              RUN_ARGS="${RUN_ARGS} $1" ;;
+                esac
+                shift
+            done
+            ;;
+
+        researcher2)
+            shift
+            RUN_RESEARCHER2=1
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ;;
@@ -647,13 +734,15 @@ fi
 
 # start doing something useful
 # -----------------------------
-[[ $CLEAN -eq 1 ]]          && { containers_clean; }
+[[ $CLEAN -gt 0 ]]          && { containers_clean; }
 [[ $BUILD -eq 1 ]]          && { containers_build; }
 [[ $CONFIGURE -eq 1 ]]      && { containers_configure; }
 [[ $START -eq 1 ]]          && { containers_start; }
-[[ $STOP -eq 1 ]]           && { containers_stop; }
+[[ $STOP -eq 1 ]]           && { containers_remove; }
 [[ $RUN_NODE -eq 1 ]]       && { run node; }
+[[ $RUN_NODE2 -eq 1 ]]       && { run node2; }
 [[ $RUN_RESEARCHER -eq 1 ]] && { run researcher; }
+[[ $RUN_RESEARCHER2 -eq 1 ]] && { run researcher2; }
 
 # at the end because of the --status option
 [[ $STATUS -eq 1 ]]         && { containers_status; }

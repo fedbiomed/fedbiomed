@@ -22,7 +22,7 @@ script on macOS will be enough for installing and configuring MP-SPDZ.
 
 This directory also contains multi-party computation script that can be executed on `shamir` or other protocols. This
 MPC scripts can only be compiled using MP-SPDZ. Therefore, please make use that MP-SPDZ is installed and configured 
-before the compilation. Please see `<FEDBIOMED_DIR>/scripts/fedbiomed_mpc (node|researcher) compile --help` for compilation instructions.
+before the compilation. Please see `<FEDBIOMED_DIR>/scripts/fedbiomed_mpc (node|researcher) *WORKDIR* compile --help` for compilation instructions.
 
 
 ## Re-Building MPC Protocols 

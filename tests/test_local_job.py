@@ -30,12 +30,9 @@ class TestLocalJob(ResearcherTestCase):
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
 
-        content = "from typing import Dict, Any, List\n"
-        content += "import time\n"
-        content += inspect.getsource(FakeModel)
-        file = open(tmp_dir_model, "w")
-        file.write(content)
-        file.close()
+        content = "from testsupport.fake_training_plan import FakeModel"
+        with open(tmp_dir_model, "w", encoding="utf-8") as file:
+            file.write(content)
 
         return tmp_dir_model
 
@@ -130,6 +127,7 @@ class TestLocalJob(ResearcherTestCase):
         self.model.training_routine.assert_called_once()
 
         # Test failure during training
+        mock_logger_error.reset_mock()
         self.model.training_routine.side_effect = Exception
         self.local_job.start_training()
         mock_logger_error.assert_called_once()

@@ -38,7 +38,12 @@ Common Global Variables:
 - MQTT_BROKER             : MQTT broker IP address
 - MQTT_BROKER_PORT        : MQTT broker port
 - UPLOADS_URL             : Upload URL for file repository
-- MPSPDZ_IP               : MPSPDZ endpoint IP of component
+- MPSPDZ_IP               : MP-SPDZ endpoint IP of component
+- DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
+- ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
+- PORT_INCREMENT_FILE     : File for storing next port to be allocated for MP-SPDZ
+- CERT_DIR                : Directory for storing certificates for MP-SPDZ
+- DEFAULT_BIPRIMES_DIR    : Directory for storing default biprimes files
 '''
 
 import configparser
@@ -47,13 +52,13 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
+    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
+from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
-from fedbiomed.common.constants import MPSPDZ_certificate_prefix
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.utils import get_fedbiomed_root
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -64,7 +69,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         Args:
             root_dir: if not provided the directory is deduced from the package location
-                (mainly used by the test files)
+                (specifying root_dir is mainly used by the test files)
 
         Raises:
             FedbiomedEnvironError: If component type is invalid
@@ -173,22 +178,30 @@ class Environ(metaclass=SingletonABCMeta):
 
         # guess the fedbiomed package top dir if no root dir is given
         if self._root_dir is None:
-            root_dir = get_fedbiomed_root()
+            root_dir = ROOT_DIR
+
+            # initialize main directories
+            self._values['ROOT_DIR'] = root_dir
+            self._values['CONFIG_DIR'] = CONFIG_DIR
+            self._values['VAR_DIR'] = VAR_DIR
+            self._values['CACHE_DIR'] = CACHE_DIR
+            self._values['TMP_DIR'] = TMP_DIR
         else:
             root_dir = self._root_dir
+            # initialize main directories
 
-        # Initialize all environment values
-        self._values['ROOT_DIR'] = root_dir
+            self._values['ROOT_DIR'] = root_dir
+            self._values['CONFIG_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME)
+            self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
+            self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], CACHE_FOLDER_NAME)
+            self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], TMP_FOLDER_NAME)
 
-        # main directories
-        self._values['CONFIG_DIR'] = os.path.join(root_dir, 'etc')
-        self._values['VAR_DIR'] = os.path.join(root_dir, 'var')
-        self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], 'cache')
-        self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], 'tmp')
-        self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, "etc", "port_increment")
-        self._values['CERT_DIR'] = os.path.join(root_dir, "etc", "certs")
+        # initialize other directories
+        self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")
+        self._values['CERT_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "certs")
+        self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
-        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR':
+        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR', 'DEFAULT_BIPRIMES_DIR':
             dir_ = self._values[_key]
             if not os.path.isdir(dir_):
                 try:
@@ -276,6 +289,10 @@ class Environ(metaclass=SingletonABCMeta):
         mpspdz_port = self.from_config("mpspdz", "mpspdz_port")
         self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", mpspdz_ip)
         self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", mpspdz_port)
+
+        allow_dbp = self.from_config('mpspdz', 'allow_default_biprimes')
+        self._values['ALLOW_DEFAULT_BIPRIMES'] = os.getenv('ALLOW_DEFAULT_BIPRIMES', allow_dbp) \
+            .lower() in ('true', '1', 't', True)
 
         public_key = self.from_config("mpspdz", "public_key")
         private_key = self.from_config("mpspdz", "private_key")
@@ -377,6 +394,8 @@ class Environ(metaclass=SingletonABCMeta):
 
         component_id = self.from_config("default", "id")
 
+        allow_default_biprimes = os.getenv('ALLOW_DEFAULT_BIPRIMES', True)
+
         # Generate self-signed certificates
         key_file, pem_file = self._generate_certificate(
             component_id=component_id
@@ -386,7 +405,8 @@ class Environ(metaclass=SingletonABCMeta):
             'private_key': os.path.relpath(key_file, self._values["CONFIG_DIR"]),
             'public_key': os.path.relpath(pem_file, self._values["CONFIG_DIR"]),
             'mpspdz_ip': ip,
-            'mpspdz_port': port
+            'mpspdz_port': port,
+            'allow_default_biprimes': allow_default_biprimes
         }
 
     @staticmethod

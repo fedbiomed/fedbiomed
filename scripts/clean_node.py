@@ -4,13 +4,13 @@
 import os
 import shutil
 
-from fedbiomed.node.environ import environ
+from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
 
-for dir in environ['CONFIG_DIR'], \
-        environ['CACHE_DIR'], \
-        environ['TMP_DIR'], \
-        environ['VAR_DIR'], \
-        os.path.join('ROOT_DIR', 'modules', 'MP-SPDZ', 'Player-Data'):
+for dir in CONFIG_DIR, \
+        CACHE_DIR, \
+        TMP_DIR, \
+        VAR_DIR, \
+        os.path.join(ROOT_DIR, 'modules', 'MP-SPDZ'):
     if os.path.isdir(dir):
         print("[INFO] Removing directory ", dir)
         shutil.rmtree(dir)

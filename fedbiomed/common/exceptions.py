@@ -173,6 +173,13 @@ class FedbiomedRoundError(FedbiomedError):
     pass
 
 
+class FedbiomedModelError(FedbiomedError):
+    """
+    Exceptions triggered from Model class
+    """
+    pass
+
+
 class FedbiomedSecaggError(FedbiomedError):
     """
     Exceptions specific for the researcher secure aggregation class.
@@ -272,3 +279,13 @@ class FedbiomedMPCControllerError(FedbiomedError):
     pass
 
 
+class FedbiomedSecaggCrypterError(FedbiomedError):
+    """
+    Secure aggregation encryption error
+    """
+
+
+class FedbiomedSecureAggregationError(FedbiomedError):
+    """
+    Secure aggregation error
+    """

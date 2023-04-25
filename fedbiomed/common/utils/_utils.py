@@ -42,7 +42,7 @@ def get_class_source(cls: Callable) -> str:
     Args:
         cls: The class to extract the source code from
 
-    Return:
+    Returns:
         str: Source code of the given class
 
     Raises:

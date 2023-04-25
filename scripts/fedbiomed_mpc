@@ -13,11 +13,12 @@ BOLD='\033[1m'
 # Base Fed-BioMed directory ------------------------------------------------------------------------------------
 [[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
-basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
+basedir=$(cd $(dirname $myname)/.. ; pwd -P)
 
 # MP-SPDZ git submodule directory
-mpspdz_basedir=$basedir/modules/MP-SPDZ
-programs_dir=$mpspdz_basedir/Programs/Source
+mpspdz_refdir=$basedir/modules/MP-SPDZ
+
+
 # ---------------------------------------------------------------------------------------------------------------
 
 fedbiomed_envs=(node researcher)
@@ -68,7 +69,10 @@ MPC Controller
 
 Usage
 
-> fedbiomed_mpc (node | researcher) [compile | exec | shamir-server-key]
+> fedbiomed_mpc (node | researcher) WORKDIR [compile | exec | shamir-server-key]
+
+WORKDIR             : Working directory for this MPC computation (mandatory argument).
+                      It must have a 'WORKDIR/Player-Data' subdirectory with the needed files
 
 compile             : To compile MPC script before execution. Please run 'compile --help' for the usage
                       and more information
@@ -83,13 +87,13 @@ EOF
 Compiles MPC script
 
 Usage:
-> fedbiomed_mpc  (node | researcher) compile --script [script-name] [extra arguments]
+> fedbiomed_mpc  (node | researcher) WORKDIR compile --script SCRIPT_NAME [EXTRA_ARGUMENTS]
 
 Script argument is mandatory
 
--s | --script : The name of the MPC script. available scripts -> [test_setup | server_key]
+-s | --script : The SCRIPT_NAME of the MPC script. available scripts -> [test_setup | server_key]
 
-Pass other extra arguments for the compilation. These arguments may very based on MPC script. If the arguments are not
+Pass other EXTRA_ARGUMENTS for the compilation. These arguments may very based on MPC script. If the arguments are not
 supported compile operation will fail. E.g '--script server_key -N 2'
 
 EOF
@@ -101,13 +105,13 @@ EOF
 Executes MPC protocols
 
 Usage
-> fedbiomed_mpc (node | researcher) exec --protocol [protocol-name] [extra-arguments]
+> fedbiomed_mpc (node | researcher) WORKDIR exec --protocol PROTOCOL_NAME [EXTRA_ARGUMENTS]
 
 Protocol argument is mandatory
 
--p | --protocol : The name of the MPC protocol. Should be one of available protocols are [shamir-party,]
+-p | --protocol : The PROTOCOL_NAME of the MPC protocol. Should be one of available protocols are [shamir-party,]
 
-Extra arguments to pass to the protocol script. The arguments should be supported by the protocol. Otherwise, script
+EXTRA_ARGUMENTS to pass to the protocol script. The arguments should be supported by the protocol. Otherwise, script
 will exit from the execution.
 
 
@@ -118,8 +122,8 @@ EOF
       cat <<EOF
 Executes Shamir protocol for computing server key for secure aggregation
 
-Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
-                                          -of [OUTPUT_FILE] [-c|--compile] | [ ]
+Usage: fedbiomed_mpc (node | researcher) WORKDIR shamir-server-key -pn [PART_NUMBER] -nop [TOTAL_NUM_OF_PARTIES] -aip [FILE_PATH_TO_IP_ADDRESSES]
+                                          -of [OUTPUT_FILE] [-c|--compile]
 -nop|--num-of-parties   : Number of parties of the server key computation including researcher component that is
                           responsible  for aggregation
 
@@ -127,7 +131,7 @@ Usage: fedbiomed_mpc (node | researcher) shamir-server-key -pn [PART_NUMBER] -no
                           the format: '<ip-address>:<port>' as each line represents different party respecting the
                           order of party numbers.
 
--pn|--party-number      : Party number that represents the number where the protocol is executed
+-pn|--party-number      : Party number PART_NUMBER that represents the number where the protocol is executed
 
 -of|--output-file       : File path where the output of the calculation will be saved for party 0. The will will
                           automatically add P0-0 at the end of the file name specified. It will be created by the script
@@ -174,23 +178,63 @@ function absolute_path(){
   echo "$absolute"
 }
 
+# Function to check a MPC directory
+function check_workdir() {
+  BASEDIR=$1
+  REFDIR=$2
+
+  # Dont allow to work in the reference directory where MP-SPDZ is installed
+  if [ "$BASEDIR" = "$REFDIR" ] ; then
+    error "The working directory cannot be same as the MPC reference directory $REFDIR"
+  fi
+
+  # Directory must exist and look like a MP-SPDZ directory (to avoid removing other directories by mistake)
+  if [ ! -d "$BASEDIR" ] ; then
+    error "The working directory $BASEDIR is not an existing directory"
+  fi
+  if [ ! -d "$BASEDIR/Player-Data" ] ; then
+    error "The working directory $BASEDIR does not look like a MPC working directory"
+  fi
+}
+
+
+# Clone MP-SPDZ action -------------------------------------------------------------------------------------------
+function clone_mpspdz(){
+
+  BASEDIR=$1
+  REFDIR=$2
+
+  # Clone only if there does not seem to be already a MP-SPDZ installation
+  cmp -s "$BASEDIR/CHANGELOG.md" "$REFDIR/CHANGELOG.md"
+  if [ $? -ne 0 ] ; then
+    echo -e "${GRN}Cloning MP-SPDZ into the MPC working directory ...${NC}\n"
+
+    # "$REFDIR/." is equivalent to `cp -T` + portable to MacOS
+    cp -rn "$REFDIR/." "$BASEDIR/"
+    if [ $? -ne 0 ] ; then
+      error "Cannot populate the MPC working directory $BASEDIR"
+    fi
+  fi
+}
 
 # Compile action ------------------------------------------------------------------------------------------------
 function compile(){
 
-  SCRIPT=$1
-  EXTRA_ARGS=$2
+  BASEDIR=$1
+  SCRIPT=$2
+  EXTRA_ARGS=$3
 
   # shellcheck disable=SC2076
   if [[ ! " ${SCRIPTS[*]} " =~ " $SCRIPT " ]]; then
     error "MPC script '$SCRIPT' is not supported or not existing."
   fi
 
-  echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
-  # Check MPC script is existing in MPC
   if [ ! -f "$mpspdz_basedir/Programs/Source/$SCRIPT.mpc" ]; then
-    error "Unknown MPC program '$SCRIPT'. Please run --help to see available MPC scripts "
+    error "Unknown MPC program '$SCRIPT'. Please make sure MP_SPDZ is installed properly. Please run \n
+    \r 'fedbiomed_configure_secagg' to make sure and please run --help to see available MPC scripts "
   fi
+
+  echo -e "${GRN}Compiling '$SCRIPT'...${NC}"
 
   # Retrieve long prime
   longprime=$(cat $basedir/MP-SPDZ/longprime)
@@ -216,8 +260,9 @@ function compile(){
 
 function execute_protocol(){
 
-  PROTOCOL=$1
-  EXTRA_ARGS=$2
+  BASEDIR=$1
+  PROTOCOL=$2
+  EXTRA_ARGS=$3
 
 
   # shellcheck disable=SC2076
@@ -237,12 +282,13 @@ function execute_protocol(){
 
 function execute_shamir_server_key(){
 
-  NUMBER_OF_PARTIES=$1
-  PARTY_NUMBER=$2
-  ASSIGNED_IPS=$3
-  OUTPUT_FILE=$4
-  INPUT_FILE=$5
-  COMPILE=$6
+  BASEDIR=$1
+  NUMBER_OF_PARTIES=$2
+  PARTY_NUMBER=$3
+  ASSIGNED_IPS=$4
+  OUTPUT_FILE=$5
+  INPUT_FILE=$6
+  COMPILE=$7
 
   if ! c_rehash "$mpspdz_basedir"/Player-Data; then
       error "Certificate error"
@@ -250,7 +296,7 @@ function execute_shamir_server_key(){
 
   if [ -z "$NUMBER_OF_PARTIES" ] || [ -z "$PARTY_NUMBER" ] || [ -z "$ASSIGNED_IPS" ]; then
     error "There missing arguments. Please make sure that all the arguments are provided.\n\
-            \rSee 'fedbiomed_mpc (node|researcher) shamir-server-key --help'"
+            \rSee 'fedbiomed_mpc (node|researcher) WORKDIR shamir-server-key --help'"
   fi
 
   # Check output file if party number is 0 (server) -------------------------------------------------------------------
@@ -273,16 +319,16 @@ function execute_shamir_server_key(){
 
   # Check file for ip addresses is existing ---------------------------------------------------------------------------
   if [ ! -f "$ASSIGNED_IPS" ]; then
-    error "The file for assigned ip addresses not found.If the given path is a relative path please make the path \n\
-    \rrespects where ths command/script is executed"
+    error "The file for assigned ip addresses is not found. If the given path is a relative path please make the path \n\
+    \rrespect where the command/script is executed"
   else
     ASSIGNED_IPS="$(cd "$(dirname -- "$ASSIGNED_IPS")" >/dev/null; pwd -P)/$(basename -- "$ASSIGNED_IPS")"
   fi
 
   # Compile server key MPC file --------------------------------------------------------------------------------------
   if [ -n "$COMPILE" ]; then
-    if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" compile --script server_key -N "$NUMBER_OF_PARTIES"; then
-      error "Error while compiling script `server_key`. Please check the logs above"
+    if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$BASEDIR" compile --script server_key -N "$NUMBER_OF_PARTIES"; then
+      error "Error while compiling script 'server_key'. Please check the logs above"
     fi
   fi
 
@@ -311,7 +357,7 @@ function execute_shamir_server_key(){
 
   # If party is not zero it will have Input file
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
-      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$BASEDIR" exec --protocol shamir-party "$PARTY_NUMBER" \
         -ip "$ASSIGNED_IPS" \
         -IF "$INPUT_FILE" \
         server_key \
@@ -319,7 +365,7 @@ function execute_shamir_server_key(){
 
   # If party is zero it should have Output file
   else
-      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party "$PARTY_NUMBER" \
+      "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$BASEDIR" exec --protocol shamir-party "$PARTY_NUMBER" \
           -ip "$ASSIGNED_IPS" \
           -OF "$OUTPUT_FILE" \
           server_key \
@@ -331,10 +377,38 @@ function execute_shamir_server_key(){
 }
 
 
-# Parsing arguments ---------------------------------------------------------------------------------------------
+# Get working directory ------------------------------------------------------------------------
+
+# Need a workdir
+if [[ $# -gt 0 ]] ; then
+  case $1 in
+    -h| --help)
+      help main
+      exit 0
+      ;;
+    *)
+      mpspdz_basedir=$1
+      shift
+      ;;
+  esac
+else
+  error "Please specify the working directory for this MPC computation"
+fi
+
+# Make an absolute path
+mpspdz_basedir=$(cd "$mpspdz_basedir" ; pwd -P)
+# need this to test return value
+dummy=$(cd "$mpspdz_basedir")
+if [ $? -ne 0 ];  then
+  error "The provided working directory is not a proper path"
+fi
+
+# Check the MPC workdir
+check_workdir "$mpspdz_basedir" "$mpspdz_refdir"
+
+
+# Parsing command arguments -------------------------------------------------------------------
 case $1 in
-
-
 
   compile)
     while [[ $# -gt 0 ]]; do
@@ -357,7 +431,8 @@ case $1 in
 
     # Compile the protocol
     if [ -n "$SCRIPT" ]; then
-          compile "$SCRIPT" "$EXTRA_ARGS"
+          clone_mpspdz "$mpspdz_basedir" "$mpspdz_refdir"
+          compile "$mpspdz_basedir" "$SCRIPT" "$EXTRA_ARGS"
       else
           error "Please specify MPC script name to compile. e.g '--script test_setup'"
     fi
@@ -385,7 +460,8 @@ case $1 in
 
     # Execute protocol
     if [ -n "$PROTOCOL" ]; then
-      execute_protocol "$PROTOCOL" "$EXTRA_ARGS"
+      clone_mpspdz "$mpspdz_basedir" "$mpspdz_refdir"
+      execute_protocol "$mpspdz_basedir" "$PROTOCOL" "$EXTRA_ARGS"
     else
       error "Please specify protocol name to compile. e.g '--protocol shamir-party' "
     fi
@@ -441,7 +517,8 @@ case $1 in
       esac
     done
 
-    execute_shamir_server_key "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$INPUT_FILE" "$COMPILE"
+    clone_mpspdz "$mpspdz_basedir" "$mpspdz_refdir"
+    execute_shamir_server_key "$mpspdz_basedir" "$NUMBER_OF_PARTIES" "$PARTY_NUMBER" "$ASSIGNED_IPS" "$OUTPUT_FILE" "$INPUT_FILE" "$COMPILE"
 
   ;;
   -h|--help)

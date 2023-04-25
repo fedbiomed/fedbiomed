@@ -5,24 +5,30 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
 import torch
-
-from collections import OrderedDict
-
 from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.data import NPDataLoader
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError, FedbiomedUserInputError
+from fedbiomed.common.exceptions import (
+    FedbiomedError, FedbiomedModelError, FedbiomedTrainingPlanError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
-from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
+from fedbiomed.common.models import Model
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
+
+
+class PreProcessDict(TypedDict):
+    """Dict structure to specify a pre-processing transform."""
+
+    method: Callable[..., Any]
+    process_type: ProcessTypes
 
 
 class BaseTrainingPlan(metaclass=ABCMeta):
@@ -48,15 +54,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
 
+    _model: Model
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
-        self.pre_processes: Dict[
-            str, Dict[ProcessTypes, Union[str, Callable[..., Any]]]
-        ] = OrderedDict()
+        self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+
+    @abstractmethod
+    def model(self):
+        """Gets model instance of the training plan"""
 
     @abstractmethod
     def post_init(
@@ -75,7 +85,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-        return None
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -114,7 +123,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
-    def init_dependencies(self) -> List:
+    def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
 
         Returns:
@@ -126,13 +135,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
-                                             f"Unexpected arguments: {list(init_dep_spec.keys())}")
-
-        dependencies: Union[Tuple, List] = self.init_dependencies()
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                f"Unexpected arguments: {list(init_dep_spec.keys())}"
+            )
+        dependencies = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected dependencies are l"
-                                             f"ist or tuple, but got {type(dependencies)}")
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
+                "tuple of str, but got {type(dependencies)}"
+            )
         self.add_dependency(dependencies)
 
     def save_code(self, filepath: str) -> None:
@@ -147,39 +159,33 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         try:
             class_source = get_class_source(self.__class__)
-        except FedbiomedError as e:
-            msg = ErrorNumbers.FB605.value + \
-                  " : error while getting source of the model class - " + \
-                  str(e)
+        except FedbiomedError as exc:
+            msg = f"{ErrorNumbers.FB605.value}: error while getting source of the model class: {exc}"
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
 
         # Preparing content of the module
-        content = ""
-        for s in self._dependencies:
-            content += s + "\n"
-
+        content = "\n".join(self._dependencies)
         content += "\n"
         content += class_source
-
         try:
             # should we write it in binary (for the sake of space optimization)?
-            with open(filepath, "w") as file:
+            with open(filepath, "w", encoding="utf-8") as file:
                 file.write(content)
             logger.debug("Model file has been saved: " + filepath)
-        except PermissionError:
+        except PermissionError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
                    ", can't write the model content into it"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except MemoryError:
+            raise FedbiomedTrainingPlanError(_msg) from exc
+        except MemoryError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except OSError:
+            raise FedbiomedTrainingPlanError(_msg) from exc
+        except OSError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
+            raise FedbiomedTrainingPlanError(_msg) from exc
 
     def training_data(self):
         """All subclasses must provide a training_data routine the purpose of this actual code is to detect
@@ -188,23 +194,32 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedbiomedTrainingPlanError: if called and not inherited
         """
-        msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
+        msg = f"{ErrorNumbers.FB303.value}: training_data must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self) -> Union[OrderedDict, Dict]:
-        """
-        Retrieves parameters from a model defined in a training plan.
-        Output format depends on the nature of the training plan (OrderedDict for
-        a PyTorch training plan, np.ndarray for a sklearn training plan)
+    def get_model_params(self) -> Dict[str, Any]:
+        """Return a copy of the model's trainable weights.
+
+        The type of data structure used to store weights depends on the actual
+        framework of the wrapped model.
 
         Returns:
-            Union[OrderedDict, np.ndarray]: model parameters. Object type depends on
-            the nature of the TrainingPlan
+            Model weights, as a dictionary mapping parameters' names to their value.
         """
-        msg = ErrorNumbers.FB303.value + ": get_model_parans method must be implemented in the TrainingPlan"
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
+        return self._model.get_weights()
+
+    def set_model_params(self, params: Dict[str, Any]) -> None:
+        """Assign new values to the model's trainable parameters.
+
+        The type of data structure used to store weights depends on the actual
+        framework of the wrapped model.
+
+        Args:
+            params: model weights, as a dictionary mapping parameters' names
+                to their value.
+        """
+        return self._model.set_weights(params)
 
     def get_learning_rate(self) -> List[float]:
         raise FedbiomedTrainingPlanError("method not implemented")
@@ -303,7 +318,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"preprocess method `{method.__name__}` -> {exc}"
             )
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
         logger.debug(
             f"The process `{method.__name__}` has been successfully executed."
         )
@@ -371,7 +386,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"metric values to float - {exc}"
                 )
                 logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+                raise FedbiomedTrainingPlanError(msg) from exc
             return dict(zip(metric_names, values))
         # Raise if `metric` is of unproper input type.
         msg = (
@@ -443,7 +458,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_controller = Metrics()
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
-                output = self.predict(data)
+                output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
                 return metric_controller.evaluate(
@@ -463,7 +478,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"while computing the {metric_name} metric: {exc}"
                 )
                 logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg)
+                raise FedbiomedTrainingPlanError(msg) from exc
             # Log the computed value.
             logger.debug(
                 f"Validation: Batch {idx}/{n_batches} "
@@ -484,28 +499,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     batch_samples=num_samples_observed_till_now,
                     num_batches=n_batches
                 )
-
-    @abstractmethod
-    def predict(
-            self,
-            data: Any,
-        ) -> np.ndarray:
-        """Return model predictions for a given batch of input features.
-
-        This method is called as part of `testing_routine`, to compute
-        predictions based on which evaluation metrics are computed. It
-        will however be skipped if a `testing_step` method is attached
-        to the training plan, than wraps together a custom routine to
-        compute an output metric directly from a (data, target) batch.
-
-        Args:
-            data: Array-like (or tensor) structure containing batched
-                input features.
-        Returns:
-            Output predictions, converted to a numpy array (as per the
-                `fedbiomed.common.metrics.Metrics` specs).
-        """
-        return NotImplemented
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
@@ -531,8 +524,72 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             batch_size = len(data)
             return batch_size
 
+    def after_training_params(
+            self,
+            flatten: bool = False
+    ) -> Union[Dict[str, Any], List[float]]:
+        """Return the wrapped model's parameters for aggregation.
 
+        This method returns a dict containing parameters that need to be
+        reported back and aggregated in a federated learning setting.
 
+        It may also implement post-processing steps to make these parameters
+        suitable for sharing with the researcher after training - hence its
+        being used over `get_model_params` at the end of training rounds.
 
+        Returns:
+            The trained parameters to aggregate.
+        """
 
+        # Get flatten model parameters
+        if flatten:
+            return self._model.flatten()
 
+        return self.get_model_params()
+
+    def export_model(self, filename: str) -> None:
+        """Export the wrapped model to a dump file.
+
+        Args:
+            filename: path to the file where the model will be saved.
+
+        !!! info "Notes":
+            This method is designed to save the model to a local dump
+            file for easy re-use by the same user, possibly outside of
+            Fed-BioMed. It is not designed to produce trustworthy data
+            dumps and is not used to exchange models and their weights
+            as part of the federated learning process.
+
+            To save the model parameters for sharing as part of the FL process,
+            use the `after_training_params` method (or `get_model_params` one
+            outside of a training context) and export results using
+            [`Serializer`][fedbiomed.common.serializer.Serializer].
+        """
+        self._model.export(filename)
+
+    def import_model(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+
+            To load model parameters shared as part of the FL process, use the
+            [`Serializer`][fedbiomed.common.serializer.Serializer] to read the
+            network-exchanged file, and the `set_model_params` method to assign
+            the loaded values into the wrapped model.
+        """
+        try:
+            self._model.reload(filename)
+        except FedbiomedModelError as exc:
+            msg = (
+                f"{ErrorNumbers.FB304.value}: failed to import a model from "
+                f"a dump file: {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc

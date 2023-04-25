@@ -238,7 +238,7 @@ function forward_command_to_python_cli(){
       error "Please provide a command. See fedbiomed_run $COMPONENT -h"
     fi
 
-    source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
+    source "$basedir"/scripts/fedbiomed_environment "$COMPONENT" "$IP_ADDRESS"
 
     # dont write error message in this case, cli already does it
     python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
@@ -348,9 +348,13 @@ case $1 in
             *)
                 source ${basedir}/scripts/fedbiomed_environment network
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-                             CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
+                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
+                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
                              docker-compose build restful mqtt
-                docker-compose up -d restful mqtt
+                CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
+                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
+                             docker-compose up -d restful mqtt
                 ;;
         esac
         ;;
@@ -446,7 +450,6 @@ case $1 in
 
 
     node)
-
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -503,80 +506,75 @@ case $1 in
             export PARAMS=
         fi
 
+        # TODO : better test with python module loading attempt and try/except
+#        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
+
+        # silently initialize environment before any command
+        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS"  >/dev/null 2>&1; then
+            echo -e "${RED}ERROR:${NC}"
+            echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for node"
+            exit 1
+        fi
+
         # Get params starting from second
         EXTRA_PARAMS=${@:2}
 
-        # TODO : better test with python module loading attempt and try/except
         if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
 
                 list|--list|-l)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
                 del-all|delete-all|--del-all|--delete-all|-da)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-all $PARAMS
                     ;;
 
                 delete-mnist|--delete-mnist|-dm)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
                 add-mnist|--add-mnist|-am)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
                 add-dataset-from-file|--add-dataset-from-file|-adff)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-training-plan|--register-training-plan|-rtp)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --register-training-plan $PARAMS
                     ;;
 
                 approve-training-plan|--approve-training-plan|-atp)
-                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --approve-training-plan $PARAMS
                     ;;
 
                 reject-training-plan|--reject-training-plan|-rjtp)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --reject-training-plan $PARAMS
                     ;;
                 update-training-plan|--update-training-plan|-utp)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --update-training-plan $PARAMS
                     ;;
 
                 list-training-plans|--list-training-plans|-ltps)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --list-training-plans $PARAMS
                     ;;
 
                 delete-training-plan|--delete-training-plan|-dtp)
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --delete-training-plan $PARAMS
                     ;;
 
                 view-training-plan|--view-training-plan|-vtp)
-                    source ./scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --view-training-plan $PARAMS
                     ;;
 
@@ -584,7 +582,6 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
 

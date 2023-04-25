@@ -21,6 +21,7 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 
 fedbiomed_envs=(node researcher)
 fedbiomed_env=$1
+gitsub_update=$2
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
@@ -50,9 +51,33 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
-# Clone initialize github submodule if it is not existing
-echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
-git submodule update --init modules/MP-SPDZ
+[ -d "$mpspdz_basedir" ] || mkdir -p "$mpspdz_basedir"
+if [ "$2" != "clone" ] ; then
+  # Clone initialize github submodule if it is not existing
+  echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
+  git submodule update --init modules/MP-SPDZ
+else
+  # Clone repository and point to correct commit 
+  # Should be used only in case there is no submodule defined for MP-SPDZ
+  if [ -n "$MPSPDZ_URL" -a -z "$(ls -A $mpspdz_basedir)" ] ; then
+    echo -e "${BOLD}Cloning MP-SPDZ repository${NC}\n"
+    cd "$mpspdz_basedir/.."
+    if ! git clone $MPSPDZ_URL ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that $mpspdz_basedir is empty directory."
+      exit 1
+    fi
+  fi
+  if [[ -n "$MPSPDZ_COMMIT" ]] ; then
+    cd "$mpspdz_basedir"
+    if ! git checkout "$MPSPDZ_COMMIT" ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that MP-SPDZ is already cloned and '$MPSPDZ_COMMIT' is an existing commit."
+      exit 1    
+    fi
+  fi
+fi
+cd "$basedir"
 
 #################################
 # Linux Configuration
@@ -161,38 +186,29 @@ fi
 echo -e "${BOLD}Done! ${NC}"
 # ----------------------------------------------------------------------------------------------------------------
 
-# Create Player-Data directory if doesn't exist ------------------------------------------------------------------
-echo -e "\n${YLW}Creating Player-Data directory... ${NC}"
-if [ ! -d "$basedir/modules/MP-SPDZ/Player-Data" ]; then
-  if ! mkdir "$basedir/modules/MP-SPDZ/Player-Data"; then
-    echo -e "\n${RED}ERROR${NC}: Cannot create Player-Data directory!\n"
-    exit 1
-  fi
-fi
-echo -e "${BOLD}Done! ${NC}"
-# ----------------------------------------------------------------------------------------------------------------
-
 
 ##################################################################################################################
 # Create temporary test environment
 ##################################################################################################################
 
-echo -e "${YLW}\nCreating temporary testing environment----------------------------------------${NC}"
+# Creates temporary directories
+mpspdz_tmpdir="/tmp/fedbiomed_configure_secagg_test_${RANDOM}_${RANDOM}"
+echo -e "${YLW}\nCreating temporary testing directory $mpspdz_tmpdir ---------${NC}"
+for d in "$mpspdz_tmpdir" "$mpspdz_tmpdir/Player-Data" ; do
+  mkdir $d
+  if [ $? -ne 0 ];  then
+    echo -e "\n${RED}ERROR${NC}:"
+    echo -e "${BOLD} Can not create directory $d. Please check the logs above. ${NC}"
+    exit 1
+  fi
+done
+echo -e "${BOLD}Done! ${NC}"
 
 # Create test certificates, input files and ip address -----------------------------------------------------------
 echo -e "\n${YLW}Creating temporary certificates and input files for testing${NC}"
-player_data="$mpspdz_basedir/Player-Data"
+player_data="$mpspdz_tmpdir/Player-Data"
 
-# Remove existing test assigned IP address for each test party
-if [ -f "$player_data/test_ip_assigned" ]; then
-  rm "$player_data/test_ip_assigned"
-fi
-
-# Remove test input and outputs
-if [ -n "$(ls -a "$player_data"/ | grep Test-Output-*)" ]; then
-  echo -e "\n${YLW}Removing previous test files${NC}"
-  rm "$player_data"/Test-Output*
-fi
+# No more needed to remove test_ip_assigned or test input/ouput files (directory is newly created)
 
 # Create data for two test party
 for i in 0 1 2; do
@@ -211,7 +227,7 @@ echo -e "${BOLD}Done! ${NC}"
 # Run configuration test-----------------------------------------------------------------------------------------------
 
 # Compiles test setup mpc file
-if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" compile --script test_setup; then
+if ! "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$mpspdz_tmpdir" compile --script test_setup; then
     echo -e "\n${RED}ERROR${NC}:"
     echo -e "${BOLD} Error while compiling 'test_setup' ${NC}"
     exit 1
@@ -219,7 +235,7 @@ fi
 
 # Starts parties for MPC
 for i in 0 1 2; do
-  "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" exec --protocol shamir-party $i \
+  "$basedir"/scripts/fedbiomed_mpc "$fedbiomed_env" "$mpspdz_tmpdir" exec --protocol shamir-party $i \
       -ip Player-Data/test_ip_assigned \
       -IF Player-Data/Test-Input \
       -OF Player-Data/Test-Output \
@@ -269,6 +285,10 @@ done
 
 echo -e "*Testings result received at round $(($count-1))"
 echo -e "${BOLD}MP-SPDZ configuration is successfully tested! ${NC}"
+
+# Try to remove temporary directory but dont fail
+echo -e "${BOLD}Removing temporary test directory $mpspdz_tmpdir ${NC}"
+rm -rf $mpspdz_tmpdir
 
 # Testing Ends ################################################################################################
 

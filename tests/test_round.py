@@ -7,6 +7,7 @@ from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
+
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
@@ -19,6 +20,7 @@ from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
+from fedbiomed.common.exceptions import FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.constants import DatasetTypes
@@ -81,7 +83,8 @@ class TestRound(NodeTestCase):
                         training_plan_class='another_training_plan',
                         params_url='https://to/my/model/params',
                         training_kwargs={},
-                        training=True)
+                        training=True
+                        )
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
@@ -89,6 +92,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -98,6 +102,7 @@ class TestRound(NodeTestCase):
                                                      repository_download_patch,
                                                      tp_security_manager_patch,
                                                      import_module_patch,
+                                                     serialize_load_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
@@ -135,6 +140,7 @@ class TestRound(NodeTestCase):
 
         # check results
         self.assertTrue(msg_test1.get('success', False))
+        serialize_load_patch.assert_called_once()
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
         self.assertEqual(msg_test1.get('command', False), 'train')
 
@@ -153,16 +159,20 @@ class TestRound(NodeTestCase):
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
+        serialize_load_patch.reset_mock()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
         self.assertTrue(msg_test2.get('success', False))
+        serialize_load_patch.assert_called_once()
         self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
         self.assertEqual('train', msg_test2.get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.serializer.Serializer.dump')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -172,6 +182,8 @@ class TestRound(NodeTestCase):
                                                              repository_download_patch,
                                                              tp_security_manager_patch,
                                                              import_module_patch,
+                                                             serialize_load_patch,
+                                                             serialize_dump_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
@@ -187,7 +199,7 @@ class TestRound(NodeTestCase):
 
         FakeModel.SLEEPING_TIME = 0
         MODEL_NAME = "my_model"
-        MODEL_PARAMS = [1, 2, 3, 4]
+        MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
 
         class FakeModule:
             MyTrainingPlan = FakeModel
@@ -205,13 +217,14 @@ class TestRound(NodeTestCase):
                            'dataset_id': 'id_1234'}
 
         # arguments of `save` method
-        _model_filename = environ['TMP_DIR'] + '/node_params_1234.pt'
+        _model_filename = os.path.join(environ["TMP_DIR"], "node_params_1234.mpk")
         _model_results = {
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
-            'model_params': MODEL_PARAMS,
+            'model_weights': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
-            'optimizer_args': {}
+            'optimizer_args': {},
+            'encrypted': False,
         }
 
         # define context managers for each model method
@@ -219,18 +232,15 @@ class TestRound(NodeTestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-                patch.object(FakeModel, 'load') as mock_load,
                 patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
-                patch.object(FakeModel, 'save') as mock_save
         ):
-            _ = self.r1.run_model_training()
+            msg = self.r1.run_model_training()
+            self.assertTrue(msg.get("success"))
 
-            # test if all methods have been called once with the good arguments
-            mock_load.assert_called_once_with(MODEL_NAME,
-                                              to_params=False)
-
+            # Check that the model weights were loaded.
+            serialize_load_patch.assert_called_once()
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
@@ -241,18 +251,21 @@ class TestRound(NodeTestCase):
             mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
                                                            node_args=None)
 
+            # Check that the model weights were saved.
             mock_after_training_params.assert_called_once()
-            mock_save.assert_called_once_with(_model_filename, _model_results)
+            serialize_dump_patch.assert_called_once_with(_model_results, _model_filename)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
                                                               repository_download_patch,
+                                                              serialize_load_patch,
                                                               tp_security_manager_patch,
                                                               repository_upload_patch,
                                                               node_msg_patch,
@@ -269,44 +282,26 @@ class TestRound(NodeTestCase):
         mock_split_train_and_test_data.return_value = (True, True)
 
         # create dummy_model
-        dummy_training_plan_test = \
-            "class MyTrainingPlan:\n" + \
-            "   dataset = [1,2,3,4]\n" + \
-            "   def __init__(self, **kwargs):\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "       self._kwargs = kwargs\n" + \
-            "   def post_init(self, model_args, training_args, optimizer_args=None, aggregator_args=None):\n" + \
-            "       pass\n" + \
-            "   def load(self, *args, **kwargs):\n" + \
-            "       pass \n" + \
-            "   def save(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def training_routine(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def set_data_loaders(self, *args, **kwargs):\n" + \
-            "       self.testing_data_loader = MyTrainingPlan\n" + \
-            "       self.training_data_loader = MyTrainingPlan\n" + \
-            "       pass\n" + \
-            "   def set_dataset_path(self, *args, **kwargs):\n" + \
-            "       pass\n" + \
-            "   def optimizer_args(self):\n" + \
-            "       pass\n" + \
-            "   def after_training_params(self):\n" + \
-            "       return [1,2,3,4]\n"
-
+        dummy_training_plan_test = "\n".join([
+            "from testsupport.fake_training_plan import FakeModel",
+            "class MyTrainingPlan(FakeModel):",
+            "    dataset = [1, 2, 3, 4]",
+            "    def set_data_loaders(self, *args, **kwargs):",
+            "       self.testing_data_loader = MyTrainingPlan",
+            "       self.training_data_loader = MyTrainingPlan",
+        ])
 
         module_file_path = os.path.join(environ['TMP_DIR'],
                                         'training_plan_' + str(FakeUuid.VALUE) + '.py')
 
         # creating file for toring dummy training plan
-        with open(module_file_path, "w") as f:
-            f.write(dummy_training_plan_test)
+        with open(module_file_path, "w", encoding="utf-8") as file:
+            file.write(dummy_training_plan_test)
 
         # action
         msg_test = self.r1.run_model_training()
-        print("MESSAGE", msg_test)
         # checks
+        serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
         self.assertEqual('train', msg_test.get('command', False))
@@ -679,34 +674,37 @@ class TestRound(NodeTestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
 
-
+    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_round_10_download_aggregator_args(self, uuid_patch, repository_download_patch, ):
+    def test_round_10_download_aggregator_args(
+        self, uuid_patch, repository_download_patch, serializer_load_patch,
+    ):
         uuid_patch.return_value = FakeUuid()
-        
+
         repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
+        serializer_load_patch.side_effect = (i for i in range(3, 5))
         success, _ = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         # if attribute `aggregator_args` is None, then do nothing
         repository_download_patch.assert_not_called()
 
-        aggregator_args = {'var1': 1, 
+        aggregator_args = {'var1': 1,
                             'var2': [1, 2, 3, 4],
                             'var3': {'url': 'http://to/var/3',},
                             'var4': {'url': 'http://to/var/4'}}
         self.r1.aggregator_args = copy.deepcopy(aggregator_args)
-        
+
         success, error_msg = self.r1.download_aggregator_args()
         self.assertEqual(success, True)
         self.assertEqual(error_msg, '')
-        
+
         for var in ('var1', 'var2'):
             self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
-        
+
         for var in ('var3', 'var4'):
-            self.assertNotIn('url', self.r1.aggregator_args[var].keys())
-            self.assertEqual(self.r1.aggregator_args[var]['param_path'], 'my_model_' + var)
+            serializer_load_patch.assert_any_call(f"my_model_{var}")
+            self.assertEqual(self.r1.aggregator_args[var], int(var[-1]))
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
@@ -719,6 +717,159 @@ class TestRound(NodeTestCase):
         self.assertEqual(param_path, 'my_model')
         self.assertEqual(msg, '')
 
+    @patch("fedbiomed.node.round.BPrimeManager.get")
+    @patch("fedbiomed.node.round.SKManager.get")
+    def test_round_12_configure_secagg(self,
+                                       servkey_get,
+                                       biprime_get
+                                       ):
+        """Tests round secure aggregation configuration"""
+
+        servkey_get.return_value = {"context": {}}
+        biprime_get.return_value = {"context": {}}
+
+        environ["SECURE_AGGREGATION"] = True
+
+        result = self.r1._configure_secagg(
+            secagg_random=1.5,
+            secagg_biprime_id='123',
+            secagg_servkey_id='123'
+        )
+        self.assertTrue(result)
+
+        result = self.r1._configure_secagg(
+            secagg_random=None,
+            secagg_biprime_id=None,
+            secagg_servkey_id=None
+        )
+        self.assertFalse(result)
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id="1234",
+                secagg_servkey_id=None)
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id="1234",
+                secagg_servkey_id="1223")
+
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id=None,
+                secagg_servkey_id="1223")
+
+        with self.assertRaises(FedbiomedRoundError):
+            servkey_get.return_value = None
+            biprime_get.return_value = {"context": {}}
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+        with self.assertRaises(FedbiomedRoundError):
+            servkey_get.return_value = {"context": {}}
+            biprime_get.return_value = None
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+        # If node forces using secagg
+        environ["SECURE_AGGREGATION"] = True
+        environ["FORCE_SECURE_AGGREGATION"] = True
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=None,
+                secagg_biprime_id=None,
+                secagg_servkey_id=None
+            )
+
+        # If secagg is not activated
+        environ["SECURE_AGGREGATION"] = False
+        environ["FORCE_SECURE_AGGREGATION"] = False
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._configure_secagg(
+                secagg_random=1.5,
+                secagg_biprime_id='123',
+                secagg_servkey_id='123'
+            )
+
+
+
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.serializer.Serializer.load')
+    @patch('importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    @patch("fedbiomed.node.round.BPrimeManager.get")
+    @patch("fedbiomed.node.round.SKManager.get")
+    def test_round_13_run_model_training_secagg(self,
+                                                servkey_get,
+                                                biprime_get,
+                                                uuid_patch,
+                                                repository_download_patch,
+                                                tp_security_manager_patch,
+                                                import_module_patch,
+                                                serialize_load_patch,
+                                                repository_upload_patch,
+                                                node_msg_patch,
+                                                mock_split_test_train_data):
+        """tests correct execution and message parameters.
+        Besides  tests the training time.
+         """
+        # Tests details:
+        # - Test 1: normal case scenario where no model_kwargs has been passed during model instantiation
+        # - Test 2: normal case scenario where model_kwargs has been passed when during model instantiation
+
+        FakeModel.SLEEPING_TIME = 1
+
+        # initalisation of side effect function
+
+        def repository_side_effect(training_plan_url: str, model_name: str):
+            return 200, 'my_python_model'
+
+        class M(FakeModel):
+            def after_training_params(self, flatten):
+                return [0.1,0.2,0.3,0.4,0.5]
+
+        class FakeModule:
+            MyTrainingPlan = M
+            another_training_plan = M
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.side_effect = repository_side_effect
+        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
+        import_module_patch.return_value = FakeModule
+        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
+        node_msg_patch.side_effect = TestRound.node_msg_side_effect
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+
+        # Secagg configuration
+        servkey_get.return_value = {"parties": ["r-1", "n-1", "n-2"],  "context" : {"server_key": 123445}}
+        biprime_get.return_value = {"parties": ["r-1", "n-1", "n-2"], "context" : {"biprime": 123445}}
+        environ["SECURE_AGGREGATION"] = True
+        environ["FORCE_SECURE_AGGREGATION"] = True
+
+        msg_test1 = self.r1.run_model_training(secagg_arguments={
+            'secagg_random': 1.12,
+            'secagg_servkey_id': '1234',
+            'secagg_biprime_id': '1234',
+        })
+
+        # Back to normal
+        environ["SECURE_AGGREGATION"] = False
+        environ["FORCE_SECURE_AGGREGATION"] = False
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

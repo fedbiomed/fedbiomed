@@ -7,16 +7,10 @@ from copy import deepcopy
 from testsupport.base_case import NodeTestCase
 #############################################################
 
-import fedbiomed.node.secagg
-
-from testsupport.fake_message import FakeMessages
-from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
-
-
-from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, BaseSecaggSetup, SecaggSetup
+import fedbiomed.node.secagg
 
 
 class TestBaseSecaggSetup(NodeTestCase):
@@ -115,10 +109,8 @@ class SecaggTestCase(NodeTestCase):
     def setUp(self) -> None:
         self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
         self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.node.secagg, "_MPC")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg, 'MPCController')
         self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
-
-
 
         self.mock_skm = self.patch_skm.start()
         self.mock_cm = self.patch_cm.start()
@@ -128,10 +120,10 @@ class SecaggTestCase(NodeTestCase):
         # Set MOCK variables
         self.mock_cm.write_mpc_certificates_for_experiment.return_value = ('dummy/ip', [])
         self.mock_mpc.exec_shamir.return_value = 'dummy/path/to/output'
-        type(self.mock_mpc).mpc_data_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
             return_value='dummy/path/to/output'
         )
-        type(self.mock_mpc).tmp_dir = unittest.mock.PropertyMock(
+        unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=environ["TMP_DIR"]
         )
 
@@ -171,12 +163,11 @@ class TestSecaggServkey(SecaggTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
 
-
-    def test_secagg_servkey_setup_02_setup_server_key(self):
+    def test_secagg_servkey_setup_02_setup_specific(self):
         """Test setup operation for servkey"""
 
         with patch("builtins.open") as mock_open:
-            self.secagg_servkey._setup_server_key()
+            self.secagg_servkey._setup_specific()
 
             self.mock_cm.write_mpc_certificates_for_experiment.assert_called_once_with(
                 path_certificates='dummy/path/to/output',
@@ -198,7 +189,7 @@ class TestSecaggServkey(SecaggTestCase):
 
             mock_open.side_effect = Exception
             with self.assertRaises(FedbiomedSecaggError):
-                self.secagg_servkey._setup_server_key()
+                self.secagg_servkey._setup_specific()
 
     def test_secagg_servkey_setup_03_setup(self):
 
@@ -207,17 +198,29 @@ class TestSecaggServkey(SecaggTestCase):
             reply = self.secagg_servkey.setup()
             self.assertEqual(reply["success"], False)
 
-        self.mock_skm.get.side_effect = None
-        self.mock_skm.get.return_value = "context"
-        reply = self.secagg_servkey.setup()
-        self.assertEqual(reply["success"], True)
+        for get_value, return_value in (
+            # Not tested by _matching_parties* 
+            #
+            # (3, False),
+            # ({}, False),
+            # ({'parties': None}, False),
+            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
+            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
+        ):
+            self.mock_skm.get.side_effect = None
+            self.mock_skm.get.return_value = get_value
+            reply = self.secagg_servkey.setup()
+            self.assertEqual(reply["success"], return_value)
 
         with patch("builtins.open") as mock_open:
             self.mock_skm.get.return_value = None
             reply = self.secagg_servkey.setup()
             self.assertEqual(reply["success"], True)
 
-        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_server_key") as mock_:
+        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_specific") as mock_:
 
             mock_.side_effect = Exception
             self.mock_skm.get.return_value = None
@@ -259,9 +262,21 @@ class TestSecaggBiprime(SecaggTestCase):
     def test_secagg_biprime_setup_02_setup(self):
         """Tests init """
 
-        self.mock_bpm.get.return_value = True
-        reply = self.secagg_bprime.setup()
-        self.assertEqual(reply["success"], True)
+        for get_value, return_value in (
+            # Not tested by _matching_parties* 
+            #
+            # (3, False),
+            # ({}, False),
+            ({'parties': None}, True),
+            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
+            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
+        ):
+            self.mock_bpm.get.return_value = get_value
+            reply = self.secagg_bprime.setup()
+            self.assertEqual(reply["success"], return_value)
 
         with patch('time.sleep'):
             self.mock_bpm.get.return_value = None

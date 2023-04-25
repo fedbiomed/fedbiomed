@@ -18,6 +18,9 @@ import logging
 import numpy as np
 from copy import deepcopy
 from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, create_autospec, patch
+
+from sklearn.linear_model import SGDClassifier, Perceptron
 
 import fedbiomed.node.history_monitor
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -26,7 +29,8 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-from sklearn.linear_model import SGDClassifier
+
+
 
 class Custom:
     def testing_step(mydata, mytarget):
@@ -63,10 +67,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
     def test_sklearntrainingplanbasicinheritance_02_training_testing_routine(self):
         training_plan = SKLearnTrainingPlan()
-        # Model is not of the correct type
-        with patch.object(training_plan, '_model'):
-            with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.training_routine()
 
         X = np.array([])
         loader = NPDataLoader(dataset=X, target=X)
@@ -110,54 +110,37 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             [x for x in np.unique(X)]
         )
 
-    def test_sklearntrainingplanbasicinheritance_03_save_load(self):
+    def test_sklearntrainingplanbasicinheritance_03_export_model(self):
         training_plan = SKLearnTrainingPlan()
         saved_params = []
 
         def mocked_joblib_dump(obj, *args, **kwargs):
             saved_params.append(obj)
 
-        # Base case where params are not provided to save function
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
-                   side_effect=mocked_joblib_dump), \
-                patch('builtins.open', mock_open()):
-            training_plan.save('filename')
-            self.assertEqual(saved_params[-1], training_plan.model())
+        with patch('fedbiomed.common.models._sklearn.BaseSkLearnModel.export',
+                   side_effect=mocked_joblib_dump):
+            training_plan.export_model('filename')
+            self.assertEqual(saved_params[-1], 'filename')
 
-        # Params passed to save function as dict
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
-                   side_effect=mocked_joblib_dump), \
-                patch('builtins.open', mock_open()):
-            training_plan.save('filename', params={'coef_': 0.42, 'intercept_': 0.42})
-            self.assertEqual(saved_params[-1].coef_, 0.42)
-            self.assertEqual(saved_params[-1].intercept_, 0.42)
-
-        # Params passed as dict with 'model_params' field
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.dump',
-                   side_effect=mocked_joblib_dump), \
-                patch('builtins.open', mock_open()):
-            training_plan.save('filename', params={'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-            self.assertEqual(saved_params[-1].coef_, 0.42)
-            self.assertEqual(saved_params[-1].intercept_, 0.42)
+    def test_sklearntrainingplanbasicinheritance_04_import_model(self):
+        training_plan = SKLearnTrainingPlan()
 
         # Saved object is not the correct type
-        with patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-                   return_value=FedSGDRegressor._model_cls()), \
-                patch('builtins.open', mock_open()):
+        with patch(
+            'fedbiomed.common.models.BaseSkLearnModel._reload',
+            return_value=MagicMock()
+        ):
             with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.load('filename')
+                training_plan.import_model('filename')
 
         # Option to retrieve model parameters instead of full model from load function
-        with patch.object(training_plan, '_param_list', ['coef_', 'intercept_']), \
-                patch.object(training_plan._model, 'coef_', 0.42), \
-                patch.object(training_plan._model, 'intercept_', 0.42), \
-                patch('fedbiomed.common.training_plans._sklearn_training_plan.joblib.load',
-                      return_value=training_plan._model), \
-                patch('builtins.open', mock_open()):
-            params = training_plan.load('filename', to_params=True)
-            self.assertDictEqual(params, {'model_params': {'coef_': 0.42, 'intercept_': 0.42}})
-            params = training_plan.after_training_params()
-            self.assertDictEqual(params, {'coef_': 0.42, 'intercept_': 0.42})
+        model = create_autospec(SGDClassifier, instance=True)
+        with patch(
+            'fedbiomed.common.models.BaseSkLearnModel._reload',
+            return_value=model
+        ):
+            training_plan.import_model('filename')
+            self.assertIs(training_plan._model.model, model)
 
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
@@ -290,7 +273,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # training plan type
             self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
             # ensure that the model args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan._model_args,
+            self.assertDictEqual(training_plan._model.model_args,
                                  TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
@@ -302,31 +285,35 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
             self.assertNotIn('key_not_in_model', training_plan.model().get_params())
 
-            # --------- Check that param_list is correctly populated
+            # --------- Check that model's param_list is correctly populated after initialization
             # check that param_list is a list
-            self.assertIsInstance(training_plan._param_list, list)
+            self.assertIsInstance(training_plan._model.param_list, list)
             # check that param_list is not empty
-            self.assertTrue(training_plan._param_list)
+            self.assertTrue(training_plan._model.param_list)
             # check that param_list is a list of str
-            for param in training_plan._param_list:
+            for param in training_plan._model.param_list:
                 self.assertIsInstance(param, str)
 
-    def test_sklearntrainingplancommonfunctionalities_02_save_and_load(self):
+    def test_sklearntrainingplancommonfunctionalities_02_export_reload(self):
         for training_plan in self.training_plans:
             randomfile = tempfile.NamedTemporaryFile()
-            training_plan.save(randomfile.name)
-            orig_params = deepcopy(training_plan.model().get_params())
+            training_plan.export_model(randomfile.name)
+            orig_params = deepcopy(training_plan.get_model_params())
 
             # ensure file has been created and has size > 0
             self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
 
             new_tp = self.subclass_types[training_plan.parent_type]()
             new_tp.post_init({'n_classes': 2, 'n_features': 1}, FakeTrainingArgs())
-
-            m = new_tp.load(randomfile.name)
-            # ensure output of load is the same as original parameters
-            self.assertDictEqual(m.get_params(), orig_params)
-            # ensure that the newly loaded model has the same params as the original model
+            new_tp.import_model(randomfile.name)
+            # Ensure the imported model has the same weights as the exported one.
+            load_params = new_tp.get_model_params()
+            self.assertEqual(load_params.keys(), orig_params.keys())
+            self.assertTrue(all(
+                np.all(load_params[k] == orig_params[k]) for k in load_params
+            ))
+            # Ensure the import model has the same hyper-parameters as the exported one.
+            # Note: here `get_params` is `sklearn.base.BaseEstimator.get_params`.
             self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
 
     @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
@@ -431,17 +418,17 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # Test that coefs are not updated.
             # Cannot test intercept because classes are internally converted to [-1, 1], and therefore intercept_
             # is updated even after a single iteration
-            self.assertTrue(np.all(training_plan._model.coef_ == 0),
+            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.n_iter_, 1)
+            self.assertEqual(training_plan._model.model.n_iter_, 1)
 
             # When report is False, expected return value is NaN
             loss = training_plan._train_over_batch(inputs, target, report=False)
             self.assertTrue(np.isnan(loss),
                             f"{training_plan.__class__.__name__} loss should be NaN")
-            self.assertTrue(np.all(training_plan._model.coef_ == 0),
+            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
                             f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
+            self.assertEqual(training_plan._model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
@@ -473,14 +460,6 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
-
-    def test_skleanregression_01_parameters(self):
-        for training_plan in self.training_plans:
-            self.assertFalse(training_plan._is_classification)
-            self.assertTrue(training_plan._is_regression)
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.))
 
     def test_sklearnregression_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
@@ -555,36 +534,6 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
-
-    def test_sklearnclassification_01_parameters(self):
-        for training_plan in self.training_plans:
-            self.assertTrue(training_plan._is_classification)
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.))
-                self.assertEqual(getattr(training_plan._model, key).shape[0], 1)
-            # Test that classes values are integers in the range [0, n_classes)
-            for i in np.arange(2):
-                self.assertEqual(training_plan._model.classes_[i], i)
-
-        # Multiclass
-        for sklearn_model_type, new_subclass_type in self.subclass_types.items():
-            training_plan = new_subclass_type()
-            multiclass_model_args = {
-                **TestSklearnTrainingPlansClassification.model_args[sklearn_model_type],
-                'n_classes': 3
-            }
-            training_plan.post_init(multiclass_model_args, FakeTrainingArgs())
-            # Parameters all initialized to 0.
-            for key in training_plan._param_list:
-                self.assertTrue(np.all(getattr(training_plan._model, key) == 0.),
-                                f"{training_plan.__class__.__name__} Multiclass did not initialize all parms to 0.")
-                self.assertEqual(getattr(training_plan._model, key).shape[0], 3,
-                                 f"{training_plan.__class__.__name__} Multiclass wrong shape for {key}")
-            # Test that classes values are integers in the range [0, n_classes)
-            for i in np.arange(3):
-                self.assertEqual(training_plan._model.classes_[i], i,
-                                 f"{training_plan.__class__.__name__} Multiclass wrong values for classes")
 
     def test_sklearnclassification_02_testing_routine(self):
         """ Testing `testing_routine` of SKLearnModel training plan"""
@@ -679,8 +628,8 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertTrue(np.isnan(loss))
 
-            with patch.object(training_plan, '_model_args', {'n_classes': 3}), \
-                    patch.object(training_plan._model, 'classes_', np.array([0, 1, 2])):
+            with patch.object(training_plan._model, 'model_args', {'n_classes': 3}), \
+                    patch.object(training_plan._model.model, 'classes_', np.array([0, 1, 2])):
                 batch_losses_stdout = [
                     ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
                     ['loss: 0.0', 'loss: 1.0', 'epoch', 'loss: 0.0'],
@@ -691,6 +640,51 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
                 # since we should have guessed once the first class, and once the last class, the final loss
                 # is the mean of 0.5 and 1.0, i.e. it should be 0.75
                 self.assertEqual(loss, 0.75)
+
+
+class TestSklearnFedPerceptron(unittest.TestCase):
+    """Specific tests for Federated Perceptron model"""
+    def setUp(self) -> None:
+        pass
+    
+    def tearDown(self) -> None:
+        pass
+    
+    def test_sklearnperceptron_01_defaultvalues(self):
+        """Test for bug related to issue #498: Incorrect Perceptron defaultvalues for sklearn models
+        
+        Purpose of the test is to make sure default values of Perceptron are the same for FedPerceptron and for the regular sklearn
+        Perceptron model
+        """
+        # with default values
+        fed_perp = FedPerceptron()
+        fed_perp.post_init({'n_classes': 2, 'n_features': 2}, FakeTrainingArgs())
+        sk_perceptron = Perceptron()
+        
+        for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
+            if fed_name_param != 'verbose':
+                self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
+            
+        
+        # with a few values set by end-user
+        
+        values_sets = (
+            {'penalty': None, 'shuffle': True, 'tol': .03},
+            {'penalty': 'l1', 'fit_intercept': True, 'tol': .06, 'eta0': .01},
+        )
+        
+        additional_inputs_for_fed_model = {'n_classes': 2, 'n_features': 2}
+        for values_set in values_sets:
+            sk_perceptron = Perceptron(**values_set)
+            
+            values_set.update(additional_inputs_for_fed_model)
+            fed_perp = FedPerceptron()
+            fed_perp.post_init(values_set, FakeTrainingArgs())
+            
+            
+            for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
+                if fed_name_param != 'verbose':
+                    self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
 
 
 if __name__ == '__main__':  # pragma: no cover

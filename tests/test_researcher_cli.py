@@ -58,7 +58,7 @@ class TestResearcherCLI(ResearcherTestCase):
 
         self.assertEqual(self.cli._subparsers.choices["configuration"].
                          _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
-                         '_create_component_configuration')
+                         '_create_component')
 
 
 if __name__ == "__main__":
