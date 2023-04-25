@@ -402,9 +402,9 @@ class CommonCLI:
                   f"CERTIFICATE IS SAVED] -pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} "
                   f"--port {self._environ['MPSPDZ_PORT']}\" ")
             print("    Examples commands to use for VPN/docker mode:")
-            print("      ./scripts/fedbiomed_run node certificate register -pk /tmp/cert-secagg "
+            print("      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
                   f"-pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
-            print("      ./scripts/fedbiomed_run researcher certificate register -pk /tmp/cert-secagg "
+            print("      ./scripts/fedbiomed_run researcher certificate register -pk ./etc/cert-secagg "
                   f"-pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
         pass
 
