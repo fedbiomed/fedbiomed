@@ -4,11 +4,15 @@ FROM fedbiomed/vpn-base
 EXPOSE 8888
 # tensorboard via socat proxy, should be exposed as 6006
 EXPOSE 6007
+# MP-SPDZ negotiation
+EXPOSE 14000
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
+ARG MPSPDZ_COMMIT
+ARG MPSPDZ_URL
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -17,8 +21,10 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
+ENV MPSPDZ_COMMIT=${MPSPDZ_COMMIT}
+ENV MPSPDZ_URL=${MPSPDZ_URL}
 
-RUN apt-get update && apt-get install -y apt-utils wget socat
+RUN apt-get update && apt-get install -y apt-utils wget socat git
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/researcher/build_files/bashrc_append /tmp
@@ -43,9 +49,11 @@ COPY ./envs/vpn/docker/researcher/build_files/entrypoint*.bash /
 RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
+COPY envs/common/default_biprimes /fedbiomed/envs/common/default_biprimes
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
+COPY MP-SPDZ /fedbiomed/MP-SPDZ
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 
 #    a long time if you have zillion files in notebooks/data)
@@ -61,6 +69,10 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-researcher.yaml && \
 	pip cache purge && conda clean -a -y 
 # need clean/purge to be in the same command line to shrink image
+
+# Initialize secure aggregation
+# passing MPSPDZ_COMMIT and MPSPDZ_URL variables to the script
+RUN /fedbiomed/scripts/fedbiomed_configure_secagg researcher clone
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
