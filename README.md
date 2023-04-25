@@ -632,7 +632,7 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
+${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
 ```
 
 
@@ -640,13 +640,13 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
 Fed-BioMed node and researcher components. The script for executing the protocols is located in 
-`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+`${FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
 
