@@ -20,6 +20,8 @@ x-node:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14001" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module
@@ -45,6 +47,8 @@ x-node2:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14002" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module

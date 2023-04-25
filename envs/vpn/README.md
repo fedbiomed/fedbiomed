@@ -92,7 +92,7 @@ Run this only at first launch of container or after cleaning :
 [user@network $] docker-compose exec vpnserver bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node node1
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node NODETAG
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf researcher researcher1
 ```
 
@@ -283,9 +283,9 @@ Run this only at first launch of container or after cleaning :
 [user@node $] cd ./envs/vpn/docker
 [user@node $] vi ./node/run_mounts/config/config.env
 # add the content of the command below in the edited file above
-[user@network $] cat ./vpnserver/run_mounts/config/config_peers/node/node1/config.env
+[user@network $] cat ./vpnserver/run_mounts/config/config_peers/node/NODETAG/config.env
 ## if running on a single machine
-#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
+#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/NODETAG/config.env ./node/run_mounts/config/config.env
 ```
 * launch container
 ```bash
@@ -305,7 +305,7 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG *publickey*
 ```
 * check the container correctly established a VPN with vpnserver:
 ```bash
@@ -658,7 +658,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### mqtt
@@ -674,7 +674,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### restful
@@ -694,7 +694,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-restful
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node 
@@ -707,11 +707,13 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
-[user@node $] rm -rf ./node/run_mounts/{data,envs,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
+[user@node $] rm -rf ./node/run_mounts/envs/!\(common\)
+[user@node $] rm -rf ./node/run_mounts/envs/common/*
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### node gui
@@ -727,7 +729,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-gui
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ### researcher
@@ -746,7 +748,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
-[user@network $] docker image prune -f
+[user@network $] docker image prune -af
 ```
 
 ## background / wireguard
