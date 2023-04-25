@@ -231,8 +231,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         
         # Data standardization (only continuous varaibles will be standardized)
         if self.standardization:
-            x_cov = xhat_0[:,:self.n_cov-1]
-            x_cont = xhat_0[:,self.n_cov-1:]
+            x_cov = xhat_0[:,:self.n_cov]
+            x_cont = xhat_0[:,self.n_cov:]
             x_cont = self.standardize_data(x_cont)
             xhat_0 = np.concatenate((x_cov, x_cont), axis=1)
             
@@ -402,7 +402,7 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
             X = np.concatenate((X_cov, X_cont), axis=1)
 
         y = dataset[self.target_col].values.astype(int).ravel()
-        class_weight = compute_class_weight("balanced", np.unique(y), y)
+        class_weight = compute_class_weight(class_weight = "balanced", classes= np.unique(y), y= y)
         dict_class_weight = {np.unique(y)[0]:class_weight[0],np.unique(y)[1]:class_weight[1]}
         self._model.set_params(class_weight=dict_class_weight)
 

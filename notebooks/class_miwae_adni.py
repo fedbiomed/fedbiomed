@@ -235,3 +235,12 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         self.model().decoder.zero_grad()
         loss = self.miwae_loss(data = data,mask = mask)
         return loss
+    
+    def testing_step(self, data, mask):
+        output = self.model().forward(data)
+
+        #negative log likelihood loss
+        loss = torch.nn.functional.nll_loss(output, mask)
+
+        # Returning results as list
+        return [loss]

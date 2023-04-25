@@ -38,12 +38,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pipeline fed standardization and imputation, Traumabase')
     parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local', 'Centralized'],
                         help='Methods for the running experiment')
+    parser.add_argument('--kind', metavar='-k', type=str, default='single', choices = ['single', 'multiple', 'both'],
+                        help='Kind of imputation')
     parser.add_argument('--task', metavar='-ts', type=str, default='imputation', choices = ['imputation', 'prediction'],
                         help='Task to be performed with the pipeline')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
                         help='Id of the Test dataset (between 1 and 4)')
+    parser.add_argument('--mask_num', metavar='-mkn', type=int, default=1,
+                        help='Number of the simulated mask')
     parser.add_argument('--tags', metavar='-t', type=str, default='traumabase', help='Dataset tags', choices = ['traumabase','traumabase_imp','traumabase_pred'])
-    parser.add_argument('--Rounds', metavar='-r', type=int, default=200,
+    parser.add_argument('--Rounds', metavar='-r', type=int, default=100,
                         help='Number of rounds for imputation')
     parser.add_argument('--Epochs', metavar='-e', type=int, default=10,
                         help='Number of epochs for imputation')
@@ -61,6 +65,8 @@ if __name__ == '__main__':
                         help='Number of IS during training')
     parser.add_argument('--L', metavar='-l', type=int, default=10000,
                         help='Number of samples in testing')
+    parser.add_argument('--num_samples', metavar='-ns', type=int, default=30,
+                        help='Number of multiple imputations (if kind == both or kind == multiple)')
     parser.add_argument('--batch_size', metavar='-bs', type=int, default=48,
                         help='Batch size')
     parser.add_argument('--learning_rate', metavar='-lr', type=float, default=5e-4,
@@ -76,6 +82,10 @@ if __name__ == '__main__':
     tags = args.tags
     data_folder = args.data_folder
     root_dir = args.root_data_folder
+    kind = args.kind
+    num_samples = args.num_samples
+
+    mask_num = args.mask_num
 
     ###########################################################
     # Recover data size                                       #
@@ -90,7 +100,7 @@ if __name__ == '__main__':
     data_size = dataset_size[0]
 
     ############################################################################
-    num_covariates = 7 if task=='imputation' else 8 #13 14
+    num_covariates = 12 if task=='imputation' else 13 #13 14
     ############################################################################
 
     #Number of partecipating clients
@@ -104,9 +114,9 @@ if __name__ == '__main__':
     idx_clients.remove(idx_Test_data)
 
     if task == 'imputation':
-        Clients_data, Clients_missing, Clients_mask, data_test, data_test_missing, test_mask = databases(data_folder,task,idx_clients,root_dir,idx_Test_data)
+        Clients_data, Clients_missing, Clients_mask, data_test, data_test_missing, test_mask = databases(data_folder,task,idx_clients,mask_num,root_dir,idx_Test_data)
     elif task == 'prediction':
-        Clients_data, Clients_label, data_test, test_label = databases(data_folder,task,idx_clients,root_dir,idx_Test_data)
+        Clients_data, Clients_label, data_test, test_label = databases(data_folder,task,idx_clients,mask_num,root_dir,idx_Test_data)
         Clients_missing = Clients_data.copy()
         data_test_missing = data_test.copy()
         Clients_mask = [np.isfinite(np.copy(cl)) for cl in Clients_data]
@@ -124,7 +134,7 @@ if __name__ == '__main__':
 
         # NOTE: we need to perform only 1 round of 1 epoch to recover global mean and std
         ############################################################################
-        model_args = {'n_features': data_size, 'n_cov': num_covariates-1}
+        model_args = {'n_features': data_size, 'n_cov': num_covariates}
         ############################################################################
 
         training_args = {
@@ -285,7 +295,7 @@ if __name__ == '__main__':
                     Loss_cls[cls].append(loss.item())
                     Like_cls[cls].append(likelihood)
                     mse_train = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat_cls, 
-                                            mask_cls_test[:,num_covariates:], encoder_cls, decoder_cls, iota_cls, d, 100)
+                                            mask_cls_test[:,num_covariates:], encoder_cls, decoder_cls, iota_cls, d, 100,kind,num_samples)
                     MSE_cls[cls].append(mse_train)
                 if ep % rounds == 1:
                     likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, 
@@ -374,7 +384,7 @@ if __name__ == '__main__':
                 Loss_tot.append(loss.item())
                 Like_tot.append(likelihood)
                 mse_train = testing_func(xhat_0_tot, xfull_tot[:,num_covariates:], x_cat_tot, mask_tot_test[:,num_covariates:], 
-                                        encoder_cen, decoder_cen, iota_cen, d, 100)
+                                        encoder_cen, decoder_cen, iota_cen, d, 100,kind,num_samples)
                 MSE_tot.append(mse_train)
             if ep % rounds == 1:
                 likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cen, 
@@ -412,81 +422,80 @@ if __name__ == '__main__':
         if ((method == 'Local') and (args.do_figures==True)):
             generate_save_plots(result_folder,Loss_cls,Like_cls,MSE_cls,n_epochs_local,method,idx_clients)
         elif ((method == 'Centralized') and (args.do_figures==True)):
-            generate_save_plots(result_folder,Loss_tot,Like_tot,MSE_tot,n_epochs_centralized,method,idx_clients)
-                                    
+            generate_save_plots(result_folder,Loss_tot,Like_tot,MSE_tot,n_epochs_centralized,method,idx_clients)                   
         # Testing on data used during training
         for cls in range(N_cl):
             ###########################################################
             if ((fed_mean is None) and (fed_std is None)):
-                xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1)
+                xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates)
             else:
                 xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                    recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1, fed_mean, fed_std)
+                    recover_data(Clients_missing[cls], Clients_data[cls], num_covariates, fed_mean, fed_std)
             ###########################################################
             mask = np.copy(Clients_mask[cls])[:,num_covariates:]
             x_cat = xhat_local_std[:,:num_covariates]
             if method not in ['Local','Centralized']:
-                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
-                save_results_imputation(result_folder,idx_clients,idx_clients[cls],method,
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,idx_clients,idx_clients[cls],method,
                     N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                     std_training,'local',MSE)
                 if method != 'FedProx_loc':
-                    MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
-                    save_results_imputation(result_folder,idx_clients,idx_clients[cls],method,
+                    MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L,kind,num_samples)
+                    save_results_imputation(result_folder, mask_num,idx_clients,idx_clients[cls],method,
                         N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                         std_training,'global',MSE)
             elif method == 'Centralized':
                 # centralized 
-                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
-                save_results_imputation(result_folder,sum(idx_clients),idx_clients[cls],'Centralized',
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,sum(idx_clients),idx_clients[cls],'Centralized',
                     1,[len(xmiss_tot)],1,n_epochs_centralized,
                     'Loc','local',MSE)
-                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
-                save_results_imputation(result_folder,sum(idx_clients),idx_clients[cls],'Centralized',
+                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,sum(idx_clients),idx_clients[cls],'Centralized',
                     1,[len(xmiss_tot)],1,n_epochs_centralized,
                     'Loc','global',MSE)
             elif method == 'Local':
                 # local
-                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
-                save_results_imputation(result_folder,idx_clients[cls],idx_clients[cls],'Local_cl'+str(idx_clients[cls]),
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,idx_clients[cls],idx_clients[cls],'Local_cl'+str(idx_clients[cls]),
                     1,[len(Clients_missing[cls])],1,n_epochs_local,
                     'Loc','local',MSE)
 
         # Testing on external dataset
         ###########################################################
         if ((fed_mean is None) and (fed_std is None)):
-            xhat_local_std, xfull_local_std = recover_data(data_test_missing, data_test, num_covariates-1)
+            xhat_local_std, xfull_local_std = recover_data(data_test_missing, data_test, num_covariates)
         else:
             xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
-                    recover_data(data_test_missing, data_test, num_covariates-1, fed_mean, fed_std)
+                    recover_data(data_test_missing, data_test, num_covariates, fed_mean, fed_std)
         ###########################################################
         mask = np.copy(test_mask)[:,num_covariates:]
         x_cat = xhat_local_std[:,:num_covariates]
         if method not in ['Local','Centralized']:
-            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
-            save_results_imputation(result_folder,idx_clients,idx_Test_data,method,
+            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L,kind,num_samples)
+            save_results_imputation(result_folder, mask_num,idx_clients,idx_Test_data,method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'local',MSE)
             if method != 'FedProx_loc':
-                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L)
-                save_results_imputation(result_folder,idx_clients,idx_Test_data,method,
+                MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder, decoder, iota, d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,idx_clients,idx_Test_data,method,
                     N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                     std_training,'global',MSE)
         elif method == 'Centralized':
             # centralized 
-            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
-            save_results_imputation(result_folder,sum(idx_clients),idx_Test_data,'Centralized',
+            MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L,kind,num_samples)
+            save_results_imputation(result_folder, mask_num,sum(idx_clients),idx_Test_data,'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','local',MSE)
-            MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L)
-            save_results_imputation(result_folder,sum(idx_clients),idx_Test_data,'Centralized',
+            MSE = testing_func(xhat_global_std[:,num_covariates:], xfull_global_std[:,num_covariates:], x_cat, mask, encoder_cen, decoder_cen, iota_cen, d, L,kind,num_samples)
+            save_results_imputation(result_folder, mask_num,sum(idx_clients),idx_Test_data,'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','global',MSE)
         elif method == 'Local':
             # local
             for cls in range(N_cl):
-                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
-                save_results_imputation(result_folder,idx_clients[cls],idx_Test_data,'Local_cl'+str(idx_clients[cls]),
+                MSE = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L,kind,num_samples)
+                save_results_imputation(result_folder, mask_num,idx_clients[cls],idx_Test_data,'Local_cl'+str(idx_clients[cls]),
                     1,[len(Clients_missing[cls])],1,n_epochs_local,
                     'Loc','local',MSE)
 
@@ -502,18 +511,18 @@ if __name__ == '__main__':
             # Fill clients missing data
             if method == 'Local':
                 create_save_data_prediction(Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], Clients_data[cls], num_covariates, \
-                    result_folder, filename, d, L, standard = True)
+                    result_folder, filename, d, L, standard = True, kind=kind, num_samples=num_samples)
             else:
                 create_save_data_prediction(encoder, decoder, iota, Clients_data[cls], num_covariates, \
-                    result_folder, filename, d, L, standard = True, mean = fed_mean, std = fed_std)
+                    result_folder, filename, d, L, standard = True, mean = fed_mean, std = fed_std, kind=kind, num_samples=num_samples)
         #Impute test missing data
         filename = 'Client_imputed_' +str(idx_Test_data)
         if method == 'Local':
             create_save_data_prediction(Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], data_test, num_covariates, \
-                result_folder, filename, d, L, standard = True)
+                result_folder, filename, d, L, standard = True, kind=kind, num_samples=num_samples)
         else:
             create_save_data_prediction(encoder, decoder, iota, data_test, num_covariates, \
-                result_folder, filename, d, L, standard = True, mean = fed_mean, std = fed_std)
+                result_folder, filename, d, L, standard = True, mean = fed_mean, std = fed_std, kind=kind, num_samples=num_samples)
                             
 
 

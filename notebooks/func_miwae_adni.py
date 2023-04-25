@@ -242,9 +242,10 @@ def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
         return xmiss, mask, xhat_local_std, xfull_local_std
         
 
-def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L,
+def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota, d,L,
                  idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20):
 
+    #features = data_full.columns.values.tolist()
     xhat = np.copy(data_missing)
     xhat_0 = np.copy(data_missing)
     xfull = np.copy(data_full)
@@ -279,7 +280,8 @@ def testing_func(data_missing, data_full, mask, encoder, decoder, iota, d,L,
                 true_values = xfull[i,~mask[i,:].astype(bool)]
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
-                multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i)
+                features_i = np.array(features)[~mask[i,:].astype(bool)]
+                multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
         return float(err)
 
 def save_results(result_folder, Split_type,Train_data,Test_data,
@@ -354,7 +356,7 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir=Non
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test
 
-def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i):
+def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i,features_i):
     figures_folder = result_folder+'/Figures'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
@@ -364,11 +366,14 @@ def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,
     plt.scatter(x=single_imp[0],y=single_imp[1], s =100, marker = "P",  c = '#2ca02c')
     plt.scatter(x=true_values[0],y=true_values[1], s =100, marker = "X",  c = '#d62728')
     legend_elements = [Line2D([0], [0], color='b', lw=4, label='MIWAE (KDE of multiple imp.)'),
-                    Line2D([0], [0], marker='P', color='w', markerfacecolor = '#2ca02c', label='MIWAE (single imp.)', markersize=10),
-                    Line2D([0], [0], marker='X', color='w', markerfacecolor = '#d62728', label='True value', markersize=10)]
-    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5))
+                    Line2D([0], [0], marker='P', color='w', markerfacecolor = '#2ca02c', label='MIWAE (single imp.)', markersize=20, lw=0),
+                    Line2D([0], [0], marker='X', color='w', markerfacecolor = '#d62728', label='True value', markersize=20, lw=0)]
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), fontsize=25)
+    plt.xlabel(str(features_i[0]), fontsize=25)
+    plt.ylabel(str(features_i[1]), fontsize=25)
+    plt.tick_params(axis='both', labelsize = 20)
     plt.title('Subject'+str(i))
-    plt.savefig(figures_folder + '/' + file_name,bbox_inches='tight')
+    plt.savefig(figures_folder + '/' + file_name +'.pdf',format='pdf',bbox_inches='tight')
     plt.clf()
     plt.close()
 
@@ -378,9 +383,12 @@ def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,
     sns.kdeplot(x=xfull[:,0],y=xfull[:,1], color = 'r')
     legend_elements = [Line2D([0], [0], color='b', label='p(xmiss|xobs) via KDE of MIWAE multiple imp.'),
                     Line2D([0], [0], color='r', label='p(xmiss) via KDE on the fully observed dataset')]
-    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), fontsize=25)
+    plt.xlabel(str(features_i[0]), fontsize=25)
+    plt.ylabel(str(features_i[1]), fontsize=25)
+    plt.tick_params(axis='both', labelsize = 20)
     plt.title('Subject'+str(i))
-    plt.savefig(figures_folder + '/' + file_name,bbox_inches='tight')
+    plt.savefig(figures_folder + '/' + file_name +'.pdf',format='pdf',bbox_inches='tight')
     plt.clf()
     plt.close()
 
