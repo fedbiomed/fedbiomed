@@ -398,10 +398,14 @@ class CommonCLI:
 
             print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
             print(" 2- Change your directory to 'fedbiomed' root")
-            print(f" 2- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE "
+            print(f" 3- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE "
                   f"CERTIFICATE IS SAVED] -pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} "
                   f"--port {self._environ['MPSPDZ_PORT']}\" ")
-
+            print("    Examples commands to use for VPN/docker mode:")
+            print("      ./scripts/fedbiomed_run node certificate register -pk /tmp/cert-secagg "
+                  f"-pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
+            print("      ./scripts/fedbiomed_run researcher certificate register -pk /tmp/cert-secagg "
+                  f"-pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
         pass
 
     def parse_args(self):
