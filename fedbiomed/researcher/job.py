@@ -464,6 +464,7 @@ class Job:
                     params_path = None
                     params = None
                     optimizer_args = None
+                    encryption_factor = None
 
                 # TODO: could choose completely different name/structure for
                 timing = m['timing']
