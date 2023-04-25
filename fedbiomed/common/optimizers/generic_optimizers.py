@@ -97,21 +97,6 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """Performs an optimisation step and updates model weights.
         """
 
-    def get_learning_rate(self)-> List[float]:
-        """Returns learning rate(s) of the optimizer.
-
-        !!! warning
-            For pytorch and scikit-learn native optimizers, returned learning rate might be
-            initial learning rate, and not the actual learning rate got over several model iteration.
-
-        Returns:
-            List[float]: learning-rate(s) contained in a list. Size of list
-                depends of the optimizer specifed: if pytorch optimizer with several learning rates,
-                size is of the number of layers contained in the model, size is of one otherwise.
-        """
-
-        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
-
 
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
@@ -153,7 +138,8 @@ class DeclearnOptimizer(BaseOptimizer):
         Returns:
             a list containing the learning rate value (of size 1)
         """
-        super().get_learning_rate()
+        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
+
         states = self.optimizer.get_state()['config']
         return [states['lrate']]
 
@@ -255,31 +241,12 @@ class NativeTorchOptimizer(BaseOptimizer):
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
-        super().get_learning_rate()
+        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
         learning_rates = []
         params = self.optimizer.param_groups
         for param in params:
             learning_rates.append(param['lr'])
         return learning_rates
-
-    def fed_prox(self, loss: torch.float, mu: Union[float, 'torch.float']) -> 'torch.float':
-        loss += float(mu) / 2. * self.__norm_l2()
-        return loss
-
-    def scaffold(self):
-        pass # FIXME: should we implement scaffold here?
-
-    def __norm_l2(self) -> float:
-        """Regularize L2 that is used by FedProx optimization
-
-        Returns:
-            L2 norm of model parameters (before local training)
-        """
-        norm = 0
-
-        for current_model, init_model in zip(self._model.model().parameters(), self._model.init_params):
-            norm += ((current_model - init_model) ** 2).sum()
-        return norm
 
 
 class NativeSkLearnOptimizer(BaseOptimizer):
@@ -307,18 +274,6 @@ class NativeSkLearnOptimizer(BaseOptimizer):
 
     def optimizer_processing(self):
         return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=False)
-
-    def get_learning_rate(self) -> List[float]:
-        """Returns scikit-learn model initial learning rate.
-
-        !!! warning
-            This method does not return the current learning rate, but the initial learning rate
-
-        Returns:
-            List[float]: initial learning rate of the model
-        """
-        super().get_learning_rate()
-        return self._model.get_learning_rate()
 
 
 class OptimizerBuilder:
