@@ -651,7 +651,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|mqtt|restful|researcher|node|node2|gui]gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
