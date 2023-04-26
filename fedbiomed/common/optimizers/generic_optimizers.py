@@ -9,7 +9,6 @@ from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Uni
 
 import declearn
 import declearn.model.torch
-import numpy as np
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -22,6 +21,7 @@ from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 OT = TypeVar("OT")  # generic type-annotation for wrapped optimizers
 """Generic TypeVar for framework-specific Optimizer types"""
 
+
 class SklearnOptimizerProcessing:
     """Context manager used for scikit-learn model, that checks if model parameter(s) has(ve) been changed
     when disabling scikit-learn internal optimizer - ie when calling `disable_internal_optimizer` method
@@ -30,28 +30,32 @@ class SklearnOptimizerProcessing:
     _model: SkLearnModel
     _disable_internal_optimizer: bool
 
-    def __init__(self, model: SkLearnModel,
-                 is_declearn_optimizer: bool):
+    def __init__(
+        self,
+        model: SkLearnModel,
+        disable_internal_optimizer: bool
+    ) -> None:
         """Constructor of the object. Sets internal variables
 
         Args:
             model: a SkLearnModel that wraps a scikit-learn model
-            is_declearn_optimizer: whether to disable scikit-learn model internal optimizer (True) in order
+            disable_internal_optimizer: whether to disable scikit-learn model internal optimizer (True) in order
                 to apply declearn one or to keep it (False)
         """
         self._model = model
-        self._is_declearn_optimizer = is_declearn_optimizer
+        self._disable_internal_optimizer = disable_internal_optimizer
 
-    def __enter__(self) -> 'SklearnOptimizerProcessing':
+    def __enter__(self) -> None:
         """Called when entering context manager"""
-        if self._is_declearn_optimizer:
+        if self._disable_internal_optimizer:
             self._model.disable_internal_optimizer()
 
     def __exit__(
-                self,
-                type: Union[type[BaseException], None],
-                value: Union[BaseException, None],
-                traceback: Union[TracebackType, None]):
+            self,
+            type: Union[type[BaseException], None],
+            value: Union[BaseException, None],
+            traceback: Union[TracebackType, None],
+        ) -> None:
         """Called when leaving context manager.
 
         Args:
@@ -194,7 +198,7 @@ class DeclearnOptimizer(BaseOptimizer):
         ```
         """
         if isinstance(self._model, SkLearnModel):
-            return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=True)
+            return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
         else:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
 
@@ -250,9 +254,10 @@ class NativeTorchOptimizer(BaseOptimizer):
 
 
 class NativeSkLearnOptimizer(BaseOptimizer):
-    """Optimizer wrapper for scikit-learn native models.
-    """
+    """Optimizer wrapper for scikit-learn native models."""
+
     _model_cls: Type[SkLearnModel] = SkLearnModel
+
     def __init__(self, model: SkLearnModel, optimizer: Optional[None] = None):
         """Constructor of the Optimizer wrapper for scikit-learn native models.
 
@@ -260,20 +265,19 @@ class NativeSkLearnOptimizer(BaseOptimizer):
             model: SkLearnModel model that builds a scikit-learn model.
             optimizer: unused. Defaults to None.
         """
- 
+
         if optimizer is  not None:
             logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
         super().__init__(model, None)
         logger.debug("Using native Sklearn Optimizer")
 
     def step(self):
-        """Performs an optimization step and updates model weights
-        """
+        """Performs an optimization step and updates model weights."""
         gradients = self._model.get_gradients()
         self._model.apply_updates(gradients)
 
-    def optimizer_processing(self):
-        return SklearnOptimizerProcessing(self._model, is_declearn_optimizer=False)
+    def optimizer_processing(self) -> SklearnOptimizerProcessing:
+        return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=False)
 
 
 class OptimizerBuilder:
@@ -311,13 +315,19 @@ class OptimizerBuilder:
         TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS
     }
 
-    def build(self, tp_type: TrainingPlans, model: Model, optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None) -> 'BaseOptimizer':
+    def build(
+        self,
+        tp_type: TrainingPlans,
+        model: Model,
+        optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None,
+    ) -> 'BaseOptimizer':
         """Builds a Optimizer wrapper based on TrainingPlans and optimizer type
 
         Args:
             tp_type: training plan type
             model: model wrapper that contains a model. Must be compatible with the training plan type.
-            optimizer: optimizer used to optimize model. For using plain Scikit-Learn model, should be set to None (meaning only model optimization will be used). Defaults to None.
+            optimizer: optimizer used to optimize model. For using plain Scikit-Learn model, should be
+                set to None (meaning only model optimization will be used). Defaults to None.
 
         Raises:
             FedbiomedOptimizerError: raised if training plan type `tp_type` and `optimizer`
@@ -329,15 +339,15 @@ class OptimizerBuilder:
         try:
             optim_cls = OptimizerBuilder.get_parent_class(optimizer)
             selected_optim_wrapper = OptimizerBuilder.BUILDER[tp_type]
-            #optimizer_wrapper: BaseOptimizer = self._optimizers_available[self.get_parent_class(optimizer)]
-        except KeyError:
+        except KeyError as exc:
             err_msg = f"{ErrorNumbers.FB625.value} Unknown Training Plan type {tp_type} "
-
-            raise FedbiomedOptimizerError(err_msg)
+            raise FedbiomedOptimizerError(err_msg) from exc
         try:
             return selected_optim_wrapper[optim_cls](model, optimizer)
-        except KeyError:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value} Training Plan type {tp_type} not compatible with optimizer {optimizer}")
+        except KeyError as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB625.value} Training Plan type {tp_type} not compatible with optimizer {optimizer}"
+            ) from exc
 
     @staticmethod
     def get_parent_class(optimizer: Union[None, Any]) -> Union[None, Type]:
@@ -365,4 +375,6 @@ class OptimizerBuilder:
             else:
                 return type(optimizer).__bases__[0]
         else:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value} Cannot find parent class of Optimizer {optimizer}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB625.value} Cannot find parent class of Optimizer {optimizer}"
+            )
