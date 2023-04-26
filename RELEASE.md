@@ -51,7 +51,7 @@ git pull -p
 ```bash
 git merge release/$RELEASE_TAG
 ```
-- if merge conflict occur, solve them
+- if merge conflicts occur, solve them
 - create a version tag for the release
 ```bash
 git tag -a $RELEASE_TAG
