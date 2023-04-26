@@ -394,7 +394,23 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
     def test_declearnoptimizer_07_multiple_scaffold(self):
         pass
-        
+        # researcher_lr, node_lr = .03, .5
+        # data = torch.Tensor([[1,1,1,1],
+        #                      [1,0,0,1]])
+        # targets = torch.Tensor([[1, 1]])
+
+        # loss_func = torch.nn.MSELoss()
+        # for model in self._torch_zero_model_wrappers:
+        #     researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule(), ScaffoldClientModule()])
+        #     optim_w = DeclearnOptimizer(model, researcher_optim)
+        #     optim_w.init_training()
+        #     optim_w.zero_grad()
+        #     output = model.model.forward(data)
+        #     loss = loss_func(output, targets)
+        #     loss.backward()
+        #     optim_w.step()
+
+
 class TestTorchBasedOptimizer(unittest.TestCase):
     # make sure torch based optimizers does the same action on torch models - regardless of their nature
     def setUp(self):
@@ -489,23 +505,56 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
     def setUp(self):
         self._sklearn_model = (SkLearnModel(SGDClassifier),
                                 SkLearnModel(SGDRegressor))
-    
-    def tearDown(self):
-        pass
 
-    def test_sklearnbasedoptimizer_01_get_learning_rate(self):
-        pass
-    
-    def test_sklearnbasedoptimizer_02_step(self):
-        pass
-   
-    def test_sklearnbasedoptimizer_03_optimizer_processing(self):
         self.data = np.array([[1, 1, 1, 1,],
                               [1, 0,0, 1],
                               [1, 1, 1, 1],
                               [1, 1, 1, 0]])
         
         self.targets = np.array([[1], [0], [1], [1]])
+    
+    def tearDown(self):
+        pass
+
+    def test_sklearnbasedoptimizer_01_step(self):
+        # tests that a plain gradient descent performed by native sklearn optimizer and
+        # using declearn optimizer gives the same results
+        random_seed = 1234
+        learning_rate = .1234
+        data = np.array([[1, 1, 1, 1,]],)
+        target = np.array([[1]])
+        
+        for sk_model in self._sklearn_model:
+            # native sklearn
+            sk_model.set_params(random_state=random_seed,
+                                eta0=learning_rate,
+                                penalty=None,
+                                learning_rate='constant')
+            sk_model.set_init_params({'n_features': 4, 'n_classes': 2})
+            sk_model_native = copy.deepcopy(sk_model)
+
+            sk_optim_w = NativeSkLearnOptimizer(sk_model_native, None)
+            with sk_optim_w.optimizer_processing():
+                sk_optim_w.init_training()
+                sk_model_native.train(data, target)
+                sk_optim_w.step()
+            
+            # sklearn with declearn optimizers
+            sk_model_declearn = copy.deepcopy(sk_model)
+            
+            dec_optim_w = DeclearnOptimizer(sk_model_declearn, FedOptimizer(lr=learning_rate))
+            with dec_optim_w.optimizer_processing():
+                dec_optim_w.init_training()
+                sk_model_declearn.train(data, target)
+                dec_optim_w.step()
+            batch_size = self.data.shape[0]
+            for (k,v), (k, v_ref) in zip(sk_model_native.get_weights().items(), sk_model_declearn.get_weights().items()):
+                self.assertTrue(np.all(np.isclose(v, v_ref)))
+                print("SKLEARN TEST", v, v_ref)
+            print("SKLEAN GRAD", sk_model_native.get_gradients())
+            print("SKLEAN GRAD2", sk_model_declearn.get_gradients())
+    def test_sklearnbasedoptimizer_02_optimizer_processing(self):
+        
         learning_rate = .12345
         num_features = 4
         num_classes = 2
@@ -532,7 +581,7 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                     
             self.assertDictEqual(init_optim_hyperparameters, model.get_params())
 
-    def test_sklearnbasedoptimizer_04_invalid_method(self):
+    def test_sklearnbasedoptimizer_03_invalid_method(self):
         # test that zero_grad raises error if model is sklearn
 
         for model in self._sklearn_model:
