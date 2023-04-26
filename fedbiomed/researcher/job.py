@@ -422,7 +422,7 @@ class Job:
             for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
-                # manage error messages and failures during training
+                # manage error messages during training
                 if m['command'] == 'error':
                     if m['extra_msg']:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)} "
@@ -430,10 +430,6 @@ class Job:
                     else:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)}")
 
-                if m['command'] == 'train' and not m['success']:
-                    logger.info(f"Training failed for node {m['node_id']}: {m['msg']}")
-
-                if m['command'] == 'error' or (m['command'] == 'train' and not m['success']):
                     faulty_node = m['node_id']  # remove the faulty node from the list
 
                     if faulty_node not in list(self._nodes):
@@ -449,9 +445,14 @@ class Job:
                         m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
 
+                # manage training failure for this job
+                if not m['success']:
+                    logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
+                    self._nodes.remove(m['node_id'])  # remove the faulty node from the list
+                    continue
+
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
 
-                # TODO : handle error depending on status
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:
