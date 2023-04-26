@@ -3,6 +3,7 @@ import random
 from typing import Any, Dict, List
 import unittest
 from unittest.mock import MagicMock, patch, Mock
+from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 
 import numpy as np
@@ -577,24 +578,121 @@ class TestOptimizerBuilder(unittest.TestCase):
         
         torch_model = nn.Linear(4, 2)
         self.native_torch_optimizers = (torch.optim.SGD(torch_model.parameters(), lr=.12345),
-                                       torch.optim.Adam(torch_model.parameters(), lr=.12345))
+                                       torch.optim.Adam(torch_model.parameters(), lr=.12345),
+                                       torch.optim.Adagrad(torch_model.parameters(), lr=.12345),)
+        
+        self.modules = [
+            ScaffoldServerModule(),
+            GaussianNoiseModule(),
+            YogiMomentumModule(),
+            L2Clipping(),
+            AdaGradModule(),
+            YogiModule()]
+        self.regularizers = [FedProxRegularizer(), LassoRegularizer(), RidgeRegularizer()]
 
     def tearDown(self) -> None:
         return super().tearDown()
-    
-    
+
+    def create_random_fedoptimizer(self, lr: float = .12345, w_decay: float = .54321) -> FedOptimizer:
+        selected_modules = random.sample(self.modules, random.randint(0, len(self.modules)))
+        selected_reg = random.sample(self.regularizers, random.randint(0, len(self.regularizers)))
+
+        optim = FedOptimizer(lr=lr,
+                             decay=w_decay, 
+                             modules=selected_modules,
+                             regularizers=selected_reg)
+        return optim
+
     def test_01_correct_build_optimizer(self):
-        pass
-    
+        optim_builder = OptimizerBuilder()
+        nb_tests = 10
+        random_declearn_optim = [self.create_random_fedoptimizer() for _ in range(nb_tests)]
+        # check that NativeTorchOptimizer and DeclearnOptimizer are correclty built 
+        for torch_model in self.torch_models:
+
+            for optim in self.native_torch_optimizers:
+                optim_wrapper = optim_builder.build(TrainingPlans.TorchTrainingPlan, TorchModel(torch_model), optim)
+                self.assertIsInstance(optim_wrapper, NativeTorchOptimizer)
+            for optim in random_declearn_optim:
+                optim_wrapper = optim_builder.build(TrainingPlans.TorchTrainingPlan, TorchModel(torch_model), optim)
+                self.assertIsInstance(optim_wrapper, DeclearnOptimizer)
+        
+        # check that NativeSklearnOptimizer and DeclearnOptimizer are correctly built
+        for sk_model in self.sklearn_models:
+            optim_wrapper = optim_builder.build(TrainingPlans.SkLearnTrainingPlan, sk_model, None)
+            self.assertIsInstance(optim_wrapper, NativeSkLearnOptimizer)
+            for optim in random_declearn_optim:
+                optim_wrapper = optim_builder.build(TrainingPlans.SkLearnTrainingPlan, sk_model, optim)
+                self.assertIsInstance(optim_wrapper, DeclearnOptimizer)
+
     def test_02_get_parent_class(self):
-        pass
+        def check_type(obj, parent_obj):
+            """Tests that function `get_parent_class` retruns 
+            the appropriate type of the highest parent class (just after `object`)
+
+            Args:
+                obj : sub-calss or class of the object from which to guess the parent class type
+                parent_obj : highest parent class from which `obj` object has been built
+            """
+            res = optim_builder.get_parent_class(obj)
+            self.assertEqual(res, type(parent_obj))
+        class A:
+            pass
+        
+        class B(A):
+            pass
+        
+        class C(A):
+            pass
+        
+        class D(B, C):
+            pass
+        
+        class E(C, A):
+            pass
+        
+        objects = [A, B, C, D, E]
+        
+        optim_builder = OptimizerBuilder()
+        # test with `object`
+        check_type(object, object)
+
+        # test with `None`
+        res = optim_builder.get_parent_class(None)
+        self.assertEqual(res, None)
+        
+        # test  with dummy objects
+        for obj in objects:
+            check_type(obj, A)
+            
+        # test with torch optimizers
+        for torch_optim in self.native_torch_optimizers:
+            res = optim_builder.get_parent_class(torch_optim)
+            self.assertEqual(res, torch.optim.Optimizer)
     
-    def test_03_unknowntrainingplan(self):
+    def test_03_buildfailure_unknowntrainingplan(self):
         for incorrect_training_plan_type in (None, 'unknown_training_plan',):
             for model_collection in (self.torch_models, self.sklearn_models,):
                 for model in model_collection:
                     with self.assertRaises(FedbiomedOptimizerError):
                         OptimizerBuilder().build(incorrect_training_plan_type, model, None)
+
+    def test_04_buildfailure_trainingplan_model_mismatches(self):
+        optim_builer = OptimizerBuilder()
+        model = MagicMock(spec=SkLearnModel)
+
+        # for SkLearnTrainingPlan
+        for coll in (self.native_torch_optimizers, ("unknown", object,),):
+            for item in coll:
+        
+                with self.assertRaises(FedbiomedOptimizerError):
+                    optim_builer.build(TrainingPlans.SkLearnTrainingPlan, model, item)
+
+        # for TorchTrainingPlan
+        model = MagicMock(spec=TorchModel)
+        for item in ("unknown", object, None,):
+            with self.assertRaises(FedbiomedOptimizerError):
+                optim_builer.build(TrainingPlans.SkLearnTrainingPlan, model, item)
 
 
 if __name__ == "__main__":

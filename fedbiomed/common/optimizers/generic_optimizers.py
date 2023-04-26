@@ -326,9 +326,6 @@ class OptimizerBuilder:
         Returns:
             BaseOptimizer: an instance of a child of BaseOptimizer object
         """
-        # if self._optimizers_available is None:
-        #     raise FedbiomedOptimizerError("error, no training_plan set, please run `set_optimizers_for_training_plan` beforehand")
-
         try:
             optim_cls = OptimizerBuilder.get_parent_class(optimizer)
             selected_optim_wrapper = OptimizerBuilder.BUILDER[tp_type]
