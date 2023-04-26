@@ -382,7 +382,8 @@ class Scaffold(Aggregator):
 
             else:
                 # ...otherwise retrieve default learning rate
-                lrs += training_plan.get_learning_rate()
+                optim =  training_plan.optimizer()
+                lrs += optim.get_learning_rate()
 
             if len(lrs) == 1:
                 # case where there is one learning rate

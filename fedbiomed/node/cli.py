@@ -253,7 +253,7 @@ def launch_cli():
             with open(cli.arguments.add_dataset_from_file) as json_file:
                 data = json.load(json_file)
         except:
-            logger.critical("cannot read dataset json file: " + cli.argumentsadd_dataset_from_file)
+            logger.critical("cannot read dataset json file: " + cli.arguments.add_dataset_from_file)
             sys.exit(-1)
 
         # verify that json file is complete
@@ -290,7 +290,8 @@ def launch_cli():
                      data_type=data["data_type"],
                      description=data["description"],
                      tags=data["tags"],
-                     name=data["name"]
+                     name=data["name"],
+                     dataset_parameters=data.get("dataset_parameters")
                      )
 
     elif cli.arguments.list:

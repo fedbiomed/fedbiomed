@@ -575,7 +575,10 @@ class TestOptimizerBuilder(unittest.TestCase):
         self.sklearn_models = (SkLearnModel(SGDClassifier),
                                SkLearnModel(SGDRegressor),)
         
-        
+        torch_model = nn.Linear(4, 2)
+        self.native_torch_optimizers = (torch.optim.SGD(torch_model.parameters(), lr=.12345),
+                                       torch.optim.Adam(torch_model.parameters(), lr=.12345))
+
     def tearDown(self) -> None:
         return super().tearDown()
     

@@ -264,12 +264,23 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         # Compute the batch-averaged, learning-rate-scaled gradients.
         # Note: w_init: {w_t}, w_updt: {w_t - eta_t * sum_{s=1}^B(grad_s)}
         #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
+
         self._gradients = {
             key: w_init[key] - (w_updt[key] / batch_size)
             for key in self.param_list
         }
+
+        # Warning: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
+        # (you will get un-scaled gradients, that need to be scaled back by dividing gradients by the learning rate)
+        # here is a way to do so (with `lrate` as the learning rate): 
+        # ```python`
+        # for key, val in self._gradients.items():
+        #        val /= lrate
+        # ````
+
         # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
+        # Nota: to restore sklearn internal optimizer, please call `enable_internal_optimizer`
 
     def get_gradients(
         self,
