@@ -422,7 +422,7 @@ class Job:
             for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
-                # manage error messages during training
+                # manage error messages and failures during training
                 if m['command'] == 'error':
                     if m['extra_msg']:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)} "
@@ -430,6 +430,10 @@ class Job:
                     else:
                         logger.info(f"Error message received during training: {str(m['errnum'].value)}")
 
+                if m['command'] == 'train' and not m['success']:
+                    logger.info(f"Training failed for node {m['node_id']}: {m['msg']}")
+
+                if m['command'] == 'error' or (m['command'] == 'train' and not m['success']):
                     faulty_node = m['node_id']  # remove the faulty node from the list
 
                     if faulty_node not in list(self._nodes):
