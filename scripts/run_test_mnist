@@ -88,6 +88,7 @@ kill -9 $kpids
 ( cd $basedir/envs/development/docker ; docker-compose down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
+$basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
 source $basedir/scripts/fedbiomed_environment clean
 
 conda deactivate
