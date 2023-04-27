@@ -232,9 +232,6 @@ cleaning() {
         /bin/rm -f $FILES_TO_CLEAN
     fi
 
-    # completely clean this clone
-    source $basedir/scripts/fedbiomed_environment clean 2> /dev/null
-
 }
 
 cleaning_trap() {
