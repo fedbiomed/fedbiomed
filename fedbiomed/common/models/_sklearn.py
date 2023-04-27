@@ -279,7 +279,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             # Reset the model's weights and iteration counter.
             for key in self.param_list:
                 w_updt[key] += getattr(self.model, key)
-                setattr(self.model, key, w_init[key])
+                setattr(self.model, key, w_init[key].copy())
             self.model.n_iter_ -= 1
         # Compute the batch-averaged gradients (scaled by eta_t).
         # Note: w_init: {w_t}, w_updt: {w_t - eta_t sum_{s=1}^B(grad_s)}
@@ -292,6 +292,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             lrate = self.get_learning_rate()[0]
             for key, val in self._gradients.items():
                 val /= lrate
+        else:
+            for key, val in self._gradients.items():
+                val *= -1
         # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
 
