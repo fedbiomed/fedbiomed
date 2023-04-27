@@ -302,7 +302,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self,
         as_vector: bool = False,
     ) -> Union[Dict[str, np.ndarray], NumpyVector]:
-        """Gets computed gradients
+        """Returns either computed gradients if declearn optimizer is used or
+            quantity - learning_rate * gradients if plain sklearn is used
 
         Args:
             as_vector: Whether to wrap returned gradients into a declearn Vector.
