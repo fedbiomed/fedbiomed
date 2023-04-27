@@ -221,7 +221,7 @@ cleaning() {
         /bin/rm -f  $basedir/var/db_${nodeid}.json 2> /dev/null
         /bin/rm -fr $basedir/var/queue_manager_${nodeid} 2> /dev/null
 
-        /bin/rm -f $basedir/etc/$config 2> /dev/null
+        source $basedir/scripts/fedbiomed_environment clean 2> /dev/null
         i=$(( $i + 1 ))
     done
 
