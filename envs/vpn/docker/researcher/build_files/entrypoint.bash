@@ -23,8 +23,10 @@ export MQTT_BROKER=10.220.0.2
 export MQTT_BROKER_PORT=1883
 export UPLOADS_URL="http://10.220.0.3:8000/upload/"
 export PYTHONPATH=/fedbiomed
-su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; \
-    conda activate fedbiomed-researcher ; cd notebooks ; \
+export MPSPDZ_IP=$VPN_IP
+export MPSPDZ_PORT=14000
+su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
+    ./scripts/fedbiomed_run researcher configuration create ; cd notebooks ; \
     jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 
 # proxy port for TensorBoard

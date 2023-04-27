@@ -13,7 +13,7 @@ BOLD='\033[1m'
 # Base Fed-BioMed directory ------------------------------------------------------------------------------------
 [[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
-basedir=$(realpath $(dirname $myname)/..)
+basedir=$(cd $(dirname $myname)/.. ; pwd -P)
 
 # MP-SPDZ git submodule directory
 mpspdz_refdir=$basedir/modules/MP-SPDZ
@@ -396,7 +396,9 @@ else
 fi
 
 # Make an absolute path
-mpspdz_basedir=$(realpath "$mpspdz_basedir") 
+mpspdz_basedir=$(cd "$mpspdz_basedir" ; pwd -P)
+# need this to test return value
+dummy=$(cd "$mpspdz_basedir")
 if [ $? -ne 0 ];  then
   error "The provided working directory is not a proper path"
 fi

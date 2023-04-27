@@ -21,6 +21,7 @@ mpspdz_basedir=$basedir/modules/MP-SPDZ
 
 fedbiomed_envs=(node researcher)
 fedbiomed_env=$1
+gitsub_update=$2
 
 if [ -z "$fedbiomed_env" ]; then
   echo -e "${RED}ERROR:${NC}"
@@ -50,9 +51,33 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 
 echo -e "\n${GRN}Starting MP-SPDZ configuration...${NC}"
-# Clone initialize github submodule if it is not existing
-echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
-git submodule update --init modules/MP-SPDZ
+[ -d "$mpspdz_basedir" ] || mkdir -p "$mpspdz_basedir"
+if [ "$2" != "clone" ] ; then
+  # Clone initialize github submodule if it is not existing
+  echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
+  git submodule update --init modules/MP-SPDZ
+else
+  # Clone repository and point to correct commit 
+  # Should be used only in case there is no submodule defined for MP-SPDZ
+  if [ -n "$MPSPDZ_URL" -a -z "$(ls -A $mpspdz_basedir)" ] ; then
+    echo -e "${BOLD}Cloning MP-SPDZ repository${NC}\n"
+    cd "$mpspdz_basedir/.."
+    if ! git clone $MPSPDZ_URL ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that $mpspdz_basedir is empty directory."
+      exit 1
+    fi
+  fi
+  if [[ -n "$MPSPDZ_COMMIT" ]] ; then
+    cd "$mpspdz_basedir"
+    if ! git checkout "$MPSPDZ_COMMIT" ; then
+      echo -e "${RED}ERROR:${NC}"
+      echo -e "${BOLD} Please make sure that MP-SPDZ is already cloned and '$MPSPDZ_COMMIT' is an existing commit."
+      exit 1    
+    fi
+  fi
+fi
+cd "$basedir"
 
 #################################
 # Linux Configuration
