@@ -274,7 +274,8 @@ class NativeSkLearnOptimizer(BaseOptimizer):
     def step(self):
         """Performs an optimization step and updates model weights."""
         gradients = self._model.get_gradients()
-        self._model.apply_updates(gradients)
+        updates = {k: -v for k, v in gradients.items()}
+        self._model.apply_updates(updates)
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
         return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=False)

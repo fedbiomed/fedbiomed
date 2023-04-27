@@ -521,8 +521,8 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
         # using declearn optimizer gives the same results
         random_seed = 1234
         learning_rate = .1234
-        data = np.array([[1, 1, 1, 1,]],)
-        target = np.array([[1]])
+        data = np.array([[1, 1, 1, 1,], [1, 1, 1, 1,]],)
+        target = np.array([[1], [1]])
         
         for sk_model in self._sklearn_model:
             # native sklearn
@@ -536,23 +536,22 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
             sk_optim_w = NativeSkLearnOptimizer(sk_model_native, None)
             with sk_optim_w.optimizer_processing():
                 sk_optim_w.init_training()
-                sk_model_native.train(data, target)
+                sk_model_native.train(self.data, self.targets)
                 sk_optim_w.step()
             
             # sklearn with declearn optimizers
             sk_model_declearn = copy.deepcopy(sk_model)
+            self.assertDictEqual(sk_model_declearn.get_params(), sk_model_native.get_params())  # if this is not passing, test will fail
             
             dec_optim_w = DeclearnOptimizer(sk_model_declearn, FedOptimizer(lr=learning_rate))
             with dec_optim_w.optimizer_processing():
                 dec_optim_w.init_training()
-                sk_model_declearn.train(data, target)
+                sk_model_declearn.train(self.data, self.targets)
                 dec_optim_w.step()
             batch_size = self.data.shape[0]
-            for (k,v), (k, v_ref) in zip(sk_model_native.get_weights().items(), sk_model_declearn.get_weights().items()):
+            for (k,v_ref), (k, v) in zip(sk_model_native.get_weights().items(), sk_model_declearn.get_weights().items()):
                 self.assertTrue(np.all(np.isclose(v, v_ref)))
-                print("SKLEARN TEST", v, v_ref)
-            print("SKLEAN GRAD", sk_model_native.get_gradients())
-            print("SKLEAN GRAD2", sk_model_declearn.get_gradients())
+
     def test_sklearnbasedoptimizer_02_optimizer_processing(self):
         
         learning_rate = .12345

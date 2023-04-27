@@ -259,7 +259,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             # Reset the model's weights and iteration counter.
             for key in self.param_list:
                 w_updt[key] += getattr(self.model, key)
-                setattr(self.model, key, w_init[key])
+                setattr(self.model, key, w_init[key].copy())
             self.model.n_iter_ -= 1
         # Compute the batch-averaged, learning-rate-scaled gradients.
         # Note: w_init: {w_t}, w_updt: {w_t - eta_t * sum_{s=1}^B(grad_s)}
@@ -270,13 +270,16 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             for key in self.param_list
         }
 
-        # Warning: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
+        # Warning 1: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
         # (you will get un-scaled gradients, that need to be scaled back by dividing gradients by the learning rate)
         # here is a way to do so (with `lrate` as the learning rate): 
         # ```python`
         # for key, val in self._gradients.items():
         #        val /= lrate
         # ````
+        # Warning 2:  `_gradients` has different meanings, when using `disable_internal_optimizer`
+        # if it is not called (ie when using native sklearn optimizer), it is not plain gradients, 
+        # but rather the quantity `lr * grads`
 
         # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
@@ -363,7 +366,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             changed = ",\n\t".join(changed_params)
             logger.warning(
                 "The following non-default model parameters were overridden "
-                f"due to the disabling of the internal optimizer:\n\t{changed}"
+                f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}"
             )
 
     def enable_internal_optimizer(self) -> None:

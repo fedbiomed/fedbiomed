@@ -285,21 +285,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.optimizer_args()"))
 
         # Validate optimizer
-        # if isinstance(optimizer, torch.optim.Optimizer):
-        #     self._optimizer = NativeTorchOptimizer(self._model, optimizer)
-        # elif isinstance(optimizer, (FedOptimizer, DeclearnOptimizer)):
-        #     if isinstance(optimizer, FedOptimizer):
-        #         optimizer = FedOptimizer(optimizer)
-        #     self._optimizer = TorchOptimizer(self._model, optimizer)
-        # else:
-        #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should be either torch base optimizer or declearn optimizer, but got {type(optimizer)}.")
+        
         optim_builder = OptimizerBuilder()
         #  build the optimizer wrapper
-        self._optimizer = optim_builder.build(self.__type, model, optimizer)
-         
-        # if not isinstance(self._optimizer, torch.optim.Optimizer):
-        #     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Optimizer should torch base optimizer.")
-        
+        self._optimizer = optim_builder.build(self.__type, model, optimizer) 
+
         # Validate and fix model
         validated_model = self._dp_controller.validate_and_fix_model(self._model.model)
         self._model.set_model(validated_model)

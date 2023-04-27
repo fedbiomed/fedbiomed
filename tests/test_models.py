@@ -86,7 +86,19 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             self.assertIsInstance(model, SkLearnModel)
             self.assertIsInstance(copied_model, SkLearnModel)
             self.assertNotEqual(id(model), id(copied_model), "error, deep copy failed, objects share same reference")
+            # check that all attributes have different references
 
+            for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
+                self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
+                                    f"deep copy failed, attribute {attribute} {copied_attribute} has shared refrences!")
+            
+
+            # check that model parameters are not the same
+            model.set_init_params({'n_classes': 2, 'n_features': 4})
+            copied_model.set_init_params({'n_classes': 2, 'n_features': 4})
+            for layer_name in model.param_list:
+                
+                self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
 
 class TestSkLearnModel(unittest.TestCase):
     def setUp(self):
