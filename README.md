@@ -14,7 +14,7 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
 
 Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.2) aka the master branch.
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.3) aka the master branch.
 
 
 ## Install and run in development environment
@@ -632,7 +632,7 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
+${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
 ```
 
 
@@ -640,13 +640,13 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
 Fed-BioMed node and researcher components. The script for executing the protocols is located in 
-`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+`${FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
 
