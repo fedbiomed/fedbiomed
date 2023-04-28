@@ -352,7 +352,7 @@ class TestScaffold(ResearcherTestCase):
             self.assertDictEqual(node_lr, test_node_lr)
 
         # same test with a mix of nodes present in training_replies and non present
-        from fedbiomed.common.models import TorchModel
+
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ['node_99']})
         optim_w = MagicMock(spec=NativeTorchOptimizer)
         optim_w.get_learning_rate = MagicMock(return_value=lr)

@@ -9,6 +9,7 @@ from fedbiomed.common.exceptions import FedbiomedOptimizerError
 import numpy as np
 import torch.nn as nn
 import torch
+from torch.optim.lr_scheduler import LambdaLR
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from declearn.optimizer import Optimizer as DecOptimizer
@@ -393,22 +394,32 @@ class TestDeclearnOptimizer(unittest.TestCase):
             print("F", final_aux_var['scaffold']['state'].coefs)
 
     def test_declearnoptimizer_07_multiple_scaffold(self):
-        pass
-        # researcher_lr, node_lr = .03, .5
-        # data = torch.Tensor([[1,1,1,1],
-        #                      [1,0,0,1]])
-        # targets = torch.Tensor([[1, 1]])
+        # the goal of this test is to check that user will get error if specifying non sensical 
+        # Optimizer when passing both `ScaffoldServerModule()`and `ScaffoldClientModule()` modules
 
-        # loss_func = torch.nn.MSELoss()
-        # for model in self._torch_zero_model_wrappers:
-        #     researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule(), ScaffoldClientModule()])
-        #     optim_w = DeclearnOptimizer(model, researcher_optim)
-        #     optim_w.init_training()
-        #     optim_w.zero_grad()
-        #     output = model.model.forward(data)
-        #     loss = loss_func(output, targets)
-        #     loss.backward()
-        #     optim_w.step()
+        researcher_lr, node_lr = .03, .5
+        data = torch.Tensor([[1,1,1,1],
+                             [1,0,0,1]])
+        targets = torch.Tensor([[1, 1]])
+
+        loss_func = torch.nn.MSELoss()
+        for model in self._torch_zero_model_wrappers:
+            incorrect_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule(), ScaffoldClientModule()])
+            incorrect_optim_w = DeclearnOptimizer(model, incorrect_optim)
+            incorrect_optim_w.init_training()
+            incorrect_optim_w.zero_grad()
+            output = model.model.forward(data)
+            loss = loss_func(output, targets)
+            loss.backward()
+            incorrect_optim_w.step()
+            
+            incorrect_state = incorrect_optim_w.get_aux()
+            optim = FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()])
+
+            correct_optim_w = DeclearnOptimizer(model, optim)
+            aux_var = {'scaffold': {'node-1': incorrect_state['scaffold']}}
+            with self.assertRaises(FedbiomedOptimizerError):
+                correct_optim_w.set_aux(aux_var)
 
 
 class TestTorchBasedOptimizer(unittest.TestCase):
@@ -430,25 +441,31 @@ class TestTorchBasedOptimizer(unittest.TestCase):
         torch_optim_type = torch.optim.SGD
 
         for model in self._fed_models:
+            # first check that element of model are non zeros
+            grads = model.get_gradients()
+            for l, val in grads.items():
+                self.assertFalse(torch.isclose(val, torch.zeros(val.shape)).all())
             # initialisation of declearn optimizer wrapper
-            declearn_optim_wrapper = DeclearnOptimizer(model, declearn_optim)
+            dec_model = copy.deepcopy(model)
+            declearn_optim_wrapper = DeclearnOptimizer(dec_model, declearn_optim)
 
             declearn_optim_wrapper.zero_grad()
-            grads = declearn_optim_wrapper._model.get_gradients()
+            grads = dec_model.get_gradients()
 
             for l, val in grads.items():
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
             # initialisation of native torch optimizer wrapper
-            torch_optim = torch_optim_type(model.model.parameters(), .1)
-            native_torch_optim_wrapper = NativeTorchOptimizer(model, torch_optim)
+            torch_model = copy.deepcopy(model)
+            torch_optim = torch_optim_type(torch_model.model.parameters(), .1)
+            native_torch_optim_wrapper = NativeTorchOptimizer(torch_model, torch_optim)
             native_torch_optim_wrapper.zero_grad()
 
-            grads = native_torch_optim_wrapper._model.get_gradients()
+            grads = torch_model.get_gradients()
             for l, val in grads.items():
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
-    def test_torchbasedoptimizer_03_step(self):
+    def test_torchbasedoptimizer_02_step(self):
         # check that declearn and torch optimizers give the same result
         declearn_optim = FedOptimizer(lr=1)
         torch_optim_type = torch.optim.SGD
@@ -490,7 +507,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
                                                                  native_torch_optim_wrapper._model.get_weights().items()):
                 self.assertTrue(torch.isclose(dec_optim_val, torch_optim_val).all())
 
-    def test_torchbasedoptimizer_04_invalid_methods(self):
+    def test_torchbasedoptimizer_03_invalid_methods(self):
         declearn_optim = FedOptimizer(lr=.1)
 
         for model in self._fed_models:
@@ -521,8 +538,6 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
         # using declearn optimizer gives the same results
         random_seed = 1234
         learning_rate = .1234
-        data = np.array([[1, 1, 1, 1,], [1, 1, 1, 1,]],)
-        target = np.array([[1], [1]])
         
         for sk_model in self._sklearn_model:
             # native sklearn
@@ -548,7 +563,7 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                 dec_optim_w.init_training()
                 sk_model_declearn.train(self.data, self.targets)
                 dec_optim_w.step()
-            batch_size = self.data.shape[0]
+
             for (k,v_ref), (k, v) in zip(sk_model_native.get_weights().items(), sk_model_declearn.get_weights().items()):
                 self.assertTrue(np.all(np.isclose(v, v_ref)))
 
@@ -590,11 +605,67 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
             
             with self.assertRaises(FedbiomedOptimizerError):
                 optim_wrapper.zero_grad()
-            
+
 
 class TestNativeTorchOptimizer(unittest.TestCase):
-    pass
-    # to be completed
+    def setUp(self) -> None:
+        self.torch_models = (nn.Sequential(
+                             nn.Conv2d(1,20,5),
+                             nn.ReLU(),
+                             nn.Conv2d(20,64,5),
+                             nn.ReLU()
+                            ),
+                             nn.Linear(4,2),)
+        self.torch_optimizers = (torch.optim.SGD,
+                                 torch.optim.Adam,
+                                 torch.optim.Adagrad
+                                 )
+
+    def test_nativetorchoptimizer_01_step(self):
+        # check that pytorch optimizer are called when calling `NativeTorchOptimizer.step()`
+        learning_rate = .12345
+        for model in self.torch_models:
+            for optim_func in self.torch_optimizers:
+                optim = optim_func(model.parameters(), lr=learning_rate)
+                optim_w = NativeTorchOptimizer(TorchModel(model), optim)
+                
+                with patch.object(optim_func, 'step') as step_patch:
+                    optim_w.step()
+                step_patch.assert_called_once()
+    
+    def test_nativetorchoptimizer_02_getlearningrate(self):
+        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
+        learning rate
+        """
+        # first test wih basic optimizer (eg without learning rate scheduler)
+
+        model = TorchModel(torch.nn.Linear(2, 3))
+        lr = .1
+        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
+        target = torch.Tensor([1, 2, 2])
+        optimizer = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=lr))
+        
+        lr_extracted = optimizer.get_learning_rate()
+        self.assertListEqual(lr_extracted, [lr])
+        
+        # then test using a pytorch scheduler
+        scheduler = LambdaLR(optimizer.optimizer, lambda e: 2*e)
+        # this pytorch scheduler increase earning rate by twice its previous value
+        for e, (x,y) in enumerate(zip(dataset, target)):
+            # training a simple model in pytorch fashion
+            # `e` represents epoch
+            out = model.model.forward(x)
+            optimizer.zero_grad()
+            loss = torch.mean(out) - y
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            # checks
+            lr_extracted = optimizer.get_learning_rate()
+            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+
+
 class TestNativeSklearnOptimizer(unittest.TestCase):
     def setUp(self) -> None:
         self._sklearn_model_wrappers = (SkLearnModel(SGDClassifier),

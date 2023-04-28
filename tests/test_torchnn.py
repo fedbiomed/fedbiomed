@@ -682,51 +682,6 @@ class TestTorchnn(unittest.TestCase):
                                                                 tp_scaffold._model.model.state_dict().items()):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
 
-    def test_torch_nn_07_get_learning_rate(self):
-        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
-        learning rate
-        """
-        # first test wih basic optimizer (eg without learning rate scheduler)
-        tp = TorchTrainingPlan()
-        tp._model = TorchModel(torch.nn.Linear(2, 3))
-        lr = .1
-        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
-        target = torch.Tensor([1, 2, 2])
-        tp._optimizer = NativeTorchOptimizer(tp._model, SGD(tp._model.model.parameters(), lr=lr))
-        
-        lr_extracted = tp._optimizer.get_learning_rate()
-        self.assertListEqual(lr_extracted, [lr])
-        
-        # then test using a pytorch scheduler
-        scheduler = LambdaLR(tp._optimizer.optimizer, lambda e: 2*e)
-        # this pytorch scheduler increase earning rate by twice its previous value
-        for e, (x,y) in enumerate(zip(dataset, target)):
-            # training a simple model in pytorch fashion
-            # `e` represents epoch
-            out = tp._model.model.forward(x)
-            tp._optimizer.zero_grad()
-            loss = torch.mean(out) - y
-            loss.backward()
-            tp._optimizer.step()
-            scheduler.step()
-
-            # checks
-            lr_extracted = tp._optimizer.get_learning_rate()
-            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
-
-    def test_torch_model_same_object(self):
-        tp = TorchTrainingPlan()
-
-        # Special methods without arguments ----------------------------------------------
-        class FakeTP(BaseFakeTrainingPlan):
-            def init_model(self):
-                return TestTorchnn.model.model
-
-            def init_optimizer(self):
-                return TestTorchnn.optimizer.optimizer
-
-        tp = FakeTP()
-        #to continue
 
 class TestSendToDevice(unittest.TestCase):
 
