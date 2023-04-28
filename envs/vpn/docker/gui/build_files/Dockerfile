@@ -60,12 +60,6 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-
-
-
-
-
-
 # Create link to access and error log
 # RUN ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log
 
