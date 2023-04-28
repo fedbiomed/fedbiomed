@@ -32,7 +32,6 @@ then
 fi
 eval "$(conda shell.bash hook)"
 
-mpid= # PIDs monitored (used only as an intermediate variable here)
 kpids= # PIDs to be killed
 
 # launch network
@@ -67,7 +66,6 @@ for pid in $apids_root ; do
 done
 echo "INFO : apids=$apids"
 kpids="${kpids:+$kpids }$apids"
-mpid="($mpid|$!)"
 
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
