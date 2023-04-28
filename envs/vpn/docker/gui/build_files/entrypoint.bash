@@ -18,59 +18,57 @@ if [ -z "$GUI_SERVER_NAME" ]; then
 fi
 
 # Set Gunicorn PORT and HOST
-export GUI_PORT=8484
+export GUI_PORT=8000
 export GUI_HOST=localhost
 
 
-echo "Is ssl active:  $SSL_ON"
+echo "SSL activation status:  $SSL_ON"
 
+echo "Setting up certs for SSL server or redirection"
+if [ ! -d /certs ]; then
+  mkdir /certs
+fi
+
+# Find number of files in /certs directory and ignore .gitkeep
+num_files=$(find gui/run_mounts/certs -mindepth 1 -type f ! -path '*.gitkeep' -printf x | wc -c)
+
+if [ "$num_files" != 0 ]; then
+     echo "Mounted certs directory is not empty. Checking certificates are existing..."
+     num_cert=$(find /certs -mindepth 1 -type f -name "*.crt" -printf x | wc -c)
+     num_key=$(find /certs -mindepth 1 -type f -name "*.key" -printf x | wc -c)
+     echo "$num_key $num_cert"
+     if [ "$num_key" = 0 -a "$num_cert" = 0 ]; then
+         echo "ERROR: Mounted directory for certificates is not empty but. There is not file with extension
+         'crt' for certificate  and 'key' for the ssl key."
+          exit 1
+     elif [ "$num_key" = 0 -a "$num_cert" != 0 ] || [ "$num_key" != 0 -a "$num_cert" = 0 ]; then
+         echo "Opps something is wrong please make sure that the mounted certs directory contains both crt and key files.
+         There is only one of them existing."
+         exit 1
+     elif [ "$num_key" -gt 1 ] || [ "$num_cert" -gt 1 ]; then
+         echo "Please make sure you have only one key and one crt file."
+         exit 1
+     else
+        export SSL_CERTIFICATE=$(find /certs -type f -name "*.crt")
+        export SSL_KEY=$(find /certs -type f -name "*.key")
+        echo "Found certificates are: $SSL_CERTIFICATE and $SSL_KEY"
+     fi
+else
+    echo "The mounted certificate folder is empty. Generating self-signed certificates."
+    export SSL_CERTIFICATE=/certs/fedbiomed-node-gui.crt
+    export SSL_KEY=/certs/fedbiomed-node-gui.key
+
+    $SETUSER openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "$SSL_KEY" \
+      -out "$SSL_CERTIFICATE" \
+      -subj "/CN=localhost/"
+fi
 
 if [ "$SSL_ON" = "True" ] || [ "$SSL_ON" = "true" ] || [ "$SSL_ON" = "1" ]; then
-
   echo "SSL Has been activated. Remove SSL_ON from environment variable if you want to disable"
-
-  if [ ! -d /certs ]; then
-    mkdir /certs
-  fi
-
-  # Find number of files in /certs directory and ignore .gitkeep
-  num_files=$(find gui/run_mounts/certs -mindepth 1 -type f ! -path '*.gitkeep' -printf x | wc -c)
-
-  if [ "$num_files" != 0 ]; then
-       echo "Mounted certs directory is not empty. Checking certificates are existing..."
-       num_cert=$(find /certs -mindepth 1 -type f -name "*.crt" -printf x | wc -c)
-       num_key=$(find /certs -mindepth 1 -type f -name "*.key" -printf x | wc -c)
-       echo "$num_key $num_cert"
-       if [ "$num_key" = 0 -a "$num_cert" = 0 ]; then
-           echo "ERROR: Mounted directory for certificates is not empty but. There is not file with extension
-           'crt' for certificate  and 'key' for the ssl key."
-            exit 1
-       elif [ "$num_key" = 0 -a "$num_cert" != 0 ] || [ "$num_key" != 0 -a "$num_cert" = 0 ]; then
-           echo "Opps something is wrong please make sure that the mounted certs directory contains both crt and key files.
-           There is only one of them existing."
-           exit 1
-       elif [ "$num_key" -gt 1 ] || [ "$num_cert" -gt 1 ]; then
-           echo "Please make sure you have only one key and one crt file."
-           exit 1
-       else
-          export SSL_CERTIFICATE=$(find /certs -type f -name "*.crt")
-          export SSL_KEY=$(find /certs -type f -name "*.key")
-          echo "Found certificates are: $SSL_CERTIFICATE and $SSL_KEY"
-       fi
-  else
-      echo "The mounted certificate folder is empty. Generating self-signed certificates."
-      export SSL_CERTIFICATE=/certs/fedbiomed-node-gui.crt
-      export SSL_KEY=/certs/fedbiomed-node-gui.key
-
-      $SETUSER openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "$SSL_KEY" \
-        -out "$SSL_CERTIFICATE" \
-        -subj "/CN=localhost/"
-   fi
-
-   envsubst < /fedbiomed/nginx/ssl.conf.template > /etc/nginx/conf.d/default.conf
+  envsubst < /fedbiomed/nginx/ssl.conf.template > /etc/nginx/conf.d/default.conf
 else
-   echo "SSL is not activated. Please make sure docker container 80 is exposed instead of 443!"
-   envsubst < /fedbiomed/nginx/no-ssl.conf.template > /etc/nginx/conf.d/default.conf
+  echo "SSL is not activated. Set SSL_ON environment variable if you want to enable."
+  envsubst < /fedbiomed/nginx/no-ssl.conf.template > /etc/nginx/conf.d/default.conf
 fi
 
 if ! rm /etc/nginx/sites-enabled/default; then

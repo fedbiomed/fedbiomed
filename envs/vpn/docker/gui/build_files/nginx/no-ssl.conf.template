@@ -33,6 +33,9 @@ server {
 
     server_name $GUI_SERVER_NAME;
 
+    ssl_certificate ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_KEY};
+
     location / {
         return 301 http://${DOLLAR}host:8484${DOLLAR}request_uri;
     }
