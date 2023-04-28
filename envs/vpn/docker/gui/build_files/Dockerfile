@@ -1,7 +1,13 @@
 FROM debian:bullseye-slim
 
-# flask server
+# nginx + flask HTTP server for node1
 EXPOSE 8484
+# nginx + flask HTTP server for node2
+EXPOSE 8485
+# nginx + gunicorn HTTPS server for node1
+EXPOSE 8443
+# nginx + gunicorn HTTPS server for node2
+EXPOSE 8444
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID

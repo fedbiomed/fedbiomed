@@ -120,7 +120,7 @@ services:
       - "${GUI_HOST:-127.0.0.1}:8444:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
-      - ./gui/run_mounts/certs:/certs
+      - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
       - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...

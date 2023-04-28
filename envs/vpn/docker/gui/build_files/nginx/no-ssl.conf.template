@@ -5,8 +5,8 @@ upstream fedbiomed_gunicorn {
 
 
 server {
-    listen 80 default_server;
-    listen [::]:80;
+    listen 8484 default_server;
+    listen [::]:8484;
 
     server_name $GUI_SERVER_NAME;
 
@@ -25,5 +25,15 @@ server {
         proxy_buffer_size           128k;
         proxy_buffers               4 256k;
         proxy_busy_buffers_size     256k;
+    }
+}
+
+server {
+    listen 8443 ssl;
+
+    server_name $GUI_SERVER_NAME;
+
+    location / {
+        return 301 http://${DOLLAR}host:8484${DOLLAR}request_uri;
     }
 }
