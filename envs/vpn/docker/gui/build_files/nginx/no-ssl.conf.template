@@ -5,8 +5,8 @@ upstream fedbiomed_gunicorn {
 
 
 server {
-    listen 8484 default_server;
-    listen [::]:8484;
+    listen ${NGINX_PORT_NOSSL} default_server;
+    listen [::]:${NGINX_PORT_NOSSL};
 
     server_name $GUI_SERVER_NAME;
 
@@ -29,7 +29,7 @@ server {
 }
 
 server {
-    listen 8443 ssl;
+    listen ${NGINX_PORT_SSL} ssl;
 
     server_name $GUI_SERVER_NAME;
 
@@ -37,6 +37,6 @@ server {
     ssl_certificate_key ${SSL_KEY};
 
     location / {
-        return 301 http://${DOLLAR}host:8484${DOLLAR}request_uri;
+        return 301 http://${DOLLAR}host:${NGINX_PORT_NOSSL}${DOLLAR}request_uri;
     }
 }
