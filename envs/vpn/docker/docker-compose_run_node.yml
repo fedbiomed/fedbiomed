@@ -87,14 +87,17 @@ services:
     image: fedbiomed/vpn-gui
     environment:
       # enable overloading build-time id with a run-time id
+      - SSL_ON=true
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484"
+      - "${GUI_HOST:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
+      - "${GUI_HOST:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
@@ -107,14 +110,17 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=true
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8485:8484" # flask server
+      - "${GUI_HOST:-127.0.0.1}:8485:8484" # nginx + flask HTTP server
+      - "${GUI_HOST:-127.0.0.1}:8444:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
       - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
