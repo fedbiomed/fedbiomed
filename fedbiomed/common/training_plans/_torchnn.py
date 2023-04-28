@@ -72,7 +72,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model: Union[TorchModel, None] = None
 
         self._training_args = None
-        self._model_args = None
+        self._model_args = {}
         self._optimizer_args = None
         self._use_gpu = False
 
@@ -131,6 +131,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
+        # Assign model arguments.
+        self._model_args = model_args
         # Assign scalar attributes.
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
@@ -148,8 +150,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # TODO: put fedprox mu inside strategy_args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         self.set_aggregator_args(aggregator_args or {})
-        # Configure model and optimizer
-        self._configure_model_and_optimizer(model_args)
+        # Configure the model and optimizer.
+        self._configure_model_and_optimizer()
 
     @abstractmethod
     def init_model(self):
@@ -176,7 +178,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments arguments
         """
-        return self._model.model_args
+        return self._model_args
 
     def get_learning_rate(self) -> List[float]:
         """Gets learning rate from value set in optimizer.
@@ -255,7 +257,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """ Gets training plan type"""
         return self.__type
 
-    def _configure_model_and_optimizer(self, model_args: Dict[str, Any]):
+    def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """
 
         # Message to format for unexpected argument definitions in special methods
@@ -270,7 +272,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if not init_model_spec:
             model = self.init_model()
         elif len(init_model_spec.keys()) == 1:
-            model = self.init_model(model_args)
+            model = self.init_model(self._model_args)
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
                                                                  method="init_model",
@@ -278,7 +280,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.model_args()"))
 
         self._model = TorchModel(model)
-        self._model.model_args = model_args
         # Validate and fix model
         self._model.model = self._dp_controller.validate_and_fix_model(self._model.model)
 
