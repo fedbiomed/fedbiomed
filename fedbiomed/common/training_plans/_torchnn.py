@@ -608,7 +608,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
-        params = super().after_training_params()
+        # Either include non-parameter buffers to the outputs or not.
+        # Note: this is mostly about sharing statistics from BatchNorm layers.
+        if self._training_args.get("share_persistent_buffers", True):
+            params = self._model.model.state_dict()
+        else:
+            params = super().after_training_params()
         # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
@@ -621,10 +626,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 ) from exc
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
-
         if flatten:
             params = self._model.flatten()
-
         return params
 
     def __norm_l2(self) -> float:

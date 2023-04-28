@@ -70,7 +70,7 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
-        
+
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -309,6 +309,9 @@ class TrainingArgs:
             "dp_args": {
                 "rules": [cls._validate_dp_args], "required": True, "default": None
             },
+            "share_persistent_buffers": {
+                "rules": [bool], "required": False, "default": True
+            }
         }
 
     def __str__(self) -> str:
