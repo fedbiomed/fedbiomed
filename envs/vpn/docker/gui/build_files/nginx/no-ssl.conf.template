@@ -40,6 +40,6 @@ server {
     ssl_certificate_key ${SSL_KEY};
 
     location / {
-        return 301 http://${DOLLAR}host:${NGINX_PORT_NOSSL}${DOLLAR}request_uri;
+        return 302 http://${DOLLAR}host:${NGINX_PORT_NOSSL}${DOLLAR}request_uri;
     }
 }

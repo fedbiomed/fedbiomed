@@ -12,7 +12,7 @@ server {
     server_name $GUI_SERVER_NAME;
 
     location / {
-        return 301 https://${DOLLAR}host:${NGINX_PORT_SSL}${DOLLAR}request_uri;
+        return 302 https://${DOLLAR}host:${NGINX_PORT_SSL}${DOLLAR}request_uri;
     }
 }
 
