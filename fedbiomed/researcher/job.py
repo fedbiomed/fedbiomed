@@ -445,9 +445,14 @@ class Job:
                         m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
 
+                # manage training failure for this job
+                if not m['success']:
+                    logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
+                    self._nodes.remove(m['node_id'])  # remove the faulty node from the list
+                    continue
+
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
 
-                # TODO : handle error depending on status
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:

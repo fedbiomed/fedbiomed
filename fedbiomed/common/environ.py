@@ -41,6 +41,9 @@ Common Global Variables:
 - MPSPDZ_IP               : MP-SPDZ endpoint IP of component
 - DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
 - ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
+- PORT_INCREMENT_FILE     : File for storing next port to be allocated for MP-SPDZ
+- CERT_DIR                : Directory for storing certificates for MP-SPDZ
+- DEFAULT_BIPRIMES_DIR    : Directory for storing default biprimes files
 '''
 
 import configparser

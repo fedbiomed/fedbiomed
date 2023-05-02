@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2023-04-26 version 4.3
+
+- introduce secure aggregation using Joye-Libert scheme and Shamir MPC key computation
+- update MONAI and scikit-learn version used
+- fix Scaffold incorrectly applying correction states
+- fix incorrect Perceptron default values for scikit-learn models
+- fix `Experiment.set_training_args()` not propagating updated value
+- fix environment cleaning to handle configuration file content change
+- fix docker wrapping scripts to restrict container account names to alphanumeric characters
+- misc improve node CLI for non-interactive add of MedicalFolderDataset using a json file
+
 ## 2023-02-08 version 4.2
 
 - add support for docker-compose v.2 file syntax
