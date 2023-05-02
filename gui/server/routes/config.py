@@ -1,8 +1,7 @@
 import re
 
-from app import app
 from utils import response
-
+from config import config
 from fedbiomed.node.environ import environ
 from flask_jwt_extended import jwt_required
 from . import api
@@ -23,7 +22,7 @@ def node_id():
     """
 
     result = {
-        'node_id': app.config['ID']
+        'node_id': config['ID']
     }
 
     return response(result), 200
@@ -51,49 +50,12 @@ def fedbiomed_environ():
     for key in confs:
         try:
             res[key] = environ[key]
-            matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(environ[key]))
-            if matched and key is not 'ROOT_DIR':
-                res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
+            matched = re.match('^' + config['NODE_FEDBIOMED_ROOT'], str(environ[key]))
+            if matched and key != 'ROOT_DIR':
+                res[key] = res[key].replace(config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
         except Exception as e:
             print(f'ERROR: An error occurred while calling /node-environ endpoint - {e} \n')
             pass
 
     return response(res), 200
 
-# TODO: Should be used when it is required to manage multiple nodes
-# from single GUI. Currently when the config is changed some of the 
-# Fed-BioMed APIs still use previous node config e.g. DatasetManager.
-# @api.route('/config/change-node-config', methods=['POST'])
-# def change_node_config():
-#     """ Change config file that is going to be used
-#         for node GUI. This action changes all database
-#         queries. It is just development porposes. In productoin
-#         it is assumed that there will be only one node which only
-#         has one config file.
-#     """
-#
-#     req = request.json
-#     if req['config-file']:
-#         fullpath = os.path.join(app.app.config['NODE_FEDBIOMED_ROOT'], 'etc', req['config-file'])
-#         if os.path.isfile(fullpath):
-#             node_id = get_node_id(fullpath)
-#
-#             # Reload environ after updating CONFIG_FILE environment variable
-#             os.environ['CONFIG_FILE'] = fullpath
-#             reload(fedbiomed.common.environ)
-#             reload(fedbiomed.node.environ)
-#             reload(fedbiomed.node.dataset_manager)
-#
-#             app.config.update(
-#                 NODE_CONFIG_FILE=req['config-file'],
-#                 NODE_CONFIG_FILE_PATH=fullpath,
-#                 ID=node_id,
-#                 NODE_DB_PATH=os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + node_id + '.json')
-#             )
-#
-#             return success('Node configuration has succesfully changed')
-#         else:
-#             return error('Config file is does not exist. Please make sure' + \
-#                          ' you type your config file correctly')
-#     else:
-#         return error('Missing config-file parameter')

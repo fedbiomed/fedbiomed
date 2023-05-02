@@ -1,6 +1,7 @@
 import os
 import re
-from app import app
+
+from config import config
 from db import node_database
 from flask import request
 from schemas import ListDataFolder
@@ -35,7 +36,7 @@ def list_data_path():
     req_path = req['path']
 
     # Full path by including the base DATA_PATH
-    dpath = os.path.join(app.config["DATA_PATH_RW"], *req_path)
+    dpath = os.path.join(config["DATA_PATH_RW"], *req_path)
 
     # Check if the path is existed, or it is a directory
     if os.path.exists(dpath) and os.path.isdir(dpath):

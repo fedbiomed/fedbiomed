@@ -70,7 +70,6 @@ def update_password():
         }, query.user_email == decoded_json['email'])
         res = user_table.get(query.user_email == email)
 
-
         return response({
             'user_id': res['user_id'],
             'user_email': email}, 'User password successfully updated'), 200
@@ -144,6 +143,7 @@ def register():
 @api.route('/token/auth', methods=['GET'])
 def auto_auth():
     user_info = get_jwt()
+
     return response(user_info), 200
     
 
@@ -204,6 +204,8 @@ def login():
             },
             message='User successfully logged in')
         return resp, 200
+
+
     return error('Please verify your email and/or your password'), 401
 
 

@@ -1,7 +1,13 @@
 FROM debian:bullseye-slim
 
-# flask server
+# nginx + flask HTTP server for node1
 EXPOSE 8484
+# nginx + flask HTTP server for node2
+EXPOSE 8485
+# nginx + gunicorn HTTPS server for node1
+EXPOSE 8443
+# nginx + gunicorn HTTPS server for node2
+EXPOSE 8444
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
@@ -16,7 +22,10 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget procps
+RUN apt-get update && apt-get install -y apt-utils wget procps systemd gettext-base
+# Install Nginx along with the missing dependencies
+RUN apt-get install nginx -y --fix-missing
+
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/gui/build_files/bashrc_append /tmp
@@ -49,10 +58,16 @@ COPY gui /fedbiomed/gui
 #    a long time if you have zillion files in notebooks/data)
 #  - ensures using develop branch (good or bad)
 
+# Copy nginx configuration templates
+COPY  ./envs/vpn/docker/gui/build_files/nginx /fedbiomed/nginx
+
 # Prepare for work in context of alternate account
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
+
+# Create link to access and error log
+# RUN ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log
 
 # Configure conda env in context of alternate account
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
