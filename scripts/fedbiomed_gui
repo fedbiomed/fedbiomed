@@ -42,6 +42,7 @@ GUI_HOST='localhost'
 GUI_PORT='8484'
 GUI_DEBUG=False
 
+
 # Print error and exists
 function error(){
   echo -e "${RED}ERROR${NC}"
@@ -110,9 +111,8 @@ function start_gui() {
 
 
     if [ -z "$INSTALL_ONLY" ] ; then
-        echo "$PRODUCTION"
         # Change command according to development and production mode
-        if [ "$PRODUCTION" == "True" ]; then
+        if [ "$GUI_PRODUCTION" == "True" ] || [ "$GUI_PRODUCTION" == 1 ]; then
           # Forces single worker
           WORKERS=1
           echo "$KEY $CERTIFICATE"
@@ -121,7 +121,6 @@ function start_gui() {
             cert_command="--certfile $CERTIFICATE"
           fi
           command="gunicorn --workers $WORKERS $key_command $cert_command -b $GUI_HOST:$GUI_PORT --access-logfile - wsgi:app"
-          echo $command
         else
           command="FLASK_ENV=development FLASK_APP=wsgi.py flask run --host $GUI_HOST --port $GUI_PORT $key_command $cert_commnad "
         fi
@@ -209,7 +208,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     production|--production)
-        PRODUCTION="True"
+        export GUI_PRODUCTION=1
         shift
         ;;
     help|-h|--help)
