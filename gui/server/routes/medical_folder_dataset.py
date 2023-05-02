@@ -1,7 +1,6 @@
 import os
 import re
 
-from app import app
 from cache import cached
 from db import node_database
 from flask import request, g
@@ -19,6 +18,8 @@ from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalF
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 from . import api
+from config import config
+
 
 dataset_manager = DatasetManager()
 
@@ -26,7 +27,7 @@ dataset_manager = DatasetManager()
 mf_controller = MedicalFolderController()
 
 # Path to write and read the datafiles
-DATA_PATH_RW = app.config['DATA_PATH_RW']
+DATA_PATH_RW = config['DATA_PATH_RW']
 
 # Database table (default datasets table of TinyDB) and query object
 table = node_database.table_datasets()
@@ -72,12 +73,12 @@ def add_medical_folder_dataset():
     # Request object as JSON
     req = request.json
 
-    data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['medical_folder_root'])
+    data_path_save = os.path.join(config['DATA_PATH_SAVE'], *req['medical_folder_root'])
 
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
     else:
-        reference_csv = os.path.join(app.config['DATA_PATH_SAVE'], *req["reference_csv_path"])
+        reference_csv = os.path.join(config['DATA_PATH_SAVE'], *req["reference_csv_path"])
         dataset_parameters = {"index_col": req["index_col"],
                               "tabular_file": reference_csv}
     try:
@@ -147,15 +148,15 @@ def medical_folder_preview():
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local GUI repository
-    rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
-    data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
+    rexp = re.match('^' + config['DATA_PATH_SAVE'], dataset['path'])
+    data_path = dataset['path'].replace(rexp.group(0), config['DATA_PATH_RW'])
     mf_controller.root = data_path
 
     if "index_col" in dataset["dataset_parameters"]:
         # Extract data path where the files are saved in the local GUI repository
-        rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
+        rexp = re.match('^' + config['DATA_PATH_SAVE'], dataset['path'])
         reference_path = dataset["dataset_parameters"]["tabular_file"].replace(rexp.group(0),
-                                                                               app.config['DATA_PATH_RW'])
+                                                                               config['DATA_PATH_RW'])
 
         reference_csv = mf_controller.read_demographics(
             path=reference_path,
