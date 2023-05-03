@@ -92,8 +92,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
-        # FIXME: this method `model_args` of model seems not very useful (unless i am mistaken, i would be in favour of remove it)
-        self._model.model_args = model_args
+        self._model_args = model_args
         self._aggregator_args = aggregator_args or {}
 
         self._optimizer_args = training_args.optimizer_arguments() or {}
@@ -147,7 +146,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        return self._model.model_args
+        return self._model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.

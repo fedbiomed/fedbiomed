@@ -303,7 +303,7 @@ class TestTorchnn(unittest.TestCase):
         ta = {"t": 13}
         oa = {"y": 14}
         ip = {"s": 15}
-        tp._model.model_args = ma
+        tp._model_args = ma
         tp._training_args = ta
         tp._optimizer_args = oa
         tp._model.init_params = ip

@@ -53,7 +53,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     Attributes:
         model: Wrapped model
-        model_args: Dict storing additional parameters used to initialize the wrapped model.
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
 
     Attributes: Class attributes:
@@ -67,7 +66,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     # Instance attributes' annotations - merely for the docs parser.
     model: BaseEstimator
-    model_args: Dict[str, Any]
     _null_optim_params: Dict[str, Any]
     _optim_params: Dict[str, Any] # optimizer parameters set by user
 
@@ -87,7 +85,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         self._gradients: Dict[str, np.ndarray] = {}
         self.param_list: List[str] = []
         self._optim_params: Dict[str, Any] = {}
-        self.model_args = {}
 
     def init_training(self):
         """Initialises the training by setting up attributes.

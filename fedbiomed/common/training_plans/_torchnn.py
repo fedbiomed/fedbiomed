@@ -184,7 +184,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments arguments
         """
-        return self._model.model_args
+        return self._model_args
 
     def update_optimizer_args(self) -> Dict:
         """
@@ -266,7 +266,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.model_args()"))
 
         model = TorchModel(model)
-        model.model_args = model_args
+        self._model_args = model_args
         # Validate model
         if not isinstance(model.model, nn.Module):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Model should be an instance of `nn.Module`")
