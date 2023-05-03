@@ -172,9 +172,9 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         tp._dp_controller = FakeDPController()
-        tp._configure_model_and_optimizer(model_args={})
+        tp._configure_model_and_optimizer()
         self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
         self.assertEqual(tp._model.model, TestTorchnn.model)
         # ---------------------------------------------------------------------------------
@@ -191,9 +191,9 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         tp._dp_controller = FakeDPController()
-        tp._configure_model_and_optimizer(model_args={})
+        tp._configure_model_and_optimizer()
         self.assertEqual(tp._optimizer, TestTorchnn.optimizer)
         self.assertEqual(tp._model.model, TestTorchnn.model)
         # -----------------------------------------------------------------------------------
@@ -210,12 +210,12 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         tp._dp_controller = MagicMock()
         tp._dp_controller.validate_and_fix_model(return_value=None)
 
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_model_and_optimizer(model_args={})
+            tp._configure_model_and_optimizer()
 
         # -----------------------------------------------------------------------------------
 
@@ -228,10 +228,10 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         tp._dp_controller = FakeDPController()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_model_and_optimizer(model_args={})
+            tp._configure_model_and_optimizer()
 
     def test_torch_training_plan_07_configure_model_and_optimizer_test_invalid_types(self):
         """Tests method for configuring model and optimizer with wrong number of arguments """
@@ -245,9 +245,9 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_model_and_optimizer(model_args={})
+            tp._configure_model_and_optimizer()
 
         # -----------------------------------------------------------------------------------
         class FakeTP(BaseFakeTrainingPlan):
@@ -259,11 +259,11 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeTP()
         tp._optimizer_args = {}
-        #tp._model_args = {}
+        tp._model_args = {}
         tp._dp_controller = FakeDPController()
 
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_model_and_optimizer(model_args={})
+            tp._configure_model_and_optimizer()
 
     def test_torch_training_plan_08_getters(self):
         """Tests getter methods. """
@@ -282,7 +282,7 @@ class TestTorchnn(unittest.TestCase):
         ta = {"t": 13}
         oa = {"y": 14}
         ip = {"s": 15}
-        tp._model.model_args = ma
+        tp._model_args = ma
         tp._training_args = ta
         tp._optimizer_args = oa
         tp._model.init_params = ip
