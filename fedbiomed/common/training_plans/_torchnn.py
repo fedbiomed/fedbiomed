@@ -143,7 +143,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
-        self._share_persistent_buffers = self._training_args.get('share_persistent_buffers', True)
+        self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
