@@ -607,6 +607,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         it is called in the context of this method. DP-required adjustments are
         also set to happen as part of this method.
 
+        If the researcher specified `share_persistent_buffers: False` in the
+        training arguments, then we return only the output of
+        [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
+        which considers only the trainable parameters.
+        Otherwise, the default behaviour is to return the complete `state_dict`.
+
         Returns:
             The trained parameters to aggregate.
         """
