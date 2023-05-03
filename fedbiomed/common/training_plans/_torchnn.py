@@ -75,6 +75,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model_args = {}
         self._optimizer_args = None
         self._use_gpu = False
+        self._share_persistent_buffers = None
 
         self._batch_maxnum = 100
         self._fedprox_mu = None
@@ -142,6 +143,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
+        self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
@@ -610,7 +612,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         # Either include non-parameter buffers to the outputs or not.
         # Note: this is mostly about sharing statistics from BatchNorm layers.
-        if self._training_args.get("share_persistent_buffers", True):
+        if self._share_persistent_buffers:
             params = dict(self._model.model.state_dict())
         else:
             params = super().after_training_params()

@@ -30,7 +30,7 @@ class Config:
         # Configuration of Flask APP to be able to access Fed-BioMed node information
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
 
-        # Config file that is located in {FEDBIOMED_DIR}/gui directory
+        # Config file that is located in ${FEDBIOMED_DIR}/gui directory
         cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
 
         # Data path ------------------------------------------------------------------------------------------------
