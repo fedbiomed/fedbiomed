@@ -409,7 +409,9 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
 
     for i in range(n):
         if (np.sum(mask[i,:])<=p-1):
-            xhat[i,~mask[i,:]] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,p]), x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
+            xhat[i,~mask[i,:]] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
+                                              data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,p]), 
+                                              x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
                                 mask = torch.from_numpy(mask[i,:]).float().reshape([1,p]),p=p, d = d,L= L).cpu().data.numpy()[0][~mask[i,:]]
     err = np.array([mse(xhat,xfull,mask)])
 
@@ -426,6 +428,7 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
             if (np.sum(mask[i,:])<=p-2):
                 xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
                                                         data = torch.from_numpy(xhat_0[i,:]).reshape([1,p]).float(), 
+                                                        x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
                                                         mask = torch.from_numpy(mask[i,:]).reshape([1,p]).float(),
                                                         p=p, d = d,L= L,kind=kind,num_samples=num_samples)
 
@@ -433,7 +436,7 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
                 true_values = xfull[i,~mask[i,:].astype(bool)]
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
-                features_i = np.array(features)[~mask[i,:].astype(bool)]
+                features_i = np.array(features[ncov:])[~mask[i,:].astype(bool)]
                 multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
 
         return float(err)
@@ -492,10 +495,10 @@ def save_results_imputation(result_folder, mask_num, Train_data,Test_data,model,
         dictwriter_object.writerow(dict_out)
         output_file.close()
 
-def save_model(result_folder,regressor,coef_,intercept_):
+def save_model(result_folder,method,regressor,coef_,intercept_):
     os.makedirs(result_folder, exist_ok=True) 
-    torch.save(coef_, f'{result_folder}/{regressor}_trained_model_coef')
-    torch.save(intercept_, f'{result_folder}/{regressor}_trained_model_intercept')
+    torch.save(coef_, f'{result_folder}/{method}_{regressor}_trained_model_coef')
+    torch.save(intercept_, f'{result_folder}/{method}_{regressor}_trained_model_intercept')
 
 def save_results_prediction(result_folder, model, regressor, Epochs_reg, Rounds_reg, F1, 
                             precision, mse, accuracy, conf_matr, validation_err,

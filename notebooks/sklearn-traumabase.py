@@ -42,7 +42,7 @@ if __name__ == '__main__':
                         help='Methods for the running experiment')
     parser.add_argument('--regressor', metavar='-r', type=str, default='linear', choices = ['linear', 'logistic'],
                         help='Methods for the running experiment')
-    parser.add_argument('--task', metavar='-ts', type=str, default='prediction', choices = ['imputation', 'prediction','load_and_predict'],
+    parser.add_argument('--task', metavar='-ts', type=str, default='prediction', choices = ['prediction','load_and_predict'],
                         help='Task to be performed with the pipeline')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
                         help='Id of the Test dataset (between 1 and 4)')
@@ -153,8 +153,8 @@ if __name__ == '__main__':
                                 node_selection_strategy=None)
 
                 fed_mean_std.run()
-                fed_mean = fed_mean_std.aggregated_params()[0]['params']['fed_mean']
-                fed_std = fed_mean_std.aggregated_params()[0]['params']['fed_std']
+                fed_mean = fed_mean_std.aggregated_params()[0]['params']['mean']
+                fed_std = fed_mean_std.aggregated_params()[0]['params']['std']
 
             else:
                 npzfile = np.load(args.result_folder+'/clients_imputed/'+method+'_mean_std.npz')
@@ -303,7 +303,7 @@ if __name__ == '__main__':
             model_pred.coef_ = exp.aggregated_params()[rounds - 1]['params']['coef_'].copy()
             model_pred.intercept_ = exp.aggregated_params()[rounds - 1]['params']['intercept_'].copy() 
 
-            save_model(result_folder,regressor,model_pred.coef_,model_pred.intercept_)
+            save_model(result_folder,method,regressor,model_pred.coef_,model_pred.intercept_)
 
             y_pred = model_pred.predict(X_test).astype(int)
             #if regressor == 'logistic':
@@ -340,8 +340,8 @@ if __name__ == '__main__':
         # multiple
         for i in range(num_samples):
             model_pred = exp.training_plan().model()
-            model_pred.coef_ = torch.load(f'{result_folder}/{regressor}_trained_model_coef')
-            model_pred.intercept_ = torch.load(f'{result_folder}/{regressor}_trained_model_intercept')
+            model_pred.coef_ = torch.load(f'{result_folder}/{method}_{regressor}_trained_model_coef')
+            model_pred.intercept_ = torch.load(f'{result_folder}/{method}_{regressor}_trained_model_intercept')
             data_test_mul = load_and_predict_data(sam = i,data_folder=data_folder,idx_Test_data=idx_Test_data,root_dir=root_dir)
             X_test = data_test_mul[regressors_col].values
             y_test = data_test_mul[target_col].values.astype(int)

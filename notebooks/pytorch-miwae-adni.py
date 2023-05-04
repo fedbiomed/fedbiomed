@@ -155,8 +155,8 @@ if __name__ == '__main__':
                         node_selection_strategy=None)
 
         fed_mean_std.run()
-        fed_mean = fed_mean_std.aggregated_params()[0]['params']['fed_mean']
-        fed_std = fed_mean_std.aggregated_params()[0]['params']['fed_std']
+        fed_mean = fed_mean_std.aggregated_params()[0]['params']['mean']
+        fed_std = fed_mean_std.aggregated_params()[0]['params']['std']
 
     ###########################################################
     #Define the hyperparameters for miwae                     #

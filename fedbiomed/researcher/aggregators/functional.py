@@ -108,7 +108,7 @@ def federated_standardization(model_params: List[Dict[str, torch.Tensor]],
     #                            N_cl[i]*np.array(mean_cl[i])**2)/(N_tot-cl) for i in range(cl)])\
     #                        -(N_tot/(N_tot-cl))*fed_mean**2)
 
-    fed_standardization_params = {'fed_mean': fed_mean, 'fed_std': fed_std, 'N_tot': N_tot}
+    fed_standardization_params = {'mean': fed_mean, 'std': fed_std, 'size': N_tot}
 
     return fed_standardization_params
 
