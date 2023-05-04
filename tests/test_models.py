@@ -170,17 +170,17 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
+        # Goal fo the test: checking that plain sklearn model has been updated when trained 
+        # using `Model` interface
         n_values = 100  # data size
 
         for model in self.models:
             # disable learning rate evolution, penality
-            model.learning_rate = 'constant'
-            model.penality = None
+
             model = SkLearnModel(model)
             for _n_features in self.n_features:
 
                 data = np.random.randn(n_values, _n_features,)
-
 
                 for _n_classes in self.n_classes:
 
