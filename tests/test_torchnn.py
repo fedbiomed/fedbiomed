@@ -50,7 +50,7 @@ class TestTorchnn(unittest.TestCase):
     model = Module()
     optimizer = Adam([torch.zeros([2, 4])])
 
-    class FakeTrainingArgs:
+    class FakeTrainingArgs(dict):
 
         def pure_training_arguments(self):
             return {"dry_run": True, "epochs": 1, "batch_size": 10, "log_interval": 10}
