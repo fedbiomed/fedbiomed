@@ -13,10 +13,6 @@ change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 # To avoid envsubst to over write default nginx variables
 export DOLLAR='$'
 
-if [ -z "$GUI_SERVER_NAME" ]; then
-  export GUI_SERVER_NAME=127.0.0.1
-fi
-
 # Set Gunicorn PORT and HOST
 export GUI_PORT=8000
 export GUI_HOST=localhost
