@@ -13,6 +13,7 @@ from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+from declearn.model.api import Vector
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
@@ -22,6 +23,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
@@ -121,23 +123,24 @@ class Experiment:
     """
 
     @exp_exceptions
-    def __init__(self,
-                 tags: Union[List[str], str, None] = None,
-                 nodes: Union[List[str], None] = None,
-                 training_data: Union[FederatedDataSet, dict, None] = None,
-                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-                 round_limit: Union[int, None] = None,
-                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-                 training_plan_path: Union[str, None] = None,
-                 model_args: dict = {},
-                 training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
-                 save_breakpoints: bool = False,
-                 tensorboard: bool = False,
-                 experimentation_folder: Union[str, None] = None,
-                 secagg: Union[bool, SecureAggregation] = False,
-                 ):
-
+    def __init__(
+        self,
+        tags: Union[List[str], str, None] = None,
+        nodes: Union[List[str], None] = None,
+        training_data: Union[FederatedDataSet, dict, None] = None,
+        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+        researcher_optimizer: Optional[Optimizer] = None,
+        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+        round_limit: Union[int, None] = None,
+        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_path: Union[str, None] = None,
+        model_args: dict = {},
+        training_args: Union[TrainingArgs, dict, None] = None,
+        save_breakpoints: bool = False,
+        tensorboard: bool = False,
+        experimentation_folder: Union[str, None] = None,
+        secagg: Union[bool, SecureAggregation] = False,
+    ) -> None:
         """Constructor of the class.
 
         Args:
@@ -159,6 +162,8 @@ class Experiment:
                 to None else)
             aggregator: object or class defining the method for aggregating local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
+            researcher_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
+                model updates prior to their application. If None, merely apply the aggregated updates.
             node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
                 non-responding nodes are managed.  Defaults to None:
                 - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
@@ -214,6 +219,7 @@ class Experiment:
         self.aggregator_args = {}
         self._aggregator = None
         self._global_model = None
+        self._global_optim = None  # type: Optional[Optimizer]
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
@@ -239,6 +245,9 @@ class Experiment:
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
+
+        # set self._global_optim: type Optional[Optimizer]
+        self.set_researcher_optimizer(researcher_optimizer)
 
         # set self._node_selection_strategy: type Union[Strategy, None]
         self.set_strategy(node_selection_strategy)
@@ -334,7 +343,7 @@ class Experiment:
 
     @exp_exceptions
     def aggregator(self) -> Aggregator:
-        """ Retrieves aggregator class that will be used for aggregating model parameters.
+        """Retrieves aggregator class that will be used for aggregating model parameters.
 
         To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.experiment.Experiment.set_aggregator].
 
@@ -343,6 +352,19 @@ class Experiment:
 
         """
         return self._aggregator
+
+    @exp_exceptions
+    def researcher_optimizer(self) -> Optional[Optimizer]:
+        """Retrieves the optional Optimizer used to refine aggregated model updates.
+
+        To set or update that optimizer:
+        [`set_researcher_optimizer`][fedbiomed.researcher.experiment.Experiment.set_researcher_optimizer].
+
+        Returns:
+            An [Optimizer][fedbiomed.common.optimizers.Optimizer] instance,
+            or None.
+        """
+        return self._global_optim
 
     @exp_exceptions
     def strategy(self) -> Union[Strategy, None]:
@@ -878,6 +900,35 @@ class Experiment:
             self._aggregator.set_fds(self._fds)
 
         return self._aggregator
+
+    @exp_exceptions
+    def set_researcher_optimizer(
+        self,
+        researcher_optimizer: Optional[Optimizer],
+    ) -> Optional[Optimizer]:
+        """Sets the optional researcher optimizer.
+
+        Args:
+            researcher_optimizer: Optional fedbiomed Optimizer instance to be
+                used so as to refine aggregated updates prior to applying them.
+                If None, equivalent to using vanilla SGD with 1.0 learning rate.
+
+        Returns:
+            The optional researcher optimizer attached to this Experiment.
+
+        Raises:
+            FedbiomedExperimentError: if `optimizer` is of unproper type.
+        """
+        if not (
+            researcher_optimizer is None
+            or isinstance(researcher_optimizer, Optimizer)
+        ):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: 'researcher_optimizer' must be an "
+                f"Optimizer instance or None, not {type(researcher_optimizer)}."
+            )
+        self._global_optim = researcher_optimizer
+        return self._global_optim
 
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
@@ -1556,7 +1607,16 @@ class Experiment:
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
-        # write results of the aggregated model in a temp file
+        # Optionally refine the aggregated parameters into model updates.
+        # aggregated_params = agg_i({w^t - sum_k(eta_{k,i,t}grad_{k,i,t})}_i)
+        # hence aggregated_params = w^t - agg_i(updates_i)
+        # hence agg_updates = agg_i(updates_i)
+        # finally w^{t+1} = w^t - optim(agg_updates)  # SGD with opt. plugins
+        if self._global_optim is not None:
+            init_params = Vector.build(self._global_model)
+            agg_updates = init_params - Vector.build(aggregated_params)
+            agg_updates = self._global_optim.step(agg_updates, init_params)
+            aggregated_params = (init_params - agg_updates).coefs
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
