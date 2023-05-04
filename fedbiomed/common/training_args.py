@@ -70,7 +70,7 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
-        
+
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -260,6 +260,29 @@ class TrainingArgs:
     def default_scheme(cls) -> Dict:
         """
         Returns the default (base) scheme for TrainingArgs.
+
+        A summary of the semantics of each argument is given below. Please refer to the source code of this function
+        for additional information on typing and constraints.
+
+        | argument | meaning |
+        | -------- | ------- |
+        | optimizer_args | supplemental arguments for initializing the optimizer |
+        | batch_size | the number of samples in a batch |
+        | epochs | the number of epochs performed during local training on each node |
+        | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
+        | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
+        | dry_run | perform a single model update for testing on each node and correctly handle GPU execution |
+        | batch_maxnum | prematurely break after batch_maxnum model updates for each epoch (useful for testing) |
+        | test_ratio | the proportion of validation samples to total number of samples in the dataset |
+        | test_on_local_updates | toggles validation after local training |
+        | test_on_global_updates | toggles validation before local training |
+        | test_metric | metric to be used for validation |
+        | test_metric_args | supplemental arguments for the validation metric |
+        | log_interval | output a training logging entry every log_interval model updates |
+        | fedprox_mu | set the value of mu and enable FedProx correction |
+        | dp_args | arguments for Differential Privacy |
+        | share_persistent_buffers | toggle whether nodes share the full state_dict (when True) or only trainable parameters (False) in a TorchTrainingPlan |
+
         """
         return {
             "optimizer_args": {
@@ -309,6 +332,9 @@ class TrainingArgs:
             "dp_args": {
                 "rules": [cls._validate_dp_args], "required": True, "default": None
             },
+            "share_persistent_buffers": {
+                "rules": [bool], "required": False, "default": True
+            }
         }
 
     def __str__(self) -> str:

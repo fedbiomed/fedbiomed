@@ -72,9 +72,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model: Union[TorchModel, None] = None
 
         self._training_args = None
-        self._model_args = None
+        self._model_args = {}
         self._optimizer_args = None
         self._use_gpu = False
+        self._share_persistent_buffers = None
 
         self._batch_maxnum = 100
         self._fedprox_mu = None
@@ -131,6 +132,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
+        # Assign model arguments.
+        self._model_args = model_args
         # Assign scalar attributes.
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
@@ -140,6 +143,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._epochs = self._training_args.get('epochs')
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
+        self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
@@ -148,8 +152,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # TODO: put fedprox mu inside strategy_args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         self.set_aggregator_args(aggregator_args or {})
-        # Configure model and optimizer
-        self._configure_model_and_optimizer(model_args)
+        # Configure the model and optimizer.
+        self._configure_model_and_optimizer()
 
     @abstractmethod
     def init_model(self):
@@ -176,7 +180,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments arguments
         """
-        return self._model.model_args
+        return self._model_args
 
     def get_learning_rate(self) -> List[float]:
         """Gets learning rate from value set in optimizer.
@@ -255,7 +259,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """ Gets training plan type"""
         return self.__type
 
-    def _configure_model_and_optimizer(self, model_args: Dict[str, Any]):
+    def _configure_model_and_optimizer(self):
         """Configures model and optimizers before training """
 
         # Message to format for unexpected argument definitions in special methods
@@ -270,7 +274,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if not init_model_spec:
             model = self.init_model()
         elif len(init_model_spec.keys()) == 1:
-            model = self.init_model(model_args)
+            model = self.init_model(self._model_args)
         else:
             raise FedbiomedTrainingPlanError(method_error.format(prefix="model",
                                                                  method="init_model",
@@ -278,7 +282,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.model_args()"))
 
         self._model = TorchModel(model)
-        self._model.model_args = model_args
         # Validate and fix model
         self._model.model = self._dp_controller.validate_and_fix_model(self._model.model)
 
@@ -604,10 +607,21 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         it is called in the context of this method. DP-required adjustments are
         also set to happen as part of this method.
 
+        If the researcher specified `share_persistent_buffers: False` in the
+        training arguments, then we return only the output of
+        [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
+        which considers only the trainable parameters.
+        Otherwise, the default behaviour is to return the complete `state_dict`.
+
         Returns:
             The trained parameters to aggregate.
         """
-        params = super().after_training_params()
+        # Either include non-parameter buffers to the outputs or not.
+        # Note: this is mostly about sharing statistics from BatchNorm layers.
+        if self._share_persistent_buffers:
+            params = dict(self._model.model.state_dict())
+        else:
+            params = super().after_training_params()
         # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
@@ -620,10 +634,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 ) from exc
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
-
         if flatten:
             params = self._model.flatten()
-
         return params
 
     def __norm_l2(self) -> float:
