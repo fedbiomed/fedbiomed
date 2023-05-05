@@ -5,7 +5,7 @@ upstream fedbiomed_gunicorn {
 
 server {
 
-    listen ${NGINX_PORT_NOSSL} ssl${DEFAULT_FAIL};
+    listen ${NGINX_PORT_NOSSL} ${DEFAULT_FAIL};
 
     server_name "";
     return 444;
@@ -43,6 +43,10 @@ server {
     listen ${NGINX_PORT_SSL} ssl${DEFAULT_FAIL};
 
     server_name "";
+
+    ssl_certificate ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_KEY};
+
     return 444;
 }
 

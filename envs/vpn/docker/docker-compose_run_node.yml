@@ -88,6 +88,7 @@ services:
     environment:
       # enable overloading build-time id with a run-time id
       - SSL_ON=true
+      - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8443
       - NGINX_PORT_NOSSL=8484
       - CONTAINER_UID
@@ -113,6 +114,7 @@ services:
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
+      - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8444
       - NGINX_PORT_NOSSL=8485
       - CONTAINER_UID

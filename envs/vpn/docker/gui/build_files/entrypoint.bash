@@ -19,13 +19,13 @@ export GUI_HOST=localhost
 
 # Set variable for nginx handling with/without specific domain
 if [ -z "$GUI_SERVER_NAME" ] ; then
-  SERVER_NAME_DIRECTIVE=
-  DEFAULT_FAIL=
-  DEFAULT_SUCCEED=' default_server'
+  export SERVER_NAME_DIRECTIVE=
+  export DEFAULT_FAIL=
+  export DEFAULT_SUCCEED=' default_server'
 else
-  SERVER_NAME_DIRECTIVE="server_name ${GUI_SERVER_NAME};"
-  DEFAULT_FAIL=' default_server'
-  DEFAULT_SUCCEED=
+  export SERVER_NAME_DIRECTIVE="server_name ${GUI_SERVER_NAME};"
+  export DEFAULT_FAIL=' default_server'
+  export DEFAULT_SUCCEED=
 fi
 
 echo "SSL activation status:  $SSL_ON"
