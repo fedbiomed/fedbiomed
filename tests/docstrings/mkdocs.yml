@@ -1,5 +1,5 @@
 site_name: Test Fed-BioMed Doc Strings
-site_url: https://fedbiomed.gitlabpages.inria.fr/
+site_url: http://fedbiomed.org/
 
 theme:
   name: material
