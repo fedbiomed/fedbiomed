@@ -1,6 +1,6 @@
 import os
 from flask import request, g
-from app import app
+from config import config
 from utils import error, response
 from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, \
     DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
@@ -10,7 +10,7 @@ from fedbiomed.node.dataset_manager import DatasetManager
 
 mf_controller = MedicalFolderController()
 dataset_manager = DatasetManager()
-DATA_PATH_RW = app.config['DATA_PATH_RW']
+DATA_PATH_RW = config['DATA_PATH_RW']
 
 
 def read_medical_folder_reference():

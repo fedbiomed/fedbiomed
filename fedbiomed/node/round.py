@@ -246,12 +246,15 @@ class Round:
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
 
-        secagg_arguments = {} if secagg_arguments is None else secagg_arguments
-        self._use_secagg = self._configure_secagg(
-            secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
-            secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
-            secagg_random=secagg_arguments.get('secagg_random')
-        )
+        try:
+            secagg_arguments = {} if secagg_arguments is None else secagg_arguments
+            self._use_secagg = self._configure_secagg(
+                secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+                secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+                secagg_random=secagg_arguments.get('secagg_random')
+            )
+        except FedbiomedRoundError as e:
+            return self._send_round_reply(success=False, message=str(e))
 
         # Initialize and validate requested experiment/training arguments
         try:

@@ -3,7 +3,7 @@ import re
 import uuid
 
 from fedbiomed.common.exceptions import FedbiomedError
-from app import app
+from config import config
 from db import node_database
 from flask import request, current_app
 from middlewares import middleware, common
@@ -23,7 +23,7 @@ from . import api
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
 
-DATA_PATH_RW = app.config['DATA_PATH_RW']
+DATA_PATH_RW = config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
@@ -131,7 +131,7 @@ def add_dataset():
     req = request.json
 
     # Data path that will be saved in the DB
-    data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
+    data_path_save = os.path.join(config['DATA_PATH_SAVE'], *req['path'])
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
@@ -226,8 +226,8 @@ def get_preview_dataset():
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local repository
-    rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
-    data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
+    rexp = re.match('^' + config['DATA_PATH_SAVE'], dataset['path'])
+    data_path = dataset['path'].replace(rexp.group(0), config['DATA_PATH_RW'])
 
     if dataset:
         if os.path.isfile(data_path):
@@ -235,15 +235,15 @@ def get_preview_dataset():
             data_preview = df.head().to_dict('split')
             dataset['data_preview'] = data_preview
         elif os.path.isdir(data_path):
-            path_root = os.path.normpath(app.config["DATA_PATH_RW"]).split(os.sep)
+            path_root = os.path.normpath(config["DATA_PATH_RW"]).split(os.sep)
             path = os.path.normpath(data_path).split(os.sep)
             dataset['data_preview'] = path[len(path_root):len(path)]
         else:
             dataset['data_preview'] = None
 
-        matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(dataset['path']))
+        matched = re.match('^' + config['NODE_FEDBIOMED_ROOT'], str(dataset['path']))
         if matched:
-            dataset['path'] = dataset['path'].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
+            dataset['path'] = dataset['path'].replace(config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
 
         return response(dataset), 200
 
@@ -287,13 +287,13 @@ def add_default_dataset():
 
     if 'path' in req:
         # Data path that the files will be read
-        path = os.path.join(app.config['DATA_PATH_RW'], *req['path'])
+        path = os.path.join(config['DATA_PATH_RW'], *req['path'])
         # This is the path will be writen in DB
-        data_path = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
+        data_path = os.path.join(config['DATA_PATH_SAVE'], *req['path'])
         if not os.path.isdir(path):
             return error('Provided path is not a directory. Please select a folder not a file.'), 400
     else:
-        default_dir = os.path.join(app.config["DATA_PATH_RW"], 'defaults')
+        default_dir = os.path.join(config["DATA_PATH_RW"], 'defaults')
         path = os.path.join(default_dir, 'mnist')
         if not os.path.exists(default_dir):
             os.mkdir(default_dir)
@@ -301,7 +301,7 @@ def add_default_dataset():
             os.mkdir(path)
 
         # This is the path will be writen in DB
-        data_path = os.path.join(app.config['DATA_PATH_SAVE'], 'defaults', 'mnist')
+        data_path = os.path.join(config['DATA_PATH_SAVE'], 'defaults', 'mnist')
 
     try:
         shape = dataset_manager.load_default_database(name="MNIST",

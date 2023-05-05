@@ -6,7 +6,7 @@ from utils import get_node_id
 cfg = configparser.ConfigParser()
 
 
-class Config:
+class Config(dict):
 
     def __init__(self):
         """
@@ -14,9 +14,18 @@ class Config:
         """
         self.configuration = {}
 
-    @property
-    def config(self):
-        return self.configuration
+        # Updates self.configuration
+        self.generate_config()
+
+    def __delitem__(self, key):
+        """Deletes given key from configuration"""
+
+        del self.configuration[key]
+
+    def __getitem__(self, item):
+        """Gets item from self.configuration """
+
+        return self.configuration[item]
 
     def generate_config(self):
         """
@@ -30,7 +39,7 @@ class Config:
         # Configuration of Flask APP to be able to access Fed-BioMed node information
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
 
-        # Config file that is located in {FEDBIOMED_DIR}/gui directory
+        # Config file that is located in ${FEDBIOMED_DIR}/gui directory
         cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
 
         # Data path ------------------------------------------------------------------------------------------------
@@ -97,9 +106,6 @@ class Config:
         self.configuration['PORT'] = os.getenv('PORT', cfg.get('server', 'PORT', fallback=8484))
         self.configuration['HOST'] = os.getenv('HOST', cfg.get('server', 'HOST', fallback='localhost'))
 
-        # Configure admin create new admin if there is no any
-        self._configure_admin(cfg)
-
         # Log information for setting up a node connection
         print(f'INFO: Fed-BioMed Node root dir has been set as '
               f'{self.configuration["NODE_FEDBIOMED_ROOT"]} \n')
@@ -112,6 +118,5 @@ class Config:
 
         return self.configuration
 
-    @staticmethod
-    def _configure_admin(config):
-        pass
+
+config = Config()

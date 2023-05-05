@@ -32,7 +32,6 @@ then
 fi
 eval "$(conda shell.bash hook)"
 
-mpid= # PIDs monitored (used only as an intermediate variable here)
 kpids= # PIDs to be killed
 
 # launch network
@@ -52,18 +51,21 @@ $basedir/scripts/fedbiomed_run node config config-n1.ini --add-mnist $path_mnist
 # Launch node 1
 echo "INFO: launching fedbiomed node"
 $basedir/scripts/fedbiomed_run node start &
-apids=$!
+apids_root=$!
 
 # Launch node 2
 $basedir/scripts/fedbiomed_run node config config-n1.ini start &
-apids="$apids $!"
+apids_root="$apids_root $!"
 
 conda deactivate
-sleep 3
-apids=$(pstree -p $apids | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' ')
+sleep 10
+
+apids=
+for pid in $apids_root ; do
+    apids="${apids:+$apids}$(pstree -p $pid | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' ')"
+done
 echo "INFO : apids=$apids"
 kpids="${kpids:+$kpids }$apids"
-mpid="($mpid|$!)"
 
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
@@ -84,6 +86,7 @@ kill -9 $kpids
 ( cd $basedir/envs/development/docker ; docker-compose down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
+$basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
 
 conda deactivate
 
