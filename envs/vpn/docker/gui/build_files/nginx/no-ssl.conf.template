@@ -3,12 +3,19 @@ upstream fedbiomed_gunicorn {
        server ${GUI_HOST}:${GUI_PORT};
 }
 
-
 server {
-    listen ${NGINX_PORT_NOSSL} default_server;
-    listen [::]:${NGINX_PORT_NOSSL};
+
+    listen ${NGINX_PORT_NOSSL} ssl${DEFAULT_FAIL};
 
     server_name "";
+    return 444;
+}
+
+server {
+    listen ${NGINX_PORT_NOSSL}${DEFAULT_SUCCEED};
+    listen [::]:${NGINX_PORT_NOSSL};
+
+    ${SERVER_NAME_DIRECTIVE}
 
     location / {
         proxy_pass http://fedbiomed_gunicorn;
@@ -32,9 +39,17 @@ server {
 }
 
 server {
-    listen ${NGINX_PORT_SSL} ssl;
+
+    listen ${NGINX_PORT_SSL} ssl${DEFAULT_FAIL};
 
     server_name "";
+    return 444;
+}
+
+server {
+    listen ${NGINX_PORT_SSL} ssl${DEFAULT_SUCCEED};
+
+    ${SERVER_NAME_DIRECTIVE}
 
     ssl_certificate ${SSL_CERTIFICATE};
     ssl_certificate_key ${SSL_KEY};
