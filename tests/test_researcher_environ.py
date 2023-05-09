@@ -1,16 +1,35 @@
-import os
+import os, io
 import importlib
 import unittest
 import inspect
 import configparser
+import logging
 from unittest.mock import patch
 
+import fedbiomed
+from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from testsupport.fake_common_environ import Environ
 
 
 class TestResearcherEnviron(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # REDIRECT all logging output to string stream
+        logger._internalAddHandler("CONSOLE", None)
+        cls.logging_output = io.StringIO()
+        cls.handler = logging.StreamHandler(cls.logging_output)
+        formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s - %(message)s')
+        cls.handler.setFormatter(formatter)  # copy console format
+        logger._logger.addHandler(cls.handler)
+        # END REDIRECT
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        logger._logger.removeHandler(cls.handler)
+        logger.addConsoleHandler()
 
     def setUp(self) -> None:
         """Setup test for each test function"""
@@ -29,6 +48,7 @@ class TestResearcherEnviron(unittest.TestCase):
             "environ_for_test_node", environ_module_dir)\
             .load_module()
 
+
         ResearcherEnviron = self.env.ResearcherEnviron
         self.mock_setup_environ.reset_mock()
 
@@ -43,7 +63,6 @@ class TestResearcherEnviron(unittest.TestCase):
     def tearDown(self) -> None:
         self.patch_environ.stop()
         self.patch_setup_environ.stop()
-        pass
 
     def test_01_researcher_environ_init(self):
         """Tests initialization of ResearcherEnviron"""
@@ -56,16 +75,17 @@ class TestResearcherEnviron(unittest.TestCase):
         config = self.environ.default_config_file()
         self.assertEqual(config, os.path.join("dummy/config/dir", "config_researcher.ini"))
 
+    @patch("fedbiomed.common.utils.raise_for_version_compatibility")
     @patch("os.makedirs")
     @patch("os.path.isdir")
     def test_03_researcher_environ_set_component_specific_variables(self,
                                                                     mock_is_dir,
-                                                                    mock_mkdir):
+                                                                    mock_mkdir,
+                                                                    mock_compatibility):
         """Tests setting variables for researcher environ"""
-        self.environ.from_config.side_effect = None
         os.environ["RESEARCHER_ID"] = "researcher-1"
-
-        self.environ.from_config.side_effect = [None, None, None, "SHA256"]
+        # Test base case: no exceptions are raised and we assert that the values are read correctly
+        self.environ.from_config.side_effect = ['1.0', None]
         mock_is_dir.return_value = False
 
         self.environ._set_component_specific_variables()
@@ -80,10 +100,15 @@ class TestResearcherEnviron(unittest.TestCase):
         self.assertEqual(self.environ._values["DB_PATH"],
                          os.path.join("dummy/var/dir", "db_researcher-1.json"))
 
-        mock_mkdir.side_effect = [FileExistsError, OSError]
+        # Test case where tensorboard/experiment dir already exist
+        mock_mkdir.side_effect = [FileExistsError]
+        self.environ.from_config.side_effect = ['1.0', None]
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
+        # Test general OSError while creating the directories
+        mock_mkdir.side_effect = [OSError]
+        self.environ.from_config.side_effect = ['1.0', None]
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
@@ -106,6 +131,51 @@ class TestResearcherEnviron(unittest.TestCase):
         self.environ._values["COMPONENT_TYPE"] = ComponentType.RESEARCHER
         self.environ.info()
         self.assertEqual(mock_logger_info.call_count, 2)
+
+    @patch("os.makedirs")
+    @patch("os.path.isdir")
+    def test_06_researcher_version(self,
+                                   mock_is_dir,
+                                   mock_mkdir):
+
+        from fedbiomed.researcher import __config_version__
+        from fedbiomed.common.exceptions import FedbiomedVersionError
+        os.environ["RESEARCHER_ID"] = "researcher-1"
+        mock_is_dir.return_value = False
+
+        # Test base case: the version in the config file exactly matches the version in the runtime
+        self.environ.from_config.side_effect = [__config_version__, None]
+        self.environ._set_component_specific_variables()
+        self.assertEqual(self.environ._values["CONFIG_FILE_VERSION"], __config_version__)
+
+        # Test base case 2: the version in the config file is missing
+        # We assign the current version (i.e. __config_version__) to the default version value in order to
+        # avoid raising an error when checking for version compatibility. The purpose here is to check whether
+        # we correctly assign the default version value when the field is missing from the config file.
+        with patch.object(fedbiomed.common.utils, '__default_version__', __config_version__):
+            self.environ.from_config.side_effect = [FedbiomedEnvironError, None]
+            self.environ._set_component_specific_variables()
+            self.assertEqual(self.environ._values["CONFIG_FILE_VERSION"], __config_version__)
+
+        # Test error case: when the version is not compatible
+        self.logging_output.truncate(0)  # clear the logging buffer for simplicity
+        self.environ.from_config.side_effect = ['0.1', None]
+        with self.assertRaises(FedbiomedVersionError):
+            self.environ._set_component_specific_variables()
+        self.assertEqual(self.logging_output.getvalue().split('-')[2][-19:], 'fedbiomed CRITICAL ')
+
+        # Test warning case: when the version is not the same, but compatible
+        self.logging_output.truncate(0)  # clear the logging buffer for simplicity
+        new_version = ".".join([str(__config_version__.major), str(__config_version__.minor + 4)])
+        self.environ.from_config.side_effect = [new_version, None]
+        self.environ._set_component_specific_variables()
+        self.assertEqual(self.logging_output.getvalue().split('-')[2][-18:], 'fedbiomed WARNING ')
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
