@@ -150,7 +150,7 @@ class Environ(metaclass=SingletonABCMeta):
             _cfg_value = self._cfg.get(section, key)
         except configparser.Error:
             _msg = f"{ErrorNumbers.FB600.value}: no {section}/{key} in config file. Please recreate a new config file"
-            logger.critical(_msg)
+            logger.error(_msg)
             raise FedbiomedEnvironError(_msg)
 
         return _cfg_value
