@@ -11,6 +11,8 @@ from unittest import mock
 
 import numpy as np
 import torch
+from declearn.model.sklearn import NumpyVector
+from declearn.model.torch import TorchVector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
@@ -102,7 +104,23 @@ class TestSerializer(unittest.TestCase):
             all(np.all(a == b) for a, b in zip(data["arrays"], datb["arrays"]))
         )
 
-    def test_serializer_06_raises_dump_error(self) -> None:
+    def test_serializer_06_numpy_vector(self) -> None:
+        """Test that 'Serializer' operates well on 'NumpyVector' instances."""
+        vector = NumpyVector({
+            "a": np.random.normal(size=(32, 128)),
+            "b": np.random.normal(size=(32,)),
+        })
+        self.assert_serializable(vector)
+
+    def test_serializer_07_torch_vector(self) -> None:
+        """Test that 'Serializer' operates well on 'TorchVector' instances."""
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
+        self.assert_serializable(vector)
+
+    def test_serializer_08_raises_dump_error(self) -> None:
         """Test that 'Serializer.dumps' raises the expected error."""
 
         class UnsupportedType:
@@ -111,7 +129,7 @@ class TestSerializer(unittest.TestCase):
         with self.assertRaises(FedbiomedTypeError):
             Serializer.dumps(UnsupportedType())
 
-    def test_serializer_07_warns_load_error(self) -> None:
+    def test_serializer_09_warns_load_error(self) -> None:
         """Test that 'Serializer.loads' logs the expected warning."""
         # Build a dict that looks like the specification for a non-standard
         # type dump (e.g. numpy array, torch tensor...).
@@ -122,6 +140,18 @@ class TestSerializer(unittest.TestCase):
             bis = Serializer.loads(data)
         p_logger.warning.assert_called_once()
         self.assertDictEqual(obj, bis)
+
+    def test_serializer_10_nested_dict(self) -> None:
+        """Test that 'Serializer' supports operating on nested structures."""
+        obj = {
+            "int": 0.,
+            "vec": TorchVector({"a": torch.randn(size=(4, 8))}),
+            "dct": {
+                "vec": NumpyVector({"a": np.random.normal(size=(4, 8))}),
+                "str": "test",
+            }
+        }
+        self.assert_serializable(obj)
 
 
 if __name__ == "__main__":
