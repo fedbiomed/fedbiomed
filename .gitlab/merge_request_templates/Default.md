@@ -30,8 +30,8 @@ The `CREDIT.md` file and `credit/` directory shall be completed and updated acco
 
 General:
 
-* give a glance to [DoD](https://fedbiomed.gitlabpages.inria.fr/latest/developer/Fed-BioMed_DoD.pdf)
-* check [coding rules and coding style](https://fedbiomed.gitlabpages.inria.fr/latest/developer/usage_and_tools/#coding-style)
+* give a glance to [DoD](http://fedbiomed.org/latest/developer/Fed-BioMed_DoD.pdf)
+* check [coding rules and coding style](http://fedbiomed.org/latest/developer/usage_and_tools/#coding-style)
 * check docstrings (eg run `tests/docstrings/check_docstrings`)
 
 Specific to some cases:
