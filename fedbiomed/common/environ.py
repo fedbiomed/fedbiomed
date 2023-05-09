@@ -59,6 +59,8 @@ from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.certificate_manager import CertificateManager
+import fedbiomed.common.utils
+from fedbiomed.common.utils import raise_for_version_compatibility, FBM_Component_Version
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -470,3 +472,16 @@ class Environ(metaclass=SingletonABCMeta):
             _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + self._values["CONFIG_FILE"]
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
+
+    def check_and_set_config_file_version(self,
+                                          version_from_runtime: Union[str, FBM_Component_Version]):
+        try:
+            config_file_version = self.from_config('default', 'version')
+        except FedbiomedEnvironError:
+            config_file_version = fedbiomed.common.utils.__default_version__
+        raise_for_version_compatibility(config_file_version, version_from_runtime,
+                                        f"Configuration file {self._values['CONFIG_FILE']}: "
+                                        f"found version %s expected version %s")
+        self._values["CONFIG_FILE_VERSION"] = config_file_version
+
+

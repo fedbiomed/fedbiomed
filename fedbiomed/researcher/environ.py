@@ -25,8 +25,6 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX, \
     TENSORBOARD_FOLDER_NAME
 from fedbiomed.common.environ import Environ
-import fedbiomed.common.utils
-from fedbiomed.common.utils import raise_for_version_compatibility
 
 
 class ResearcherEnviron(Environ):
@@ -48,14 +46,7 @@ class ResearcherEnviron(Environ):
     def _set_component_specific_variables(self):
 
         # First check version compatibility
-        try:
-            config_file_version = self.from_config('default', 'version')
-        except FedbiomedEnvironError:
-            config_file_version = fedbiomed.common.utils.__default_version__
-        raise_for_version_compatibility(config_file_version, fedbiomed.researcher.__config_version__,
-                                        f"Researcher configuration file {self._values['CONFIG_FILE']}:"
-                                        f" found version %s expected version %s")
-        self._values["CONFIG_FILE_VERSION"] = config_file_version
+        self.check_and_set_config_file_version(fedbiomed.researcher.__config_version__)
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead

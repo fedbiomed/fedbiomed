@@ -30,7 +30,8 @@ from ._secagg_utils import (
 
 from ._versions import (
     raise_for_version_compatibility,
-    __default_version__
+    __default_version__,
+    FBM_Component_Version
 )
 
 __all__ = [
@@ -59,4 +60,5 @@ __all__ = [
     # _versions
     "raise_for_version_compatibility",
     "__default_version__"
+    "FBM_Component_version"
 ]

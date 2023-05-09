@@ -16,6 +16,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedVersionError
 
 
+FBM_Component_Version = Version
 __default_version__ = Version('1.0')  # default version to assign to any component before versioning was introduced
 
 
