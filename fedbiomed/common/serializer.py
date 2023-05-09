@@ -3,13 +3,14 @@
 
 """MsgPack serialization utils, wrapped into a namespace class."""
 
+from math import ceil
 from typing import Any
 
 import msgpack
 import numpy as np
 import torch
+from declearn.model.api import Vector
 
-from math import ceil
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 
@@ -97,7 +98,6 @@ class Serializer:
             return {"__type__": "int", "value": obj.to_bytes(
                 length=ceil(obj.bit_length()/8),
                 byteorder="big")}
-
         if isinstance(obj, tuple):
             return {"__type__": "tuple", "value": list(obj)}
         if isinstance(obj, np.ndarray):
@@ -110,8 +110,9 @@ class Serializer:
             obj = obj.cpu().numpy()
             spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "torch.Tensor", "value": spec}
+        if isinstance(obj, Vector):
+            return {"__type__": "Vector", "value": obj.coefs}
         # Raise on unsupported types.
-
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
         )
@@ -136,6 +137,8 @@ class Serializer:
             data, dtype, shape = obj["value"]
             array = np.frombuffer(data, dtype=dtype).reshape(shape).copy()
             return torch.from_numpy(array)
+        if objtype == "Vector":
+            return Vector.build(obj["value"])
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )
