@@ -46,7 +46,7 @@ class NodeEnviron(Environ):
         """Initializes environment variables """
 
         # First check version compatibility
-        self.check_and_set_config_file_version(fedbiomed.researcher.__config_version__)
+        self.check_and_set_config_file_version(fedbiomed.node.__config_version__)
 
         node_id = self.from_config('default', 'id')
         self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
