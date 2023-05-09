@@ -155,7 +155,7 @@ class Optimizer:
                 f"{ErrorNumbers.FB621.value}: error in 'step': {exc}"
             ) from exc
 
-    def get_aux(self) -> Dict[str, Dict[str, Any]]:
+    def get_aux(self) -> Dict[str, Union[Dict[str, Any], Any]]:
         """Return auxiliary variables that need to be shared across network.
 
         Returns:

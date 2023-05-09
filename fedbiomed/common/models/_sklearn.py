@@ -267,10 +267,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             for key in self.param_list
         }
 
+        # ------------------------------ WARNINGS ----------------------------------
+        #
         # Warning 1: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
         # (you will get un-scaled gradients, that need to be scaled back by dividing gradients by the learning rate)
         # here is a way to do so (with `lrate` as the learning rate): 
-        # ```python`
+        # ```python
         # for key, val in self._gradients.items():
         #        val /= lrate
         # ````

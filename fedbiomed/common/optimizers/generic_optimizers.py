@@ -136,17 +136,6 @@ class DeclearnOptimizer(BaseOptimizer):
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 
-    def get_learning_rate(self) -> List[float]:
-        """Returns current learning rate of the optimizer
-
-        Returns:
-            a list containing the learning rate value (of size 1)
-        """
-        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
-
-        states = self.optimizer.get_state()['config']
-        return [states['lrate']]
-
     def set_aux(self, aux: Dict[str, Any]):
         # FIXME: for imported tensors in PyTorch sent as auxiliary variables,
         # we should push it on the appropriate device (ie cpu/gpu)
