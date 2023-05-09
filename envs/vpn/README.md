@@ -454,7 +454,7 @@ Use the node gui from outside the gui container :
 By default, only connections from `localhost` are authorized. To enable connection to the GUI from any IP address
   - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
 ```bash
-[user@node $] GUI_HOST=0.0.0.0 docker-compose up -d gui
+[user@node $] GUI_SERVER_IP=0.0.0.0 docker-compose up -d gui
 ```
   - connect to `http://${NODE_IP}:8484`
   - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided gui container does not include a user authentication mechanism or encrypted communications for the user.

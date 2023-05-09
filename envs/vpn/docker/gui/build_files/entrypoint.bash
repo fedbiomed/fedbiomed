@@ -13,14 +13,20 @@ change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 # To avoid envsubst to over write default nginx variables
 export DOLLAR='$'
 
-if [ -z "$GUI_SERVER_NAME" ]; then
-  export GUI_SERVER_NAME=127.0.0.1
-fi
-
 # Set Gunicorn PORT and HOST
 export GUI_PORT=8000
 export GUI_HOST=localhost
 
+# Set variable for nginx handling with/without specific domain
+if [ -z "$GUI_SERVER_NAME" ] ; then
+  export SERVER_NAME_DIRECTIVE=
+  export DEFAULT_FAIL=
+  export DEFAULT_SUCCEED=' default_server'
+else
+  export SERVER_NAME_DIRECTIVE="server_name ${GUI_SERVER_NAME};"
+  export DEFAULT_FAIL=' default_server'
+  export DEFAULT_SUCCEED=
+fi
 
 echo "SSL activation status:  $SSL_ON"
 
