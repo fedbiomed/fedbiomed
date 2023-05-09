@@ -3,12 +3,10 @@ import importlib
 import unittest
 import inspect
 import configparser
-import logging
 from unittest.mock import patch
 
 import fedbiomed
 from fedbiomed.researcher import __config_version__
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedVersionError
 from testsupport.fake_common_environ import Environ
@@ -16,30 +14,16 @@ from testsupport.fake_common_environ import Environ
 
 class TestResearcherEnviron(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        # REDIRECT all logging output to string stream
-        logger._internalAddHandler("CONSOLE", None)
-        cls.logging_output = io.StringIO()
-        cls.handler = logging.StreamHandler(cls.logging_output)
-        formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s - %(message)s')
-        cls.handler.setFormatter(formatter)  # copy console format
-        logger._logger.addHandler(cls.handler)
-        # END REDIRECT
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        logger._logger.removeHandler(cls.handler)
-        logger.addConsoleHandler()
-
     def setUp(self) -> None:
         """Setup test for each test function"""
 
         self.patch_environ = patch("fedbiomed.common.environ.Environ", Environ)
         self.patch_setup_environ = patch("fedbiomed.common.environ.Environ.setup_environment")
+        self.patch_versions_log = patch.object(fedbiomed.common.utils._versions, 'logger')
 
         self.mock_environ = self.patch_environ.start()
         self.mock_setup_environ = self.patch_setup_environ.start()
+        self.mock_versions_log = self.patch_versions_log.start()
 
         environ_module_dir = os.path.join(os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
@@ -64,6 +48,7 @@ class TestResearcherEnviron(unittest.TestCase):
     def tearDown(self) -> None:
         self.patch_environ.stop()
         self.patch_setup_environ.stop()
+        self.patch_versions_log.stop()
 
     def test_01_researcher_environ_init(self):
         """Tests initialization of ResearcherEnviron"""
@@ -128,7 +113,8 @@ class TestResearcherEnviron(unittest.TestCase):
         })
 
     @patch("fedbiomed.common.logger.logger.info")
-    def test_05_researcher_environ_info(self, mock_logger_info):
+    def test_05_researcher_environ_info(self,
+                                        mock_logger_info):
 
         self.environ._values["COMPONENT_TYPE"] = ComponentType.RESEARCHER
         self.environ.info()
@@ -158,24 +144,18 @@ class TestResearcherEnviron(unittest.TestCase):
             self.assertEqual(self.environ._values["CONFIG_FILE_VERSION"], __config_version__)
 
         # Test error case: when the version is not compatible
-        self.logging_output.truncate(0)  # clear the logging buffer for simplicity
+        self.mock_versions_log.reset_mock()
         self.environ.from_config.side_effect = ['0.1', None]
         with self.assertRaises(FedbiomedVersionError):
             self.environ._set_component_specific_variables()
-        self.assertEqual(self.logging_output.getvalue().split('-')[2][-19:], 'fedbiomed CRITICAL ')
+        self.assertEqual(self.mock_versions_log.critical.call_count, 1)
 
         # Test warning case: when the version is not the same, but compatible
-        self.logging_output.truncate(0)  # clear the logging buffer for simplicity
+        self.mock_versions_log.reset_mock()
         new_version = ".".join([str(__config_version__.major), str(__config_version__.minor + 4)])
         self.environ.from_config.side_effect = [new_version, None]
         self.environ._set_component_specific_variables()
-        self.assertEqual(self.logging_output.getvalue().split('-')[2][-18:], 'fedbiomed WARNING ')
-
-
-
-
-
-
+        self.assertEqual(self.mock_versions_log.warning.call_count, 1)
 
 
 if __name__ == "__main__":
