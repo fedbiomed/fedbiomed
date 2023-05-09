@@ -52,7 +52,9 @@ class ResearcherEnviron(Environ):
             config_file_version = self.from_config('default', 'version')
         except FedbiomedEnvironError:
             config_file_version = fedbiomed.common.utils.__default_version__
-        raise_for_version_compatibility(config_file_version, fedbiomed.researcher.__config_version__)
+        raise_for_version_compatibility(config_file_version, fedbiomed.researcher.__config_version__,
+                                        f"Researcher configuration file {self._values['CONFIG_FILE']}:"
+                                        f" found version %s expected version %s")
         self._values["CONFIG_FILE_VERSION"] = config_file_version
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
