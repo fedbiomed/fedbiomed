@@ -28,6 +28,11 @@ from ._secagg_utils import (
     matching_parties_biprime
 )
 
+from ._versions import (
+    raise_for_version_compatibility,
+    __default_version__
+)
+
 __all__ = [
     # _utils
     "read_file",
@@ -51,4 +56,7 @@ __all__ = [
     "get_existing_component_db_names",
     "matching_parties_servkey",
     "matching_parties_biprime",
+    # _versions
+    "raise_for_version_compatibility",
+    "__default_version__"
 ]
