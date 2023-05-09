@@ -91,7 +91,8 @@ class ResearcherEnviron(Environ):
         self._cfg['default'] = {
             'id': researcher_id,
             'component': "RESEARCHER",
-            'uploads_url': uploads_url
+            'uploads_url': uploads_url,
+            'version': fedbiomed.researcher.__config_version__
         }
 
     def info(self):

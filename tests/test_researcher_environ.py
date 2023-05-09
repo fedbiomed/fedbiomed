@@ -7,9 +7,10 @@ import logging
 from unittest.mock import patch
 
 import fedbiomed
+from fedbiomed.researcher import __config_version__
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ComponentType
-from fedbiomed.common.exceptions import FedbiomedEnvironError
+from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedVersionError
 from testsupport.fake_common_environ import Environ
 
 
@@ -119,10 +120,11 @@ class TestResearcherEnviron(unittest.TestCase):
         self.environ._get_uploads_url.return_value = "localhost"
         self.environ._set_component_specific_config_parameters()
 
-        self.assertEqual(self.environ._cfg["default"], {
+        self.assertDictEqual(dict(self.environ._cfg["default"]), {
             'id': 'researcher-1',
             'component': "RESEARCHER",
-            'uploads_url': "localhost"
+            'uploads_url': "localhost",
+            'version': str(__config_version__)
         })
 
     @patch("fedbiomed.common.logger.logger.info")
@@ -138,8 +140,6 @@ class TestResearcherEnviron(unittest.TestCase):
                                    mock_is_dir,
                                    mock_mkdir):
 
-        from fedbiomed.researcher import __config_version__
-        from fedbiomed.common.exceptions import FedbiomedVersionError
         os.environ["RESEARCHER_ID"] = "researcher-1"
         mock_is_dir.return_value = False
 
