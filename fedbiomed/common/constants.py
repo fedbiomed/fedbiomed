@@ -3,6 +3,7 @@
 
 """Fed-BioMed constants/enums"""
 
+from packaging.version import Version
 from enum import Enum
 
 CONFIG_FOLDER_NAME = "etc"
@@ -32,6 +33,7 @@ NODE_PREFIX = 'node_'
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
+__version__ = Version('4.3')  # Fed-BioMed software version
 
 class _BaseEnum(Enum):
     """
