@@ -20,6 +20,7 @@ print(environ['NODE_ID'])
 import os
 import uuid
 
+import fedbiomed.node
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
@@ -43,6 +44,9 @@ class NodeEnviron(Environ):
 
     def _set_component_specific_variables(self):
         """Initializes environment variables """
+
+        # First check version compatibility
+        self.check_and_set_config_file_version(fedbiomed.researcher.__config_version__)
 
         node_id = self.from_config('default', 'id')
         self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
@@ -120,7 +124,8 @@ class NodeEnviron(Environ):
         self._cfg['default'] = {
             'id': node_id,
             'component': "NODE",
-            'uploads_url': uploads_url
+            'uploads_url': uploads_url,
+            'version': fedbiomed.node.__config_version__
         }
 
         # Security variables
