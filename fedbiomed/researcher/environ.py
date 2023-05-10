@@ -16,6 +16,7 @@ print(environ['RESEARCHER_ID'])
 ```
 """
 
+import sys
 import os
 import uuid
 
@@ -94,6 +95,8 @@ class ResearcherEnviron(Environ):
         logger.info("Component environment:")
         logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
+
+sys.tracebacklimit = 3
 
 # Global dictionary which contains all environment for the RESEARCHER
 environ = ResearcherEnviron()

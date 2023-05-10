@@ -17,6 +17,7 @@ print(environ['NODE_ID'])
 
 """
 
+import sys
 import os
 import uuid
 
@@ -144,6 +145,8 @@ class NodeEnviron(Environ):
         logger.info("training_plan_approval         = " + str(self._values['TRAINING_PLAN_APPROVAL']))
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
+
+sys.tracebacklimit = 3
 
 # global dictionary which contains all environment for the NODE
 environ = NodeEnviron()
