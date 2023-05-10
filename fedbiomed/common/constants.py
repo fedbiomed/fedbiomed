@@ -37,6 +37,7 @@ __version__ = Version('4.3')  # Fed-BioMed software version
 __researcher_config_version__ = Version('1.0.1')  # researcher config file version
 __node_config_version__ = Version('1.0.1')  # node config file version
 
+
 class _BaseEnum(Enum):
     """
     Parent class to pass default methods to enumeration classes
