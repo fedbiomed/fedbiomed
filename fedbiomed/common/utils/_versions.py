@@ -39,6 +39,7 @@ def _create_error_msg(error_msg: str, their_version: Version, our_version: Versi
     msg += " -> See https://fedbiomed.org/latest/user-guide/deployment/versions for more information"
     return msg
 
+
 def raise_for_version_compatibility(their_version: Union[Version, str],
                                     our_version: Union[Version, str],
                                     error_msg: Optional[str] = None) -> None:
@@ -71,6 +72,3 @@ def raise_for_version_compatibility(their_version: Union[Version, str],
         logger.warning(msg)
     elif our_version.micro != their_version.micro:
         logger.info(msg)
-
-
-
