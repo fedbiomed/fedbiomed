@@ -1,12 +1,9 @@
 import unittest
 from unittest.mock import patch
-import logging
-import sys, io
 from packaging.version import Version
 import fedbiomed
 from fedbiomed.common.exceptions import FedbiomedVersionError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.utils._versions import raise_for_version_compatibility
+from fedbiomed.common.utils import raise_for_version_compatibility
 
 
 class TestVersions(unittest.TestCase):
@@ -20,6 +17,7 @@ class TestVersions(unittest.TestCase):
     def test_versions_01_version_numbers(self):
         """Test runtime version numbers hardcoded in constants"""
         self.assertTrue(fedbiomed.__version__ >= Version('4.3'))
+        self.assertEqual(fedbiomed.common.utils.__default_version__, Version('0'))
 
     def test_versions_02_check_version_compatibility(self):
         """Test raise_for_version_compatibility"""
