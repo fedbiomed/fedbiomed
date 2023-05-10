@@ -21,8 +21,8 @@ import sys
 import os
 import uuid
 
-import fedbiomed.node
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
@@ -47,7 +47,7 @@ class NodeEnviron(Environ):
         """Initializes environment variables """
 
         # First check version compatibility
-        self.check_and_set_config_file_version(fedbiomed.node.__config_version__)
+        self.check_and_set_config_file_version(__config_version__)
 
         node_id = self.from_config('default', 'id')
         self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
@@ -126,7 +126,7 @@ class NodeEnviron(Environ):
             'id': node_id,
             'component': "NODE",
             'uploads_url': uploads_url,
-            'version': fedbiomed.node.__config_version__
+            'version': __config_version__
         }
 
         # Security variables

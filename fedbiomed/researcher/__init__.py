@@ -1,1 +1,0 @@
-from fedbiomed.common.constants import __researcher_config_version__ as __config_version__

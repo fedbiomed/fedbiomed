@@ -90,7 +90,7 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertTrue(self.environ._values['TRAINING_PLAN_APPROVAL'], "os.getenv did not overwrite the value")
 
     def test_04_node_environ_set_component_specific_config_parameters(self):
-        from fedbiomed.node import __config_version__
+        from fedbiomed.node.environ import __config_version__
         os.environ["NODE_ID"] = "node-1"
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"

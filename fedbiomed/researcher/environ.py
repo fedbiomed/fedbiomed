@@ -20,11 +20,11 @@ import sys
 import os
 import uuid
 
-import fedbiomed.researcher
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX, \
     TENSORBOARD_FOLDER_NAME
+from fedbiomed.common.constants import __researcher_config_version__ as __config_version__
 from fedbiomed.common.environ import Environ
 
 
@@ -47,7 +47,7 @@ class ResearcherEnviron(Environ):
     def _set_component_specific_variables(self):
 
         # First check version compatibility
-        self.check_and_set_config_file_version(fedbiomed.researcher.__config_version__)
+        self.check_and_set_config_file_version(__config_version__)
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead
@@ -86,7 +86,7 @@ class ResearcherEnviron(Environ):
             'id': researcher_id,
             'component': "RESEARCHER",
             'uploads_url': uploads_url,
-            'version': fedbiomed.researcher.__config_version__
+            'version': __config_version__
         }
 
     def info(self):
