@@ -121,6 +121,10 @@ class Environ(metaclass=SingletonABCMeta):
         return value
 
     @abstractmethod
+    def _check_config_version(self):
+        """Abstract method for checking if config version is compatible and setting config version"""
+
+    @abstractmethod
     def _set_component_specific_variables(self):
         """Abstract method for setting component specific values to `self._values` """
 
@@ -164,6 +168,9 @@ class Environ(metaclass=SingletonABCMeta):
 
         # Parse config file or create if not existing
         self.parse_write_config_file()
+
+        # Check that config version is compatible
+        self._check_config_version()
 
         # Configuring network variables
         self._set_network_variables()

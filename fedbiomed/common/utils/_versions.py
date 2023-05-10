@@ -17,7 +17,7 @@ from fedbiomed.common.exceptions import FedbiomedVersionError
 
 
 FBM_Component_Version = Version
-__default_version__ = Version('1.0')  # default version to assign to any component before versioning was introduced
+__default_version__ = Version('0')  # default version to assign to any component before versioning was introduced
 
 
 def _create_error_msg(error_msg: str, their_version: Version, our_version: Version) -> str:

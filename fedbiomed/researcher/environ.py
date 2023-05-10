@@ -44,6 +44,11 @@ class ResearcherEnviron(Environ):
 
         return os.path.join(self._values['CONFIG_DIR'], 'config_researcher.ini')
 
+    def _check_config_version(self):
+        """Check if config version is compatible and set config version"""
+
+        self.check_and_set_config_file_version(__config_version__)
+
     def _set_component_specific_variables(self):
 
         # First check version compatibility

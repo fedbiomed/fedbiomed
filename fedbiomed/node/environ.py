@@ -43,11 +43,13 @@ class NodeEnviron(Environ):
 
         return os.path.join(self._values['CONFIG_DIR'], 'config_node.ini')
 
+    def _check_config_version(self):
+        """Check if config version is compatible and set config version"""
+
+        self.check_and_set_config_file_version(__config_version__)
+
     def _set_component_specific_variables(self):
         """Initializes environment variables """
-
-        # First check version compatibility
-        self.check_and_set_config_file_version(__config_version__)
 
         node_id = self.from_config('default', 'id')
         self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)

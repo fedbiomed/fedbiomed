@@ -321,7 +321,7 @@ case $1 in
         # silently initialize environment before any command
         if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null; then
             echo -e "${RED}ERROR:${NC}"
-            echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for node"
+            echo -e "${BOLD}Error while generating the configuration (config) file. Please check the error message above."
             exit 1
         fi
 
