@@ -482,6 +482,11 @@ class Environ(metaclass=SingletonABCMeta):
 
     def check_and_set_config_file_version(self,
                                           version_from_runtime: Union[str, FBM_Component_Version]):
+        """Check compatibility of config file and set corresponding environment value.
+
+        Args:
+            version_from_runtime: the version hardcoded in common/constants.py
+        """
         try:
             config_file_version = self.from_config('default', 'version')
         except FedbiomedEnvironError:
@@ -490,5 +495,3 @@ class Environ(metaclass=SingletonABCMeta):
                                         f"Configuration file {self._values['CONFIG_FILE']}: "
                                         f"found version %s expected version %s")
         self._values["CONFIG_FILE_VERSION"] = config_file_version
-
-
