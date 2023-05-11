@@ -11,6 +11,10 @@ import uuid
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __node_config_version__
+
+
+__config_version__ = __node_config_version__
 
 
 class NodeEnviron:
