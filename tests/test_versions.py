@@ -3,7 +3,8 @@ from unittest.mock import patch
 from packaging.version import Version
 import fedbiomed
 from fedbiomed.common.exceptions import FedbiomedVersionError
-from fedbiomed.common.utils import raise_for_version_compatibility
+from fedbiomed.common.utils._versions import raise_for_version_compatibility, \
+    _create_msg_for_version_check
 
 
 class TestVersions(unittest.TestCase):
@@ -84,6 +85,23 @@ class TestVersions(unittest.TestCase):
         self.assertEqual(self.mock_versions_log.info.call_count, 0)
         self.assertEqual(self.mock_versions_log.warning.call_count, 0)
         self.assertEqual(self.mock_versions_log.critical.call_count, 0)
+
+    def test_versions_03_message_for_version_check(self):
+        """Test _create_msg_for_version_check"""
+
+        # No need for additional test for successful case
+
+        # Error case: bad error message pattern
+        bad_patterns = [
+            "no param",
+            "one param %s",
+            "three params %s %s %s"
+        ]
+        for bad_pattern in bad_patterns:
+            message = _create_msg_for_version_check(bad_pattern, Version('2.2'), Version('2.2')) 
+            self.assertEqual(
+                message,
+                bad_pattern + " -> See https://fedbiomed.org/latest/user-guide/deployment/versions for more information")
 
 
 if __name__ == "__main__":
