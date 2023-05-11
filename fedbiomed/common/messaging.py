@@ -11,10 +11,11 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessagingError
 import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import raise_for_version_compatibility,__default_version__
 
 
 class Messaging:
@@ -93,6 +94,11 @@ class Messaging:
 
         if self._on_message_handler is not None:
             message = json.deserialize_msg(msg.payload)
+            # check version
+            msg_version = message.get('protocol_version', __default_version__)
+            raise_for_version_compatibility(msg_version, __messaging_protocol_version__,
+                                            f"{ErrorNumbers.FB104.value}: Received message with protocol version %s "
+                                            f"which is incompatible with the current protocol version %s")
             self._on_message_handler(msg=message, topic=msg.topic)
         else:
             logger.warning("no message handler defined")

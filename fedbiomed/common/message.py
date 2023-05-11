@@ -10,7 +10,7 @@ import functools
 from dataclasses import dataclass
 from typing import Dict, Any, Union, Callable
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
@@ -121,10 +121,13 @@ class Message(object):
 #
 
 # AddScalar message
+@dataclass
+class ProtocolVersionMixin:
+    protocol_version: str
 
 @catch_dataclass_exception
 @dataclass
-class AddScalarReply(Message):
+class AddScalarReply(Message, ProtocolVersionMixin):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -168,7 +171,7 @@ class AddScalarReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalRequest(Message):
+class ApprovalRequest(Message, ProtocolVersionMixin):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
@@ -190,7 +193,7 @@ class ApprovalRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalReply(Message):
+class ApprovalReply(Message, ProtocolVersionMixin):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
@@ -215,7 +218,7 @@ class ApprovalReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ErrorMessage(Message):
+class ErrorMessage(Message, ProtocolVersionMixin):
     """Describes an error message sent by the node.
 
     Attributes:
@@ -239,7 +242,7 @@ class ErrorMessage(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ListRequest(Message):
+class ListRequest(Message, ProtocolVersionMixin):
     """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
     each node.
 
@@ -257,7 +260,7 @@ class ListRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ListReply(Message):
+class ListReply(Message, ProtocolVersionMixin):
     """This class describes a list reply message sent by the node that includes list of datasets. It is a
     reply for ListRequest message from the researcher.
 
@@ -285,7 +288,7 @@ class ListReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class LogMessage(Message):
+class LogMessage(Message, ProtocolVersionMixin):
     """Describes a log message sent by the node.
 
     Attributes:
@@ -309,7 +312,7 @@ class LogMessage(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusRequest(Message):
+class TrainingPlanStatusRequest(Message, ProtocolVersionMixin):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
@@ -330,7 +333,7 @@ class TrainingPlanStatusRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusReply(Message):
+class TrainingPlanStatusReply(Message, ProtocolVersionMixin):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
@@ -366,7 +369,7 @@ class TrainingPlanStatusReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class PingRequest(Message):
+class PingRequest(Message, ProtocolVersionMixin):
     """Describes a ping message sent by the researcher
 
     Attributes:
@@ -385,7 +388,7 @@ class PingRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class PingReply(Message):
+class PingReply(Message, ProtocolVersionMixin):
     """This class describes a ping message sent by the node.
 
     Attributes:
@@ -409,7 +412,7 @@ class PingReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(Message):
+class SearchRequest(Message, ProtocolVersionMixin):
     """Describes a search message sent by the researcher.
 
     Attributes:
@@ -427,7 +430,7 @@ class SearchRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SearchReply(Message):
+class SearchReply(Message, ProtocolVersionMixin):
     """Describes a search message sent by the node
 
     Attributes:
@@ -453,7 +456,7 @@ class SearchReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteRequest(Message):
+class SecaggDeleteRequest(Message, ProtocolVersionMixin):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
@@ -476,7 +479,7 @@ class SecaggDeleteRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteReply(Message):
+class SecaggDeleteReply(Message, ProtocolVersionMixin):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
@@ -501,7 +504,7 @@ class SecaggDeleteReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggRequest(Message):
+class SecaggRequest(Message, ProtocolVersionMixin):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
@@ -526,7 +529,7 @@ class SecaggRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggReply(Message):
+class SecaggReply(Message, ProtocolVersionMixin):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
@@ -553,7 +556,7 @@ class SecaggReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainRequest(Message):
+class TrainRequest(Message, ProtocolVersionMixin):
     """Describes a train message sent by the researcher
 
     Attributes:
@@ -592,7 +595,7 @@ class TrainRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainReply(Message):
+class TrainReply(Message, ProtocolVersionMixin):
     """Describes a train message sent by the node.
 
     Attributes:
@@ -678,6 +681,7 @@ class ResearcherMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
+        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
@@ -730,6 +734,7 @@ class ResearcherMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
+        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -781,6 +786,7 @@ class NodeMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
+        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
@@ -836,4 +842,5 @@ class NodeMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
+        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
