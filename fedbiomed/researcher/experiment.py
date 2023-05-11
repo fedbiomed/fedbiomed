@@ -1940,6 +1940,12 @@ class Experiment:
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
+        # First, check version of breakpoints
+        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
+        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
+                                        f"{ErrorNumbers.FB413.value}: Breakpoint file was generated with version %s "
+                                        f"which is incompatible with the current version %s.")
+
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
         bkpt_fds = FederatedDataSet(bkpt_fds)
