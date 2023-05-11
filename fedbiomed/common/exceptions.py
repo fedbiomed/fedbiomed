@@ -289,3 +289,9 @@ class FedbiomedSecureAggregationError(FedbiomedError):
     """
     Secure aggregation error
     """
+
+
+class FedbiomedVersionError(FedbiomedError):
+    """
+    Error in the versions of one of Fed-BioMed's components
+    """
