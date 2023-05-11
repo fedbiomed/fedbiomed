@@ -457,13 +457,14 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     logger.debug('Train {}| '
                                  'Iteration {}/{} | '
                                  'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
-                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                        num_iter,
-                        num_iter_max,
-                        num_samples,
-                        num_samples_max,
-                        100. * num_iter / num_iter_max,
-                        loss.item()))
+                                     f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
+                                     num_iter,
+                                     num_iter_max,
+                                     num_samples,
+                                     num_samples_max,
+                                     100. * num_iter / num_iter_max,
+                                     loss.item())
+                                 )
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
@@ -633,7 +634,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             L2 norm of model parameters (before local training)
         """
         norm = 0
-
-        for current_model, init_model in zip(self.model().parameters(), self._model.init_params):
-            norm += ((current_model - init_model) ** 2).sum()
+        for layer_name, init_coefs in self._model.init_params.items():
+            current_model = self.model().get_parameter(layer_name)
+            norm += ((current_model - init_coefs) ** 2).sum()
         return norm
