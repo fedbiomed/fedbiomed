@@ -18,10 +18,10 @@ from torch.utils.data import DataLoader, Dataset
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.training_plans import TorchTrainingPlan, BaseTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.models import TorchModel
-
 
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
@@ -642,6 +642,68 @@ e
             # checks
             lr_extracted = tp.get_learning_rate()
             self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+
+    def test_torch_nn_08_fedprox(self):
+        # test created for bug #537: FedProx regularization term
+        complex_model = nn.Sequential(nn.Conv1d(1, 1, 2),
+                                      nn.ReLU(),
+                                      nn.Linear(4, 5),
+                                      nn.utils.weight_norm(nn.Linear(5, 2)),
+                                      torch.nn.InstanceNorm1d(1),
+                                      nn.Softmax(dim=0))
+
+        models = ((torch.nn.Linear(2, 1), torch.Tensor([[1, 2],
+                                                        [1, 1],
+                                                        [2, 2]]), torch.Tensor([[1], [2], [2]])),
+                  (complex_model, torch.Tensor([[[1, 2, 1, 1, 1]],
+                                                [[1, 1, 1, 1, 1]],
+                                                [[2, 2, 1, 2, 1, ]],
+                                                [[1, 1, 1, 1, 1]]]), torch.Tensor([[[1, 1]],
+                                                                                   [[2, 1]],
+                                                                                   [[1, 2]],
+                                                                                   [[1, 1]]])),
+                  )
+
+        def training_step(data, target):
+
+            output = tp._model.model.forward(data)
+
+            loss_func = nn.MSELoss()
+            loss = loss_func(output, target)
+            return loss
+
+        for model in models:
+
+            tp = TorchTrainingPlan()
+            tp._model = model[0]
+            tp._optimizer = torch.optim.SGD(model[0].parameters(), lr=.1)
+            dataset = self.CustomDataset()
+            dataset.X_train = model[1]
+            dataset.Y_train = model[2]
+            dataset = torch.utils.data.DataLoader(dataset)
+            tp.set_data_loaders(train_data_loader=dataset, test_data_loader=None)
+            tp.training_step = training_step
+            training_args = {'fedprox_mu': 0.,
+                             'epochs': 1}
+
+            with (patch.object(tp, 'init_model', create=True, return_value=model[0]),
+                  patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+                tp.post_init({}, TrainingArgs(training_args, only_required=False))
+            tp._model.init_training()
+            for _ in range(2):
+                corrected_l, l = tp._train_over_batch(model[1], model[2])
+            self.assertEqual(corrected_l, l)  # no fedprox updates
+
+            training_args = {'fedprox_mu': 1., 'epochs': 1}
+            with (patch.object(tp, 'init_model', create=True, return_value=model[0]),
+                  patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+                tp.post_init({}, TrainingArgs(training_args, only_required=False))
+            tp._model.init_training()
+            for _ in range(2):
+                corrected_l, l = tp._train_over_batch(model[1], model[2])
+
+            self.assertGreater(corrected_l, l)  # if fedprox_mu is positive, regularization term will be positive
+            # and thus, corrected loss will always be greater than the actual loss (correct_loss = loss + fedprox_mu * reg / 2)
 
 
 class TestSendToDevice(unittest.TestCase):
