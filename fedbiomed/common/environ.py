@@ -495,5 +495,3 @@ class Environ(metaclass=SingletonABCMeta):
                                         f"Configuration file {self._values['CONFIG_FILE']}: "
                                         f"found version %s expected version %s")
         self._values["CONFIG_FILE_VERSION"] = config_file_version
-
-

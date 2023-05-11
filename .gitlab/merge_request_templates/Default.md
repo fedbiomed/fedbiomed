@@ -38,4 +38,4 @@ Specific to some cases:
 
 * update all conda envs consistently (`development` and `vpn`, Linux and MacOS)
 * if modified researcher (eg new attributes in classes) check if breakpoint needs update (`breakpoint`/`load_breakpoint` in `Experiment()`, `save_state`/`load_state` in aggregators, strategies, secagg, etc.)
-* if modified a component with versioning (config files, breakpoint, messaging protocol) then update the version following the rules in common/utils/_versions.py
+* if modified a component with versioning (config files, breakpoint, messaging protocol) then update the version following the rules in `common/utils/_versions.py`
