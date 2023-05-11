@@ -3,7 +3,7 @@
 
 """Fed-BioMed constants/enums"""
 
-from fedbiomed.common.utils import FBM_Component_Version
+from packaging.version import Version as FBM_Component_Version
 from enum import Enum
 
 CONFIG_FOLDER_NAME = "etc"
