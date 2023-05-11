@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, __breakpoints_version__
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
 )
@@ -25,7 +25,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.utils import is_ipython
+from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -1838,6 +1838,7 @@ class Experiment:
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
         state = {
+            'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
