@@ -31,6 +31,8 @@ from fedbiomed.common.exceptions import FedbiomedVersionError
 
 
 FBM_Component_Version = Version  # for Typing
+"""The Type of objects representing version numbers in Fed-BioMed"""
+
 __default_version__ = Version('0')  # default version to assign to any component before versioning was introduced
 
 
