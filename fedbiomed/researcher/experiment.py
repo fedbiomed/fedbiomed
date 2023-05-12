@@ -9,6 +9,7 @@ import sys
 import json
 import inspect
 import traceback
+import uuid
 from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
@@ -1853,6 +1854,7 @@ class Experiment:
           - tags
           - experimentation_folder
           - aggregator
+          - researcher_optimizer
           - node_selection_strategy
           - training_data
           - training_args
@@ -1909,6 +1911,7 @@ class Experiment:
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            'researcher_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -2004,13 +2007,15 @@ class Experiment:
         bkpt_fds = FederatedDataSet(bkpt_fds)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
+        # retrieve breakpoint researcher optimizer
+        bkpt_optim = cls._load_optimizer(saved_state.get("researcher_optimizer"))
 
         # initializing experiment
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
+                         researcher_optimizer=bkpt_optim,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -2132,6 +2137,44 @@ class Experiment:
             aggreg['params'] = Serializer.load(aggreg['params_path'])
 
         return aggregated_params
+
+    @exp_exceptions
+    def _save_optimizer(self, breakpoint_path: str) -> Optional[str]:
+        """Save the researcher-side Optimizer attached to this Experiment.
+
+        Args:
+            breakpoint_path: Path to the breakpoint folder.
+
+        Returns:
+            Path to the optimizer's save file, or None if no Optimizer is used.
+        """
+        # Case when no researcher optimizer is used.
+        if self._global_optim is None:
+            return None
+        # Case when an Optimizer is used: save its state and return the path.
+        state = self._global_optim.get_state()
+        path = os.path.join(breakpoint_path, f"optimizer_{uuid.uuid4()}.mpk")
+        Serializer.dump(state, path)
+        return path
+
+    @staticmethod
+    @exp_exceptions
+    def _load_optimizer(state_path: Optional[str]) -> Optional[Optimizer]:
+        """Load an optional researcher-side Optimizer from a breakpoint path.
+
+        Args:
+            state_path: Optional path to a breakpoint-attached Optimizer state
+                dump file.
+
+        Returns:
+            Optimizer instantiated from the provided state file, or None.
+        """
+        # Case when no researcher optimizer is used.
+        if state_path is None:
+            return None
+        # Case when an Optimizer is used: de-serialize its state and load it.
+        state = Serializer.load(state_path)
+        return Optimizer.load_state(state)
 
     # TODO: factorize code with Job and node
     @staticmethod
