@@ -15,7 +15,7 @@ from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBipri
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, __messaging_protocol_version__
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -1128,6 +1128,7 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg(request)
         messaging_send_msg.assert_called_once_with(
             {'researcher_id': req['researcher_id'],
+             'protocol_version': str(__messaging_protocol_version__),
              'secagg_id': req['secagg_id'],
              'sequence': req['sequence'],
              'success': False,
@@ -1147,6 +1148,7 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg(request)
         messaging_send_msg.assert_called_once_with(
             {'researcher_id': req['researcher_id'],
+             'protocol_version': str(__messaging_protocol_version__),
              'secagg_id': req['secagg_id'],
              'sequence': req['sequence'],
              'success': False,
@@ -1174,6 +1176,7 @@ class TestNode(NodeTestCase):
 
         messaging_send_msg.assert_called_once_with({
             'researcher_id': req['researcher_id'],
+            'protocol_version': str(__messaging_protocol_version__),
             'secagg_id': req['secagg_id'],
             'sequence': req['sequence'],
             'success': False,
@@ -1192,6 +1195,7 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg_delete(request)
         messaging_send_msg.assert_called_once_with({
             'researcher_id': req['researcher_id'],
+            'protocol_version': str(__messaging_protocol_version__),
             'secagg_id': req['secagg_id'],
             'sequence': req['sequence'],
             'success': False,
@@ -1210,6 +1214,7 @@ class TestNode(NodeTestCase):
             self.n1._task_secagg_delete(request)
             messaging_send_msg.assert_called_once_with({
                 'researcher_id': req['researcher_id'],
+                'protocol_version': str(__messaging_protocol_version__),
                 'secagg_id': req['secagg_id'],
                 'sequence': req['sequence'],
                 'success': False,
