@@ -634,12 +634,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             L2 norm of model parameters (before local training)
         """
-        norm, norm2 = 0, 0
+        norm = 0
 
         for layer_name, init_coefs in self._model.init_params.items():
             current_model = self.model().get_parameter(layer_name)
 
             if current_model.requires_grad: 
-                norm2 += ((current_model - init_coefs) ** 2).sum()
-
+                norm += ((current_model - init_coefs) ** 2).sum()
         return norm

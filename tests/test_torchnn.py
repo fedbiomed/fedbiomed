@@ -743,12 +743,11 @@ e
             corrected_frozen_loss, frozen_loss = tp._train_over_batch(data, target)
 
         tp = self.run_model_initialization(model, 1_000_000.)
-        
         for _ in range(2):
             corrected_loss, loss = tp._train_over_batch(data, target)
-
         self.assertGreaterEqual(corrected_loss - loss, corrected_frozen_loss - frozen_loss)  # corrected loss should be greater than the frozen model loss, 
         # since it has less elements in the norm computation
+
         # print("TEST", tp._TorchTrainingPlan__norm_l2())
 
 
