@@ -37,7 +37,9 @@ __version__ = FBM_Component_Version('4.3.1')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('1')  # node config file version
 __breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages
+__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
+# Nota: for messaging protocol version, all changes should be a major version upgrade
+
 
 
 class _BaseEnum(Enum):
