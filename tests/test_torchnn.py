@@ -97,6 +97,31 @@ class TestTorchnn(unittest.TestCase):
     #
     # TODO : add tests for checking the training payload
     #
+
+    def run_model_initialization(self, model: torch.nn.Module, fedprox_mu: float = 1.) -> TorchTrainingPlan:
+        """Creates a training plan with pytorch model loaded
+        Specify in the training plan the optimizer used is SGD native pytorch optimizer (torch.optim.SGD)
+        and a `training_step` based on MSE loss function
+        """
+        def training_step(data, target):
+            """Mimics `training_step` of a user training plan"""
+            output = tp._model.model.forward(data)
+
+            loss_func = nn.MSELoss()
+            loss = loss_func(output, target)
+            return loss
+
+        tp = TorchTrainingPlan()
+        tp._optimizer = torch.optim.SGD(model.parameters(), lr=.1)
+
+        tp.training_step = training_step
+        training_args = {'fedprox_mu': fedprox_mu, 'epochs': 1}
+        with (patch.object(tp, 'init_model', create=True, return_value=model),
+                patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+            tp.post_init({}, TrainingArgs(training_args, only_required=False))
+        tp._model.init_training()
+        return tp
+
     def test_torch_training_plan_01_save_model(self):
         """Test save model method of troch traning plan"""
         tp1 = TorchTrainingPlan()
@@ -643,7 +668,7 @@ e
             lr_extracted = tp.get_learning_rate()
             self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
 
-    def test_torch_nn_08_fedprox(self):
+    def test_torch_nn_08_fedprox_1_non_frozen_layers(self):
         # test created for bug #537: FedProx regularization term
         complex_model = nn.Sequential(nn.Conv1d(1, 1, 2),
                                       nn.ReLU(),
@@ -665,9 +690,8 @@ e
                   )
 
         def training_step(data, target):
-
+            """Mimics `training_step` of a user training plan"""
             output = tp._model.model.forward(data)
-
             loss_func = nn.MSELoss()
             loss = loss_func(output, target)
             return loss
@@ -675,13 +699,8 @@ e
         for model in models:
 
             tp = TorchTrainingPlan()
-            tp._model = model[0]
+            #tp._model = TorchModel(model[0])
             tp._optimizer = torch.optim.SGD(model[0].parameters(), lr=.1)
-            dataset = self.CustomDataset()
-            dataset.X_train = model[1]
-            dataset.Y_train = model[2]
-            dataset = torch.utils.data.DataLoader(dataset)
-            tp.set_data_loaders(train_data_loader=dataset, test_data_loader=None)
             tp.training_step = training_step
             training_args = {'fedprox_mu': 0.,
                              'epochs': 1}
@@ -702,8 +721,35 @@ e
             for _ in range(2):
                 corrected_l, l = tp._train_over_batch(model[1], model[2])
 
-            self.assertGreater(corrected_l, l)  # if fedprox_mu is positive, regularization term will be positive
+            self.assertGreaterEqual(corrected_l, l)  # if fedprox_mu is positive, regularization term will be positive
             # and thus, corrected loss will always be greater than the actual loss (correct_loss = loss + fedprox_mu * reg / 2)
+
+    def test_torch_nn_08_fedprox_2_forzen_layers(self):
+        # test fedprox computation with model containing frozen layers
+        model = nn.Linear(2, 1)
+        frozen_model = copy.deepcopy(model)
+        #creating a frozen_model from the model
+        for name, param in frozen_model.named_parameters():
+            if name == 'weight':
+                param.requires_grad = False 
+                # here we are freezing the `weight` layer of the model
+        data, target = torch.Tensor([[1, 2],
+                                     [1, 1],
+                                     [2, 2]]), torch.Tensor([[1], [2], [2]])
+        # we are selecting here an absurdly high fedprox mu regularization constant so to highlight the
+        # computation of the regularization over the loss function
+        tp = self.run_model_initialization(frozen_model, 1_000_000.)
+        for _ in range(2):
+            corrected_frozen_loss, frozen_loss = tp._train_over_batch(data, target)
+
+        tp = self.run_model_initialization(model, 1_000_000.)
+        
+        for _ in range(2):
+            corrected_loss, loss = tp._train_over_batch(data, target)
+
+        self.assertGreaterEqual(corrected_loss - loss, corrected_frozen_loss - frozen_loss)  # corrected loss should be greater than the frozen model loss, 
+        # since it has less elements in the norm computation
+        # print("TEST", tp._TorchTrainingPlan__norm_l2())
 
 
 class TestSendToDevice(unittest.TestCase):

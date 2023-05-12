@@ -4,6 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABCMeta, abstractmethod
+import math
 
 from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
@@ -633,8 +634,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             L2 norm of model parameters (before local training)
         """
-        norm = 0
+        norm, norm2 = 0, 0
+
         for layer_name, init_coefs in self._model.init_params.items():
             current_model = self.model().get_parameter(layer_name)
-            norm += ((current_model - init_coefs) ** 2).sum()
+
+            if current_model.requires_grad: 
+                norm2 += ((current_model - init_coefs) ** 2).sum()
+
         return norm
