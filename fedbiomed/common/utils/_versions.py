@@ -14,6 +14,8 @@ See https://fedbiomed.org/latest/user-guide/deployment/versions for more informa
 Components concerned by versioning:
 
 - config files (researcher and node)
+- messaging protocol (i.e. structure of Message classes)
+- breakpoints
 
 Instructions for updating the version
 
