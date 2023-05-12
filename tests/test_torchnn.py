@@ -728,7 +728,7 @@ e
         # test fedprox computation with model containing frozen layers
         model = nn.Linear(2, 1)
         frozen_model = copy.deepcopy(model)
-        #creating a frozen_model from the model
+        #creating a frozen_model from the linear model
         for name, param in frozen_model.named_parameters():
             if name == 'weight':
                 param.requires_grad = False 
