@@ -640,5 +640,5 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             current_model = self.model().get_parameter(layer_name)
 
             if current_model.requires_grad: 
-                norm += ((current_model - init_coefs) ** 2).sum()
+                norm += torch.linalg.norm(current_model - init_coefs) ** 2
         return norm
