@@ -122,12 +122,12 @@ class Message(object):
 
 # AddScalar message
 @dataclass
-class ProtocolVersionMixin:
+class RequiresProtocolVersion:
     protocol_version: str
 
 @catch_dataclass_exception
 @dataclass
-class AddScalarReply(Message, ProtocolVersionMixin):
+class AddScalarReply(Message, RequiresProtocolVersion):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -171,7 +171,7 @@ class AddScalarReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalRequest(Message, ProtocolVersionMixin):
+class ApprovalRequest(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
@@ -193,7 +193,7 @@ class ApprovalRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalReply(Message, ProtocolVersionMixin):
+class ApprovalReply(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
@@ -218,7 +218,7 @@ class ApprovalReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class ErrorMessage(Message, ProtocolVersionMixin):
+class ErrorMessage(Message, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
     Attributes:
@@ -242,7 +242,7 @@ class ErrorMessage(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class ListRequest(Message, ProtocolVersionMixin):
+class ListRequest(Message, RequiresProtocolVersion):
     """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
     each node.
 
@@ -260,7 +260,7 @@ class ListRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class ListReply(Message, ProtocolVersionMixin):
+class ListReply(Message, RequiresProtocolVersion):
     """This class describes a list reply message sent by the node that includes list of datasets. It is a
     reply for ListRequest message from the researcher.
 
@@ -288,7 +288,7 @@ class ListReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class LogMessage(Message, ProtocolVersionMixin):
+class LogMessage(Message, RequiresProtocolVersion):
     """Describes a log message sent by the node.
 
     Attributes:
@@ -312,7 +312,7 @@ class LogMessage(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusRequest(Message, ProtocolVersionMixin):
+class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
@@ -333,7 +333,7 @@ class TrainingPlanStatusRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusReply(Message, ProtocolVersionMixin):
+class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
@@ -369,7 +369,7 @@ class TrainingPlanStatusReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class PingRequest(Message, ProtocolVersionMixin):
+class PingRequest(Message, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
@@ -388,7 +388,7 @@ class PingRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class PingReply(Message, ProtocolVersionMixin):
+class PingReply(Message, RequiresProtocolVersion):
     """This class describes a ping message sent by the node.
 
     Attributes:
@@ -412,7 +412,7 @@ class PingReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(Message, ProtocolVersionMixin):
+class SearchRequest(Message, RequiresProtocolVersion):
     """Describes a search message sent by the researcher.
 
     Attributes:
@@ -430,7 +430,7 @@ class SearchRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SearchReply(Message, ProtocolVersionMixin):
+class SearchReply(Message, RequiresProtocolVersion):
     """Describes a search message sent by the node
 
     Attributes:
@@ -456,7 +456,7 @@ class SearchReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteRequest(Message, ProtocolVersionMixin):
+class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
@@ -479,7 +479,7 @@ class SecaggDeleteRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteReply(Message, ProtocolVersionMixin):
+class SecaggDeleteReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
@@ -504,7 +504,7 @@ class SecaggDeleteReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggRequest(Message, ProtocolVersionMixin):
+class SecaggRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
@@ -529,7 +529,7 @@ class SecaggRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggReply(Message, ProtocolVersionMixin):
+class SecaggReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
@@ -556,7 +556,7 @@ class SecaggReply(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class TrainRequest(Message, ProtocolVersionMixin):
+class TrainRequest(Message, RequiresProtocolVersion):
     """Describes a train message sent by the researcher
 
     Attributes:
@@ -595,7 +595,7 @@ class TrainRequest(Message, ProtocolVersionMixin):
 
 @catch_dataclass_exception
 @dataclass
-class TrainReply(Message, ProtocolVersionMixin):
+class TrainReply(Message, RequiresProtocolVersion):
     """Describes a train message sent by the node.
 
     Attributes:
