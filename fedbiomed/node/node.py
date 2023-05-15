@@ -209,7 +209,7 @@ class Node:
         Args:
             msg: `SecaggRequest` message object to parse
         """
-        setup_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
+        setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
