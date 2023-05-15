@@ -23,6 +23,38 @@ class TestVersions(unittest.TestCase):
     def test_versions_02_check_version_compatibility(self):
         """Test raise_for_version_compatibility"""
 
+        # Error case: bad type for component version
+        self.mock_versions_log.reset_mock()
+        with self.assertRaises(FedbiomedVersionError) as e:
+            raise_for_version_compatibility(2, Version('2.1'), 'arg1 %s arg2 %s')
+        self.assertEqual(
+            str(e.exception),
+            "FB625: Component version error: Component version has incorrect type "
+            "`their_version` type=<class 'int'> value=2"
+        )
+        self.assertEqual(self.mock_versions_log.critical.call_count, 1)
+        self.assertEqual(
+            self.mock_versions_log.critical.call_args[0][0],
+            "FB625: Component version error: Component version has incorrect type "
+            "`their_version` type=<class 'int'> value=2"
+        )
+
+        # Error case: bad type for software version
+        self.mock_versions_log.reset_mock()
+        with self.assertRaises(FedbiomedVersionError) as e:
+            raise_for_version_compatibility(Version('2.1'), 2, 'arg1 %s arg2 %s')
+        self.assertEqual(
+            str(e.exception),
+            "FB625: Component version error: Component version has incorrect type "
+            "`our_version` type=<class 'int'> value=2"
+        )
+        self.assertEqual(self.mock_versions_log.critical.call_count, 1)
+        self.assertEqual(
+            self.mock_versions_log.critical.call_args[0][0],
+            "FB625: Component version error: Component version has incorrect type "
+            "`our_version` type=<class 'int'> value=2"
+        )
+
         # Error case: incompatible major versions
         # versions specified as packaging.Version type
         self.mock_versions_log.reset_mock()
