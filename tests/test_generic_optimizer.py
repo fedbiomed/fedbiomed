@@ -84,6 +84,115 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                 regularizers=selected_reg)
         return optim, selected_modules, selected_reg
 
+    def serializer(self, 
+                   msg: Dict[str, Dict[str, Dict[str, Union[NumpyVector, TorchVector]]]]) -> Dict[str, Dict[str, Dict[str,Dict[str, Any]]]]:
+            """Mimics the serialization module"""
+            types = (NumpyVector, TorchVector)
+            msg = {k: v.coefs if isinstance(v, types) else self.serializer(v) for k, v in msg.items()}
+            return msg
+        
+    def deserializer(self, msg):
+        """Mimics the deserialization module"""
+        types = (np.ndarray, torch.Tensor)
+
+        msg =  {k: declearn.model.api.Vector.build(v) if any([isinstance(q, types) for p, q in v.items()]) else self.deserializer(v) for k, v in msg.items()}
+        return msg
+    
+    def perform_sklearn_training_node_side(self, node_id: str, node_model, node_optim_w, global_model_weights, aux_var, data, target) -> Dict:
+
+        if aux_var:
+            aux_var = self.deserializer(aux_var)
+            aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
+        node_optim_w.set_aux(copy.deepcopy(aux_var))
+        node_model.set_weights(global_model_weights)
+        
+        # performs (or simulates) a training on node side
+        with node_optim_w.optimizer_processing():
+            # training process
+            node_optim_w.init_training()
+            node_model.train(data, target, stdout=[])
+            node_optim_w.step()
+
+        # collect auxilary variables
+        aux_var = node_optim_w.get_aux()
+        # serialization: convert everything from declearn Vector to dictionaries
+        
+        aux_var = self.serializer(aux_var)
+        aux_var = {'scaffold': {node_id: aux_var['scaffold']}}
+        # convert Vectors into dictionaries
+        return aux_var
+    
+    def perform_torch_training_node_side(self, node_id: str, node_model, node_optim_w, global_model_weights, aux_var, data, targets, loss_func) -> Dict:
+
+        if aux_var:
+            aux_var = self.deserializer(aux_var)
+            aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
+        node_optim_w.set_aux(copy.deepcopy(aux_var))
+        node_model.set_weights(global_model_weights)
+        
+        # performs (or simulates) a training on node side
+        node_optim_w.init_training()
+        node_optim_w.zero_grad()
+        output = node_model.model.forward(data)
+        loss = loss_func(output, targets)
+        loss.backward()
+        node_optim_w.step()
+
+        # collect auxilary variables
+        aux_var = node_optim_w.get_aux()
+        # serialization: convert everything from declearn Vector to dictionaries
+        
+        aux_var = self.serializer(aux_var)
+        aux_var = {'scaffold': {node_id: aux_var['scaffold']}}
+        # convert Vectors into dictionaries
+        return aux_var
+
+    def perform_training_researcher_side(self, optim_w, global_model_weights, aggr_model_weights, aux_var) -> Dict:
+        
+        # serialization: convert everything from dictionaries to declearn Vector
+        # TODO: use serializer once it has been merged
+        # aux_var = {k: 
+        #     {p :  {i: declearn.model.api.Vector.build(j) for i, j in q.items()}
+        #      for p, q in v.items() if q} for k, v in aux_var.items()}
+        # print("AUX_VAR", aux_var)
+        # for l in model.get_weights():
+        #     sum_state = sum(aux_var['scaffold'][k]['state'][l] for k in aux_var['scaffold'])/len(aux_var['scaffold'])
+        #     print("TEST", sum_state)
+        #     for k in aux_var['scaffold']:
+        #         print("TEST @", aux_var['scaffold'][k]['state'][l] - sum_state )
+        aux_var = self.deserializer(aux_var)
+
+        optim_w.set_aux(aux_var)
+
+        # performs an update on researcher side
+        global_model_weights = declearn.model.api.Vector.build(global_model_weights)
+        updates = declearn.model.api.Vector.build(aggr_model_weights) - global_model_weights
+        optim_w.optimizer.step(updates, global_model_weights)
+        
+        # retrieves researcher model parameters and aux_var
+        aux_var = optim_w.get_aux()
+        print("OPTI INTERNAL STATE", optim_w.optimizer._optimizer.modules[0].state.coefs)
+
+        aux_var = self.serializer(aux_var)
+
+        return aux_var
+
+    def compute_delta_from_nodes_state(self, aux_var, global_model_weigths):
+        """Used for testing scaffold computation for scaffold tests"""
+        node_ids = list(aux_var['scaffold'])
+        deltas = {node_id: {} for node_id in node_ids}
+        for layer in global_model_weigths:
+            
+            sum_state = sum(aux_var['scaffold'][k]['state'][layer] for k in aux_var['scaffold'] )
+            sum_state /= len(aux_var['scaffold'])
+            delta = {}
+            for node_id in node_ids:
+
+                print("DLETA COMP", aux_var['scaffold'][node_id]['state'][layer] - sum_state )
+                delta[layer] = aux_var['scaffold'][node_id]['state'][layer] - sum_state 
+                deltas[node_id].update(delta)
+        return deltas
+    
     def test_declearnoptimizer_01_init_invalid_model_arguments(self):
 
         correct_optimizers = (MagicMock(spec=FedOptimizer),
@@ -301,93 +410,8 @@ class TestDeclearnOptimizer(unittest.TestCase):
         
         # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables
         # in addition to model parameters
-        def serializer(msg: Dict[str, Dict[str, Dict[str, Union[NumpyVector, TorchVector]]]]) -> Dict[str, Dict[str, Dict[str,Dict[str, Any]]]]:
-            """Mimics the serialization module"""
-            types = (NumpyVector, TorchVector)
-            msg = {k: v.coefs if isinstance(v, types) else serializer(v) for k, v in msg.items()}
-            return msg
-        
-        def deserializer(msg):
-            """Mimics the deserialization module"""
-            types = (np.ndarray, torch.Tensor)
 
-            msg =  {k: declearn.model.api.Vector.build(v) if any([isinstance(q, types) for p, q in v.items()]) else deserializer(v) for k, v in msg.items()}
-            return msg
-        
-        def perform_training_node_side(node_id: str, node_model, node_optim_w, global_model_weights, aux_var, data, target) -> Dict:
 
-            if aux_var:
-                # aux_var = {k: 
-                # {p :  {i: declearn.model.api.Vector.build(j) for i, j in q.items()}
-                #  for p, q in v.items() if q} for k, v in aux_var.items()}
-                aux_var = deserializer(aux_var)
-                aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
-            node_optim_w.set_aux(copy.deepcopy(aux_var))
-            node_model.set_weights(global_model_weights)
-            
-            # performs (or simulates) a training on node side
-            with node_optim_w.optimizer_processing():
-                # training process
-                node_optim_w.init_training()
-                node_model.train(data, target, stdout=[])
-                node_optim_w.step()
-
-            # collect auxilary variables
-            aux_var = node_optim_w.get_aux()
-            # serialization: convert everything from declearn Vector to dictionaries
-            
-            #aux_var = {k:{p: q.coefs for p, q in v.items()} for k, v in aux_var.items()}
-            
-            aux_var = serializer(aux_var)
-            aux_var = {'scaffold': {node_id: aux_var['scaffold']}}
-            # convert Vectors into dictionaries
-            return aux_var
-
-        def perform_training_researcher_side(optim_w, global_model_weights, aggr_model_weights, aux_var) -> Dict:
-            
-            # serialization: convert everything from dictionaries to declearn Vector
-            # TODO: use serializer once it has been merged
-            # aux_var = {k: 
-            #     {p :  {i: declearn.model.api.Vector.build(j) for i, j in q.items()}
-            #      for p, q in v.items() if q} for k, v in aux_var.items()}
-            print("AUX_VAR", aux_var)
-            for l in model.get_weights():
-                sum_state = sum(aux_var['scaffold'][k]['state'][l] for k in aux_var['scaffold'])/len(aux_var['scaffold'])
-                print("TEST", sum_state)
-                for k in aux_var['scaffold']:
-                    print("TEST @", aux_var['scaffold'][k]['state'][l] - sum_state )
-            aux_var = deserializer(aux_var)
-
-            optim_w.set_aux(aux_var)
-
-            # performs an update on researcher side
-            global_model_weights = declearn.model.api.Vector.build(global_model_weights)
-            updates = declearn.model.api.Vector.build(aggr_model_weights) - global_model_weights
-            optim_w.optimizer.step(updates, global_model_weights)
-            
-            # retrieves researcher model parameters and aux_var
-            aux_var = optim_w.get_aux()
-            print("OPTI INTERNAL STATE", optim_w.optimizer._optimizer.modules[0].state.coefs)
-
-            aux_var = serializer(aux_var)
-
-            return aux_var
-        
-        def compute_delta_from_nodes_state(aux_var, global_model_weigths):
-            
-            node_ids = list(aux_var['scaffold'])
-            deltas = {node_id: {} for node_id in node_ids}
-            for layer in global_model_weigths:
-                
-                sum_state = sum(aux_var['scaffold'][k]['state'][layer] for k in aux_var['scaffold'] )
-                sum_state /= len(aux_var['scaffold'])
-                delta = {}
-                for node_id in node_ids:
-
-                    print("DLETA COMP", aux_var['scaffold'][node_id]['state'][layer] - sum_state )
-                    delta[layer] = aux_var['scaffold'][node_id]['state'][layer] - sum_state 
-                    deltas[node_id].update(delta)
-            return deltas
 
         data = np.array([[1, 1, 1, 1,],
                               [1, 0, 1, 0],
@@ -430,19 +454,19 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 
                 self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
 
-                for _ in range(5):  # simulates 3 rounds
+                for _ in range(5):  # simulates 5 rounds
 
                     # step 3: performs (or simulates) a training on node side
                     aux_var_collections = {}
                     for idx, node_id in enumerate(nodes_scenario['nodes']):
 
-                        node_aux_var = perform_training_node_side(node_id,
-                                                            node_models[node_id],
-                                                            node_sklearn_optim_wrappers[node_id],
-                                                            model.get_weights(),
-                                                            aux_var,
-                                                            nodes_scenario['data'][node_id], 
-                                                            nodes_scenario['target'][node_id])
+                        node_aux_var = self.perform_sklearn_training_node_side(node_id,
+                                                                               node_models[node_id],
+                                                                               node_sklearn_optim_wrappers[node_id],
+                                                                               model.get_weights(),
+                                                                               aux_var,
+                                                                               nodes_scenario['data'][node_id], 
+                                                                               nodes_scenario['target'][node_id])
                         v = node_sklearn_optim_wrappers[node_id].optimizer._optimizer.modules[0].delta
 
                         for k, v in node_models[node_id].get_gradients().items():
@@ -461,7 +485,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
 
                     # step 4: perform an update on Researcher side
-                    aux_var = perform_training_researcher_side(researcher_sklearn_optim_wrapper,
+                    aux_var = self.perform_training_researcher_side(researcher_sklearn_optim_wrapper,
                                                                model.get_weights(), model.get_weights(), aux_var_collections)
                     print("WEIGHTS GLOBAL MODEL", model.get_weights())
                     print("STATE OPTIM", researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].state.coefs,
@@ -469,7 +493,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
                 print("FINAL AUX", aux_var, [node_models[id].get_gradients() for id in nodes_scenario['nodes']])
                 # final checks
-                deltas = compute_delta_from_nodes_state(aux_var_collections, model.get_weights())
+                deltas = self.compute_delta_from_nodes_state(aux_var_collections, model.get_weights())
                 print("DELTAS", deltas)
                 # final check 1. test that sum(delta_nodeid) = 0
                 for  (k, v) in model.get_weights().items():
@@ -484,74 +508,151 @@ class TestDeclearnOptimizer(unittest.TestCase):
                         self.assertTrue(np.array_equal(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]))
 
     def test_declearnoptimizer_06_declearn_scaffold_2_torchModel(self):
-        grad_patch_value = 3
+
         researcher_lr, node_lr = .03, .5
         data = torch.Tensor([[1,1,1,1],
-                             [1,0,0,1]])
-        targets = torch.Tensor([[1, 1]])
+                             [1,0,0,1], 
+                             [1, 0, 0, 0],
+                             [0, 0, 0, 0],
+                             [1, 0, 0, 1]])
+        data2 = torch.Tensor([[1,1,1,1],
+                             [1,1,0,1], 
+                             [1, 1, 0, 0],
+                             [0, 0, 1, 0],
+                             [1, 0, 0, 1]])
+        targets = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1]])
 
+        nodes_scenarios = (
+            {
+                'nodes': ('node-1',),
+                'data': {'node-1': data},
+                'target': {'node-1': targets}
+            },
+            {
+                'nodes': ('node-1', 'node-2', 'node-3',),
+                'data':{
+                    'node-1': data,
+                    'node-2': data,
+                    'node-3': data2
+                },
+                
+                'target': {
+                    'node-1': targets,
+                    'node-2': targets, 
+                    'node-3': targets
+                    }
+            }
+        )
         loss_func = torch.nn.MSELoss()
-        for model in self._torch_zero_model_wrappers:
-            researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule()])
-            node_optim = FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()])
-             # step 2: sends auxiliary variables from researcher to nodes
-            researcher_torch_optim_wrapper = DeclearnOptimizer(model, researcher_optim)
-            node_model = copy.deepcopy(model)
-            node_torch_optim_wrapper = DeclearnOptimizer(node_model, node_optim)
-            aux_var = researcher_torch_optim_wrapper.get_aux()
-            
-            self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
-            
-            for _ in range(3):  # simulates 3 rounds
-                
-                node_torch_optim_wrapper.set_aux(aux_var)
-                node_model.set_weights(model.get_weights())  # simulate sending researcher model weights to node model weights 
+        for nodes_scenario in nodes_scenarios:
+            for model in self._torch_zero_model_wrappers:
+                researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule()])
+                node_optims = {node_id: FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()]) for node_id in nodes_scenario['nodes']}
+                # step 2: sends auxiliary variables from researcher to nodes
+                researcher_torch_optim_wrapper = DeclearnOptimizer(model, researcher_optim)
 
-                fake_retrieved_grads = copy.deepcopy(model.get_weights()) 
-                fake_retrieved_grads = TorchVector(fake_retrieved_grads) + grad_patch_value
-
-                # step 3: performs (or simulates) a training on node side
-                node_model_params = node_model.get_weights()
-                with patch.object(TorchModel, 'get_gradients') as get_gradients_patch:
-                    get_gradients_patch.return_value = fake_retrieved_grads.coefs
-
-                    # training process
-                    node_torch_optim_wrapper.init_training()
-                    node_torch_optim_wrapper.zero_grad()
-                    output = model.model.forward(data)
-                    loss = loss_func(output, targets)
-                    loss.backward()
-                    node_torch_optim_wrapper.step()
-                    # NOTA: due to patching `get_gradients` and since model weights are set to `0` at the begining, weights_t+1 equal weights_t - grad_patch_value * learning_rate
-                
-                # step 4: sends aux_var and node model params from node to researcher
-                aux_var = node_torch_optim_wrapper.get_aux()
-                aux_var = {'scaffold': {'node-1': aux_var['scaffold']}}
-                print("N MODEL", node_model.get_weights())
-                
-                model.set_weights(node_model.get_weights())  # simulate sending back node model weights to researcher model
-                researcher_torch_optim_wrapper.set_aux(aux_var)
-
-                # step 5: performs an update on researcher side
-                researcher_torch_optim_wrapper.init_training()
-                researcher_torch_optim_wrapper.zero_grad()
-                researcher_torch_optim_wrapper.step()
-                
-                # step 6: retrieves researcher model parameters and aux_var
+                node_models = {node_id: copy.deepcopy(model) for node_id in nodes_scenario['nodes']}
+                node_torch_optim_wrappers = {k: DeclearnOptimizer(node_models[k], node_optims[k]) for k in nodes_scenario['nodes']}
                 aux_var = researcher_torch_optim_wrapper.get_aux()
-                aux_var = {k: v.get('node-1') for k, v in aux_var.items() if v.get('node-1')}
+                self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
                 
-                for (l, p_before), (_, p_after) in zip(node_model_params.items(), model.get_weights().items()):
-                    self.assertTrue(torch.isclose(node_lr * (p_before - grad_patch_value) , p_after).all())
-                    # model weights follows a progression p_t+1 = node_lr(p_t - grad_patch_value) due to SGD repeated several time
-                
-            final_aux_var = node_torch_optim_wrapper.get_aux()
-            for (l, state), (_, val) in zip(final_aux_var['scaffold']['state'].coefs.items(), 
-                                            fake_retrieved_grads.coefs.items()):
-                self.assertTrue(torch.isclose(state, val).all())
-            
+                for _ in range(5):  # simulates 5 rounds
 
-            print("F", final_aux_var['scaffold']['state'].coefs)
+                    # step 3: performs (or simulates) a training on node side
+                    aux_var_collections = {}
+                    for idx, node_id in enumerate(nodes_scenario['nodes']):
+
+                        node_aux_var = self.perform_torch_training_node_side(node_id,
+                                                            node_models[node_id],
+                                                            node_torch_optim_wrappers[node_id],
+                                                            model.get_weights(),
+                                                            aux_var,
+                                                            nodes_scenario['data'][node_id], 
+                                                            nodes_scenario['target'][node_id],
+                                                            loss_func)
+                        v = node_torch_optim_wrappers[node_id].optimizer._optimizer.modules[0].delta
+
+                        for k, v in node_models[node_id].get_gradients().items():
+                            # ------ CHECKS
+                            # check that states equals to the griadients in the very specific we are performing
+                            # only one iteration over data (so step = 1 and there is no gradient accumulation)
+                            self.assertTrue(np.array_equal(v, node_aux_var['scaffold'][node_id]['state'][k]))
+                            # check weights are updated according to delta values
+                            if aux_var:
+                                self.assertTrue(np.array_equal((aux_var['scaffold'][node_id]['delta'][k] - v) * node_lr, node_models[node_id].get_weights()[k]))
+
+                        if idx == 0:
+                            aux_var_collections = {k: {} for k in node_aux_var}
+                        for k in node_aux_var:
+                            aux_var_collections[k].update(node_aux_var[k])
+
+
+                    # step 4: perform a last update on Researcher side
+                    aux_var = self.perform_training_researcher_side(researcher_torch_optim_wrapper,
+                                                               model.get_weights(), model.get_weights(), aux_var_collections)
+                    print("WEIGHTS GLOBAL MODEL", model.get_weights())
+                    # print("STATE OPTIM", researcher_torch_optim_wrapper.optimizer._optimizer.modules[0].state.coefs,
+                    #       {k: researcher_torch_optim_wrapper.optimizer._optimizer.modules[0].s_loc[k].coefs for k in researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].s_loc})
+
+                print("FINAL AUX", aux_var, [node_models[id].get_gradients() for id in nodes_scenario['nodes']])
+                # final checks
+                deltas = self.compute_delta_from_nodes_state(aux_var_collections, model.get_weights())
+                print("DELTAS", deltas)
+                # final check 1. test that sum(delta_nodeid) = 0
+                for  (k, v) in model.get_weights().items():
+                    zero_vector = torch.zeros(v.shape)
+                    avg = copy.deepcopy(zero_vector)
+                    for node_id in nodes_scenario['nodes']:
+                        avg += aux_var['scaffold'][node_id]['delta'][k]
+                        print(avg)
+                    self.assertTrue(torch.isclose(avg, zero_vector, atol=1e-5).all())
+                # final check 2. test correct computation of deltas
+                for node_id in nodes_scenario['nodes']:
+                    for  (k, v) in model.get_weights().items():
+                        self.assertTrue(np.array_equal(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]))
+
+                #     # step 3: performs (or simulates) a training on node side
+                #     node_model_params = node_model.get_weights()
+                #     with patch.object(TorchModel, 'get_gradients') as get_gradients_patch:
+                #         get_gradients_patch.return_value = fake_retrieved_grads.coefs
+
+                #         # training process
+                #         node_torch_optim_wrapper.init_training()
+                #         node_torch_optim_wrapper.zero_grad()
+                #         output = model.model.forward(data)
+                #         loss = loss_func(output, targets)
+                #         loss.backward()
+                #         node_torch_optim_wrapper.step()
+                #         # NOTA: due to patching `get_gradients` and since model weights are set to `0` at the begining, weights_t+1 equal weights_t - grad_patch_value * learning_rate
+                    
+                #     # step 4: sends aux_var and node model params from node to researcher
+                #     aux_var = node_torch_optim_wrapper.get_aux()
+                #     aux_var = {'scaffold': {'node-1': aux_var['scaffold']}}
+                #     print("N MODEL", node_model.get_weights())
+                    
+                #     model.set_weights(node_model.get_weights())  # simulate sending back node model weights to researcher model
+                #     researcher_torch_optim_wrapper.set_aux(aux_var)
+
+                #     # # step 5: performs an update on researcher side
+                #     # researcher_torch_optim_wrapper.init_training()
+                #     # researcher_torch_optim_wrapper.zero_grad()
+                #     # researcher_torch_optim_wrapper.step()
+                    
+                #     # # step 6: retrieves researcher model parameters and aux_var
+                #     # aux_var = researcher_torch_optim_wrapper.get_aux()
+                #     # aux_var = {k: v.get('node-1') for k, v in aux_var.items() if v.get('node-1')}
+                    
+                #     # for (l, p_before), (_, p_after) in zip(node_model_params.items(), model.get_weights().items()):
+                #     #     self.assertTrue(torch.isclose(node_lr * (p_before - grad_patch_value) , p_after).all())
+                #     #     # model weights follows a progression p_t+1 = node_lr(p_t - grad_patch_value) due to SGD repeated several time
+                    
+                # final_aux_var = node_torch_optim_wrapper.get_aux()
+                # for (l, state), (_, val) in zip(final_aux_var['scaffold']['state'].coefs.items(), 
+                #                                 fake_retrieved_grads.coefs.items()):
+                #     self.assertTrue(torch.isclose(state, val).all())
+                
+
+                # print("F", final_aux_var['scaffold']['state'].coefs)
 
     def test_declearnoptimizer_07_multiple_scaffold(self):
         # the goal of this test is to check that user will get error if specifying non sensical 
@@ -564,7 +665,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
         loss_func = torch.nn.MSELoss()
         for model in self._torch_zero_model_wrappers:
-            incorrect_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule(), ScaffoldClientModule()])
+            incorrect_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule(), ScaffoldClientModule()])  # Non sensical!!!
             incorrect_optim_w = DeclearnOptimizer(model, incorrect_optim)
             incorrect_optim_w.init_training()
             incorrect_optim_w.zero_grad()
