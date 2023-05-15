@@ -123,6 +123,11 @@ class Message(object):
 # AddScalar message
 @dataclass
 class RequiresProtocolVersion:
+    """Mixin class for messages that must be endowed with a version field.
+
+    Attributes:
+        protocol_version: version of the messaging protocol used
+    """
     protocol_version: str
 
 @catch_dataclass_exception
