@@ -131,7 +131,6 @@ class AddScalarReply(Message, RequiresProtocolVersion):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that receives the reply
         job_id: ID of the Job that is sent by researcher
         train: Declares whether scalar value is for training
@@ -176,7 +175,6 @@ class ApprovalRequest(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: id of the researcher that sends the request
         description: description of the training plan
         sequence: (unique) sequence number which identifies the message
@@ -199,7 +197,6 @@ class ApprovalReply(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
         sequence: sequence number of the corresponding request
@@ -225,7 +222,6 @@ class ErrorMessage(Message, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that receives the error message
         node_id: ID of the node that sends error message
         errnum: Error ID/Number
@@ -251,7 +247,6 @@ class ListRequest(Message, RequiresProtocolVersion):
     each node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that sends the request
         command: Request command string
 
@@ -270,7 +265,6 @@ class ListReply(Message, RequiresProtocolVersion):
     reply for ListRequest message from the researcher.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that sends the request
         succes: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
@@ -298,7 +292,6 @@ class LogMessage(Message, RequiresProtocolVersion):
     """Describes a log message sent by the node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that will receive the log message
         node_id: ID of the node that sends log message
         level: Log level
@@ -323,7 +316,6 @@ class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that sends the request
         job_id: Job id related to the experiment.
         training_plan_url: The training plan that is going to be checked for approval
@@ -345,7 +337,6 @@ class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replys the request
         job_id: job id related to the experiment
@@ -382,7 +373,6 @@ class PingRequest(Message, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that send ping reqeust
         sequence: Ping sequence
         command: Request command string
@@ -402,7 +392,6 @@ class PingReply(Message, RequiresProtocolVersion):
     """This class describes a ping message sent by the node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
         succes: True if the node process the request as expected, false if any exception occurs
@@ -427,7 +416,6 @@ class SearchRequest(Message, RequiresProtocolVersion):
     """Describes a search message sent by the researcher.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that sends the request
         tags: Tags for search request
         command: Request command string
@@ -446,7 +434,6 @@ class SearchReply(Message, RequiresProtocolVersion):
     """Describes a search message sent by the node
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that sends the request
         succes: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
@@ -473,7 +460,6 @@ class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
@@ -497,7 +483,6 @@ class SecaggDeleteReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
@@ -523,7 +508,6 @@ class SecaggRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
@@ -549,7 +533,6 @@ class SecaggReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
         sequence: (unique) sequence number which identifies the message
@@ -577,7 +560,6 @@ class TrainRequest(Message, RequiresProtocolVersion):
     """Describes a train message sent by the researcher
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: ID of the researcher that requests training
         job_id: Id of the Job that is sent by researcher
         params_url: URL where model parameters are uploaded
@@ -617,7 +599,6 @@ class TrainReply(Message, RequiresProtocolVersion):
     """Describes a train message sent by the node.
 
     Attributes:
-        protocol_version: version of the protocol used
         researcher_id: Id of the researcher that receives the reply
         job_id: Id of the Job that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
