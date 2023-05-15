@@ -1753,6 +1753,7 @@ class TestMessage(unittest.TestCase):
     def test_message_15_trainmessages(self):
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
             "success": True,
@@ -1771,6 +1772,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.TrainReply)
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
             "params_url": "https://dev.null",
@@ -1798,6 +1800,7 @@ class TestMessage(unittest.TestCase):
 
         """  Test list datasets messages for node and researcher """
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1823,6 +1826,7 @@ class TestMessage(unittest.TestCase):
     def test_message_17_searchmessages(self):
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1850,6 +1854,7 @@ class TestMessage(unittest.TestCase):
 
         # ping
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "sequence": 100,
@@ -1877,6 +1882,7 @@ class TestMessage(unittest.TestCase):
 
         # error
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "level": 'INFO',
@@ -1893,6 +1899,7 @@ class TestMessage(unittest.TestCase):
 
         # error
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "errnum": ErrorNumbers.FB100,
@@ -1909,6 +1916,7 @@ class TestMessage(unittest.TestCase):
 
         # addScalar
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "job_id": 'job_id',
@@ -2024,6 +2032,7 @@ class TestMessage(unittest.TestCase):
     def test_message_24_model_status_messages(self):
 
         params_reply = {
+            "protocol_version": '99.99',
             'researcher_id': 'toto',
             'node_id': 'titi',
             'job_id': 'titi',
@@ -2276,6 +2285,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.ApprovalRequest)
 
         params_reply = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "sequence": 12345,

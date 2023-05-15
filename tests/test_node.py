@@ -182,6 +182,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         secagg_delete = {
+            "protocol_version": str(__messaging_protocol_version__),
             'command': 'secagg-delete',
             'researcher_id': 'researcher_id_1234',
             'secagg_id': 'my_test_secagg_id',
@@ -539,6 +540,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
+            "protocol_version": '99.99',
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan_url': 'https://link.to.somewhere.where.my.model',
@@ -594,6 +596,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
+            "protocol_version": '99.99',
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "training": True,
@@ -746,6 +749,7 @@ class TestNode(NodeTestCase):
         tasks_queue_get_patch.return_value = {}
 
         tasks_queue_get_patch.return_value = {
+            "protocol_version": '99.99',
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "aggregator_args": {},
@@ -923,6 +927,7 @@ class TestNode(NodeTestCase):
         `TasksQueue.task_done` method for secagg message"""
         # defining patchers
         tasks_queue_get_patch.return_value = {
+            "protocol_version": '99.99',
             "researcher_id": "my_test_researcher",
             "secagg_id": "my_test_secagg",
             "sequence": 2345,
@@ -960,6 +965,7 @@ class TestNode(NodeTestCase):
         `TasksQueue.task_done` method for an unexpected type of message"""
         # defining patchers
         tasks_queue_get_patch.return_value = {
+            "protocol_version": '99.99',
             "researcher_id": "researcher_id_1234",
             "secagg_id": "secagg_id_2345",
             "sequence": 33,
@@ -1006,6 +1012,7 @@ class TestNode(NodeTestCase):
         tasks_queue_get_patch.return_value = {}
 
         tasks_queue_get_patch.return_value = {
+            "protocol_version": '99.99',
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "aggregator_args": {},
@@ -1094,6 +1101,7 @@ class TestNode(NodeTestCase):
         n3 = Node(dataset_manager, self.model_manager_mock)
 
         search_msg = {
+            "protocol_version": '99.99',
             'command': 'search',
             'researcher_id': 'researcher_id_1234',
             'tags': ['#some_tags']
@@ -1113,7 +1121,8 @@ class TestNode(NodeTestCase):
     ):
         """Tests `_task_secagg` normal (successful) case"""
 
-        req = {'researcher_id': 'party1',
+        req = {"protocol_version": '99.99',
+               'researcher_id': 'party1',
                'secagg_id': 'my_dummy_secagg_id',
                'sequence': 888,
                'element': 0,
@@ -1164,7 +1173,8 @@ class TestNode(NodeTestCase):
         """Tests `_task_secagg` with bad message values"""
 
         # Bad element type --------------------------------------------------------------------------
-        req = {'researcher_id': 'party1',
+        req = {"protocol_version": '99.99',
+               'researcher_id': 'party1',
                'secagg_id': 'my_dummy_secagg_id',
                'sequence': 888,
                'element': 11,
@@ -1175,6 +1185,7 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg_delete(request)
 
         messaging_send_msg.assert_called_once_with({
+            'protocol_version': req['protocol_version'],
             'researcher_id': req['researcher_id'],
             'protocol_version': str(__messaging_protocol_version__),
             'secagg_id': req['secagg_id'],

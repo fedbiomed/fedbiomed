@@ -700,7 +700,6 @@ class ResearcherMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
-        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
@@ -805,7 +804,6 @@ class NodeMessages():
             _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
-        params['protocol_version'] = str(__messaging_protocol_version__)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
