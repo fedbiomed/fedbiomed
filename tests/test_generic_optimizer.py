@@ -136,10 +136,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
         node_optim_w.zero_grad()
         output = node_model.model.forward(data)
         loss = loss_func(output, targets)
-        print("LOSS PYtorCH", loss)
         loss.backward()
         node_optim_w.step()
-        print("MODEL W", node_optim_w._model.get_weights(), node_model.get_weights())
+
         # collect auxilary variables
         aux_var = node_optim_w.get_aux()
         # serialization: convert everything from declearn Vector to dictionaries
@@ -153,15 +152,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
         
         # serialization: convert everything from dictionaries to declearn Vector
         # TODO: use serializer once it has been merged
-        # aux_var = {k: 
-        #     {p :  {i: declearn.model.api.Vector.build(j) for i, j in q.items()}
-        #      for p, q in v.items() if q} for k, v in aux_var.items()}
-        # print("AUX_VAR", aux_var)
-        # for l in model.get_weights():
-        #     sum_state = sum(aux_var['scaffold'][k]['state'][l] for k in aux_var['scaffold'])/len(aux_var['scaffold'])
-        #     print("TEST", sum_state)
-        #     for k in aux_var['scaffold']:
-        #         print("TEST @", aux_var['scaffold'][k]['state'][l] - sum_state )
         aux_var = self.deserializer(aux_var)
 
         optim_w.set_aux(aux_var)
@@ -173,7 +163,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
         
         # retrieves researcher model parameters and aux_var
         aux_var = optim_w.get_aux()
-        print("OPTI INTERNAL STATE", optim_w.optimizer._optimizer.modules[0].state.coefs)
 
         aux_var = self.serializer(aux_var)
 
@@ -190,7 +179,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
             delta = {}
             for node_id in node_ids:
 
-                print("DLETA COMP", aux_var['scaffold'][node_id]['state'][layer] - sum_state )
                 delta[layer] = aux_var['scaffold'][node_id]['state'][layer] - sum_state 
                 deltas[node_id].update(delta)
         return deltas
@@ -413,8 +401,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables
         # in addition to model parameters
 
-
-
         data = np.array([[1, 1, 1, 1,],
                               [1, 0, 1, 0],
                               [1, 1, 1, 1]])
@@ -489,14 +475,10 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     # step 4: perform an update on Researcher side
                     aux_var = self.perform_training_researcher_side(researcher_sklearn_optim_wrapper,
                                                                model.get_weights(), model.get_weights(), aux_var_collections)
-                    print("WEIGHTS GLOBAL MODEL", model.get_weights())
-                    print("STATE OPTIM", researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].state.coefs,
-                          {k: researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].s_loc[k].coefs for k in researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].s_loc})
 
-                print("FINAL AUX", aux_var, [node_models[id].get_gradients() for id in nodes_scenario['nodes']])
                 # final checks
                 deltas = self.compute_delta_from_nodes_state(aux_var_collections, model.get_weights())
-                print("DELTAS", deltas)
+
                 # final check 1. test that sum(delta_nodeid) = 0
                 for  (k, v) in model.get_weights().items():
                     avg = np.zeros_like(v)
@@ -564,7 +546,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     aux_var_collections = {}
                     for idx, node_id in enumerate(nodes_scenario['nodes']):
                         copy_model_w = copy.deepcopy(model.get_weights())
-                        print("weights copied", copy_model_w)
+
                         node_aux_var = self.perform_torch_training_node_side(node_id,
                                                             node_models[node_id],
                                                             node_torch_optim_wrappers[node_id],
@@ -582,9 +564,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
                             self.assertTrue(torch.isclose(v, node_aux_var['scaffold'][node_id]['state'][k]).all())
                             # check weights are updated according to delta values
                             if aux_var:
-                                print("TEST PYTIORCH",   node_models[node_id].get_weights()[k], copy_model_w,)
-
-                                print('TEST PYtorCH',idx, copy_model_w[k] - (-aux_var['scaffold'][node_id]['delta'][k] + v) * node_lr, node_models[node_id].get_weights()[k], v, )#copy_model.get_weights())
                                 self.assertTrue(torch.isclose(copy_model_w[k] - (v - aux_var['scaffold'][node_id]['delta'][k] ) * node_lr, node_models[node_id].get_weights()[k]).all())
 
                         if idx == 0:
@@ -596,14 +575,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     # step 4: perform a last update on Researcher side
                     aux_var = self.perform_training_researcher_side(researcher_torch_optim_wrapper,
                                                                model.get_weights(), model.get_weights(), aux_var_collections)
-                    print("WEIGHTS GLOBAL MODEL", model.get_weights())
-                    # print("STATE OPTIM", researcher_torch_optim_wrapper.optimizer._optimizer.modules[0].state.coefs,
-                    #       {k: researcher_torch_optim_wrapper.optimizer._optimizer.modules[0].s_loc[k].coefs for k in researcher_sklearn_optim_wrapper.optimizer._optimizer.modules[0].s_loc})
 
-                print("FINAL AUX", aux_var, [node_models[id].get_gradients() for id in nodes_scenario['nodes']])
                 # final checks
                 deltas = self.compute_delta_from_nodes_state(aux_var_collections, model.get_weights())
-                print("DELTAS", deltas)
                 # final check 1. test that sum(delta_nodeid) = 0
                 for  (k, v) in model.get_weights().items():
                     zero_vector = torch.zeros(v.shape)
@@ -616,49 +590,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 for node_id in nodes_scenario['nodes']:
                     for  (k, v) in model.get_weights().items():
                         self.assertTrue(torch.isclose(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]).all())
-
-                #     # step 3: performs (or simulates) a training on node side
-                #     node_model_params = node_model.get_weights()
-                #     with patch.object(TorchModel, 'get_gradients') as get_gradients_patch:
-                #         get_gradients_patch.return_value = fake_retrieved_grads.coefs
-
-                #         # training process
-                #         node_torch_optim_wrapper.init_training()
-                #         node_torch_optim_wrapper.zero_grad()
-                #         output = model.model.forward(data)
-                #         loss = loss_func(output, targets)
-                #         loss.backward()
-                #         node_torch_optim_wrapper.step()
-                #         # NOTA: due to patching `get_gradients` and since model weights are set to `0` at the begining, weights_t+1 equal weights_t - grad_patch_value * learning_rate
-                    
-                #     # step 4: sends aux_var and node model params from node to researcher
-                #     aux_var = node_torch_optim_wrapper.get_aux()
-                #     aux_var = {'scaffold': {'node-1': aux_var['scaffold']}}
-                #     print("N MODEL", node_model.get_weights())
-                    
-                #     model.set_weights(node_model.get_weights())  # simulate sending back node model weights to researcher model
-                #     researcher_torch_optim_wrapper.set_aux(aux_var)
-
-                #     # # step 5: performs an update on researcher side
-                #     # researcher_torch_optim_wrapper.init_training()
-                #     # researcher_torch_optim_wrapper.zero_grad()
-                #     # researcher_torch_optim_wrapper.step()
-                    
-                #     # # step 6: retrieves researcher model parameters and aux_var
-                #     # aux_var = researcher_torch_optim_wrapper.get_aux()
-                #     # aux_var = {k: v.get('node-1') for k, v in aux_var.items() if v.get('node-1')}
-                    
-                #     # for (l, p_before), (_, p_after) in zip(node_model_params.items(), model.get_weights().items()):
-                #     #     self.assertTrue(torch.isclose(node_lr * (p_before - grad_patch_value) , p_after).all())
-                #     #     # model weights follows a progression p_t+1 = node_lr(p_t - grad_patch_value) due to SGD repeated several time
-                    
-                # final_aux_var = node_torch_optim_wrapper.get_aux()
-                # for (l, state), (_, val) in zip(final_aux_var['scaffold']['state'].coefs.items(), 
-                #                                 fake_retrieved_grads.coefs.items()):
-                #     self.assertTrue(torch.isclose(state, val).all())
-                
-
-                # print("F", final_aux_var['scaffold']['state'].coefs)
 
     def test_declearnoptimizer_07_multiple_scaffold(self):
         # the goal of this test is to check that user will get error if specifying non sensical 
