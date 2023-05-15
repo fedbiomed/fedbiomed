@@ -60,7 +60,8 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                          forces_mod_and_reg: bool = False) -> Tuple[DecOptimizer,
                                                                   List[declearn.optimizer.modules.OptiModule],
                                                                   List[declearn.optimizer.regularizers.Regularizer]]:
-        """_summary_
+        """Creates random declearn optimizers, by picking random declearn `OptiModules` optimizers and regularizers,
+        from self.modules and self.regularizers
 
         Args:
             learning_rate: learning rate passed into DecLearn optimizer
@@ -135,9 +136,10 @@ class TestDeclearnOptimizer(unittest.TestCase):
         node_optim_w.zero_grad()
         output = node_model.model.forward(data)
         loss = loss_func(output, targets)
+        print("LOSS PYtorCH", loss)
         loss.backward()
         node_optim_w.step()
-
+        print("MODEL W", node_optim_w._model.get_weights(), node_model.get_weights())
         # collect auxilary variables
         aux_var = node_optim_w.get_aux()
         # serialization: convert everything from declearn Vector to dictionaries
@@ -471,7 +473,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
                         for k, v in node_models[node_id].get_gradients().items():
                             # ------ CHECKS
-                            # check that states equals to the griadients in the very specific we are performing
+                            # check that states equals to the gradients in the very specific setting where we are performing
                             # only one iteration over data (so step = 1 and there is no gradient accumulation)
                             self.assertTrue(np.array_equal(v, node_aux_var['scaffold'][node_id]['state'][k]))
                             # check weights are updated according to delta values
@@ -545,7 +547,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         )
         loss_func = torch.nn.MSELoss()
         for nodes_scenario in nodes_scenarios:
-            for model in self._torch_zero_model_wrappers:
+            for model in self._torch_model_wrappers:
                 researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule()])
                 node_optims = {node_id: FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()]) for node_id in nodes_scenario['nodes']}
                 # step 2: sends auxiliary variables from researcher to nodes
@@ -561,7 +563,8 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     # step 3: performs (or simulates) a training on node side
                     aux_var_collections = {}
                     for idx, node_id in enumerate(nodes_scenario['nodes']):
-
+                        copy_model_w = copy.deepcopy(model.get_weights())
+                        print("weights copied", copy_model_w)
                         node_aux_var = self.perform_torch_training_node_side(node_id,
                                                             node_models[node_id],
                                                             node_torch_optim_wrappers[node_id],
@@ -576,10 +579,13 @@ class TestDeclearnOptimizer(unittest.TestCase):
                             # ------ CHECKS
                             # check that states equals to the griadients in the very specific we are performing
                             # only one iteration over data (so step = 1 and there is no gradient accumulation)
-                            self.assertTrue(np.array_equal(v, node_aux_var['scaffold'][node_id]['state'][k]))
+                            self.assertTrue(torch.isclose(v, node_aux_var['scaffold'][node_id]['state'][k]).all())
                             # check weights are updated according to delta values
                             if aux_var:
-                                self.assertTrue(np.array_equal((aux_var['scaffold'][node_id]['delta'][k] - v) * node_lr, node_models[node_id].get_weights()[k]))
+                                print("TEST PYTIORCH",   node_models[node_id].get_weights()[k], copy_model_w,)
+
+                                print('TEST PYtorCH',idx, copy_model_w[k] - (-aux_var['scaffold'][node_id]['delta'][k] + v) * node_lr, node_models[node_id].get_weights()[k], v, )#copy_model.get_weights())
+                                self.assertTrue(torch.isclose(copy_model_w[k] - (v - aux_var['scaffold'][node_id]['delta'][k] ) * node_lr, node_models[node_id].get_weights()[k]).all())
 
                         if idx == 0:
                             aux_var_collections = {k: {} for k in node_aux_var}
@@ -604,12 +610,12 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     avg = copy.deepcopy(zero_vector)
                     for node_id in nodes_scenario['nodes']:
                         avg += aux_var['scaffold'][node_id]['delta'][k]
-                        print(avg)
+
                     self.assertTrue(torch.isclose(avg, zero_vector, atol=1e-5).all())
                 # final check 2. test correct computation of deltas
                 for node_id in nodes_scenario['nodes']:
                     for  (k, v) in model.get_weights().items():
-                        self.assertTrue(np.array_equal(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]))
+                        self.assertTrue(torch.isclose(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]).all())
 
                 #     # step 3: performs (or simulates) a training on node side
                 #     node_model_params = node_model.get_weights()
