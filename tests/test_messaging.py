@@ -252,12 +252,12 @@ class TestMessagingResearcher(ResearcherTestCase):
 
         try:
             # here we create a PingReply as a node
-            # 1/ use NodeMessages.reply_create
+            # 1/ use NodeMessages.format_incoming_message
             # 2/ cheat with the default channel to send a msg to ourself
             # (if we don't do that, the message will not be caught by
             # the on_message handler)
 
-            pong = NodeMessages.reply_create({
+            pong = NodeMessages.format_outgoing_message({
                 'researcher_id': 'TEST_MESSAGING_RANDOM_ID_6735424425_DO_NOT_USE_ELSEWHERE',
                 'node_id': 'node_1234',
                 'success': True,

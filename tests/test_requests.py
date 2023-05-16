@@ -76,8 +76,8 @@ class TestRequests(ResearcherTestCase):
         self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
         self.req_patcher3 = patch('fedbiomed.common.messaging.Messaging.send_message')
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
-        self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
-        self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.reply_create')
+        self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
+        self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.format_incoming_message')
 
         self.tp_abstract_patcher.start()
 
@@ -85,15 +85,15 @@ class TestRequests(ResearcherTestCase):
         self.message_start = self.req_patcher2.start()
         self.message_send = self.req_patcher3.start()
         self.task_queue_init = self.req_patcher4.start()
-        self.request_create = self.req_patcher5.start()
-        self.reply_create = self.req_patcher6.start()
+        self.format_outgoing_message = self.req_patcher5.start()
+        self.format_outgoing_message = self.req_patcher6.start()
 
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
         self.task_queue_init.return_value = None
-        self.request_create.side_effect = TestRequests.msg_side_effect
-        self.reply_create.side_effect = TestRequests.msg_side_effect
+        self.format_outgoing_message.side_effect = TestRequests.msg_side_effect
+        self.format_outgoing_message.side_effect = TestRequests.msg_side_effect
 
         # current directory
         self.cwd = os.path.dirname(

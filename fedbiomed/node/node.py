@@ -88,15 +88,15 @@ class Node:
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
-            request = NodeMessages.request_create(msg).get_dict()
+            request = NodeMessages.format_incoming_message(msg).get_dict()
             if command in ['train', 'secagg']:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'secagg-delete':
-                self._task_secagg_delete(NodeMessages.request_create(msg))
+                self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'ping':
                 self.messaging.send_message(
-                    NodeMessages.reply_create(
+                    NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
                             'node_id': environ['NODE_ID'],
@@ -110,7 +110,7 @@ class Node:
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    self.messaging.send_message(NodeMessages.reply_create(
+                    self.messaging.send_message(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
@@ -121,7 +121,7 @@ class Node:
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
-                self.messaging.send_message(NodeMessages.reply_create(
+                self.messaging.send_message(NodeMessages.format_outgoing_message(
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
@@ -139,28 +139,29 @@ class Node:
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg="Not able to deserialize the message",
                             researcher_id=resid)
         except NotImplementedError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg=f"Command `{command}` is not implemented",
                             researcher_id=resid)
         except KeyError:
             # FIXME: this error could be raised for other missing keys (eg
             # researcher_id, ....)
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg="'command' property was not found",
                             researcher_id=resid)
+        except FedbiomedMessageError:  # Message was not properly formatted
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg='Message was not properly formatted',
+                            researcher_id=resid)
         except TypeError:  # Message was not serializable
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
@@ -209,7 +210,7 @@ class Node:
         Args:
             msg: `SecaggRequest` message object to parse
         """
-        setup_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
+        setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
@@ -271,7 +272,7 @@ class Node:
             # condition above is likely to be false
             logger.error('Did not found proper data in local datasets ' +
                          f'on node={environ["NODE_ID"]}')
-            self.messaging.send_message(NodeMessages.reply_create(
+            self.messaging.send_message(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
                  'researcher_id': researcher_id,
@@ -311,12 +312,12 @@ class Node:
             logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
 
-                item = NodeMessages.request_create(item)
+                item = NodeMessages.format_incoming_message(item)
                 command = item.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
                 self.messaging.send_message(
-                    NodeMessages.reply_create(
+                    NodeMessages.format_outgoing_message(
                         {
                             'command': 'error',
                             'extra_msg': str(e),
@@ -348,7 +349,7 @@ class Node:
                         # send an error message back to network if something
                         # wrong occured
                         self.messaging.send_message(
-                            NodeMessages.reply_create(
+                            NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
                                     'extra_msg': str(e),
@@ -385,7 +386,7 @@ class Node:
         """
 
         try:
-            reply = NodeMessages.reply_create(
+            reply = NodeMessages.format_outgoing_message(
                 {'node_id': environ['ID'],
                  **msg}
             ).get_dict()
