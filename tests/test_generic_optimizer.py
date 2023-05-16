@@ -39,6 +39,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         self._sklearn_model_wrappers = (SkLearnModel(SGDClassifier),
                                         SkLearnModel(SGDRegressor))
 
+        # It could be nice to have several models in the tuple `torch_model_wrappers`
         self._torch_model_wrappers = (TorchModel(self._torch_model),)
         self._torch_zero_model_wrappers = (TorchModel(self._zero_model),)
         

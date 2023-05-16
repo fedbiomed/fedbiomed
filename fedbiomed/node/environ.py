@@ -17,10 +17,12 @@ print(environ['NODE_ID'])
 
 """
 
+import sys
 import os
 import uuid
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
@@ -40,6 +42,11 @@ class NodeEnviron(Environ):
         """Sets config file path """
 
         return os.path.join(self._values['CONFIG_DIR'], 'config_node.ini')
+
+    def _check_config_version(self):
+        """Check if config version is compatible and set config version"""
+
+        self.check_and_set_config_file_version(__config_version__)
 
     def _set_component_specific_variables(self):
         """Initializes environment variables """
@@ -120,7 +127,8 @@ class NodeEnviron(Environ):
         self._cfg['default'] = {
             'id': node_id,
             'component': "NODE",
-            'uploads_url': uploads_url
+            'uploads_url': uploads_url,
+            'version': __config_version__
         }
 
         # Security variables
@@ -139,6 +147,8 @@ class NodeEnviron(Environ):
         logger.info("training_plan_approval         = " + str(self._values['TRAINING_PLAN_APPROVAL']))
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
+
+sys.tracebacklimit = 3
 
 # global dictionary which contains all environment for the NODE
 environ = NodeEnviron()

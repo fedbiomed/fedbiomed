@@ -184,14 +184,17 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
+        # Goal fo the test: checking that plain sklearn model has been updated when trained 
+        # using `Model` interface
         n_values = 100  # data size
 
         for model in self.models:
+            # disable learning rate evolution, penality
+
             model = SkLearnModel(model)
             for _n_features in self.n_features:
 
                 data = np.random.randn(n_values, _n_features,)
-
 
                 for _n_classes in self.n_classes:
 
@@ -214,7 +217,38 @@ class TestSkLearnModel(unittest.TestCase):
                         self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
                                                         "model has not been updated during training"))
 
-    def test_sklearnmodel_06_sklearn_training_02_declearn_optimizer(self):
+    def test_sklearnmodel_06_sklearn_training_02_plain_sklearn_grad_descent(self):
+        #  checks plain sklearn is effectivly doing a gradient descent
+        data = np.array([[1, 1, 1, 1,],
+                         [1, 0,0, 1],
+                         [1, 1, 1, 1],
+                         [1, 1, 1, 0]])
+        
+        targets = np.array([[1], [0], [1], [1]])
+        random_seed = 1234
+        learning_rate = .1234
+        for model in self.models:
+            model = SkLearnModel(model)
+            model.set_params(random_state=random_seed,
+                                eta0=learning_rate,
+                                penalty=None,
+                                learning_rate='constant')
+
+            model.set_init_params({'n_features': 4, 'n_classes': 2})
+            for _ in range(2):
+                init_model= copy.deepcopy(model)
+                model.init_training()
+                model.train(data, targets)
+                grads = model.get_gradients() # get_gradients returns  - learning_rate * grads
+                model.apply_updates(grads)
+
+            # checks that model updates(t+1) = update(t) - learning_rate * grads
+            for layer in model.param_list:
+                self.assertTrue(np.all(np.isclose(getattr(model.model, layer),
+                                           getattr(init_model.model, layer) + grads[layer])))
+        
+
+    def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
         n_values = 100  # data size
         for model in self.models:
             model = SkLearnModel(model)
@@ -244,8 +278,8 @@ class TestSkLearnModel(unittest.TestCase):
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
                     self.assertEqual(model.model.eta0, 1)
                     for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
+                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer)),
+                                                        "model has not been updated during training")
 
     def test_sklearnmodel_07_train_failures(self):
         inputs = np.array([[1, 2], [1, 1],[0, 1]])
