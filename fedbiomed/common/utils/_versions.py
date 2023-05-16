@@ -105,7 +105,7 @@ def raise_for_version_compatibility(their_version: Union[FBM_Component_Version, 
             raise FedbiomedVersionError(msg)
         else:
             msg = _create_msg_for_version_check(
-                "Found version %s, expected version %s" if error_msg is None else error_msg,
+                "Found version %s, expected version %s",
                 their_version,
                 our_version
             )
