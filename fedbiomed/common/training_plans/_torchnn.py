@@ -4,7 +4,6 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABCMeta, abstractmethod
-import math
 
 from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
 
