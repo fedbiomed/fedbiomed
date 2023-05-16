@@ -90,7 +90,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
 
             for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
                 self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
-                                    f"deep copy failed, attribute {attribute} {copied_attribute} has shared refrences!")
+                                    f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!")
             
 
             # check that model parameters are not the same
@@ -99,6 +99,12 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             for layer_name in model.param_list:
                 
                 self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
+            
+            new_weights = {layer: np.random.normal(size=getattr(model.model, layer).shape) for layer in model.param_list}
+            model.set_weights(new_weights)
+            for layer_name in model.param_list:
+                self.assertFalse(np.array_equal(getattr(model.model, layer_name), getattr(copied_model.model, layer_name)))
+
 
 class TestSkLearnModel(unittest.TestCase):
     def setUp(self):
@@ -250,6 +256,7 @@ class TestSkLearnModel(unittest.TestCase):
 
     def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
         n_values = 100  # data size
+        n_iter = 10 # number of iterations
         for model in self.models:
             model = SkLearnModel(model)
             for _n_features in self.n_features:
@@ -267,9 +274,9 @@ class TestSkLearnModel(unittest.TestCase):
                     model.disable_internal_optimizer()
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
                     model.init_training()
-                    init_model = copy.deepcopy(model)
-
-                    model.train(data, targets)
+                    init_model_weights = model.get_weights()
+                    for _ in range(n_iter):
+                        model.train(data, targets)
                     grads = NumpyVector(model.get_gradients())
                     updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
                     model.apply_updates(updts.coefs)
@@ -278,7 +285,7 @@ class TestSkLearnModel(unittest.TestCase):
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
                     self.assertEqual(model.model.eta0, 1)
                     for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer)),
+                        self.assertFalse(np.array_equal(getattr(model.model, layer), init_model_weights[layer]),
                                                         "model has not been updated during training")
 
     def test_sklearnmodel_07_train_failures(self):
