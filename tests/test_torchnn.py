@@ -24,13 +24,20 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, Dataset
 
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+<<<<<<< HEAD
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedTrainingPlanError, FedbiomedModelError
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
 
+=======
+
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.training_args import TrainingArgs
+>>>>>>> e5501788c081632dc0ec2856af1ad6ea8ac3870c
 from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer, OptimizerBuilder
-
 
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
@@ -115,6 +122,31 @@ class TestTorchnn(unittest.TestCase):
     #
     # TODO : add tests for checking the training payload
     #
+
+    def run_model_initialization(self, model: torch.nn.Module, fedprox_mu: float = 1.) -> TorchTrainingPlan:
+        """Creates a training plan with pytorch model loaded
+        Specify in the training plan the optimizer used is SGD native pytorch optimizer (torch.optim.SGD)
+        and a `training_step` based on MSE loss function
+        """
+        def training_step(data, target):
+            """Mimics `training_step` of a user training plan"""
+            output = tp._model.model.forward(data)
+
+            loss_func = nn.MSELoss()
+            loss = loss_func(output, target)
+            return loss
+
+        tp = TorchTrainingPlan()
+        tp._optimizer = torch.optim.SGD(model.parameters(), lr=.1)
+
+        tp.training_step = training_step
+        training_args = {'fedprox_mu': fedprox_mu, 'epochs': 1}
+        with (patch.object(tp, 'init_model', create=True, return_value=model),
+                patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+            tp.post_init({}, TrainingArgs(training_args, only_required=False))
+        tp._model.init_training()
+        return tp
+
     def test_torch_training_plan_01_save_model(self):
         """Test save model method of troch traning plan"""
         tp1 = TorchTrainingPlan()
@@ -680,6 +712,120 @@ class TestTorchnn(unittest.TestCase):
         for (name, layer_fedavg), (name, layer_scaffold) in zip(tp_fedavg._model.model.state_dict().items(),
                                                                 tp_scaffold._model.model.state_dict().items()):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
+
+    def test_torch_nn_07_get_learning_rate(self):
+        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
+        learning rate
+        """
+        # first test wih basic optimizer (eg without learning rate scheduler)
+        tp = TorchTrainingPlan()
+        tp._model = torch.nn.Linear(2, 3)
+        lr = .1
+        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
+        target = torch.Tensor([1, 2, 2])
+        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
+
+        lr_extracted = tp.get_learning_rate()
+        self.assertListEqual(lr_extracted, [lr])
+
+        # last test using a pytorch scheduler
+        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
+        # this pytorch scheduler increase earning rate by twice its previous value
+        for e, (x,y) in enumerate(zip(dataset, target)):
+            # training a simple model in pytorch fashion
+            # `e` represents epoch
+            out = tp._model.forward(x)
+            tp._optimizer.zero_grad()
+            loss = torch.mean(out) - y
+            loss.backward()
+            tp._optimizer.step()
+            scheduler.step()
+
+            # checks
+            lr_extracted = tp.get_learning_rate()
+            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+
+    def test_torch_nn_08_fedprox_1_non_frozen_layers(self):
+        # test created for bug #537: FedProx regularization term
+        complex_model = nn.Sequential(nn.Conv1d(1, 1, 2),
+                                      nn.ReLU(),
+                                      nn.Linear(4, 5),
+                                      nn.utils.weight_norm(nn.Linear(5, 2)),
+                                      torch.nn.InstanceNorm1d(1),
+                                      nn.Softmax(dim=0))
+
+        models = ((torch.nn.Linear(2, 1), torch.Tensor([[1, 2],
+                                                        [1, 1],
+                                                        [2, 2]]), torch.Tensor([[1], [2], [2]])),
+                  (complex_model, torch.Tensor([[[1, 2, 1, 1, 1]],
+                                                [[1, 1, 1, 1, 1]],
+                                                [[2, 2, 1, 2, 1, ]],
+                                                [[1, 1, 1, 1, 1]]]), torch.Tensor([[[1, 1]],
+                                                                                   [[2, 1]],
+                                                                                   [[1, 2]],
+                                                                                   [[1, 1]]])),
+                  )
+
+        def training_step(data, target):
+            """Mimics `training_step` of a user training plan"""
+            output = tp._model.model.forward(data)
+            loss_func = nn.MSELoss()
+            loss = loss_func(output, target)
+            return loss
+
+        for model in models:
+
+            tp = TorchTrainingPlan()
+            #tp._model = TorchModel(model[0])
+            tp._optimizer = torch.optim.SGD(model[0].parameters(), lr=.1)
+            tp.training_step = training_step
+            training_args = {'fedprox_mu': 0.,
+                             'epochs': 1}
+
+            with (patch.object(tp, 'init_model', create=True, return_value=model[0]),
+                  patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+                tp.post_init({}, TrainingArgs(training_args, only_required=False))
+            tp._model.init_training()
+            for _ in range(2):
+                corrected_l, l = tp._train_over_batch(model[1], model[2])
+            self.assertEqual(corrected_l, l)  # no fedprox updates
+
+            training_args = {'fedprox_mu': 1., 'epochs': 1}
+            with (patch.object(tp, 'init_model', create=True, return_value=model[0]),
+                  patch('fedbiomed.common.training_plans._torchnn.get_method_spec', create=True,  return_value=None) ):
+                tp.post_init({}, TrainingArgs(training_args, only_required=False))
+            tp._model.init_training()
+            for _ in range(2):
+                corrected_l, l = tp._train_over_batch(model[1], model[2])
+
+            self.assertGreaterEqual(corrected_l, l)  # if fedprox_mu is positive, regularization term will be positive
+            # and thus, corrected loss will always be greater than the actual loss (correct_loss = loss + fedprox_mu * reg / 2)
+
+    def test_torch_nn_08_fedprox_2_forzen_layers(self):
+        # test fedprox computation with model containing frozen layers
+        model = nn.Linear(2, 1)
+        frozen_model = copy.deepcopy(model)
+        #creating a frozen_model from the model
+        for name, param in frozen_model.named_parameters():
+            if name == 'weight':
+                param.requires_grad = False 
+                # here we are freezing the `weight` layer of the model
+        data, target = torch.Tensor([[1, 2],
+                                     [1, 1],
+                                     [2, 2]]), torch.Tensor([[1], [2], [2]])
+        # we are selecting here an absurdly high fedprox mu regularization constant so to highlight the
+        # computation of the regularization over the loss function
+        tp = self.run_model_initialization(frozen_model, 1_000_000.)
+        for _ in range(2):
+            corrected_frozen_loss, frozen_loss = tp._train_over_batch(data, target)
+
+        tp = self.run_model_initialization(model, 1_000_000.)
+        for _ in range(2):
+            corrected_loss, loss = tp._train_over_batch(data, target)
+        self.assertGreaterEqual(corrected_loss - loss, corrected_frozen_loss - frozen_loss)  # corrected loss should be greater than the frozen model loss, 
+        # since it has less elements in the norm computation
+
+        # print("TEST", tp._TorchTrainingPlan__norm_l2())
 
 
 class TestSendToDevice(unittest.TestCase):
