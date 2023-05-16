@@ -299,7 +299,7 @@ class TestNode(NodeTestCase):
                                                                                            self.n1.messaging)
 
     @patch('fedbiomed.node.node.Node.send_error')
-    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_08_on_message_unknown_command(self,
                                                 node_msg_request_patch,
                                                 send_err_patch):
@@ -321,7 +321,7 @@ class TestNode(NodeTestCase):
 
         # check
         send_err_patch.assert_called_once_with(ErrorNumbers.FB301,
-                                               extra_msg=f"Message was not properly formatted",
+                                               extra_msg=f"Command `{unknown_cmd}` is not implemented",
                                                researcher_id='researcher_id_1234')
 
     @patch('fedbiomed.node.node.Node.send_error')
