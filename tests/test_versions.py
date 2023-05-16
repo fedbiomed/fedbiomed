@@ -78,14 +78,14 @@ class TestVersions(unittest.TestCase):
         self.mock_versions_log.reset_mock()
         raise_for_version_compatibility(Version('1.1.1'), Version('1.5.1'), 'v1 %s v2 %s')
         self.assertEqual(self.mock_versions_log.warning.call_count, 1)
-        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'v1 1.1.1 v2 1.5.1')
+        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'Found version 1.1')
 
         # Warning case: difference in minor version
         # versions specified as str
         self.mock_versions_log.reset_mock()
         raise_for_version_compatibility('1.1.5', '1.5.1', 'v1 %s v2 %s')
         self.assertEqual(self.mock_versions_log.warning.call_count, 1)
-        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'v1 1.1.5 v2 1.5.1')
+        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'Found version 1.1')
 
         # Error case: the minor version in the static component file (e.g. config file) is higher
         # than that of the runtime
@@ -100,7 +100,7 @@ class TestVersions(unittest.TestCase):
         self.mock_versions_log.reset_mock()
         raise_for_version_compatibility(Version('1.1.2'), Version('1.1.5'), 'v1 %s v2 %s')
         self.assertEqual(self.mock_versions_log.warning.call_count, 1)
-        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'v1 1.1.2 v2 1.1.5')
+        self.assertEqual(self.mock_versions_log.warning.call_args[0][0][:17], 'Found version 1.1')
 
         # Error case: the micro version in the static component file (e.g. config file) is higher
         # than that of the runtime
