@@ -76,7 +76,7 @@ class TestJob(ResearcherTestCase):
                               return_value={"file": environ['UPLOADS_URL']})
         self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
                               return_value=(True, environ['TMP_DIR']))
-        self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
+        self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
 
 

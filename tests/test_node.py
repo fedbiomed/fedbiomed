@@ -17,7 +17,7 @@ from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecagg
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, __messaging_protocol_version__
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -114,7 +114,7 @@ class TestNode(NodeTestCase):
     @patch('fedbiomed.node.secagg.BPrimeManager')
     @patch('fedbiomed.node.secagg.SKManager')
     @patch('fedbiomed.node.node.Node.add_task')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_02_on_message_normal_case_scenario_train_secagg_reply(
             self,
             node_msg_req_create_patcher,
@@ -141,8 +141,8 @@ class TestNode(NodeTestCase):
             node_add_task_patcher.reset_mock()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_03_on_message_normal_case_scenario_ping(
             self,
             node_msg_request_patch,
@@ -209,8 +209,8 @@ class TestNode(NodeTestCase):
         messaging_send_msg_patch.assert_called_once_with(secagg_delete_reply)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_05_on_message_normal_case_scenario_search(self,
                                                             node_msg_request_patch,
                                                             node_msg_reply_patch,
@@ -242,8 +242,8 @@ class TestNode(NodeTestCase):
         messaging_send_msg_patch.assert_called_once_with(search_msg)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_06_on_message_normal_case_scenario_list(self,
                                                           node_msg_request_patch,
                                                           node_msg_reply_patch,
@@ -278,7 +278,7 @@ class TestNode(NodeTestCase):
         # checks
         messaging_send_msg_patch.assert_called_once_with(list_msg)
 
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_07_on_message_normal_case_scenario_model_status(self,
                                                                   node_msg_request_patch,
                                                                   ):
@@ -299,7 +299,7 @@ class TestNode(NodeTestCase):
                                                                                            self.n1.messaging)
 
     @patch('fedbiomed.node.node.Node.send_error')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_08_on_message_unknown_command(self,
                                                 node_msg_request_patch,
                                                 send_err_patch):
@@ -321,13 +321,13 @@ class TestNode(NodeTestCase):
 
         # check
         send_err_patch.assert_called_once_with(ErrorNumbers.FB301,
-                                               extra_msg=f"Command `{unknown_cmd}` is not implemented",
+                                               extra_msg=f"Message was not properly formatted",
                                                researcher_id='researcher_id_1234')
 
     @patch('fedbiomed.node.node.Node.send_error')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_09_on_message_fail_reading_json(self,
                                                   node_msg_request_patch,
                                                   node_msg_reply_patch,
@@ -382,8 +382,8 @@ class TestNode(NodeTestCase):
 
     @patch('fedbiomed.node.node.Node.send_error')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_11_on_message_fail_msg_not_serializable(self,
                                                           node_msg_request_patch,
                                                           node_msg_reply_patch,
@@ -420,7 +420,7 @@ class TestNode(NodeTestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_12_parser_task_train_create_round(self,
                                                     node_msg_request_patch,
                                                     history_monitor_patch,
@@ -446,9 +446,9 @@ class TestNode(NodeTestCase):
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
-            'dataset_id': 'dataset_id_1234'
+            'dataset_id': 'dataset_id_1234',
         }
-        msg_1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
+        msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # action
         round = self.n1.parser_task_train(msg_1_dataset)
@@ -482,9 +482,9 @@ class TestNode(NodeTestCase):
         self.assertIsInstance(history_monitor_ref, HistoryMonitor)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     def test_node_13_parser_task_train_no_dataset_found(self,
                                                         node_msg_request_patch,
                                                         history_monitor_patch,
@@ -499,7 +499,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         resid = 'researcher_id_1234'
-        msg_without_datasets = NodeMessages.request_create({
+        msg_without_datasets = NodeMessages.format_incoming_message({
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan_url': 'https://link.to.somewhere.where.my.model',
@@ -559,7 +559,7 @@ class TestNode(NodeTestCase):
             'aggregator_args': {}
         }
         # we convert this dataset into a string
-        msg1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
+        msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
         round_patch.return_value = None
@@ -616,7 +616,7 @@ class TestNode(NodeTestCase):
         }
 
         #
-        msg_1_dataset = NodeMessages.request_create(dict_msg_1_dataset)
+        msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
         round_patch.return_value = None
@@ -641,7 +641,7 @@ class TestNode(NodeTestCase):
                                             dlp_and_loading_block_metadata=None)
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_16_parser_task_train_error_found(self,
                                                    node_msg_request_patch,
                                                    history_monitor_patch,
@@ -670,9 +670,10 @@ class TestNode(NodeTestCase):
             "secagg_clipping_range": None,
             "round": 1,
             'researcher_id': resid,
-            'dataset_id': 'dataset_id_1234'
+            'dataset_id': 'dataset_id_1234',
+            'command': 'train'
         }
-        msg_without_training_plan_url = NodeMessages.request_create(dict_msg_without_training_plan_url)
+        msg_without_training_plan_url = NodeMessages.format_incoming_message(dict_msg_without_training_plan_url)
 
         # action
         with self.assertRaises(AssertionError):
@@ -681,7 +682,7 @@ class TestNode(NodeTestCase):
 
         # test 2: test case where url is not valid
         dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_training_plan_url)
-        msg_with_unvalid_url = NodeMessages.request_create(dict_msg_with_unvalid_url)
+        msg_with_unvalid_url = NodeMessages.format_incoming_message(dict_msg_with_unvalid_url)
 
         dict_msg_without_training_plan_url['training_plan_url'] = 'this is not a valid url'
 
@@ -693,7 +694,7 @@ class TestNode(NodeTestCase):
         # test 3: test case where training_plan_class is None
         dict_msg_without_training_plan_class = copy.deepcopy(dict_msg_without_training_plan_url)
         dict_msg_without_training_plan_class['training_plan_class'] = None
-        msg_without_training_plan_class = NodeMessages.request_create(dict_msg_without_training_plan_class)
+        msg_without_training_plan_class = NodeMessages.format_incoming_message(dict_msg_without_training_plan_class)
 
         # action
         with self.assertRaises(AssertionError):
@@ -704,7 +705,7 @@ class TestNode(NodeTestCase):
         dict_msg_training_plan_class_bad_type = copy.deepcopy(dict_msg_without_training_plan_url)
         # let's test with integer in place of strings
         dict_msg_training_plan_class_bad_type['training_plan_class'] = 1234
-        msg_training_plan_class_bad_type = NodeMessages.request_create(dict_msg_training_plan_class_bad_type)
+        msg_training_plan_class_bad_type = NodeMessages.format_incoming_message(dict_msg_training_plan_class_bad_type)
 
         # action
         with self.assertRaises(AssertionError):
@@ -777,16 +778,16 @@ class TestNode(NodeTestCase):
             self.n1.task_manager()
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
-    @patch('fedbiomed.node.node.NodeMessages.request_create')
-    @patch('fedbiomed.node.node.NodeMessages.reply_create')
+    @patch('fedbiomed.node.node.NodeMessages.format_outgoing_message')
+    @patch('fedbiomed.node.node.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
     def test_node_20_task_manager_exception_raised(self,
                                                    tasks_queue_get_patch,
                                                    reply_create_patch,
                                                    request_create_patch,
                                                    mssging_send_msg_patch):
-        """Tests case where `NodeMessages.request_create` method raises an exception 
-        and then the reply_create raises another exception(SystemExit).
+        """Tests case where `NodeMessages.format_outgoing_message` method raises an exception
+        and then the format_incoming_message raises another exception(SystemExit).
         """
         # defining patchers
         tasks_queue_get_patch.return_value = {
@@ -807,7 +808,7 @@ class TestNode(NodeTestCase):
         }
         request_create_patch.side_effect = Exception
         reply_create_patch.side_effect = SystemExit(
-            "mimicking an exception" + " coming from NodeMessages.request_create")  # noqa
+            "mimicking an exception" + " coming from NodeMessages.format_outgoing_message")  # noqa
         mssging_send_msg_patch.return_value = None
 
         # action
@@ -985,7 +986,7 @@ class TestNode(NodeTestCase):
         # check that `Messaging.send_message` have been called once
         self.assertEqual(msg_send_error.call_count, 1)
 
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task_train')
@@ -1047,6 +1048,7 @@ class TestNode(NodeTestCase):
         # good arguments (second time it is called)
         mssging_send_msg_patch.assert_called_with(
             {
+                'protocol_version': str(__messaging_protocol_version__),
                 'command': 'error',
                 'extra_msg': str(Exception('mimicking exceptions')),
                 'node_id': environ['NODE_ID'],
@@ -1130,7 +1132,7 @@ class TestNode(NodeTestCase):
                'parties': ['party1', 'party2', 'party3'],
                'command': 'secagg'}
         # Create request
-        request = NodeMessages.request_create(req)
+        request = NodeMessages.format_incoming_message(req)
 
         # Test .setup()execution. It is normal the get result as success False since setup will fail
         # due to not existing certificate files
@@ -1152,7 +1154,7 @@ class TestNode(NodeTestCase):
 
         # Test setup error case ---------------------------------------------------------------
         req["element"] = 12
-        request = NodeMessages.request_create(req)
+        request = NodeMessages.format_incoming_message(req)
 
         self.n1._task_secagg(request)
         messaging_send_msg.assert_called_once_with(
@@ -1181,7 +1183,7 @@ class TestNode(NodeTestCase):
                'job_id': 'my_test_job',
                'command': 'secagg-delete'}
         # Create request
-        request = NodeMessages.request_create(req)
+        request = NodeMessages.format_incoming_message(req)
         self.n1._task_secagg_delete(request)
 
         messaging_send_msg.assert_called_once_with({
@@ -1202,7 +1204,7 @@ class TestNode(NodeTestCase):
         # Test remove status ----------------------------------------------------------------
         # status will be false since there is no registry in DB
         req["element"] = 0
-        request = NodeMessages.request_create(req)
+        request = NodeMessages.format_incoming_message(req)
         self.n1._task_secagg_delete(request)
         messaging_send_msg.assert_called_once_with({
             'researcher_id': req['researcher_id'],
@@ -1221,7 +1223,7 @@ class TestNode(NodeTestCase):
         with patch("fedbiomed.node.node.SecaggManager") as skm:
             skm.return_value.return_value.remove.side_effect = Exception
             req["element"] = 0
-            request = NodeMessages.request_create(req)
+            request = NodeMessages.format_incoming_message(req)
             self.n1._task_secagg_delete(request)
             messaging_send_msg.assert_called_once_with({
                 'researcher_id': req['researcher_id'],

@@ -1765,10 +1765,10 @@ class TestMessage(unittest.TestCase):
             "sample_size": 100,
             "command": 'train'}
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.TrainReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.TrainReply)
 
         params = {
@@ -1790,10 +1790,10 @@ class TestMessage(unittest.TestCase):
             "aggregator_args": {},
             "command": 'train'}
 
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.TrainRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.TrainRequest)
 
     def test_message_16_listmessages(self):
@@ -1808,19 +1808,19 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "command": 'list'}
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ListReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ListReply)
 
         params = {
             "researcher_id": 'toto',
             "command": 'list'}
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ListRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ListRequest)
 
     def test_message_17_searchmessages(self):
@@ -1834,20 +1834,20 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "command": 'search'}
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.SearchReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.SearchReply)
 
         params = {
             "researcher_id": 'toto',
             "tags": [],
             "command": 'search'}
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.SearchRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.SearchRequest)
 
     def test_message_18_pingmessages(self):
@@ -1861,10 +1861,10 @@ class TestMessage(unittest.TestCase):
             "success": True,
             "command": 'pong'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.PingReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.PingReply)
 
         params = {
@@ -1872,10 +1872,10 @@ class TestMessage(unittest.TestCase):
             "sequence": 100,
             "command": 'ping'
         }
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.PingRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.PingRequest)
 
     def test_message_19_logmessages(self):
@@ -1889,10 +1889,10 @@ class TestMessage(unittest.TestCase):
             "msg": 'bim boum badaboum',
             "command": 'log'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.LogMessage)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.LogMessage)
 
     def test_message_10_errormessages(self):
@@ -1906,10 +1906,10 @@ class TestMessage(unittest.TestCase):
             "extra_msg": 'bim boum badaboum',
             "command": 'error'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ErrorMessage)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ErrorMessage)
 
     def test_message_21_add_scalar_messages(self):
@@ -1934,10 +1934,10 @@ class TestMessage(unittest.TestCase):
             "command": 'add_scalar'
         }
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.AddScalarReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.AddScalarReply)
 
     def test_message_22_unknowmessages(self):
@@ -1947,7 +1947,7 @@ class TestMessage(unittest.TestCase):
         params = {'command': 'unknown'}
 
         try:
-            r = message.ResearcherMessages.reply_create(params)
+            r = message.ResearcherMessages.format_incoming_message(params)
             # should not reach this line
             self.fail("unknown reply message type for researcher not detected")
 
@@ -1956,7 +1956,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, "unknown reply message type for researcher detected")
 
         try:
-            r = message.ResearcherMessages.request_create(params)
+            r = message.ResearcherMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail("unknown request message type for researcher not detected")
 
@@ -1966,7 +1966,7 @@ class TestMessage(unittest.TestCase):
         pass
 
         try:
-            r = message.NodeMessages.reply_create(params)
+            r = message.NodeMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail("unknown reply message type for node not detected")
 
@@ -1975,7 +1975,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, "unknown reply message type for node detected")
 
         try:
-            r = message.NodeMessages.request_create(params)
+            r = message.NodeMessages.format_incoming_message(params)
             # should not reach this line
             self.fail("unknown request message type for node not detected")
 
@@ -1992,7 +1992,7 @@ class TestMessage(unittest.TestCase):
 
         msg = "unknown reply message type for researcher not detected"
         try:
-            r = message.ResearcherMessages.reply_create(params)
+            r = message.ResearcherMessages.format_incoming_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -2001,7 +2001,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, msg)
 
         try:
-            r = message.ResearcherMessages.request_create(params)
+            r = message.ResearcherMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -2011,7 +2011,7 @@ class TestMessage(unittest.TestCase):
         pass
 
         try:
-            r = message.NodeMessages.reply_create(params)
+            r = message.NodeMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -2020,7 +2020,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, msg)
 
         try:
-            r = message.NodeMessages.request_create(params)
+            r = message.NodeMessages.format_incoming_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -2044,10 +2044,10 @@ class TestMessage(unittest.TestCase):
             'command': 'training-plan-status'
         }
 
-        r = message.ResearcherMessages.reply_create(params_reply)
+        r = message.ResearcherMessages.format_incoming_message(params_reply)
         self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
-        r = message.NodeMessages.reply_create(params_reply)
+        r = message.NodeMessages.format_outgoing_message(params_reply)
         self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
         params_request = {
@@ -2057,10 +2057,10 @@ class TestMessage(unittest.TestCase):
             "command": 'training-plan-status'
         }
 
-        r = message.ResearcherMessages.request_create(params_request)
+        r = message.ResearcherMessages.format_outgoing_message(params_request)
         self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
-        r = message.NodeMessages.request_create(params_request)
+        r = message.NodeMessages.format_incoming_message(params_request)
         self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
 
@@ -2278,10 +2278,10 @@ class TestMessage(unittest.TestCase):
             "command": "approval"
 
         }
-        r = message.ResearcherMessages.request_create(params_request)
+        r = message.ResearcherMessages.format_outgoing_message(params_request)
         self.assertIsInstance(r, message.ApprovalRequest)
 
-        r = message.NodeMessages.request_create(params_request)
+        r = message.NodeMessages.format_incoming_message(params_request)
         self.assertIsInstance(r, message.ApprovalRequest)
 
         params_reply = {
@@ -2294,10 +2294,10 @@ class TestMessage(unittest.TestCase):
             "command": "approval"
 
         }
-        r = message.ResearcherMessages.reply_create(params_reply)
+        r = message.ResearcherMessages.format_incoming_message(params_reply)
         self.assertIsInstance(r, message.ApprovalReply)
 
-        r = message.NodeMessages.reply_create(params_reply)
+        r = message.NodeMessages.format_outgoing_message(params_reply)
         self.assertIsInstance(r, message.ApprovalReply)
 
 

@@ -310,7 +310,7 @@ class Messaging:
         )
 
         # just check the syntax before sending
-        _ = message.NodeMessages.reply_create(msg)
+        _ = message.NodeMessages.format_outgoing_message(msg)
         self._mqtt.publish("general/researcher", json.serialize_msg(msg))
 
     def is_failed(self) -> bool:
