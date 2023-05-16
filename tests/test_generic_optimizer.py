@@ -99,8 +99,28 @@ class TestDeclearnOptimizer(unittest.TestCase):
         msg =  {k: declearn.model.api.Vector.build(v) if any([isinstance(q, types) for p, q in v.items()]) else self.deserializer(v) for k, v in msg.items()}
         return msg
     
-    def perform_sklearn_training_node_side(self, node_id: str, node_model, node_optim_w, global_model_weights, aux_var, data, target) -> Dict:
+    def perform_sklearn_training_node_side(self, node_id: str,
+                                           node_model: SkLearnModel,
+                                           node_optim_w: DeclearnOptimizer,
+                                           global_model_weights: Dict,
+                                           aux_var: Dict,
+                                           data: np.ndarray,
+                                           target: np.ndarray) -> Dict:
+        """Performs a optimizer step on node side for sklearn models, given a dictionary
+        of auxilliary variables. Useful for testing the correct setting of auxilliary variables.
 
+        Args:
+            node_id (str): id of the node set for the test
+            node_model (SkLearnModel): node model
+            node_optim_w (DeclearnOptimizer): declearn optimizer warpper for Node
+            global_model_weights (Dict): global model weights, obtained after aggregation
+            aux_var (Dict): auxiliary variables, in a dictionary. All elements of the aux_var are human readable.
+            data (np.ndarray): data used to train the node model.
+            target (np.ndarray): target data used to train node model
+
+        Returns:
+            Dict: auxiliary variables for node to be sent to researcher.
+        """
         if aux_var:
             aux_var = self.deserializer(aux_var)
             aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
@@ -123,7 +143,14 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # convert Vectors into dictionaries
         return aux_var
     
-    def perform_torch_training_node_side(self, node_id: str, node_model, node_optim_w, global_model_weights, aux_var, data, targets, loss_func) -> Dict:
+    def perform_torch_training_node_side(self, node_id: str,
+                                         node_model: TorchModel,
+                                         node_optim_w: DeclearnOptimizer,
+                                         global_model_weights: Dict,
+                                         aux_var: Dict,
+                                         data: torch.Tensor,
+                                         targets: torch.Tensor,
+                                         loss_func: torch.nn) -> Dict:
 
         if aux_var:
             aux_var = self.deserializer(aux_var)
@@ -375,7 +402,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # FIXME: nothing is being asseted here...
         data = torch.Tensor([[1,1,1,1],
                              [1,0,0,1]])
-        targets = torch.Tensor([[1, 1]])
+        targets = torch.Tensor([[1, 1], [0, 1]])
         
         learning_rate = .12345
         w_decay = .54321
