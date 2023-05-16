@@ -649,4 +649,3 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
 ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
-
