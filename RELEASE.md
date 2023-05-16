@@ -35,7 +35,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release` branch, do the release time updates:
   * `CHANGELOG.md`
   * `README.md` : change `v4.` occurences ; change `version 4` if major release
-  * `fedbiomed/common/constants.py` : change `v4.`
+  * `fedbiomed/common/constants.py` : change `__versions__`
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
