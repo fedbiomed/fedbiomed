@@ -343,11 +343,9 @@ class Scaffold(Aggregator):
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
-            if not isinstance(training_plan._optimizer, torch.optim.SGD):
-                logger.warning(
-                    f"Found optimizer {training_plan._optimizer}, but SCAFFOLD requieres SGD optimizer."
-                    "Results may be inconsistants"
-                )
+            if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
+                logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
+
         return True
 
     def set_nodes_learning_rate_after_training(
@@ -384,7 +382,8 @@ class Scaffold(Aggregator):
 
             else:
                 # ...otherwise retrieve default learning rate
-                lrs += training_plan.get_learning_rate()
+                optim =  training_plan.optimizer()
+                lrs += optim.get_learning_rate()
 
             if len(lrs) == 1:
                 # case where there is one learning rate

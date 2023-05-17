@@ -5,14 +5,13 @@
 
 import sys
 from abc import abstractmethod, ABCMeta
+from contextlib import contextmanager
 from copy import deepcopy
 from io import StringIO
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, Union, Iterator
-from contextlib import contextmanager
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Type, Union
 
 import joblib
 import numpy as np
-from declearn.model.sklearn import NumpyVector
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
@@ -20,6 +19,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
+from fedbiomed.common.logger import logger
 
 
 @contextmanager
@@ -53,24 +53,21 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     Attributes:
         model: Wrapped model
-        _is_declearn_optim: Switch that allows the use of Declearn's optimizers
         param_list: List that contains layer attributes. Should be set when calling `set_init_params` method
 
     Attributes: Class attributes:
-        default_lr_init: Default value for setting learning rate to the scikit learn model. Needed
-            for computing gradients. Set with `set_learning_rate` setter
-        default_lr: Default value for setting learning rate schedule to the scikit learn model. Needed for computing
-            gradients. Set with `set_learning_rate` setter
         is_classification: Boolean flag indicating whether the wrapped model is designed for classification
             or for regression supervised-learning tasks.
     """
 
-    _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
-    model: BaseEstimator  # merely for the docstring builder
     # Class attributes.
-    default_lr_init: ClassVar[float] = 0.1
-    default_lr: ClassVar[str] = "constant"
     is_classification: ClassVar[bool]
+    _model_type: ClassVar[Type[BaseEstimator]] = BaseEstimator
+
+    # Instance attributes' annotations - merely for the docs parser.
+    model: BaseEstimator
+    _null_optim_params: Dict[str, Any]
+    _optim_params: Dict[str, Any] # optimizer parameters set by user
 
     def __init__(
         self,
@@ -85,9 +82,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             FedbiomedModelError: if model is not as scikit learn [BaseEstimator][sklearn.base.BaseEstimator] object
         """
         super().__init__(model)
-        self._is_declearn_optim: bool = False  # TODO: to be changed when implementing declearn optimizers
         self._gradients: Dict[str, np.ndarray] = {}
         self.param_list: List[str] = []
+        self._optim_params: Dict[str, Any] = {}
 
     def init_training(self):
         """Initialises the training by setting up attributes.
@@ -100,46 +97,19 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` is empty. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
-        if self._is_declearn_optim:
-            self.disable_internal_optimizer()
-
-    @staticmethod
-    def _get_iterator_model_params(
-        model_params: Union[Dict[str, np.ndarray], NumpyVector]
-    ) -> Iterable[Tuple[str, np.ndarray]]:
-        """Returns an iterable from model_params, whether it is a dictionary or a `declearn`'s NumpyVector.
-
-        Args:
-            model_params: model parameters or gradients
-
-        Raises:
-            FedbiomedModelError: raised if argument `model_params` type is neither
-                a NumpyVector nor a dictionary
-
-        Returns:
-            Iterable containing model parameters, that returns a mapping of model's layer names
-                (actually model's  name attributes corresponding to layer) and its value.
-        """
-        if isinstance(model_params, NumpyVector):
-            return model_params.coefs.items()
-        if isinstance(model_params, dict):
-            return model_params.items()
-        raise FedbiomedModelError(
-            f"{ErrorNumbers.FB622.value} got a {type(model_params)} "
-            "while expecting a NumpyVector or a dict"
-        )
 
     def get_weights(
         self,
-        as_vector: bool = False,
-    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
-        """Returns model's parameters, optionally as a declearn NumpyVector.
+        only_trainable: bool = False,
+    ) -> Dict[str, np.ndarray]:
+        """Return a copy of the model's trainable weights.
 
         Args:
-            as_vector: Whether to wrap returned weights into a declearn Vector.
+            only_trainable: Unused for scikit-learn models. (Whether to ignore
+                non-trainable model parameters.)
 
         Raises:
-            FedbiomedModelError: If the list of parameters are not defined.
+            FedbiomedModelError: If the model parameters are not initialized.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
@@ -163,11 +133,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         except AttributeError as err:
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value}. Unable to access weights of BaseEstimator "
-                f"model {self.model} (details {err}"
+                f"model {self.model} (details {err})"
             ) from err
-        # Optionally encapsulate into a NumpyVector, else return as a dict.
-        if as_vector:
-            return NumpyVector(weights)
         return weights
 
     def flatten(self) -> List[float]:
@@ -215,28 +182,37 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     def set_weights(
         self,
-        weights: Union[Dict[str, np.ndarray], NumpyVector],
+        weights: Dict[str, np.ndarray],
     ) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
-            weights: Model weights, as a dict mapping parameters' names to their
-                numpy array, or as a declearn NumpyVector wrapping such a dict.
+            weights: Model weights, as a dict mapping parameters' names
+                to their numpy array.
         """
-        for key, val in self._get_iterator_model_params(weights):
+        self._assert_dict_inputs(weights)
+        for key, val in weights.items():
             setattr(self.model, key, val.copy())
 
-    def apply_updates(self, updates: Union[Dict[str, np.ndarray], NumpyVector]) -> None:
+    def apply_updates(
+        self,
+        updates: Dict[str, np.ndarray],
+    ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
 
         Args:
-            updates: Model parameters' updates to add/apply existing model parameters.
+            updates: Model parameters' updates to add (apply) to existing
+                parameters' values.
         """
-        for key, val in self._get_iterator_model_params(updates):
-            wgt = getattr(self.model, key)
-            setattr(self.model, key, wgt + val)
+        self._assert_dict_inputs(updates)
+        for key, val in updates.items():
+            weights = getattr(self.model, key)
+            setattr(self.model, key, weights + val)
 
-    def predict(self, inputs: np.ndarray) -> np.ndarray:
+    def predict(
+        self,
+        inputs: np.ndarray,
+    ) -> np.ndarray:
         """Computes prediction given input data.
 
         Args:
@@ -254,19 +230,20 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         stdout: Optional[List[List[str]]] = None,
         **kwargs,
     ) -> None:
-        """Trains scikit learn model and internally computes gradients
+        """Run a training step, and record associated gradients.
 
         Args:
             inputs: inputs data.
-            targets: targets, to be fit with inputs data
+            targets: targets, to be fit with inputs data.
             stdout: list of console outputs that have been collected
-                during training, that contains losses values. Used to plot model losses. Defaults to None.
+                during training, that contains losses values.
+                Used to plot model losses. Defaults to None.
 
         Raises:
-            FedbiomedModelError: raised if training has not been initialized
+            FedbiomedModelError: if training has not been initialized.
         """
         batch_size = inputs.shape[0]
-        w_init = self.get_weights(as_vector=False)  # type: Dict[str, np.ndarray]
+        w_init = self.get_weights()
         w_updt = {key: np.zeros_like(val) for key, val in w_init.items()}
         # Iterate over the batch; accumulate sample-wise gradients (and loss).
         for idx in range(batch_size):
@@ -281,55 +258,63 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 w_updt[key] += getattr(self.model, key)
                 setattr(self.model, key, w_init[key].copy())
             self.model.n_iter_ -= 1
-        # Compute the batch-averaged gradients (scaled by eta_t).
-        # Note: w_init: {w_t}, w_updt: {w_t - eta_t sum_{s=1}^B(grad_s)}
+        # Compute the batch-averaged, learning-rate-scaled gradients.
+        # Note: w_init: {w_t}, w_updt: {w_t - eta_t * sum_{s=1}^B(grad_s)}
         #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
+
         self._gradients = {
-            key: w_init[key] - (w_updt[key] / batch_size) for key in self.param_list
+            key: w_init[key] - (w_updt[key] / batch_size)
+            for key in self.param_list
         }
-        # When using a declearn Optimizer, negate the learning rate.
-        if self._is_declearn_optim:
-            lrate = self.get_learning_rate()[0]
-            for key, val in self._gradients.items():
-                val /= lrate
-        else:
-            for key, val in self._gradients.items():
-                val *= -1
+
+        # ------------------------------ WARNINGS ----------------------------------
+        #
+        # Warning 1: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
+        # (you will get un-scaled gradients, that need to be scaled back by dividing gradients by the learning rate)
+        # here is a way to do so (with `lrate` as the learning rate): 
+        # ```python
+        # for key, val in self._gradients.items():
+        #        val /= lrate
+        # ````
+        # Warning 2:  `_gradients` has different meanings, when using `disable_internal_optimizer`
+        # if it is not called (ie when using native sklearn optimizer), it is not plain gradients, 
+        # but rather the quantity `lr * grads`
+
         # Finally, increment the model's iteration counter.
         self.model.n_iter_ += 1
+        # Nota: to restore sklearn internal optimizer, please call `enable_internal_optimizer`
 
     def get_gradients(
         self,
-        as_vector: bool = False,
-    ) -> Union[Dict[str, np.ndarray], NumpyVector]:
-        """Returns either computed gradients if declearn optimizer is used or
-            quantity - learning_rate * gradients if plain sklearn is used
-
-        Args:
-            as_vector: Whether to wrap returned gradients into a declearn Vector.
+    ) -> Dict[str, np.ndarray]:
+        """Return computed gradients attached to the model.
 
         Raises:
-            FedbiomedModelError: raised if gradients have not been computed yet (ie model has not been trained)
+            FedbiomedModelError: If no gradients have been computed yet
+                (i.e. the model has not been trained).
 
         Returns:
-            Gradients, as a dictionary mapping parameters' names to their gradient's
-                numpy array, or as a declearn NumpyVector wrapping such a dict.
+            Gradients, as a dict mapping parameters' names to their
+                gradient's numpy array.
         """
-        if self._gradients is None:
+        if not self._gradients:
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Cannot get gradients if model has not been trained beforehand!"
+                f"{ErrorNumbers.FB622.value}. Cannot get gradients if the "
+                "model has not been trained beforehand."
             )
         gradients = self._gradients
-        if as_vector:
-            return NumpyVector(gradients)
         return gradients
 
+    def set_gradients(self, gradients: Dict[str, np.ndarray]) -> None:
+        # TODO: either document or remove this (useless) method
+        self._gradients = gradients
+
     def get_params(self, value: Any = None) -> Dict[str, Any]:
-        """Gets scikit learn model hyperparameters.
+        """Return the wrapped scikit-learn model's hyperparameters.
 
         Please refer to [`baseEstimator documentation`]
         [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `get_params` method
-        for further details
+        for further details.
 
         Args:
             value: if specified, returns a specific hyperparameter, otherwise, returns a dictionary
@@ -343,20 +328,55 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return self.model.get_params()
 
     def set_params(self, **params: Any) -> Dict[str, Any]:
-        """Sets scikit learn model hyperparameters.
+        """Assign some hyperparameters to the wrapped scikit-learn model.
 
         Please refer to [BaseEstimator][sklearn.base.BaseEstimator]
         [https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html] `set_params` method
-        for further details
+        for further details.
 
         Args:
-            params: new hyperparameters to set up the model.
+            params: new hyperparameters to assign to the model.
 
         Returns:
-            Dict[str, Any]: dictionary containing new hyperparameters values
+            Dict[str, Any]: dictionary containing new hyperparameter values.
         """
         self.model.set_params(**params)
         return params
+
+    def disable_internal_optimizer(self) -> None:
+        """Disable the scikit-learn internal optimizer.
+
+        Calling this method alters the wrapped model so that raw gradients are
+        computed and attached to it (rather than relying on scikit-learn to
+        apply a learning rate that may be scheduled to vary along time).
+
+        ''' warning "Call it only if using an external optimizer"
+        """
+        # Record initial params, then override optimizer ones.
+        self._optim_params = self.get_params()
+        self.set_params(**self._null_optim_params)
+        # Warn about overridden values.
+        changed_params: List[str] = []
+        for key, val in self._null_optim_params.items():
+            param = self._optim_params.get(key)
+            if param is not None and param != val:
+                changed_params.append(key)
+        if changed_params:
+            changed = ",\n\t".join(changed_params)
+            logger.warning(
+                "The following non-default model parameters were overridden "
+                f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}"
+            )
+
+    def enable_internal_optimizer(self) -> None:
+        """Enable the scikit-learn internal optimizer.
+
+        Calling this method restores any model parameter previously overridden
+        due to calling the counterpart `disable_internal_optimizer` method.
+        """
+        if self._optim_params:
+            self.set_params(**self._optim_params)
+            logger.debug("Internal Optimizer restored")
 
     def export(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
@@ -415,40 +435,31 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 a list of several learning rates, one for each layer of the model.
         """
 
-    @abstractmethod
-    def disable_internal_optimizer(self) -> None:
-        """Abstract method to apply;
-
-        Disables scikit learn internal optimizer by setting arbitrary learning rate parameters to the
-        scikit learn model, in order to then compute its gradients.
-
-        ''' warning "Call it only if using `declearn` optimizers"
-                Method implementation will depend on the attribute used to set up
-                these arbitrary arguments.
-        """
-
 
 class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
     """BaseSkLearnModel abstract subclass for geenric SGD-based models."""
 
     _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
+
     model: Union[SGDClassifier, SGDRegressor]  # merely for the docstring builder
 
+    def __init__(self, model: BaseEstimator) -> None:
+        super().__init__(model)
+        self._null_optim_params: Dict[str, Any] = {
+            'eta0': 1.0,
+            'learning_rate': "constant",
+        }
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
-
-    def disable_internal_optimizer(self):
-        self.model.eta0 = self.default_lr_init
-        self.model.learning_rate = self.default_lr
-        self._is_declearn_optim = True
 
 
 class SGDRegressorSKLearnModel(SGDSkLearnModel):
     """BaseSkLearnModel subclass for SGDRegressor models."""
 
     _model_type = SGDRegressor
-    model: SGDRegressor  # merely for the docstring builder
     is_classification = False
+
+    model: SGDRegressor  # merely for the docstring builder
 
     def set_init_params(self, model_args: Dict[str, Any]):
         """Initialize the model's trainable parameters."""
@@ -465,8 +476,9 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
     """BaseSkLearnModel subclass for SGDClassifier models."""
 
     _model_type = SGDClassifier
-    model: SGDClassifier  # merely for the docstring builder
     is_classification = True
+
+    model: SGDClassifier  # merely for the docstring builder
 
     def set_init_params(self, model_args: Dict[str, Any]) -> None:
         """Initialize the model's trainable parameters."""
@@ -497,13 +509,15 @@ class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of 
     _model_type: ClassVar[Union[Type[MLPClassifier], Type[MLPRegressor]]]
     model: Union[MLPClassifier, MLPRegressor]  # merely for the docstring builder
 
+    def __init__(self, model: BaseEstimator) -> None:
+        self._null_optim_params: Dict[str, Any] = {
+            "learning_rate_init": 1.0,
+            "learning_rate": "constant",
+        }
+        super().__init__(model)
+
     def get_learning_rate(self) -> List[float]:
         return [self.model.learning_rate_init]
-
-    def disable_internal_optimizer(self):
-        self.model.learning_rate_init = self.default_lr_init
-        self.model.learning_rate = self.default_lr
-        self._is_declearn_optim = True
 
 
 SKLEARN_MODELS = {

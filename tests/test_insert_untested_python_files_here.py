@@ -36,7 +36,8 @@ import fedbiomed.common.models._model
 import fedbiomed.common.models._sklearn
 import fedbiomed.common.models._torch
 import fedbiomed.common.mpc_controller
-import fedbiomed.common.optimizer
+import fedbiomed.common.optimizers.optimizer
+import fedbiomed.common.optimizers.generic_optimizers
 import fedbiomed.common.privacy.__init__
 import fedbiomed.common.privacy._dp_controller
 import fedbiomed.common.secagg.__init__

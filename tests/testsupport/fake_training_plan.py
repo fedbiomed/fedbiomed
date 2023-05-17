@@ -58,7 +58,13 @@ class FakeModel(BaseTrainingPlan):
             to_params (bool): originally, whether to return parameter into
             the model or into a dictionary. Unused in this dummy class.
         """
+    def init_optimizer(self, optimizer_args: Dict[str, Any]):
+        """Fakes `init_optimizer` method, used to initialize an optimizer (either framework 
+        specific like pytorch optimizer, or non-framework specific like declearn) 
 
+        Args:
+            optimizer_args: optimizer parameters as a dictionary
+        """
     def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for

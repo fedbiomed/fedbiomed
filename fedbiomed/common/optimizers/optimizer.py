@@ -16,14 +16,18 @@ from fedbiomed.common.exceptions import FedbiomedOptimizerError
 
 
 class Optimizer:
-    """Optimizer class, interfacing the declearn one to provide with a modular SGD-core algorithm."""
+    """Optimizer class with a declearn-backed modular SGD-core algorithm."""
 
     def __init__(
         self,
         lr: float,
         decay: float = 0.0,
-        modules: Optional[Sequence[Union[OptiModule, str, Tuple[str, Dict[str, Any]]]]] = None,
-        regularizers: Optional[Sequence[Union[Regularizer, str, Tuple[str, Dict[str, Any]]]]] = None,
+        modules: Optional[
+            Sequence[Union[OptiModule, str, Tuple[str, Dict[str, Any]]]]
+        ] = None,
+        regularizers: Optional[
+            Sequence[Union[Regularizer, str, Tuple[str, Dict[str, Any]]]]
+        ] = None,
     ) -> None:
         """Instantiate the declearn-issued gradient-descent optimizer.
 
@@ -68,8 +72,33 @@ class Optimizer:
         except (KeyError, TypeError) as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: declearn Optimizer instantiation"
-                " raised the following exception: {exc}"
+                f" raised the following exception: {repr(exc)}"
             ) from exc
+
+    @classmethod
+    def from_declearn_optimizer(
+        cls,
+        declearn_optimizer: DeclearnOptimizer,
+    ) -> Self:
+        """Wrap a declearn Optimizer into a fed-biomed one.
+
+        Args:
+            declearn_optimizer: [declearn.optimizer.Optimizer][] instance that
+                needs to be wrapped.
+
+        Returns:
+            Fed-BioMed `Optimizer` instance wrapping a copy of the input
+                declearn optimizer.
+        """
+        config = declearn_optimizer.get_config()
+        optim = cls(
+            lr=config["lrate"],
+            decay=config["w_decay"],
+            modules=config["modules"],
+            regularizers=config["regularizers"],
+        )
+        optim._optimizer.set_state(declearn_optimizer.get_state())
+        return optim
 
     def init_round(self) -> None:
         """Trigger start-of-training-round behavior of wrapped regularizers."""
@@ -77,7 +106,7 @@ class Optimizer:
             self._optimizer.start_round()
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'init_round': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'init_round': {exc}"
             ) from exc
 
     def step(self, grads: Vector, weights: Vector) -> Vector:
@@ -105,8 +134,9 @@ class Optimizer:
                 The results are wrapped into a declearn Vector structure, the
                 concrete type of which is same as input `grads` and `weights`.
         """
+        # This code mostly replicates that of
+        # `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
         try:
-            # This code mostly replicates that of `declearn.optimizer.Optimizer.compute_updates_from_gradients`.
             # Add loss-regularization terms' derivatives to the raw gradients.
             for reg in self._optimizer.regularizers:
                 grads = reg.run(grads, weights)
@@ -122,22 +152,29 @@ class Optimizer:
             return updates
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'step': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'step': {exc}"
             ) from exc
 
-    def get_aux(self) -> Dict[str, Dict[str, Any]]:
-        """Return auxiliary variables that need to be shared between the nodes and the researcher.
+    def get_aux(self) -> Dict[str, Union[Dict[str, Any], Any]]:
+        """Return auxiliary variables that need to be shared across network.
 
         Returns:
             Aux-var dict that associates `module.collect_aux_var()` values to
                 `module.name` keys for each and every module plugged in this
                 Optimizer that has some auxiliary variables to share.
+
+        !!! info "Note"
+            "Auxiliary variables" are information that needs to be shared
+            between the nodes and the researcher between training rounds, to
+            synchronize some optimizer plug-ins that work by pair. Their
+            production via this method can have internal side effects;
+            `get_aux` should therefore be called sparingly.
         """
         try:
             return self._optimizer.collect_aux_var()
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'get_aux': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'get_aux': {exc}"
             ) from exc
 
     def set_aux(self, aux: Dict[str, Dict[str, Any]]) -> None:
@@ -154,6 +191,13 @@ class Optimizer:
             FedbiomedOptimizerError: If a key from `aux_var` does not match the
                 name of any module plugged in this optimizer (i.e. if received
                 variables cannot be mapped to a destinatory module).
+
+        !!! info "Note"
+            "Auxiliary variables" are information that is shared between the
+            nodes and researcher between training rounds, to synchronize some
+            optimizer plug-ins that work by pair. The inputs to this method are
+            not simply stored by the Optimizer, but are processed into internal
+            side effects; this method should therefore be called sparingly.
         """
         try:
             self._optimizer.process_aux_var(aux)
@@ -178,7 +222,7 @@ class Optimizer:
             return {"config": config, "states": states}
         except Exception as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB620.value}: error in 'get_state': {exc}"
+                f"{ErrorNumbers.FB621.value}: error in 'get_state': {exc}"
             ) from exc
 
     @classmethod
@@ -198,6 +242,10 @@ class Optimizer:
         try:
             optim = DeclearnOptimizer.from_config(state["config"])
             optim.set_state(state["states"])
+        except KeyError as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621.value}: Missing field in the breakpoints state: {exc}"
+            ) from exc
         except Exception as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB621.value}: `Optimizer.load_state`: {exc}"
