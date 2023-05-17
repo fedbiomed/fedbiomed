@@ -24,20 +24,12 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, Dataset
 
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-<<<<<<< HEAD
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedTrainingPlanError, FedbiomedModelError
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.metrics import MetricTypes
-
-=======
-
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
->>>>>>> e5501788c081632dc0ec2856af1ad6ea8ac3870c
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
@@ -713,39 +705,7 @@ class TestTorchnn(unittest.TestCase):
                                                                 tp_scaffold._model.model.state_dict().items()):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
 
-    def test_torch_nn_07_get_learning_rate(self):
-        """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
-        learning rate
-        """
-        # first test wih basic optimizer (eg without learning rate scheduler)
-        tp = TorchTrainingPlan()
-        tp._model = torch.nn.Linear(2, 3)
-        lr = .1
-        dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
-        target = torch.Tensor([1, 2, 2])
-        tp._optimizer = SGD(tp._model.parameters(), lr=lr)
-
-        lr_extracted = tp.get_learning_rate()
-        self.assertListEqual(lr_extracted, [lr])
-
-        # last test using a pytorch scheduler
-        scheduler = LambdaLR(tp._optimizer, lambda e: 2*e)
-        # this pytorch scheduler increase earning rate by twice its previous value
-        for e, (x,y) in enumerate(zip(dataset, target)):
-            # training a simple model in pytorch fashion
-            # `e` represents epoch
-            out = tp._model.forward(x)
-            tp._optimizer.zero_grad()
-            loss = torch.mean(out) - y
-            loss.backward()
-            tp._optimizer.step()
-            scheduler.step()
-
-            # checks
-            lr_extracted = tp.get_learning_rate()
-            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
-
-    def test_torch_nn_08_fedprox_1_non_frozen_layers(self):
+    def test_torch_nn_07_fedprox_1_non_frozen_layers(self):
         # test created for bug #537: FedProx regularization term
         complex_model = nn.Sequential(nn.Conv1d(1, 1, 2),
                                       nn.ReLU(),
@@ -801,7 +761,7 @@ class TestTorchnn(unittest.TestCase):
             self.assertGreaterEqual(corrected_l, l)  # if fedprox_mu is positive, regularization term will be positive
             # and thus, corrected loss will always be greater than the actual loss (correct_loss = loss + fedprox_mu * reg / 2)
 
-    def test_torch_nn_08_fedprox_2_forzen_layers(self):
+    def test_torch_nn_07_fedprox_2_forzen_layers(self):
         # test fedprox computation with model containing frozen layers
         model = nn.Linear(2, 1)
         frozen_model = copy.deepcopy(model)
