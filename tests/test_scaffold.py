@@ -3,6 +3,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -353,7 +354,10 @@ class TestScaffold(ResearcherTestCase):
         # same test with a mix of nodes present in training_replies and non present
 
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ['node_99']})
-        training_plan.get_learning_rate = MagicMock(return_value=lr)
+        optim_w = MagicMock(spec=NativeTorchOptimizer)
+        optim_w.get_learning_rate = MagicMock(return_value=lr)
+        training_plan.optimizer = MagicMock(return_value=optim_w)
+        #training_plan.get_learning_rate = MagicMock(return_value=lr)
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,

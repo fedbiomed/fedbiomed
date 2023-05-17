@@ -1,4 +1,5 @@
 import unittest
+
 import torch
 
 from torch.nn import Module
@@ -6,6 +7,8 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 
 from unittest.mock import patch, MagicMock
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.exceptions import FedbiomedDPControllerError
 
@@ -107,32 +110,33 @@ class TestDPController(unittest.TestCase):
     def test_dep_controller_06_before_training(self, validate_and_fix):
         """Tests before training method with different scenarios"""
 
-        model_false = MagicMock()
+        #model_false = MagicMock()
         opt_false = MagicMock()
         loader_false = MagicMock()
 
         model = Module()
+        model_wrapper = MagicMock(spec=TorchModel)
+        model_wrapper.model = model
         opt = Adam([torch.zeros([2, 4])])
         loader = DataLoader(TestDPController.DS())
+        optim_wrapper = NativeTorchOptimizer(model_wrapper, opt)
 
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model_false, opt, loader)
+            self.dpl.before_training(opt_false, loader)
 
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt_false, loader)
-
-        with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt, loader_false)
+            self.dpl.before_training(optim_wrapper, loader_false)
 
         validate_and_fix.return_value = model
         self.privacy_engine_make_private.side_effect = Exception
         with self.assertRaises(FedbiomedDPControllerError):
-            self.dpl.before_training(model, opt, loader)
+            self.dpl.before_training(optim_wrapper, loader)
 
         self.privacy_engine_make_private.side_effect = None
         self.privacy_engine_make_private.reset_mock()
-        self.dpl.before_training(model, opt, loader)
-        self.privacy_engine_make_private.assert_called_once_with(module=model,
+        self.dpl.before_training(optim_wrapper, loader)
+        self.privacy_engine_make_private.assert_called_once_with(
+                                                                 module=model,
                                                                  optimizer=opt,
                                                                  data_loader=loader,
                                                                  noise_multiplier=self.dp_args_l.get('sigma'),
@@ -168,3 +172,7 @@ class TestDPController(unittest.TestCase):
         # Post processes with DPC
         p = self.dpc.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
+
+
+if __name__ == '__main__':  # pragma: no cover
+    unittest.main()

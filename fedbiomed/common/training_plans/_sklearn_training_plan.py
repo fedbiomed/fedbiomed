@@ -20,6 +20,10 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import SkLearnModel
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common import utils
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -55,11 +59,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the SKLearnTrainingPlan."""
         super().__init__()
-        self._model: SkLearnModel = SkLearnModel(self._model_cls)
+        self._model: Union[SkLearnModel, None] = None
         self._training_args = {}  # type: Dict[str, Any]
         self.__type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
+        self._optimizer: Optional[BaseOptimizer] = None
         self.add_dependency([
             "import inspect",
             "import numpy as np",
@@ -72,7 +77,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def post_init(
             self,
             model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
+            training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
@@ -85,23 +90,30 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
-        self._model.model_args = model_args
+        self._model_args = model_args
         self._aggregator_args = aggregator_args or {}
 
+        self._optimizer_args = training_args.optimizer_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
+
         # Add dependencies
         self._configure_dependencies()
+
+        # configure optimizer (if provided in the TrainingPlan)
+        self._configure_optimizer()
+        
+        # FIXME: should we do that in `_configure_optimizer`
+        # from now on, `self._optimizer`` is not None
         # Override default model parameters based on `self._model_args`.
         params = {
             key: model_args.get(key, val)
             for key, val in self._model.get_params().items()
         }
-
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
-        # TODO: raise error if
         self._model.set_init_params(model_args)
 
     def set_data_loaders(
@@ -134,7 +146,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Returns:
             Model arguments
         """
-        return self._model.model_args
+        return self._model_args
 
     def training_args(self) -> Dict[str, Any]:
         """Retrieve training arguments.
@@ -144,13 +156,68 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         return self._training_args
 
-    def model(self) -> BaseEstimator:
+    def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
 
         Returns:
             Scikit-learn model instance
         """
-        return self._model.model
+        if self._model is not None:
+            return self._model.model
+        else:
+            return self._model
+
+    def _configure_optimizer(self):
+        """Configures declearn Optimizer for scikit-learn if method
+        `init_optimizer` is provided in the TrainingPlan, otherwise considers
+        only scikit-learn internal optimization.
+
+        Raises:
+            FedbiomedTrainingPlanError: raised if no model has been found
+            FedbiomedTrainingPlanError: raised if more than one argument has been provided
+                to the `init_optim` method.
+        """
+        # Message to format for unexpected argument definitions in special methods
+        method_error = \
+            ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \
+                                       "can not have more than one argument/parameter (for {prefix} arguments) or " \
+                                       "method can be defined without argument and `{alternative}` can be used for " \
+                                       "accessing {prefix} arguments defined in the experiment."
+        
+        if self._model is None:
+            raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
+        # Get optimizer defined by researcher ---------------------------------------------------------------------
+        init_optim_spec = utils.get_method_spec(self.init_optimizer)
+        if not init_optim_spec:
+            optimizer = self.init_optimizer()
+        elif len(init_optim_spec.keys()) == 1:
+            optimizer = self.init_optimizer(self.optimizer_args())
+        else:
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
+                                                                 method="init_optimizer",
+                                                                 keys=list(init_optim_spec.keys()),
+                                                                 alternative="self.optimizer_args()"))
+        # create optimizer builder
+        optim_builder = OptimizerBuilder()
+        
+        # then build optimizer wrapper given model and optimizer
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
+
+    def init_optimizer(self) -> Optional[FedOptimizer]:
+        """Creates and configures optimizer. By default, returns None (meaning native inner scikit
+        learn optimization SGD based will be used).
+        
+        In the case a Declearn Optimizer is used, this method should be overridden in the Training Plan and return
+        a Fedbiomed [`Optimizer`][fedbiomed.common.optimizers.optimizer.Optimizer]"""
+        pass
+
+    def optimizer_args(self) -> Dict:
+        """Retrieves optimizer arguments
+
+        Returns:
+            Optimizer arguments
+        """
+        return self._optimizer_args
 
     def training_routine(
             self,
@@ -166,8 +233,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 These arguments can specify GPU use; however, this is not
                 supported for scikit-learn models and thus will be ignored.
         """
-        if self._model is None:
-            raise FedbiomedTrainingPlanError('model is None')
+        if self._optimizer is None:
+            raise FedbiomedTrainingPlanError('Optimizer is None, please run `post_init` beforehand')
 
         # Run preprocesses
         self._preprocess()
@@ -213,7 +280,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         child classes, and is called as part of `training_routine`
         (that notably enforces preprocessing and exception catching).
         """
-        return None
 
     def testing_routine(
             self,

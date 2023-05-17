@@ -4,9 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, Optional, Union, Type, TypeVar, List
-
-from declearn.model.api import Vector
+from typing import Any, ClassVar, Dict, Generic, Type, TypeVar, List
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
@@ -16,17 +14,14 @@ from fedbiomed.common.logger import logger
 # Generic type variables for annotations: specify types that are abstract
 # at this level, but have to be coherent when defined by children classes.
 _MT = TypeVar("_MT")  # model type
-_DT = TypeVar("_DT")  # data array type
-_VT = TypeVar("_VT", bound=Vector)  # declearn vector type
+DT = TypeVar("DT")  # data array type
 
 
-class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
+class Model(Generic[_MT, DT], metaclass=ABCMeta):
     """Model abstraction, that wraps and handles both native models
 
     Attributes:
-        model: native model, written with frameworks supported by Fed-BioMed.
-        model_args: model arguments stored as a dictionary, that provides additional
-            arguments for building/using models. Defaults to None.
+        model: native model, written in a framework supported by Fed-BioMed.
     """
 
     _model_type: ClassVar[Type[Any]]
@@ -37,6 +32,20 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
         Args:
             model: native model wrapped, of child-class-specific type.
         """
+        self._validate_model_type(model)
+        self.model: Any = model
+
+    def set_model(self, model: _MT) -> None:
+        """Replace the wrapped model with a new one.
+
+        Args:
+            model: New model instance that needs assignment as the `model`
+                attribute.
+        """
+        self._validate_model_type(model)
+        self.model = model
+
+    def _validate_model_type(self, model: _MT) -> None:
         if not isinstance(model, self._model_type):
             err_msg = (
                 f"{ErrorNumbers.FB622.value}: unproper 'model' input type: "
@@ -44,80 +53,76 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
             )
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
-        self.model: Any = model
-        self.model_args: Optional[Dict[str, Any]] = None
 
     @abstractmethod
     def init_training(self):
-        """Initializes parameters before model training"""
+        """Initialize parameters before model training."""
 
     @abstractmethod
     def train(self, inputs: Any, targets: Any, **kwargs) -> None:
-        """Trains model given inputs and targets data
+        """Perform a training step given inputs and targets data.
 
         !!! warning "Warning"
             Please run `init_training` method before running `train` method,
             so to initialize parameters needed for model training"
 
         !!! warning "Warning"
-            This function may not update weights. You may need to call `apply_updates`
-            to apply updates to the model
+            This function usually does not update weights. You need to call
+            `apply_updates` to ensure updates are applied to the model.
 
         Args:
-            inputs (Any): input (training) data.
-            targets (Any): target values.
+            inputs: input (training) data.
+            targets: target values.
         """
 
     @abstractmethod
     def predict(self, inputs: Any) -> Any:
-        """Returns model predictions given input values
+        """Return model predictions given input values.
 
         Args:
-            inputs (Any): input values.
+            inputs: input values.
 
         Returns:
             Any: predictions.
         """
 
     @abstractmethod
-    def apply_updates(self, updates: Any):
+    def apply_updates(self, updates: Dict[str, DT]):
         """Applies updates to the model.
 
         Args:
-            updates (Any): model updates.
+            updates: model updates.
         """
 
     @abstractmethod
-    def get_weights(self, as_vector: bool = False) -> Union[Dict[str, _DT], _VT]:
+    def get_weights(self) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
-            as_vector: Whether to wrap returned weights into a declearn Vector.
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
 
         Returns:
-            Model weights, as a dictionary mapping parameters' names to their
-                value, or as a declearn Vector structure wrapping such a dict.
+            Model weights, as a dict mapping parameters' names to their value.
         """
 
     @abstractmethod
-    def set_weights(self, weights: Union[Dict[str, _DT], _VT]) -> None:
+    def set_weights(self, weights: Dict[str, DT]) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
-            weights: Model weights, as a dict mapping parameters' names to their
-                value, or as a declearn Vector structure wrapping such a dict.
+            weights: Model weights, as a dict mapping parameters' names
+                to their value.
         """
 
     @abstractmethod
-    def get_gradients(self, as_vector: bool = False) -> Union[Dict[str, Any], _VT]:
+    def get_gradients(self) -> Dict[str, DT]:
         """Return computed gradients attached to the model.
 
-        Args:
-            as_vector: Whether to wrap returned gradients into a declearn Vector.
-
         Returns:
-            Gradients, as a dictionary mapping parameters' names to their gradient's
-                value, or as a declearn Vector structure wrapping such a dict.
+            Gradients, as a dict mapping parameters' names to their
+                gradient's value.
         """
 
     @abstractmethod
@@ -179,6 +184,15 @@ class Model(Generic[_MT, _DT, _VT], metaclass=ABCMeta):
             model: reloaded model instance to be wrapped, that will be type-
                 checked as part of the calling `reload` method.
         """
+
+    @staticmethod
+    def _assert_dict_inputs(params: Dict[str, Any]) -> None:
+        """Raise a FedbiomedModelError if `params` is not a dict."""
+        if not isinstance(params, dict):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}: Got an object with type "
+                f"'{type(params)}' while expecting a dict."
+            )
 
     @abstractmethod
     def unflatten(

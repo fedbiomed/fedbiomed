@@ -8,6 +8,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 import torch
 from torch.utils.data import DataLoader
 
@@ -55,7 +56,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     """
 
     _model: Model
-
+    _optimizer: BaseOptimizer
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -221,11 +222,17 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._model.set_weights(params)
 
-    def get_learning_rate(self) -> List[float]:
-        raise FedbiomedTrainingPlanError("method not implemented")
-
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
+
+    @abstractmethod
+    def init_optimizer(self) -> Any:
+        """Method for declaring optimizer by default
+        
+        Returns:
+            either framework specific optimizer (or None) or 
+            FedBiomed [`Optimizers`][`fedbiomed.common.optimizers.Optimizer`]
+        """
 
     def optimizer_args(self) -> Dict:
         """Retrieves optimizer arguments (to be overridden

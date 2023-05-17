@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Torch interfacing Model class."""
+
 import copy
-from typing import Dict, Iterable, Tuple, Union, List
+from typing import Dict, List
 
 import numpy as np
 import torch
-from declearn.model.torch import TorchVector
 
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
@@ -20,7 +20,8 @@ class TorchModel(Model):
 
     Attributes:
         model: torch.nn.Module. Pytorch model wrapped.
-        init_params: OrderedDict. Model initial parameters. Set when calling `init_training`
+        init_params: OrderedDict. Model initial parameters.
+            Set when calling `init_training`.
     """
 
     _model_type = torch.nn.Module
@@ -33,16 +34,12 @@ class TorchModel(Model):
 
     def get_gradients(
         self,
-        as_vector: bool = False,
-    ) -> Union[Dict[str, torch.Tensor], TorchVector]:
-        """Return the gradients attached to the model, opt. as a declearn TorchVector.
-
-        Args:
-            as_vector: Whether to wrap returned gradients into a declearn Vector.
+    ) -> Dict[str, torch.Tensor]:
+        """Return the gradients attached to the model.
 
         Returns:
-            Gradients, as a dictionary mapping parameters' names to their gradient's
-                torch tensor, or as a declearn TorchVector wrapping such a dict.
+            Gradients, as a dict mapping parameters' names to their gradient's
+                torch tensor.
         """
         gradients = {
             name: param.grad.detach().clone()
@@ -50,39 +47,34 @@ class TorchModel(Model):
             if (param.requires_grad and param.grad is not None)
         }
         if len(gradients) < len(list(self.model.named_parameters())):
-            # FIXME: this will be triggered when having some frozen weights even if training was properly conducted
+            # FIXME: this will be triggered when having some frozen weights
+            #        even if training was properly conducted
             logger.warning(
-                "Warning: can not retrieve all gradients from the model. Are you sure you have "
-                "trained the model beforehand?"
+                "Warning: can not retrieve all gradients from the model. "
+                "Are you sure you have trained the model beforehand?"
             )
-        if as_vector:
-            return TorchVector(gradients)
         return gradients
 
     def get_weights(
         self,
-        as_vector: bool = False,
         only_trainable: bool = False,
-    ) -> Union[Dict[str, torch.Tensor], TorchVector]:
-        """Return the model's parameters, optionally as a declearn TorchVector.
+    ) -> Dict[str, torch.Tensor]:
+        """Return the model's parameters.
 
         Args:
-            only_trainable (bool, optional): whether to gather weights only on trainable layers (ie
-                non-frozen layers) or all layers (trainable and frozen). Defaults to False, (trainable and
-                frozen ones)
-            as_vector: Whether to wrap returned weights into a declearn Vector.
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
-                torch tensor, or as a declearn TorchVector wrapping such a dict.
+                torch tensor.
         """
         parameters = {
             name: param.detach().clone()
             for name, param in self.model.named_parameters()
             if param.requires_grad or not only_trainable
         }
-        if as_vector:
-            return TorchVector(parameters)
         return parameters
 
     def flatten(self) -> List[float]:
@@ -131,16 +123,16 @@ class TorchModel(Model):
 
     def set_weights(
         self,
-        weights: Union[Dict[str, torch.Tensor], TorchVector],
+        weights: Dict[str, torch.Tensor],
     ) -> None:
         """Sets model weights.
 
         Args:
-            weights: Model weights, as a dict mapping parameters' names to their
-                torch tensor, or as a declearn TorchVector wrapping such a dict.
+            weights: Model weights, as a dict mapping parameters' names
+                to their torch tensor.
         """
-        state_dict = dict(self._get_iterator_model_params(weights))
-        incompatible = self.model.load_state_dict(state_dict, strict=False)
+        self._assert_dict_inputs(weights)
+        incompatible = self.model.load_state_dict(weights, strict=False)
         # Warn about (probably-)missing trainable weights.
         # Note: state_dict may include values that do not belong to the model's
         # parameters, and/or input weights may exclude non-trainable weights,
@@ -163,61 +155,33 @@ class TorchModel(Model):
 
     def apply_updates(
         self,
-        updates: Union[TorchVector, Dict[str, torch.Tensor]],
+        updates: Dict[str, torch.Tensor],
     ) -> None:
         """Apply incoming updates to the wrapped model's parameters.
 
         Args:
             updates: model updates to be added to the model.
         """
-        iterator = self._get_iterator_model_params(updates)
+        self._assert_dict_inputs(updates)
         with torch.no_grad():
-            for name, update in iterator:
+            for name, update in updates.items():
                 param = self.model.get_parameter(name)
                 param.add_(update.to(param.device))
 
     def add_corrections_to_gradients(
         self,
-        corrections: Union[TorchVector, Dict[str, torch.Tensor]],
+        corrections: Dict[str, torch.Tensor],
     ) -> None:
-        """Adds values to attached gradients in the model
+        """Add values to the gradients currently attached to the model.
 
         Args:
-            corrections: corrections to be added to model's gradients
+            corrections: corrections to be added to the model's gradients.
         """
-        iterator = self._get_iterator_model_params(corrections)
-        for name, update in iterator:
+        self._assert_dict_inputs(corrections)
+        for name, update in corrections.items():
             param = self.model.get_parameter(name)
             if param.grad is not None:
                 param.grad.add_(update.to(param.grad.device))
-
-    @staticmethod
-    def _get_iterator_model_params(
-        model_params: Union[Dict[str, torch.Tensor], TorchVector],
-    ) -> Iterable[Tuple[str, torch.Tensor]]:
-        """Returns an iterable from model_params, whether it is a
-        dictionary or a declearn's TorchVector
-
-        Args:
-            model_params: model parameters
-
-        Raises:
-            FedbiomedModelError: if argument `model_params` type is neither
-                a TorchVector nor a dictionary.
-
-        Returns:
-            Iterable[Tuple]: iterable containing model parameters, that returns layer name and its value
-        """
-        if isinstance(model_params, TorchVector):
-            iterator = model_params.coefs.items()
-        elif isinstance(model_params, dict):
-            iterator = model_params.items()
-        else:
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}. Got a {type(model_params)} "
-                f"while expecting TorchVector or OrderedDict/Dict"
-            )
-        return iterator
 
     def predict(
         self,
