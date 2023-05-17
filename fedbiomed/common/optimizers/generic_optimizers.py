@@ -85,7 +85,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """
         if not isinstance(model, self._model_cls):
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB625.value}, in `model` argument, expected an instance "
+                f"{ErrorNumbers.FB626.value}, in `model` argument, expected an instance "
                 f"of {self._model_cls} but got an object of type {type(model)}."
             )
         self._model: Model = model
@@ -120,7 +120,7 @@ class DeclearnOptimizer(BaseOptimizer):
             optimizer = FedOptimizer.from_declearn_optimizer(optimizer)
         elif not isinstance(optimizer, FedOptimizer):
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB625.value}: expected a declearn optimizer,"
+                f"{ErrorNumbers.FB626.value}: expected a declearn optimizer,"
                 f" but got an object with type {type(optimizer)}."
             )
         super().__init__(model, optimizer)
@@ -166,7 +166,7 @@ class DeclearnOptimizer(BaseOptimizer):
         """
         # warning: specific for pytorch
         if not isinstance(self._model, TorchModel):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value}. This method can only be used for TorchModel, but got {self._model}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}. This method can only be used for TorchModel, but got {self._model}")
         self._model.model.zero_grad()
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
@@ -189,7 +189,7 @@ class DeclearnOptimizer(BaseOptimizer):
         if isinstance(self._model, SkLearnModel):
             return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
         else:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
 
 
 class NativeTorchOptimizer(BaseOptimizer):
@@ -207,7 +207,7 @@ class NativeTorchOptimizer(BaseOptimizer):
             FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer` object.
         """
         if not isinstance(optimizer, torch.optim.Optimizer):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB625.value} Expected a native pytorch `torch.optim` optimizer, but got {type(optimizer)}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value} Expected a native pytorch `torch.optim` optimizer, but got {type(optimizer)}")
         super().__init__(model, optimizer)
         logger.debug("using native torch optimizer")
 
@@ -330,13 +330,13 @@ class OptimizerBuilder:
             optim_cls = OptimizerBuilder.get_parent_class(optimizer)
             selected_optim_wrapper = OptimizerBuilder.BUILDER[tp_type]
         except KeyError as exc:
-            err_msg = f"{ErrorNumbers.FB625.value} Unknown Training Plan type {tp_type} "
+            err_msg = f"{ErrorNumbers.FB626.value} Unknown Training Plan type {tp_type} "
             raise FedbiomedOptimizerError(err_msg) from exc
         try:
             return selected_optim_wrapper[optim_cls](model, optimizer)
         except KeyError as exc:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB625.value} Training Plan type {tp_type} not compatible with optimizer {optimizer}"
+                f"{ErrorNumbers.FB626.value} Training Plan type {tp_type} not compatible with optimizer {optimizer}"
             ) from exc
 
     @staticmethod
@@ -366,5 +366,5 @@ class OptimizerBuilder:
                 return type(optimizer).__bases__[0]
         else:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB625.value} Cannot find parent class of Optimizer {optimizer}"
+                f"{ErrorNumbers.FB626.value} Cannot find parent class of Optimizer {optimizer}"
             )

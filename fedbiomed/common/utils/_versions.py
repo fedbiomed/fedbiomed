@@ -14,6 +14,8 @@ See https://fedbiomed.org/latest/user-guide/deployment/versions for more informa
 Components concerned by versioning:
 
 - config files (researcher and node)
+- messaging protocol (i.e. structure of Message classes)
+- breakpoints
 
 Instructions for updating the version
 
@@ -26,6 +28,7 @@ Instructions for updating the version
 
 from packaging.version import Version
 from typing import Optional, Union
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedVersionError
 
@@ -78,19 +81,32 @@ def raise_for_version_compatibility(their_version: Union[FBM_Component_Version, 
         our_version = FBM_Component_Version(our_version)
     if isinstance(their_version, str):
         their_version = FBM_Component_Version(their_version)
+    if not isinstance(our_version, FBM_Component_Version):
+        msg = f"{ErrorNumbers.FB625.value}: Component version has incorrect type `our_version` type={str(type(our_version))} value={our_version}"
+        logger.critical(msg)
+        raise FedbiomedVersionError(msg)
+    if not isinstance(their_version, FBM_Component_Version):
+        msg = f"{ErrorNumbers.FB625.value}: Component version has incorrect type `their_version` type={str(type(their_version))} value={their_version}"
+        logger.critical(msg)
+        raise FedbiomedVersionError(msg)
     if our_version != their_version:
-        msg = _create_msg_for_version_check(
-            "Found version %s, expected version %s" if error_msg is None else error_msg,
-            their_version,
-            our_version
-        )
         # note: the checks below rely on the short-circuiting behaviour of the or operator
         # (e.g. when checking our_version.minor < their_version.minor we have the guarantee that
         # our_version.major == their_version.major
         if our_version.major != their_version.major or \
                 our_version.minor < their_version.minor or \
                 (our_version.minor == their_version.minor and our_version.micro < their_version.micro):
+            msg = _create_msg_for_version_check(
+                f"{ErrorNumbers.FB625.value}: Found incompatible version %s, expected version %s" if error_msg is None else error_msg,
+                their_version,
+                our_version
+            )
             logger.critical(msg)
             raise FedbiomedVersionError(msg)
         else:
+            msg = _create_msg_for_version_check(
+                "Found version %s, expected version %s",
+                their_version,
+                our_version
+            )
             logger.warning(msg)

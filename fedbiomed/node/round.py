@@ -477,7 +477,7 @@ class Round:
         if not success:
             logger.error(message)
 
-        return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
+        return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
                                           'job_id': self.job_id,
                                           'researcher_id': self.researcher_id,
                                           'command': 'train',

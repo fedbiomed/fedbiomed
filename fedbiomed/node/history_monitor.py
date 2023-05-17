@@ -62,7 +62,7 @@ class HistoryMonitor:
 
         """
 
-        self.messaging.send_message(NodeMessages.reply_create({
+        self.messaging.send_message(NodeMessages.format_outgoing_message({
             'node_id': environ['NODE_ID'],
             'job_id': self.job_id,
             'researcher_id': self.researcher_id,

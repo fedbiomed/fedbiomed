@@ -14,7 +14,8 @@ from testsupport.base_case import NodeTestCase
 #############################################################
 from fedbiomed.node.environ import environ
 
-from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus
+from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, TrainingPlanApprovalStatus, \
+    TrainingPlanStatus, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError, \
     FedbiomedTrainingPlanSecurityManagerError, \
     FedbiomedRepositoryError
@@ -901,6 +902,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # check:
         messaging.send_message.assert_called_once_with({'researcher_id': 'ssss',
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': True,
@@ -933,6 +935,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
             # check
             messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
+                                                            'protocol_version': str(__messaging_protocol_version__),
                                                             'node_id': environ['NODE_ID'],
                                                             'job_id': 'xxx',
                                                             'success': True,
@@ -954,6 +957,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # checks
         messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': True,
@@ -973,6 +977,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.tp_security_manager.reply_training_plan_status_request(msg, messaging)
         # check:
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': False,
@@ -1007,6 +1012,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
             # check
             messaging.send_message.assert_called_once_with({
+                'protocol_version': str(__messaging_protocol_version__),
                 'researcher_id': msg['researcher_id'],
                 'node_id': environ['NODE_ID'],
                 'job_id': 'xxx',
@@ -1056,6 +1062,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': False,
@@ -1084,6 +1091,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': False,
@@ -1109,6 +1117,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'protocol_version': str(__messaging_protocol_version__),
                                                         'node_id': environ['NODE_ID'],
                                                         'job_id': 'xxx',
                                                         'success': False,
@@ -1402,7 +1411,9 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # check
         messaging.send_message.assert_called_once_with({
+            'protocol_version': str(__messaging_protocol_version__),
             'researcher_id': training_plan_researcher_id,
+            'protocol_version': str(__messaging_protocol_version__),
             'node_id': environ['NODE_ID'],
             'sequence': training_plan_sequence,
             'status': 200,
@@ -1456,6 +1467,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
             # check
             messaging.send_message.assert_called_once_with({
+                'protocol_version': str(__messaging_protocol_version__),
                 'researcher_id': training_plan2_researcher_id,
                 'node_id': environ['NODE_ID'],
                 'sequence': training_plan2_sequence,
@@ -1514,6 +1526,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
             # check
             messaging.send_message.assert_called_once_with({
+                'protocol_version': str(__messaging_protocol_version__),
                 'researcher_id': training_plan_researcher_id,
                 'node_id': environ['NODE_ID'],
                 'sequence': training_plan_sequence,
