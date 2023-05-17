@@ -192,36 +192,39 @@ class TestSkLearnModel(unittest.TestCase):
         # to test the correct execution of the whole training process
         # Goal fo the test: checking that plain sklearn model has been updated when trained 
         # using `Model` interface
-        n_values = 100  # data size
+        _n_classes = 3
 
-        for model in self.models:
-            # disable learning rate evolution, penality
+        data_2d = np.array([[1, 2, 3, 1, 2, 3],
+                            [1, 2, 0, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 2, 2, 3],
+                            [1, 0, 1, 1, 2, 0],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 0, 0],
+                            [0, 2, 2, 1, 2, 3],
+                            [1, 2, 0, 1, 0, 3]])
+        data_1d = np.array([1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3]).reshape(-1, 1)
+        targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
 
-            model = SkLearnModel(model)
-            for _n_features in self.n_features:
+        for data in (data_1d, data_2d):
+            for model in self.models:
+                # disable learning rate evolution, penality
+                model = SkLearnModel(model)
+                model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': data.shape[1]})
+                model.init_training()
+                init_model = copy.deepcopy(model)
+                #for idx in range(n_values):
+                model.train(data, targets)
+                grads = model.get_gradients()
+                model.apply_updates(grads)
 
-                data = np.random.randn(n_values, _n_features,)
-
-                for _n_classes in self.n_classes:
-
-                    if model.is_classification:
-                        targets = np.random.randint(0, _n_classes,(n_values, 1))
-
-                    else:
-                        targets = np.random.randn( n_values, 1)
-                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                    model.init_training()
-                    init_model = copy.deepcopy(model)
-                    #for idx in range(n_values):
-                    model.train(data, targets)
-                    grads = model.get_gradients()
-                    model.apply_updates(grads)
-
-                    # checks
-                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
+                # checks
+                self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                for layer in model.param_list:
+                    self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
+                                                    "model has not been updated during training"))
 
     def test_sklearnmodel_06_sklearn_training_02_plain_sklearn_grad_descent(self):
         #  checks plain sklearn is effectivly doing a gradient descent
