@@ -295,7 +295,7 @@ class ErrorNumbers(_BaseEnum):
     FB621 = "FB621: declearn optimizer error"
     FB622 = "FB622: Model error"
     FB623 = "FB623: Secure aggregation database error"
-    FB624 = "FB620: Secure aggregation crypter error"
+    FB624 = "FB624: Secure aggregation crypter error"
     FB625 = "FB625: Component version error"
     FB626 = "FB626: Fed-BioMed optimizer error"
 
