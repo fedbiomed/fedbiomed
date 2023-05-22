@@ -153,7 +153,7 @@ class _MqttHandler(logging.Handler):
             import fedbiomed.common.message as message
 
             # verify the message content with Message validator
-            _ = message.NodeMessages.reply_create(msg)
+            _ = message.NodeMessages.format_outgoing_message(msg)
             self._mqtt.publish(self._topic, json.dumps(msg))
         except Exception:  # pragma: no cover
             # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher

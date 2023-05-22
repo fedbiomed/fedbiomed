@@ -90,7 +90,7 @@ class TestRound(NodeTestCase):
 
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
@@ -169,7 +169,7 @@ class TestRound(NodeTestCase):
         self.assertEqual('train', msg_test2.get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.common.serializer.Serializer.dump')
     @patch('fedbiomed.common.serializer.Serializer.load')
@@ -256,7 +256,7 @@ class TestRound(NodeTestCase):
             serialize_dump_patch.assert_called_once_with(_model_results, _model_filename)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.serializer.Serializer.load')
@@ -310,7 +310,7 @@ class TestRound(NodeTestCase):
         os.remove(module_file_path)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -440,7 +440,7 @@ class TestRound(NodeTestCase):
         self.assertFalse(msg_test.get('success', True))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -554,7 +554,7 @@ class TestRound(NodeTestCase):
         self.assertFalse(msg_test_3.get('success', True))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -599,7 +599,7 @@ class TestRound(NodeTestCase):
         self.assertFalse(msg_test.get('success', True))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
@@ -803,7 +803,7 @@ class TestRound(NodeTestCase):
 
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')

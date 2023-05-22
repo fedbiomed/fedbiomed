@@ -18,7 +18,7 @@ from declearn.model.api import Vector
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, __breakpoints_version__
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
 )
@@ -28,7 +28,7 @@ from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.utils import is_ipython
+from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -1900,6 +1900,7 @@ class Experiment:
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
         state = {
+            'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
@@ -2001,6 +2002,12 @@ class Experiment:
             )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
+
+        # First, check version of breakpoints
+        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
+        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
+                                        f"{ErrorNumbers.FB413.value}: Breakpoint file was generated with version %s "
+                                        f"which is incompatible with the current version %s.")
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')

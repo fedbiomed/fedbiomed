@@ -10,7 +10,7 @@ import functools
 from dataclasses import dataclass
 from typing import Dict, Any, Union, Callable
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
@@ -121,10 +121,18 @@ class Message(object):
 #
 
 # AddScalar message
+@dataclass
+class RequiresProtocolVersion:
+    """Mixin class for messages that must be endowed with a version field.
+
+    Attributes:
+        protocol_version: version of the messaging protocol used
+    """
+    protocol_version: str
 
 @catch_dataclass_exception
 @dataclass
-class AddScalarReply(Message):
+class AddScalarReply(Message, RequiresProtocolVersion):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -168,7 +176,7 @@ class AddScalarReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalRequest(Message):
+class ApprovalRequest(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
@@ -190,7 +198,7 @@ class ApprovalRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalReply(Message):
+class ApprovalReply(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
@@ -215,7 +223,7 @@ class ApprovalReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ErrorMessage(Message):
+class ErrorMessage(Message, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
     Attributes:
@@ -239,7 +247,7 @@ class ErrorMessage(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ListRequest(Message):
+class ListRequest(Message, RequiresProtocolVersion):
     """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
     each node.
 
@@ -257,7 +265,7 @@ class ListRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class ListReply(Message):
+class ListReply(Message, RequiresProtocolVersion):
     """This class describes a list reply message sent by the node that includes list of datasets. It is a
     reply for ListRequest message from the researcher.
 
@@ -285,7 +293,7 @@ class ListReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class LogMessage(Message):
+class LogMessage(Message, RequiresProtocolVersion):
     """Describes a log message sent by the node.
 
     Attributes:
@@ -309,7 +317,7 @@ class LogMessage(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusRequest(Message):
+class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
@@ -330,7 +338,7 @@ class TrainingPlanStatusRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusReply(Message):
+class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
@@ -366,7 +374,7 @@ class TrainingPlanStatusReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class PingRequest(Message):
+class PingRequest(Message, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
@@ -385,7 +393,7 @@ class PingRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class PingReply(Message):
+class PingReply(Message, RequiresProtocolVersion):
     """This class describes a ping message sent by the node.
 
     Attributes:
@@ -409,7 +417,7 @@ class PingReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(Message):
+class SearchRequest(Message, RequiresProtocolVersion):
     """Describes a search message sent by the researcher.
 
     Attributes:
@@ -427,7 +435,7 @@ class SearchRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SearchReply(Message):
+class SearchReply(Message, RequiresProtocolVersion):
     """Describes a search message sent by the node
 
     Attributes:
@@ -453,7 +461,7 @@ class SearchReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteRequest(Message):
+class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
@@ -476,7 +484,7 @@ class SecaggDeleteRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteReply(Message):
+class SecaggDeleteReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
@@ -501,7 +509,7 @@ class SecaggDeleteReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggRequest(Message):
+class SecaggRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
@@ -526,7 +534,7 @@ class SecaggRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggReply(Message):
+class SecaggReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
@@ -553,7 +561,7 @@ class SecaggReply(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainRequest(Message):
+class TrainRequest(Message, RequiresProtocolVersion):
     """Describes a train message sent by the researcher
 
     Attributes:
@@ -592,7 +600,7 @@ class TrainRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class TrainReply(Message):
+class TrainReply(Message, RequiresProtocolVersion):
     """Describes a train message sent by the node.
 
     Attributes:
@@ -621,219 +629,132 @@ class TrainReply(Message):
     command: str
 
 
-# protocol definition
+class MessageFactory:
+    """Pack message contents into the appropriate Message class."""
+    @staticmethod
+    def _raise_for_missing_command(params: Dict[str, Any]):
+        """Raise FedBiomedMessageError if input does not contain the `command` key"""
+        if "command" not in params:
+            _msg = ErrorNumbers.FB601.value + ": message type not specified"
+            logger.error(_msg)
+            raise FedbiomedMessageError(_msg)
 
-class ResearcherMessages():
-    """Allows to create the corresponding class instance from a received/sent message by the researcher."""
+    @staticmethod
+    def _validate_message_type_or_raise(message_type: str, type_map: Dict[str, Message]):
+        """Raise FedbiomedMessageError if `message_tpe` not in `type_map`"""
+        if message_type not in type_map:
+            _msg = ErrorNumbers.FB601.value + ": bad message type for format_incoming_message: {}".format(message_type)
+            logger.error(_msg)
+            raise FedbiomedMessageError(_msg)
 
     @classmethod
-    def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
-                                                           SearchReply,
-                                                           PingReply,
-                                                           LogMessage,
-                                                           ErrorMessage,
-                                                           ListReply,
-                                                           AddScalarReply,
-                                                           TrainingPlanStatusReply,
-                                                           ApprovalReply,
-                                                           SecaggReply,
-                                                           SecaggDeleteReply]:
-        """Message reception (as a mean to reply to node requests, such as a Ping request).
+    def format_incoming_message(cls, params: Dict[str, Any]) -> Message:
+        """Format a dictionary representing an incoming message into the appropriate Message class.
 
-        It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
-        `params`) to a Message object
+        Packs the input into the appropriate Message class representing an incoming message.
+        The type of Message class is inferred from the `command` key in the input dictionary.
+        This function also validates:
 
-        It validates:
         - the legacy of the message
         - the structure of the received message
 
-        Raises:
-            FedbiomedMessageError: triggered if the message is not allowed to be received by the researcher
-            KeyError: triggered if 'command' field is not present in `params`
-
-        Returns:
-            An instance of the corresponding Message class
-        """
-        try:
-            message_type = params['command']
-        except KeyError:
-            _msg = ErrorNumbers.FB601.value + ": message type not specified"
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                     'search': SearchReply,
-                                     'pong': PingReply,
-                                     'log': LogMessage,
-                                     'error': ErrorMessage,
-                                     'list': ListReply,
-                                     'add_scalar': AddScalarReply,
-                                     'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply,
-                                     'secagg': SecaggReply,
-                                     'secagg-delete': SecaggDeleteReply
-                                     }
-
-        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-    @classmethod
-    def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
-                                                             SearchRequest,
-                                                             PingRequest,
-                                                             ListRequest,
-                                                             TrainingPlanStatusRequest,
-                                                             ApprovalRequest,
-                                                             SecaggRequest,
-                                                             SecaggDeleteRequest]:
-
-        """Creates the adequate message/request,
-
-        It maps an instruction (given the key "command" in the input dictionary `params`) to a Message object
-
-        It validates:
-        - the legacy of the message
-        - the structure of the created message
-
-        Args:
-            params: dictionary containing the message.
+        Attributes:
+            params: the dictionary of key-value pairs extracted from the received message.
 
         Raises:
-            FedbiomedMessageError: if the message is not allowed to be sent by the researcher
-            KeyError: Missing key ub the reqeust
+            FedbiomedMessageError: if 'command' field is not present in `params`
+            FedbiomedMessageError: if the component is not allowed to receive the message
 
         Returns:
-            An instance of the corresponding Message class
+            The received message formatted as an instance of the appropriate Message class
         """
-
-        try:
-            message_type = params['command']
-        except KeyError:
-            _msg = ErrorNumbers.FB601.value + ": message type not specified"
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                     'search': SearchRequest,
-                                     'ping': PingRequest,
-                                     'list': ListRequest,
-                                     'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest,
-                                     'secagg-delete': SecaggDeleteRequest
-                                     }
-
-        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-
-class NodeMessages():
-    """Allows to create the corresponding class instance from a received/sent message by the Node"""
+        MessageFactory._raise_for_missing_command(params)
+        message_type = params['command']
+        MessageFactory._validate_message_type_or_raise(message_type, cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP)
+        return cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def request_create(cls, params: dict) -> Union[TrainRequest,
-                                                   SearchRequest,
-                                                   PingRequest,
-                                                   ListRequest,
-                                                   TrainingPlanStatusRequest,
-                                                   ApprovalRequest,
-                                                   SecaggRequest,
-                                                   SecaggDeleteRequest]:
-        """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
-        "command" in the input dictionary `params`) to a Message object
+    def format_outgoing_message(cls, params: Dict[str, Any]) -> Message:
+        """Format a dictionary representing an outgoing message into the appropriate Message class.
 
-        It validates:
-        - the legacy of the message
-        - the structure of the created message
+        Packs the input into the appropriate Message class representing an outbound message.
+        The type of Message class is inferred from the `command` key in the input dictionary.
+        This function also validates:
 
-        Raises:
-            FedbiomedMessageError: triggered if the message is not allowed te be sent by the node (ie if message
-                `command` field is not either a train request, search request or a ping request)
-
-        Returns:
-            An instance of the corresponding class (TrainRequest,SearchRequest, PingRequest)
-        """
-        try:
-            message_type = params['command']
-        except KeyError:
-            _msg = ErrorNumbers.FB601.value + ": message type not specified"
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-
-        # mapping message type to an object
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                     'search': SearchRequest,
-                                     'ping': PingRequest,
-                                     'list': ListRequest,
-                                     'training-plan-status': TrainingPlanStatusRequest,
-                                     'approval': ApprovalRequest,
-                                     'secagg': SecaggRequest,
-                                     'secagg-delete': SecaggDeleteRequest
-                                     }
-
-        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-    @classmethod
-    def reply_create(cls, params: dict) -> Union[TrainReply,
-                                                 SearchReply,
-                                                 PingReply,
-                                                 LogMessage,
-                                                 ErrorMessage,
-                                                 AddScalarReply,
-                                                 ListReply,
-                                                 TrainingPlanStatusReply,
-                                                 ApprovalReply,
-                                                 SecaggReply,
-                                                 SecaggDeleteReply]:
-        """Message reception.
-
-        It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
-        "command" in the input dictionary `params`) to a Message object
-
-        It validates:
         - the legacy of the message
         - the structure of the received message
 
+        Attributes:
+            params: the dictionary of key-value pairs to be packed into the outgoing message.
+
         Raises:
-            FedbiomedMessageError: if the message is not allowed te be received by the node (ie if message `command`
-                field is not either a train request, search request, a ping request, add scalar request, or
-                error message)
+            FedbiomedMessageError: if 'command' field is not present in `params`
+            FedbiomedMessageError: if the component is not allowed to send the message
 
         Returns:
-            An instance of the corresponding class
+            The outbound message formatted as an instance of the appropriate Message class
         """
-        try:
-            message_type = params['command']
-        except KeyError:
-            _msg = ErrorNumbers.FB601.value + ": message type not specified"
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                     'search': SearchReply,
-                                     'pong': PingReply,
-                                     'log': LogMessage,
-                                     'error': ErrorMessage,
-                                     'add_scalar': AddScalarReply,
-                                     'list': ListReply,
-                                     'training-plan-status': TrainingPlanStatusReply,
-                                     'approval': ApprovalReply,
-                                     'secagg': SecaggReply,
-                                     'secagg-delete': SecaggDeleteReply
-                                     }
+        MessageFactory._raise_for_missing_command(params)
+        message_type = params['command']
+        MessageFactory._validate_message_type_or_raise(message_type, cls.OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP)
+        params['protocol_version'] = str(__messaging_protocol_version__)  # inject procotol version only in outgoing msg
+        return cls.OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+
+class ResearcherMessages(MessageFactory):
+    """Specializes MessageFactory for Researcher.
+
+    Researchers send requests and receive replies.
+    """
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
+                                          'search': SearchReply,
+                                          'pong': PingReply,
+                                          'log': LogMessage,
+                                          'error': ErrorMessage,
+                                          'list': ListReply,
+                                          'add_scalar': AddScalarReply,
+                                          'training-plan-status': TrainingPlanStatusReply,
+                                          'approval': ApprovalReply,
+                                          'secagg': SecaggReply,
+                                          'secagg-delete': SecaggDeleteReply
+                                          }
+
+    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
+                                          'search': SearchRequest,
+                                          'ping': PingRequest,
+                                          'list': ListRequest,
+                                          'training-plan-status': TrainingPlanStatusRequest,
+                                          'approval': ApprovalRequest,
+                                          'secagg': SecaggRequest,
+                                          'secagg-delete': SecaggDeleteRequest
+                                          }
+
+
+class NodeMessages(MessageFactory):
+    """Specializes MessageFactory for Node.
+
+    Node send replies and receive requests.
+    """
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
+                                          'search': SearchRequest,
+                                          'ping': PingRequest,
+                                          'list': ListRequest,
+                                          'training-plan-status': TrainingPlanStatusRequest,
+                                          'approval': ApprovalRequest,
+                                          'secagg': SecaggRequest,
+                                          'secagg-delete': SecaggDeleteRequest
+                                          }
+
+    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
+                                          'search': SearchReply,
+                                          'pong': PingReply,
+                                          'log': LogMessage,
+                                          'error': ErrorMessage,
+                                          'add_scalar': AddScalarReply,
+                                          'list': ListReply,
+                                          'training-plan-status': TrainingPlanStatusReply,
+                                          'approval': ApprovalReply,
+                                          'secagg': SecaggReply,
+                                          'secagg-delete': SecaggDeleteReply
+                                          }

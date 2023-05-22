@@ -1,6 +1,6 @@
 # Fed-BioMed release HOWTO
 
-Make coordinated release of software (this repo) and documentation (published on `fedbiomed.gitlabpages.inria.fr`)
+Make coordinated release of software (this repo) and documentation (published on `http://fedbiomed.org`)
   * using same version tag
   * corresponding to same software version
   * **release software before documentation** (for API documentation)
@@ -35,6 +35,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release` branch, do the release time updates:
   * `CHANGELOG.md`
   * `README.md` : change `v4.` occurences ; change `version 4` if major release
+  * `fedbiomed/common/constants.py` : change `__versions__`
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a

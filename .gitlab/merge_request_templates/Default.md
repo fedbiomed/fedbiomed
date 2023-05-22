@@ -30,11 +30,12 @@ The `CREDIT.md` file and `credit/` directory shall be completed and updated acco
 
 General:
 
-* give a glance to [DoD](https://fedbiomed.gitlabpages.inria.fr/latest/developer/Fed-BioMed_DoD.pdf)
-* check [coding rules and coding style](https://fedbiomed.gitlabpages.inria.fr/latest/developer/usage_and_tools/#coding-style)
+* give a glance to [DoD](http://fedbiomed.org/latest/developer/Fed-BioMed_DoD.pdf)
+* check [coding rules and coding style](http://fedbiomed.org/latest/developer/usage_and_tools/#coding-style)
 * check docstrings (eg run `tests/docstrings/check_docstrings`)
 
 Specific to some cases:
 
 * update all conda envs consistently (`development` and `vpn`, Linux and MacOS)
 * if modified researcher (eg new attributes in classes) check if breakpoint needs update (`breakpoint`/`load_breakpoint` in `Experiment()`, `save_state`/`load_state` in aggregators, strategies, secagg, etc.)
+* if modified a component with versioning (config files, breakpoint, messaging protocol) then update the version following the rules in `common/utils/_versions.py`

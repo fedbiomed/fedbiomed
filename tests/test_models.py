@@ -90,7 +90,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
 
             for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
                 self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
-                                    f"deep copy failed, attribute {attribute} {copied_attribute} has shared refrences!")
+                                    f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!")
             
 
             # check that model parameters are not the same
@@ -99,6 +99,12 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             for layer_name in model.param_list:
                 
                 self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
+            
+            new_weights = {layer: np.random.normal(size=getattr(model.model, layer).shape) for layer in model.param_list}
+            model.set_weights(new_weights)
+            for layer_name in model.param_list:
+                self.assertFalse(np.array_equal(getattr(model.model, layer_name), getattr(copied_model.model, layer_name)))
+
 
 class TestSkLearnModel(unittest.TestCase):
     def setUp(self):
@@ -184,38 +190,76 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
-        n_values = 100  # data size
+        # Goal fo the test: checking that plain sklearn model has been updated when trained 
+        # using `Model` interface
+        _n_classes = 3
 
+        data_2d = np.array([[1, 2, 3, 1, 2, 3],
+                            [1, 2, 0, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 2, 2, 3],
+                            [1, 0, 1, 1, 2, 0],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 0, 0],
+                            [0, 2, 2, 1, 2, 3],
+                            [1, 2, 0, 1, 0, 3]])
+        data_1d = np.array([1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3]).reshape(-1, 1)
+        targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
+
+        for data in (data_1d, data_2d):
+            for model in self.models:
+                # disable learning rate evolution, penality
+                model = SkLearnModel(model)
+                model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': data.shape[1]})
+                model.init_training()
+                init_model = copy.deepcopy(model)
+                #for idx in range(n_values):
+                model.train(data, targets)
+                grads = model.get_gradients()
+                model.apply_updates(grads)
+
+                # checks
+                self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                for layer in model.param_list:
+                    self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
+                                                    "model has not been updated during training"))
+
+    def test_sklearnmodel_06_sklearn_training_02_plain_sklearn_grad_descent(self):
+        #  checks plain sklearn is effectivly doing a gradient descent
+        data = np.array([[1, 1, 1, 1,],
+                         [1, 0,0, 1],
+                         [1, 1, 1, 1],
+                         [1, 1, 1, 0]])
+        
+        targets = np.array([[1], [0], [1], [1]])
+        random_seed = 1234
+        learning_rate = .1234
         for model in self.models:
             model = SkLearnModel(model)
-            for _n_features in self.n_features:
+            model.set_params(random_state=random_seed,
+                                eta0=learning_rate,
+                                penalty=None,
+                                learning_rate='constant')
 
-                data = np.random.randn(n_values, _n_features,)
+            model.set_init_params({'n_features': 4, 'n_classes': 2})
+            for _ in range(2):
+                init_model= copy.deepcopy(model)
+                model.init_training()
+                model.train(data, targets)
+                grads = model.get_gradients() # get_gradients returns  - learning_rate * grads
+                model.apply_updates(grads)
 
+            # checks that model updates(t+1) = update(t) - learning_rate * grads
+            for layer in model.param_list:
+                self.assertTrue(np.all(np.isclose(getattr(model.model, layer),
+                                           getattr(init_model.model, layer) + grads[layer])))
+        
 
-                for _n_classes in self.n_classes:
-
-                    if model.is_classification:
-                        targets = np.random.randint(0, _n_classes,(n_values, 1))
-
-                    else:
-                        targets = np.random.randn( n_values, 1)
-                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                    model.init_training()
-                    init_model = copy.deepcopy(model)
-                    #for idx in range(n_values):
-                    model.train(data, targets)
-                    grads = model.get_gradients()
-                    model.apply_updates(grads)
-
-                    # checks
-                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
-
-    def test_sklearnmodel_06_sklearn_training_02_declearn_optimizer(self):
+    def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
         n_values = 100  # data size
+        n_iter = 10 # number of iterations
         for model in self.models:
             model = SkLearnModel(model)
             for _n_features in self.n_features:
@@ -233,9 +277,9 @@ class TestSkLearnModel(unittest.TestCase):
                     model.disable_internal_optimizer()
                     model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
                     model.init_training()
-                    init_model = copy.deepcopy(model)
-
-                    model.train(data, targets)
+                    init_model_weights = model.get_weights()
+                    for _ in range(n_iter):
+                        model.train(data, targets)
                     grads = NumpyVector(model.get_gradients())
                     updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
                     model.apply_updates(updts.coefs)
@@ -244,8 +288,8 @@ class TestSkLearnModel(unittest.TestCase):
                     self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
                     self.assertEqual(model.model.eta0, 1)
                     for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
+                        self.assertFalse(np.array_equal(getattr(model.model, layer), init_model_weights[layer]),
+                                                        "model has not been updated during training")
 
     def test_sklearnmodel_07_train_failures(self):
         inputs = np.array([[1, 2], [1, 1],[0, 1]])

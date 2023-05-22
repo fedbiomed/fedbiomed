@@ -196,6 +196,7 @@ services:
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
+      - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8443
       - NGINX_PORT_NOSSL=8484
       - CONTAINER_UID
@@ -203,8 +204,8 @@ services:
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
-      - "${GUI_HOST:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
       - ./gui/run_mounts/certs:/certs
@@ -225,6 +226,7 @@ services:
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
+      - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8444
       - NGINX_PORT_NOSSL=8485
       - CONTAINER_UID
@@ -232,8 +234,8 @@ services:
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8485:8485" # nginx + gunicorn HTTP server
-      - "${GUI_HOST:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + gunicorn HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
