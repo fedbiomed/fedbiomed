@@ -14,7 +14,7 @@ const Home = (props) => {
         [{
              title : 'Documentation',
              icon : DocIcon,
-             link : 'http://fedbiomed.org/',
+             link : 'https://fedbiomed.org/',
              text: 'Visit our documentation page to know more about Fed-BioMed Nodes and management.',
              internal: false,
          },
