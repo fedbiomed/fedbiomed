@@ -1613,6 +1613,7 @@ class TestExperiment(ResearcherTestCase):
         aggregator_state = {'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True}
         strategy_state = {'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45}
         job_state = {'jobparam1': {'sub1': 1, 'sub2': 'two'}, 'jobparam2': 'myjob_value'}
+        opt_state = {'config': {'lrate': 0.001}, 'states': {'modules': []}}
 
         # aggregated_params
         agg_params = {
@@ -1675,7 +1676,14 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._job.training_plan_file = training_plan_file
         self.test_exp._job.training_plan_name = training_plan_class
 
-        self.test_exp.breakpoint()
+        # researcher-side optimizer (optional)
+        optimizer = create_autospec(Optimizer, instance=True)
+        optimizer.get_state.return_value = opt_state
+        self.test_exp.set_researcher_optimizer(optimizer)
+
+        with patch("uuid.uuid4") as patch_uuid:
+            patch_uuid.return_value = "uuid"
+            self.test_exp.breakpoint()
 
         # verification
         final_training_plan_path = os.path.join(
@@ -1689,6 +1697,10 @@ class TestExperiment(ResearcherTestCase):
                 'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.mpk')
             }
         }
+        optimizer.get_state.assert_called_once()
+        optimizer_path = os.path.join(
+            self.experimentation_folder_path, "optimizer_uuid.mpk"
+        )
         # better : catch exception if cannot read file or not json
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
             final_state = json.load(f)
@@ -1703,6 +1715,8 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(final_state['round_limit'], self.round_limit)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
         self.assertEqual(final_state['aggregator'], aggregator_state)
+        self.assertEqual(final_state['researcher_optimizer'], optimizer_path)
+        self.assertTrue(os.path.isfile(optimizer_path))
         self.assertEqual(final_state['node_selection_strategy'], strategy_state)
         self.assertEqual(final_state['tags'], self.tags)
         self.assertEqual(final_state['aggregated_params'], final_agg_params)
