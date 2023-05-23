@@ -1,5 +1,6 @@
 """Unit tests for 'fedbiomed.researcher.experiment.Experiment'."""
 
+import copy
 import inspect
 import json
 import os
@@ -10,6 +11,8 @@ from typing import Dict
 from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
+import numpy as np
+import torch
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -1258,13 +1261,59 @@ class TestExperiment(ResearcherTestCase):
         optim.init_round.assert_called_once()
         optim.step.assert_called_once()
 
+    def test_experiment_28_global_optimizer_updates(self):
+        # TODO: the following test doesnot meet test standard, for it :
+        # - tests a private method
+        # - access private attributes
+        # this test should be re-written when refactoring `Aggregator` or/and `Experiment` class(es)
+        torch_aggregate = {'layer-1': torch.randn((5, 3)), 'layer-2': torch.randn((5, 1))}
+        torch_global_model = {'layer-1': torch.randn((5, 3)), 'layer-2': torch.randn((5, 1))}
+        numpy_aggregate = {'layer-1': np.random.randn(5, 3), 'layer-2': np.random.randn(5, 3)}
+        numpy_global_model = {'layer-1': np.random.randn(5, 3), 'layer-2': np.random.randn(5, 3)}
+        aggregates_collection = (
+            torch_aggregate, 
+            numpy_aggregate
+        )
+        
+        global_model_collections = (
+            torch_global_model, 
+            numpy_global_model
+            )
+        for aggregates, global_model in zip(aggregates_collection, global_model_collections):
+            # set up the Optimizer on Researcher side
+            lr = .12345
+            optimizer = Optimizer(lr=lr)
+
+            self.test_exp.set_researcher_optimizer(optimizer)
+            self.test_exp._global_model = global_model
+            agg_updates = self.test_exp._run_global_optimizer(aggregates)
+            grad = {k: global_model[k] - aggregates[k] for k in global_model}
+
+            # perform sgd
+            correct_updates = {k: global_model[k] - lr * grad[k] for k in global_model}
+            
+            for k, v in agg_updates.items():
+                self.assertTrue(np.isclose(agg_updates[k], correct_updates[k]).all())
+                
+                
+            # test specific case when learning_rate = 1, no sgd is applied
+            lr = 1.
+            optimizer = Optimizer(lr=lr)
+            self.test_exp.set_researcher_optimizer(optimizer)
+            agg_updates = self.test_exp._run_global_optimizer(aggregates)
+
+            for k, v in agg_updates.items():
+
+                self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all())
+        
+        
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_28_strategy(self,
+    def test_experiment_29_strategy(self,
                                     mock_job_init,
                                     mock_job_updates_params,
                                     mock_job_training,
@@ -1357,7 +1406,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.run_once()
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
-    def test_experiment_29_run(self, mock_exp_run_once):
+    def test_experiment_30_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
         def run_once_side_effect(increase, test_after=False):
@@ -1445,7 +1494,7 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
-    def test_experiment_30_training_plan_file(self,
+    def test_experiment_31_training_plan_file(self,
                                       mock_training_plan_file,
                                       mock_open):
         """ Testing getter training_plan_file of the experiment class """
@@ -1486,7 +1535,7 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.check_training_plan_is_approved_by_nodes')
-    def test_experiment_31_check_training_plan_status(self,
+    def test_experiment_32_check_training_plan_status(self,
                                               mock_job_model_is_approved,
                                               mock_job):
         """Testing method that checks model status """
@@ -1504,7 +1553,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertDictEqual(result, expected_approved_result,
                              'check_training_plan_status did not return expected value')
 
-    def test_experiment_32_breakpoint_raises(self):
+    def test_experiment_33_breakpoint_raises(self):
         """ Testing the scenarios where the method breakpoint() raises error """
 
         # Test if self._round_current is less than 1
@@ -1537,7 +1586,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_33_save_breakpoint(
+    def test_experiment_34_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_create_ul,
@@ -1685,7 +1734,7 @@ class TestExperiment(ResearcherTestCase):
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_34_static_load_breakpoint(self,
+    def test_experiment_35_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
                                                   patch_training_plan
                                                   ):
@@ -1897,7 +1946,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertTrue(loaded_exp.secagg.active)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
-    def test_experiment_34_static_save_aggregated_params(self,
+    def test_experiment_36_static_save_aggregated_params(self,
                                                          mock_create_unique_file_link):
         """Testing static private method of experiment for saving aggregated params"""
 
@@ -1927,7 +1976,7 @@ class TestExperiment(ResearcherTestCase):
         agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
-    def test_experiment_35_static_load_aggregated_params(self):
+    def test_experiment_37_static_load_aggregated_params(self):
         """Testing static method for loading aggregated params of Experiment"""
 
         # Test invalid type of aggregated params (should be dict)
@@ -1953,7 +2002,7 @@ class TestExperiment(ResearcherTestCase):
             result = Experiment._load_aggregated_params(agg_params)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
-    def test_experiment_36_private_create_object(self):
+    def test_experiment_38_private_create_object(self):
         """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
