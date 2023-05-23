@@ -1,6 +1,6 @@
 # Fed-BioMed release HOWTO
 
-Make coordinated release of software (this repo) and documentation (published on `http://fedbiomed.org`)
+Make coordinated release of software (this repo) and documentation (published on `https://fedbiomed.org`)
   * using same version tag
   * corresponding to same software version
   * **release software before documentation** (for API documentation)
