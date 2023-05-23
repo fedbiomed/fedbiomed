@@ -1,5 +1,5 @@
 site_name: Test Fed-BioMed Doc Strings
-site_url: http://fedbiomed.org/
+site_url: https://fedbiomed.org/
 
 theme:
   name: material

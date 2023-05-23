@@ -33,7 +33,7 @@ NODE_PREFIX = 'node_'
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
-__version__ = FBM_Component_Version('4.3.1')  # Fed-BioMed software version
+__version__ = FBM_Component_Version('4.3.2')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('1')  # node config file version
 __breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
@@ -295,7 +295,7 @@ class ErrorNumbers(_BaseEnum):
     FB621 = "FB621: declearn optimizer error"
     FB622 = "FB622: Model error"
     FB623 = "FB623: Secure aggregation database error"
-    FB624 = "FB620: Secure aggregation crypter error"
+    FB624 = "FB624: Secure aggregation crypter error"
     FB625 = "FB625: Component version error"
     FB626 = "FB626: Fed-BioMed optimizer error"
 
