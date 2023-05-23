@@ -566,7 +566,7 @@ my_notebook.ipynb
 ## GPU support in container
 
 You can access the host machine GPU accelerator from a node container to speed up training.
-- reminder: Fed-BioMed currently [supports only](http://fedbiomed.org/latest/user-guide/nodes/using-gpu/) (1) Nvidia GPUs (2) for PyTorch training (3) on node side
+- reminder: Fed-BioMed currently [supports only](https://fedbiomed.org/latest/user-guide/nodes/using-gpu/) (1) Nvidia GPUs (2) for PyTorch training (3) on node side
 
 Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet the requirements for the host machine:
 
