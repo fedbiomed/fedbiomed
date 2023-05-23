@@ -53,8 +53,8 @@ dependencies:
       - msgpack ~=1.0
       - persist-queue >=0.5.1,<0.6.0
       - pytorch-ignite >=0.4.4,<0.5.0
-      # pandas 2.x recently released (2023-04): dont use yet
-      - pandas ~=1.5.0
+      # pandas 2.x recently released (2023-04) but few breaking changes
+      - pandas ~=2.0.1
       - openpyxl >= 3.0.9,<3.1
       - JSON-log-formatter ~=0.5.2
       - python-minifier ~=2.5.0
