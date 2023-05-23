@@ -52,6 +52,7 @@ training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
 # for typing only
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+T = TypeVar("T")
 
 
 # Exception handling at top lever for researcher
@@ -1608,16 +1609,8 @@ class Experiment:
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
-        # Optionally refine the aggregated parameters into model updates.
-        # aggregated_params = agg_i({w^t - sum_k(eta_{k,i,t}grad_{k,i,t})}_i)
-        # hence aggregated_params = w^t - agg_i(updates_i)
-        # hence agg_updates = agg_i(updates_i)
-        # finally w^{t+1} = w^t - optim(agg_updates)  # SGD with opt. plugins
-        if self._global_optim is not None:
-            init_params = Vector.build(self._global_model)
-            agg_updates = init_params - Vector.build(aggregated_params)
-            agg_updates = self._global_optim.step(agg_updates, init_params)
-            aggregated_params = (init_params - agg_updates).coefs
+        # Optionally refine the aggregated updates using an Optimizer.
+        aggregated_params = self._run_global_optimizer(aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
@@ -1649,6 +1642,39 @@ class Experiment:
                                                  do_training=False)
 
         return 1
+
+    def _run_global_optimizer(
+        self,
+        aggregated_params: Dict[str, T],
+    ) -> Dict[str, T]:
+        """Optionally refine aggregated parameters into model updates.
+
+        Args:
+            aggregated_params: `Aggregator`-output model weights, equal
+                to $$\\theta^t - aggregate(\\{\\theta_i^{t+1}\\}_{i=1}^I)$$.
+
+        Returns:
+            Updated model weights that should be used to replace the current
+            `self._global_model`. If a researcher optimizer is set, they are
+            obtained by taking a SGD(-based) step over the aggregated updates.
+            Otherwise, the outputs are the same as the inputs.
+        """
+        # If not Optimizer is set, return the inputs.
+        if self._global_optim is None:
+            return aggregated_params
+        # Run any start-of-round routine.
+        self._global_optim.init_round()
+        # Recover the aggregated model updates, wrapped as a Vector.
+        # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
+        # hence aggregated_params = w^t - agg(updates_i)
+        # hence agg_gradients = agg_i(updates_i)
+        init_params = Vector.build(self._global_model)
+        agg_gradients = init_params - Vector.build(aggregated_params)
+        # Take an Optimizer step to compute the updates.
+        # When using vanilla SGD: agg_updates = - lrate * agg_gradients
+        agg_updates = self._global_optim.step(agg_gradients, init_params)
+        # Return the model weights' new values after this step.
+        return (init_params + agg_updates).coefs
 
     @exp_exceptions
     def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:

@@ -1255,6 +1255,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.run_once()
         # Verify that expected operations occured.
         self.assertEqual(patch_vector_build.call_count, 2)
+        optim.init_round.assert_called_once()
         optim.step.assert_called_once()
 
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
