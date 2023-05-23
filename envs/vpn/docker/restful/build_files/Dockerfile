@@ -1,7 +1,7 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with mosquitto image
 # - may need update for properly compiling boringtun (eg: cargo build of package failing on `buster-slim`)
-FROM python:3.9-alpine as builder
+FROM python:3.10-alpine as builder
 
 RUN apk update && apk add git alpine-sdk linux-headers
 
@@ -25,7 +25,7 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
 #
 # docker image for restful server
 #
-FROM python:3.9-alpine
+FROM python:3.10-alpine
 ENV PYTHONUNBUFFERED 1
 
 ARG CONTAINER_GID

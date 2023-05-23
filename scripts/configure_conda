@@ -73,11 +73,13 @@ function activate_environment() {
     # pip may result into inconsistencies
 
     base=$basedir/envs/development/conda/$1
+    logfile=$1
 
     # check if alternate yaml file is available (OS dependent files usually)
     if [ -f "${base}-${ALTERNATE_YAML}.yaml" ]
     then
         file="${base}-${ALTERNATE_YAML}.yaml"
+        logfile=${logfile}-${ALTERNATE_YAML}
     else
         file="${base}.yaml"
     fi
@@ -88,7 +90,7 @@ function activate_environment() {
     then
         echo conda env update --file "$file"
     else
-        conda env update --file "$file" 2>/dev/null
+        conda env update --file "$file" 2>/tmp/${0##*/}_${logfile}.log
     fi
 
 }
