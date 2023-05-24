@@ -84,7 +84,7 @@ services:
     # >=1.28 becomes common https://docs.docker.com/compose/profiles/
     # 
     # profiles:
-    #  - debug # not started by `docker-compose up` except if `--profile debug`
+    #  - debug # not started by `docker compose up` except if `--profile debug`
   #
   # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)

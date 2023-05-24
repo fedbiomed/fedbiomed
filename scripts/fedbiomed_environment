@@ -118,7 +118,7 @@ case $1 in
         activate_network
         echo "** Cleaning all caches / temporary files"
         # docker containers
-        (cd ${basedir}/envs/development/docker/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
+        (cd ${basedir}/envs/development/docker/ && docker compose rm -sf &&  echo " * Docker cleaning" )
 
         # network cleaner
         echo " * Network cleaning"

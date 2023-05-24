@@ -234,7 +234,7 @@ case $1 in
         case $2 in
             stop)
                 source ${basedir}/scripts/fedbiomed_environment network
-                docker-compose down
+                docker compose down
                 ;;
             help|-h|--help)
                 usage network
@@ -244,11 +244,11 @@ case $1 in
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose build restful mqtt
+                             docker compose build restful mqtt
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose up -d restful mqtt
+                             docker compose up -d restful mqtt
                 ;;
         esac
         ;;

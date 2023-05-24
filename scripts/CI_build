@@ -9,7 +9,7 @@
 # - conda (installed and setup)
 # - docker (installed and started https://docs.docker.com/engine/install/fedora/)
 # - account used for build in docker /etc/group
-# - docker-compose
+# - docker compose v2
 
 
 # Set variables for the build

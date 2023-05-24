@@ -34,7 +34,7 @@ An installation guide is also provided for Windows10, which relies on WSL2: http
 To ensure fedbiomed will work fine, you need to install before :
 
 * docker
-* docker-compose
+* docker compose v2 (aka docker compose plugin)
 * conda
 
 ### clone repo
