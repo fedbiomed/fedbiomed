@@ -33,7 +33,7 @@ NODE_PREFIX = 'node_'
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
-__version__ = FBM_Component_Version('4.3.1')  # Fed-BioMed software version
+__version__ = FBM_Component_Version('4.3.2')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('1')  # node config file version
 __breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
