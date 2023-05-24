@@ -146,7 +146,14 @@ case $1 in
 
         # gui cleaning
         echo " * Node GUI cleaning"
-        gui_temp_paths='var/gui-build gui/ui/node_modules gui/ui/yarn.lock'
+        gui_temp_paths='
+            var/gui-build
+            gui/ui/node_modules
+            gui/ui/yarn.lock
+            gui/ui/.yarn
+            gui/ui/.pnp.cjs
+            gui/ui/.pnp.loader.mjs
+        '
         for p in $gui_temp_paths ; do
             if [ -e "${basedir}/$p" ] ; then
                 echo "[INFO] Removing directory ${basedir}/$p"
