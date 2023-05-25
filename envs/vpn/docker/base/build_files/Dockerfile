@@ -15,11 +15,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
     cargo install --locked --bin boringtun-cli --version ~0.5.2 boringtun-cli
 
 # install needed wireguard-tools
-ENV WITH_WGQUICK=yes
-RUN git clone https://git.zx2c4.com/wireguard-tools && \
-    make -C wireguard-tools/src && \
-    make -C wireguard-tools/src install
-
+RUN apt-get install -y wireguard-tools
 
 # docker base image for VPN server, Fed-BioMed node and researcher
 # - need proper python version for Fed-BioMed

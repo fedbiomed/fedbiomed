@@ -12,14 +12,10 @@ RUN apk update && apk add git alpine-sdk linux-headers
 # - glitch: alpine's apk cargo is too old vs boringtun's cargo packages dependencies, need to install
 #   up to date rust/cargo
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
-    cargo install --locked --bin boringtun --version ~0.4.0 boringtun
+    cargo install --locked --bin boringtun-cli --version ~0.5.2 boringtun-cli
 
 # install needed wireguard-tools
-ENV WITH_WGQUICK=yes
-RUN git clone https://git.zx2c4.com/wireguard-tools && \
-    make -C wireguard-tools/src && \
-    make -C wireguard-tools/src install
-
+RUN apt-get install -y wireguard-tools
 
 
 #
@@ -65,7 +61,7 @@ RUN apk add --no-cache --virtual .build-deps \
     && pip install -r requirements.txt
 
 # get wireguard from builder image
-COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
+COPY --from=builder /root/.cargo/bin/boringtun-cli /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
 
 # Creating working directory
