@@ -41,6 +41,8 @@ if __name__ == '__main__':
                         help='Scenario for data splitting')
     parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local'],
                         help='Methods for the running experiment')
+    parser.add_argument('--standardization', metavar='-std', type=str, default='dynamic', choices = ['dynamic', 'static'],
+                        help='Dynamic: the mean and std are updated during fed-miwae training. Static: the mean and std are evaluated previously to fed-miwae')
     parser.add_argument('--kind', metavar='-k', type=str, default='single', choices = ['single', 'multiple', 'both'],
                         help='Kind of imputation')
     parser.add_argument('--Test_id', metavar='-tid', type=int, default=4,
@@ -80,6 +82,7 @@ if __name__ == '__main__':
 
     Split_type = args.scenario
     method = args.method
+    std_type = args.standardization
     idx_Test_data = int(args.Test_id)
     tags = args.tags
     data_folder = args.data_folder
@@ -178,9 +181,11 @@ if __name__ == '__main__':
 
     if method != 'Local':
 
-        standardization = {} if method == 'FedProx_loc' else {'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()}
+        standardization = {'type':std_type}
+        if method != 'FedProx_loc':
+            standardization.update({'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()})
 
-        model_args = {'n_features':data_size, 'n_latent':d,'n_hidden':h,'n_samples':K, 'use_gpu': True,
+        model_args = {'n_features':data_size, 'n_latent':d,'n_hidden':h,'n_samples':K, 'use_gpu': True, 'n_samples_test':100,
                     'standardization':standardization, 'test_ratio': args.testing_ratio, 'test_on_local_updates': True}
 
         training_args = {
@@ -197,9 +202,14 @@ if __name__ == '__main__':
         ###########################################################
 
         from fedbiomed.researcher.aggregators.fedavg import FedAverage
+        from fedbiomed.researcher.aggregators.fedavg_fedstd import FedAverage_FedStd
         from fedbiomed.researcher.aggregators.scaffold import Scaffold
+        from fedbiomed.researcher.aggregators.scaffold_fedstd import Scaffold_FedStd
 
-        aggregator = Scaffold() if method == 'Scaffold' else FedAverage()
+        if method == 'Scaffold':
+            aggregator = Scaffold() if std_type=='static' else Scaffold_FedStd
+        else:
+            aggregator = FedAverage() if std_type=='static' else FedAverage_FedStd
 
         if 'fedprox_mu' in training_args:
             del training_args['fedprox_mu']
@@ -358,6 +368,9 @@ if __name__ == '__main__':
         decoder = model.decoder
         iota = model.iota
         std_training = 'Loc' if method == 'FedProx_loc' else 'Fed'
+        if std_type=='dynamic':
+            fed_mean = model.mean
+            fed_std = model.std
     else:
         fed_mean, fed_std = mean_tot_missing, std_tot_missing
         if args.do_figures==True:

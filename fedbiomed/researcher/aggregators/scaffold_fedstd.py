@@ -23,7 +23,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
 
 
-class Scaffold(Aggregator):
+class Scaffold_FedStd(Aggregator):
     """
     Defines the Scaffold strategy
 
@@ -98,7 +98,7 @@ class Scaffold(Aggregator):
 
         """
         super().__init__()
-        self.aggregator_name: str = "Scaffold"
+        self.aggregator_name: str = "Scaffold_FedStd"
         if server_lr == 0.:
             raise FedbiomedAggregatorError("SCAFFOLD Error: Server learning rate cannot be equal to 0")
         self.server_lr: float = server_lr
@@ -185,6 +185,9 @@ class Scaffold(Aggregator):
             mean_std_processed.append(mean_std_subdict)
             for key in keys_fedstd:
                 params.pop(key, None)
+                global_model.pop(key, None)
+                self.global_state.pop(key, None)
+        global_mean_std = federated_standardization(mean_std_processed, weights)
 
         # Compute the node-wise model update: (x^t - y_i^t).
         model_updates = {
@@ -201,7 +204,6 @@ class Scaffold(Aggregator):
         for key, val in global_model.items():
             upd = sum(model_updates[node_id][key] for node_id in model_params)
             global_new[key] = val - upd * (self.server_lr / len(model_params))
-        global_mean_std = federated_standardization(mean_std_processed, weights)
         global_new.update(global_mean_std)
         return global_new
 

@@ -176,7 +176,7 @@ if __name__ == '__main__':
     ###########################################################
     if method not in ['Local','Centralized']:
         model_args = {'n_features': len(regressors_col), 'n_cov': num_covariates-1, 'use_gpu': True, 
-                    'regressors_col':regressors_col, 'target_col': target_col, 'tol': tol,'eta0': eta0}
+                    'regressors_col':regressors_col, 'target_col': target_col, 'tol': tol,'eta0': eta0,'random_state':1234}
         if args.standardize:
             print('standardization added')
             standardization = {} if method == 'FedProx_loc' else {'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()}
@@ -357,8 +357,8 @@ if __name__ == '__main__':
 
         # single
         model_pred = exp.training_plan().model()
-        model_pred.coef_ = torch.load(f'{result_folder}/{regressor}_trained_model_coef')
-        model_pred.intercept_ = torch.load(f'{result_folder}/{regressor}_trained_model_intercept')
+        model_pred.coef_ = torch.load(f'{result_folder}/{method}_{regressor}_trained_model_coef')
+        model_pred.intercept_ = torch.load(f'{result_folder}/{method}_{regressor}_trained_model_intercept')
         Clients_data, data_test_sing = databases_pred(data_folder=data_folder,idx_clients=idx_clients,
                                             root_dir=root_dir,idx_Test_data=idx_Test_data, imputed = True)
         X_test = data_test_sing[regressors_col].values
