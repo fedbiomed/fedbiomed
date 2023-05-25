@@ -144,7 +144,7 @@ internal_find_my_ip() {
     esac
 
     # verify that the result is an IPv4 adress
-    _IP=$(echo $_IP | egrep '([0-9]{1,3}[\.]){3}[0-9]{1,3}')
+    _IP=$(echo $_IP | grep -E '([0-9]{1,3}[\.]){3}[0-9]{1,3}')
 
     echo $_IP
 }
