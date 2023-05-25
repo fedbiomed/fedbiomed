@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y git build-essential cargo
 RUN cargo install --locked --bin boringtun-cli --version ~0.5.2 boringtun-cli
 
 # install needed wireguard-tools
-RUN apt-get install wireguard-tools
+RUN apt-get install -y wireguard-tools
 
 
 # docker base image for VPN server, Fed-BioMed node and researcher
