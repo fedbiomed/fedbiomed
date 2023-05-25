@@ -14,7 +14,7 @@ Here is a brief summary of how it is structured:
 
 ## Getting started
 
-Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https://fedbiomed.gitlabpages.inria.fr/latest/developer/usage_and_tools/).
+Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https://fedbiomed.org/latest/developer/usage_and_tools/).
 
 When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials consisting of: an account on `gitlab.inria.fr` with access to the gitlab repository, the registration to the developer mailing lists, the invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisagd contributions, to ask questions, etc.
 

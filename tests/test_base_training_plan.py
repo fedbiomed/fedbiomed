@@ -35,6 +35,9 @@ class SimpleTrainingPlan(BaseTrainingPlan):
             data: Any,
     ) -> np.ndarray:
         pass
+    
+    def init_optimizer(self):
+        pass
 
 
 class TestBaseTrainingPlan(unittest.TestCase):

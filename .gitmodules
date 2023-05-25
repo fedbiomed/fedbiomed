@@ -1,0 +1,5 @@
+[submodule "MP-SPDZ"]
+	path = modules/MP-SPDZ
+	url = https://github.com/data61/MP-SPDZ.git
+	ignore = dirty
+

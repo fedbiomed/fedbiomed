@@ -86,11 +86,11 @@ class Requests(metaclass=SingletonMeta):
         if topic == "general/logger":
             #
             # forward the treatment to node_log_handling() (same thread)
-            self.print_node_log_message(ResearcherMessages.reply_create(msg).get_dict())
+            self.print_node_log_message(ResearcherMessages.format_incoming_message(msg).get_dict())
         elif topic == "general/researcher":
             #
             # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
-            self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+            self.queue.add(ResearcherMessages.format_incoming_message(msg).get_dict())
 
             # we may trap FedbiomedTaskQueueError here then queue full
             # but what can we do except of quitting ?
@@ -98,7 +98,7 @@ class Requests(metaclass=SingletonMeta):
         elif topic == "general/monitoring":
             if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(ResearcherMessages.reply_create(msg).get_dict())
+                self._monitor_message_callback(ResearcherMessages.format_incoming_message(msg).get_dict())
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
@@ -148,7 +148,7 @@ class Requests(metaclass=SingletonMeta):
             msg['sequence'] = sequence
 
         self.messaging.send_message(
-            ResearcherMessages.request_create(msg).get_dict(), 
+            ResearcherMessages.format_outgoing_message(msg).get_dict(),
             client=client)
         return sequence
 
@@ -260,18 +260,18 @@ class Requests(metaclass=SingletonMeta):
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
                 self.messaging.send_message(
-                    ResearcherMessages.request_create({'tags': tags,
+                    ResearcherMessages.format_outgoing_message({'tags': tags,
                                                        'researcher_id': environ['RESEARCHER_ID'],
                                                        "command": "search"}
-                                                      ).get_dict(),
+                                                               ).get_dict(),
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
             self.messaging.send_message(
-                ResearcherMessages.request_create({'tags': tags,
+                ResearcherMessages.format_outgoing_message({'tags': tags,
                                                    'researcher_id': environ['RESEARCHER_ID'],
                                                    "command": "search"}
-                                                  ).get_dict())
+                                                           ).get_dict())
 
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
@@ -299,14 +299,14 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             for node in nodes:
                 self.messaging.send_message(
-                    ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
+                    ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
                                                        "command": "list"}
-                                                      ).get_dict(),
+                                                               ).get_dict(),
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
             self.messaging.send_message(
-                ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
+                ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
                                                    "command": "list"}).get_dict())
             logger.info('Listing available datasets in all nodes... ')
 

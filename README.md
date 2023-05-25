@@ -11,10 +11,10 @@ Fed-BioMed is an open source project focused on empowering biomedical research u
 
 The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying federated learning analysis in real-world machine learning applications.
 
-The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
+The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
 Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.3) aka the master branch.
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.3.x) aka the master branch.
 
 
 ## Install and run in development environment
@@ -24,9 +24,9 @@ It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
-Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/latest/tutorials/installation/0-basic-software-installation/
+Full installation instruction are also available at: https://fedbiomed.org/latest/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/latest/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -356,7 +356,7 @@ without paying action on visual of the site.
 ./tests/docstrings/check_docstrings
 ```
 
-Developer should do the last test on gitlabpages.
+Developer should do the last test before pushing documentation release.
 
 ## Using Tensorboard
 
@@ -649,4 +649,3 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
 ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
-

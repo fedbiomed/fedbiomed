@@ -633,7 +633,7 @@ class TrainingPlanSecurityManager:
             reply['success'] = False
 
         # Send training plan approval acknowledge answer to researcher
-        messaging.send_message(NodeMessages.reply_create(reply).get_dict())
+        messaging.send_message(NodeMessages.format_outgoing_message(reply).get_dict())
 
     def reply_training_plan_status_request(self, msg: dict, messaging: Messaging):
         """Returns requested training plan file status {approved, rejected, pending}
@@ -719,7 +719,7 @@ class TrainingPlanSecurityManager:
                             f'file. {msg["training_plan_url"]} , {e}'}
         # finally:
         #     # Send check training plan status answer to researcher
-        messaging.send_message(NodeMessages.reply_create(reply).get_dict())
+        messaging.send_message(NodeMessages.format_outgoing_message(reply).get_dict())
 
         return
 
