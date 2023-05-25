@@ -17,10 +17,10 @@ Which machine to use ?
 ## requirements
 
 Supported operating systems for using containers :
-  - tested on **Fedora 35**, should work for recent RedHat based Linux
-  - tested on **Ubuntu 22.04**, should work for recent Debian based Linux
+  - tested on **Fedora 38**, should work for recent RedHat based Linux
+  - should work for **Ubuntu 22.04 LTS** and recent Debian based Linux
   - tested on recent **MacOS X**
-  - tested on **Windows 10** 21H2 with WSL2 using a Ubuntu-20.04 distribution, should work with most Windows 10/11 and other recent Linux distributions
+  - should work on **Windows 11** with WSL2 using a Ubuntu-22.04 distribution
 
 Pre-requisites for using containers :
 
@@ -570,30 +570,22 @@ You can access the host machine GPU accelerator from a node container to speed u
 
 Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet the requirements for the host machine:
 
-* a **Nvidia GPU** recent enough (**`Kepler` or newer** generation) to support `450.x` Nvidia drivers that are needed for CUDA 11.x
+* a **Nvidia GPU** recent enough (**`Maxwell` or newer** generation) to support `>=525.60.13` Nvidia drivers that are needed for CUDA 12.1.1 (used in containers)
   Recommended GPU memory is **>= 4GB or more** depending on your training plans size.
 * a **supported operating system**
-  - tested on **Fedora 35**, should work for recent RedHat based Linux
-  - partly tested on **Ubuntu 20.04**, should work for recent Debian based Linux
-  - not tested on Windows with WSL2, but should work with Windows 10 version 21H2 or higher, that [support GPU in WSL2](https://docs.microsoft.com/en/windows/wsl/tutorials/gpu-compute)
+  - tested on **Fedora 38**, should work for recent RedHat based Linux
+  - should work for **Ubuntu 22.04 LTS** and other recent Debian based Linux
+  - not tested on Windows with WSL2, but should work with Windows 11, that [support GPU in WSL2](https://docs.microsoft.com/en/windows/wsl/tutorials/gpu-compute)
   - not supported on MacOS (few Nvidia cards, docker virtualized)
-* **Nvidia drivers and CUDA >= 11.5.0** (the version used by Fed-BioMed container with GPU support)
+* **Nvidia drivers >=525.60.13** (for CUDA 12.1.1 support, the version used in Fed-BioMed container with GPU support)
 * **[Nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)**
 * **`docker compose` version >= 2.0** (already installed for container support)
 
 
 Installation guidelines for requirements:
 
-* Nvidia drivers and CUDA: Type `nvidia-smi` to check driver version installed. You can use your usual package manager (`apt`, `dnf`) or [nvidia CUDA toolkit](https://developer.nvidia.com/cuda-downloads) download. In both cases, commands depend on your machine configuration.
-* Nvidia container toolkit: check list of supported systems and [specific instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). First enable the repository, then install the package (eg: `sudo apt-get update && sudo apt-get install nvidia-docker2` on Ubuntu/Debian, `sudo dnf install nvidia-docker2` on CentOS).
-  - if your system version is not supported, you can try to use an approaching version. For example, for Fedora 35 we installed and ran the CentOS 8 version with:
-```bash
-distribution=centos8
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | \
-  sudo tee /etc/yum.repos.d/nvidia-docker.repo
-sudo dnf install nvidia-docker2
-```
-
+* Nvidia drivers: Type `nvidia-smi` to check driver version installed. You can use your usual package manager (`apt`, `dnf`). Exact command depends on your machine configuration.
+* Nvidia container toolkit: check list of supported systems and [specific instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). First enable the repository, as root, then install the package (eg: `sudo apt-get update && sudo apt-get install nvidia-container-toolkit` on Ubuntu/Debian, `sudo dnf install nvidia-container-toolkit` on Fedora). Then configure and relaunch the docker daemon: `nvidia-ctk runtime configure --runtime=docker && systemctl restart docker`.
 
 FAQ for issues with GPU in containers :
 * `docker compose` file format error when launching any container :

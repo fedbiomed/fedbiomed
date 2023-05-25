@@ -19,7 +19,7 @@ According to our coding rules, the develop branch is usable, tests and tutorials
 
 ## Install and run in development environment
 
-Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
+Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
