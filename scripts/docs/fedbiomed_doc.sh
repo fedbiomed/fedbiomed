@@ -414,7 +414,7 @@ fi
 
 
 if [ ! -d $BUILD_DIR ]; then
-  echo "Error: $BUILD_DIR is not existing."
+  mkdir -p "$BUILD_DIR" || echo "Error: could not create directory $BUILD_DIR."
 fi
 
 
