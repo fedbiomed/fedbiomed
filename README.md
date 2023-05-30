@@ -340,23 +340,20 @@ Run a full (integration) test by launching:
 Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
-### Testing Doc Strings 
+### Documentation
 
-Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
-that provided in classes and methods. Therefore, before creating a merge request please check 
-whether doc strings are valid for the fedbiomed documentation built. You can use following command
-to check WARNING and ERROR messages that comes from API docs. 
+Please use following command to serve documentation page. This allow you to test/verify changes in `docs` and also docstrings.   
 
-Following command will serve only API docs on the port `:8000`. The site will be different from 
-actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
-to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
-without paying action on visual of the site. 
-
-```python
-./tests/docstrings/check_docstrings
+```shell 
+{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh server
 ```
 
-Developer should do the last test before pushing documentation release.
+Please see usage for additional options.
+
+```
+{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh --help
+```
+
 
 ## Using Tensorboard
 
