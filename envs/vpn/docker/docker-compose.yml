@@ -70,22 +70,6 @@ x-node2:
 
 services:
   #
-  # intermediate step : image for building wireguard for base image
-  # we usually dont want to build or launch this service (only used for building "base")
-  builder:
-    container_name: fedbiomed-vpn-builder
-    hostname: fedbiomed-vpn-builder
-    build:
-      context: ./base/build_files
-      target: builder
-    image: fedbiomed/vpn-builder
-    entrypoint: /bin/true
-    # profiles will handle not-launched-by-default services when 
-    # >=1.28 becomes common https://docs.docker.com/compose/profiles/
-    # 
-    # profiles:
-    #  - debug # not started by `docker compose up` except if `--profile debug`
-  #
   # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)
   base:
