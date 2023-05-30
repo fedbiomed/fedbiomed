@@ -1570,3 +1570,19 @@ td img[title=":heavy_check_mark:"],img[title=":x:"] {
     width: 16px;
 }
 
+
+td img[title=":x:"] {
+    width: 16px;
+}
+
+.main-docs img { width: 100%; max-width: 720px; display:flex}
+.main-docs img[src$="#img-centered"] { margin: 0 auto}
+.main-docs img[src$="#img-centered-sm"] { margin: 0 auto; max-width:240px}
+.main-docs img[src$="#img-centered-md"] { margin: 0 auto; max-width:480px}
+.main-docs img[src$="#img-centered-lr"] { margin: 0 auto; max-width:720px}
+.main-docs img[src$="#img-centered-xlr"] { margin: 0 auto; max-width:960px}
+.main-docs img[src$="#img-sm"] { max-width:240px}
+.main-docs img[src$="#img-md"] { max-width:480px}
+.main-docs img[src$="#img-lr"] { max-width:720px}
+.main-docs img[src$="#img-xlr"] {max-width:960px}
+em { display:block }
