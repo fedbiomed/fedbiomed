@@ -246,11 +246,11 @@ class TestExperiment(ResearcherTestCase):
         self.assertIsInstance(aggregator, Aggregator, 'The getter `.aggregator()` does not return proper '
                                                       'Aggregator instance')
 
-        # Test getter for researcher_optimizer: None by default (not set)
-        researcher_optimizer = self.test_exp.researcher_optimizer()
+        # Test getter for agg_optimizer: None by default (not set)
+        agg_optimizer = self.test_exp.agg_optimizer()
         self.assertIsNone(
-            researcher_optimizer,
-            'The getter `.researcher_optimizer()` did not return the expected default None value.'
+            agg_optimizer,
+            'The getter `.agg_optimizer()` did not return the expected default None value.'
         )
 
         # Test getter for strategy
@@ -536,18 +536,18 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_aggregator(aggregator=agg_expected)
 
-    def test_experiment_08_set_researcher_optimizer(self):
-        """Test the setter for `researcher_optimizer` in `Experiment`."""
+    def test_experiment_08_set_agg_optimizer(self):
+        """Test the setter for `agg_optimizer` in `Experiment`."""
         # Test setting an Optimizer.
         optim = create_autospec(Optimizer, instance=True)
-        self.assertIs(self.test_exp.set_researcher_optimizer(optim), optim)
-        self.assertIs(self.test_exp.researcher_optimizer(), optim)
+        self.assertIs(self.test_exp.set_agg_optimizer(optim), optim)
+        self.assertIs(self.test_exp.agg_optimizer(), optim)
         # Test setting None (equivalent to vanilla updates application).
-        self.assertIsNone(self.test_exp.set_researcher_optimizer(None))
-        self.assertIsNone(self.test_exp.researcher_optimizer())
+        self.assertIsNone(self.test_exp.set_agg_optimizer(None))
+        self.assertIsNone(self.test_exp.agg_optimizer())
         # Test setting an invalid object.
         with self.assertRaises(SystemExit):
-            self.test_exp.set_researcher_optimizer(MagicMock())
+            self.test_exp.set_agg_optimizer(MagicMock())
 
     def test_experiment_09_set_strategy(self):
         """Testing setter for node_selection_strategy attribute of Experiment class"""
@@ -1248,7 +1248,7 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_aggregator(mock_agg)
         # Populate the Experiment with a mock Optimizer.
         optim = create_autospec(Optimizer, instance=True)
-        self.test_exp.set_researcher_optimizer(optim)
+        self.test_exp.set_agg_optimizer(optim)
         # Disable breakpointing.
         self.test_exp.set_save_breakpoints(False)
         # Call `Experiment.run_once`, hijacking declearn Vectors.
@@ -1261,7 +1261,7 @@ class TestExperiment(ResearcherTestCase):
         optim.init_round.assert_called_once()
         optim.step.assert_called_once()
 
-    def test_experiment_28_global_optimizer_updates(self):
+    def test_experiment_28_agg_optimizer_updates(self):
         # TODO: the following test doesnot meet test standard, for it :
         # - tests a private method
         # - access private attributes
@@ -1283,14 +1283,14 @@ class TestExperiment(ResearcherTestCase):
             # set up the Optimizer on Researcher side
             lr = .12345
             optimizer = Optimizer(lr=lr)
-            self.test_exp.set_researcher_optimizer(optimizer)
+            self.test_exp.set_agg_optimizer(optimizer)
             # patch the Experiment with the weights and a mock Job
             self.test_exp._global_model = global_model
             self.test_exp._job = create_autospec(Job, instance=True)
             self.test_exp._job.training_plan.get_model_params.return_value = global_model
 
             # perform the optimization step and compare to expected results
-            agg_updates = self.test_exp._run_global_optimizer(aggregates)
+            agg_updates = self.test_exp._run_agg_optimizer(aggregates)
             grad = {k: global_model[k] - aggregates[k] for k in global_model}
             correct_updates = {k: global_model[k] - lr * grad[k] for k in global_model}
             for k, v in agg_updates.items():
@@ -1299,8 +1299,8 @@ class TestExperiment(ResearcherTestCase):
             # test specific case when learning_rate = 1, SGD does not change results
             lr = 1.0
             optimizer = Optimizer(lr=lr)
-            self.test_exp.set_researcher_optimizer(optimizer)
-            agg_updates = self.test_exp._run_global_optimizer(aggregates)
+            self.test_exp.set_agg_optimizer(optimizer)
+            agg_updates = self.test_exp._run_agg_optimizer(aggregates)
             for k, v in agg_updates.items():
                 self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all())
 
@@ -1677,7 +1677,7 @@ class TestExperiment(ResearcherTestCase):
         # researcher-side optimizer (optional)
         optimizer = create_autospec(Optimizer, instance=True)
         optimizer.get_state.return_value = opt_state
-        self.test_exp.set_researcher_optimizer(optimizer)
+        self.test_exp.set_agg_optimizer(optimizer)
 
         with patch("uuid.uuid4") as patch_uuid:
             patch_uuid.return_value = "uuid"
@@ -1713,7 +1713,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(final_state['round_limit'], self.round_limit)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
         self.assertEqual(final_state['aggregator'], aggregator_state)
-        self.assertEqual(final_state['researcher_optimizer'], optimizer_path)
+        self.assertEqual(final_state['agg_optimizer'], optimizer_path)
         self.assertTrue(os.path.isfile(optimizer_path))
         self.assertEqual(final_state['node_selection_strategy'], strategy_state)
         self.assertEqual(final_state['tags'], self.tags)

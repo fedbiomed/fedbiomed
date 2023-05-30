@@ -131,7 +131,7 @@ class Experiment:
         nodes: Union[List[str], None] = None,
         training_data: Union[FederatedDataSet, dict, None] = None,
         aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-        researcher_optimizer: Optional[Optimizer] = None,
+        agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
         training_plan_class: Union[Type_TrainingPlan, str, None] = None,
@@ -164,7 +164,7 @@ class Experiment:
                 to None else)
             aggregator: object or class defining the method for aggregating local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
-            researcher_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
+            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
                 model updates prior to their application. If None, merely apply the aggregated updates.
             node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
                 non-responding nodes are managed.  Defaults to None:
@@ -221,7 +221,7 @@ class Experiment:
         self.aggregator_args = {}
         self._aggregator = None
         self._global_model = None
-        self._global_optim = None  # type: Optional[Optimizer]
+        self._agg_optimizer = None  # type: Optional[Optimizer]
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
@@ -248,8 +248,8 @@ class Experiment:
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
 
-        # set self._global_optim: type Optional[Optimizer]
-        self.set_researcher_optimizer(researcher_optimizer)
+        # set self._agg_optimizer: type Optional[Optimizer]
+        self.set_agg_optimizer(agg_optimizer)
 
         # set self._node_selection_strategy: type Union[Strategy, None]
         self.set_strategy(node_selection_strategy)
@@ -356,17 +356,17 @@ class Experiment:
         return self._aggregator
 
     @exp_exceptions
-    def researcher_optimizer(self) -> Optional[Optimizer]:
+    def agg_optimizer(self) -> Optional[Optimizer]:
         """Retrieves the optional Optimizer used to refine aggregated model updates.
 
         To set or update that optimizer:
-        [`set_researcher_optimizer`][fedbiomed.researcher.experiment.Experiment.set_researcher_optimizer].
+        [`set_agg_optimizer`][fedbiomed.researcher.experiment.Experiment.set_agg_optimizer].
 
         Returns:
             An [Optimizer][fedbiomed.common.optimizers.Optimizer] instance,
             or None.
         """
-        return self._global_optim
+        return self._agg_optimizer
 
     @exp_exceptions
     def strategy(self) -> Union[Strategy, None]:
@@ -904,14 +904,14 @@ class Experiment:
         return self._aggregator
 
     @exp_exceptions
-    def set_researcher_optimizer(
+    def set_agg_optimizer(
         self,
-        researcher_optimizer: Optional[Optimizer],
+        agg_optimizer: Optional[Optimizer],
     ) -> Optional[Optimizer]:
         """Sets the optional researcher optimizer.
 
         Args:
-            researcher_optimizer: Optional fedbiomed Optimizer instance to be
+            agg_optimizer: Optional fedbiomed Optimizer instance to be
                 used so as to refine aggregated updates prior to applying them.
                 If None, equivalent to using vanilla SGD with 1.0 learning rate.
 
@@ -922,15 +922,15 @@ class Experiment:
             FedbiomedExperimentError: if `optimizer` is of unproper type.
         """
         if not (
-            researcher_optimizer is None
-            or isinstance(researcher_optimizer, Optimizer)
+            agg_optimizer is None
+            or isinstance(agg_optimizer, Optimizer)
         ):
             raise FedbiomedExperimentError(
-                f"{ErrorNumbers.FB410.value}: 'researcher_optimizer' must be an "
-                f"Optimizer instance or None, not {type(researcher_optimizer)}."
+                f"{ErrorNumbers.FB410.value}: 'agg_optimizer' must be an "
+                f"Optimizer instance or None, not {type(agg_optimizer)}."
             )
-        self._global_optim = researcher_optimizer
-        return self._global_optim
+        self._agg_optimizer = agg_optimizer
+        return self._agg_optimizer
 
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
@@ -1610,7 +1610,7 @@ class Experiment:
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        aggregated_params = self._run_global_optimizer(aggregated_params)
+        aggregated_params = self._run_agg_optimizer(aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
@@ -1643,7 +1643,7 @@ class Experiment:
 
         return 1
 
-    def _run_global_optimizer(
+    def _run_agg_optimizer(
         self,
         aggregated_params: Dict[str, T],
     ) -> Dict[str, T]:
@@ -1660,10 +1660,10 @@ class Experiment:
             Otherwise, the outputs are the same as the inputs.
         """
         # If not Optimizer is set, return the inputs.
-        if self._global_optim is None:
+        if self._agg_optimizer is None:
             return aggregated_params
         # Run any start-of-round routine.
-        self._global_optim.init_round()
+        self._agg_optimizer.init_round()
         # Recover the aggregated model updates, wrapped as a Vector.
         # Optionally restrict weights that require updating to non-frozen ones.
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
@@ -1680,7 +1680,7 @@ class Experiment:
         )
         # Take an Optimizer step to compute the updates.
         # When using vanilla SGD: agg_updates = - lrate * agg_gradients
-        agg_updates = self._global_optim.step(agg_gradients, init_params)
+        agg_updates = self._agg_optimizer.step(agg_gradients, init_params)
         # Return the model weights' new values after this step.
         weights = (init_params + agg_updates).coefs
         return {k: weights.get(k, v) for k, v in aggregated_params.items()}
@@ -1889,7 +1889,7 @@ class Experiment:
           - tags
           - experimentation_folder
           - aggregator
-          - researcher_optimizer
+          - agg_optimizer
           - node_selection_strategy
           - training_data
           - training_args
@@ -1947,7 +1947,7 @@ class Experiment:
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
-            'researcher_optimizer': self._save_optimizer(breakpoint_path),
+            'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
@@ -2051,13 +2051,13 @@ class Experiment:
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
         # retrieve breakpoint researcher optimizer
-        bkpt_optim = cls._load_optimizer(saved_state.get("researcher_optimizer"))
+        bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
 
         # initializing experiment
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                         researcher_optimizer=bkpt_optim,
+                         agg_optimizer=bkpt_optim,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -2191,10 +2191,10 @@ class Experiment:
             Path to the optimizer's save file, or None if no Optimizer is used.
         """
         # Case when no researcher optimizer is used.
-        if self._global_optim is None:
+        if self._agg_optimizer is None:
             return None
         # Case when an Optimizer is used: save its state and return the path.
-        state = self._global_optim.get_state()
+        state = self._agg_optimizer.get_state()
         path = os.path.join(breakpoint_path, f"optimizer_{uuid.uuid4()}.mpk")
         Serializer.dump(state, path)
         return path

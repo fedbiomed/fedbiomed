@@ -26,7 +26,7 @@ class ExperimentMock:
                 nodes: Union[List[str], None] = None,
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-                researcher_optimizer: Optional[Optimizer] = None,
+                agg_optimizer: Optional[Optimizer] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 round_limit: Union[int, None] = None,
                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
@@ -46,7 +46,7 @@ class ExperimentMock:
         self._nodes = nodes
         self._fds = training_data
         self._aggregator = aggregator
-        self._global_optim = researcher_optimizer
+        self._agg_optimizer = agg_optimizer
         self._node_selection_strategy = node_selection_strategy
         self._round_current = 0
         self._round_limit = round_limit
