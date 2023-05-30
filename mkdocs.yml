@@ -139,32 +139,32 @@ extra:
           name: 'A new release of Fed-BioMed (v4.3) is out!'
           desc: 'A new release of Fed-BioMed is now available, introducing Secure Aggregation !'
           link: '/news/Release-04-2023'
-          image: 'assets/img/v4.3.png'
+          image: 'assets/img/v4.3.jpg'
       'Release-01-05':
           name: 'A new release of Fed-BioMed (v4.1) is out!'
           desc: 'A new release of Fed-BioMed (v4.1) is out, introducing Scaffold aggregator, more integration tests'
           link: '/news/Release-01-2023'
-          image: 'assets/img/v4.1.png'
+          image: 'assets/img/v4.1.jpg'
       'federated-pet':
           name: 'Fed-BioMed for Federated-PET project'
           desc: 'Federated-PET groups 8 hospitals and 4 research centers in an oncology research project.'
           link: '/news/federated-pet'
-          image: 'assets/img/VF-logo-FP-partenaires.png'
+          image: 'assets/img/VF-logo-FP-partenaires.jpg'
       'OSE-2022':
           name: 'Fed-BioMed @ Open Source Experience 2022'
           desc: 'Fed-BioMed participated to *Open Source Experience 2022* meeting of the European open source community, Paris, Nov 8-9.'
           link: '/news/OSE-2022'
-          image: 'assets/img/ose2022.png'
+          image: 'assets/img/ose2022.jpg'
       'Release-11-2022':
           name: 'A new major release of Fed-BioMed (v4.0)!'
           desc: 'A new release of Fed-BioMed is now available: Differential privacy, Training Plan approval, support for multi-modality imaging data, and much more !'
           link: '/news/Release-11-2022'
-          image: 'assets/img/v4.0.png'
+          image: 'assets/img/v4.0.jpg'
       'Release-05-2022':
           name: 'A new release of Fed-BioMed (v3.5)!'
           desc: 'A new release of Fed-BioMed is now available: model validation, FedProx, NIFTI and MedNIST datasets and much more !'
           link: '/news/Release-05-2022'
-          image: '/assets/img/v3.5.png'
+          image: '/assets/img/v3.5.jpg'
       'CAL_oncology':
           name: 'Fed-BioMed for oncology research'
           desc: 'Fed-BioMed contributes to oncology research projects from Centre Antoine Lacassagne.'
@@ -174,17 +174,17 @@ extra:
           name: 'A new release of Fed-BioMed (v3.4)!'
           desc: 'A new release of Fed-BioMed is now available: DP with Opacus, GUI for node data, GPU for PyTorch and much more !'
           link: '/news/Release-02-2022'
-          image: 'assets/img/v3.4.png'
+          image: 'assets/img/v3.4.jpg'
       'Release-01-2022':
           name: 'A new release of Fed-BioMed (v3.3)!'
           desc: 'A new release of Fed-BioMed is currently available: more robust, new ML frameworks, new functionalities, and much more!'
           link: '/news/Release-01-2022'
-          image: 'assets/img/v3.3.png'
+          image: 'assets/img/v3.3.jpg'
       'CHB':
           name: 'Fed-BioMed at Hospital Centre Henri Becquerel of Rouen'
           desc: 'A big thanks to the IT team of the Centre Henri Becquerel (CHB) of Rouen for the successful deployment of Fed-BioMed!'
           link: '/news/CHB'
-          image: 'assets/img/CHB_team.png'
+          image: 'assets/img/CHB_team.jpg'
       'CAL':
           name: 'Fed-BioMed at Hospital Antoine Lacassagne of Nice'
           desc: 'We are proud to announce the successful deployment and testing of Fed-BioMed into the Hospital Antoine Lacassagne (CAL) of Nice!'
@@ -199,7 +199,7 @@ extra:
           name: 'Fed-BioMed @ MICCAI'
           desc: 'Fed-BioMed presented in the keynote session of the 2nd MICCAI Workshop on Distributed And Collaborative Learning'
           link: 'https://dcl-workshop.github.io/'
-          image: 'assets/img/dcl.png'
+          image: 'assets/img/dcl.jpg'
       'hackAtech_n1':
           name: 'Fed-BioMed @ Inria hackAtech'
           desc: 'Fed-BioMed is an innovation technology presented at the next Inria hackAtech!'
@@ -214,7 +214,7 @@ extra:
           name: 'Welcome to Sergen and Yannick!'
           desc: 'A warm welcome to Sergen Cansiz and Yannick Bouillard in the Fed-BioMed team!'
           link: '/news/welcome_08-2021'
-          image: 'assets/img/welcome.png' 
+          image: 'assets/img/welcome.jpg'
 
 markdown_extensions:
   - admonition
