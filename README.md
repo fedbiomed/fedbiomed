@@ -318,7 +318,7 @@ may lead to unpredictable behavior. In this case, it is adviced to restart from 
 
 
 
-## Misc developper tools to help debugging
+## Misc developer tools to help debugging
 
 ### scripts/lqueue
 
@@ -342,13 +342,21 @@ Full documentation in tests/README.md file.
 
 ### Documentation
 
-Required python modules should be installed to be able to build or serve the documentation page. These packages can be installed easly installed using `pip`.  
+Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using `pip` (required python version 3.11).  
 
 ```
 pip install -r envs/development/docs-requirements.txt
 ```
 
-Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in docstrings.   
+It is also possible to use conda environment to `serve` or `build` the documentation (recommended). 
+
+```
+conda env update -f envs/build/conda/fedbiomed-doc.yaml
+conda activate fedbiomed-doc
+```
+
+
+Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
 
 ```shell 
 {FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh serve
@@ -363,7 +371,7 @@ Please see usage for additional options.
 
 ## Using Tensorboard
 
-To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
 
 ```
 exp = Experiment(tags=tags,
