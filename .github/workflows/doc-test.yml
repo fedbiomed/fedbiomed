@@ -65,7 +65,7 @@ jobs:
           python-version: '3.11' 
 
       - name: Install Dependencies
-        run: pip install -r envs/development/docs-requirements.txt
+        run: pip install -r envs/build/docs-requirements.txt
 
       - name: Build documentation
         # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 

@@ -9,10 +9,6 @@
 .ccls-cache
 .vscode
 
-# Docs 
-build
-public
-build-tmp
 
 ### Django ###
 *.log
@@ -422,3 +418,10 @@ data/*
 #**/config/wireguard
 
 .scannerwork
+
+
+# Docs 
+build
+public
+build-tmp
+!envs/build
