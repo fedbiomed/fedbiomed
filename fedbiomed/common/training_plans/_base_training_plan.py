@@ -199,16 +199,21 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self) -> Dict[str, Any]:
+    def get_model_params(self, only_trainable: bool = False,) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
         The type of data structure used to store weights depends on the actual
         framework of the wrapped model.
 
+        Args:
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights()
+        return self._model.get_weights(only_trainable=only_trainable)
 
     def set_model_params(self, params: Dict[str, Any]) -> None:
         """Assign new values to the model's trainable parameters.
@@ -228,9 +233,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def init_optimizer(self) -> Any:
         """Method for declaring optimizer by default
-        
+
         Returns:
-            either framework specific optimizer (or None) or 
+            either framework specific optimizer (or None) or
             FedBiomed [`Optimizers`][`fedbiomed.common.optimizers.Optimizer`]
         """
 
@@ -532,8 +537,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             return batch_size
 
     def after_training_params(
-            self,
-            flatten: bool = False
+        self,
+        flatten: bool = False,
     ) -> Union[Dict[str, Any], List[float]]:
         """Return the wrapped model's parameters for aggregation.
 
@@ -547,11 +552,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
-
-        # Get flatten model parameters
         if flatten:
             return self._model.flatten()
-
         return self.get_model_params()
 
     def export_model(self, filename: str) -> None:
