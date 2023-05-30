@@ -9,6 +9,9 @@
 .ccls-cache
 .vscode
 
+# Docs 
+build
+public
 
 ### Django ###
 *.log
