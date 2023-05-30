@@ -342,10 +342,10 @@ Full documentation in tests/README.md file.
 
 ### Documentation
 
-Please use following command to serve documentation page. This allow you to test/verify changes in `docs` and also docstrings.   
+Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in docstrings.   
 
 ```shell 
-{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh server
+{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh serve
 ```
 
 Please see usage for additional options.
