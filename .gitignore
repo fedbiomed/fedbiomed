@@ -21,6 +21,7 @@ db.sqlite3-journal
 static
 
 
+
 # MP-SDPZ
 bin/*.x
 MP-SPDZ_build
@@ -417,3 +418,10 @@ data/*
 #**/config/wireguard
 
 .scannerwork
+
+
+# Docs 
+build
+public
+build-tmp
+!envs/build

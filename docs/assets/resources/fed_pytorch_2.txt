@@ -1,0 +1,16 @@
+from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+
+
+tags =  ['#MNIST', '#dataset']
+rounds = 2
+
+# model training
+exp = Experiment(tags=tags,
+                 model_args=model_args,
+                 training_plan_class=MyRemoteTrainingPlan,
+                 training_args=training_args,
+                 round_limit=rounds,
+                 aggregator=FedAverage(),
+                 client_selection_strategy=None)
+exp.run()

@@ -1,0 +1,18 @@
+<div class="sidebar-doc">
+    <div class="sidebar-inner">
+        {% if nav|length>1 %}
+            {% for nav_item in nav %}
+                {% if nav_item.title == 'Docs' %}  
+                    <ul class="sidebar-menu-left sub">
+                        {% for navs in nav_item.children %}
+                            {% set path = "__nav_" ~ loop.index %}
+                            {% set level = 1 %}
+                            {% include "./include/sidebar-item.html" %}
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+

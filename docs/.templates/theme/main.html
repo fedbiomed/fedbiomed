@@ -1,0 +1,65 @@
+
+{% include "./include/header.html" %}
+{% set features = config.theme.features or [] %}
+
+  <body>
+    {%- block nav %}
+        {% include "./include/top-nav.html" %}
+        {% include "./include/top-nav-mobile.html" %}
+    {%- endblock %}
+
+    <div class="main">
+
+        {% if page.abs_url %}
+            {% set BASE_URI = config.site_url.split('/')[3:] | join('/') %}
+
+            {% if BASE_URI != "" %}
+                {% set ABS_URL = page.abs_url.replace(BASE_URI, '')%}
+            {% else %}
+                {% set ABS_URL = page.abs_url %}
+            {% endif %}
+
+            {% set URLSlug = ABS_URL.split('/') %}
+            <!-- Home page -->
+            {% if ABS_URL == "/" %}
+                {%- block home %}
+                    {% include "home.html" %}
+                {%- endblock %}
+            <!-- Doc pages-->
+            {% elif URLSlug[1] == "tutorials" or URLSlug[1] == "user-guide" or URLSlug[1] == "getting-started" or URLSlug[1] == "developer" %}
+                {%- block docs %}
+                    {% include "docs.html" %}
+                {%- endblock %}
+            <!-- News Main Page-->
+            {% elif URLSlug[1] == "news" %}
+                {% if URLSlug[2] == "" %}
+                        {% include "news-main.html" %}
+                {% else %}
+                    {%- block newsPage %}
+                        {% include "news-single.html" %}
+                    {%- endblock %}
+                {% endif%} 
+
+            <!-- Every other pages -->
+            {% else %}
+                {%- block pages %}
+                    {% include "page.html" %}
+                {%- endblock %}
+            {% endif%}
+
+        {% endif %}
+
+    </div>
+    {% include "./include/footer.html" %}
+
+    <!-- JQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+
+    {% for path in config.extra_javascript %}
+        <script src="{{ path|url }}"></script>
+    {% endfor %}
+
+  </body>
+</html>
