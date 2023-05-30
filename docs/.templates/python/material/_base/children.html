@@ -1,0 +1,175 @@
+{{ log.debug("Rendering children of " + obj.path) }}
+{% if obj.members %}
+
+  <div class="doc doc-children">
+
+    {% if root_members %}
+        {% set members_list = config.members %}
+    {% else %}
+      {% set members_list = none %}
+    {% endif %}
+
+    {% if config.group_by_category %}
+
+      {% with %}
+
+        {% if config.show_category_heading %}
+          {% set extra_level = 1 %}
+        {% else %}
+          {% set extra_level = 0 %}
+        {% endif %}
+
+        {% set all = [] %}
+        {% set non_privates = [] %}
+        {% set show_header = False %}
+        {% for item in obj.attributes.values() %}
+            {% if not item.name.startswith('_') and (item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias)) %}
+              {% set non_privates = non_privates.append(item.name) %}
+            {% endif %}
+            {% if item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias) %}
+              {% set all = all.append(item.name) %}
+            {% endif %}
+        {% endfor %}
+        {% if config.disable_private and non_privates|length > 0 %}
+            {% set show_header = True %}
+        {% elif not config.disable_private and all|length > 0 %}
+            {% set show_header = True %}
+        {% endif %}
+
+        {% if config.show_category_heading and obj.attributes.values() and show_header %}
+          {% filter heading(heading_level, id=html_id ~ "-attributes", class="api-section-header") %}Attributes{% endfilter %}
+        {% endif %}
+        {% with heading_level = heading_level + extra_level %}
+          {% for attribute in obj.attributes.values()|order_members(config.members_order, members_list) %}
+            {% if not config.disable_private or not attribute.name.startswith('_') %}
+              {% if not attribute.is_alias or attribute.is_explicitely_exported %}
+                {% include "attribute.html" with context %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endwith %}
+
+
+
+        {% set all = [] %}
+        {% set non_privates = [] %}
+        {% set show_header = False %}
+        {% for item in obj.classes.values() %}
+            {% if not item.name.startswith('_') and (item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias)) %}
+              {% set non_privates = non_privates.append(item.name) %}
+            {% endif %}
+            {% if item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias) %}
+              {% set all = all.append(item.name) %}
+            {% endif %}
+        {% endfor %}
+        {% if config.disable_private and non_privates|length > 0 %}
+            {% set show_header = True %}
+        {% elif not config.disable_private and all|length > 0 %}
+            {% set show_header = True %}
+        {% endif %}
+
+        {% if config.show_category_heading and obj.classes.values() and show_header %}
+          {% filter heading(heading_level, id=html_id ~ "-classes", class="api-section-header") %}Classes{% endfilter %}
+        {% endif %}
+        {% with heading_level = heading_level + extra_level %}
+          {% for class in obj.classes.values()|order_members(config.members_order, members_list) %}
+            {% if not config.disable_private or not class.name.startswith('_') %}
+              {% if not class.is_alias or class.is_explicitely_exported %}
+                {% include "class.html" with context %}
+              {% endif %}
+              {% endif %}
+          {% endfor %}
+        {% endwith %}
+
+
+
+
+
+        {% set all = [] %}
+        {% set non_privates = [] %}
+        {% set show_header = False %}
+        {% for item in obj.functions.values() %}
+            {% if not item.name.startswith('_') and (item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias)) %}
+              {% set non_privates = non_privates.append(item.name) %}
+            {% endif %}
+            {% if item.is_explicitely_exported or (not item.is_explicitely_exported and not item.is_alias) %}
+              {% set all = all.append(item.name) %}
+            {% endif %}
+        {% endfor %}
+        {% if config.disable_private and non_privates|length > 0 %}
+            {% set show_header = True %}
+        {% elif not config.disable_private and all|length > 0 %}
+            {% set show_header = True %}
+        {% endif %}
+
+        {% if config.show_category_heading and obj.functions.values() and show_header %}
+          {% filter heading(heading_level, id=html_id ~ "-functions", class="api-section-header") %}Functions{% endfilter %}
+        {% endif %}
+        {% with heading_level = heading_level + extra_level %}
+          {% for function in obj.functions.values()|order_members(config.members_order, members_list) %}
+            {% if not (obj.kind.value == "class" and function.name == "__init__" and config.merge_init_into_class) %}
+              {% if not config.disable_private or not function.name.startswith('_') %}
+                {% if not function.is_alias or function.is_explicitely_exported %}
+                  {% include "function.html" with context %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endwith %}
+
+
+
+
+        {% if config.show_submodules %}
+          {% if config.show_category_heading and obj.modules.values()|any %}
+            {% filter heading(heading_level, id=html_id ~ "-modules") %}Modules{% endfilter %}
+          {% endif %}
+          {% with heading_level = heading_level + extra_level %}
+            {% for module in obj.modules.values()|order_members(config.members_order) %}
+              {% if not config.disable_private or not module.name.startswith('_') %}
+                {% if not module.is_alias or module.is_explicitely_exported %}
+                  {% include "module.html" with context %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          {% endwith %}
+        {% endif %}
+
+      {% endwith %}
+
+    {% else %}
+      {% for child in obj.members.values()|order_members(config.members_order) %}
+
+        {% if not (obj.kind.value == "class" and child.name == "__init__" and config.merge_init_into_class) %}
+
+          {% if child.kind.value == "attribute" %}
+            {% with attribute = child %}
+              {% include "attribute.html" with context %}
+            {% endwith %}
+
+          {% elif child.kind.value == "class" %}
+            {% with class = child %}
+              {% include "class.html" with context %}
+            {% endwith %}
+
+          {% elif child.kind.value == "function" %}
+            {% with function = child %}
+              {% include "function.html" with context %}
+            {% endwith %}
+
+          {% elif child.kind.value == "module" and config.show_submodules %}
+            {% with module = child %}
+              {% include "module.html" with context %}
+            {% endwith %}
+
+          {% endif %}
+
+        {% endif %}
+
+      {% endfor %}
+
+    {% endif %}
+
+  </div>
+
+{% endif %}

@@ -1,0 +1,21 @@
+
+{% macro render(navs, path, level) %}
+    {% if navs.children %}
+        <li data-adress="sub-1" class="{% if navs.active %}current {% endif %}has-sub-side">
+            <div href="{{ navs.url }}" class="parent-list {% if navs.active%}current {% endif %}">
+                {{ navs.title }}
+                <i class="bi bi-chevron-down"></i>
+            </div>
+            <ul class="sub-sidebar-menu sub {% if navs.active%}active {% endif %}">
+                {% for navs in navs.children %}
+                    {{ render(navs, path ~ "_" ~ loop.index, level + 1) }}
+                {% endfor %}
+            </ul>
+        </li>
+    {% else %}
+        <li class="{% if navs.active%}current{% endif %}">
+            <a class="{% if navs.active%}link current{% endif %}" href="{{ navs.url|url }}">{{ navs.title }}</a>
+        </li>
+    {% endif %}
+{% endmacro %}
+{{ render(navs, path, level) }}

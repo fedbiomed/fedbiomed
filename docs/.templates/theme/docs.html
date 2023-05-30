@@ -1,0 +1,45 @@
+{% if page %}
+<div class="container-fluid">
+  <div class="doc-row">
+        <div class="left-col">
+            {%- block sidebar %}
+                {% include "./include/sidebar-doc.html" %}
+            {%- endblock %}
+        </div>
+        <div class="main-col">
+            <div class="main-docs">
+                {% if page.nb_url %}
+                <div class="row">
+                    <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
+                        download=""
+                    >
+                        <img src="{{'assets/img/download-icon.svg' | url }}"/>
+                        <span>Download Notebook</span>
+                    </a>
+                </div>
+                {% endif %}
+                {% if not "\x3ch1" in page.content %}
+                  <h1>{{ page.title | d(config.site_name, true)}}</h1>
+                {% endif %}
+                {{ page.content }}
+
+                {% if page.nb_url %}
+                    <div class="row">
+                        <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
+                            download="">
+
+                            <img src="{{'assets/img/download-icon.svg' | url}}"/>
+                            <span>Download Notebook</span>
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="right-col">
+            <div id="right-sidebar" class="sidebar-right">
+                {% include "./include/toc.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

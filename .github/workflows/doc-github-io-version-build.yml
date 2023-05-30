@@ -1,0 +1,56 @@
+name: Publish NEW TAG in fedbiomed/fedbiomed.github.io
+on:
+  push:
+    # Pattern matched against refs/tags
+    tags:        
+      - '*' 
+  release:
+    types: [published]
+    
+jobs:
+  build-doc:
+    name: Publish version in fedbioemd/fedbiomed.github.io repository
+    environment: fedbiomed.github.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout to commmit
+        uses: actions/checkout@v3
+      
+      - name: Checkout to fedbiomed.github.io
+        uses: actions/checkout@v3
+        with:
+          repository: fedbiomed/fedbiomed.github.io
+          ssh-key: ${{ secrets.FEDBIOMED_GITHUB_IO_DEPLOY_KEY }}
+          path: build-repo
+
+      - name: git
+        run: |
+          # setup the username and email. I tend to use 'GitHub Actions Bot' with no email by default
+          git --version
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "<fedbiomed>"
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+            python-version: '3.11' 
+
+      - name: Install Dependencies
+        run: pip install -r envs/development/docs-requirements.txt
+
+      - name: Build documentation
+        run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-current-as "${{ env.RELEASE_VERSION }}"
+      
+      - name: Publish new version - Pushes new version to fedbiomed/fedbiomed.github.io
+        run: |
+          cd build-repo
+          git add .
+          git commit -m "Deploy documentation version: ${{ env.RELEASE_VERSION }}" 
+          git pull --no-edit --no-rebase  
+          if [ ! git commit -a -m "Pulling recent changes" ]; then
+            echo "o changes to commit"
+          fi
+          git push
+          cd ../

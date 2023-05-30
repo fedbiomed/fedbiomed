@@ -1,0 +1,279 @@
+site_name: Fed-BioMed
+site_url: https://fedbiomed.github.io/test-fedbiomed
+site_dir: public
+
+site_description: >- 
+    Open, Transparent and Trusted Federated Learning for Real-world Healthcare Applications
+theme:
+  name: material
+  logo: assets/img/fedbiomed-logo-small.png
+  custom_dir: docs/.templates/theme/
+  language: en
+
+
+nav:
+  - Top-Bar:
+      - 'Home': './index.md'
+      - 'User Documentation': './getting-started/what-is-fedbiomed.md'
+      - 'About': './pages/about-us.md'
+      - 'More' :
+        - 'Funding' : './#funding'
+        - 'News' : './news/index.md'
+        - 'Contributors': './#contributors'
+        - 'Users': './#users'
+        - 'Roadmap': './pages/roadmap.md'
+        - 'Contact Us' : './#contact-us'
+  - Docs:
+    - 'Getting Started':
+      - "What's Fed-BioMed": './getting-started/what-is-fedbiomed.md'
+      - 'Basic Example': './getting-started/getting-started.md'
+      - 'Fedbiomed Architecture': './getting-started/fedbiomed-architecture.md'
+      - 'Fedbiomed Workflow': './getting-started/fedbiomed-workflow.md'
+    - Tutorials:
+      - Installation:
+        - 'Software Installation' : './tutorials/installation/0-basic-software-installation.md'
+        - 'Setting Up Environment' : './tutorials/installation/1-setting-up-environment.md'
+      - PyTorch:
+        - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
+        - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
+        - 'Federated Model vs Local Model': './tutorials/pytorch/03_PyTorch_MNIST_local_vs_Federated.ipynb'
+        - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/04_PyTorch_Used_Cars_Dataset_Example.ipynb'
+        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/05-Aggregation_in_Fed-BioMed.ipynb'
+      - MONAI: 
+        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
+        - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
+      - Scikit-Learn:
+        - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
+        - 'Regression with Scikit-Learn':  './tutorials/scikit-learn/02_sklearn_sgd_regressor_tutorial.ipynb'
+        - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
+      - FLamby:
+        - 'General Concepts': "./tutorials/flamby/flamby.md"
+        - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
+      - Advanced:
+        - 'In Depth Experiment Configuration': './tutorials/advanced/in-depth-experiment-configuration.ipynb'
+        - 'Training with GPU' : './tutorials/advanced/training-with-gpu.ipynb'
+        - 'Breakpoints' : './tutorials/advanced/breakpoints.md'
+      - Security:
+          - 'Differential Privacy (DP) with OPACUS': './tutorials/security/differential-privacy-with-opacus-on-fedbiomed.ipynb'
+          - 'Local and Central DP Example': './tutorials/security/non-private-local-central-dp-monai-2d-image-registration.ipynb'
+          - 'Training with Approved Model Files' : './tutorials/security/training-with-approved-training-plans.ipynb'
+          - 'Secure Aggregation': './tutorials/security/secure-aggregation.ipynb'
+      - Biomedical data:
+          - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
+    - 'User Guide':
+      - Glossary: './user-guide/glossary.md'
+      - Deployment:
+          - Introduction: './user-guide/deployment/deployment.md'
+          - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
+          - "Network matrix": './user-guide/deployment/matrix.md'
+          - "Security model": './user-guide/deployment/security-model.md'
+      - Node:
+        - "Configuring Nodes": './user-guide/nodes/configuring-nodes.md'
+        - "Deploying Datasets" : './user-guide/nodes/deploying-datasets.md'
+        - "Training Plan Management" : './user-guide/nodes/training-plan-security-manager.md'
+        - "Using GPU" : './user-guide/nodes/using-gpu.md'
+        - "Node GUI" : './user-guide/nodes/node-gui.md'
+      - Researcher:
+        - "Training Plan": './user-guide/researcher/training-plan.md'
+        - "Training Data": './user-guide/researcher/training-data.md'
+        - Experiment: './user-guide/researcher/experiment.md'
+        - Aggregation: './user-guide/researcher/aggregation.md'
+        - "Listing Datasets and Selecting Nodes" : './user-guide/researcher/listing-datasets-and-selecting-nodes.md'
+        - "Model Validation on the Node Side": './user-guide/researcher/model-testing-during-federated-training.md'
+        - "Tensorboard" : './user-guide/researcher/tensorboard.md'
+      - "Secure Aggregation":
+          - "Introduction": './user-guide/secagg/introduction.md'
+          - "Configuration": './user-guide/secagg/configuration.md'
+          - "Certificate Registration": './user-guide/secagg/certificate-registration.md'
+          - "Managing Secure Aggregation in Researcher": './user-guide/secagg/researcher-interface.md'
+    - Developer:
+        - 'API Reference':
+            - Common:
+                - Constants: './developer/api/common/constants.md'
+                - Data: './developer/api/common/data.md'
+                - Environ: './developer/api/common/environ.md'
+                - Exceptions: './developer/api/common/exceptions.md'
+                - Json: './developer/api/common/json.md'
+                - Logger: './developer/api/common/logger.md'
+                - Message: './developer/api/common/message.md'
+                - Messaging: './developer/api/common/messaging.md'
+                - Model: './developer/api/common/models.md'
+                - Optimizer: './developer/api/common/optimizer.md'
+                - Repository: './developer/api/common/repository.md'
+                - TasksQueue: './developer/api/common/tasks_queue.md'
+                - TrainingPlans: './developer/api/common/training_plans.md'
+                - TrainingArgs: './developer/api/common/training_args.md'
+                - Utils: './developer/api/common/utils.md'
+                - Validator: './developer/api/common/validator.md'
+            - Node:
+                - CLI: './developer/api/node/cli.md'
+                - DatasetManager: './developer/api/node/dataset_manager.md'
+                - Node: './developer/api/node/node.md'
+                - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
+                - HistoryMonitor: './developer/api/node/history_monitor.md'
+                - Round: './developer/api/node/round.md'
+            - Researcher:
+                - Aggregators: './developer/api/researcher/aggregators.md'
+                - Datasets: './developer/api/researcher/datasets.md'
+                - Experiment: './developer/api/researcher/experiment.md'
+                - Filetools: './developer/api/researcher/filetools.md'
+                - Job: './developer/api/researcher/job.md'
+                - Monitor: './developer/api/researcher/monitor.md'
+                - Responses: './developer/api/researcher/responses.md'
+                - Requests: './developer/api/researcher/requests.md'
+                - Strategies: './developer/api/researcher/strategies.md'
+                - Secagg: './developer/api/researcher/secagg.md'
+
+
+        - 'Usage and Tools': './developer/usage_and_tools.md'
+        - 'Continuous Integration': './developer/ci.md'
+  #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
+  - Footer:
+    - 'News' : './news/index.md'
+    - 'Contributors': './pages/contributors.md'
+    - 'Contact Us' : './pages/contact-us.md'
+
+extra:
+  NewsPosts:
+      'Release-04-2023':
+          name: 'A new release of Fed-BioMed (v4.3) is out!'
+          desc: 'A new release of Fed-BioMed is now available, introducing Secure Aggregation !'
+          link: '/news/Release-04-2023'
+          image: 'assets/img/v4.3.png'
+      'Release-01-05':
+          name: 'A new release of Fed-BioMed (v4.1) is out!'
+          desc: 'A new release of Fed-BioMed (v4.1) is out, introducing Scaffold aggregator, more integration tests'
+          link: '/news/Release-01-2023'
+          image: 'assets/img/v4.1.png'
+      'federated-pet':
+          name: 'Fed-BioMed for Federated-PET project'
+          desc: 'Federated-PET groups 8 hospitals and 4 research centers in an oncology research project.'
+          link: '/news/federated-pet'
+          image: 'assets/img/VF-logo-FP-partenaires.png'
+      'OSE-2022':
+          name: 'Fed-BioMed @ Open Source Experience 2022'
+          desc: 'Fed-BioMed participated to *Open Source Experience 2022* meeting of the European open source community, Paris, Nov 8-9.'
+          link: '/news/OSE-2022'
+          image: 'assets/img/ose2022.png'
+      'Release-11-2022':
+          name: 'A new major release of Fed-BioMed (v4.0)!'
+          desc: 'A new release of Fed-BioMed is now available: Differential privacy, Training Plan approval, support for multi-modality imaging data, and much more !'
+          link: '/news/Release-11-2022'
+          image: 'assets/img/v4.0.png'
+      'Release-05-2022':
+          name: 'A new release of Fed-BioMed (v3.5)!'
+          desc: 'A new release of Fed-BioMed is now available: model validation, FedProx, NIFTI and MedNIST datasets and much more !'
+          link: '/news/Release-05-2022'
+          image: '/assets/img/v3.5.png'
+      'CAL_oncology':
+          name: 'Fed-BioMed for oncology research'
+          desc: 'Fed-BioMed contributes to oncology research projects from Centre Antoine Lacassagne.'
+          link: '/news/CAL_oncology'
+          image: 'assets/img/CAL.png'
+      'Release-02-2022':
+          name: 'A new release of Fed-BioMed (v3.4)!'
+          desc: 'A new release of Fed-BioMed is now available: DP with Opacus, GUI for node data, GPU for PyTorch and much more !'
+          link: '/news/Release-02-2022'
+          image: 'assets/img/v3.4.png'
+      'Release-01-2022':
+          name: 'A new release of Fed-BioMed (v3.3)!'
+          desc: 'A new release of Fed-BioMed is currently available: more robust, new ML frameworks, new functionalities, and much more!'
+          link: '/news/Release-01-2022'
+          image: 'assets/img/v3.3.png'
+      'CHB':
+          name: 'Fed-BioMed at Hospital Centre Henri Becquerel of Rouen'
+          desc: 'A big thanks to the IT team of the Centre Henri Becquerel (CHB) of Rouen for the successful deployment of Fed-BioMed!'
+          link: '/news/CHB'
+          image: 'assets/img/CHB_team.png'
+      'CAL':
+          name: 'Fed-BioMed at Hospital Antoine Lacassagne of Nice'
+          desc: 'We are proud to announce the successful deployment and testing of Fed-BioMed into the Hospital Antoine Lacassagne (CAL) of Nice!'
+          link: '/pages/CAL'
+          image: 'assets/img/Photo_CAL.jpg'
+      'Roadmap':
+          name: 'Fed-BioMed Roadmap'
+          desc: 'The roadmap of Fed-BioMed is up to date'
+          link: '/pages/roadmap'
+          image: 'assets/img/Road-map_public.jpg'
+      'MICCAI':
+          name: 'Fed-BioMed @ MICCAI'
+          desc: 'Fed-BioMed presented in the keynote session of the 2nd MICCAI Workshop on Distributed And Collaborative Learning'
+          link: 'https://dcl-workshop.github.io/'
+          image: 'assets/img/dcl.png'
+      'hackAtech_n1':
+          name: 'Fed-BioMed @ Inria hackAtech'
+          desc: 'Fed-BioMed is an innovation technology presented at the next Inria hackAtech!'
+          link: 'https://hackatechsophia.inria.fr/'
+          image: 'assets/img/hackatech-2021.png'
+      'workshop_n2':
+          name: '3rd Federated Learning Workshop, Sorbonne University Paris'
+          desc: 'Fed-BioMed presented at the 3rd Federated Learning Workshop organised by Owkin, Société Française de Statistique (SFdS), and Accenture Labs.'
+          link: 'https://sites.google.com/view/federatedlearning-workshop' 
+          image: 'assets/img/workshop.jpg'
+      'welcome_n3':
+          name: 'Welcome to Sergen and Yannick!'
+          desc: 'A warm welcome to Sergen Cansiz and Yannick Bouillard in the Fed-BioMed team!'
+          link: '/news/welcome_08-2021'
+          image: 'assets/img/welcome.png' 
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      use_pygments: true
+      linenums_style: pymdownx-inline
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.magiclink
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.tasklist
+  - pymdownx.tabbed
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  - search:
+      lang: en
+      indexing: 'full'
+  - mkdocs-jupyter:
+      include_source: True
+  - mkdocstrings:
+      custom_templates: docs/.templates
+      default_handler: python
+      handlers:
+        python:
+          import:
+            - https://requests.readthedocs.io/en/master/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://docs.python.org/3/objects.inv
+            - https://scikit-learn.org/stable/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
+          options:
+            docstring_style: google
+            docstring_options:
+              ignore_init_summary: yes
+            merge_init_into_class: yes
+            show_source: yes
+            show_submodules: false
+            show_if_no_docstring: true
+            separate_signature: true
+            separate_signature_for_function: false
+            disable_private: true
+            show_category_heading: true
+            show_root_toc_entry: no
+  - minify:
+      minify_html: true
+
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - assets/javascript/lunr.js
+  - assets/javascript/theme.js
+
+extra_css:
+  - assets/css/style.css
