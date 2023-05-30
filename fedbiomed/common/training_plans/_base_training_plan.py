@@ -8,7 +8,6 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
-from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 import torch
 from torch.utils.data import DataLoader
 
@@ -21,6 +20,7 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
 
