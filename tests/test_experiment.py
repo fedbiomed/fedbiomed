@@ -1271,42 +1271,40 @@ class TestExperiment(ResearcherTestCase):
         numpy_aggregate = {'layer-1': np.random.randn(5, 3), 'layer-2': np.random.randn(5, 3)}
         numpy_global_model = {'layer-1': np.random.randn(5, 3), 'layer-2': np.random.randn(5, 3)}
         aggregates_collection = (
-            torch_aggregate, 
+            torch_aggregate,
             numpy_aggregate
         )
-        
+
         global_model_collections = (
-            torch_global_model, 
+            torch_global_model,
             numpy_global_model
             )
         for aggregates, global_model in zip(aggregates_collection, global_model_collections):
             # set up the Optimizer on Researcher side
             lr = .12345
             optimizer = Optimizer(lr=lr)
-
             self.test_exp.set_researcher_optimizer(optimizer)
+            # patch the Experiment with the weights and a mock Job
             self.test_exp._global_model = global_model
+            self.test_exp._job = create_autospec(Job, instance=True)
+            self.test_exp._job.training_plan.get_model_params.return_value = global_model
+
+            # perform the optimization step and compare to expected results
             agg_updates = self.test_exp._run_global_optimizer(aggregates)
             grad = {k: global_model[k] - aggregates[k] for k in global_model}
-
-            # perform sgd
             correct_updates = {k: global_model[k] - lr * grad[k] for k in global_model}
-            
             for k, v in agg_updates.items():
                 self.assertTrue(np.isclose(agg_updates[k], correct_updates[k]).all())
-                
-                
-            # test specific case when learning_rate = 1, no sgd is applied
-            lr = 1.
+
+            # test specific case when learning_rate = 1, SGD does not change results
+            lr = 1.0
             optimizer = Optimizer(lr=lr)
             self.test_exp.set_researcher_optimizer(optimizer)
             agg_updates = self.test_exp._run_global_optimizer(aggregates)
-
             for k, v in agg_updates.items():
-
                 self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all())
-        
-        
+
+
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)

@@ -1665,16 +1665,25 @@ class Experiment:
         # Run any start-of-round routine.
         self._global_optim.init_round()
         # Recover the aggregated model updates, wrapped as a Vector.
+        # Optionally restrict weights that require updating to non-frozen ones.
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        init_params = Vector.build(self._global_model)
-        agg_gradients = init_params - Vector.build(aggregated_params)
+        names = set(
+            self._job.training_plan.get_model_params(only_trainable=True)
+        )
+        init_params = Vector.build(
+            {k: v for k, v in self._global_model.items() if k in names}
+        )
+        agg_gradients = init_params - Vector.build(
+            {k: v for k, v in aggregated_params.items() if k in names}
+        )
         # Take an Optimizer step to compute the updates.
         # When using vanilla SGD: agg_updates = - lrate * agg_gradients
         agg_updates = self._global_optim.step(agg_gradients, init_params)
         # Return the model weights' new values after this step.
-        return (init_params + agg_updates).coefs
+        weights = (init_params + agg_updates).coefs
+        return {k: weights.get(k, v) for k, v in aggregated_params.items()}
 
     @exp_exceptions
     def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:
