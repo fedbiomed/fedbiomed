@@ -1,0 +1,24 @@
+
+<div class="container">
+    {{ page.content }}
+    <div class="section">
+        <div class="row">
+        {% for key, item in config.extra.NewsPosts.items() %}
+            <div class="col-md-4">
+                <div class="news-card-wrapper">
+                    <div class="image-wraper">
+                        <img src="{% if item.image %}{{item.image | url }}{%else%}{{'assets/img/default-news-image.png' | url}}{%endif%}"/>
+                    </div>
+                    <div class="news-card">
+                        <h3>{{item.name}}</h3>
+                        <p>{{item.desc}}</p>
+                        <a href="{{item.link | url}}">Read More</a>
+                    </div>
+                </div>
+            </div>
+            {% if loop.index % 3 == 0 %}
+                </div><div class="row">
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
