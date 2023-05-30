@@ -34,6 +34,7 @@ jobs:
             - 'scripts/docs/**'
             - 'docs/**'
             - 'envs/development/**'
+            - 'envs/build/**'
             - 'mkdocs.yml'
             - 'README.md'
 
