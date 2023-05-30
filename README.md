@@ -342,6 +342,12 @@ Full documentation in tests/README.md file.
 
 ### Documentation
 
+Required python modules should be installed to be able to build or serve the documentation page. These packages can be installed easly installed using `pip`.  
+
+```
+pip install -r envs/development/docs-requirements.txt
+```
+
 Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in docstrings.   
 
 ```shell 
