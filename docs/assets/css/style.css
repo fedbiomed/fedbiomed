@@ -1570,11 +1570,6 @@ td img[title=":heavy_check_mark:"],img[title=":x:"] {
     width: 16px;
 }
 
-
-td img[title=":x:"] {
-    width: 16px;
-}
-
 .main-docs img { width: 100%; max-width: 720px; display:flex}
 .main-docs img[src$="#img-centered"] { margin: 0 auto}
 .main-docs img[src$="#img-centered-sm"] { margin: 0 auto; max-width:240px}
