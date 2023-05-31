@@ -27,7 +27,7 @@ We do not enforce coding style validation at each commit. In the future, we may 
 
 ### Coding rules
 
-Project specific [coding rules](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/CODING_RULES.md) come in addition to general coding style. Their goal is to favour code homogeneity within the project. They are meant to evolve during the project when needed.
+Project specific [coding rules](https://github.com/fedbiomed/fedbiomed/blob/master/CODING_RULES.md) come in addition to general coding style. Their goal is to favour code homogeneity within the project. They are meant to evolve during the project when needed.
 
 ### License
 
@@ -50,7 +50,7 @@ Project does not mention authors in the code files. Developers can add themselve
 
 ### Framework
 
-The framework is contained in [one git repository](https://gitlab.inria.fr/fedbiomed/fedbiomed) with 3 functional parts:
+The framework is contained in [one git repository](https://github.com/fedbiomed/fedbiomed) with 3 functional parts:
 
 * network: a top layer which contains network layers (http server, message server) and
 a set of scripts to start the services and the components of fedbiomed.
