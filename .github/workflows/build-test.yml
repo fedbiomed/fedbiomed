@@ -1,0 +1,26 @@
+name: Fed-BioMed Build test
+run-name: Fed-BioMed Build test
+on: 
+  push:
+    branches: 
+      - 'feature/github-self*'
+
+permissions:
+  checks: write 
+
+jobs:
+  build-test:
+    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout to commit
+        run: |
+          ./scripts/configure_conda researcher network
+          ./scripts/fedbiomed_run network
+      - name: Run test script  
+        run: |
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w tests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
+      - name: Stop
+        if: always()
+        run: | 
+          ./scripts/fedbiomed_run network stop  
