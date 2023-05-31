@@ -2,7 +2,7 @@
 
 Continuous integration uses a [Jenkins](https://www.jenkins.io/) server on `ci.inria.fr`. 
 
-CI tests are triggered automatically by gitlab on a :
+CI tests are triggered automatically on a:
 
 * merge request to `develop` or `master` branch
 * push in `develop`, `master`, `feature/test_ci` branches (eg: after a merge, pushing a fix directly to this branch)
@@ -17,7 +17,7 @@ CI pipeline currently contains :
 * running unit tests
 * running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/CI_build` (wrapping for running on CI server) which itself calls `./scripts/run_test_mnist` (payload, can also be launched on localhost)
 
-  - clone the Fed-BioMed repository, set up condas and environments, launch network and node. 
+  - clone the Fed-BioMed repository, set up conda and environments, launch network and node. 
   - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the merge, target branch of the merge, `develop`
   - launch the `fedbiomed` script `./notebooks/getting-started.py`
   - test succeeds if the script completes without failure.
@@ -25,7 +25,7 @@ CI pipeline currently contains :
 
 To view CI test output and logs :
 
-* view the merge request in gitlab (select `Merge requests` in left bar, then select your merge request)
+* view the pull request in GitHub (select `Pull requests` in the top bar, then select your pull request)
 * click on the `Pipeline` number (eg: #1289345) in the merge request, then click on the `Jobs` tab, then click on the job number (eg: #1294521)
 * select `Console output` in the left pane
 

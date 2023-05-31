@@ -95,7 +95,7 @@ Current roles in Fed-BioMed development process are:
     * Currently, Core Developers also give final approval and merge the merge requests
     * new Core Developers are chosen by the existing Core Developers among the Contributors.
 
-In terms of mapping to accounts and roles on Gitlab server:
+In terms of mapping to accounts and roles on GitHub Fed-BioMed organization:
 
 - Users have no account by default, but can receive an account with *Guest* role on request
 - Contributors and Reviewer are implemented with gitlab *Developer* role
@@ -105,7 +105,7 @@ In terms of mapping to accounts and roles on Gitlab server:
 
 Contributors, Reviewers and Core Developers receive:
 
-- access to Gitlab server (gitlab.inria.fr) Fed-BioMed project
+- access to [GitHub Fed-BioMed organization](https://github.com/fedbiomed) 
 - invitation to Fed-BioMed developer Discord server
 - registration in Fed-BioMed developer mailing lists (
     discussion list `fedbiomed-developers _at_ inria _dot_ fr`,
@@ -125,7 +125,7 @@ Current list of Core Developers listed by alphabetical order:
 
 ### Gitflow paradigm
 
-The gitflow paradigm must be followed when creating new developement branches and for code release ( see [here](https://datasift.github.io/gitflow/IntroducingGitFlow.html) or [here](https://www.atlassian.com/fr/git/tutorials/comparing-workflows/gitflow-workflow))
+The gitflow paradigm must be followed when creating new development branches and for code release ( see [here](https://datasift.github.io/gitflow/IntroducingGitFlow.html) or [here](https://www.atlassian.com/fr/git/tutorials/comparing-workflows/gitflow-workflow))
 
 ### Release, next release
 
@@ -142,9 +142,9 @@ New features are developed in a `feature` branch (refer to gitflow paradigm).
 
 Branch name for developing new features should start with `feature/` and make them easily linkable with the corresponding issue. For example if the branch is related to issue 123, name it `feature/123-my-short-explanation`.
 
-When the feature is ready, the Developer creates a **merge request** (MR) via gitlab. Be sure to request merging to the `develop` branch.
+When the feature is ready, the Developer creates a **pull request** (MR) via GitHub. Be sure to request merging to the `develop` branch.
 
-The Core Developers team then assign the merge request one Core Developer (*Assignee* MR field in gitlab) and one Reviewer (*Reviewer* MR field in gitlab). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the Developer of the feature.
+The Core Developers team then assign the merge request one Core Developer (*Assignee* PR field in GitHub) and one Reviewer (*Reviewer* PR field in GitHub). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the Developer of the feature.
 
 The *Reviewer* then does a technical review of the merge request evaluating:
 
@@ -153,7 +153,7 @@ The *Reviewer* then does a technical review of the merge request evaluating:
 - the absence of technical regression introduced by the feature
 - the technical coherence of the implementation of the feature with the existing code base
 
-The *Reviewer* marks the MR as *Approved* in gitlab once it is technically ready to be merged.
+The *Reviewer* marks the MR as *Approved* in GitHub once it is technically ready to be merged.
 
 The *Assignee* assesses:
 
@@ -257,7 +257,7 @@ PoC is not a Scrum notion.
 
 ## Milestones and issues
 
-Gitlab milestones and issues are used to keep track of product backlog, sprint backlog and other product items (bugs, proposals, user requests).
+GitHub milestones and issues are used to keep track of product backlog, sprint backlog and other product items (bugs, proposals, user requests).
 
 
 ### Milestones

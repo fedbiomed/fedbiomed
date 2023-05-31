@@ -21,7 +21,7 @@ The goal of Fed-BioMed is to provide a simplified and secured environment to:
 - Allow researchers to easily deploy their models and analysis methods,
 - Foster research and collaborations in federated learning.
 
-Fed-BioMed is an ongoing initiative, and the code is available on [GitLab](https://gitlab.inria.fr/fedbiomed/fedbiomed).
+Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https://github.com/fedbiomed/fedbiomed).
 
 
 ## What is Federated Learning ?

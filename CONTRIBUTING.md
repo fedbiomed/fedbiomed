@@ -16,7 +16,7 @@ Here is a brief summary of how it is structured:
 
 Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https://fedbiomed.org/latest/developer/usage_and_tools/).
 
-When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials consisting of: an account on `gitlab.inria.fr` with access to the gitlab repository, the registration to the developer mailing lists, the invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisagd contributions, to ask questions, etc.
+When done please contact `fedbiomed _at_ inria _dot_ fr` and share your GitHub user name to receive your invitation for Fed-BioMed GitHub organization as well as the registration to the developer mailing lists, the invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisaged contributions, to ask questions, etc.
 
 
 ## How to report issues
@@ -25,7 +25,7 @@ When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contrib
 If you find a bug and want to report it - great ! For that you can:
 
 - either send your report to `fedbiomed-support _at_ inria _dot_ fr` and a developer creates an issue to track it
-- or contact `fedbiomed _at_ inria _dot_ fr` to receive an account on `gitlab.inria.fr` with access to create issues
+- or create your issue on our [GitHub repository](https://github.com/fedbiomed/fedbiomed)
 
 
 ## How to contribute
@@ -34,7 +34,7 @@ If you are able to patch a bug or add the feature yourself – fantastic, you ar
 
 Use the git signed-off-by (`git commit -s`) mechanism for all your commits is encouraged.
 
-Be sure you have read any documents on contributing and you understand [the Fed-BioMed license](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/LICENSE.md). Once you have submitted a merge request the Reviewer can compare your branch to the existing one and decide whether or not to approve your changes.
+Be sure you have read any documents on contributing and you understand [the Fed-BioMed license](https://github.com/fedbiomed/fedbiomed/blob/develop/LICENSE.md). Once you have submitted a merge request the Reviewer can compare your branch to the existing one and decide whether or not to approve your changes.
 
 
 ## Fed-BioMed community path

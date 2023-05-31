@@ -19,7 +19,7 @@ Fed-BioMed provides:
 - Clear solutions compliant with data providers' privacy, and nodes governance requirements.
 
 
-Fed-BioMed is an ongoing initiative, and the code is available on GitLab.
+Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https://github.com/fedbiomed/fedbiomed/).
 
 
 
@@ -41,7 +41,7 @@ import pandas as pd
 
 ## Licensing
 
-Fed-BioMed is released under the Apache License 2.0. For further details please see the LICENSE file in the Fed-BioMed [source code repository](https://gitlab.inria.fr/fedbiomed/fedbiomed/).
+Fed-BioMed is released under the Apache License 2.0. For further details please see the LICENSE file in the Fed-BioMed [source code repository](https://github.com/fedbiomed/fedbiomed).
 
 ## Join us!
 

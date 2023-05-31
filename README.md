@@ -13,13 +13,13 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
-Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.3.x) aka the master branch.
+Curious users may also be interested by the current developments, occurring in the **develop** branch (https://github.com/fedbiomed/fedbiomed/tree/develop)
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronizing with the code. We only provide support for the last release (currently v4.3.x) aka the master branch.
 
 
 ## Install and run in development environment
 
-Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
+Fed-BioMed is developed under Linux Fedora, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
@@ -42,13 +42,13 @@ To ensure fedbiomed will work fine, you need to install before :
 Clone the Fed-BioMed repository for running the software :
 
 ```
-git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+git clone https://github.com/fedbiomed/fedbiomed.git
 ```
 
 Fed-BioMed developers clone of the repository :
 
 ```
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
+git clone git@github.com:fedbiomed/fedbiomed.git
 ```
 
 ### setup conda environments

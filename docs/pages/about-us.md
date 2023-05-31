@@ -7,7 +7,7 @@ description: Open, Transparent and Trusted Federated Learning for Real-world Hea
 
 # About us
 
-Federated learning for Healtcare
+Federated learning for Healthcare
 
 ## What is Fed-BioMed?
 
@@ -21,7 +21,7 @@ Fed-BioMed provides:
 - A framework-agnostic environment for easily deploying machine learning methods,
 - Clear solutions compliant with data providers' privacy, and nodes governance requirements.
 
-Fed-BioMed is an ongoing initiative, and the code is available on [GitLab](https://gitlab.inria.fr/fedbiomed/fedbiomed).
+Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https://github.com/fedbiomed/fedbiomed).
 
 
 
