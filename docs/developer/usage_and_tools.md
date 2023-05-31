@@ -320,6 +320,27 @@ Note: some previously existing tags are now removed - *postponed*, *feature*, *i
 
 ![Fed-BioMed issues workflow](../../assets/img/fedbiomed_dev_usage_issues.png)
 
+## Fed-BioMed Documentation Page 
+
+Fed-BioMed documentation page has been configured to be built and published once there is new version tag released.  Publish process is launched as GitHub workflow job where the documentation is built and pushed to public repository `fedbiomed/fedbiomed.github.io`. There two events that triggers documentation publishing. 
+
+
+### Pushing a new commit to master 
+
+The documentation website contains static pages such as the home page, about us, and support (main pages). These pages are separate from the documentation versioning process since they can be updated without requiring a new version to be published. As a result, whenever a new commit is pushed to the master branch, the GitHub workflow named Publish MASTER `fedbiomed/fedbiomed.github.io` is triggered. This workflow, located at `.github/workflows/doc-github-io-main-build.yml`, is responsible for publishing the changes made to the main pages.
+
+### Pushing a new version tag
+
+The documentation-related pages located in the directories `getting-started`, `developer`, `tutorials`, and `user-guide` are built whenever a new version tag is pushed. The name of the workflow is `Publish NEW TAG in fedbiomed/fedbiomed.github.io` and the workflow file is located at `.github/workflows/doc-github-io-version-build.yml`.
+
+### Process flow for documentation deployment
+
+- The workflow file checks out the pushed commit or tag.
+- It clones the `fedbiomed/fedbiomed.github.io` repository, which stores all the web static files.
+- The documentation is built, and the artifacts are copied into the cloned folder of `fedbiomed/fedbiomed.github.io`.
+- Changes are committed and pushed to `fedbiomed/fedbiomed.github.io`.
+- The push event triggers the deployment job in the `fedbiomed/fedbiomed.github.io` repository.
+
 ## Other tools
 
 * project file repository (Mybox *Fed-BioMed-tech*)
