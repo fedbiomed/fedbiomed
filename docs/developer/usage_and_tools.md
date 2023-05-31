@@ -130,7 +130,7 @@ The Core Developers team then assign the merge request one Core Developer (*Assi
 The *Reviewer* then does a technical review of the merge request evaluating:
 
 - the functional correctness of the feature (eg match with implemented algorithm or formula)
-- the maturity of the feature implementation including conformance to the **definition of done** (DoD) [document](./Fed-BioMed_DoD.pdf).
+- the maturity of the feature implementation including conformance to the [**definition of done** (DoD)](./definition-of-done.md).
 - the absence of technical regression introduced by the feature
 - the technical coherence of the implementation of the feature with the existing code base
 

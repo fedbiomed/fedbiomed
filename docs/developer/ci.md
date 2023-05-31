@@ -37,3 +37,5 @@ To configure CI test :
 Note: using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on merge request).
 
 More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`
+
+## Continues integration for documentation
