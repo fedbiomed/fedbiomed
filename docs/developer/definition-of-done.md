@@ -1,6 +1,6 @@
 # Definition of Done for Fed-BioMed
 
-v1.1 - 2022-05-31 - Iteration 9
+v1.1 - 2023-05-31
 
 
 The Definition of Done is a set of items that must be completed and quality measures that must be met, before a task or a user story can be considered complete. The DoD gives the team a shared understanding of the work that was completed. 
@@ -13,7 +13,7 @@ The Definition of Done is a set of items that must be completed and quality meas
 
 ## Review of the code 
 
-The reviewer can question any aspect of the increment in coherence with [Usage and Tools](./usage_and_tools.md#merge-request).
+The reviewer can question any aspect of the increment in coherence with [Usage and Tools](./usage_and_tools.md#merge-request), exchange with the developer (good practice : leave a gitlab trace of the exchanges), approve it or not.
 
 - Be specific in the merge request about what to review (critical code or properties of the code).
 - Coding style: inspire from PEP-8.
@@ -31,12 +31,16 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 ### User/Developer Docs
 - Add API reference in `docs/developer/api` if there is a new module introduced.
 - Write minimal documentation for scripts (separate README file) or notebooks (inside the notebook).
-- Update/Add documentation in `docs` if there is a new feature or change in API that will impact the given examples in documentation.
+- Update/Add documentation in `docs` if there is a new feature or change in API that impacts the content or examples in documentation.
 
 ## Write unit-test for the code
 
-- Add a mention like "Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage."
+- Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage.
 - Add unit test when correcting a bug.
 
+## Post-merge actions
 
-After merging, mark merge done and update and/or close the issue.
+After merging:
+
+- mark merge `done`
+- update and/or close the issue.
