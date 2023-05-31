@@ -1,9 +1,9 @@
+[![doc](https://img.shields.io/badge/Documentation-brightgreen)](https://fedbiomed.org) ![tag](https://img.shields.io/github/v/tag/fedbiomed/fedbiomed?label=Latest&sort=semver) [![medium](https://img.shields.io/badge/Medium-12100E?logo=medium&logoColor=white)](https://medium.com/fed-biomed)
+
+
 # Fed-BioMed
 
 version 4 implementation of the Fed-BioMed project
-
-## Table of Contents
-[[_TOC_]]
 
 ## Introduction
 
