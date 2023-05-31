@@ -1,10 +1,7 @@
 # Fed-BioMed release HOWTO
 
-Make coordinated release of software (this repo) and documentation (published on `https://fedbiomed.org`)
-  * using same version tag
-  * corresponding to same software version
-  * **release software before documentation** (for API documentation)
-  * release at barely the same time
+This procedure make release of software and documentation (published on `https://fedbiomed.org`).
+Both are contained in this repository.
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands
 
@@ -34,8 +31,9 @@ git checkout -b release/$RELEASE_TAG
 - note: it is not needed to push to branch to the remote, as we currently don't have an additional step of multi-people test of the release branch
 - in the `release` branch, do the release time updates:
   * `CHANGELOG.md`
-  * `README.md` : change `v4.` occurences ; change `version 4` if major release
+  * `README.md` : change `v4.` occurrences ; change `version 4` if major release
   * `fedbiomed/common/constants.py` : change `__versions__`
+- **add new version news in documentation** 
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
@@ -65,6 +63,15 @@ git push origin $RELEASE_TAG
 - check that the CI builds correctly on https://ci.inria.fr/fedbiomed/
   * review carefully the log details for the build
 
+### check documentation
+
+Documentation publish process is now integrated through GitHub actions. Pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.  New version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`. After the release is completed please go check the actions to verify the build is successful.
+
+- check these workflows successfully completed:
+  - `Publish NEW TAG in fedbiomed/fedbiomed.github.io` (gets triggered with a new version tag)
+  - `Publish MASTER fedbiomed/fedbiomed.github.io` (gets triggered by pushing to master)
+
+- browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
 ## merge release to develop
 
@@ -92,3 +99,4 @@ git push origin develop
 git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
+
