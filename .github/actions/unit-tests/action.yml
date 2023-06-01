@@ -19,10 +19,12 @@ runs:
       run: | 
         source ~/.bashrc
         ./scripts/configure_conda researcher
-    
+      shell: bash
+
     - name: Run unit tests 
       run: |
           PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
+      shell: bash
       
     - name: Get coverage rate
       id: coverage-rate
