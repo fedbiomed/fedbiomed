@@ -103,7 +103,6 @@ jobs:
               - 'MP-SDPZ/**'
               - '.github/**'
 
-      
       - name: Run unit tests
         id: unit-test
         uses: ./.github/actions/unit-tests
