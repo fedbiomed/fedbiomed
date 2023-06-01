@@ -6,6 +6,7 @@
 [![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 ![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)
+[![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
 
 # Fed-BioMed
 
