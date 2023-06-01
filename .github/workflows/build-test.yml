@@ -36,7 +36,7 @@ jobs:
         id: unit-test
         uses: ./.github/actions/unit-tests
         with:
-          test-dir: test
+          test-dir: tests
 
       - name: Echo coverage
         run: |
