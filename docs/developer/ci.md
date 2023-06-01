@@ -42,6 +42,4 @@ Note: using branch `feature/test_ci` can be useful when testing/debugging the CI
 
 More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`
 
-## Continues integration for documentation
-
 -->
