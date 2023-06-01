@@ -41,8 +41,10 @@ jobs:
       
       - name: Get code coverage
         uses: ./.github/actions/get-coverage-rate
+        id: coverage
         with:
           xml-path: 'tests/coverage.xml'
-        id: coverage
+          
+      - name: Echo coverage
         run: |
           echo ${{steps.coverage.outputs.rate}}
