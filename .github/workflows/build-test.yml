@@ -22,7 +22,6 @@ jobs:
   build-doc:
     name: Test documentation build
     runs-on: ubuntu-latest
-    needs: paths-filter
     # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
     if: github.event.pull_request.draft == false
     steps:
@@ -64,7 +63,8 @@ jobs:
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     outputs:
       coverage: ${{ steps.unit-test.outputs.coverage }}
-
+      
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
