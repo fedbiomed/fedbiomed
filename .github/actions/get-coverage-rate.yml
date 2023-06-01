@@ -1,0 +1,25 @@
+name: get-coverage-rate
+description: Action to get coverage ratio from coverage.xml
+
+inputs:
+  xml-path:
+    description: The path coverage xml file is kept
+    required: true
+    default: coverage.xml
+
+outputs:
+  rate: # id of the output
+    description: Final test coverage
+    value: ${{ steps.coverage-rate.outputs.coverage }}
+
+runs:
+  steps: 
+    - name: Get coverage rate
+    - id: coverage-rate
+    - run: |
+        COVERAGE=$(python -c \
+          "import xml.etree.ElementTree as ET;tree=ET.parse('tests/coverage.xml');\
+          root=tree.getroot();print(root.attrib['line-rate'])")
+        echo $COVERAGE 
+        echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
+      shell: bash

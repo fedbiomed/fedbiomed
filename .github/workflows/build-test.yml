@@ -5,28 +5,44 @@ on:
     branches: 
       - 'feature/github-self*'
 
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - assigned 
+      - ready-for-review
+
+    branches:
+      - master
+      - develop
+
 permissions:
   checks: write 
 
 jobs:
   build-test:
+    name: fedbiomed-ubuntu-22-04-unit-tests
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     steps:
       
       - name: Checkout to commit
         uses: actions/checkout@v3
 
-      - name: Install deps and run network 
+      - name: Install researcher dependencies
         run: | 
           source ~/.bashrc
-          ./scripts/configure_conda researcher network
-          ./scripts/fedbiomed_run network
-
+          ./scripts/configure_conda researcher
+    
       - name: Run test script  
         run: |
           PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w tests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
       
-      - name: Stop
-        if: always()
-        run: | 
-          ./scripts/fedbiomed_run network stop  
+      - name: Get code coverage
+        uses: ./.github/actions/get-coverage-rate
+        with:
+          xml-path: 'tests/coverage.xml'
+        id: coverage
+        run: |
+          echo ${{steps.coverage.outputs.rate}}
