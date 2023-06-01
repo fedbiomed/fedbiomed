@@ -30,7 +30,7 @@ runs:
       id: coverage-rate
       run: |
         COVERAGE=$(python -c \
-          "import xml.etree.ElementTree as ET;tree=ET.parse('${{ inputs.xml-path }}');\
+          "import xml.etree.ElementTree as ET;tree=ET.parse('${{ inputs.test-dir }}/coverage.xml');\
           root=tree.getroot();print(root.attrib['line-rate'])")
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
