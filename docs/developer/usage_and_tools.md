@@ -6,7 +6,7 @@ The purpose of this guide is to explicit the coding
 rules and conventions used for this project and explain the
 use of some of our tools.
 
-This guide is dedicated to all Fed-BioMed developers: Contributors, Reviewers, Core Developers.
+This guide is dedicated to all Fed-BioMed developers: Contributors, Reviewers, Team Developers, Core Developers.
 
 Some aspects of this guide may change in the future, stay alert for such changes.
 
@@ -90,29 +90,32 @@ There are two events that trigger documentation publishing:
 
 Current roles in Fed-BioMed development process are:
 
-- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications.
-- **Fed-BioMed Contributors**: people proposing their changes to the Fed-BioMed code via merge requests.
-- **Fed-BioMed Reviewers**: people doing technical review and approval of the merge requests.
-    * Reviewers can also be Core Developers or Contributors.
-- **Fed-BioMed Core Developers**: people developing components and documentation of Fed-BioMed, modifying the API, writing extensions.
-    * Currently, Core Developers also give final approval and merge the merge requests
-    * new Core Developers are chosen by the existing Core Developers among the Contributors.
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
+- **Fed-BioMed Reviewers**: developers reviewing the pull requests.
+    * Reviewers can be Contributors, Team Developers or Core Developers.
+- **Fed-BioMed Team Developers**: developers recurrently proposing changes to the Fed-BioMed code and documentation via pull requests, and working in coordinated manner with other Team Developers
+    * Currently, Team Developers are chosen by the existing Team Developers among the volunteer Contributors.
+- **Fed-BioMed Core Developers**: developers coordinating the coding of components and documentation of Fed-BioMed, design of extensions and modifications the API.
+    * Currently, Core Developers also give final approval and merge the pull requests
+    * and new Core Developers are chosen by the existing Core Developers among the Team Developers.
 
-In terms of mapping to accounts and roles on GitHub Fed-BioMed organization:
+In terms of mapping to accounts and roles on GitHub Fed-BioMed repository and organization:
 
-- Users have no account by default, but can receive an account with *Guest* role on request
-- Contributors and Reviewer are implemented with gitlab *Developer* role
-- Core Developers are implemented with gitlab *Maintainer* role
+- Users and Contributors have no specific access to the Fed-BioMed repository, they are not member of the Fed-BioMed GitHub organization
+-  Reviewers and Team Developers receive the [github repository *write* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
+- Core Developers receive the [github repository *maintain* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
 
 **Fed-BioMed developers/users Gitlab accounts are personal and shall not be shared with someone else.**
 
-Contributors, Reviewers and Core Developers receive:
+Reviewers, Team Developers and Core Developers receive:
 
-- access to [GitHub Fed-BioMed organization](https://github.com/fedbiomed) 
+- registration as *members* of the [GitHub Fed-BioMed organization](https://github.com/fedbiomed), and membership in the *Developers* team (plus *CoreDevelopers* team for Core Cevelopers) of the organization
 - invitation to Fed-BioMed developer Discord server
 - registration in Fed-BioMed developer mailing lists (
     discussion list `fedbiomed-developers _at_ inria _dot_ fr`,
     development notifications list `fedbiomed-notifications _at_ inria _dot_ fr`)
+- invitation to Fed-BioMed technical team shared files zone on `mybox.inria.fr`
 
 Current list of Core Developers listed by alphabetical order:
 

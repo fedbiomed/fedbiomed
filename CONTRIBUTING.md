@@ -3,13 +3,13 @@
 Welcome to the **Fed-BioMed Community** ! 
 Here is a brief summary of how it is structured:
 
-- Fed-BioMed Users: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
-- Fed-BioMed Contributors: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
-- Fed-BioMed Team Developers: developers recurrently proposing changes to the Fed-BioMed code and documentation via pull requests, and working in coordinated manner with other Team Developers
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
+- **Fed-BioMed Reviewers**: developers reviewing the pull requests.
+    * Reviewers can be Contributors, Team Developers or Core Developers.
+- **Fed-BioMed Team Developers**: developers recurrently proposing changes to the Fed-BioMed code and documentation via pull requests, and working in coordinated manner with other Team Developers
     * Currently, Team Developers are chosen by the existing Team Developers among the volunteer Contributors.
-- Fed-BioMed Reviewers: developers reviewing the pull requests.
-    * Reviewers can be Core Developers, Team Developers or Contributors.
-- Fed-BioMed Core Developers: developers coordinating the coding of components and documentation of Fed-BioMed, design of extensions and modifications the API.
+- **Fed-BioMed Core Developers**: developers coordinating the coding of components and documentation of Fed-BioMed, design of extensions and modifications the API.
     * Currently, Core Developers also give final approval and merge the pull requests
     * and new Core Developers are chosen by the existing Core Developers among the Team Developers.
 
@@ -42,7 +42,7 @@ Be sure you have read any documents on contributing and you understand [the Fed-
 
 You are now ready to contribute regularly to Fed-BioMed and would like to work in a more coordinated manner with other regular developers, participate to implementation effort of the new evolutions defined in the roadmap, etc. - marvelous !
 
-Please contact `fedbiomed-developers _at_ inria _dot_ fr` and share your GitHub user name to receive your invitation for Fed-BioMed GitHub organization as well as the registration to the developer mailing lists, the invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisaged contributions, to ask questions, etc.
+Please contact `fedbiomed-developers _at_ inria _dot_ fr` and share your GitHub user name to receive your invitation for Fed-BioMed GitHub repository as well as the registration to the developer mailing lists, the invitation to the developers team's Discord server, an invitation to the developers team's shared files zone. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisaged contributions, to ask questions, etc.
 
 
 ## Fed-BioMed community path
