@@ -1,5 +1,6 @@
-name: Documentation Build Test
-on:   
+name: Fed-BioMed Build test
+run-name: Fed-BioMed Build test
+on: 
   pull_request:
     types:
       - opened
@@ -13,12 +14,16 @@ on:
       - master
       - develop
 
+permissions:
+  checks: write 
+
 jobs:
+
   paths-filter:
     # Job to see merge reqeust contains changes related to documentation
     # If so, the job `build-doc` will be triggerred, if not `build-doc` 
     # will be skipped 
-    name: filter-docs-related-file-changes
+    name: Check documentation changes
     runs-on: ubuntu-latest
     outputs:
       is_doc_related_file_changed: ${{ steps.filter.outputs.docs }}
@@ -50,7 +55,7 @@ jobs:
 
 
   build-doc:
-    name: test-documentation-build
+    name: Test documentation build
     runs-on: ubuntu-latest
     needs: paths-filter
     # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
@@ -71,3 +76,32 @@ jobs:
       - name: Build documentation
         # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
+
+  build-test:
+    name: Ubuntu 22.04 unit tests
+    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    outputs:
+      coverage: ${{ steps.unit-test.outputs.coverage }}
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v3
+
+      - name: Run unit tests
+        id: unit-test
+        uses: ./.github/actions/unit-tests
+        with:
+          test-dir: tests
+
+      - name: Test coverage
+        run: |
+          echo ${{steps.unit-test.outputs.coverage}}
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: tests/coverage.xml
+          flags: unittests # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)

@@ -1,3 +1,5 @@
+[![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
+
 # Fed-BioMed
 
 version 4 implementation of the Fed-BioMed project
