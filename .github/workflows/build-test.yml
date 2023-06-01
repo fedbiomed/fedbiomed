@@ -77,21 +77,21 @@ jobs:
         # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
 
-    build-test:
-      name: Ubuntu 22.04 unit tests
-      runs-on: [self-hosted, Linux, ubuntu-22-04]
-      outputs:
-        coverage: ${{ steps.unit-test.outputs.coverage }}
-      steps:
-        - name: Checkout to commit
-          uses: actions/checkout@v3
+  build-test:
+    name: Ubuntu 22.04 unit tests
+    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    outputs:
+      coverage: ${{ steps.unit-test.outputs.coverage }}
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v3
 
-        - name: Run unit tests
-          id: unit-test
-          uses: ./.github/actions/unit-tests
-          with:
-            test-dir: tests
+      - name: Run unit tests
+        id: unit-test
+        uses: ./.github/actions/unit-tests
+        with:
+          test-dir: tests
 
-        - name: Test coverage
-          run: |
-            echo ${{steps.unit-test.outputs.coverage}}
+      - name: Test coverage
+        run: |
+          echo ${{steps.unit-test.outputs.coverage}}
