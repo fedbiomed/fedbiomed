@@ -1,0 +1,108 @@
+name: Fed-BioMed Build test
+run-name: Fed-BioMed Build test
+on: 
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - assigned 
+      - ready-for-review
+
+    branches:
+      - master
+      - develop
+
+permissions:
+  checks: write 
+
+jobs:
+
+  build-doc:
+    name: Test documentation build
+    runs-on: ubuntu-latest
+    # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Detect documentation changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'fedbiomed/**'
+              - 'scripts/docs/**'
+              - 'docs/**'
+              - 'envs/development/**'
+              - 'envs/build/**'
+              - 'mkdocs.yml'
+              - 'README.md'
+
+      - name: Checkout to repository
+        if: steps.filter.outputs.docs == 'true' 
+        uses: actions/checkout@v3
+    
+      - name: Setup python
+        if: steps.filter.outputs.docs == 'true' 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' 
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.docs == 'true' 
+        run: pip install -r envs/build/docs-requirements.txt
+
+      - name: Build documentation
+        if: steps.filter.outputs.docs == 'true' 
+        # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
+        run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
+
+  build-test:
+    name: Ubuntu 22.04 unit tests
+    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    outputs:
+      coverage: ${{ steps.unit-test.outputs.coverage }}
+      
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v3
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/development/conda/**'
+              - 'envs/development/docker/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - 'MP-SPDZ/**'
+
+      - name: Run unit tests
+        id: unit-test
+        uses: ./.github/actions/unit-tests
+        if: steps.filter.outputs.module == 'true'
+        with:
+          test-dir: tests
+
+      - name: Test coverage
+        run: |
+          echo ${{ steps.filter.outputs.module }}
+          echo ${{steps.unit-test.outputs.coverage}}
+
+      - name: Upload coverage reports to Codecov
+        if: steps.filter.outputs.module == 'true'
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: tests/coverage.xml
+          flags: unittests # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
