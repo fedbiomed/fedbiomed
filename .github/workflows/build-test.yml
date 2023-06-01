@@ -19,61 +19,42 @@ permissions:
 
 jobs:
 
-  paths-filter:
-    # Job to see merge reqeust contains changes related to documentation
-    # If so, the job `build-doc` will be triggerred, if not `build-doc` 
-    # will be skipped 
-    name: Check documentation changes
-    runs-on: ubuntu-latest
-    outputs:
-      is_doc_related_file_changed: ${{ steps.filter.outputs.docs }}
-    if: github.event.pull_request.draft == false
-    steps:
-    - uses: actions/checkout@v2
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          docs:
-            - 'fedbiomed/**'
-            - 'scripts/docs/**'
-            - 'docs/**'
-            - 'envs/development/**'
-            - 'envs/build/**'
-            - 'mkdocs.yml'
-            - 'README.md'
-
-    # run only if 'workflows' files were changed
-    - name: Changes related to docs
-      if: steps.filter.outputs.docs == 'true'
-      run: echo true
-
-    # run only if not 'workflows' files were changed
-    - name: No changes related to docs
-      if: steps.filter.outputs.docs != 'true'
-      run: echo false
-
-
   build-doc:
     name: Test documentation build
     runs-on: ubuntu-latest
-    needs: paths-filter
     # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
-    if: | 
-      ( github.event.pull_request.draft == false && needs.paths-filter.outputs.is_doc_related_file_changed == 'true' )
+    if: github.event.pull_request.draft == false
     steps:
+      - name: Detect documentation changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'fedbiomed/**'
+              - 'scripts/docs/**'
+              - 'docs/**'
+              - 'envs/development/**'
+              - 'envs/build/**'
+              - 'mkdocs.yml'
+              - 'README.md'
+
       - name: Checkout to repository
+        if: steps.filter.outputs.docs == 'true' 
         uses: actions/checkout@v3
     
       - name: Setup python
+        if: steps.filter.outputs.docs == 'true' 
         uses: actions/setup-python@v4
         with:
           python-version: '3.11' 
 
       - name: Install Dependencies
+        if: steps.filter.outputs.docs == 'true' 
         run: pip install -r envs/build/docs-requirements.txt
 
       - name: Build documentation
+        if: steps.filter.outputs.docs == 'true' 
         # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
 
@@ -82,21 +63,41 @@ jobs:
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     outputs:
       coverage: ${{ steps.unit-test.outputs.coverage }}
+      
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
 
+      - name: Filter module related changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/development/conda/**'
+              - 'envs/development/docker/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - 'MP-SPDZ/**'
+
       - name: Run unit tests
         id: unit-test
         uses: ./.github/actions/unit-tests
+        if: steps.filter.outputs.module == 'true'
         with:
           test-dir: tests
 
       - name: Test coverage
         run: |
+          echo ${{ steps.filter.outputs.module }}
           echo ${{steps.unit-test.outputs.coverage}}
 
       - name: Upload coverage reports to Codecov
+        if: steps.filter.outputs.module == 'true'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
