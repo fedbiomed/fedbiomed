@@ -1,0 +1,12 @@
+# model parameters
+n_epochs = 20
+
+model = MyLocalTrainingPlan()
+
+# model training loop
+for _ in range(n_epochs):
+    for data, targets in model.training_data():
+        model.optimizer.zero_grad()
+        res = model.training_step(data, targets)
+        res.backward()
+        model.optimizer.step()
