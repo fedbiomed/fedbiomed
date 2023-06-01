@@ -1,0 +1,43 @@
+<div class="container-fluid top-bar-mobile">
+    <div class="mobile-bar">
+        <div class="brand">
+            <a href="{{'./'|url}}">
+                <img src="{{'assets/img/fedbiomed-logo-small.png'|url}}"/>
+            </a>
+        </div>
+        <div class="hum-menu">
+            <img class="open" src="{{'assets/img/menu.svg'|url}}"/>
+            <img class="close" style="display:none" src="{{'assets/img/cancel.svg'|url}}"/>
+        </div>
+    </div>
+
+    <nav class="top-mobile">
+        {% if nav|length>1 %}
+            {% for nav_item in nav %}
+                {% if nav_item.title == 'Top-Bar' %}  
+                    <ul>
+                    {% for nav_item in nav_item.children %}
+                        {% if nav_item.children %}
+                            <li id="clicker" class="{% if nav_item.active%}current {% endif %}has-sub">
+                                {{ nav_item.title }}
+                                <i class="bi bi-chevron-down"></i>
+                                <ul class="sub-nav-menu">
+                                {% for nav_item_c in nav_item.children %}
+                                    <li class="{% if nav_item_c.active%}current{% endif %}">
+                                        <a href="{{ nav_item_c.url|url }}">{{ nav_item_c.title }}</a>
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            </li>
+                        {% else %}
+                            <li class="{% if nav_item.active%}current{% endif %}">
+                                <a href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </nav>
+</div>

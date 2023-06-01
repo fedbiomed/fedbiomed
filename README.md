@@ -318,7 +318,7 @@ may lead to unpredictable behavior. In this case, it is adviced to restart from 
 
 
 
-## Misc developper tools to help debugging
+## Misc developer tools to help debugging
 
 ### scripts/lqueue
 
@@ -340,27 +340,40 @@ Run a full (integration) test by launching:
 Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
-### Testing Doc Strings 
+### Documentation
 
-Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
-that provided in classes and methods. Therefore, before creating a merge request please check 
-whether doc strings are valid for the fedbiomed documentation built. You can use following command
-to check WARNING and ERROR messages that comes from API docs. 
+Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using conda environment to `serve` or `build` the documentation (recommended).
 
-Following command will serve only API docs on the port `:8000`. The site will be different from 
-actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
-to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
-without paying action on visual of the site. 
-
-```python
-./tests/docstrings/check_docstrings
+```
+conda env update -f envs/build/conda/fedbiomed-doc.yaml
+conda activate fedbiomed-doc
 ```
 
-Developer should do the last test before pushing documentation release.
+They can also be installed using `pip` (required python version 3.11), as in the real build process (if you know what you're doing).
+- Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
+
+```
+pip install -r envs/development/docs-requirements.txt
+```
+
+Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
+
+```shell 
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh serve
+```
+
+Please see usage for additional options.
+
+```
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh --help
+```
+
 
 ## Using Tensorboard
 
-To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
 
 ```
 exp = Experiment(tags=tags,
