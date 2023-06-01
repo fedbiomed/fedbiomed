@@ -1,4 +1,12 @@
+<<<<<<< HEAD
 [![doc](https://img.shields.io/badge/Documentation-brightgreen)](https://fedbiomed.org) ![tag](https://img.shields.io/github/v/tag/fedbiomed/fedbiomed?label=Latest&sort=semver) [![medium](https://img.shields.io/badge/Medium-12100E?logo=medium&logoColor=white)](https://medium.com/fed-biomed)
+=======
+[![Documentation](https://github.com/fedbiomed/test-fedbiomed/actions/workflows/doc-github-io-main-build.yml/badge.svg?branch=master&event=push)](https://github.com/fedbiomed/test-fedbiomed/actions/workflows/doc-github-io-main-build.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
+[![Python-versions](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11-brightgreen)](https://www.python.org/)
+[![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
+[![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
+>>>>>>> ad5cf435 (adding extra badges to README)
 
 
 # Fed-BioMed
