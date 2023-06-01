@@ -26,19 +26,19 @@ jobs:
     # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
     if: github.event.pull_request.draft == false
     steps:
-      name: Detect documentation changes
-      uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          docs:
-            - 'fedbiomed/**'
-            - 'scripts/docs/**'
-            - 'docs/**'
-            - 'envs/development/**'
-            - 'envs/build/**'
-            - 'mkdocs.yml'
-            - 'README.md'
+      - name: Detect documentation changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'fedbiomed/**'
+              - 'scripts/docs/**'
+              - 'docs/**'
+              - 'envs/development/**'
+              - 'envs/build/**'
+              - 'mkdocs.yml'
+              - 'README.md'
 
       - name: Checkout to repository
         if: steps.filter.outputs.docs == 'true' 
