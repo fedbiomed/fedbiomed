@@ -52,4 +52,4 @@ jobs:
       - name: Run MNIST Test - Master
         run: |
           source ~/.bashrc
-          ./scripts/run_test_mnist
+          ./scripts/run_test_mnist data
