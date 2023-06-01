@@ -344,30 +344,32 @@ Full documentation in tests/README.md file.
 
 ### Documentation
 
-Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using `pip` (required python version 3.11).  
-
-```
-pip install -r envs/development/docs-requirements.txt
-```
-
-It is also possible to use conda environment to `serve` or `build` the documentation (recommended). 
+Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using conda environment to `serve` or `build` the documentation (recommended).
 
 ```
 conda env update -f envs/build/conda/fedbiomed-doc.yaml
 conda activate fedbiomed-doc
 ```
 
+They can also be installed using `pip` (required python version 3.11), as in the real build process (if you know what you're doing).
+- Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
+
+```
+pip install -r envs/development/docs-requirements.txt
+```
 
 Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
 
 ```shell 
-{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh serve
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh serve
 ```
 
 Please see usage for additional options.
 
 ```
-{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh --help
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh --help
 ```
 
 

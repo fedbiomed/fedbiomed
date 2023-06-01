@@ -61,7 +61,29 @@ a set of scripts to start the services and the components of fedbiomed.
 
 ### Documentation
 
-The documentation is contained in [another git repository](https://gitlab.inria.fr/fedbiomed/fedbiomed.gitlabpages.inria.fr) that is used for building [the web site](https://fedbiomed.org)
+The documentation is contained in the repository under `docs` directory that is used for building [the web site](https://fedbiomed.org). The static files that are obtained after building documentation are kept in the repository `fedbiomed/fedbiomed.github.io` to serve for web.
+
+Fed-BioMed documentation page is configured to be built and published once there is new version tag released.  Publish process is launched as GitHub workflow job where the documentation is built and pushed to public repository `fedbiomed/fedbiomed.github.io`.
+
+#### Events for documentation build
+
+There are two events that trigger documentation publishing:
+
+- `Publish MASTER fedbiomed/fedbiomed.github.io` when pushing a new commit to master
+
+    The documentation website contains static pages such as the home page, about us, and support (main pages). These pages are separate from the documentation versioning process since they can be updated without requiring a new version to be published. As a result, whenever a new commit is pushed to the master branch, the GitHub workflow named `Publish MASTER fedbiomed/fedbiomed.github.io` is triggered. This workflow, located at `.github/workflows/doc-github-io-main-build.yml`, is responsible for publishing the changes made to the main pages.
+
+- `Publish NEW TAG in fedbiomed/fedbiomed.github.io` when pushing a new version tag
+
+    The documentation-related pages located in the directories `getting-started`, `developer`, `tutorials`, and `user-guide` are built whenever a new version tag is pushed. The name of the workflow is `Publish NEW TAG in fedbiomed/fedbiomed.github.io` and the workflow file is located at `.github/workflows/doc-github-io-version-build.yml`.
+
+#### Process flow for documentation deployment
+
+- The workflow file checks out the pushed commit or tag.
+- It clones the `fedbiomed/fedbiomed.github.io` repository, which stores all the web static files.
+- The documentation is built, and the artifacts are copied into the cloned folder of `fedbiomed/fedbiomed.github.io`.
+- Changes are committed and pushed to `fedbiomed/fedbiomed.github.io`.
+- The push event triggers the deployment job in the `fedbiomed/fedbiomed.github.io` repository.
 
 
 ## Roles and accesses
@@ -130,7 +152,7 @@ The Core Developers team then assign the merge request one Core Developer (*Assi
 The *Reviewer* then does a technical review of the merge request evaluating:
 
 - the functional correctness of the feature (eg match with implemented algorithm or formula)
-- the maturity of the feature implementation including conformance to the **definition of done** (DoD) [document](./Fed-BioMed_DoD.pdf).
+- the maturity of the feature implementation including conformance to the [**definition of done** (DoD)](./definition-of-done.md).
 - the absence of technical regression introduced by the feature
 - the technical coherence of the implementation of the feature with the existing code base
 
@@ -319,6 +341,7 @@ Note: some previously existing tags are now removed - *postponed*, *feature*, *i
 * summary :
 
 ![Fed-BioMed issues workflow](../../assets/img/fedbiomed_dev_usage_issues.png)
+
 
 ## Other tools
 

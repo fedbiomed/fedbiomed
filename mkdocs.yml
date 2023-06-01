@@ -124,9 +124,9 @@ nav:
                 - Strategies: './developer/api/researcher/strategies.md'
                 - Secagg: './developer/api/researcher/secagg.md'
 
-
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
+        - 'Definition of Done': './developer/definition-of-done.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - Footer:
     - 'News' : './news/index.md'
