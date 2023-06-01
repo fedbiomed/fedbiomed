@@ -25,26 +25,19 @@ jobs:
   build-test:
     name: fedbiomed-ubuntu-22-04-unit-tests
     runs-on: [self-hosted, Linux, ubuntu-22-04]
+    outputs:
+      coverage: ${{ steps.filter.outputs.docs }}
     steps:
       
       - name: Checkout to commit
         uses: actions/checkout@v3
 
-      - name: Install researcher dependencies
-        run: | 
-          source ~/.bashrc
-          ./scripts/configure_conda researcher
-    
-      - name: Run test script  
-        run: |
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w tests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
-      
-      - name: Get code coverage
-        uses: ./.github/actions/get-coverage-rate
-        id: coverage
+      - name: Run unit tests
+        id: unit-test
+        uses: ./.github/actions/unit-tests
         with:
-          xml-path: 'tests/coverage.xml'
+          test-dir: test
 
       - name: Echo coverage
         run: |
-          echo ${{steps.coverage.outputs.rate}}
+          echo ${{steps.unit-test.outputs.coverage}}
