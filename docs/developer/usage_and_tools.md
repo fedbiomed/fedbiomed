@@ -136,7 +136,7 @@ Next release is integrated under `develop`.
 
 In other words, the `master` and `develop` branches are protected and only writable by Core Developers.
 
-### Merge request
+### Pull request
 
 New features are developed in a `feature` branch (refer to gitflow paradigm).
 

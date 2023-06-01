@@ -2,6 +2,10 @@
 
 Continuous integration uses a [Jenkins](https://www.jenkins.io/) server on `ci.inria.fr`. 
 
+TODO: update for `github.com`
+
+<!--
+
 CI tests are triggered automatically on a:
 
 * merge request to `develop` or `master` branch
@@ -39,3 +43,5 @@ Note: using branch `feature/test_ci` can be useful when testing/debugging the CI
 More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`
 
 ## Continues integration for documentation
+
+-->

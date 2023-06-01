@@ -27,5 +27,7 @@ Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https
 
 ## Contributors:
 
-Fed-BioMed software has been founded by the French Computer Science Institute INRIA. Contributors are coming from public research as well as companies (involved in a public -  private partnership).
-*Coming Soon !*
+Fed-BioMed software was originally developed by Inria (Institut National de Recherche en Informatique et Automatique), and of Université Côte d’Azur (UCA).
+
+[Authors](https://github.com/fedbiomed/fedbiomed/blob/master/AUTHORS.md) come from academic research, private companies and open source community.
+
