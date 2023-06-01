@@ -44,7 +44,7 @@ jobs:
         id: coverage
         with:
           xml-path: 'tests/coverage.xml'
-          
+
       - name: Echo coverage
         run: |
           echo ${{steps.coverage.outputs.rate}}
