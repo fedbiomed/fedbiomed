@@ -1,11 +1,13 @@
+[![Documentation](https://github.com/fedbiomed/test-fedbiomed/actions/workflows/doc-github-io-main-build.yml/badge.svg?branch=master&event=push)](https://github.com/fedbiomed/test-fedbiomed/actions/workflows/doc-github-io-main-build.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
+[![Python-versions](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11-brightgreen)](https://www.python.org/)
+[![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
+[![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 [![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
 
 # Fed-BioMed
 
 version 4 implementation of the Fed-BioMed project
-
-## Table of Contents
-[[_TOC_]]
 
 ## Introduction
 
