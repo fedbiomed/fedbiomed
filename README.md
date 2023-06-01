@@ -42,7 +42,7 @@ To ensure fedbiomed will work fine, you need to install before :
 Clone the Fed-BioMed repository for running the software :
 
 ```
-git clone https://github.com/fedbiomed/fedbiomed.git
+git clone -b master https://github.com/fedbiomed/fedbiomed.git
 ```
 
 Fed-BioMed developers clone of the repository :

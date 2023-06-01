@@ -22,23 +22,6 @@ Fed-BioMed provides:
 Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https://github.com/fedbiomed/fedbiomed/).
 
 
-
-
-<!-- In particular, we are currently developing probabilistic approaches to FL based on a generative model
-of data and parameters variability across centres. This allows us to quantify and account for the discrepancy of data and model’s distributions across participants. Moreover, this kind of approach naturally allows to account for missing features and modalities in each centre. Furthermore, Fed-BioMed is
-conceived to ensure robustness to the problem of malicious attacks in FL through the development of opportune defense and monitoring strategies. These threats include privacy breaking and adversarial attacks, as well as the problem of free-riding. -->
-
-
-<!-- ```python
-import pandas as pd
-```
-
-| Method      | Description                          |
-| ----------- | ------------------------------------ |
-| `GET`       | :material-check:     Fetch resource  |
-| `PUT`       | :material-check-all: Update resource |
-| `DELETE`    | :material-close:     Delete resource | -->
-
 ## Licensing
 
 Fed-BioMed is released under the Apache License 2.0. For further details please see the LICENSE file in the Fed-BioMed [source code repository](https://github.com/fedbiomed/fedbiomed).
