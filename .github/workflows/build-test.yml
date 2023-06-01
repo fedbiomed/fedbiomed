@@ -82,21 +82,42 @@ jobs:
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     outputs:
       coverage: ${{ steps.unit-test.outputs.coverage }}
+      filter: ${{ steps.filter.outputs.module }}
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
 
+      - name: Filter module related changes
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/development/conda/**'
+              - 'envs/development/docker/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - 'MP-SDPZ/**'
+              - '.github/**'
+
+      
       - name: Run unit tests
         id: unit-test
         uses: ./.github/actions/unit-tests
+        if: ${{ steps.filter.outputs.module == true }}
         with:
           test-dir: tests
 
       - name: Test coverage
+        if: ${{ steps.filter.outputs.module == true }}
         run: |
           echo ${{steps.unit-test.outputs.coverage}}
 
       - name: Upload coverage reports to Codecov
+        if: ${{ steps.filter.outputs.module == true }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
