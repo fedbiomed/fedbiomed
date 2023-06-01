@@ -106,7 +106,7 @@ jobs:
       - name: Run unit tests
         id: unit-test
         uses: ./.github/actions/unit-tests
-        if: ${{ steps.filter.outputs.module == true }}
+        if: steps.filter.outputs.module == 'true'
         with:
           test-dir: tests
 
@@ -116,7 +116,7 @@ jobs:
           echo ${{steps.unit-test.outputs.coverage}}
 
       - name: Upload coverage reports to Codecov
-        if: ${{ steps.filter.outputs.module == true }}
+        if: steps.filter.outputs.module == 'true'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
