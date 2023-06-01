@@ -1,0 +1,14 @@
+
+name: Open a new Issue
+description: For reporting a bug, proposing a new feature, enhancing an existing one, asking a question...
+title: "[Candidate]: "
+labels: candidate
+body:
+  - type: textarea
+    id: descr
+    attributes:
+      label: Dear user, welcome to the Fed-BioMed project !
+      description: "*Please keep the `candidate` label when creating your issue: this help us to tag your issue appropriately. We will get back to you as soon as possible !*"
+      placeholder: Your question, proposal, bug, ...
+    validations:
+      required: true
