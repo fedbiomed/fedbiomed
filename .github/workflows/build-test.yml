@@ -82,7 +82,7 @@ jobs:
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     outputs:
       coverage: ${{ steps.unit-test.outputs.coverage }}
-      filter: ${{ steps.filter.outputs.module }}
+
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
@@ -111,8 +111,8 @@ jobs:
           test-dir: tests
 
       - name: Test coverage
-        if: ${{ steps.filter.outputs.module == true }}
         run: |
+          echo ${{ steps.filter.outputs.module }}
           echo ${{steps.unit-test.outputs.coverage}}
 
       - name: Upload coverage reports to Codecov
