@@ -100,8 +100,7 @@ jobs:
               - 'envs/development/docker/**'
               - 'envs/build/**'
               - 'modules/**'
-              - 'MP-SDPZ/**'
-              - '.github/**'
+              - 'MP-SPDZ/**'
 
       - name: Run unit tests
         id: unit-test
