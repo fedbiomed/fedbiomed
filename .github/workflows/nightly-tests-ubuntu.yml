@@ -1,7 +1,8 @@
 name: Fed-BioMed Nightly Tests
+run-name: Fed-BioMed Ubuntu-22-04 Nightly Tests
 on:
   schedule:
-    - cron: '30,35,40,45 14 * * *'
+    - cron: '0,5,10,15,20,25,30 15 * * *'
 
 
 jobs: 
@@ -17,6 +18,8 @@ jobs:
 
     outputs:
       coverage: ${{ steps.unit-test.outputs.coverage }}
+      master-coverage: ${{ steps.unit-test.outputs.master-coverage }}
+      develop-coverage: ${{ steps.unit-test.outputs.develop-coverage }}
 
     steps:
       - name: Checkout to master
@@ -32,7 +35,19 @@ jobs:
 
       - name: Test coverage
         run: |
-          echo ${{steps.unit-test.outputs.coverage}}
+          echo "${{ matrix.branch }}-coverage=${{steps.unit-test.outputs.coverage }}" >> $GITHUB_OUTPUT
+  
+  coverage-result: 
+    needs: build-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      
+      - name: debug
+        run: echo '${{ toJSON(needs.built-test.outputs) }}'
+
 
   integration-test: 
     name: Ubuntu 22.04 Integration tests
