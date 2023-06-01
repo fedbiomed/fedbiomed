@@ -13,6 +13,7 @@ outputs:
     value: ${{ steps.coverage-rate.outputs.coverage }}
 
 runs:
+  using: "composite"
   steps: 
     - name: Get coverage rate
       id: coverage-rate
