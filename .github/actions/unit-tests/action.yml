@@ -1,0 +1,37 @@
+name: unit-tests
+description: Action to execute unit tests
+
+inputs:
+  test-dir:
+    description: The directory where the test files are kept
+    required: true
+    default: tests
+
+outputs:
+  coverage: # id of the output
+    description: Final test coverage
+    value: ${{ steps.coverage-rate.outputs.coverage }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install researcher dependencies
+      run: | 
+        source ~/.bashrc
+        ./scripts/configure_conda researcher
+      shell: bash
+
+    - name: Run unit tests 
+      run: |
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
+      shell: bash
+      
+    - name: Get coverage rate
+      id: coverage-rate
+      run: |
+        COVERAGE=$(python -c \
+          "import xml.etree.ElementTree as ET;tree=ET.parse('${{ inputs.test-dir }}/coverage.xml');\
+          root=tree.getroot();print(root.attrib['line-rate'])")
+        echo $COVERAGE 
+        echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
+      shell: bash
