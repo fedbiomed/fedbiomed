@@ -1,8 +1,7 @@
 name: Fed-BioMed Nightly Tests
 on:
   schedule:
-    schedule:
-      - cron: '30,35,40,45 14 * * *'
+    - cron: '30,35,40,45 14 * * *'
 
 
 jobs: 
