@@ -26,9 +26,8 @@ jobs:
     name: fedbiomed-ubuntu-22-04-unit-tests
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     outputs:
-      coverage: ${{ steps.filter.outputs.docs }}
+      coverage: ${{ steps.unit-test.outputs.coverage }}
     steps:
-      
       - name: Checkout to commit
         uses: actions/checkout@v3
 
