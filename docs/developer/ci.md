@@ -18,10 +18,11 @@ The pull request can not be completed before CI pipeline succeeds
 CI pipeline currently contains :
 
 - running unit tests
-- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/CI_build` (wrapping for running on CI server) which itself calls `./scripts/run_test_mnist` (payload, can also be launched on localhost)
-    - clone the Fed-BioMed repository, set up conda and environments, launch network and node. 
+
+- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/run_test_mnist` (an also be launched on localhost)
+    - activate conda and environments, launch network and node.
     - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the PR, target branch of the PR, `develop`
-    - launch the `fedbiomed` script `./notebooks/getting-started.py`
+    - launch the `fedbiomed` script `./notebooks/101_getting-started.py`
     - test succeeds if the script completes without failure.
 
 - running test build process for documentation 

@@ -18,7 +18,8 @@ runs:
     - name: Install researcher dependencies
       run: | 
         source ~/.bashrc
-        ./scripts/configure_conda researcher
+        ./scripts/configure_conda researcher network
+        ./scripts/fedbiomed_run network
       shell: bash
 
     - name: Run unit tests 
