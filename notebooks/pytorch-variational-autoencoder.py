@@ -8,7 +8,7 @@
 #
 # ## Start the network and setting node up
 # 
-# Before running this notebook, you should start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
+# Before running this notebook, you should start the network
 # Therefore, it is necessary to previously configure a node:
 # 
 # 1. `./scripts/fedbiomed_run node add`

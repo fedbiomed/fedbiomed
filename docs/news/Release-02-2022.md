@@ -10,5 +10,5 @@ Fed-BioMed v3.4 is now available. Here are some key new features:
 - new tutorials and notebooks
 - refactoring and testing for robustness and code maturity
 
-All the new specifics are in the [Fed-BioMed CHANGELOG](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/CHANGELOG.md).
+All the new specifics are in the [Fed-BioMed CHANGELOG](https://github.com/fedbiomed/fedbiomed/blob/v3.4/CHANGELOG.md).
 

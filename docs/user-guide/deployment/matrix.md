@@ -43,7 +43,7 @@ For destination machine, it is simpler to authorize outbound communications to a
 - for all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
 - plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download 
 
-Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
+Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
 
 
 ## Running without VPN/containers
