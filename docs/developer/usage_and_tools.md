@@ -284,15 +284,18 @@ Issues are used to describe smaller goals of the project (tasks, functional requ
 
 An open issue has exactly one type amongst:
 
+* *needs-triage* for new user issues
 * a *candidate* 
 * a *product backlog* entry
 * a *sprint backlog* entry
 
 An issue:
 
-* can be created by an individual developer or user. It must then label as a *candidate*.
+* can be created by a user. It must then be labelled as *needs-triage*
+* can be created by an individual developer. It must then label as a *candidate*.
+* can be moved from *needs-triage* to *candidate* by a team developer. The team developer ensures it contains necessary information and is explicit enough. Team developer can also add *misc* labels.
 * can be moved to the *product backlog* by the product owner or with explicit validation of the product owner
-* can be moved to the *sprint backlog* during sprint planning by the developers
+* can be moved to the *sprint backlog* during sprint planning by the team developers
 * is closed and marked *done* when it is completed. If it belongs to the *sprint backlog*, it should keep this label until the end of the current sprint.
 
 A closed issue has exactly one type amongst:
@@ -300,8 +303,8 @@ A closed issue has exactly one type amongst:
 * *done* (and not anymore in the sprint backlog)
 * *attic*
 
-An issue can be labelled as *attic* and closed when it is considered obsolete.
-It then loses its open issue type label (*candidate*, *product backlog*, *sprint backlog*).
+An issue can be labelled as *attic* and closed when it is considered obsolete or not relevant.
+It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*, *sprint backlog*).
 
 
 ### Labels
@@ -311,7 +314,8 @@ We sort labels in several categories:
 
 #### *type* labels:
 
-  - **candidate** : an individual developer or user submits a work request to the team (extension proposal, bug, other request)
+  - **needs-triage** : a user submits a work request to the team (extension proposal, bug, other request)
+  - **candidate** : an individual developer submits a work request to the team (extension proposal, bug, other request)
   - **product backlog** : the product owner adds an entry to the product backlog
   - **sprint backlog** : the development team adds an entry to the sprint backlog
   - **attic** : the entry is not completed, but is now considered obsolete and closed
@@ -320,7 +324,7 @@ We sort labels in several categories:
 
 #### *status* labels:
 
-All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a contributor not participating to a sprint, a developer working during intersprint).
+All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
 
   - **todo** : issue not started yet (but intention to start soon)
   - **doing** : issue implementation in progress

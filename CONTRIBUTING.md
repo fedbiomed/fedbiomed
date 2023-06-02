@@ -26,10 +26,10 @@ If you find a bug and want to report it - great ! For that you can:
 
 Please **read carefully** [the developer guide on the Fed-BioMed webpage](https://fedbiomed.org/latest/developer/usage_and_tools/).
 
-When done please fork the `https://github.com/fedbiomed/fedbiomed` repository.
+When done please fork the [https://github.com/fedbiomed/fedbiomed](https://github.com/fedbiomed/fedbiomed) repository.
 
 If you are able to patch a bug or add the feature yourself – fantastic, you are ready to make a pull request with the code!
-Please request to merge your forked branch to the `develop` branch of `https://github.com/fedbiomed/fedbiomed`.
+Please request to merge your forked branch to the `develop` branch of [https://github.com/fedbiomed/fedbiomed](https://github.com/fedbiomed/fedbiomed).
 
 But you can also participate in many other ways: improvements and extension of the documentation, or review of a pending pull request are also great contributions to the project.
 
