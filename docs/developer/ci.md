@@ -27,7 +27,7 @@ CI pipeline currently contains :
     - activate conda and environments, launch network and node.
     - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the PR, target branch of the PR, `develop`
     - launch the `fedbiomed` script `./notebooks/101_getting-started.py`
-    - test succeeds if the script completes without failure.
+    - succeed if the script completes without failure.
 
 - running test build process for documentation 
 
@@ -65,7 +65,7 @@ Please see [GitHub actions](https://github.com/features/actions) documentation f
 
 ### CI slaves
 
-CI slaves are located on `ci.inria.fr`. To be able to add extra configuration and installation you will have to connect with your account on `ci.inria.fr`. You need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria to be able get an account on `ci.inria.fr`. You can request the Fed-BioMed team to become a member of the Fed-BioMed CI project.
+CI slaves are located on `ci.inria.fr`. To be able to add extra configuration and installation you have to connect with your account on `ci.inria.fr`. You need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria to be able get an account on `ci.inria.fr`. You can request the Fed-BioMed team to become a member of the Fed-BioMed CI project.
 
 
 ## Testing
