@@ -7,6 +7,8 @@
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 ![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)
 [![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
+[![doc](https://img.shields.io/badge/Documentation-brightgreen)](https://fedbiomed.org) ![tag](https://img.shields.io/github/v/tag/fedbiomed/fedbiomed?label=Latest&sort=semver) [![medium](https://img.shields.io/badge/Medium-12100E?logo=medium&logoColor=white)](https://medium.com/fed-biomed)
+
 
 # Fed-BioMed
 
