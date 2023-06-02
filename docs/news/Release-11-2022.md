@@ -13,5 +13,5 @@ Fed-BioMed v4.0 is now available. Here are some key new features:
 - Several backend improvements: mini-batch SGD for scikit-learn, validation of training arguments, redesign of training plan, etc..
 
 
-More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/v3.5/CHANGELOG.md).
+More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://github.com/fedbiomed/fedbiomed/blob/v3.5/CHANGELOG.md).
 

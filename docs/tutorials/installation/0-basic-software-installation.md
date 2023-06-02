@@ -128,7 +128,7 @@ $ conda env list
 Download Fed-BioMed software by cloning the git repository :
 
 ```
-$ git clone -b master https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+$ git clone -b master https://github.com/fedbiomed/fedbiomed.git
 $ cd fedbiomed
 ```
 
@@ -150,7 +150,7 @@ export FEDBIOMED_DIR=${HOME}/where/is/fedbiomed
 
 Remember, that this environment variable must be initialized (to the same value) for all running shells (you may want to declare it in your shell initialization file).
 
-Fed-BioMed is provided under [Apache 2.0 License](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/LICENSE.md).
+Fed-BioMed is provided under [Apache 2.0 License](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md).
 
 We don't provide yet a packaged version of Fed-BioMed (conda, pip).
 

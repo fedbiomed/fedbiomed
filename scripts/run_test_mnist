@@ -2,10 +2,6 @@
 #
 #
 # Continuous integration payload script
-# for fedbiomed-v3-linux job on ci.inria.fr/fedbiomed
-#
-# Used by ci.inria.fr to run a local (developement) validation test
-# Called from CI_build
 #
 
 # timeout in seconds for aborting the test

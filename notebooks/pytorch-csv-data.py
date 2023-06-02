@@ -10,7 +10,7 @@
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
 #
 ## Start the network and setting the node up
-# Before running this notebook, you shoud start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
+# Before running this notebook, you should start the network from fedbiomed-network
 # Therefore, it is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 1 to add a csv file to the node

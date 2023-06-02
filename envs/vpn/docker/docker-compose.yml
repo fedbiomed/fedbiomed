@@ -316,8 +316,8 @@ services:
       - CONTAINER_GROUP
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
-      - DJANGO_SUPERUSER_EMAIL=admin@nowhere.foo
-      - DJANGO_SUPERUSER_PASSWORD=admin
+      - DJANGO_SUPERUSER_EMAIL=dummy@fedbiomed.org
+      - DJANGO_SUPERUSER_PASSWORD=admin123
     # no open ports ! this would backdoor the vpnization
     #ports:
     #  - "8844:8000"

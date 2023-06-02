@@ -1,9 +1,14 @@
+[![Documentation](https://img.shields.io/badge/Documentation-green)](https://fedbiomed.org)
+[![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
+[![Python-versions](https://img.shields.io/badge/python-3.9-brightgreen)](https://www.python.org/)
+[![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
+[![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
+[![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
+
 # Fed-BioMed
 
 version 4 implementation of the Fed-BioMed project
-
-## Table of Contents
-[[_TOC_]]
 
 ## Introduction
 
@@ -13,8 +18,8 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
-Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.3.x) aka the master branch.
+Curious users may also be interested by the current developments, occurring in the **develop** branch (https://github.com/fedbiomed/fedbiomed/tree/develop)
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronizing with the code. We only provide support for the last release (currently v4.3.x) aka the master branch.
 
 
 ## Install and run in development environment
@@ -42,13 +47,13 @@ To ensure fedbiomed will work fine, you need to install before :
 Clone the Fed-BioMed repository for running the software :
 
 ```
-git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+git clone -b master https://github.com/fedbiomed/fedbiomed.git
 ```
 
 Fed-BioMed developers clone of the repository :
 
 ```
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
+git clone git@github.com:fedbiomed/fedbiomed.git
 ```
 
 ### setup conda environments
@@ -342,30 +347,32 @@ Full documentation in tests/README.md file.
 
 ### Documentation
 
-Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using `pip` (required python version 3.11).  
-
-```
-pip install -r envs/development/docs-requirements.txt
-```
-
-It is also possible to use conda environment to `serve` or `build` the documentation (recommended). 
+Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using conda environment to `serve` or `build` the documentation (recommended).
 
 ```
 conda env update -f envs/build/conda/fedbiomed-doc.yaml
 conda activate fedbiomed-doc
 ```
 
+They can also be installed using `pip` (required python version 3.11), as in the real build process (if you know what you're doing).
+- Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
+
+```
+pip install -r envs/development/docs-requirements.txt
+```
 
 Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
 
 ```shell 
-{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh serve
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh serve
 ```
 
 Please see usage for additional options.
 
 ```
-{FEDBIOMED_DIR}/scripts/docs/fedbiomed_doc.sh --help
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh --help
 ```
 
 

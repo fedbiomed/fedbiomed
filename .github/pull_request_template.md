@@ -1,11 +1,11 @@
-**MR description**
+**PR description**
 
-TO_BE_FILLED_BY_MR_CREATOR
+TO_BE_FILLED_BY_PR_CREATOR
 
 **Developer Certificate Of Origin (DCO)**
 
-By opening this merge request, you agree the
-[Developer Certificate of Origin (DCO)](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/CONTRIBUTING.md#fed-biomed-developer-certificate-of-origin-dco)
+By opening this merge request, you agree to the
+[Developer Certificate of Origin (DCO)](https://github.com/fedbiomed/fedbiomed/blob/master/CONTRIBUTING.md#fed-biomed-developer-certificate-of-origin-dco)
 
 This DCO essentially means that:
 
@@ -26,11 +26,11 @@ They shall retain the original license and copyright mentions.
 The `CREDIT.md` file and `credit/` directory shall be completed and updated accordingly.
 
 
-**Guidelines for MR review**
+**Guidelines for PR review**
 
 General:
 
-* give a glance to [DoD](https://fedbiomed.org/latest/developer/Fed-BioMed_DoD.pdf)
+* give a glance to [DoD](https://fedbiomed.org/latest/developer/definition-of-done/)
 * check [coding rules and coding style](https://fedbiomed.org/latest/developer/usage_and_tools/#coding-style)
 * check docstrings (eg run `tests/docstrings/check_docstrings`)
 

@@ -1580,4 +1580,4 @@ td img[title=":heavy_check_mark:"],img[title=":x:"] {
 .main-docs img[src$="#img-md"] { max-width:480px}
 .main-docs img[src$="#img-lr"] { max-width:720px}
 .main-docs img[src$="#img-xlr"] {max-width:960px}
-em { display:block }
+
