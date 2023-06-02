@@ -3,7 +3,7 @@ run-name: Fed-BioMed Build test
 on:
   push: 
     branches:
-      - 'feature/developer*'
+      - 'feature/test_ci'
 
   pull_request:
     types:
