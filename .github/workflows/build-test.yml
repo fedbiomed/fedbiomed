@@ -4,7 +4,7 @@ on:
   push: 
     branches:
       - 'feature/developer*'
-      
+
   pull_request:
     types:
       - opened
@@ -108,8 +108,9 @@ jobs:
     name: Test MNIST Notebook 
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     needs: unit-test
+
     if: github.event.pull_request.draft == false
-    jobs:
+    steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
 
