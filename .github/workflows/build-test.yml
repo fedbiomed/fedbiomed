@@ -1,6 +1,10 @@
 name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
-on: 
+on:
+  push: 
+    branches:
+      - 'feature/developer*'
+      
   pull_request:
     types:
       - opened
@@ -58,11 +62,9 @@ jobs:
         # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
 
-  build-test:
+  unit-test:
     name: Ubuntu 22.04 unit tests
     runs-on: [self-hosted, Linux, ubuntu-22-04]
-    outputs:
-      coverage: ${{ steps.unit-test.outputs.coverage }}
       
     if: github.event.pull_request.draft == false
     steps:
@@ -91,11 +93,6 @@ jobs:
         with:
           test-dir: tests
 
-      - name: Test coverage
-        run: |
-          echo ${{ steps.filter.outputs.module }}
-          echo ${{steps.unit-test.outputs.coverage}}
-
       - name: Upload coverage reports to Codecov
         if: steps.filter.outputs.module == 'true'
         uses: codecov/codecov-action@v3
@@ -106,3 +103,35 @@ jobs:
           name: codecov-umbrella # optional
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
+
+  mnist-test: 
+    name: Test MNIST Notebook 
+    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    needs: unit-test
+    if: github.event.pull_request.draft == false
+    jobs:
+      - name: Checkout to commit
+        uses: actions/checkout@v3
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+        filters: |
+          module:
+            - 'fedbiomed/**'
+            - 'scripts/**'
+            - 'envs/development/conda/**'
+            - 'envs/development/docker/**'
+            - 'notebooks/**'
+
+      - name: Run MNIST Test - Master
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          source ~/.bashrc
+          ./scripts/fedbiomed_run network
+          ./scripts/run_test_mnist data
+      
+      - name: Stop network component 
+        if: always()
+        run: ./scripts/fedbiomed_run network stop
