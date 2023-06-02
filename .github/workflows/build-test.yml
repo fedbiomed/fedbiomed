@@ -118,13 +118,13 @@ jobs:
         uses: dorny/paths-filter@v2
         id: filter
         with:
-        filters: |
-          module:
-            - 'fedbiomed/**'
-            - 'scripts/**'
-            - 'envs/development/conda/**'
-            - 'envs/development/docker/**'
-            - 'notebooks/**'
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'envs/development/conda/**'
+              - 'envs/development/docker/**'
+              - 'notebooks/**'
 
       - name: Run MNIST Test - Master
         if: steps.filter.outputs.module == 'true'
