@@ -36,3 +36,10 @@ runs:
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
       shell: bash
+    
+    - name: Stop network
+      if: always()
+      run: | 
+        source ~/.bashrc
+        ./scripts/fedbiomed_run network stop
+      shell: bash
