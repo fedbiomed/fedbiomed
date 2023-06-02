@@ -18,8 +18,6 @@ on:
       - master
       - develop
 
-permissions:
-  checks: write 
 
 jobs:
 
