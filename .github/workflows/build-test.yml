@@ -131,6 +131,7 @@ jobs:
         if: steps.filter.outputs.module == 'true'
         run: |
           source ~/.bashrc
+          ./scripts/configure_conda node
           ./scripts/fedbiomed_run network
           ./scripts/run_test_mnist data
       
