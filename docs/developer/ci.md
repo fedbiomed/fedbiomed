@@ -1,39 +1,71 @@
 # Developer info on continuous integration
 
-Continuous integration uses a [Jenkins](https://www.jenkins.io/) server on `ci.inria.fr`. 
+Continuous integration uses [GitHub Actions](https://github.com/fedbiomed/fedbiomed/actions). 
 
-CI tests are triggered automatically by gitlab on a :
+## Events that trigger CI tests
 
-* merge request to `develop` or `master` branch
-* push in `develop`, `master`, `feature/test_ci` branches (eg: after a merge, pushing a fix directly to this branch)
+CI tests are triggered automatically by GitHub on a:
 
-The merge should not be completed before CI pipeline succeeds
+- pull request to `develop` or `master` branch
+- push in `develop`, `master`, `feature/test_ci` branches (eg: after a merge, pushing a fix directly to this branch)
 
-* pushing a fix to the branch with the open merge request re-triggers the CI test
-* CI test can also be manually triggered by adding a comment to the merge request with the text `Jenkins please retry a build`
+
+The pull request can not be completed before CI pipeline succeeds
+
+- pushing a fix to the branch with the open pull request re-triggers the CI test
+- CI test can also be manually triggered form `Pull Requests` > `Check` > `Re-run all checks` or directly from `Action` tab. 
 
 CI pipeline currently contains :
 
-* running unit tests
-* running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/CI_build` (wrapping for running on CI server) which itself calls `./scripts/run_test_mnist` (payload, can also be launched on localhost)
+- running unit tests
+- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/CI_build` (wrapping for running on CI server) which itself calls `./scripts/run_test_mnist` (payload, can also be launched on localhost)
+    - clone the Fed-BioMed repository, set up conda and environments, launch network and node. 
+    - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the PR, target branch of the PR, `develop`
+    - launch the `fedbiomed` script `./notebooks/getting-started.py`
+    - test succeeds if the script completes without failure.
 
-  - clone the Fed-BioMed repository, set up condas and environments, launch network and node. 
-  - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the merge, target branch of the merge, `develop`
-  - launch the `fedbiomed` script `./notebooks/getting-started.py`
-  - test succeeds if the script completes without failure.
+- running test build process for documentation 
 
 
-To view CI test output and logs :
+!!! "note" Execution exceptions 
+    CI build tests are run if a file related to the build is changed. For example, if the changes (difference between base and feature branch) in a pull request are only made in the gui directory or docs, the CI action for unit tests will be skipped. Please see the exceptions in `.gihub/workflows/*.yml`
 
-* view the merge request in gitlab (select `Merge requests` in left bar, then select your merge request)
-* click on the `Pipeline` number (eg: #1289345) in the merge request, then click on the `Jobs` tab, then click on the job number (eg: #1294521)
-* select `Console output` in the left pane
+## Displaying Outputs and Results
 
-To configure CI test :
+To view CI test output and logs:
 
-* connect with your account on `ci.inria.fr`. To get an account on `ci.inria.fr` you need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria
-* request the Fed-BioMed team to become a member of the Fed-BioMed CI project
+- view the pull request in gitlab (select `Pull requests` in top bar, then select your pull request).
+- click on the `Checks` at the top bar of the pull request and select the `Check` that you want to display.
+- Click on the jobs to see its console output. 
 
-Note: using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on merge request).
+### Unit tests coverage 
+
+Unit tests coverage reports are published on Codecov platform for each branch/pull request. The report contains overall test coverage for the branch and detailed coverage rates file by file. 
+
+- Once a GitHub workflow/pipeline is executed for unit-test Codecov with automatically add a comment to the pull request that shows:
+    - Overall test coverage
+    - The difference code coverage between base and feature branch 
+
+To access reports on Codecov please go [Fed-BioMed Codecov dashboard](https://app.codecov.io/gh/fedbiomed/fedbiomed/) or go to your pull request,click on `Checks` at the top of the pull request view and click on `View this Pull Request on Codecov`
+
+
+## CI and GitHub Actions Configuration
+
+
+GitHub actions are configured using `yml` files for each workflow. Workflow files can contain multiple jobs and multiple steps for each job. Please go `.github/workflow` directory to display all workflows for CI. 
+
+The `name` value in each `yml` file corresponds to the name of the workflows that are displayed in `Actions` [page of the Fed-BioMed repository](https://github.com/fedbiomed/fedbiomed/actions). The `name` value under each `job` corresponds to each `Checks` in pull requests.
+
+Please see [GitHub actions](https://github.com/features/actions) documentation for more information. 
+
+### CI slaves
+
+CI slaves are located on `ci.inria.fr`. To be able to add extra configuration and installation you will have to connect with your account on `ci.inria.fr`. You need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria to be able get an account on `ci.inria.fr`. You can request the Fed-BioMed team to become a member of the Fed-BioMed CI project.
+
+
+## Testing
+
+Using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on pull request).
+
 
 More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`
