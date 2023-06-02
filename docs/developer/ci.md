@@ -8,13 +8,13 @@ TODO: update for `github.com`
 
 CI tests are triggered automatically on a:
 
-* merge request to `develop` or `master` branch
+* pull request to `develop` or `master` branch
 * push in `develop`, `master`, `feature/test_ci` branches (eg: after a merge, pushing a fix directly to this branch)
 
 The merge should not be completed before CI pipeline succeeds
 
-* pushing a fix to the branch with the open merge request re-triggers the CI test
-* CI test can also be manually triggered by adding a comment to the merge request with the text `Jenkins please retry a build`
+* pushing a fix to the branch with the open pull request re-triggers the CI test
+* CI test can also be manually triggered by adding a comment to the pull request with the text `Jenkins please retry a build`
 
 CI pipeline currently contains :
 
@@ -30,7 +30,7 @@ CI pipeline currently contains :
 To view CI test output and logs :
 
 * view the pull request in GitHub (select `Pull requests` in the top bar, then select your pull request)
-* click on the `Pipeline` number (eg: #1289345) in the merge request, then click on the `Jobs` tab, then click on the job number (eg: #1294521)
+* click on the `Pipeline` number (eg: #1289345) in the pull request, then click on the `Jobs` tab, then click on the job number (eg: #1294521)
 * select `Console output` in the left pane
 
 To configure CI test :
@@ -38,7 +38,7 @@ To configure CI test :
 * connect with your account on `ci.inria.fr`. To get an account on `ci.inria.fr` you need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria
 * request the Fed-BioMed team to become a member of the Fed-BioMed CI project
 
-Note: using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on merge request).
+Note: using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on pull request).
 
 More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`
 

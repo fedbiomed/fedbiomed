@@ -1,7 +1,6 @@
+**PR description**
 
-**MR description**
-
-TO_BE_FILLED_BY_MR_CREATOR
+TO_BE_FILLED_BY_PR_CREATOR
 
 **Developer Certificate Of Origin (DCO)**
 
@@ -27,7 +26,7 @@ They shall retain the original license and copyright mentions.
 The `CREDIT.md` file and `credit/` directory shall be completed and updated accordingly.
 
 
-**Guidelines for MR review**
+**Guidelines for PR review**
 
 General:
 

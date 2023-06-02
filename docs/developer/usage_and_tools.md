@@ -106,7 +106,7 @@ In terms of mapping to accounts and roles on GitHub Fed-BioMed repository and or
 -  Reviewers and Team Developers receive the [github repository *write* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
 - Core Developers receive the [github repository *maintain* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
 
-**Fed-BioMed developers/users Gitlab accounts are personal and shall not be shared with someone else.**
+**Fed-BioMed developers/users access are personal and shall not be shared with someone else.**
 
 Reviewers, Team Developers and Core Developers receive:
 
@@ -148,18 +148,18 @@ New features are developed in a `feature` branch (refer to gitflow paradigm).
 
 Branch name for developing new features should start with `feature/` and make them easily linkable with the corresponding issue. For example if the branch is related to issue 123, name it `feature/123-my-short-explanation`.
 
-When the feature is ready, the Developer creates a **pull request** (MR) via GitHub. Be sure to request merging to the `develop` branch.
+When the feature is ready, the Developer creates a **pull request** (PR) via GitHub. Be sure to request merging to the `develop` branch.
 
-The Core Developers team then assign the merge request one Core Developer (*Assignee* PR field in GitHub) and one Reviewer (*Reviewer* PR field in GitHub). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the Developer of the feature.
+The Core Developers team then assigns the pull request one Core Developer (*Assignee* PR field in GitHub) and one Reviewer (*Reviewer* PR field in GitHub). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the developer of the feature.
 
-The *Reviewer* then does a technical review of the merge request evaluating:
+The *Reviewer* then does a technical review of the pull request evaluating:
 
 - the functional correctness of the feature (eg match with implemented algorithm or formula)
 - the maturity of the feature implementation including conformance to the [**definition of done** (DoD)](./definition-of-done.md).
 - the absence of technical regression introduced by the feature
 - the technical coherence of the implementation of the feature with the existing code base
 
-The *Reviewer* marks the MR as *Approved* in GitHub once it is technically ready to be merged.
+The *Reviewer* marks the PR as *Approved* in GitHub once it is technically ready to be merged.
 
 The *Assignee* assesses:
 
@@ -167,7 +167,7 @@ The *Assignee* assesses:
 - the absence of functional conflict introduced by the feature
 - the valid timeline for merging the feature (if any dependency with other features)
 
-The *Assignee* merges the MR if it meets these requirements and is *Approved*. If the merging needs to be delayed for some reason, the *Assignee* gives the final approval for merging with its condition/timeline as a comment of the MR.
+The *Assignee* merges the PR if it meets these requirements and it is *Approved*. If the merging needs to be delayed for some reason, the *Assignee* gives the final approval for merging with its condition/timeline as a comment of the PR.
 
 Once a branch is merged (or stalled , abandoned) it is usually deleted. 
 If there is some reason to keep it, it should then be renamed to something starting with `attic/` (eg `attic/short-description-of-branch`).
@@ -175,16 +175,18 @@ If there is some reason to keep it, it should then be renamed to something start
 
 ## Organization and Scrum
 
-The core team works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it.
+* **The development team** is in charge of implementing Fed-BioMed's project goal and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
 
-Core team's work is usually organized in sprints.
+    It works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it. Development team's work is usually organized in sprints.
 
-Contributors, Reviewers and Core Developers are welcome to the team meetings (daily meeting, sprint review, sprint retrospective) in the developer Discord lounge.
+    Reviewers, Team Developers and Core Developers are welcome to the team meetings (daily meeting, sprint review, sprint retrospective) in the developer Discord lounge.
 
-Core Developers are invited to sprint planning meetings.
-Contributors and Reviewers may be invited to sprint planning meetings depending on their involvement in current actions.
+    Core Developers are invited to sprint planning meetings.
+    Reviewers and Team Developers can be invited to sprint planning meetings depending on their involvement in current actions.
 
-Participating to the meetings is recommended in periods when one is actively taking part in a major development action where interaction is needed with other team members.
+    Participating to the meetings is recommended in periods when one is actively taking part in a major development action where interaction is needed with other team members.
+
+* **External developers** are autonomous developers (Contributors) working at their own pace. This typically fits primarily for punctual contribution, work on some specific function, PoC, etc. External developers are encouraged to interact with the development team to ensure coherence of their planned contributions with the rest of the development activity.
 
 
 ### Product backlog
@@ -322,7 +324,7 @@ All sprint backlog issues have one status label. Other issues only have a status
 
   - **todo** : issue not started yet (but intention to start soon)
   - **doing** : issue implementation in progress
-  - **in review** : issue implementation is finished, a merge request open and is ready for review (or under review)
+  - **in review** : issue implementation is finished, a pull request open and is ready for review (or under review)
   - **done** : issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
   
 
