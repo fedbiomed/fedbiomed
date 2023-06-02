@@ -84,6 +84,7 @@ jobs:
               - 'envs/build/**'
               - 'modules/**'
               - 'MP-SPDZ/**'
+              - '.github/**'
 
       - name: Run unit tests
         id: unit-test
