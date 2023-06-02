@@ -30,7 +30,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Detect documentation changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@master
         id: filter
         with:
           filters: |
@@ -72,7 +72,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Filter module related changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@master
         id: filter
         with:
           filters: |
@@ -125,6 +125,7 @@ jobs:
               - 'envs/development/conda/**'
               - 'envs/development/docker/**'
               - 'notebooks/**'
+              - '.github/**'
 
       - name: Run MNIST Test - Master
         if: steps.filter.outputs.module == 'true'
@@ -135,4 +136,6 @@ jobs:
       
       - name: Stop network component 
         if: always()
-        run: ./scripts/fedbiomed_run network stop
+        run: |
+          source ~/.bashrc
+          ./scripts/fedbiomed_run network stop
