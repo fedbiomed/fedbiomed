@@ -1,7 +1,7 @@
 
 name: Open a new Issue
 description: For reporting a bug, proposing a new feature, enhancing an existing one, asking a question...
-title: "[Candidate]: "
+title: "[New issue]: "
 labels: needs-triage
 body:
   - type: textarea
