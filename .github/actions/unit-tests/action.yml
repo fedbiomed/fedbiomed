@@ -18,7 +18,8 @@ runs:
     - name: Install researcher dependencies
       run: | 
         source ~/.bashrc
-        ./scripts/configure_conda researcher
+        ./scripts/configure_conda researcher network
+        ./scripts/fedbiomed_run network
       shell: bash
 
     - name: Run unit tests 
@@ -34,4 +35,11 @@ runs:
           root=tree.getroot();print(root.attrib['line-rate'])")
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Stop network
+      if: always()
+      run: | 
+        source ~/.bashrc
+        ./scripts/fedbiomed_run network stop
       shell: bash
