@@ -113,11 +113,25 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdregressor_model = SkLearnModel(SGDRegressor)
         self.models = (SGDClassifier, SGDRegressor)
 
-        self.n_features = (1, 10)  # possible number of features
-        self.n_classes = (2, 5)  # possible number of classes (for classification)
-
         self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
-
+        
+        # create dummy data
+        data_2d = np.array([[1, 2, 3, 1, 2, 3],
+                            [1, 2, 0, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 2, 2, 3],
+                            [1, 0, 1, 1, 2, 0],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 0, 0],
+                            [0, 2, 2, 1, 2, 3],
+                            [1, 2, 0, 1, 0, 3]])
+        data_1d = np.array([1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3]).reshape(-1, 1)
+        self.data_collection = (data_1d, data_2d)
+        self.targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
+        self._n_classes = 3  # number of classes in the data_collection
+        
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
 
@@ -258,38 +272,29 @@ class TestSkLearnModel(unittest.TestCase):
         
 
     def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
-        n_values = 100  # data size
+
         n_iter = 10 # number of iterations
-        for model in self.models:
-            model = SkLearnModel(model)
-            for _n_features in self.n_features:
+        
+        for data in self.data_collection:
+            for model in self.models:
+                model = SkLearnModel(model)
 
-                data = np.random.randn(n_values, _n_features,)
+                model.disable_internal_optimizer()
+                model.set_init_params(model_args={'n_classes': self._n_classes, 'n_features': data.shape[1]})
+                model.init_training()
+                init_model_weights = model.get_weights()
+                for _ in range(n_iter):
+                    model.train(data, self.targets)
+                grads = NumpyVector(model.get_gradients())
+                updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
+                model.apply_updates(updts.coefs)
 
-                for _n_classes in self.n_classes:
-
-                    if model.is_classification:
-                        targets = np.random.randint(0, _n_classes, (n_values, 1))
-
-                    else:
-                        targets = np.random.randn(n_values, 1)
-
-                    model.disable_internal_optimizer()
-                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                    model.init_training()
-                    init_model_weights = model.get_weights()
-                    for _ in range(n_iter):
-                        model.train(data, targets)
-                    grads = NumpyVector(model.get_gradients())
-                    updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
-                    model.apply_updates(updts.coefs)
-
-                    # checks
-                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model.model.eta0, 1)
-                    for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), init_model_weights[layer]),
-                                                        "model has not been updated during training")
+                # checks
+                self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                self.assertEqual(model.model.eta0, 1)
+                for layer in model.param_list:
+                    self.assertFalse(np.array_equal(getattr(model.model, layer), init_model_weights[layer]),
+                                                    "model has not been updated during training")
 
     def test_sklearnmodel_07_train_failures(self):
         inputs = np.array([[1, 2], [1, 1],[0, 1]])
