@@ -131,7 +131,7 @@ jobs:
           source ~/.bashrc
           ./scripts/configure_conda node
           ./scripts/fedbiomed_run network
-          ./scripts/run_test_mnist ../../..
+          ./scripts/run_test_mnist ../../../..
       
       - name: Stop network component 
         if: always()
