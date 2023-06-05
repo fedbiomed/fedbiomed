@@ -20,7 +20,7 @@ This tutorial details a deployment scenario where:
 !!! info "Supported operating systems and software requirements"
     Supported operating systems for containers/VPN deployment include **Fedora 35**, **Ubuntu 20.04**, recent **MacOS X**, **Windows 10** 21H2 with WSL2 using Ubuntu-20.04 distribution. Also requires **docker-compose >= 1.27.0**.
 
-    Check here for [detailed requirements](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/envs/vpn/README.md#requirements).
+    Check here for [detailed requirements](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#requirements).
 
 !!! info "Account privileges"
     Components deployment requires an account which can use docker (typically belonging to the `docker` group).
@@ -45,7 +45,7 @@ This tutorial details a deployment scenario where:
     ```
 
 
-More options for containers/VPN deployment are not covered in this tutorial but [can be found here](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/envs/vpn/README.md) including:
+More options for containers/VPN deployment are not covered in this tutorial but [can be found here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md) including:
 
 * using GPU in `node` container
 * building containers (eg: `node` and `gui`) on one machine, using this pre-built containers on the nodes
@@ -71,7 +71,7 @@ It covers the initial server deployment, including build, configuration and laun
 * download Fed-BioMed software by doing a local clone of the git repository: 
 
     ```bash
-    [user@server $] git clone -b master https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+    [user@server $] git clone -b master https://github.com/fedbiomed/fedbiomed.git
     [user@server $] cd fedbiomed
     [user@server $] export FEDBIOMED_DIR=$PWD # use setenv for *csh
     [user@server $] cd envs/vpn/docker
@@ -147,7 +147,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * download Fed-BioMed software by doing a local clone of the git repository: 
 
     ```bash
-    [user@node $] git clone -b master https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+    [user@node $] git clone -b master https://github.com/fedbiomed/fedbiomed.git
     [user@node $] cd fedbiomed 
     [user@node $] export FEDBIOMED_DIR=$PWD # use setenv for *csh
     [user@node $] cd envs/vpn/docker

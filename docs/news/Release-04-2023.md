@@ -10,4 +10,4 @@ Fed-BioMed Secure Aggregation uses Joye-Libert additively homomorphic encryption
 
 Bug fixes and misc updates are also included in the release.
 
-More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/v4.3/CHANGELOG.md).
+More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://github.com/fedbiomed/fedbiomed/blob/v4.3/CHANGELOG.md).
