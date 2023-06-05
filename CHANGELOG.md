@@ -9,7 +9,7 @@
 - Migrate `docs` source into main repository and point to https://fedbiomed.org
 - Fix robustness of handling secure aggregation training errors.
 - Fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
-- Fix incorrect calculation of sklearn model weights
+- Fix incorrect calculation of SkLearn model weights
 - Fix incorrect compatibility of FedProx feature with `Model` class 
 - Fix ordering of weights and node replies after training. 
 
