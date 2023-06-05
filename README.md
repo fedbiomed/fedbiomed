@@ -8,6 +8,8 @@
 
 # Fed-BioMed
 
+tests
+
 version 4 implementation of the Fed-BioMed project
 
 ## Introduction
