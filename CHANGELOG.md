@@ -1,5 +1,18 @@
 # Fed-BioMed changelog
 
+## 2023-06-05 version 4.4.0
+
+- Add HTTPS secure access to Fed-BioMed Node GUI
+- Introduce GitHub workflow/actions for CI build tests and testing/publishing documentation.
+- Introduce versioning for component config files, MQTT messages and breakpoints
+- Migrate to GitHub 
+- Migrate `docs` source into main repository and point to https://fedbiomed.org
+- Fix robustness of handling secure aggregation training errors.
+- Fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
+- Fix incorrect calculation of sklearn model weights
+- Fix incorrect compatibility of FedProx feature with `Model` class 
+- Fix ordering of weights and node replies after training. 
+
 ## 2023-04-26 version 4.3
 
 - introduce secure aggregation using Joye-Libert scheme and Shamir MPC key computation
