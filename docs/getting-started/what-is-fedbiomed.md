@@ -5,7 +5,7 @@ keywords: Fed-BioMed, federated learning
 ---
 
 
-![fedbiomed-logo](../assets/img/fedbiomed-logo.png#img-centered-sm)
+![fedbiomed-logo](../assets/img/fedbiomed-logo.png#img-sm)
 
 Fed-BioMed, an open-source federated learning framework
 
