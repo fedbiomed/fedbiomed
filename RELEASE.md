@@ -31,7 +31,6 @@ git checkout -b release/$RELEASE_TAG
 - note: it is not needed to push to branch to the remote, as we currently don't have an additional step of multi-people test of the release branch
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
-  * `README.md` : change `v4.` occurrences ; change `version 4` if major release
   * `fedbiomed/common/constants.py` : change `__versions__`
 - **add new version news in documentation**
 - in the `release` branch, commit the release time updates
