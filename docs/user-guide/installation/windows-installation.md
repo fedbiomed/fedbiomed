@@ -75,7 +75,7 @@ user@wsl-ubuntu$
 
 ## Step 3: docker
 
-Requirement : docker and docker-compose
+Requirement : `docker` and `docker compose`
 
 Open an administrator session in WSL Ubuntu :
 ```
@@ -92,18 +92,23 @@ Alternative 2 : docker engine
 
   - install [docker engine](https://docs.docker.com/engine/install/ubuntu/) with as admin (root) account in WSL Ubuntu. Please note that `docker container run hello-world` will not work until we complete the steps below
   - install docker compose
-```
-root@wsl-ubuntu# apt install -y docker-compose
-```
+
+    ```
+    root@wsl-ubuntu# apt install -y docker-compose-plugin
+    ```
+    If not available from `apt` try a [manual installation](https://docs.docker.com/compose/install/linux/#install-the-plugin-manually)
+
   - if you use an account named `USER` under Ubuntu, authorize it to use docker by typing under an admin (root) account in WSL Ubuntu :
-```
-root@wsl-ubuntu# adduser USER docker
-```
+
+    ```
+    root@wsl-ubuntu# adduser USER docker
+    ```
   - open a new WSL Ubuntu terminal so that it is authorized to use docker
   - at each Ubuntu restart, launch docker daemon
-```
-root@wsl-ubuntu# nohup dockerd &
-```
+
+    ```
+    root@wsl-ubuntu# nohup dockerd &
+    ```
 
 Check that you can use docker with your user account under Ubuntu :
 ```
@@ -118,9 +123,10 @@ Requirement : conda installed in Ubuntu and configured for your user account
 * install [Anaconda](https://docs.anaconda.com/anaconda/install/linux/) under Ubuntu, using your user account
 * during installation, answer *Yes* to question *“Do you wish the installer to initialize Anaconda3 by running conda init?”*
 * activate conda for your Ubuntu session
-```
-user@wsl-ubuntu$ source ~/.bashrc
-```
+
+    ```
+    user@wsl-ubuntu$ source ~/.bashrc
+    ```
 
 
 ## Step 5: Fed-BioMed
@@ -188,7 +194,7 @@ Error --> fatal: could not set 'core.filemode' to 'false'
     
 4. Save the file and shoutdown WSL
 
-5. Ralaunch Ubuntu WSL
+5. Relaunch Ubuntu WSL
 
 If the problem still persists, you may try restarting the machine and then execute git clone command.
 
