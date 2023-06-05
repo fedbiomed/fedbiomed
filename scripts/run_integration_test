@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Integration test (can also be used on ci.inria.fr)
+# Integration test (can also be used on CI slaves)
 #
 # This script runs all necessary components for a single test:
 # - a dockerized network

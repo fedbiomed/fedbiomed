@@ -16,12 +16,12 @@ git pull --prune
 git commit
 git push origin develop
 ```
-- check that the CI for `develop` builds correctly on https://ci.inria.fr/fedbiomed/
+- check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
 export RELEASE_TAG=v4.4.0
 ```
-- fork a `release` branch from `develop`, and checkout the `release` branch
+- fork a `release/$RELEASE_TAG` branch from `develop`, and checkout the `release/$RELEASE_TAG` branch
 ```bash
 git checkout -b release/$RELEASE_TAG
 ```
@@ -29,68 +29,64 @@ git checkout -b release/$RELEASE_TAG
 ## create release
 
 - note: it is not needed to push to branch to the remote, as we currently don't have an additional step of multi-people test of the release branch
-- in the `release` branch, do the release time updates:
+- in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `README.md` : change `v4.` occurrences ; change `version 4` if major release
   * `fedbiomed/common/constants.py` : change `__versions__`
-- **add new version news in documentation** 
+- **add new version news in documentation**
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
 ```
+- push the updated `release/$RELEASE_TAG`
+```bash
+git push origin release/$RELEASE_TAG
+```
 
 ## merge release to master + create version tag
+
+- in github create a pull request for `release/$RELEASE_TAG` to `master`
+  * one can auto-assign the PR, and doesn't need a review for this PR
+- after checks complete, please review the checks logs
+- do the merge
+  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
+  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+- if merge conflicts occur, solve them
 
 - checkout to `master` branch, sync your local clone with remote
 ```bash
 git checkout master
 git pull -p
 ```
-- merge the `release` branch into `master`
-```bash
-git merge release/$RELEASE_TAG
-```
-- if merge conflicts occur, solve them
 - create a version tag for the release
 ```bash
 git tag -a $RELEASE_TAG
 ```
-- push the updated `master` and tag to the remote
+- push the tag to the remote
 ```bash
-git push origin master
 git push origin $RELEASE_TAG
 ```
-- check that the CI builds correctly on https://ci.inria.fr/fedbiomed/
+- check that the documentation pipeline completes successfully
+  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
+  * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
   * review carefully the log details for the build
-
-### check documentation
-
-Documentation publish process is now integrated through GitHub actions. Pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.  New version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`. After the release is completed please go check the actions to verify the build is successful.
-
-- check these workflows successfully completed:
-  - `Publish NEW TAG in fedbiomed/fedbiomed.github.io` (gets triggered with a new version tag)
-  - `Publish MASTER fedbiomed/fedbiomed.github.io` (gets triggered by pushing to master)
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
+
 ## merge release to develop
 
-- checkout to `develop` branch, sync your local clone with remote
+- checkout the `release/$RELEASE_TAG` branch and push it again to re-create on the remote
 ```bash
-git checkout develop
-git pull -p
+git checkout release/$RELEASE_TAG
+git push origin release/$RELEASE_TAG
 ```
-- merge the `release` branch into `develop`
-```bash
-git merge release/$RELEASE_TAG
-```
-- if merge conflicts occur, solve them
-- push the updated `develop` to the remote
-```bash
-git push origin develop
-```
-- check that the CI builds correctly on https://ci.inria.fr/fedbiomed/
 
+- in github create a pull request for `release/$RELEASE_TAG` to `develop`
+  * one can auto-assign the PR, and doesn't need a review for this PR
+- after checks complete, please review the checks logs
+- do the merge
+- if merge conflicts occur, solve them
 
 ## cleanup
 
