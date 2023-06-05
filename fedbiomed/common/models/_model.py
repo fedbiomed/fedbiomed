@@ -95,7 +95,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self) -> Dict[str, DT]:
+    def get_weights(self, only_trainable: bool = False) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
