@@ -11,5 +11,5 @@ Fed-BioMed v3.5 is now available. Here are some key new features:
 - better VPN/containers support
 - etc.
 
-More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/v3.5/CHANGELOG.md).
+More details about the new features can be found in the [Fed-BioMed CHANGELOG](https://github.com/fedbiomed/fedbiomed/blob/v3.5/CHANGELOG.md).
 

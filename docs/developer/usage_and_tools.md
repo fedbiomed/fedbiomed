@@ -6,7 +6,7 @@ The purpose of this guide is to explicit the coding
 rules and conventions used for this project and explain the
 use of some of our tools.
 
-This guide is dedicated to all Fed-BioMed developers: Contributors, Reviewers, Core Developers.
+This guide is dedicated to all Fed-BioMed developers: Contributors, Reviewers, Team Developers, Core Developers.
 
 Some aspects of this guide may change in the future, stay alert for such changes.
 
@@ -27,7 +27,7 @@ We do not enforce coding style validation at each commit. In the future, we may 
 
 ### Coding rules
 
-Project specific [coding rules](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/master/CODING_RULES.md) come in addition to general coding style. Their goal is to favour code homogeneity within the project. They are meant to evolve during the project when needed.
+Project specific [coding rules](https://github.com/fedbiomed/fedbiomed/blob/master/CODING_RULES.md) come in addition to general coding style. Their goal is to favour code homogeneity within the project. They are meant to evolve during the project when needed.
 
 ### License
 
@@ -50,7 +50,7 @@ Project does not mention authors in the code files. Developers can add themselve
 
 ### Framework
 
-The framework is contained in [one git repository](https://gitlab.inria.fr/fedbiomed/fedbiomed) with 3 functional parts:
+The framework is contained in [one git repository](https://github.com/fedbiomed/fedbiomed) with 3 functional parts:
 
 * network: a top layer which contains network layers (http server, message server) and
 a set of scripts to start the services and the components of fedbiomed.
@@ -90,29 +90,32 @@ There are two events that trigger documentation publishing:
 
 Current roles in Fed-BioMed development process are:
 
-- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications.
-- **Fed-BioMed Contributors**: people proposing their changes to the Fed-BioMed code via merge requests.
-- **Fed-BioMed Reviewers**: people doing technical review and approval of the merge requests.
-    * Reviewers can also be Core Developers or Contributors.
-- **Fed-BioMed Core Developers**: people developing components and documentation of Fed-BioMed, modifying the API, writing extensions.
-    * Currently, Core Developers also give final approval and merge the merge requests
-    * new Core Developers are chosen by the existing Core Developers among the Contributors.
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
+- **Fed-BioMed Reviewers**: developers reviewing the pull requests.
+    * Reviewers can be Contributors, Team Developers or Core Developers.
+- **Fed-BioMed Team Developers**: developers recurrently proposing changes to the Fed-BioMed code and documentation via pull requests, and working in coordinated manner with other Team Developers
+    * Currently, Team Developers are chosen by the existing Team Developers among the volunteer Contributors.
+- **Fed-BioMed Core Developers**: developers coordinating the coding of components and documentation of Fed-BioMed, design of extensions and modifications the API.
+    * Currently, Core Developers also give final approval and merge the pull requests
+    * and new Core Developers are chosen by the existing Core Developers among the Team Developers.
 
-In terms of mapping to accounts and roles on Gitlab server:
+In terms of mapping to accounts and roles on GitHub Fed-BioMed repository and organization:
 
-- Users have no account by default, but can receive an account with *Guest* role on request
-- Contributors and Reviewer are implemented with gitlab *Developer* role
-- Core Developers are implemented with gitlab *Maintainer* role
+- Users and Contributors have no specific access to the Fed-BioMed repository, they are not member of the Fed-BioMed GitHub organization
+-  Reviewers and Team Developers receive the [github repository *write* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
+- Core Developers receive the [github repository *maintain* access](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/repository-roles-for-an-organization).
 
-**Fed-BioMed developers/users Gitlab accounts are personal and shall not be shared with someone else.**
+**Fed-BioMed developers/users access are personal and shall not be shared with someone else.**
 
-Contributors, Reviewers and Core Developers receive:
+Reviewers, Team Developers and Core Developers receive:
 
-- access to Gitlab server (gitlab.inria.fr) Fed-BioMed project
+- registration as *members* of the [GitHub Fed-BioMed organization](https://github.com/fedbiomed), and membership in the *Developers* team (plus *CoreDevelopers* team for Core Cevelopers) of the organization
 - invitation to Fed-BioMed developer Discord server
 - registration in Fed-BioMed developer mailing lists (
     discussion list `fedbiomed-developers _at_ inria _dot_ fr`,
     development notifications list `fedbiomed-notifications _at_ inria _dot_ fr`)
+- invitation to Fed-BioMed technical team shared files zone on `mybox.inria.fr`
 
 Current list of Core Developers listed by alphabetical order:
 
@@ -128,7 +131,7 @@ Current list of Core Developers listed by alphabetical order:
 
 ### Gitflow paradigm
 
-The gitflow paradigm must be followed when creating new developement branches and for code release ( see [here](https://datasift.github.io/gitflow/IntroducingGitFlow.html) or [here](https://www.atlassian.com/fr/git/tutorials/comparing-workflows/gitflow-workflow))
+The gitflow paradigm must be followed when creating new development branches and for code release ( see [here](https://datasift.github.io/gitflow/IntroducingGitFlow.html) or [here](https://www.atlassian.com/fr/git/tutorials/comparing-workflows/gitflow-workflow))
 
 ### Release, next release
 
@@ -139,24 +142,24 @@ Next release is integrated under `develop`.
 
 In other words, the `master` and `develop` branches are protected and only writable by Core Developers.
 
-### Merge request
+### Pull request
 
 New features are developed in a `feature` branch (refer to gitflow paradigm).
 
 Branch name for developing new features should start with `feature/` and make them easily linkable with the corresponding issue. For example if the branch is related to issue 123, name it `feature/123-my-short-explanation`.
 
-When the feature is ready, the Developer creates a **merge request** (MR) via gitlab. Be sure to request merging to the `develop` branch.
+When the feature is ready, the Developer creates a **pull request** (PR) via GitHub. Be sure to request merging to the `develop` branch.
 
-The Core Developers team then assign the merge request one Core Developer (*Assignee* MR field in gitlab) and one Reviewer (*Reviewer* MR field in gitlab). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the Developer of the feature.
+The Core Developers team then assigns the pull request one Core Developer (*Assignee* PR field in GitHub) and one Reviewer (*Reviewer* PR field in GitHub). The *Assignee* and the *Reviewer* can be the same physical person, but they both shall be different people from the developer of the feature.
 
-The *Reviewer* then does a technical review of the merge request evaluating:
+The *Reviewer* then does a technical review of the pull request evaluating:
 
 - the functional correctness of the feature (eg match with implemented algorithm or formula)
 - the maturity of the feature implementation including conformance to the [**definition of done** (DoD)](./definition-of-done.md).
 - the absence of technical regression introduced by the feature
 - the technical coherence of the implementation of the feature with the existing code base
 
-The *Reviewer* marks the MR as *Approved* in gitlab once it is technically ready to be merged.
+The *Reviewer* marks the PR as *Approved* in GitHub once it is technically ready to be merged.
 
 The *Assignee* assesses:
 
@@ -164,7 +167,7 @@ The *Assignee* assesses:
 - the absence of functional conflict introduced by the feature
 - the valid timeline for merging the feature (if any dependency with other features)
 
-The *Assignee* merges the MR if it meets these requirements and is *Approved*. If the merging needs to be delayed for some reason, the *Assignee* gives the final approval for merging with its condition/timeline as a comment of the MR.
+The *Assignee* merges the PR if it meets these requirements and it is *Approved*. If the merging needs to be delayed for some reason, the *Assignee* gives the final approval for merging with its condition/timeline as a comment of the PR.
 
 Once a branch is merged (or stalled , abandoned) it is usually deleted. 
 If there is some reason to keep it, it should then be renamed to something starting with `attic/` (eg `attic/short-description-of-branch`).
@@ -172,16 +175,18 @@ If there is some reason to keep it, it should then be renamed to something start
 
 ## Organization and Scrum
 
-The core team works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it.
+* **The development team** is in charge of implementing Fed-BioMed's project goal and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
 
-Core team's work is usually organized in sprints.
+    It works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it. Development team's work is usually organized in sprints.
 
-Contributors, Reviewers and Core Developers are welcome to the team meetings (daily meeting, sprint review, sprint retrospective) in the developer Discord lounge.
+    Reviewers, Team Developers and Core Developers are welcome to the team meetings (daily meeting, sprint review, sprint retrospective) in the developer Discord lounge.
 
-Core Developers are invited to sprint planning meetings.
-Contributors and Reviewers may be invited to sprint planning meetings depending on their involvement in current actions.
+    Core Developers are invited to sprint planning meetings.
+    Reviewers and Team Developers can be invited to sprint planning meetings depending on their involvement in current actions.
 
-Participating to the meetings is recommended in periods when one is actively taking part in a major development action where interaction is needed with other team members.
+    Participating to the meetings is recommended in periods when one is actively taking part in a major development action where interaction is needed with other team members.
+
+* **External developers** are autonomous developers (Contributors) working at their own pace. This typically fits primarily for punctual contribution, work on some specific function, PoC, etc. External developers are encouraged to interact with the development team to ensure coherence of their planned contributions with the rest of the development activity.
 
 
 ### Product backlog
@@ -260,7 +265,7 @@ PoC is not a Scrum notion.
 
 ## Milestones and issues
 
-Gitlab milestones and issues are used to keep track of product backlog, sprint backlog and other product items (bugs, proposals, user requests).
+GitHub milestones and issues are used to keep track of product backlog, sprint backlog and other product items (bugs, proposals, user requests).
 
 
 ### Milestones
@@ -279,15 +284,18 @@ Issues are used to describe smaller goals of the project (tasks, functional requ
 
 An open issue has exactly one type amongst:
 
+* *needs-triage* for new user issues
 * a *candidate* 
 * a *product backlog* entry
 * a *sprint backlog* entry
 
 An issue:
 
-* can be created by an individual developer or user. It must then label as a *candidate*.
+* can be created by a user. It must then be labelled as *needs-triage*
+* can be created by an individual developer. It must then label as a *candidate*.
+* can be moved from *needs-triage* to *candidate* by a team developer. The team developer ensures it contains necessary information and is explicit enough. Team developer can also add *misc* labels.
 * can be moved to the *product backlog* by the product owner or with explicit validation of the product owner
-* can be moved to the *sprint backlog* during sprint planning by the developers
+* can be moved to the *sprint backlog* during sprint planning by the team developers
 * is closed and marked *done* when it is completed. If it belongs to the *sprint backlog*, it should keep this label until the end of the current sprint.
 
 A closed issue has exactly one type amongst:
@@ -295,8 +303,8 @@ A closed issue has exactly one type amongst:
 * *done* (and not anymore in the sprint backlog)
 * *attic*
 
-An issue can be labelled as *attic* and closed when it is considered obsolete.
-It then loses its open issue type label (*candidate*, *product backlog*, *sprint backlog*).
+An issue can be labelled as *attic* and closed when it is considered obsolete or not relevant.
+It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*, *sprint backlog*).
 
 
 ### Labels
@@ -306,7 +314,8 @@ We sort labels in several categories:
 
 #### *type* labels:
 
-  - **candidate** : an individual developer or user submits a work request to the team (extension proposal, bug, other request)
+  - **needs-triage** : a user submits a work request to the team (extension proposal, bug, other request)
+  - **candidate** : an individual developer submits a work request to the team (extension proposal, bug, other request)
   - **product backlog** : the product owner adds an entry to the product backlog
   - **sprint backlog** : the development team adds an entry to the sprint backlog
   - **attic** : the entry is not completed, but is now considered obsolete and closed
@@ -315,11 +324,11 @@ We sort labels in several categories:
 
 #### *status* labels:
 
-All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a contributor not participating to a sprint, a developer working during intersprint).
+All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
 
   - **todo** : issue not started yet (but intention to start soon)
   - **doing** : issue implementation in progress
-  - **in review** : issue implementation is finished, a merge request open and is ready for review (or under review)
+  - **in review** : issue implementation is finished, a pull request open and is ready for review (or under review)
   - **done** : issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
   
 

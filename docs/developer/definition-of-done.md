@@ -15,7 +15,7 @@ The Definition of Done is a set of items that must be completed and quality meas
 
 The reviewer can question any aspect of the increment in coherence with [Usage and Tools](./usage_and_tools.md#merge-request), exchange with the developer (good practice : leave a gitlab trace of the exchanges), approve it or not.
 
-- Be specific in the merge request about what to review (critical code or properties of the code).
+- Be specific in the pull request about what to review (critical code or properties of the code).
 - Coding style: inspire from PEP-8.
 - Understand the code and try to detect bugs.
 - Remove detected bugs.
@@ -24,7 +24,7 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 
 ### Code 
 - Comment critical or difficult points in the code; obvious lines (eg: tests) are excluded from comments.
-- Add `FIXME` or `TODO` tags for any detected bugs or improvements that are technically beyond the scope of the merge request.
+- Add `FIXME` or `TODO` tags for any detected bugs or improvements that are technically beyond the scope of the pull request.
 - Write minimal comments in the code (docstring) for a function or a class: parameters and typing, return, purpose of the class or the function.
 
 
@@ -42,5 +42,6 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 
 After merging:
 
-- mark merge `done`
-- update and/or close the issue.
+- close the pull request
+- update the issue
+- if the pull request terminates the issue, mark the issue as `done` and close it.
