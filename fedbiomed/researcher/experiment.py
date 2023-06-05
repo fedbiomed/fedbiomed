@@ -1575,11 +1575,14 @@ class Experiment:
                                                                                         self._job.nodes)
 
         # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round_=self._round_current,
-                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
-                                                 aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=True,
-                                                 secagg_arguments=secagg_arguments)
+        self._job.start_nodes_training_round(
+            round_=self._round_current,
+            aggregator_args_thr_msg=aggr_args_thr_msg,
+            aggregator_args_thr_files=aggr_args_thr_file,
+            do_training=True,
+            secagg_arguments=secagg_arguments,
+            agg_optimizer=self._agg_optimizer,
+        )
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(

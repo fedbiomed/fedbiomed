@@ -21,6 +21,7 @@ import validators
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -344,12 +345,15 @@ class Job:
 
         return args_thr_msg
 
-    def start_nodes_training_round(self,
-                                   round_: int,
-                                   aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
-                                   aggregator_args_thr_files: Dict[str, Dict[str, Any]],
-                                   secagg_arguments: Union[Dict, None] = None,
-                                   do_training: bool = True):
+    def start_nodes_training_round(
+        self,
+        round_: int,
+        aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
+        aggregator_args_thr_files: Dict[str, Dict[str, Any]],
+        secagg_arguments: Union[Dict, None] = None,
+        do_training: bool = True,
+        agg_optimizer: Optional[Optimizer] = None,
+    ) -> None:
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -363,24 +367,28 @@ class Job:
                 aggregator_args_thr_msg .
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
+            optim_aux_var: Auxiliary variables of the researcher-side Optimizer
         """
 
         # Assign empty dict to secagg arguments if it is None
         if secagg_arguments is None:
             secagg_arguments = {}
 
-        headers = {'researcher_id': self._researcher_id,
-                   'job_id': self._id,
-                   'training_args': self._training_args.dict(),
-                   'training': do_training,
-                   'model_args': self._model_args,
-                   'round': round_,
-                   'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
-                   'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
-                   'secagg_random': secagg_arguments.get('secagg_random'),
-                   'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
-                   'command': 'train',
-                   'aggregator_args': {}}
+        headers = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'training_args': self._training_args.dict(),
+            'training': do_training,
+            'model_args': self._model_args,
+            'round': round_,
+            'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
+            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
+            'secagg_random': secagg_arguments.get('secagg_random'),
+            'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
+            'command': 'train',
+            'aggregator_args': {},
+            'aux_var_urls': None,
+        }
 
         msg = {**headers, **self._repository_args}
         time_start = {}
@@ -388,8 +396,19 @@ class Job:
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
+        # Upload optimizer auxiliary variables, when there are.
+        if do_training and (agg_optimizer is not None):
+            aux_url_shared, aux_url_bynode = (
+                self.upload_agg_optimizer_aux_var(optimizer=agg_optimizer)
+            )
+        else:
+            aux_url_shared = None
+            aux_url_bynode = {}
+
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
+            cli_aux_urls = (aux_url_shared, aux_url_bynode.get(cli, None))
+            msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
@@ -490,6 +509,89 @@ class Job:
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
+
+    def upload_agg_optimizer_aux_var(
+        self,
+        optimizer: Optimizer,
+    ) -> Tuple[Optional[str], Dict[uuid.UUID, str]]:
+        """Upload auxiliary variables emitted by a researcher-side Optimizer.
+
+        Args:
+            optimizer: Optimizer instance, auxiliary variables of which to emit
+                and upload after structuring them into multiple files, to avoid
+                information leakage as well as file redundancy.
+
+        Returns:
+            url_shared: url of a file containing auxiliary variables shared
+                across all nodes, or None (in the absence of such information).
+            url_bynode: dict mapping urls of files containing node-specific
+                auxiliary variables to the nodes' id (a missing `nodes` key
+                indicates that this node has no such information to receive).
+        """
+        # Split the information between shared and node-wise dictionaries.
+        aux_shared, aux_bynode = self._prepare_agg_optimizer_aux_var(
+            optimizer=optimizer, nodes=list(self._nodes)
+        )
+        # Upload the shared information that all nodes will download.
+        if aux_shared:
+            path = os.path.join(
+                self._keep_files_dir, f"aux_var_shared_{uuid.uuid4()}.mpk"
+            )
+            Serializer.dump(aux_shared, path)
+            url_shared = self.repo.upload_file(path)["file"]
+        else:
+            url_shared = None
+        # Upload the node-specific information, with node-specific urls.
+        url_bynode = {}  # type: Dict[uuid.UUID, str]
+        for node_id, node_aux in aux_bynode.items():
+            if not node_aux:
+                continue
+            path = os.path.join(
+                self._keep_files_dir,
+                f"aux_var_node_{node_id}_{uuid.uuid4()}.mpk"
+            )
+            Serializer.dump(node_aux, path)
+            url_bynode[node_id] = self.repo.upload_file(path)["file"]
+        # Return the urls of the uploaded files.
+        return url_shared, url_bynode
+
+    @staticmethod
+    def _prepare_agg_optimizer_aux_var(
+        optimizer: Optimizer,
+        nodes: List[uuid.UUID],
+    ) -> Tuple[
+        Dict[str, Dict[str, Any]],
+        Dict[uuid.UUID, Dict[str, Dict[str, Any]]],
+    ]:
+        """Collect and structure researcher-side Optimizer auxiliary variables.
+
+        Args:
+            optimizer: Optimizer instance, auxiliary variables of which to emit
+                and structure into multiple dictionaries for transmission.
+            nodes: Ids of the nodes to whom auxiliary variables should be
+                sent. This is used to drop information of non-participating
+                nodes.
+
+        Returns:
+            aux_shared:
+            aux_bynode:
+        """
+        # Gather the { mod_name: (shared_dict | {node_id: node_dict}) } structure.
+        aux_var = optimizer.get_aux()
+        aux_shared = {}  # type: Dict[str, Dict[str, Any]]
+        aux_bynode = {}  # type: Dict[uuid.UUID, Dict[str, Dict[str, Any]]]
+        # Iterate over nodes and plug-in-module-wise auxiliary variables.
+        for node_id in nodes:
+            aux_bynode[node_id] = {}
+            for mod_name, mod_info in aux_var.items():
+                # Case of node-specfic information.
+                if node_aux := mod_info.get(str(node_id)):
+                    aux_bynode[node_id][mod_name] = node_aux
+                # Case of global information shared with all nodes.
+                elif mod_name not in aux_shared:
+                    aux_shared[mod_name] = mod_info
+        # Return the restructured auxiliary variables dicts.
+        return aux_shared, aux_bynode
 
     def update_parameters(
         self,
