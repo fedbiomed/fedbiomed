@@ -1,4 +1,3 @@
-from app import app
 from flask import request, g
 from hashlib import sha512
 from helpers.auth_helpers import check_mail_format, check_password_format, get_user_by_email

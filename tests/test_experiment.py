@@ -22,6 +22,7 @@ from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
+from fedbiomed.common.constants import __breakpoints_version__
 
 import fedbiomed.researcher.experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -1576,10 +1577,7 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._job.training_plan_file = training_plan_file
         self.test_exp._job.training_plan_name = training_plan_class
 
-
-
         self.test_exp.breakpoint()
-
 
         # verification
         final_training_plan_path = os.path.join(
@@ -1597,6 +1595,7 @@ class TestExperiment(ResearcherTestCase):
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
             final_state = json.load(f)
 
+        self.assertEqual(final_state['breakpoint_version'], str(__breakpoints_version__))
         self.assertEqual(final_state['training_data'], training_data)
         self.assertEqual(final_state['training_args'], training_args.dict())
         self.assertEqual(final_state['model_args'], model_args)
@@ -1808,6 +1807,17 @@ class TestExperiment(ResearcherTestCase):
             m_mi.return_value = None
             with self.assertRaises(SystemExit):
                 Experiment.load_breakpoint(self.experimentation_folder_path)
+
+        # Test breakpoint file does not contain a version
+        with patch('fedbiomed.common.serializer.Serializer.load', return_value=model_params):
+            with self.assertRaises(SystemExit):
+                loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
+
+        # Add version inside breakpoints file
+        state['breakpoint_version'] = str(__breakpoints_version__)
+        # recreate breakpoint file
+        with open(os.path.join(self.experimentation_folder_path, bkpt_file), "w") as f:
+            json.dump(state, f)
 
         # Test when everything is OK, overloading `Serializer.load`.
         with patch('fedbiomed.common.serializer.Serializer.load', return_value=model_params):

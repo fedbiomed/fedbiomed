@@ -15,7 +15,7 @@ from declearn.optimizer.modules import OptiModule
 from declearn.optimizer.regularizers import Regularizer
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
-from fedbiomed.common.optimizer import Optimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer
 
 
 class TestOptimizer(unittest.TestCase):

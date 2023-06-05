@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+import inspect
 from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -415,7 +416,9 @@ class SecaggSetup:
                 f"{ErrorNumbers.FB318.value}: Received bad request message: incorrect `element` {self._element}")
 
         try:
-            return SecaggSetup.element2class[element.name](**self.kwargs)
+            args_to_init = {key: val for key, val in self.kwargs.items()
+                            if key in inspect.signature(SecaggSetup.element2class[element.name].__init__).parameters}
+            return SecaggSetup.element2class[element.name](**args_to_init)
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation setup with argument "

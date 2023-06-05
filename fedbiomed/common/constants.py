@@ -3,6 +3,7 @@
 
 """Fed-BioMed constants/enums"""
 
+from packaging.version import Version as FBM_Component_Version
 from enum import Enum
 
 CONFIG_FOLDER_NAME = "etc"
@@ -31,6 +32,14 @@ NODE_PREFIX = 'node_'
 
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+
+__version__ = FBM_Component_Version('4.4.0')  # Fed-BioMed software version
+__researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
+__node_config_version__ = FBM_Component_Version('1')  # node config file version
+__breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
+__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
+# Nota: for messaging protocol version, all changes should be a major version upgrade
+
 
 
 class _BaseEnum(Enum):
@@ -244,8 +253,8 @@ class ErrorNumbers(_BaseEnum):
     FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405 = "FB405: received delayed answer for previous computation round"
     FB406 = "FB406: list of nodes is empty at data lookup phase"
-    FB407 = "FB407: list of nodes became empty when training (no node has answered)"
-    FB408 = "FB408: node did not answer during training"
+    FB407 = "FB407: list of nodes became empty when training (all nodes failed training or did not answer)"
+    FB408 = "FB408: training failed on node or node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
     FB410 = "FB410: bad type or value for experiment argument"
     FB411 = "FB411: cannot train an experiment that is not fully defined"
@@ -286,7 +295,10 @@ class ErrorNumbers(_BaseEnum):
     FB621 = "FB621: declearn optimizer error"
     FB622 = "FB622: Model error"
     FB623 = "FB623: Secure aggregation database error"
-    FB624 = "FB620: Secure aggregation crypter error"
+    FB624 = "FB624: Secure aggregation crypter error"
+    FB625 = "FB625: Component version error"
+    FB626 = "FB626: Fed-BioMed optimizer error"
+
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

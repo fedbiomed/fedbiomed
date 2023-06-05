@@ -90,14 +90,16 @@ class TestResearcherEnviron(unittest.TestCase):
     def test_04_researcher_environ_set_component_specific_config_parameters(self):
         """Tests setting configuration file parameters"""
         os.environ["RESEARCHER_ID"] = "researcher-1"
+        from fedbiomed.researcher.environ import __config_version__
 
         self.environ._get_uploads_url.return_value = "localhost"
         self.environ._set_component_specific_config_parameters()
 
-        self.assertEqual(self.environ._cfg["default"], {
+        self.assertEqual(dict(self.environ._cfg["default"]), {
             'id': 'researcher-1',
             'component': "RESEARCHER",
-            'uploads_url': "localhost"
+            'uploads_url': "localhost",
+            'version': str(__config_version__)
         })
 
     @patch("fedbiomed.common.logger.logger.info")

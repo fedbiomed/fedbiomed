@@ -6,9 +6,8 @@ from fedbiomed.common.constants import UserRoleType
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
-from app import app, config
+from config import config
 from utils import set_password_hash
-
 
 
 # WARNING: this Database class should not exist, all accesses to TinyDB should occur
@@ -16,6 +15,7 @@ from utils import set_password_hash
 # breaks basic object paradigm
 # Until this is refactored (and Database class is removed), please use
 # `DatasetManager` when adding new accesses to the database
+
 class BaseDatabase:
 
     def __init__(self, db_path: str):
@@ -97,9 +97,10 @@ class UserDatabase(BaseDatabase):
             print(f"Error, unable to query in database for admin accounts {e}... resuming")
 
 
-node_database = NodeDatabase(app.config['NODE_DB_PATH'])
-user_database = UserDatabase(app.config['GUI_DB_PATH'])
+node_database = NodeDatabase(config['NODE_DB_PATH'])
+user_database = UserDatabase(config['GUI_DB_PATH'])
 
-user_database.add_default_admin_user(config.configuration['DEFAULT_ADMIN_CREDENTIAL'])
-del config.configuration['DEFAULT_ADMIN_CREDENTIAL']  # remove default account credential of env variables
+user_database.add_default_admin_user(config['DEFAULT_ADMIN_CREDENTIAL'])
+# remove default account credential of env variables
 # for security reasons
+del config['DEFAULT_ADMIN_CREDENTIAL']

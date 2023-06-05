@@ -39,7 +39,9 @@ class TestDocumentationLinks(unittest.TestCase):
     def test_testdocumentationlinks_01(self):
         links = (
             'https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html',
-            'https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1'
+            'https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1',
+            'http://www.plantuml.com/plantuml/dsvg/xLRDJjmm4BxxAUR82fPbWOe2guYsKYyhSQ6SgghosXDYuTYMFIbjdxxE3r7MIac3UkH4i6Vy_SpCsZU1kAUgrApvOEofK1hX8BSUkIZ0syf88506riV7NnQCNGLUkXXojmcLosYpgl-0YybAACT9cGSmLc80Mn7O7BZMSDikNSTqOSkoCafmGdZGTiSrb75F0pUoYLe6XqBbIe2mtgCWPGqG-f9jTjdc_l3axEFxRBEAtmC2Hz3kdDUhkqpLg_iH4JlNzfaV8MZCwMeo3IJcog047Y3YYmvuF7RPXmoN8x3rZr6wCef0Mz5B7WXwyTmOTBg-FCcIX4HVMhlAoThanwvusqNhlgjgvpsN2Wr130OgL80T9r4qIASd5zaaiwF77lQAEwT_fTK2iZrAO7FEJJNFJbr27tl-eh4r-SwbjY1FYWgm1i4wKgNwZHu2eGFs3-27wvJv7CPjuCLUq6kAWKPsRS1pGW_RhWt28fczN9czqTF8lQc7myVTQRslKRljKYBSgDxhTbA0Ft1btkPbwjotUNcRbqY_krm-TPrA1RRNw9CA-2o6DUcNvzd_u9bUU9C7zhrpNxCPq1lCGAWj5BCuJVSh7C9iuQk3CQjXknW8eA9_koHJF50nplnWlRfTD0WVpZg4vh_FxxBR5ch_X57pGA8c7jY43MFuKoudhvYqWdL3fI-tfFbVsKYzxQkxl_XprxATLz69br_40nMQWWRqFz1_rvunjlnQA2dHV5jc340YSL54zMXa-o8U_72y58i_7NfLeg5h5iWwTXDNgrB_0G00',
+            'https://arxiv.org/abs/1711.05101',
         )
         if self.skip_internet_test:
             self.skipTest("no internet connection: skipping test_testdocumentationlinks_01")
@@ -84,6 +86,24 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             self.assertIsInstance(model, SkLearnModel)
             self.assertIsInstance(copied_model, SkLearnModel)
             self.assertNotEqual(id(model), id(copied_model), "error, deep copy failed, objects share same reference")
+            # check that all attributes have different references
+
+            for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
+                self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
+                                    f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!")
+            
+
+            # check that model parameters are not the same
+            model.set_init_params({'n_classes': 2, 'n_features': 4})
+            copied_model.set_init_params({'n_classes': 2, 'n_features': 4})
+            for layer_name in model.param_list:
+                
+                self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
+            
+            new_weights = {layer: np.random.normal(size=getattr(model.model, layer).shape) for layer in model.param_list}
+            model.set_weights(new_weights)
+            for layer_name in model.param_list:
+                self.assertFalse(np.array_equal(getattr(model.model, layer_name), getattr(copied_model.model, layer_name)))
 
 
 class TestSkLearnModel(unittest.TestCase):
@@ -93,11 +113,25 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdregressor_model = SkLearnModel(SGDRegressor)
         self.models = (SGDClassifier, SGDRegressor)
 
-        self.n_features = (1, 10)  # possible number of features
-        self.n_classes = (2, 5)  # possible number of classes (for classification)
-
         self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
-
+        
+        # create dummy data
+        data_2d = np.array([[1, 2, 3, 1, 2, 3],
+                            [1, 2, 0, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 2, 2, 3],
+                            [1, 0, 1, 1, 2, 0],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 0, 0],
+                            [0, 2, 2, 1, 2, 3],
+                            [1, 2, 0, 1, 0, 3]])
+        data_1d = np.array([1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3]).reshape(-1, 1)
+        self.data_collection = (data_1d, data_2d)
+        self.targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
+        self._n_classes = 3  # number of classes in the data_collection
+        
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
 
@@ -172,36 +206,39 @@ class TestSkLearnModel(unittest.TestCase):
         # to test the correct execution of the whole training process
         # Goal fo the test: checking that plain sklearn model has been updated when trained 
         # using `Model` interface
-        n_values = 100  # data size
+        _n_classes = 3
 
-        for model in self.models:
-            # disable learning rate evolution, penality
+        data_2d = np.array([[1, 2, 3, 1, 2, 3],
+                            [1, 2, 0, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 2, 3],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 2, 2, 3],
+                            [1, 0, 1, 1, 2, 0],
+                            [1, 0, 3, 1, 2, 3],
+                            [1, 2, 3, 1, 0, 0],
+                            [0, 2, 2, 1, 2, 3],
+                            [1, 2, 0, 1, 0, 3]])
+        data_1d = np.array([1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3]).reshape(-1, 1)
+        targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
 
-            model = SkLearnModel(model)
-            for _n_features in self.n_features:
+        for data in (data_1d, data_2d):
+            for model in self.models:
+                # disable learning rate evolution, penality
+                model = SkLearnModel(model)
+                model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': data.shape[1]})
+                model.init_training()
+                init_model = copy.deepcopy(model)
+                #for idx in range(n_values):
+                model.train(data, targets)
+                grads = model.get_gradients()
+                model.apply_updates(grads)
 
-                data = np.random.randn(n_values, _n_features,)
-
-                for _n_classes in self.n_classes:
-
-                    if model.is_classification:
-                        targets = np.random.randint(0, _n_classes,(n_values, 1))
-
-                    else:
-                        targets = np.random.randn( n_values, 1)
-                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                    model.init_training()
-                    init_model = copy.deepcopy(model)
-                    #for idx in range(n_values):
-                    model.train(data, targets)
-                    grads = model.get_gradients()
-                    model.apply_updates(grads)
-
-                    # checks
-                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
+                # checks
+                self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                for layer in model.param_list:
+                    self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
+                                                    "model has not been updated during training"))
 
     def test_sklearnmodel_06_sklearn_training_02_plain_sklearn_grad_descent(self):
         #  checks plain sklearn is effectivly doing a gradient descent
@@ -235,38 +272,29 @@ class TestSkLearnModel(unittest.TestCase):
         
 
     def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
-        n_values = 100  # data size
-        for model in self.models:
-            model = SkLearnModel(model)
-            for _n_features in self.n_features:
 
-                data = np.random.randn(n_values, _n_features,)
+        n_iter = 10 # number of iterations
+        
+        for data in self.data_collection:
+            for model in self.models:
+                model = SkLearnModel(model)
 
-                for _n_classes in self.n_classes:
+                model.disable_internal_optimizer()
+                model.set_init_params(model_args={'n_classes': self._n_classes, 'n_features': data.shape[1]})
+                model.init_training()
+                init_model_weights = model.get_weights()
+                for _ in range(n_iter):
+                    model.train(data, self.targets)
+                grads = NumpyVector(model.get_gradients())
+                updts = self.declearn_optim.compute_updates_from_gradients(model, grads)
+                model.apply_updates(updts.coefs)
 
-                    if model.is_classification:
-                        targets = np.random.randint(0, _n_classes, (n_values, 1))
-
-                    else:
-                        targets = np.random.randn(n_values, 1)
-
-                    model.disable_internal_optimizer()
-                    model.set_init_params(model_args={'n_classes': _n_classes, 'n_features': _n_features})
-                    model.init_training()
-                    init_model = copy.deepcopy(model)
-
-                    model.train(data, targets)
-                    grads = model.get_gradients(as_vector=True)
-
-                    self.declearn_optim.apply_gradients(model, grads)
-
-                    # checks
-                    self.assertTrue(model._is_declearn_optim)
-                    self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
-                    self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
-                    for layer in model.param_list:
-                        self.assertFalse(np.array_equal(getattr(model.model, layer), getattr(init_model.model, layer),
-                                                        "model has not been updated during training"))
+                # checks
+                self.assertEqual(model.model.n_iter_, 1, "BaseEstimator n_iter_ attribute should always be reset to 1")
+                self.assertEqual(model.model.eta0, 1)
+                for layer in model.param_list:
+                    self.assertFalse(np.array_equal(getattr(model.model, layer), init_model_weights[layer]),
+                                                    "model has not been updated during training")
 
     def test_sklearnmodel_07_train_failures(self):
         inputs = np.array([[1, 2], [1, 1],[0, 1]])
@@ -294,20 +322,12 @@ class TestSkLearnModel(unittest.TestCase):
                 # making sure updated model's weights are different than the initial ones
                 setattr(model.model, key, 10 + init_weights[key])
 
-            # action!
+            # Check that the weights-getter works properly.
             weights = model.get_weights()
-            vectorized_weights = model.get_weights(as_vector=True)
-
-            # checks
-
-            for (layer, val), (_, init_val), (vec_layer, vectorized_val) in zip(
-                weights.items(), init_weights.items(), vectorized_weights.coefs.items()
-                ):
-
-                self.assertFalse(np.any(np.isclose(val,init_val)))
-                self.assertFalse(np.any(np.isclose(vectorized_val, init_val)))
-                self.assertTrue(np.all(np.isclose(val, vectorized_val)))
-                self.assertEqual(vec_layer, layer)
+            self.assertEqual(weights.keys(), init_weights.keys())
+            for key, val in weights.items():
+                init_val = init_weights[key]
+                self.assertFalse(np.any(np.isclose(val, init_val)))
 
     def test_sklearnmodel_09_get_weights_failures(self):
 
@@ -357,18 +377,13 @@ class TestSkLearnModel(unittest.TestCase):
                 key: np.random.normal(size=wgt.shape).astype(wgt.dtype)
                 for key, wgt in model.get_weights().items()
             }
-            # Test that weights assignment works with a dict input.
+            # Test that weights assignment works.
             model.set_weights(weights)
             current = model.get_weights()
             self.assertEqual(current.keys(), weights.keys())
             self.assertTrue(
                 all(np.all(weights[key] == current[key]) for key in weights)
             )
-            # Test that weights assignment works with a declearn Vector input.
-            w_vector = NumpyVector(weights) + 1.
-            model.set_weights(w_vector)
-            c_vector = model.get_weights(as_vector=True)
-            self.assertEqual(w_vector, c_vector)
 
 
 class TestSklearnClassification(unittest.TestCase):
@@ -471,10 +486,9 @@ class TestSklearnClassification(unittest.TestCase):
         model.disable_internal_optimizer()
 
         # checks
-        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
-        self.assertEqual(model.default_lr_init, model.model.eta0)
-        self.assertEqual(model.default_lr, model.model.learning_rate)
-        self.assertTrue(model._is_declearn_optim)
+
+        self.assertEqual(model._null_optim_params['eta0'], model.model.eta0)
+        self.assertEqual(model._null_optim_params['learning_rate'], model.model.learning_rate)
 
 
 class TestSkLearnRegressorModel(unittest.TestCase):
@@ -490,10 +504,8 @@ class TestSkLearnRegressorModel(unittest.TestCase):
         model.disable_internal_optimizer()
 
         # checks
-        self.assertEqual(model.default_lr_init, model.get_learning_rate()[0])
-        self.assertEqual(model.default_lr_init, model.model.eta0)
-        self.assertEqual(model.default_lr, model.model.learning_rate)
-        self.assertTrue(model._is_declearn_optim)
+        self.assertEqual(model._null_optim_params['eta0'], model.model.eta0)
+        self.assertEqual(model._null_optim_params['learning_rate'], model.model.learning_rate)
 
 
 class TestTorchModel(unittest.TestCase):
@@ -523,7 +535,6 @@ class TestTorchModel(unittest.TestCase):
         # case where no gradients have been found: model has not been trained
         self.assertDictEqual({}, self.model.get_gradients(), "get_gradients should return an empty dict since model hasnot been trained")
 
-
         # case model has been trained with pytorch optimizer
         self.torch_optim.zero_grad()
         loss = self.fake_training_step(self.data, self.targets)
@@ -534,43 +545,26 @@ class TestTorchModel(unittest.TestCase):
         for layer_name, values in grads.items():
             self.assertTrue(torch.all(values))
 
-        torch_vector_grads = self.model.get_weights(as_vector=True)
-        for layer_name, values in torch_vector_grads.coefs.items():
-            self.assertTrue(torch.all(values))
-            self.assertTrue(torch.all(torch.isclose(values, grads[layer_name])))
-
     def test_torchmodel_02_get_weights(self):
         # test case where model_wweitghs is retunred as a dict
         model_weights = self.model.get_weights()
-
-
         for (layer, wrapped_model_weight) in model_weights.items():
             self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
-        # test case where model weigths is returned as a TorchVector
-        torchvector_model_weights = self.model.get_weights(as_vector=True)
 
-        for (layer, wrapped_model_weight) in torchvector_model_weights.coefs.items():
-            self.assertTrue(torch.all(torch.isclose(wrapped_model_weight, self.torch_model.get_parameter(layer))))
-
-    def test_sklearnmodel_03_set_weights(self):
+    def test_torchmodel_03_set_weights(self):
         """Test that 'TorchModel.set_weights' works properly."""
         # Create random weights that are suitable for the model.
         weights = {
             key: torch.randn(size=wgt.shape, dtype=wgt.dtype)
             for key, wgt in self.model.get_weights().items()
         }
-        # Test that weights assignment works with a dict input.
+        # Test that weights assignment works properly.
         self.model.set_weights(weights)
         current = self.model.get_weights()
         self.assertEqual(current.keys(), weights.keys())
         self.assertTrue(
             all(torch.all(weights[key] == current[key]) for key in weights)
         )
-        # Test that weights assignment works with a declearn Vector input.
-        w_vector = TorchVector(weights) + 1.
-        self.model.set_weights(w_vector)
-        c_vector = self.model.get_weights(as_vector=True)
-        self.assertEqual(w_vector, c_vector)
 
     def test_torchmodel_04_apply_updates_1(self):
         init_weights = copy.deepcopy(self.model.get_weights())
@@ -582,19 +576,6 @@ class TestTorchModel(unittest.TestCase):
 
         # checks
         for (layer, w), (_, updated_w) in zip(init_weights.items(), updated_weights.items()):
-            self.assertFalse(torch.all(torch.isclose(w, updated_w)))
-            self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
-
-    def test_torchmodel_04_apply_updates_2(self):
-        init_weights = copy.deepcopy(self.model.get_weights(as_vector=True))
-
-        updates = torch.nn.Linear(4, 1).state_dict()
-
-        self.model.apply_updates(TorchVector(updates))
-        updated_weights = self.model.get_weights(as_vector=True)
-
-        # checks
-        for (layer, w), (_, updated_w) in zip(init_weights.coefs.items(), updated_weights.coefs.items()):
             self.assertFalse(torch.all(torch.isclose(w, updated_w)))
             self.assertTrue(torch.all(torch.isclose(updated_w, self.model.model.get_parameter(layer))))
 
@@ -679,8 +660,9 @@ class TestTorchModel(unittest.TestCase):
         loss = self.fake_training_step(self.data, self.targets)
 
         loss.backward()
-        grads = self.model.get_weights(as_vector=True)
-        self.declearn_optim.apply_gradients(self.model, grads)
+        grads = TorchVector(self.model.get_weights())
+        updts = self.declearn_optim.compute_updates_from_gradients(self.model, grads)
+        self.model.apply_updates(updts.coefs)
 
         declearn_optimized_model_weights = self.model.get_weights()
         # checks
