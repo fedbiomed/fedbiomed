@@ -355,5 +355,5 @@ Note: some previously existing tags are now removed - *postponed*, *feature*, *i
 ## Other tools
 
 * project file repository (Mybox *Fed-BioMed-tech*)
-* CI server https://ci.inria.fr/fedbiomed/
+
 

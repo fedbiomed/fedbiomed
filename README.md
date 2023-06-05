@@ -8,8 +8,6 @@
 
 # Fed-BioMed
 
-version 4 implementation of the Fed-BioMed project
-
 ## Introduction
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
@@ -667,3 +665,4 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
 ${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
+
