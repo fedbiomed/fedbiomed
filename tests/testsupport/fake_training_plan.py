@@ -5,6 +5,7 @@ from unittest import mock
 import time
 
 from fedbiomed.common.models import Model
+from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 
@@ -29,6 +30,8 @@ class FakeModel(BaseTrainingPlan):
         self._optimizer_args = {}
         self._model = mock.create_autospec(Model, instance=True)
         self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
+        self._optimizer = mock.create_autospec(BaseOptimizer, instance=True)
+        self._optimizer.optimizer = mock.MagicMock()
 
     def post_init(
         self,
@@ -59,8 +62,8 @@ class FakeModel(BaseTrainingPlan):
             the model or into a dictionary. Unused in this dummy class.
         """
     def init_optimizer(self, optimizer_args: Dict[str, Any]):
-        """Fakes `init_optimizer` method, used to initialize an optimizer (either framework 
-        specific like pytorch optimizer, or non-framework specific like declearn) 
+        """Fakes `init_optimizer` method, used to initialize an optimizer (either framework
+        specific like pytorch optimizer, or non-framework specific like declearn)
 
         Args:
             optimizer_args: optimizer parameters as a dictionary
