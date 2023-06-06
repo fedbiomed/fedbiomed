@@ -17,9 +17,12 @@ from typing import Dict, Union, Any, Optional, Tuple, List
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError, FedbiomedUserInputError
+from fedbiomed.common.exceptions import (
+    FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -36,22 +39,24 @@ class Round:
     This class represents the training part execute by a node in a given round
     """
 
-    def __init__(self,
-                 model_kwargs: dict = None,
-                 training_kwargs: dict = None,
-                 training: bool = True,
-                 dataset: dict = None,
-                 training_plan_url: str = None,
-                 training_plan_class: str = None,
-                 params_url: str = None,
-                 job_id: str = None,
-                 researcher_id: str = None,
-                 history_monitor: HistoryMonitor = None,
-                 aggregator_args: dict = None,
-                 node_args: Union[dict, None] = None,
-                 round_number: int = 0,
-                 dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
-
+    def __init__(
+        self,
+        model_kwargs: dict = None,
+        training_kwargs: dict = None,
+        training: bool = True,
+        dataset: dict = None,
+        training_plan_url: str = None,
+        training_plan_class: str = None,
+        params_url: str = None,
+        job_id: str = None,
+        researcher_id: str = None,
+        history_monitor: HistoryMonitor = None,
+        aggregator_args: Optional[Dict[str, Any]] = None,
+        node_args: Union[dict, None] = None,
+        round_number: int = 0,
+        dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
+        aux_var_urls: Optional[List[str]] = None,
+    ) -> None:
         """Constructor of the class
 
         Args:
@@ -72,6 +77,8 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
+            aux_var_urls: Optional tuple of URLs of files containing Optimizer auxiliary variables
+                that are to be processed by the training plan's optimizer.
         """
 
         self._use_secagg: bool = False
@@ -82,7 +89,8 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
-        self.aggregator_args: Optional[Dict[str, Any]] = aggregator_args
+        self.aggregator_args = aggregator_args
+        self.aux_var_urls = aux_var_urls or []
 
         self.tp_security_manager = TrainingPlanSecurityManager()
         self.node_args = node_args
@@ -101,6 +109,7 @@ class Round:
         self._round = round_number
         self._biprime = None
         self._servkey = None
+        self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -143,6 +152,40 @@ class Round:
         else:
             return True, "no file downloads required for aggregator args"
 
+    def download_optimizer_aux_var(self) -> Tuple[bool, str]:
+        """Download Optimizer auxiliary variables, if any.
+
+        When this operation is successful, it updates a private attribute
+        of this instance storing the obtained auxiliary variables (if any).
+
+        Returns:
+            success: Whether the operation was successful.
+            error_message: Error message in case the operation failed.
+        """
+        aux_var = {}  # type: Dict[str, Dict[str, Any]]
+        for url in self.aux_var_urls:
+            # Download the file.
+            path = f"aux_var_{uuid.uuid4()}.mpk"
+            success, path, err_msg = self.download_file(url, path)
+            if not success:
+                error_message = (
+                    f"Failed to download Optimizer aux var file: {err_msg}"
+                )
+                return False, error_message
+            # Deserialize the file and add its contents to `aux_var`.
+            try:
+                aux_new = Serializer.load(path)
+            except Exception as exc:
+                error_message = (
+                    f"Failed to de-serialize Optimizer aux var file {path}"
+                    f": {repr(exc)}"
+                )
+                return False, error_message
+            aux_var.update(aux_new)
+        # If everything went fine, update private attribute and return flags.
+        self._optim_aux_var = aux_var
+        return True, ""
+
     def download_file(self, url: str, file_path: str) -> Tuple[bool, str, str]:
         """Downloads file from file exchange system
 
@@ -157,15 +200,11 @@ class Round:
                 str containing the error message (if any). Returns empty
                 string if operation successful.
         """
-
         status, params_path = self.repository.download_file(url, file_path)
-
-        if (status != 200) or params_path is None:
-
+        if (status != 200) or (params_path is None):
             error_message = f"Cannot download param file: {url}"
             return False, '', error_message
-        else:
-            return True, params_path, ''
+        return True, params_path, ''
 
     def _configure_secagg(
             self,
@@ -241,11 +280,8 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
-        is_failed = False
-
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
             self._use_secagg = self._configure_secagg(
@@ -256,7 +292,7 @@ class Round:
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
-        # Initialize and validate requested experiment/training arguments
+        # Initialize and validate requested experiment/training arguments.
         try:
             self.initialize_validate_training_arguments()
         except FedbiomedUserInputError as e:
@@ -265,6 +301,9 @@ class Round:
             msg = 'Unexpected error while validating training argument'
             logger.debug(f"{msg}: {repr(e)}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
+
+        # Download and validate the training plan.
+        # Download the model weights and any auxiliary information.
         try:
             # module name cannot contain dashes
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
@@ -286,18 +325,18 @@ class Round:
                     else:
                         logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
 
-            if not is_failed:
-
-                success, params_path, error_msg = self.download_file(self.params_url, f"my_model_{uuid.uuid4()}.mpk")
-                if success:
-                    # retrieving aggregator args
-                    success, error_msg = self.download_aggregator_args()
-
-                if not success:
-                    return self._send_round_reply(success=False, message=error_msg)
+            # Retrieve model parameters and other auxiliary information.
+            success, params_path, error_msg = self.download_file(
+                self.params_url, f"my_model_{uuid.uuid4()}.mpk"
+            )
+            if success:
+                success, error_msg = self.download_aggregator_args()
+            if success:
+                success, error_msg = self.download_optimizer_aux_var()
+            if not success:
+                return self._send_round_reply(success=False, message=error_msg)
 
         except Exception as e:
-            is_failed = True
             # FIXME: this will trigger if model is not approved by node
             error_message = f"Cannot download training plan files: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -327,6 +366,11 @@ class Round:
             self.training_plan.set_model_params(params)
         except Exception as e:
             error_message = f"Cannot initialize model parameters: {repr(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+
+        # Process Optimizer auxiliary variables, if any.
+        error_message = self._process_optim_aux_var()
+        if error_message:
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data
@@ -487,6 +531,38 @@ class Round:
                                           'msg': message,
                                           'sample_size': sample_size,
                                           'timing': timing}).get_dict()
+
+    def _process_optim_aux_var(self) -> str:
+        """Process researcher-emitted Optimizer auxiliary variables, if any.
+
+        Returns:
+            Error message, empty if the operation was successful.
+        """
+        # Early-exit if there are no auxiliary variables to process.
+        if not self._optim_aux_var:
+            return ""
+        # Fetch the training plan's BaseOptimizer.
+        optimizer = self.training_plan.optimizer()
+        if optimizer is None:
+            return (
+                "The TrainingPlan does not hold a BaseOptimizer after "
+                "being initialized."
+            )
+        # Verify that the BaseOptimizer wraps an Optimizer.
+        if not isinstance(optimizer.optimizer, Optimizer):
+            return (
+                "Received Optimizer auxiliary variables, but the "
+                "TrainingPlan does not manage a compatible Optimizer."
+            )
+        # Pass auxiliary variables to the Optimizer.
+        try:
+            optimizer.optimizer.set_aux(self._optim_aux_var)
+        except FedbiomedOptimizerError as exc:
+            return (
+                "TrainingPlan Optimizer failed to ingest the provided "
+                f"auxiliary variables: {repr(exc)}"
+            )
+        return ""
 
     def _set_training_testing_data_loaders(self):
         """
