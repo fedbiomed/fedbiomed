@@ -11,7 +11,6 @@ from testsupport.base_case import NodeTestCase
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBiprimeSetup
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
 
 from fedbiomed.node.environ import environ
@@ -455,22 +454,22 @@ class TestNode(NodeTestCase):
 
         # checks
         self.assertIsInstance(round, Round)
-
-        self.assertEqual(round_patch.call_count, 1)
-        round_patch.assert_called_with(
-                                       dict_msg_1_dataset['model_args'],
-                                       dict_msg_1_dataset['training_args'],
-                                       True,
-                                       self.database_id,
-                                       dict_msg_1_dataset['training_plan_url'],
-                                       dict_msg_1_dataset['training_plan_class'],
-                                       dict_msg_1_dataset['params_url'],
-                                       dict_msg_1_dataset['job_id'],
-                                       dict_msg_1_dataset['researcher_id'],
-                                       unittest.mock.ANY,  # this is for HistoryMonitor
-                                       None,
-                                       None, round_number=0,
-                                       dlp_and_loading_block_metadata=None)
+        round_patch.assert_called_once_with(
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # this is for HistoryMonitor
+            None,
+            None, round_number=0,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=None,
+        )
 
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
@@ -556,7 +555,8 @@ class TestNode(NodeTestCase):
             'command': 'train',
             'dataset_id': 'dataset_id_1234',
             'training': True,
-            'aggregator_args': {}
+            'aggregator_args': {},
+            "aux_var_urls": None,
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
@@ -571,20 +571,21 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-                                            dict_msg_1_dataset['model_args'],
-                                            dict_msg_1_dataset['training_args'],
-                                            True,
-                                            self.database_id,
-                                            dict_msg_1_dataset['training_plan_url'],
-                                            dict_msg_1_dataset['training_plan_class'],
-                                            dict_msg_1_dataset['params_url'],
-                                            dict_msg_1_dataset['job_id'],
-                                            dict_msg_1_dataset['researcher_id'],
-                                            unittest.mock.ANY,  # FIXME: should be an history monitor object
-                                            None,
-                                            None, round_number=1,
-                                            dlp_and_loading_block_metadata=None
-                                            )
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # FIXME: should be an history monitor object
+            None,
+            None, round_number=1,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=None,
+        )
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
@@ -612,7 +613,8 @@ class TestNode(NodeTestCase):
             "round": 1,
             "command": "train",
             "dataset_id": "dataset_id_1234",
-            'aggregator_args': {}
+            'aggregator_args': {},
+            "aux_var_urls": None,
         }
 
         #
@@ -627,18 +629,21 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg_1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
-                                            dict_msg_1_dataset['training_args'],
-                                            True,
-                                            self.database_id,
-                                            dict_msg_1_dataset['training_plan_url'],
-                                            dict_msg_1_dataset['training_plan_class'],
-                                            dict_msg_1_dataset['params_url'],
-                                            dict_msg_1_dataset['job_id'],
-                                            dict_msg_1_dataset['researcher_id'],
-                                            unittest.mock.ANY,  # FIXME: should be an history_monitor object
-                                            None, None, round_number=1,
-                                            dlp_and_loading_block_metadata=None)
+        round_patch.assert_called_once_with(
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # FIXME: should be an history_monitor object
+            None, None, round_number=1,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=None,
+        )
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
@@ -766,7 +771,8 @@ class TestNode(NodeTestCase):
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "dataset_id": "dataset_id_1234"
+            "dataset_id": "dataset_id_1234",
+            "aux_var_urls": None,
         }
         node_parser_task_train_patch.side_effect = SystemExit(
             "mimicking an exception" + " coming from parser_task_train")  # noqa
