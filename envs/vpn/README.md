@@ -198,12 +198,12 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build basenode
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
+[user@node $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build basenode-no-gpu
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
+[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
 ```
 
 Then follow the common instructions for nodes (below).
@@ -229,12 +229,12 @@ On the build machine
 * build container
 ```bash
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build basenode
-[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
+[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build basenode-no-gpu
-[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
+[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
 ```
 * save image for container
 ```bash
@@ -468,7 +468,7 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build base
-[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build researcher
+[user@researcher $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build researcher
 ```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
@@ -825,6 +825,6 @@ Different values at build time and runtime is also supported by `vpnserver` `mqt
 
 Example : build a researcher container with a default user/group `fedbiomed` (id `1234`), run it with the same account as the account on the researcher machine.
 ```bash
-[user@researcher $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build researcher
+[user@researcher $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build researcher
 [user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d researcher
 ```
