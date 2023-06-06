@@ -104,7 +104,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
-        
+
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
         # Override default model parameters based on `self._model_args`.
@@ -183,7 +183,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                        "can not have more than one argument/parameter (for {prefix} arguments) or " \
                                        "method can be defined without argument and `{alternative}` can be used for " \
                                        "accessing {prefix} arguments defined in the experiment."
-        
+
         if self._model is None:
             raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
         # Get optimizer defined by researcher ---------------------------------------------------------------------
@@ -199,14 +199,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.optimizer_args()"))
         # create optimizer builder
         optim_builder = OptimizerBuilder()
-        
+
         # then build optimizer wrapper given model and optimizer
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
 
     def init_optimizer(self) -> Optional[FedOptimizer]:
         """Creates and configures optimizer. By default, returns None (meaning native inner scikit
         learn optimization SGD based will be used).
-        
+
         In the case a Declearn Optimizer is used, this method should be overridden in the Training Plan and return
         a Fedbiomed [`Optimizer`][fedbiomed.common.optimizers.optimizer.Optimizer]"""
         pass
