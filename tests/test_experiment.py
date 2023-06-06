@@ -1082,7 +1082,9 @@ class TestExperiment(ResearcherTestCase):
         mock_job_nodes.return_value = ["node-1", "node-2"]
         mock_job_init.return_value = None
         mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_replies.return_value = {
+            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        }
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
@@ -1131,7 +1133,9 @@ class TestExperiment(ResearcherTestCase):
         self.mock_logger_warning.assert_called_once()
 
         # Update training_replies mock value since round_current has been increased
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_replies.return_value = {
+            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        }
 
         # Try same scenario with increase argument as True
         round_limit = self.test_exp.round_limit()
@@ -1213,7 +1217,9 @@ class TestExperiment(ResearcherTestCase):
         training_plan.type = MagicMock()
         mock_job_init.return_value = None
         mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
+            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        }
         mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None

@@ -483,6 +483,7 @@ class Job:
                     results = Serializer.load(params_path)
                     params = results["model_weights"]
                     optimizer_args = results.get("optimizer_args")
+                    optim_aux_var = results.get("optim_aux_var", {})
                     encryption_factor = results.get('encryption_factor', None)
                 else:
                     params_path = None
@@ -494,18 +495,20 @@ class Job:
                 timing = m['timing']
                 timing['rtime_total'] = rtime_total
 
-                r = Responses({'success': m['success'],
-                               'msg': m['msg'],
-                               'dataset_id': m['dataset_id'],
-                               'node_id': m['node_id'],
-                               'params_path': params_path,
-                               'params': params,
-                               'optimizer_args': optimizer_args,
-                               'sample_size': m["sample_size"],
-                               'encryption_factor': encryption_factor,
-                               'timing': timing})
-
-                self._training_replies[round_].append(r)
+                response = Responses({
+                    'success': m['success'],
+                    'msg': m['msg'],
+                    'dataset_id': m['dataset_id'],
+                    'node_id': m['node_id'],
+                    'params_path': params_path,
+                    'params': params,
+                    'optimizer_args': optimizer_args,
+                    'optim_aux_var': optim_aux_var,
+                    'sample_size': m["sample_size"],
+                    'encryption_factor': encryption_factor,
+                    'timing': timing,
+                })
+                self._training_replies[round_].append(response)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes

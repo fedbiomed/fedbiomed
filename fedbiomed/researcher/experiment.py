@@ -1613,6 +1613,7 @@ class Experiment:
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
+        self._process_optim_aux_var()
         aggregated_params = self._run_agg_optimizer(aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
@@ -1645,6 +1646,36 @@ class Experiment:
                                                  do_training=False)
 
         return 1
+
+    def _process_optim_aux_var(
+        self,
+    ) -> None:
+        """Process any Optimizer auxiliary variables received during a round.
+
+        Raises:
+            FedbiomedExperimentError: if auxiliary variables were received,
+                but `agg_optimizer` is None and thus cannot process them.
+            FedbiomedOptimizerError: if the received auxiliary variables do
+                not match the expectations of the `agg_optimizer` Optimizer.
+        """
+        # Restructure the received auxiliary variables (if any).
+        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        for reply in self._job.training_replies[self._round_current]:
+            node_id = reply["node_id"]
+            aux_var = reply.get("optim_aux_var", {})
+            for module, params in aux_var.items():
+                aux_var.setdefault(module, {})[node_id] = params
+        # If an Optimizer is used, pass it the auxiliary variables (if any).
+        if self._agg_optimizer is not None:
+            self._agg_optimizer.set_aux(aux_var)
+        # If no Optimizer is used but auxiliary variables were received, raise.
+        elif aux_var:
+            raise FedbiomedExperimentError(
+                "Received auxiliary variables from 1+ node Optimizer, but "
+                "no `agg_optimizer` was set for this Experiment to process "
+                "them.\nThese variables come from the following plug-in "
+                f"modules: {set(aux_var)}."
+            )
 
     def _run_agg_optimizer(
         self,
