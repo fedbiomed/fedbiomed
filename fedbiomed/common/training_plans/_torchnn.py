@@ -171,14 +171,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Abstract method to return training data"""
 
     def model(self) -> Optional[torch.nn.Module]:
-        if self._model is not None:
-
-            return self._model.model
-        else:
-            return self._model
-
-    def optimizer(self):
-        return self._optimizer
+        if self._model is None:
+            return None
+        return self._model.model
 
     def model_args(self) -> Dict:
         """Retrieves model args

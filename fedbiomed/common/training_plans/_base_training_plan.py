@@ -57,6 +57,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     _model: Model
     _optimizer: BaseOptimizer
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -68,6 +69,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def model(self):
         """Gets model instance of the training plan"""
+
+    def optimizer(self) -> Optional[BaseOptimizer]:
+        """Get the BaseOptimizer wrapped by this training plan.
+
+        Returns:
+            BaseOptimizer wrapped by this training plan, or None if
+            it has not been initialized yet.
+        """
+        # FUTURE: return `self._optimizer.optimizer` instead?
+        # Currently, the legacy Scaffold implem. needs the BaseOptimizer,
+        # but IMHO it really should remain a private backend component.
+        return self._optimizer
 
     @abstractmethod
     def post_init(
