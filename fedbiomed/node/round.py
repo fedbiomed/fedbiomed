@@ -22,7 +22,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.optimizers import Optimizer
+from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -406,18 +406,27 @@ class Round:
 
         # If training is activated.
         if self.training:
+            results = {}
+
+            # Perform the training round.
             if self.training_plan.training_data_loader is not None:
                 try:
-                    results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
                     self.training_plan.training_routine(history_monitor=self.history_monitor,
                                                         node_args=self.node_args)
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
-                except Exception as e:
-                    error_message = f"Cannot train model in round: {repr(e)}"
+                except Exception as exc:
+                    error_message = f"Cannot train model in round: {repr(exc)}"
                     return self._send_round_reply(success=False, message=error_message)
+
+            # Collect Optimizer auxiliary variables, if any.
+            try:
+                results['optim_aux_var'] = self._collect_optim_aux_var()
+            except (FedbiomedOptimizerError, FedbiomedRoundError) as exc:
+                error_message = f"Cannot collect Optimizer auxiliary variables: {repr(exc)}"
+                return self._send_round_reply(success=False, message=error_message)
 
             # Validation after training
             if self.testing_arguments.get('test_on_local_updates', False) is not False:
@@ -542,12 +551,10 @@ class Round:
         if not self._optim_aux_var:
             return ""
         # Fetch the training plan's BaseOptimizer.
-        optimizer = self.training_plan.optimizer()
-        if optimizer is None:
-            return (
-                "The TrainingPlan does not hold a BaseOptimizer after "
-                "being initialized."
-            )
+        try:
+            optimizer = self._get_base_optimizer()
+        except FedbiomedRoundError as exc:
+            return str(exc)
         # Verify that the BaseOptimizer wraps an Optimizer.
         if not isinstance(optimizer.optimizer, Optimizer):
             return (
@@ -563,6 +570,33 @@ class Round:
                 f"auxiliary variables: {repr(exc)}"
             )
         return ""
+
+    def _collect_optim_aux_var(self) -> Dict[str, Any]:
+        """Collect auxiliary variables from the wrapped Optimizer, if any.
+
+        If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
+        empty dict. If it does not hold any BaseOptimizer however, raise a
+        FedbiomedRoundError.
+        """
+        optimizer = self._get_base_optimizer()
+        if isinstance(optimizer.optimizer, Optimizer):
+            return optimizer.optimizer.get_aux()
+        return {}
+
+    def _get_base_optimizer(self) -> BaseOptimizer:
+        """Return the training plan's BaseOptimizer, or raise a FedbiomedRoundError.
+
+        This method is merely a failsafe for the case when the training plan's
+        optimizer initialization step is malfunctioning, which should never
+        happen, lest the end-user writes wrongful code.
+        """
+        optimizer = self.training_plan.optimizer()
+        if optimizer is None:
+            raise FedbiomedRoundError(
+                "The TrainingPlan does not hold a BaseOptimizer after "
+                "being initialized."
+            )
+        return optimizer
 
     def _set_training_testing_data_loaders(self):
         """

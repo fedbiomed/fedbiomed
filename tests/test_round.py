@@ -225,6 +225,7 @@ class TestRound(NodeTestCase):
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
             'encrypted': False,
+            'optim_aux_var': {},
         }
 
         # define context managers for each model method
