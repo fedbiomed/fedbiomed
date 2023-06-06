@@ -173,7 +173,7 @@ start_wireguard(){
     then
         # need to remove kernel module if loaded for using boringtun alternative
         [ -n "$(lsmod | grep wireguard)" ] && rmmod wireguard
-        WG_SUDO=1 boringtun-cli wg0 && RUNNING_BORINGTUN=true
+        WG_SUDO=1 boringtun wg0 && RUNNING_BORINGTUN=true
     fi
 
     # need wireguard to continue
@@ -198,7 +198,7 @@ stop_wireguard() {
     echo "info: stopping wireguard"
     if "$RUNNING_BORINGTUN"
     then
-        pkill boringtun-cli
+        pkill boringtun
         if [ "$?" -ne 0 ]
         then
             echo "CRITICAL: could not stop wireguard boringtun"
@@ -215,7 +215,7 @@ stop_wireguard() {
         fi
     fi
 
-    [ -z "$RUNNING_BORINGTUN" ] && ip link delete dev wg0 || pkill boringtun-cli
+    [ -z "$RUNNING_BORINGTUN" ] && ip link delete dev wg0 || pkill boringtun
 
 }
 

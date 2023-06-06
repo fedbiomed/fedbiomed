@@ -8,8 +8,9 @@ RUN apk update && apk add git alpine-sdk linux-headers cargo
 
 # install boringtun userspace implementation of wireguard
 # 
-# - match versions of debian & boringtun : up to date 0.5.2 is now ok for this system
-RUN cargo install --locked --bin boringtun-cli --version ~0.5.2 boringtun-cli
+# - match versions of debian & boringtun : up to date 0.5.2 compiles ok for bullseye, but could not have it working
+#   Continue with 0.4.0
+RUN cargo install --locked --bin boringtun --version ~0.4.0 boringtun
 
 RUN apk add wireguard-tools
 
@@ -46,7 +47,7 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
 RUN apk update && apk add iptables bash runuser vim net-tools procps alpine-sdk linux-headers kmod
 
 # get wireguard from builder image
-COPY --from=builder /root/.cargo/bin/boringtun-cli /usr/bin/
+COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
 
 COPY ./entrypoint*.bash /

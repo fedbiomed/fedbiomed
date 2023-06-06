@@ -8,8 +8,9 @@ RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
 # 
-# - match versions of debian & boringtun : up to date 0.5.2 is now ok for bullseye
-RUN cargo install --locked --bin boringtun-cli --version ~0.5.2 boringtun-cli
+# - match versions of debian & boringtun : up to date 0.5.2 compiles ok for bullseye, but could not have it working
+#   Continue with 0.4.0
+RUN cargo install --locked --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
 RUN apt-get install -y wireguard-tools
@@ -24,5 +25,5 @@ RUN apt-get update && \
     apt-get install -y iptables iproute2 iputils-ping bash vim net-tools procps build-essential kmod
 
 # get wireguard from builder image
-COPY --from=builder /root/.cargo/bin/boringtun-cli /usr/bin/
+COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
