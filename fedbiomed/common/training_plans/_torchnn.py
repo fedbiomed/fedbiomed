@@ -10,16 +10,14 @@ from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterato
 
 
 import torch
-from torch import nn
 
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
-from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
