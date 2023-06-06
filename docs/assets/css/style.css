@@ -1570,14 +1570,14 @@ td img[title=":heavy_check_mark:"],img[title=":x:"] {
     width: 16px;
 }
 
-.main-docs img { width: 100%; max-width: 720px; display:flex}
-.main-docs img[src$="#img-centered"] { margin: 0 auto}
-.main-docs img[src$="#img-centered-sm"] { margin: 0 auto; max-width:240px}
-.main-docs img[src$="#img-centered-md"] { margin: 0 auto; max-width:480px}
-.main-docs img[src$="#img-centered-lr"] { margin: 0 auto; max-width:720px}
-.main-docs img[src$="#img-centered-xlr"] { margin: 0 auto; max-width:960px}
-.main-docs img[src$="#img-sm"] { max-width:240px}
-.main-docs img[src$="#img-md"] { max-width:480px}
-.main-docs img[src$="#img-lr"] { max-width:720px}
-.main-docs img[src$="#img-xlr"] {max-width:960px}
+.main-docs img { width: 100%; max-width: 720px; display:flex; margin: 15px 0px}
+.main img[src$="#img-centered"], .main-docs img[src$="#img-centered"] { display:flex; margin: 15px auto}
+.main img[src$="#img-centered-sm"], .main-docs img[src$="#img-centered-sm"] {display:flex; margin: 15px auto; max-width:240px}
+.main img[src$="#img-centered-md"], .main-docs img[src$="#img-centered-md"] {display:flex; margin: 15px auto; max-width:480px}
+.main img[src$="#img-centered-lr"], .main-docs img[src$="#img-centered-lr"] {display:flex; margin: 15px auto; max-width:720px}
+.main img[src$="#img-centered-xlr"], .main-docs img[src$="#img-centered-xlr"] {display:flex; margin: 15px auto; max-width:960px}
+.main img[src$="#img-sm"], .main-docs img[src$="#img-sm"] { margin: 15px 0px; display:flex; max-width:240px}
+.main img[src$="#img-md"], .main-docs img[src$="#img-md"] { margin: 15px 0px; display:flex; max-width:480px}
+.main img[src$="#img-lr"], .main-docs img[src$="#img-lr"] { margin: 15px 0px; display:flex; max-width:720px}
+.main img[src$="#img-xlr"], .main-docs img[src$="#img-xlr"] { margin: 15px 0px; display:flex;max-width:960px}
 
