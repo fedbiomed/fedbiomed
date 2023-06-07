@@ -135,6 +135,11 @@ nav:
 
 extra:
   NewsPosts:
+      'VivaTech-2023':
+          name: 'Fed-BioMed @ Viva Technology 2023'
+          desc: 'Fed-BioMed at Viva Technology 2023 on June 16'
+          link: '/news/vivatech-2023'
+          image: 'assets/img/vivatech2023.png'
       'Release-04-2023':
           name: 'A new release of Fed-BioMed (v4.3) is out!'
           desc: 'A new release of Fed-BioMed is now available, introducing Secure Aggregation !'
@@ -152,7 +157,7 @@ extra:
           image: 'assets/img/VF-logo-FP-partenaires.jpg'
       'OSE-2022':
           name: 'Fed-BioMed @ Open Source Experience 2022'
-          desc: 'Fed-BioMed participated to *Open Source Experience 2022* meeting of the European open source community, Paris, Nov 8-9.'
+          desc: 'Fed-BioMed participated to Open Source Experience 2022 meeting of the European open source community, Paris, Nov 8-9.'
           link: '/news/OSE-2022'
           image: 'assets/img/ose2022.jpg'
       'Release-11-2022':
