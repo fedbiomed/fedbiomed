@@ -265,6 +265,18 @@ We list here the known constraints:
 #### Setting a random seed for reproducibility
 
 The `random_seed` argument allows to set a random seed at the beginning of each round. 
+
+!!! info "`random_seed` is set both on the node and the researcher"
+    The `random_seed` is set whenever the `TrainingPlan` is instantiated: both on the researcher side before sending 
+    the train command for a new round, and on the node side at the beginning of the configuration of the new training 
+    round.
+
+Setting the `random_seed` affects:
+
+- the random initialization of model parameters at the beginning of the experiment
+- the random shuffling of data in the `DataLoader`
+- any other random effect on the node and researcher side.
+
 The same seed is used for the built-in `random` module, `numpy.random` and `torch.random`, effectively equivalent to:
 ```python
 import random
