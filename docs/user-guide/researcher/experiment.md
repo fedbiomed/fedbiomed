@@ -262,6 +262,34 @@ We list here the known constraints:
 
 - the [Scaffold](../../user-guide/researcher/aggregation.md#scaffold) aggregator **requires** using `num_updates`
 
+#### Setting a random seed for reproducibility
+
+The `random_seed` argument allows to set a random seed at the beginning of each round. 
+The same seed is used for the built-in `random` module, `numpy.random` and `torch.random`, effectively equivalent to:
+```python
+import random
+import numpy as np
+import torch
+
+random.seed(training_args['random_seed'])
+np.random.seed(training_args['random_seed'])
+torch.manual_seed(training_args['random_seed'])
+```
+
+!!! warning "`random_seed` is reset at every round"
+    The random_seed argument will be reset to the specified value at the beginning of every round.
+
+Because of this, the same sequence will be used for random effects like shuffling the dataset for all the rounds within
+an `exp.run()` execution. This is not what the user typically wants. A simple workaround is to manually change the seed
+at every round and use `exp.run_once` instead:
+
+```python
+for i in range(num_rounds):
+    training_args['random_seed'] = 42 + i
+    exp.set_training_args(training_args)
+    exp.run_once()
+```
+
 #### Sub-arguments for optimizer and differential privacy
 
 In Pytorch experiments, you may include sub arguments such as `optimizer_args` 
