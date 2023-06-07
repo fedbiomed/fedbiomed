@@ -300,7 +300,7 @@ class TrainingArgs:
         | fedprox_mu | set the value of mu and enable FedProx correction |
         | dp_args | arguments for Differential Privacy |
         | share_persistent_buffers | toggle whether nodes share the full state_dict (when True) or only trainable parameters (False) in a TorchTrainingPlan |
-        | random_seed | set random seed at the beginning of each round |
+        | random_seed | set random seed on the node at the beginning of each round |
 
         """
         return {

@@ -264,8 +264,14 @@ We list here the known constraints:
 
 #### Setting a random seed for reproducibility
 
-The `random_seed` argument allows to set a random seed at the beginning of each round. 
+The `random_seed` argument allows to set a random seed on the node at the beginning of each round. 
+
+!!! info "`random_seed` is set only on the nodes"
+    If you wish to set the random seed for the researcher, you must do so in your script or notebook, following the
+    example below.
+
 The same seed is used for the built-in `random` module, `numpy.random` and `torch.random`, effectively equivalent to:
+
 ```python
 import random
 import numpy as np
