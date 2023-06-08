@@ -165,27 +165,38 @@ Create or update the conda environments with :
 $ ${FEDBIOMED_DIR}/scripts/configure_conda
 ```
 
-List the existing conda environments and check the 3 environments `fedbiomed-network` `fedbiomed-node` `fedbiomed-researcher` were created :
+List the existing conda environments and check the 3 environments `fedbiomed-gui` `fedbiomed-node` `fedbiomed-researcher` were created :
 
 ```
 $ conda env list
 [...]
-fedbiomed-network        /home/mylogin/.conda/envs/fedbiomed-network
+fedbiomed-network        /home/mylogin/.conda/envs/fedbiomed-gui
 fedbiomed-node           /home/mylogin/.conda/envs/fedbiomed-node
 fedbiomed-researcher     /home/mylogin/.conda/envs/fedbiomed-researcher
 [...]
 ```
 
-!!! note "Conda environment for Fed-BioMed Node GUI"
-    Fed-BioMed comes with a user interface that allows data owners (node users) to deploy datasets and manage requested 
-    training plans easily. To be able to use Node GUI you need to install Fed-BioMed GUI conda environment as well. 
-    You can use following command to install GUI conda environment.
+!!! note "Conda environment for Fed-BioMed Network Component"
+    The Fed-BioMed network component, which consists of two modules, namely `MQTT` and `Restful`, runs in a Docker container. Although `fedbiomed-network` exists as a conda environment, it is not directly used on the local system where Fed-BioMed is installed. However, it can be used to launch the `restful` module locally instead of using Docker.
     
+    The conda environment can be install with the following command
+
     ```
-    $ ${FEDBIOMED_DIR}/scripts/configure_conda gui
+    ${FEDBIOMED_DIR}/scripts/configure_conda network
     ```
 
-    Please follow [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local.
+!!! note "Conda environment for Fed-BioMed Node GUI"
+    Fed-BioMed comes with a user interface that allows data owners (node users) to deploy datasets and manage requested 
+    training plans easily. `fedbiomed-gui` environment is not going to be used unless Node GUI launched. If Node GUI is not 
+    planned to be used you can install only `fedbiomed-node` and `fedbiomed-researcher` environment. 
+
+    ```
+    ${FEDBIOMED_DIR}/scripts/configure_conda node researcher
+    ```
+    
+    Please see [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local.
+
+
 
 ## The Next Step
 
