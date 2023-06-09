@@ -1,6 +1,6 @@
 # Fed-BioMed release HOWTO
 
-This procedure make release of software and documentation (published on `https://fedbiomed.org`).
+This procedure makes release of software and documentation (published on `https://fedbiomed.org`).
 Both are contained in this repository.
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands
@@ -9,12 +9,10 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 - it is recommended to use a fresh clone of the repository to avoid any side effect
 
-- checkout to `develop` branch, push your last changes, sync your local clone with remote
+- checkout to `develop` branch, sync your local clone with remote
 ```bash
 git checkout develop
 git pull --prune
-git commit
-git push origin develop
 ```
 - check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
@@ -26,9 +24,8 @@ export RELEASE_TAG=v4.4.0
 git checkout -b release/$RELEASE_TAG
 ```
 
-## create release
+## create release + create version tag
 
-- note: it is not needed to push to branch to the remote, as we currently don't have an additional step of multi-people test of the release branch
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/common/constants.py` : change `__version__`
@@ -41,8 +38,16 @@ git commit -a
 ```bash
 git push origin release/$RELEASE_TAG
 ```
+- create a version tag for the release
+```bash
+git tag -a $RELEASE_TAG
+```
+- push the tag to the remote
+```bash
+git push origin $RELEASE_TAG
+```
 
-## merge release to master + create version tag
+## merge release to master
 
 - in github create a pull request for `release/$RELEASE_TAG` to `master`
   * one can auto-assign the PR, and doesn't need a review for this PR
@@ -52,19 +57,6 @@ git push origin release/$RELEASE_TAG
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
 - if merge conflicts occur, solve them
 
-- checkout to `master` branch, sync your local clone with remote
-```bash
-git checkout master
-git pull -p
-```
-- create a version tag for the release
-```bash
-git tag -a $RELEASE_TAG
-```
-- push the tag to the remote
-```bash
-git push origin $RELEASE_TAG
-```
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
   * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
@@ -72,15 +64,21 @@ git push origin $RELEASE_TAG
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
+- optionally sync your local clone of `master` with new version of remote
+```bash
+git checkout master
+git pull -p
+```
 
 ## merge release to develop
 
-- checkout the `release/$RELEASE_TAG` branch and push it again to re-create on the remote
-```bash
-git checkout release/$RELEASE_TAG
-git push origin release/$RELEASE_TAG
-```
-
+- since the release branch was merged into `master`, it was deleted on remote. There are two options for restoring the branch:
+  - either in github, go to the closed PR (the one opened for `master`) and click on "Restore branch."
+  - or checkout the `release/$RELEASE_TAG` branch and push it again to re-create on the remote
+    ```bash
+    git checkout release/$RELEASE_TAG
+    git push origin release/$RELEASE_TAG
+    ```
 - in github create a pull request for `release/$RELEASE_TAG` to `develop`
   * one can auto-assign the PR, and doesn't need a review for this PR
 - after checks complete, please review the checks logs
@@ -97,40 +95,115 @@ git branch -d release/$RELEASE_TAG
 
 # Fed-BioMed hotfix HOWTO
 
-A hotfix is a patch that is added as a new version patch without changing the API or adding new features. To apply a hotfix, follow these steps:
+A hotfix is a patch that is added as a new version patch without changing the API or adding new features, when it can't wait for the next release to be corrected. To apply a hotfix, follow these steps:
 
-- Choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
-- Create a new branch `hotfix/$HOTFIX_NAME` **from the `master` branch** (**Warning ! Don't fork from develop !**) and checkout it.
-  - Apply your hotfix.
-  - Update the needed files with the new patch version. For example, if the previous version was `v4.0.0`, it becomes `v4.0.1`.
-    * `CHANGELOG.md`
-    * `fedbiomed/common/constants.py` : change `__version__`
-  - Commit and push.
-- Create a pull request (PR) to merge the hotfix branch **into the `master` branch** and wait for all the checks to pass.
-- Ask for someone to review and approve
-- Push the new tag and save it:
-  - Set the tag name: `export HOTFIX_TAG=v4.0.x`
-  - Add the tag: `git tag add $HOTFIX_TAG`
-  - Push the tag to the remote repository: `git push origin $HOTFIX_TAG`
+This procedure makes hotfix of software and documentation (published on `https://fedbiomed.org`).
+Both are contained in this repository.
 
-- After the new tag is pushed, go to the PR and merge it into the `master` branch.
-- The hotfix should also be merged into the `develop` branch:
-  - Since the hotfix branch was merged into `master`, it may have been deleted. It needs to be restored in order to merge it into the `develop` branch.
-  - There are two options for restoring the branch:
-     - Go to the closed PR (the one opened for `master`) and click on "Restore branch."
-     - If you have the local `hotfix` branch, you can push it to the remote repository again.
-  - Create a new PR to merge the `hotfix` branch into the `develop` branch.
-  - Merge it after all the checks have been run.
+Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) hotfix workflow. Can use `git` commands (see example below) or `git-flow` commands
 
-- Go `fedbiomed.org` documentation site to verify that new version has been added. Please note that the documentation deployment has been configured to display only the latest patch of a version.
+## pre-hotfix
 
-- After the merge completes, remove the local `hotfix/$HOTFIX_NAME` branch
+- it is recommended to use a fresh clone of the repository to avoid any side effect
 
-# Publishing news, adding new pages or updating existing pages
+- checkout **to `master` branch** (**Warning: hotfix are not created from `develop` !**), sync your local clone with remote
+```bash
+git checkout master
+git pull --prune
+```
+- check that the CI for `master` builds correctly (github checks)
+- choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
+```bash
+export HOTFIX_NAME=521-short-description
+```
+- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v4.4.0`, it becomes `v4.4.1`.
+```bash
+export HOTFIX_TAG=v4.4.1
+```
+- fork a `hotfix/$HOTFIX_NAME` branch from `master`, and checkout the `hotfix/$HOTFIX_NAME` branch
+```bash
+git checkout -b hotfix/$HOTFIX_NAME
+```
 
-The changes in website such as adding new pages, news or updating existing ones are considered as hotfix. However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as new patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except pushing a new tag. 
+## create hotfix + create version tag
 
-- Create a new branch `hotfix/...` from the `master` branch.
+- apply the changes for the hotfix
+
+- in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
+  * `CHANGELOG.md`
+  * `fedbiomed/common/constants.py` : change `__version__`
+- in the `hotfix` branch, commit the hotfix time updates
+```bash
+git commit -a
+```
+- push the updated `hotfix/$HOTFIX_NAME`
+```bash
+git push origin hotfix/$HOTFIX_NAME
+```
+- create a version tag for the hotfix
+```bash
+git tag -a $HOTFIX_TAG
+```
+- push the tag to the remote
+```bash
+git push origin $HOTFIX_TAG
+```
+
+## merge hotfix to master
+
+- in github create a pull request for `hotfix/$HOTFIX_NAME` to `master`
+  * one can auto-assign the PR, **but a reviewer should approve it before merging** (different from a release where the code in the PR was already reviewed !)
+- after checks complete, please review the checks logs
+- do the merge
+  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
+  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+- if merge conflicts occur, solve them
+
+- check that the documentation pipeline completes successfully
+  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
+  * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * review carefully the log details for the build
+
+- browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
+
+- optionally sync your local clone of `master` with new version of remote
+```bash
+git checkout master
+git pull -p
+```
+
+## merge hotfix to develop
+
+- since the hotfix branch was merged into `master`, it was deleted on remote. There are two options for restoring the branch:
+  - either in github, go to the closed PR (the one opened for `master`) and click on "Restore branch."
+  - or checkout the `hotfix/$HOTFIX_NAME` branch and push it again to re-create on the remote
+    ```bash
+    git checkout hotfix/$HOTFIX_NAME
+    git push origin hotfix/$HOTFIX_NAME
+    ```
+- in github create a pull request for `hotfix/$HOTFIX_NAME` to `develop`
+  * one can auto-assign the PR, and doesn't need a review for this PR
+- after checks complete, please review the checks logs
+- do the merge
+- if merge conflicts occur, solve them
+
+## cleanup
+
+- delete the (local) release branch
+```bash
+git checkout develop
+git branch -d hotfix/$HOTFIX_NAME
+```
+
+# Publishing news, fixing documentation
+
+The changes in website such as adding news or fixing existing documentations are considered as hotfix. 
+
+However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as code patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except that one doesn't push a new tag. 
+
+Also, for publishing a news or a doc fix, a review by a third party is not mandatory.
+
+- Create a new branch `hotfix/$HOTFIX_NAME` **from the `master` branch**.
 - Apply your web-site related changes (please make sure that you change files only in `docs` directory).
-- Create a pull request (PR) to merge the hotfix branch into the `master` branch and wait for all the checks to pass.
-- Merge `hotfix` branch also into `develop` branch. You can follow the instructions that are explained in [hotfix](#hotfix) section
+- Create a pull request (PR) to merge the hotfix branch **into the `master` branch** and wait for all the checks to pass.
+- Merge `hotfix` branch also into `develop` branch. You can follow the instructions that are explained in hotfix section
