@@ -61,7 +61,10 @@ jobs:
 
   unit-test:
     name: Ubuntu 22.04 unit tests
-    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    runs-on: [self-hosted, Linux, ubuntu-22-04, macosx-M1]
+    strategy:
+      matrix:
+        version: [ubuntu-22-04, macosx-M1]
       
     if: github.event.pull_request.draft == false
     steps:
