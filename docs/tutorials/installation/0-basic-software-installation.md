@@ -179,7 +179,7 @@ fedbiomed-researcher     /home/mylogin/.conda/envs/fedbiomed-researcher
 !!! note "Conda environment for Fed-BioMed Network Component"
     The Fed-BioMed network component, which consists of two modules, namely `MQTT` and `Restful`, runs in a Docker container. Although `fedbiomed-network` exists as a conda environment, it is not directly used on the local system where Fed-BioMed is installed. However, it can be used to launch the `restful` module locally instead of using Docker.
     
-    The conda environment can be install with the following command
+    The conda environment can be installed with the following command
 
     ```
     ${FEDBIOMED_DIR}/scripts/configure_conda network
