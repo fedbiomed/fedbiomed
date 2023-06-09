@@ -152,8 +152,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
         # Set random seed
         rseed = training_args['random_seed']
-        if rseed is not None:
-            torch.manual_seed(rseed)
+        rseed = rseed if rseed is not None else torch.seed()
+        torch.manual_seed(rseed)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
