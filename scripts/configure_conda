@@ -3,8 +3,14 @@
 # create all necessary environments
 #
 
-# list of env to find/intialise
+# List of available environemnts for Fed-BioMed
 fed_envs=(network node researcher gui)
+
+# Environments that are required to be installed for Fed-BioMed components
+# Note: network component is only necessary if restful module of network component  
+# is to be started locally rather than docker.
+fed_envs_auto_create=(node researcher gui)
+
 
 # detect how the file is run
 ([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
@@ -188,7 +194,7 @@ esac
 # verify COMPONENTS
 if [ ${#COMPONENTS[@]} == 0 ]
 then
-    FINAL_COMPONENTS=("${fed_envs[@]}")
+    FINAL_COMPONENTS=("${fed_envs_auto_create[@]}")
 else
     # verify that given components are allowed
     for c in ${COMPONENTS[@]}

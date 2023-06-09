@@ -233,14 +233,12 @@ case $1 in
         #
         case $2 in
             stop)
-                source ${basedir}/scripts/fedbiomed_environment network
-                docker compose down
+                docker-compose down
                 ;;
             help|-h|--help)
                 usage network
                 ;;
             *)
-                source ${basedir}/scripts/fedbiomed_environment network
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
