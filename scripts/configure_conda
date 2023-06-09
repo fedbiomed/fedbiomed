@@ -3,7 +3,7 @@
 # create all necessary environments
 #
 
-# List of available environemnt for Fed-BiOmed
+# List of available environemnts for Fed-BioMed
 fed_envs=(network node researcher gui)
 
 # Environments that are required to be installed for Fed-BioMed components

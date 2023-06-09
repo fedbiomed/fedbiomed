@@ -187,14 +187,14 @@ fedbiomed-researcher     /home/mylogin/.conda/envs/fedbiomed-researcher
 
 !!! note "Conda environment for Fed-BioMed Node GUI"
     Fed-BioMed comes with a user interface that allows data owners (node users) to deploy datasets and manage requested 
-    training plans easily. `fedbiomed-gui` environment is not going to be used unless Node GUI launched. If Node GUI is not 
-    planned to be used you can install only `fedbiomed-node` and `fedbiomed-researcher` environment. 
+    training plans easily. The `fedbiomed-gui` environment is not going to be used unless the Node GUI is launched. 
+    If you don't plan on using the GUI, you can install only the `fedbiomed-node` and `fedbiomed-researcher` environments.
 
     ```
     ${FEDBIOMED_DIR}/scripts/configure_conda node researcher
     ```
     
-    Please see [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local.
+    Please see [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local machine.
 
 
 
