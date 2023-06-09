@@ -95,14 +95,18 @@ git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
 
-## Hotfix 
+# Fed-BioMed hotfix HOWTO
 
 A hotfix is a patch that is added as a new version patch without changing the API or adding new features. To apply a hotfix, follow these steps:
 
-- Create a new branch `hotfix/...` from the `master` branch.
-- Apply your hotfix and commit the changes.
-- Update the `CHANGELOG.md` file with the new patch version. For example, if the previous version was `v4.0.0`, it becomes `v4.0.1`.
-- Create a pull request (PR) to merge the hotfix branch into the `master` branch and wait for all the checks to pass.
+- Choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
+- Create a new branch `hotfix/$HOTFIX_NAME` **from the `master` branch** (**Warning ! Don't fork from develop !**) and checkout it.
+  - Apply your hotfix.
+  - Update the needed files with the new patch version. For example, if the previous version was `v4.0.0`, it becomes `v4.0.1`.
+    * `CHANGELOG.md`
+    * `fedbiomed/common/constants.py` : change `__version__`
+  - Commit and push.
+- Create a pull request (PR) to merge the hotfix branch **into the `master` branch** and wait for all the checks to pass.
 - Ask for someone to review and approve
 - Push the new tag and save it:
   - Set the tag name: `export HOTFIX_TAG=v4.0.x`
@@ -120,7 +124,9 @@ A hotfix is a patch that is added as a new version patch without changing the AP
 
 - Go `fedbiomed.org` documentation site to verify that new version has been added. Please note that the documentation deployment has been configured to display only the latest patch of a version.
 
-## Publishing news, adding new pages or updating existing pages
+- After the merge completes, remove the local `hotfix/$HOTFIX_NAME` branch
+
+# Publishing news, adding new pages or updating existing pages
 
 The changes in website such as adding new pages, news or updating existing ones are considered as hotfix. However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as new patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except pushing a new tag. 
 
