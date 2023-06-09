@@ -66,7 +66,7 @@ jobs:
       matrix:
         version: [ubuntu-22-04, macosx-M1]
       
-    if: github.event.pull_request.draft == false
+   # if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
@@ -110,7 +110,7 @@ jobs:
     runs-on: [self-hosted, Linux, ubuntu-22-04]
     needs: unit-test
 
-    if: github.event.pull_request.draft == false
+   # if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
