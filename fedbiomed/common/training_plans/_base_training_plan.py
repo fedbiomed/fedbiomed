@@ -85,11 +85,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-        # Set random seed
+        # Set random seed: the seed can be either None or an int provided by the researcher.
+        # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args['random_seed']
-        if rseed is not None:
-            random.seed(rseed)
-            np.random.seed(rseed)
+        random.seed(rseed)
+        np.random.seed(rseed)
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
