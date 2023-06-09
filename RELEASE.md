@@ -95,3 +95,36 @@ git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
 
+## Hotfix 
+
+A hotfix is a patch that is added as a new version patch without changing the API or adding new features. To apply a hotfix, follow these steps:
+
+- Create a new branch `hotfix/...` from the `master` branch.
+- Apply your hotfix and commit the changes.
+- Update the `CHANGELOG.md` file with the new patch version. For example, if the previous version was `v4.0.0`, it becomes `v4.0.1`.
+- Create a pull request (PR) to merge the hotfix branch into the `master` branch and wait for all the checks to pass.
+- Ask for someone to review and approve
+- Push the new tag and save it:
+  - Set the tag name: `export HOTFIX_TAG=v4.0.x`
+  - Add the tag: `git tag add $HOTFIX_TAG`
+  - Push the tag to the remote repository: `git push origin $HOTFIX_TAG`
+
+- After the new tag is pushed, go to the PR and merge it into the `master` branch.
+- The hotfix should also be merged into the `develop` branch:
+  - Since the hotfix branch was merged into `master`, it may have been deleted. It needs to be restored in order to merge it into the `develop` branch.
+  - There are two options for restoring the branch:
+     - Go to the closed PR (the one opened for `master`) and click on "Restore branch."
+     - If you have the local `hotfix` branch, you can push it to the remote repository again.
+  - Create a new PR to merge the `hotfix` branch into the `develop` branch.
+  - Merge it after all the checks have been run.
+
+- Go `fedbiomed.org` documentation site to verify that new version has been added. Please note that the documentation deployment has been configured to display only the latest patch of a version.
+
+## Publishing news, adding new pages or updating existing pages
+
+The changes in website such as adding new pages, news or updating existing ones are considered as hotfix. However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as new patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except pushing a new tag. 
+
+- Create a new branch `hotfix/...` from the `master` branch.
+- Apply your web-site related changes (please make sure that you change files only in `docs` directory).
+- Create a pull request (PR) to merge the hotfix branch into the `master` branch and wait for all the checks to pass.
+- Merge `hotfix` branch also into `develop` branch. You can follow the instructions that are explained in [hotfix](#hotfix) section
