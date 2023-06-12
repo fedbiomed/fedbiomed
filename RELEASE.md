@@ -43,11 +43,7 @@ git push origin release/$RELEASE_TAG
 
 - in github create a pull request for `release/$RELEASE_TAG` to `master`
   * one can auto-assign the PR, and doesn't need a review for this PR
-- after checks complete, please review the checks logs
-- do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
-- if merge conflicts occur, solve them
+- after checks successfully complete, please review the checks logs
 
 - create a version tag for the release
   ```bash
@@ -57,11 +53,16 @@ git push origin release/$RELEASE_TAG
   ```bash
   git push origin $RELEASE_TAG
   ```
+
+- do the merge
+  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
+  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+- if merge conflicts occur, solve them
+
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
   * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
   * review carefully the log details for the build
-
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
 - optionally sync your local clone of `master` with new version of remote
@@ -155,22 +156,23 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 - in github create a pull request for `hotfix/$HOTFIX_NAME` to `master`
   * one can auto-assign the PR, **but a reviewer should approve it before merging** (different from a release where the code in the PR was already reviewed !)
-- after checks complete, please review the checks logs
-- do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
-- if merge conflicts occur, solve them
+- after checks successfully complete, please review the checks logs
+
 - create a version tag for the hotfix
 
   ```bash
   git tag -a $HOTFIX_TAG
   ```
-
-  - push the tag to the remote
+- push the tag to the remote
 
   ```bash
   git push origin $HOTFIX_TAG
   ```
+
+- do the merge
+  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
+  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+- if merge conflicts occur, solve them
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
@@ -213,7 +215,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 # Publishing news, fixing documentation
 
-The changes in website that does not documentation part are also considered as hotfix. These modifications involve:
+The changes in website that do not affect `User documentation` part are also considered as hotfix. These modifications involve:
 
 * Adding news or updating their content
 * Adding new items to front page (button, boxes, description, new section)
