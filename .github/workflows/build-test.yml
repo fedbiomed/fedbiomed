@@ -11,8 +11,8 @@ on:
       - synchronize
       - reopened
       - closed
-      - review-requested
-      - ready-for-review
+      - review_requested
+      - ready_for_review
 
     branches:
       - master
