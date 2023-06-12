@@ -11,7 +11,7 @@ on:
       - synchronize
       - reopened
       - closed
-      - assigned 
+      - review-requested
       - ready-for-review
 
     branches:
