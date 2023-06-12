@@ -213,7 +213,14 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 # Publishing news, fixing documentation
 
-The changes in website such as adding news or fixing existing documentations are considered as hotfix. 
+The changes in website that does not documentation part are also considered as hotfix. These modifications involve:
+
+* Adding news or updating their content
+* Adding new items to front page (button, boxes, description, new section)
+* Adding new pages (These are pages NOT related to user documentation such as `About Us`, `Roadmap` etc.) 
+* Adding new items for footer area
+* Changing contents of static pages About us, Contributors etc.
+* Front-End issues broken layout etc.
 
 However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as code patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except that one doesn't push a new tag. 
 
@@ -223,3 +230,5 @@ Also, for publishing a news or a doc fix, a review by a third party is not manda
 - Apply your web-site related changes (please make sure that you change files only in `docs` directory).
 - Create a pull request (PR) to merge the hotfix branch **into the `master` branch** and wait for all the checks to pass.
 - Merge `hotfix` branch also into `develop` branch. You can follow the instructions that are explained in hotfix section
+
+
