@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class defining the shared API of all training plans."""
-
+import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
@@ -69,7 +69,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def model(self):
         """Gets model instance of the training plan"""
 
-    @abstractmethod
     def post_init(
             self,
             model_args: Dict[str, Any],
@@ -86,6 +85,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        # Set random seed: the seed can be either None or an int provided by the researcher.
+        # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
+        rseed = training_args['random_seed']
+        random.seed(rseed)
+        np.random.seed(rseed)
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
