@@ -38,14 +38,6 @@ git commit -a
 ```bash
 git push origin release/$RELEASE_TAG
 ```
-- create a version tag for the release
-```bash
-git tag -a $RELEASE_TAG
-```
-- push the tag to the remote
-```bash
-git push origin $RELEASE_TAG
-```
 
 ## merge release to master
 
@@ -57,6 +49,14 @@ git push origin $RELEASE_TAG
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
 - if merge conflicts occur, solve them
 
+- create a version tag for the release
+  ```bash
+  git tag -a $RELEASE_TAG
+  ```
+- push the tag to the remote
+  ```bash
+  git push origin $RELEASE_TAG
+  ```
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
   * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
@@ -107,23 +107,30 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 - it is recommended to use a fresh clone of the repository to avoid any side effect
 
 - checkout **to `master` branch** (**Warning: hotfix are not created from `develop` !**), sync your local clone with remote
-```bash
-git checkout master
-git pull --prune
-```
+
+  ```bash
+  git checkout master
+  git pull --prune
+  ```
+
 - check that the CI for `master` builds correctly (github checks)
 - choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
-```bash
-export HOTFIX_NAME=521-short-description
-```
+
+  ```bash
+  export HOTFIX_NAME=521-short-description
+  ```
+
 - set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v4.4.0`, it becomes `v4.4.1`.
-```bash
-export HOTFIX_TAG=v4.4.1
-```
+
+  ```bash
+  export HOTFIX_TAG=v4.4.1
+  ```
+
 - fork a `hotfix/$HOTFIX_NAME` branch from `master`, and checkout the `hotfix/$HOTFIX_NAME` branch
-```bash
-git checkout -b hotfix/$HOTFIX_NAME
-```
+
+  ```bash
+  git checkout -b hotfix/$HOTFIX_NAME
+  ```
 
 ## create hotfix + create version tag
 
@@ -133,21 +140,16 @@ git checkout -b hotfix/$HOTFIX_NAME
   * `CHANGELOG.md`
   * `fedbiomed/common/constants.py` : change `__version__`
 - in the `hotfix` branch, commit the hotfix time updates
-```bash
-git commit -a
-```
+
+  ```bash
+  git commit -a
+  ```
+
 - push the updated `hotfix/$HOTFIX_NAME`
-```bash
-git push origin hotfix/$HOTFIX_NAME
-```
-- create a version tag for the hotfix
-```bash
-git tag -a $HOTFIX_TAG
-```
-- push the tag to the remote
-```bash
-git push origin $HOTFIX_TAG
-```
+
+  ```bash
+  git push origin hotfix/$HOTFIX_NAME
+  ```
 
 ## merge hotfix to master
 
@@ -158,6 +160,17 @@ git push origin $HOTFIX_TAG
   *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
 - if merge conflicts occur, solve them
+- create a version tag for the hotfix
+
+  ```bash
+  git tag -a $HOTFIX_TAG
+  ```
+
+  - push the tag to the remote
+
+  ```bash
+  git push origin $HOTFIX_TAG
+  ```
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
@@ -167,20 +180,23 @@ git push origin $HOTFIX_TAG
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
 - optionally sync your local clone of `master` with new version of remote
-```bash
-git checkout master
-git pull -p
-```
+
+  ```bash
+  git checkout master
+  git pull -p
+  ```
 
 ## merge hotfix to develop
 
 - since the hotfix branch was merged into `master`, it was deleted on remote. There are two options for restoring the branch:
   - either in github, go to the closed PR (the one opened for `master`) and click on "Restore branch."
   - or checkout the `hotfix/$HOTFIX_NAME` branch and push it again to re-create on the remote
+
     ```bash
     git checkout hotfix/$HOTFIX_NAME
     git push origin hotfix/$HOTFIX_NAME
     ```
+
 - in github create a pull request for `hotfix/$HOTFIX_NAME` to `develop`
   * one can auto-assign the PR, and doesn't need a review for this PR
 - after checks complete, please review the checks logs
@@ -190,10 +206,10 @@ git pull -p
 ## cleanup
 
 - delete the (local) release branch
-```bash
-git checkout develop
-git branch -d hotfix/$HOTFIX_NAME
-```
+  ```bash
+  git checkout develop
+  git branch -d hotfix/$HOTFIX_NAME
+  ```
 
 # Publishing news, fixing documentation
 
