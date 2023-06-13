@@ -21,7 +21,6 @@ import validators
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -352,7 +351,7 @@ class Job:
         aggregator_args_thr_files: Dict[str, Dict[str, Any]],
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
-        agg_optimizer: Optional[Optimizer] = None,
+        optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         """ Sends training request to nodes and waits for the responses
 
@@ -367,7 +366,7 @@ class Job:
                 aggregator_args_thr_msg .
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
-            optim_aux_var: Auxiliary variables of the researcher-side Optimizer
+            optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
         """
 
         # Assign empty dict to secagg arguments if it is None
@@ -397,9 +396,9 @@ class Job:
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
         # Upload optimizer auxiliary variables, when there are.
-        if do_training and (agg_optimizer is not None):
+        if do_training and optim_aux_var:
             aux_url_shared, aux_url_bynode = (
-                self.upload_agg_optimizer_aux_var(optimizer=agg_optimizer)
+                self.upload_agg_optimizer_aux_var(optim_aux_var)
             )
         else:
             aux_url_shared = None
@@ -515,14 +514,15 @@ class Job:
 
     def upload_agg_optimizer_aux_var(
         self,
-        optimizer: Optimizer,
+        aux_var: Dict[str, Dict[str, Any]],
     ) -> Tuple[Optional[str], Dict[uuid.UUID, str]]:
         """Upload auxiliary variables emitted by a researcher-side Optimizer.
 
         Args:
-            optimizer: Optimizer instance, auxiliary variables of which to emit
-                and upload after structuring them into multiple files, to avoid
-                information leakage as well as file redundancy.
+            aux_var: Dict of auxiliary variables emitted by an Optimizer held
+                by the researcher, that are to be uploaded after having been
+                structured into multiple files, to avoid information leakage
+                as well as content redundancy.
 
         Returns:
             url_shared: url of a file containing auxiliary variables shared
@@ -533,7 +533,7 @@ class Job:
         """
         # Split the information between shared and node-wise dictionaries.
         aux_shared, aux_bynode = self._prepare_agg_optimizer_aux_var(
-            optimizer=optimizer, nodes=list(self._nodes)
+            aux_var=aux_var, nodes=list(self._nodes)
         )
         # Upload the shared information that all nodes will download.
         if aux_shared:
@@ -560,7 +560,7 @@ class Job:
 
     @staticmethod
     def _prepare_agg_optimizer_aux_var(
-        optimizer: Optimizer,
+        aux_var: Dict[str, Dict[str, Any]],
         nodes: List[uuid.UUID],
     ) -> Tuple[
         Dict[str, Dict[str, Any]],
@@ -569,18 +569,20 @@ class Job:
         """Collect and structure researcher-side Optimizer auxiliary variables.
 
         Args:
-            optimizer: Optimizer instance, auxiliary variables of which to emit
-                and structure into multiple dictionaries for transmission.
+            aux_var: Auxiliary variables with to structure into multiple dicts,
+                from `{mod_name: (shared_dict | {node_id: node_dict})}` to
+                `{mod_name: shared_dict}` & `{node_id: {mod_name: node_dict}}`.
             nodes: Ids of the nodes to whom auxiliary variables should be
                 sent. This is used to drop information of non-participating
                 nodes.
 
         Returns:
-            aux_shared:
-            aux_bynode:
+            aux_shared: Dict containing auxiliary variables that are shared
+                across all nodes, with `{mod_name: shared_dict}` format.
+            aux_bynode: Dict containing node-wise dicts of node-specific
+                auxiliary variables, with `{node_id: {mod_name: node_dict}}`
+                format.
         """
-        # Gather the { mod_name: (shared_dict | {node_id: node_dict}) } structure.
-        aux_var = optimizer.get_aux()
         aux_shared = {}  # type: Dict[str, Dict[str, Any]]
         aux_bynode = {}  # type: Dict[uuid.UUID, Dict[str, Dict[str, Any]]]
         # Iterate over nodes and plug-in-module-wise auxiliary variables.
@@ -595,6 +597,27 @@ class Job:
                     aux_shared[mod_name] = mod_info
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
+
+    def get_received_optimizer_aux_var_from_round(
+        self,
+        round_id: int,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            round_id: Index of the round, replies from which to parse through.
+
+        Returns:
+            Dict of auxiliary variables, collating node-wise information, with
+            format `{mod_name: {node_id: node_dict}}`.
+        """
+        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        for reply in self.training_replies[round_id]:
+            node_id = reply["node_id"]
+            aux_var = reply.get("optim_aux_var", {})
+            for module, params in aux_var.items():
+                aux_var.setdefault(module, {})[node_id] = params
+        return aux_var
 
     def update_parameters(
         self,
