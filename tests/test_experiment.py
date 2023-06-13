@@ -1257,20 +1257,20 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_agg_optimizer(optim)
         # Disable breakpointing.
         self.test_exp.set_save_breakpoints(False)
-        # Call `Experiment.run_once`, hijacking declearn Vectors.
-        with patch("declearn.model.api.Vector.build") as patch_vector_build:
-            mock_vector = create_autospec(Vector, instance=True)
-            patch_vector_build.return_value = mock_vector
+        # Call `Experiment.run_once`, hijacking declearn Vectors
+        # due to the use of empty dicts of (mock) weights.
+        with patch.object(Vector, "build", new=create_autospec(Vector)):
             self.test_exp.run_once()
         # Verify that expected operations occured.
-        self.assertEqual(patch_vector_build.call_count, 2)
+        optim.get_aux.assert_called_once()
         optim.init_round.assert_called_once()
+        optim.set_aux.assert_called_once()
         optim.step.assert_called_once()
 
     def test_experiment_28_agg_optimizer_updates(self):
-        # TODO: the following test doesnot meet test standard, for it :
+        # TODO: the following test does not meet test standards, for it :
         # - tests a private method
-        # - access private attributes
+        # - accesses private attributes
         # this test should be re-written when refactoring `Aggregator` or/and `Experiment` class(es)
         torch_aggregate = {'layer-1': torch.randn((5, 3)), 'layer-2': torch.randn((5, 1))}
         torch_global_model = {'layer-1': torch.randn((5, 3)), 'layer-2': torch.randn((5, 1))}
