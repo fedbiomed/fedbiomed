@@ -1260,12 +1260,14 @@ class TestExperiment(ResearcherTestCase):
         # Call `Experiment.run_once`, hijacking declearn Vectors
         # due to the use of empty dicts of (mock) weights.
         with patch.object(Vector, "build", new=create_autospec(Vector)):
-            self.test_exp.run_once()
+            result = self.test_exp.run_once()
         # Verify that expected operations occured.
-        optim.get_aux.assert_called_once()
-        optim.init_round.assert_called_once()
-        optim.set_aux.assert_called_once()
-        optim.step.assert_called_once()
+        self.assertEqual(result, 1, "run_once did not successfully run the round")
+        self.assertListEqual(
+            [name for name, *_ in optim.method_calls],
+            ["get_aux", "set_aux", "init_round", "step"],
+            "aggregates Optimizer did not receive expected ordered calls"
+        )
 
     def test_experiment_28_agg_optimizer_updates(self):
         # TODO: the following test does not meet test standards, for it :
