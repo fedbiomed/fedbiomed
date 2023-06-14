@@ -614,8 +614,8 @@ class Job:
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
         for reply in self.training_replies[round_id]:
             node_id = reply["node_id"]
-            aux_var = reply.get("optim_aux_var", {})
-            for module, params in aux_var.items():
+            node_av = reply.get("optim_aux_var", {})
+            for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
         return aux_var
 
