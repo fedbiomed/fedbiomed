@@ -27,7 +27,9 @@ from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError, FedbiomedSilentTerminationError
+)
 from fedbiomed.common.constants import __breakpoints_version__
 
 import fedbiomed.researcher.experiment
@@ -1269,7 +1271,38 @@ class TestExperiment(ResearcherTestCase):
             "aggregates Optimizer did not receive expected ordered calls"
         )
 
-    def test_experiment_28_agg_optimizer_updates(self):
+    def test_experiment_28_run_once_fails_from_unexpected_nodes_aux_var(self):
+        """Test that receiving auxiliary variables without an Optimizer fails."""
+        # Populate the Experiment with a mock Job outputting optimizer aux var.
+        mock_job = create_autospec(Job, instance=True)
+        mock_job.update_parameters.return_value = ("mock-path", None)
+        mock_job.get_received_optimizer_aux_var_from_round.return_value = (
+            {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
+        )
+        setattr(self.test_exp, "_job", mock_job)  # no proper Job setter
+        # Populate the Experiment with a mock Aggregator.
+        mock_agg = create_autospec(Aggregator, instance=True)
+        mock_agg.aggregator_name = "mock"
+        mock_agg.create_aggregator_args.return_value = ({}, {})
+        self.test_exp.set_aggregator(mock_agg)
+        # Disable breakpointing.
+        self.test_exp.set_save_breakpoints(False)
+        # Call run once, which should fail due to the lack of Optimizer
+        # to process the auxiliary variables received from nodes.
+        with patch.object(FedbiomedExperimentError, "__init__") as patch_exc:
+            patch_exc.return_value = None  # __init__ must return None
+            self.assertRaises(SystemExit, self.test_exp.run_once)
+        patch_exc.assert_called_once()
+        error_msg = patch_exc.call_args[0][0]
+        self.assertTrue(
+            error_msg.startswith(
+                "Received auxiliary variables from 1+ node Optimizer"
+            ),
+            "Receiving un-processable auxiliary variables did not raise "
+            "the excepted exception."
+        )
+
+    def test_experiment_29_agg_optimizer_updates(self):
         # TODO: the following test does not meet test standards, for it :
         # - tests a private method
         # - accesses private attributes
@@ -1311,7 +1344,7 @@ class TestExperiment(ResearcherTestCase):
             for k, v in agg_updates.items():
                 self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all())
 
-    def test_experiment_29_agg_optimizer_updates_with_frozen_layers(self):
+    def test_experiment_30_agg_optimizer_updates_with_frozen_layers(self):
         """Test that the researcher-side optimize properly handles frozen weights."""
         # Set up placeholder model weights, and a weights-getter function.
         global_model = {
@@ -1362,7 +1395,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_30_strategy(self,
+    def test_experiment_31_strategy(self,
                                     mock_job_init,
                                     mock_job_updates_params,
                                     mock_job_training,
@@ -1455,7 +1488,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.run_once()
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
-    def test_experiment_31_run(self, mock_exp_run_once):
+    def test_experiment_32_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
         def run_once_side_effect(increase, test_after=False):
@@ -1543,7 +1576,7 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
-    def test_experiment_32_training_plan_file(self,
+    def test_experiment_33_training_plan_file(self,
                                       mock_training_plan_file,
                                       mock_open):
         """ Testing getter training_plan_file of the experiment class """
@@ -1584,7 +1617,7 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.check_training_plan_is_approved_by_nodes')
-    def test_experiment_33_check_training_plan_status(self,
+    def test_experiment_34_check_training_plan_status(self,
                                               mock_job_model_is_approved,
                                               mock_job):
         """Testing method that checks model status """
@@ -1602,7 +1635,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertDictEqual(result, expected_approved_result,
                              'check_training_plan_status did not return expected value')
 
-    def test_experiment_34_breakpoint_raises(self):
+    def test_experiment_35_breakpoint_raises(self):
         """ Testing the scenarios where the method breakpoint() raises error """
 
         # Test if self._round_current is less than 1
@@ -1635,7 +1668,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_35_save_breakpoint(
+    def test_experiment_36_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_create_ul,
@@ -1797,7 +1830,7 @@ class TestExperiment(ResearcherTestCase):
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_36_static_load_breakpoint(self,
+    def test_experiment_37_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
                                                   patch_training_plan
                                                   ):
@@ -2009,7 +2042,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertTrue(loaded_exp.secagg.active)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
-    def test_experiment_37_static_save_aggregated_params(self,
+    def test_experiment_38_static_save_aggregated_params(self,
                                                          mock_create_unique_file_link):
         """Testing static private method of experiment for saving aggregated params"""
 
@@ -2039,7 +2072,7 @@ class TestExperiment(ResearcherTestCase):
         agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
-    def test_experiment_38_static_load_aggregated_params(self):
+    def test_experiment_39_static_load_aggregated_params(self):
         """Testing static method for loading aggregated params of Experiment"""
 
         # Test invalid type of aggregated params (should be dict)
@@ -2065,7 +2098,7 @@ class TestExperiment(ResearcherTestCase):
             result = Experiment._load_aggregated_params(agg_params)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
-    def test_experiment_39_private_create_object(self):
+    def test_experiment_40_private_create_object(self):
         """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
