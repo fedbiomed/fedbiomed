@@ -14,6 +14,8 @@ from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+import numpy as np
+import torch
 from declearn.model.api import Vector
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
@@ -1601,8 +1603,9 @@ class Experiment:
                 model_params=model_params
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
-            aggregated_params: Dict[str, Union['torch.tensor', 'nd.ndarray']] = \
+            aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
                 self._job.training_plan._model.unflatten(flatten_params)
+            )
 
         else:
             # aggregate models from nodes to a global model
