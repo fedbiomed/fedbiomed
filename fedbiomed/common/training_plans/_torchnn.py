@@ -135,6 +135,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
+        super().post_init(model_args, training_args, aggregator_args)
         # Assign model arguments.
         self._model_args = model_args
         # Assign scalar attributes.
@@ -147,6 +148,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
         self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
+        # Set random seed
+        rseed = training_args['random_seed']
+        rseed = rseed if rseed is not None else torch.seed()
+        torch.manual_seed(rseed)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies

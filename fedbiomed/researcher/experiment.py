@@ -1574,6 +1574,9 @@ class Experiment:
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job.nodes)
 
+        # Collect auxiliary variables from the aggregates optimizer, if any.
+        optim_aux_var = self._collect_optim_aux_var()
+
         # Trigger training round on sampled nodes
         self._job.start_nodes_training_round(
             round_=self._round_current,
@@ -1581,7 +1584,7 @@ class Experiment:
             aggregator_args_thr_files=aggr_args_thr_file,
             do_training=True,
             secagg_arguments=secagg_arguments,
-            agg_optimizer=self._agg_optimizer,
+            optim_aux_var=optim_aux_var,
         )
 
         # refining/normalizing model weights received from nodes
@@ -1647,10 +1650,18 @@ class Experiment:
 
         return 1
 
+    def _collect_optim_aux_var(
+            self,
+        ) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Collect auxiliary variables of the held Optimizer, if any."""
+        if self._agg_optimizer is None:
+            return None
+        return self._agg_optimizer.get_aux()
+
     def _process_optim_aux_var(
         self,
     ) -> None:
-        """Process any Optimizer auxiliary variables received during a round.
+        """Process Optimizer auxiliary variables received during last round.
 
         Raises:
             FedbiomedExperimentError: if auxiliary variables were received,
@@ -1658,13 +1669,10 @@ class Experiment:
             FedbiomedOptimizerError: if the received auxiliary variables do
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
-        # Restructure the received auxiliary variables (if any).
-        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        for reply in self._job.training_replies[self._round_current]:
-            node_id = reply["node_id"]
-            aux_var = reply.get("optim_aux_var", {})
-            for module, params in aux_var.items():
-                aux_var.setdefault(module, {})[node_id] = params
+        # Collect auxiliary variables from participating nodes' replies.
+        aux_var = self._job.get_received_optimizer_aux_var_from_round(
+            self._round_current
+        )
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
             self._agg_optimizer.set_aux(aux_var)
@@ -1693,7 +1701,7 @@ class Experiment:
             obtained by taking a SGD(-based) step over the aggregated updates.
             Otherwise, the outputs are the same as the inputs.
         """
-        # If not Optimizer is set, return the inputs.
+        # If no Optimizer is used, return the inputs.
         if self._agg_optimizer is None:
             return aggregated_params
         # Run any start-of-round routine.

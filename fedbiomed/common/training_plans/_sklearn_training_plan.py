@@ -90,6 +90,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        super().post_init(model_args, training_args, aggregator_args)
         self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
         self._model_args = model_args
