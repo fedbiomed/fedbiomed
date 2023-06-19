@@ -466,7 +466,8 @@ class TestNode(NodeTestCase):
             dict_msg_1_dataset['researcher_id'],
             unittest.mock.ANY,  # this is for HistoryMonitor
             None,
-            None, round_number=0,
+            None,
+            round_number=0,
             dlp_and_loading_block_metadata=None,
             aux_var_urls=None,
         )
@@ -556,7 +557,7 @@ class TestNode(NodeTestCase):
             'dataset_id': 'dataset_id_1234',
             'training': True,
             'aggregator_args': {},
-            "aux_var_urls": None,
+            "aux_var_urls": ["url_shared_aux_var", "url_bynode_aux_var"],
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
@@ -584,7 +585,7 @@ class TestNode(NodeTestCase):
             None,
             None, round_number=1,
             dlp_and_loading_block_metadata=None,
-            aux_var_urls=None,
+            aux_var_urls=dict_msg_1_dataset['aux_var_urls'],
         )
 
     @patch('fedbiomed.node.round.Round.__init__')
@@ -614,7 +615,7 @@ class TestNode(NodeTestCase):
             "command": "train",
             "dataset_id": "dataset_id_1234",
             'aggregator_args': {},
-            "aux_var_urls": None,
+            "aux_var_urls": ["single_url_aux_var"],
         }
 
         #
@@ -642,7 +643,7 @@ class TestNode(NodeTestCase):
             unittest.mock.ANY,  # FIXME: should be an history_monitor object
             None, None, round_number=1,
             dlp_and_loading_block_metadata=None,
-            aux_var_urls=None,
+            aux_var_urls=dict_msg_1_dataset['aux_var_urls'],
         )
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
