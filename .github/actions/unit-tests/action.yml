@@ -18,6 +18,7 @@ runs:
     - name: Install researcher dependencies
       run: | 
         source ~/.bashrc
+        conda clean -i -y
         ./scripts/configure_conda researcher
         ./scripts/fedbiomed_run network
       shell: bash
