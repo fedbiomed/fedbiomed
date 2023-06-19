@@ -369,7 +369,7 @@ class Round:
             return self._send_round_reply(success=False, message=error_message)
 
         # Process Optimizer auxiliary variables, if any.
-        error_message = self._process_optim_aux_var()
+        error_message = self.process_optim_aux_var()
         if error_message:
             return self._send_round_reply(success=False, message=error_message)
 
@@ -423,7 +423,7 @@ class Round:
 
             # Collect Optimizer auxiliary variables, if any.
             try:
-                results['optim_aux_var'] = self._collect_optim_aux_var()
+                results['optim_aux_var'] = self.collect_optim_aux_var()
             except (FedbiomedOptimizerError, FedbiomedRoundError) as exc:
                 error_message = f"Cannot collect Optimizer auxiliary variables: {repr(exc)}"
                 return self._send_round_reply(success=False, message=error_message)
@@ -541,7 +541,7 @@ class Round:
                                           'sample_size': sample_size,
                                           'timing': timing}).get_dict()
 
-    def _process_optim_aux_var(self) -> str:
+    def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
 
         Returns:
@@ -571,7 +571,7 @@ class Round:
             )
         return ""
 
-    def _collect_optim_aux_var(self) -> Dict[str, Any]:
+    def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
