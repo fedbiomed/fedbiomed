@@ -445,7 +445,7 @@ class TestJob(ResearcherTestCase):
 
     def test_job_12_start_nodes_training_round_optim_aux_var(self):
         """Test that 'optim_aux_var' is properly used in 'start_nodes_training_round'."""
-        mock_aux_var = {"module": {"key": "val"}}
+        fake_aux_var = {"module": {"key": "val"}}
         # General setup: skip requests sending and replies processing.
         self.job.nodes = []
         with (
@@ -460,10 +460,10 @@ class TestJob(ResearcherTestCase):
             ) as patch_upload_agg_optimizer_aux_var:
                 patch_upload_agg_optimizer_aux_var.return_value = (None, {})
                 self.job.start_nodes_training_round(
-                    1, {}, {}, do_training=True, optim_aux_var=mock_aux_var
+                    1, {}, {}, do_training=True, optim_aux_var=fake_aux_var
                 )
                 patch_upload_agg_optimizer_aux_var.assert_called_once_with(
-                    mock_aux_var
+                    fake_aux_var
                 )
             # Test that the aux-var upload is not called without input aux var.
             with patch.object(
@@ -478,7 +478,7 @@ class TestJob(ResearcherTestCase):
                 self.job, "upload_agg_optimizer_aux_var", autospec=True
             ) as patch_upload_agg_optimizer_aux_var:
                 self.job.start_nodes_training_round(
-                    1, {}, {}, do_training=False, optim_aux_var=mock_aux_var
+                    1, {}, {}, do_training=False, optim_aux_var=fake_aux_var
                 )
                 patch_upload_agg_optimizer_aux_var.assert_not_called()
 
@@ -575,18 +575,18 @@ class TestJob(ResearcherTestCase):
             "module_b": {"key": "val"},
         }
         patch_uuid.return_value = "uuid"
-        patch_repository_upload.return_value = {"file": "url"}
+        fake_url = "url"
+        patch_repository_upload.return_value = {"file": fake_url}
+        expected_file_path = "dir/aux_var_shared_uuid.mpk"
         # Call the tested method.
         url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
         # Verify that results and mock calls match expectations.
         self.assertEqual(url_shared, "url")
         self.assertDictEqual(url_bynode, {})
         patch_serializer_dump.assert_called_once_with(
-            aux_var, "dir/aux_var_shared_uuid.mpk"
+            aux_var, expected_file_path
         )
-        patch_repository_upload.assert_called_once_with(
-            "dir/aux_var_shared_uuid.mpk"
-        )
+        patch_repository_upload.assert_called_once_with(expected_file_path)
 
     @patch('uuid.uuid4', autospec=True)
     @patch('fedbiomed.common.repository.Repository.upload_file', autospec=True)

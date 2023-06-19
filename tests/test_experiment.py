@@ -1335,7 +1335,7 @@ class TestExperiment(ResearcherTestCase):
             grad = {k: global_model[k] - aggregates[k] for k in global_model}
             correct_updates = {k: global_model[k] - lr * grad[k] for k in global_model}
             for k, v in agg_updates.items():
-                # NB: `np.isclose` silently convert torch.Tensor into numpy array, so 
+                # NB: `np.isclose` silently convert torch.Tensor into numpy array, so
                 # below assertion can work
                 self.assertTrue(np.isclose(agg_updates[k], correct_updates[k]).all())
 
