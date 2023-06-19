@@ -1270,15 +1270,14 @@ class TestExperiment(ResearcherTestCase):
             ["get_aux", "set_aux", "init_round", "step"],
             "aggregates Optimizer did not receive expected ordered calls"
         )
-        
-        mock_job.get_received_optimizer_aux_var_from_round.assert_called_once()
+        mock_job.extract_received_optimizer_aux_var_from_round.assert_called_once()
 
     def test_experiment_28_run_once_fails_from_unexpected_nodes_aux_var(self):
         """Test that receiving auxiliary variables without an Optimizer fails."""
         # Populate the Experiment with a mock Job outputting optimizer aux var.
         mock_job = create_autospec(Job, instance=True)
         mock_job.update_parameters.return_value = ("mock-path", None)
-        mock_job.get_received_optimizer_aux_var_from_round.return_value = (
+        mock_job.extract_received_optimizer_aux_var_from_round.return_value = (
             {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
         )
         setattr(self.test_exp, "_job", mock_job)  # no proper Job setter

@@ -1673,7 +1673,7 @@ class Experiment:
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
         # Collect auxiliary variables from participating nodes' replies.
-        aux_var = self._job.get_received_optimizer_aux_var_from_round(
+        aux_var = self._job.extract_received_optimizer_aux_var_from_round(
             self._round_current
         )
         # If an Optimizer is used, pass it the auxiliary variables (if any).

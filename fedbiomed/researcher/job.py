@@ -598,7 +598,7 @@ class Job:
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
-    def get_received_optimizer_aux_var_from_round(
+    def extract_received_optimizer_aux_var_from_round(
         self,
         round_id: int,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:

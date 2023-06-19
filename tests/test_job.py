@@ -995,8 +995,8 @@ class TestJob(ResearcherTestCase):
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
 
-    def test_job_25_get_received_optimizer_aux_var_from_round(self):
-        """Test that 'get_received_optimizer_aux_var_from_round' works well."""
+    def test_job_25_extract_received_optimizer_aux_var_from_round(self):
+        """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
         # Set up: nodes sent back some Optimizer aux var information.
         responses = Responses([])
         responses.append(Responses({
@@ -1013,22 +1013,22 @@ class TestJob(ResearcherTestCase):
         }))
         getattr(self.job, "_training_replies")[1] = responses
         # Call the method and verify that its output matches expectations.
-        aux_var = self.job.get_received_optimizer_aux_var_from_round(round_id=1)
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         expected = {
             "module_a": {"node-1": {"key": "a1"}, "node-2": {"key": "a2"}},
             "module_b": {"node-1": {"key": "b1"}, "node-2": {"key": "b2"}},
         }
         self.assertDictEqual(aux_var, expected)
 
-    def test_job_26_get_received_optimizer_aux_var_from_round_empty(self):
-        """Test 'get_received_optimizer_aux_var_from_round' without aux var."""
+    def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
+        """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
         # Set up: nodes did not send Optimizer aux var information.
         responses = Responses([])
         responses.append(Responses({"node_id": "node-1"}))
         responses.append(Responses({"node_id": "node-2"}))
         getattr(self.job, "_training_replies")[1] = responses
         # Call the method and verify that it returns an empty dict.
-        aux_var = self.job.get_received_optimizer_aux_var_from_round(round_id=1)
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         self.assertDictEqual(aux_var, {})
 
 
