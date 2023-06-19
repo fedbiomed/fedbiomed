@@ -367,6 +367,9 @@ class Job:
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
+                Note that such variables may only be used if both the Experiment and node-side training plan
+                hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
+                are coherent with each other as to expected information exchange.
         """
 
         # Assign empty dict to secagg arguments if it is None
@@ -530,6 +533,11 @@ class Job:
             url_bynode: dict mapping urls of files containing node-specific
                 auxiliary variables to the nodes' id (a missing `nodes` key
                 indicates that this node has no such information to receive).
+
+        !!!info "Note":
+            The use of both a shared URL and node-specific one is merely a
+            way to reduce communication costs by uploading only once the
+            information that is to be downloaded by each and every node.
         """
         # Split the information between shared and node-wise dictionaries.
         aux_shared, aux_bynode = self._prepare_agg_optimizer_aux_var(
