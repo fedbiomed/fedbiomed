@@ -4,6 +4,7 @@ on:
   push: 
     branches:
       - 'feature/test_ci'
+      - 'feature/533-run-ci-tests-on-fedora'
 
   pull_request:
     types:
@@ -60,8 +61,10 @@ jobs:
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
 
   unit-test:
-    name: Ubuntu 22.04 unit tests
-    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    name: unit tests
+    strategy:
+      matrix:
+        os: [ubuntu-22-04, fedora38]
       
     if: github.event.pull_request.draft == false
     steps:
