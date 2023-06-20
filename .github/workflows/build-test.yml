@@ -4,7 +4,6 @@ on:
   push: 
     branches:
       - 'feature/test_ci'
-      - 'feature/533-run-ci-tests-on-fedora'
 
   pull_request:
     types:
