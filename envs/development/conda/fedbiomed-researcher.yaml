@@ -22,7 +22,6 @@ dependencies:
   # tools
   - colorama >=0.4.6,<0.5
   # code
-  - GitPython >=3.1.31,<4.0.0
   - requests ~=2.29.0
   - paho-mqtt ~=1.6.1
   - validators >=0.20.0,<0.21.0
@@ -54,9 +53,7 @@ dependencies:
       - persist-queue >=0.5.1,<0.6.0
       # pandas 2.x recently released (2023-04) but few breaking changes
       - pandas ~=2.0.1
-      - openpyxl >= 3.0.9,<3.1
       - tensorboard ~=2.13.0
-      - JSON-log-formatter ~=0.5.2
       - python-minifier ~=2.5.0
       # for nbconvert
       - jupyter-contrib-nbextensions >=0.7.0,<0.8.0

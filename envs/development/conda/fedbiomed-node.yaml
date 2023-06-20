@@ -21,7 +21,6 @@ dependencies:
   - tinydb ~=4.7.1
   - tabulate >=0.9.0,<0.10.0
   # code
-  - GitPython >=3.1.31,<4.0.0
   - requests ~=2.29.0
   - paho-mqtt ~=1.6.1
   - validators >=0.20.0,<0.21.0
@@ -54,8 +53,6 @@ dependencies:
       - pytorch-ignite >=0.4.4,<0.5.0
       # pandas 2.x recently released (2023-04) but few breaking changes
       - pandas ~=2.0.1
-      - openpyxl >= 3.0.9,<3.1
-      - JSON-log-formatter ~=0.5.2
       - python-minifier ~=2.5.0
       # FLamby
       - git+https://github.com/owkin/FLamby@main
