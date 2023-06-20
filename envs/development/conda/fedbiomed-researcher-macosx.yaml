@@ -48,6 +48,9 @@ dependencies:
       - torchvision >=0.14.0,<0.15.0
       - opacus >=1.4.0,<1.5.0
       - monai >=1.1.0,<1.2.0
+      # other
+      - msgpack ~=1.0
+      - persist-queue >=0.5.1,<0.6.0
       # pandas 2.x recently released (2023-04) but few breaking changes
       - pandas ~=2.0.1
       - tensorboard ~=2.13.0
