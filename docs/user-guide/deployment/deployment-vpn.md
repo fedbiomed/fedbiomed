@@ -18,7 +18,7 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! info "Supported operating systems and software requirements"
-    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires **docker compose >= 2.0**.
+    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires **docker compose >= 2.0**.
 
     Check here for [detailed requirements](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#requirements).
 

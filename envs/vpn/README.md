@@ -19,7 +19,7 @@ Which machine to use ?
 Supported operating systems for using containers :
   - tested on **Fedora 38**, should work for recent RedHat based Linux
   - should work for **Ubuntu 22.04 LTS** and recent Debian based Linux
-  - tested on recent **MacOS X**
+  - tested on recent **MacOS X**c (12.6.6 and 13)
   - should work on **Windows 11** with WSL2 using a Ubuntu-22.04 distribution
 
 Pre-requisites for using containers :
