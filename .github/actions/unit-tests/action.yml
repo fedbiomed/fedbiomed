@@ -6,17 +6,6 @@ inputs:
     description: The directory where the test files are kept
     required: true
     default: tests
-  if: ${{ matrix.os == "fedora38" }}
-  params-test-serialization:
-    description: to force serialization of tests
-    required: true   
-    default: "--processes=1 --process-timeout=50"
-  else:
-  params-test-serialization:
-    description: to force serialization of tests
-    required: true   
-    default: ""
-    
 
 outputs:
   coverage: # id of the output
@@ -35,7 +24,9 @@ runs:
 
     - name: Run unit tests 
       run: |
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker ${{ inputs.params-test-serialization }}
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} \
+          --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker \
+          --processes=1 --process-timeout=50
       shell: bash
       
     - name: Get coverage rate
