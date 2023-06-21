@@ -41,16 +41,16 @@ class Round:
 
     def __init__(
         self,
-        model_kwargs: dict = None,
-        training_kwargs: dict = None,
+        model_kwargs: Optional[dict] = None,
+        training_kwargs: Optional[dict] = None,
         training: bool = True,
-        dataset: dict = None,
-        training_plan_url: str = None,
-        training_plan_class: str = None,
-        params_url: str = None,
-        job_id: str = None,
-        researcher_id: str = None,
-        history_monitor: HistoryMonitor = None,
+        dataset: Optional[dict] = None,
+        training_plan_url: Optional[str] = None,
+        training_plan_class: Optional[str] = None,
+        params_url: Optional[str] = None,
+        job_id: Optional[str] = None,
+        researcher_id: Optional[str] = None,
+        history_monitor: Optional[HistoryMonitor] = None,
         aggregator_args: Optional[Dict[str, Any]] = None,
         node_args: Union[dict, None] = None,
         round_number: int = 0,
@@ -60,10 +60,11 @@ class Round:
         """Constructor of the class
 
         Args:
-            model_kwargs: contains model args
-            training_kwargs: contains training arguments
+            model_kwargs: contains model args. Defaults to None.
+            training_kwargs: contains training arguments. Defaults to None.
+            training: whether to perform a model training or just to perform a validation check (model infering)
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
-                data path, its shape, its description...
+                data path, its shape, its description... . Defaults to None.
             training_plan_url: url from which to download training plan file
             training_plan_class: name of the training plan (eg 'MyTrainingPlan')
             params_url: url from which to upload/download model params
@@ -309,7 +310,7 @@ class Round:
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
             status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
-
+            
             if status != 200:
                 error_message = "Cannot download training plan file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
@@ -376,8 +377,8 @@ class Round:
         # Split training and validation data
         try:
             self._set_training_testing_data_loaders()
-        except FedbiomedError as e:
-            error_message = f"Can not create validation/train data: {repr(e)}"
+        except FedbiomedError as fe:
+            error_message = f"Can not create validation/train data: {repr(fe)}"
             return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \

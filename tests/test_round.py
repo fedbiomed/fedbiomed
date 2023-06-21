@@ -1005,6 +1005,7 @@ class TestRound(NodeTestCase):
         # Call the tested method, verifying that it returns an error.
         msg = rnd.process_optim_aux_var()
         self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
+        self.assertIsInstance(msg, str)
 
     def test_round_20_process_optim_aux_var_without_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing Optimizer."""
@@ -1018,6 +1019,7 @@ class TestRound(NodeTestCase):
         # Call the tested method, verifying that it returns an error.
         msg = rnd.process_optim_aux_var()
         self.assertTrue("does not manage a compatible Optimizer" in msg)
+        self.assertIsInstance(msg, str)
 
     def test_round_21_process_optim_aux_var_with_optimizer_error(self):
         """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
@@ -1045,6 +1047,7 @@ class TestRound(NodeTestCase):
         rnd = Round()
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        # why not using DeclearnOptimizer?
         mock_b_opt.optimizer = mock_optim
         rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         rnd.training_plan.optimizer.return_value = mock_b_opt
@@ -1074,6 +1077,7 @@ class TestRound(NodeTestCase):
         # Verify that aux-var collection raises.
         self.assertRaises(FedbiomedRoundError, rnd.collect_optim_aux_var)
 
+    # add a test with : shared and node specific auxiliary avraibales
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

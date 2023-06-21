@@ -3,11 +3,12 @@
 from typing import Any, Dict, Optional
 from unittest import mock
 import time
-
+import torch
+from torch.utils.data import Dataset
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
+from fedbiomed.common.data import DataManager
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
 class FakeModel(BaseTrainingPlan):
@@ -68,6 +69,10 @@ class FakeModel(BaseTrainingPlan):
         Args:
             optimizer_args: optimizer parameters as a dictionary
         """
+
+    def optimizer(self):
+        return self._optimizer
+
     def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
@@ -109,3 +114,36 @@ class FakeModel(BaseTrainingPlan):
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
+
+
+class DeclearnAuxVarModel(FakeModel):
+    """for specific test that  tests declearn specific optimizer compatibility"""
+    OPTIM = None
+    TYPE = None
+
+    class CustomDataset(Dataset):
+        def __init__(self, *args):
+            self.value = torch.Tensor([[1, 2, 3], [1, 2, 3]])
+            self.target = torch.Tensor([1, 1])
+
+        def __getitem__(self, index):
+            return self.value[index], self.target[index]
+
+        def __len__(self):
+            return 2
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # overriding specific component 
+        self._optimizer = DeclearnAuxVarModel.OPTIM
+        
+    
+    def training_data(self):
+        return DataManager(dataset=DeclearnAuxVarModel.CustomDataset())
+    
+    def type(self):
+        return DeclearnAuxVarModel.TYPE
+    
+    # def training_routine(self, **kwargs):
+    #     self._optimizer.step()
+    #     return super().training_routine(**kwargs)
