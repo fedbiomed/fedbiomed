@@ -6,13 +6,16 @@ inputs:
     description: The directory where the test files are kept
     required: true
     default: tests
+  if: ${{ matrix.os == "fedora38" }}
   params-test-serialization:
     description: to force serialization of tests
-    required: true
-    if: ${{ matrix.os == "fedora38" }}
+    required: true   
     default: "--processes=1 --process-timeout=50"
-    else:
-    default: "" 
+  else:
+  params-test-serialization:
+    description: to force serialization of tests
+    required: true   
+    default: ""
     
 
 outputs:
