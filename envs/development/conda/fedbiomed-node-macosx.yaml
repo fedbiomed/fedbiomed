@@ -1,5 +1,5 @@
 #
-# environment for fedbiomed-node on macosx
+# environment for fedbiomed-node on macos
 #
 #
 #
@@ -33,6 +33,8 @@ dependencies:
   # git notebook striper
   - nbstripout >=0.6.1,<0.7.0
   - joblib >=1.2.0,<1.3.0
+  # other
+  - itk >=5.3.0,<5.4.0
   - pip:
       # sklearn
       #   + scipy >= 1.9 from conda-forge needs recent GLIBC thus causes issue 389 with many current systems
@@ -60,4 +62,3 @@ dependencies:
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet >=0.7.7,<0.8.0
-
