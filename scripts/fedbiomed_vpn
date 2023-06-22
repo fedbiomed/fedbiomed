@@ -128,11 +128,17 @@ internal_find_my_ip() {
             _IP=$(ifconfig eth0 2> /dev/null| grep 'inet '| awk '{print $2}')
             ;;
         5)
-            _IP=$(ifconfig en0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            for i in $(seq -w 0 5); do
+              _IP=$(ifconfig en$i 2> /dev/null| grep 'inet '| awk '{print $2}')
+              [ -n "$_IP" ] && break
+            done
             ;;
         6)
             # check also wireless
-            _IP=$(ifconfig wlan0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            for i in $(seq -w 0 5); do
+              _IP=$(ifconfig wlan$i 2> /dev/null| grep 'inet '| awk '{print $2}')
+              [ -n "$_IP" ] && break
+            done
             ;;
         #
         # you may add more heuristics here
@@ -163,8 +169,8 @@ find_my_ip() {
 
     case $IP in
         127.*)
-            echo "** WARNING: 'vpnserver' will use the localhost IP address."
-            echo "            VPN may not work properly"
+            echo "** WARNING: 'vpnserver' will use the localhost IP address." >&2
+            echo "            VPN may not work properly" >&2
         ;;
     esac
 
