@@ -24,7 +24,7 @@ runs:
 
     - name: Run unit tests 
       run: |
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker --processes=1 --process-timeout=50
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker --processes=0 --process-timeout=50
       shell: bash
       
     - name: Get coverage rate
