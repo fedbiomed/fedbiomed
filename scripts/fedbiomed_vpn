@@ -125,19 +125,22 @@ internal_find_my_ip() {
             ;;
         4)
             # other cases using ifconfig command
-            _IP=$(ifconfig eth0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            for i in $(seq -w 0 5); do
+                _IP=$(ifconfig eth$i 2> /dev/null| grep 'inet '| awk '{print $2}')
+                [ -n "$_IP" ] && break
+            done
             ;;
         5)
             for i in $(seq -w 0 5); do
-              _IP=$(ifconfig en$i 2> /dev/null| grep 'inet '| awk '{print $2}')
-              [ -n "$_IP" ] && break
+                _IP=$(ifconfig en$i 2> /dev/null| grep 'inet '| awk '{print $2}')
+                [ -n "$_IP" ] && break
             done
             ;;
         6)
             # check also wireless
             for i in $(seq -w 0 5); do
-              _IP=$(ifconfig wlan$i 2> /dev/null| grep 'inet '| awk '{print $2}')
-              [ -n "$_IP" ] && break
+                _IP=$(ifconfig wlan$i 2> /dev/null| grep 'inet '| awk '{print $2}')
+                [ -n "$_IP" ] && break
             done
             ;;
         #
