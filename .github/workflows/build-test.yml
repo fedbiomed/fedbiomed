@@ -63,7 +63,7 @@ jobs:
     name: unit tests
     strategy:
       matrix:
-        os: [ubuntu-22-04, fedora38]
+        os: [ubuntu-22-04, fedora38, macosx-m1]
     runs-on: ${{ matrix.os }}
       
     if: github.event.pull_request.draft == false
