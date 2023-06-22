@@ -19,6 +19,8 @@ runs:
       run: | 
         source ~/.bashrc
         ./scripts/configure_conda researcher
+        echo "PATH = $PATH"
+        which docker-compose
         ./scripts/fedbiomed_run network
       shell: bash
 
