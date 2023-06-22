@@ -3,8 +3,9 @@
 from typing import Any, Dict, Optional
 from unittest import mock
 import time
+from fedbiomed.common.constants import TrainingPlans
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -130,20 +131,27 @@ class DeclearnAuxVarModel(FakeModel):
             return self.value[index], self.target[index]
 
         def __len__(self):
-            return 2
+            return self.target.shape[0]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # overriding specific component 
         self._optimizer = DeclearnAuxVarModel.OPTIM
-        
-    
+
     def training_data(self):
-        return DataManager(dataset=DeclearnAuxVarModel.CustomDataset())
+        return DataManager(dataset=self.CustomDataset())
     
     def type(self):
         return DeclearnAuxVarModel.TYPE
     
-    # def training_routine(self, **kwargs):
-    #     self._optimizer.step()
-    #     return super().training_routine(**kwargs)
+    def training_routine(self, **kwargs):
+        td = self.training_data()
+        td.load(TrainingPlans.TorchTrainingPlan)
+        all_s = td.load_all_samples()
+        
+        for v, t in all_s:
+            o = self._optimizer._model.model(v)
+            loss = t - o # stupid loss function, created only for the sake of testing
+            loss.backward()
+            self._optimizer.step()
+        return super().training_routine(**kwargs)
