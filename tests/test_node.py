@@ -759,7 +759,7 @@ class TestNode(NodeTestCase):
         fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
 
         with tempfile.TemporaryDirectory() as tmp_directory:
-            #environ["TMP_DIR"] = tmp_directory
+
             aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
             model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
 
@@ -807,18 +807,23 @@ class TestNode(NodeTestCase):
 
 
             dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
-            #dec_node_optim.set_aux(aux_var)
+
             fake_training_plan.DeclearnAuxVarModel.OPTIM = dec_node_optim
             fake_training_plan.DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
-            
-            print(fake_training_plan.DeclearnAuxVarModel().type())
-            #print("TEST", Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR']).download_file())
+
             uuid = FakeUuid()
             with patch('uuid.uuid4') as uuid_patch:
                 uuid_patch.return_value = uuid
-                rnd.run_model_training()
-
+                rnd_reply = rnd.run_model_training()
+            self.assertEqual(rnd_reply['researcher_id'], dict_msg_1_dataset['researcher_id'])
+            self.assertEqual(rnd_reply['job_id'], dict_msg_1_dataset['job_id'])
+            self.assertEqual(rnd_reply['success'], True)
+            self.assertEqual(rnd_reply['dataset_id'], dict_msg_1_dataset['dataset_id'])
+            self.assertEqual(rnd_reply['sample_size'], len(fake_training_plan.DeclearnAuxVarModel.CustomDataset()))
+            self.assertEqual(rnd_reply['msg'], '')
+            self.assertEqual(rnd_reply['command'], dict_msg_1_dataset['command'])
             self.assertEqual(repo_uploaded[0], os.path.join(environ['TMP_DIR'], f"node_params_{uuid}.mpk"))
+
 
     def test_node_17_task_manager_normal_case_scenario(self):
         """Tests task_manager in the normal case scenario"""
