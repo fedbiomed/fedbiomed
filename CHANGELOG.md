@@ -1,17 +1,21 @@
 # Fed-BioMed changelog
 
+## 2023-06-23 version 4.4.1
+
+- fix secure aggregation vector encoding bug
+
 ## 2023-06-05 version 4.4.0
 
-- Add HTTPS secure access to Fed-BioMed Node GUI
-- Introduce GitHub workflow/actions for CI build tests and testing/publishing documentation.
-- Introduce versioning for component config files, MQTT messages and breakpoints
-- Migrate to GitHub 
-- Migrate `docs` source into main repository and point to https://fedbiomed.org
-- Fix robustness of handling secure aggregation training errors.
-- Fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
-- Fix incorrect calculation of SkLearn model weights
-- Fix incorrect compatibility of FedProx feature with `Model` class 
-- Fix ordering of weights and node replies after training. 
+- add HTTPS secure access to Fed-BioMed Node GUI
+- introduce GitHub workflow/actions for CI build tests and testing/publishing documentation.
+- introduce versioning for component config files, MQTT messages and breakpoints
+- migrate to GitHub 
+- migrate `docs` source into main repository and point to https://fedbiomed.org
+- fix robustness of handling secure aggregation training errors.
+- fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
+- fix incorrect calculation of SkLearn model weights
+- fix incorrect compatibility of FedProx feature with `Model` class 
+- fix ordering of weights and node replies after training. 
 
 ## 2023-04-26 version 4.3
 
