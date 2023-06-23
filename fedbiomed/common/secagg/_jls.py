@@ -209,7 +209,7 @@ class VES:
         Returns:
             tuple of element size and compression ratio
         """
-        element_size = self._valuesize + ceil(log2(add_ops))
+        element_size = self._valuesize + ceil(log2(add_ops + 1))
         comp_ratio = floor(self._ptsize / element_size)
 
         return element_size, comp_ratio
