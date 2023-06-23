@@ -17,17 +17,12 @@ runs:
   steps:
     - name: Install researcher dependencies
       run: | 
-      #  source ~/.bashrc
         ./scripts/configure_conda researcher
-      #  echo "PATH = $PATH"
-      #  which docker-compose
         ./scripts/fedbiomed_run network
-     # shell: bash
 
     - name: Run unit tests 
       run: |
           PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
-     # shell: bash
       
     - name: Get coverage rate
       id: coverage-rate
@@ -37,11 +32,8 @@ runs:
           root=tree.getroot();print(root.attrib['line-rate'])")
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
-    #  shell: bash
     
     - name: Stop network
       if: always()
       run: | 
-   #     source ~/.bashrc
         ./scripts/fedbiomed_run network stop
-    #  shell: bash
