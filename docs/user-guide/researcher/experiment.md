@@ -262,6 +262,46 @@ We list here the known constraints:
 
 - the [Scaffold](../../user-guide/researcher/aggregation.md#scaffold) aggregator **requires** using `num_updates`
 
+#### Setting a random seed for reproducibility
+
+The `random_seed` argument allows to set a random seed at the beginning of each round. 
+
+!!! info "`random_seed` is set both on the node and the researcher"
+    The `random_seed` is set whenever the `TrainingPlan` is instantiated: both on the researcher side before sending 
+    the train command for a new round, and on the node side at the beginning of the configuration of the new training 
+    round.
+
+Setting the `random_seed` affects:
+
+- the random initialization of model parameters at the beginning of the experiment
+- the random shuffling of data in the `DataLoader`
+- any other random effect on the node and researcher side.
+
+The same seed is used for the built-in `random` module, `numpy.random` and `torch.random`, effectively equivalent to:
+```python
+import random
+import numpy as np
+import torch
+
+random.seed(training_args['random_seed'])
+np.random.seed(training_args['random_seed'])
+torch.manual_seed(training_args['random_seed'])
+```
+
+!!! warning "`random_seed` is reset at every round"
+    The random_seed argument will be reset to the specified value at the beginning of every round.
+
+Because of this, the same sequence will be used for random effects like shuffling the dataset for all the rounds within
+an `exp.run()` execution. This is not what the user typically wants. A simple workaround is to manually change the seed
+at every round and use `exp.run_once` instead:
+
+```python
+for i in range(num_rounds):
+    training_args['random_seed'] = 42 + i
+    exp.set_training_args(training_args)
+    exp.run_once()
+```
+
 #### Sub-arguments for optimizer and differential privacy
 
 In Pytorch experiments, you may include sub arguments such as `optimizer_args` 
