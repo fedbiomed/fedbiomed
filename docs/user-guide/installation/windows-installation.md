@@ -1,8 +1,8 @@
 # Specific instructions for Windows installation
 
-**Fed-BioMed requires Windows 10 or 11, WSL2 and docker. It can run on a physical machine or a virtual machine.**
+**Fed-BioMed requires Windows 11, WSL2 and docker. It can run on a physical machine or a virtual machine.**
 
-This documentation gives the steps for a typical Windows 10 installation, steps may vary depending on your system.
+This documentation gives the steps for a typical Windows 11 installation, steps may vary depending on your system.
 
 
 ## Step 0: (optional) virtual machine
@@ -21,7 +21,7 @@ Tips :
 
 ## Step 1: Windows
 
-Requirement : Windows 10 version 2004 and higher (Build 19041 and higher) or Windows 11 is [needed for WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) and Docker Desktop.
+Requirement : **tested under Windows 11** 21H2, though Windows 10 version 2004 and higher (Build 19041 and higher) also [support WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) and Docker Desktop.
 
 * **[update](https://support.microsoft.com/en-au/windows/update-windows-3c5ae7fc-9fb6-9af1-1984-b5e0412c556a) Windows**
 * **reboot** Windows
@@ -30,7 +30,7 @@ Requirement: Windows Enterprise, Pro or Education edition (needed for Hyper-V fu
 
 Requirement : Hyper-V "Virtual Machine Platform" activation
 
-* **[enable](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v) Hyper-V**
+* **[enable](https://techcommunity.microsoft.com/t5/educator-developer-blog/step-by-step-enabling-hyper-v-for-use-on-windows-11/ba-p/3745905) Hyper-V**
 * **reboot** Windows
 
 
@@ -38,7 +38,7 @@ Requirement : Hyper-V "Virtual Machine Platform" activation
 
 [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) is a tool that allows to run Linux within a Windows system.
 Version 2 of WSL is needed for docker.
-We successfully tested Fed-BioMed with **Ubuntu-20.04** distribution.
+We successfully tested Fed-BioMed with **Ubuntu-22.04** distribution.
 
 Requirement : WSL version 2
 
@@ -54,9 +54,9 @@ Requirement : a WSL distribution, eg Ubuntu
 
 * **install a distribution** in a Windows command tool
 ```
-cmd> wsl --install -d Ubuntu
+cmd> wsl --install -d Ubuntu-22.04
 ```
-* if required by install, [**download and install Linux kernel update**](https://docs.microsoft.com/en-us/windows/wsl/install-manual#step-4---download-the-linux-kernel-update-package)
+* if required by install, update the WSL2 kernel: in *main menu > enter 'Windows Update' > select 'Advanced Options' > activate 'Receive updates for other Microsoft products'. Then in Windows Update, install the last version of WSL2.
 * **reboot** Windows
 
 Check that WSL uses version 2 and Ubuntu is installed in a Windows command tool :
@@ -77,40 +77,30 @@ user@wsl-ubuntu$
 
 Requirement : `docker` and `docker compose`
 
-Open an administrator session in WSL Ubuntu :
-```
-user@wsl-ubuntu$ sudo bash
-root@wsl-ubuntu#
-```
-
-Alternative 1 : Docker Desktop
+Install Docker Desktop on the Windows machine :
 
   - **install [Docker Desktop](https://hub.docker.com/editions/community/docker-ce-desktop-windows)** in Windows. Check the product license.
   - **reboot** Windows
 
-Alternative 2 : docker engine
+Setup docker in your WSL Ubuntu :
 
-  - install [docker engine](https://docs.docker.com/engine/install/ubuntu/) with as admin (root) account in WSL Ubuntu. Please note that `docker container run hello-world` will not work until we complete the steps below
-  - install docker compose
+  - open an administrator session in WSL Ubuntu :
 
     ```
-    root@wsl-ubuntu# apt install -y docker-compose-plugin
+    user@wsl-ubuntu$ sudo bash
+    root@wsl-ubuntu#
     ```
-    If not available from `apt` try a [manual installation](https://docs.docker.com/compose/install/linux/#install-the-plugin-manually)
-
+  - install [docker engine](https://docs.docker.com/engine/install/ubuntu/) as admin (root) account in WSL Ubuntu. Please note that `docker container run hello-world` will not work until we complete the steps below
   - if you use an account named `USER` under Ubuntu, authorize it to use docker by typing under an admin (root) account in WSL Ubuntu :
 
     ```
     root@wsl-ubuntu# adduser USER docker
     ```
-  - open a new WSL Ubuntu terminal so that it is authorized to use docker
-  - at each Ubuntu restart, launch docker daemon
 
-    ```
-    root@wsl-ubuntu# nohup dockerd &
-    ```
+  - open a **new** WSL Ubuntu terminal so that it is authorized to use docker
 
 Check that you can use docker with your user account under Ubuntu :
+
 ```
 user@wsl-ubuntu$ docker container run hello-world
 ```
@@ -120,7 +110,7 @@ user@wsl-ubuntu$ docker container run hello-world
 
 Requirement : conda installed in Ubuntu and configured for your user account
 
-* install [Anaconda](https://docs.anaconda.com/anaconda/install/linux/) under Ubuntu, using your user account
+* install [Miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) under Ubuntu, using your user account
 * during installation, answer *Yes* to question *“Do you wish the installer to initialize Anaconda3 by running conda init?”*
 * activate conda for your Ubuntu session
 

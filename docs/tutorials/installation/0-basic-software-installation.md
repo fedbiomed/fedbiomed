@@ -22,7 +22,7 @@ Fed-BioMed is developed and tested under up to date version of :
 * **Linux Ubuntu and Fedora**, should also work or be easily ported under most Linux distributions
 * **MacOS**
 
-Check specific guidelines for installation on [Windows 10](../../user-guide/installation/windows-installation.md).
+Check specific guidelines for installation on [Windows 11](../../user-guide/installation/windows-installation.md).
 
 
 ## Software packages

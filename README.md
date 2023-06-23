@@ -29,7 +29,7 @@ This README.md file provide a quick start/installation guide for Linux.
 
 Full installation instruction are also available at: https://fedbiomed.org/latest/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :

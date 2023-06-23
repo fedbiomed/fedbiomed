@@ -19,7 +19,7 @@ Which machine to use ?
 Supported operating systems for using containers :
   - tested on **Fedora 38**, should work for recent RedHat based Linux
   - should work for **Ubuntu 22.04 LTS** and recent Debian based Linux
-  - tested on recent **MacOS X**c (12.6.6 and 13)
+  - tested on recent **MacOS X** (12.6.6 and 13)
   - should work on **Windows 11** with WSL2 using a Ubuntu-22.04 distribution
 
 Pre-requisites for using containers :
@@ -31,7 +31,7 @@ Pre-requisites for using containers :
   - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get remove docker-compose && sudo apt-get install docker-compose-plugin` for apt, `sudo dnf clean metadata && sudo dnf remove docker-compose && sudo dnf update docker-compose-plugin` for dnf).
   - If no suitable package exist for your system, you can use the [docker compose plugin install page](https://docs.docker.com/compose/install/linux/).
 
-Installation notes for Windows 10 with WSL2 Ubuntu-20.04:
+Installation notes for Windows 11 with WSL2 Ubuntu-22.04:
 * build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
 ```bash
 [network]
