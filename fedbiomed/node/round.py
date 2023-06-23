@@ -581,7 +581,15 @@ class Round:
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
-            return optimizer.optimizer.get_aux()
+            aux_var = optimizer.optimizer.get_aux()
+
+            if aux_var and self._use_secagg:
+                # TODO: remove the following warning when secagg compatibility has been fixed
+                # if secagg is used, raise a warning that encryption is not working with auxiliary variable
+                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, but those are not encrypted with SecAgg.'
+                               'Auxiliary Variables may contain sensitive information about the Nodes.' 
+                               'This issue will be fixed in a future version of Fed-BioMed')
+            return aux_var
         return {}
 
     def _get_base_optimizer(self) -> BaseOptimizer:
