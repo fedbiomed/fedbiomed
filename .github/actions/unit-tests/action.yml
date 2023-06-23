@@ -17,7 +17,7 @@ runs:
   steps:
     - name: Install researcher dependencies
       run: | 
-        ./scripts/configure_conda researcher node network
+        ./scripts/configure_conda researcher node
         ./scripts/fedbiomed_run network
       shell: bash -l {0}
 
