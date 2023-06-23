@@ -19,10 +19,12 @@ runs:
       run: | 
         ./scripts/configure_conda researcher
         ./scripts/fedbiomed_run network
+      shell: bash -l {0}
 
     - name: Run unit tests 
       run: |
           PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker
+      shell: bash -l {0}
       
     - name: Get coverage rate
       id: coverage-rate
@@ -32,8 +34,10 @@ runs:
           root=tree.getroot();print(root.attrib['line-rate'])")
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
+      shell: bash -l {0}
     
     - name: Stop network
       if: always()
       run: | 
         ./scripts/fedbiomed_run network stop
+      shell: bash -l {0}
