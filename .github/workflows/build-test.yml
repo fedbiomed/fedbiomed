@@ -105,7 +105,9 @@ jobs:
           name: codecov-umbrella # optional
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
-
+          os: arm64
+          if: matrix.os == macosx-m1
+          
   mnist-test: 
     name: Test MNIST Notebook 
     runs-on: [self-hosted, Linux, ubuntu-22-04]
