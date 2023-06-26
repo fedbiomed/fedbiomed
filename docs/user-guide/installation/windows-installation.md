@@ -125,7 +125,14 @@ Follow Fed-BioMed Linux installation tutorial [from the *git clone* command](../
 
 When running ```network``` for the first time, a Windows defender pop up may appear (triggered by docker), choose *"authorize only on private network"*.
 
-You may experience some differences when using Fed-BioMed on Windows in comparison to other systems : this is because WSL does not have a graphical interface. Everything happens as if you were running a headless Linux machine.
+!!! info "Performance issue"
+    To ensure  Fed-BioMed performance in WSL2, be sure to use the native WSL2 Linux filesystem (in `/home/login`),
+    not the Windows filesystem (in `/mnt/c/Users/login`), both for cloning the library and storing datasets.
+    We experienced 10-50 time slower execution with native Windows filesystem.
+    This point is [documented by Microsoft](https://learn.microsoft.com/en-us/windows/wsl/compare-versions#exceptions-for-using-wsl-1-rather-than-wsl-2)
+
+    You may also need to [increase the memory available to WSL2](https://learn.microsoft.com/en-us/answers/questions/1296124/how-to-increase-memory-and-cpu-limits-for-wsl2-win).
+    By default, only 50% of the host's RAM is made available.
 
 
 ## Troubleshooting
