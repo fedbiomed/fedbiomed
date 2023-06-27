@@ -239,14 +239,17 @@ case $1 in
                 usage network
                 ;;
             *)
+                source $basedir/scripts/choose_docker_compose
+                docker_compose >/dev/null
+
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker compose build restful mqtt
+                             $DOCKER_COMPOSE build restful mqtt
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker compose up -d restful mqtt
+                             $DOCKER_COMPOSE up -d restful mqtt
                 ;;
         esac
         ;;

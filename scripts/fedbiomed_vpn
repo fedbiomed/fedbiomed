@@ -92,7 +92,10 @@ stop           stop and remove all containers
 check_prerequisite() {
     #
     # verify that every needed commands are installed
-    commands=( docker 'docker compose')
+    source $basedir/scripts/choose_docker_compose
+    docker_compose >/dev/null
+
+    commands=( docker "$DOCKER_COMPOSE")
 
     ERROR=0
     for i in "${commands[@]}"
@@ -215,7 +218,7 @@ containers_remove() {
     cd "$basedir/envs/vpn/docker"
     for i in ${ONLY_CONTAINERS[@]}
     do
-        docker compose rm -sf $i >/dev/null
+        $DOCKER_COMPOSE rm -sf $i >/dev/null
     done
 }
 
@@ -232,7 +235,7 @@ containers_clean() {
 
     for i in base basenode
     do
-        docker compose rm -sf $i >/dev/null
+        $DOCKER_COMPOSE rm -sf $i >/dev/null
     done
 
     #
@@ -319,7 +322,7 @@ containers_status() {
     do
         [[ "$i" = "gui" ]] || [[ "$i" = "gui2" ]] && { continue ; } # gui containers do not use wireguard
         echo -n "- pinging VPN server from container $i -> "
-        ping=$(docker compose exec ${i} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
+        ping=$($DOCKER_COMPOSE exec ${i} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
 
         status=$(echo $ping|grep seq=)
         if [ -z "$status" ]; then
@@ -355,26 +358,26 @@ containers_build() {
         CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            docker compose build base
+            $DOCKER_COMPOSE build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
         echo "- building 'basenode' container"
         CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            docker compose build basenode
+            $DOCKER_COMPOSE build basenode
     fi
 
     for i in ${ONLY_CONTAINERS[@]}
     do
         echo "- stopping '$i' container"
-        docker compose rm -sf $i >/dev/null
+        $DOCKER_COMPOSE rm -sf $i >/dev/null
         echo "- building '$i' container"
         MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
             CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            docker compose build $i
+            $DOCKER_COMPOSE build $i
     done
 }
 
@@ -392,7 +395,7 @@ single_container_configure() {
     IP=$(find_my_ip)
 
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${category}/${container}
-    docker compose exec vpnserver bash -c -i "python ./vpn/bin/configure_peer.py genconf ${category} ${container}"
+    $DOCKER_COMPOSE exec vpnserver bash -c -i "python ./vpn/bin/configure_peer.py genconf ${category} ${container}"
     sleep 1
 
     /bin/rm -fr ./${container}/run_mounts/config/wireguard    2> /dev/null
@@ -418,7 +421,7 @@ containers_configure() {
     CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
         CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
         CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-        docker compose up -d vpnserver
+        $DOCKER_COMPOSE up -d vpnserver
 
     for i in ${ONLY_CONTAINERS[@]}
     do
@@ -458,7 +461,7 @@ containers_start() {
         CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
         CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
         CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-        docker compose up -d vpnserver
+        $DOCKER_COMPOSE up -d vpnserver
 
     # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
@@ -476,37 +479,37 @@ containers_start() {
         esac
 
         echo "- starting $i container"
-        docker compose rm -sf $CONTAINER >/dev/null
+        $DOCKER_COMPOSE rm -sf $CONTAINER >/dev/null
         MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
             CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            docker compose up -d $CONTAINER
+            $DOCKER_COMPOSE up -d $CONTAINER
 
         case $i in
             mqtt|restful)
-                pubkey=$(docker compose exec "$i" wg show wg0 public-key | tr -d '\r')
+                pubkey=$($DOCKER_COMPOSE exec "$i" wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py remove management "$i"
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py add management "$i" "$pubkey"
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove management "$i"
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add management "$i" "$pubkey"
                 ;;
             researcher)
-                pubkey=$(docker compose exec researcher wg show wg0 public-key | tr -d '\r')
+                pubkey=$($DOCKER_COMPOSE exec researcher wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py remove researcher researcher1
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 $pubkey
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove researcher researcher1
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 $pubkey
                 ;;
             node)
-                pubkey=$(docker compose exec node wg show wg0 public-key | tr -d '\r')
+                pubkey=$($DOCKER_COMPOSE exec node wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODETAG
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove node NODETAG
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
                 ;;
             node2)
-                pubkey=$(docker compose exec node2 wg show wg0 public-key | tr -d '\r')
+                pubkey=$($DOCKER_COMPOSE exec node2 wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
-                docker compose exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
+                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
                 ;;
             *)
                 ;;
@@ -525,12 +528,12 @@ run() {
     cd "$basedir/envs/vpn/docker"
 
     # find @IP of mqtt and restful inside the VPN
-    status=$(docker compose ps restful | wc -l)
+    status=$($DOCKER_COMPOSE ps restful | wc -l)
     [[ $? ]] || {
         echo "** ERROR: restful container not running"
         exit 1
     }
-    restful_IP=$(docker compose exec restful ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
+    restful_IP=$($DOCKER_COMPOSE exec restful ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
     echo "- restful IP is: $restful_IP"
     [[ -z "$restful_IP" ]] && {
         echo "** ERROR: cannot find IP address of restful server" ;
@@ -539,12 +542,12 @@ run() {
     }
 
     #
-    status=$(docker compose ps mqtt | wc -l)
+    status=$($DOCKER_COMPOSE ps mqtt | wc -l)
     [[ $? ]] || {
         echo "** ERROR: mqtt container not running"
         exit 1
     }
-    mqtt_IP=$(docker compose exec mqtt ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
+    mqtt_IP=$($DOCKER_COMPOSE exec mqtt ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
     echo "- mqtt    IP is: $mqtt_IP"
     [[ -z "$mqtt_IP" ]] && {
         echo "** ERROR: cannot find IP address of mqtt server" ;
@@ -555,7 +558,7 @@ run() {
     CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
     export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
-    docker compose exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
+    $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 
 
 
