@@ -1,4 +1,4 @@
-:: Fed-BioMed Build test
+name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
   push: 
