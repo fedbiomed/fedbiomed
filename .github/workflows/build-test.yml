@@ -102,10 +102,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
           flags: unittests # optional
-          name: codecov-umbrella # optional
+          name: codecov-umbrella-${{ matrix.os }} # optional
          # fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
-          os: arm64
+          os: aarch64
           if: matrix.os == macosx-m1
           
   mnist-test: 
