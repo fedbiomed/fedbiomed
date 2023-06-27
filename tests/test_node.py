@@ -22,8 +22,9 @@ from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecagg
 from testsupport import fake_training_plan
 
 import torch
-from declearn.optimizer.modules import YogiModule, ScaffoldClientModule, ScaffoldServerModule, MomentumModule
+from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
 from declearn.optimizer.regularizers import RidgeRegularizer
+
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, TrainingPlans, __messaging_protocol_version__
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -749,26 +750,24 @@ class TestNode(NodeTestCase):
         def create_file(file_path: str, aux_var: Dict):
             Serializer.dump(aux_var, file_path)
   
-        def repo_upload_side_effect(file):
+        def repo_upload_side_effect(file:str):
             repo_uploaded.append(file)
             return {'file': file}
 
         repo_upload_file_patch.side_effect = repo_upload_side_effect
         importlib_importmodule_patch.return_value = fake_training_plan
-        
-        fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
 
         with tempfile.TemporaryDirectory() as tmp_directory:
 
             aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
             model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
+            fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
 
             repo_download_file_patch.side_effect = (
-                (200, fake_path_towards_tp),
-                (200, model_param_tmp_path),
-                (200, aux_var_tmp_path)
-                )
-            
+                    (200, fake_path_towards_tp),
+                    (200, model_param_tmp_path),
+                    (200, aux_var_tmp_path)
+                    )
             create_file(model_param_tmp_path, {'model_weights': [1,2,3,4,5]},)
             create_file(aux_var_tmp_path, aux_var)
             hist_monitor_patch.return_value = None

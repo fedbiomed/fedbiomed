@@ -3,9 +3,12 @@ import copy
 import inspect
 import logging
 import os
+import tempfile
 import unittest
 from typing import Any, Dict, Tuple
 from unittest.mock import MagicMock, create_autospec, patch
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.serializer import Serializer
 
 
 #############################################################
@@ -17,11 +20,17 @@ from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
+from testsupport import fake_training_plan
 
-from fedbiomed.common.constants import DatasetTypes
+import torch
+from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
+from declearn.optimizer.regularizers import RidgeRegularizer
+
+from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
@@ -874,9 +883,74 @@ class TestRound(NodeTestCase):
         environ["FORCE_SECURE_AGGREGATION"] = False
 
     @patch("uuid.uuid4")
+    @patch('fedbiomed.node.round.importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    def test_round_14_run_model_training_optimizer_aux_var_error(self,
+                                                                 patch_repo_download_file,
+                                                                 patch_repo_upload_file,
+                                                                 tp_security_manager_patch,
+                                                                 importlib_importmodule_patch,
+                                                                 patch_uuid):
+        aux_var = {'scaffold': {'delta': 'some incorrect value for scaffold'}}
+        def create_file(file_path: str, aux_var: Dict):
+            Serializer.dump(aux_var, file_path)
+        repo_uploaded = []
+        def repo_upload_side_effect(file:str):
+            repo_uploaded.append(file)
+            return {'file': file}
+        
+        # patches
+        patch_repo_upload_file.side_effect = repo_upload_side_effect
+        patch_uuid.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {'name': 'my_node_id'})
+        importlib_importmodule_patch.return_value = fake_training_plan
+
+        with tempfile.TemporaryDirectory() as tmp_directory:
+            fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
+            aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
+            model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
+            patch_repo_download_file.side_effect = (
+                    (200, fake_path_towards_tp),
+                    (200, model_param_tmp_path),
+                    (200, aux_var_tmp_path)
+                    )
+            create_file(model_param_tmp_path, {'model_weights': [1,2,3,4,5]},)
+            create_file(aux_var_tmp_path, aux_var)
+
+            # creating Round
+            rnd = Round(
+                training_kwargs={'optimizer_args': {'lr': .1234}}
+            )
+            rnd.researcher_id = 'researcher_id_1234'
+            rnd.job_id = 'job_id_1234'
+            rnd.training_plan_class = "DeclearnAuxVarModel"
+            rnd.dataset = {'dataset_id': 'dataset_id_1234',
+                           'path': os.path.join('path', 'to', 'my', 'dataset')}
+            rnd.aux_var_urls = ['http://url/to/my/file']
+
+            # configure optimizer
+            lr = .1234
+            optim_node = Optimizer(lr=lr, modules=[ScaffoldClientModule(), YogiModule()],
+                                   regularizers=[RidgeRegularizer()])
+
+
+            dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
+
+            fake_training_plan.DeclearnAuxVarModel.OPTIM = dec_node_optim
+            fake_training_plan.DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
+            
+            # action
+            rnd_reply = rnd.run_model_training()
+
+            self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
+                          rnd_reply['msg'])
+
+    @patch("uuid.uuid4")
     @patch("fedbiomed.common.serializer.Serializer.load")
     @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_14_download_optimizer_aux_var(
+    def test_round_15_download_optimizer_aux_var(
         self,
         patch_repo_download_file,
         patch_serializer_load,
@@ -909,7 +983,7 @@ class TestRound(NodeTestCase):
 
     @patch("uuid.uuid4")
     @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_15_download_optimizer_aux_var_download_error(
+    def test_round_16_download_optimizer_aux_var_download_error(
         self,
         patch_repo_download_file,
         patch_uuid,
@@ -935,7 +1009,7 @@ class TestRound(NodeTestCase):
     @patch("uuid.uuid4")
     @patch("fedbiomed.common.serializer.Serializer.load")
     @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_16_download_optimizer_aux_var_serializer_error(
+    def test_round_17_download_optimizer_aux_var_serializer_error(
         self,
         patch_repo_download_file,
         patch_serializer_load,
@@ -963,7 +1037,7 @@ class TestRound(NodeTestCase):
         )
         patch_serializer_load.assert_called_once_with(fake_path)
 
-    def test_round_17_process_optim_aux_var(self):
+    def test_round_18_process_optim_aux_var(self):
         """Test that 'process_optim_aux_var' works properly."""
         rnd = Round()
         # Set up a mock BaseOptimizer with an attached Optimizer.
@@ -981,7 +1055,7 @@ class TestRound(NodeTestCase):
         self.assertEqual(msg, "")
         mock_optim.set_aux.assert_called_once_with(fake_aux_var)
 
-    def test_round_18_process_optim_aux_var_without_aux_var(self):
+    def test_round_19_process_optim_aux_var_without_aux_var(self):
         """Test that 'process_optim_aux_var' exits properly without aux vars."""
         # Set up a Round with a mock Optimizer attached, but no aux vars.
         rnd = Round()
@@ -995,7 +1069,7 @@ class TestRound(NodeTestCase):
         self.assertEqual(msg, "")
         mock_optim.set_aux.assert_not_called()
 
-    def test_round_19_process_optim_aux_var_without_base_optimizer(self):
+    def test_round_20_process_optim_aux_var_without_base_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
         # Set up a Round with fake aux_vars, but no BaseOptimizer.
         rnd = Round()
@@ -1007,7 +1081,7 @@ class TestRound(NodeTestCase):
         self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
         self.assertIsInstance(msg, str)
 
-    def test_round_20_process_optim_aux_var_without_optimizer(self):
+    def test_round_21_process_optim_aux_var_without_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing Optimizer."""
         # Set up a Round with aux vars, but a non-Optimizer optimizer.
         rnd = Round()
@@ -1021,7 +1095,7 @@ class TestRound(NodeTestCase):
         self.assertTrue("does not manage a compatible Optimizer" in msg)
         self.assertIsInstance(msg, str)
 
-    def test_round_21_process_optim_aux_var_with_optimizer_error(self):
+    def test_round_22_process_optim_aux_var_with_optimizer_error(self):
         """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
         # Set up a Round with fake pre-downloaded aux vars.
         rnd = Round()
@@ -1041,7 +1115,7 @@ class TestRound(NodeTestCase):
         self.assertTrue(fake_error in msg)
         mock_optim.set_aux.assert_called_once_with(fake_aux_var)
 
-    def test_round_22_collect_optim_aux_var(self):
+    def test_round_23_collect_optim_aux_var(self):
         """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
         # Set up a Round with an attached mock Optimizer.
         rnd = Round()
@@ -1056,7 +1130,7 @@ class TestRound(NodeTestCase):
         self.assertEqual(aux_var, mock_optim.get_aux.return_value)
         mock_optim.get_aux.assert_called_once()
 
-    def test_round_23_collect_optim_aux_var_without_optimizer(self):
+    def test_round_24_collect_optim_aux_var_without_optimizer(self):
         """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
         # Set up a Round with a non-Optimizer optimizer.
         rnd = Round()
@@ -1068,7 +1142,7 @@ class TestRound(NodeTestCase):
         aux_var = rnd.collect_optim_aux_var()
         self.assertEqual(aux_var, {})
 
-    def test_round_24_collect_optim_aux_var_without_base_optimizer(self):
+    def test_round_25_collect_optim_aux_var_without_base_optimizer(self):
         """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
         # Set up a Round without a BaseOptimizer.
         rnd = Round()
