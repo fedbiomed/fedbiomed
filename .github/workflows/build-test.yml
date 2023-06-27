@@ -114,7 +114,11 @@ jobs:
           
   mnist-test: 
     name: Test MNIST Notebook 
-    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22-04, fedora38, macosx-m1]
+    runs-on: ${{ matrix.os }}
     needs: unit-test
 
     if: github.event.pull_request.draft == false
