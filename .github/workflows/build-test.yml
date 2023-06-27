@@ -1,4 +1,4 @@
-name: Fed-BioMed Build test
+:: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
   push: 
@@ -101,8 +101,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests # optional
-          name: codecov-umbrella-${{ matrix.os }} # optional
+          flags: unittests-${{ matrix.os }} # optional
+          name: codecov-umbrella # optional
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
       
