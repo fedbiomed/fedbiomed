@@ -2033,7 +2033,7 @@ class Experiment:
                         breakpoint_folder_path: Union[str, None] = None) -> TExperiment:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Useful if training has crashed
+        so experience can be resumed. Usefull if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:

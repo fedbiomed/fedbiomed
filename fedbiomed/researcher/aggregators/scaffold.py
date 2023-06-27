@@ -342,6 +342,9 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError(
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
+        if not isinstance(training_plan.optimizer(), torch.optim):
+            raise FedbiomedAggregatorError("Cannot run Scaffold with declearn optimizers. Please use decearn specific Optimizer"
+                                           " (ScaffoldServerModule and ScaffoldClientModule) or use a plain PyTorch Optimizer instead.")
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
             if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
                 logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
