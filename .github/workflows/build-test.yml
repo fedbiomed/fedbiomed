@@ -96,7 +96,7 @@ jobs:
           test-dir: tests
 
       - name: Upload coverage reports to Codecov
-        if: steps.filter.outputs.module == 'true' && matrix.os != macosx-m1
+        if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -107,7 +107,7 @@ jobs:
           verbose: true # optional (default = false)
       
       - name: Notify upload impossible on m1
-        if: steps.filter.outputs.module == 'true' && matrix.os == macosx-m1
+        if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
         run: |
           echo "No codecov-action available for macos-m1" # to check from time to time
           
