@@ -6,8 +6,9 @@ import json
 import os
 import sys
 import shutil
+import tempfile
 import unittest
-from typing import Dict
+from typing import Dict, Optional
 from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
@@ -25,6 +26,8 @@ from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
+from declearn.optimizer.modules import YogiModule, ScaffoldServerModule
+
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.exceptions import (
@@ -33,6 +36,8 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.constants import __breakpoints_version__
 
 import fedbiomed.researcher.experiment
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
@@ -1202,9 +1207,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
     def test_experiment_26_run_once_with_scaffold_and_training_args(self,
-                                                                    mock_job_init,
                                                                     mock_job_updates_params,
                                                                     mock_job_training,
                                                                     mock_job_training_replies,
@@ -1215,24 +1218,30 @@ class TestExperiment(ResearcherTestCase):
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
-        training_plan = MagicMock()
-        training_plan.type = MagicMock()
-        mock_job_init.return_value = None
         mock_job_training.return_value = None
+
         mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
             self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
         }
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        #mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
         mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
         mock_experiment_breakpoint.return_value = None
 
+        tp = TestExperiment.FakeModelTorch
+        tp.optimizer = MagicMock()
+        tp.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
+        tp.type = MagicMock()
+        tp.get_model_params = MagicMock(return_value = None)
+        mock_job_training_plan_type.return_value = tp
         # Set model class to be able to create Job
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_training_plan_class(tp)
+
         # Set default Job
-        self.test_exp.set_job()
+        job = self.test_exp.set_job()
+        #print("TEST", tp().optimizer(), self.test_exp._job.training_plan.optimizer())
         # Set strategy
         self.test_exp.set_strategy(None)
         # set training_args
@@ -2043,6 +2052,120 @@ class TestExperiment(ResearcherTestCase):
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
         self.assertTrue(loaded_exp.secagg.active)
+
+    @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
+    def test_experiment_39_load_breakpoint_optimizer(self, patch_find_breakpoint_path):
+        # INTEGRATION TEST:
+        # TODO: find an environment so we are not forced to patch `find_breakpoint_path`
+        def create_breakpoint(tempfolder_path: str, file_name: str, extra_info_state: Optional[Dict] = None):
+            # Prepare breakpoint data
+
+            training_data = {'train_node1': {'name': 'my_first_dataset', 2: 243}}
+            training_args = TrainingArgs(only_required=False)
+            model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
+            training_plan_path = '/path/to/breakpoint_training_plan_file.py'
+            training_plan_class = 'ThisIsTheTrainingPlan'
+            round_current = 1
+            experimentation_folder = 'My_experiment_folder_258'
+            aggregator_params = {'aggregator_name': 'dummy-aggregator',
+                                'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
+            strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
+            aggregated_params = {
+                '1': {'params_path': '/path/to/my/params_path_1.mpk'},
+                2: {'params_path': '/path/to/my/params_path_2.mpk'}
+            }
+            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+            secagg_state = {
+                'class': "SecureAggregation",
+                'module': 'fedbiomed.researcher.secure_aggregation',
+                'attributes': {
+                    '_servkey': {
+                        'class': 'SecaggServkeyContext',
+                        'module': 'fedbiomed.researcher.secagg',
+                        'arguments': {
+                            'secagg_id': 'secagg_id_1',
+                            'parties': [environ["ID"], 'node-1', 'node-2'],
+                            'job_id': 'A JOB2 ID'},
+                        "attributes": {
+                            'biprime1': 'ANOTHER VALUE',
+                            '_status': True,
+                            '_context': {'z': 'y'},
+                            '_researcher_id': 'A researhcer_id',
+                        }
+                    },
+                    '_biprime': {
+                        'class': 'SecaggBiprimeContext',
+                        'module': 'fedbiomed.researcher.secagg',
+                        'arguments': {
+                            'secagg_id': 'secagg_id_1',
+                            'parties': [environ["ID"], 'node-1', 'node-2'],
+                            'job_id': 'A JOB2 ID'},
+                        "attributes": {
+                            'biprime1': 'ANOTHER VALUE',
+                            '_status': True,
+                            '_context': {'z': 'y'},
+                            '_researcher_id': 'A researhcer_id',
+                        }
+                    },
+                    '_job_id': 'xxxx',
+                    '_parties': ['node-1', 'node-2']
+                },
+                'arguments': {
+                    'active': True,
+                    'timeout': 10
+                }
+            }
+
+            fake_aggregator = FakeAggregator()
+            fake_aggregator._aggregator_args = aggregator_params
+
+            fake_strategy = FakeStrategy(data=training_args)
+            fake_strategy._parameters = strategy_params
+            # breakpoint structure
+            state = {
+                'breakpoint_version': str(__breakpoints_version__),
+                'training_data': training_data,
+                'training_args': training_args.dict(),
+                'model_args': model_args,
+                'training_plan_path': training_plan_path,
+                'training_plan_class': training_plan_class,
+                'round_current': round_current,
+                'round_limit': self.round_limit,
+                'experimentation_folder': experimentation_folder,
+                'aggregator': {
+                    "class": 'FakeAggregator',
+                    "module": self.__module__,
+                    "parameters": aggregator_params
+                },
+                'node_selection_strategy': {
+                    "class": 'FakeStrategy',
+                    "module": self.__module__,
+                    "parameters": strategy_params,
+                    "fds": training_data
+                },
+                'tags': self.tags,
+                'aggregated_params': aggregated_params,
+                'job': job,
+                'secagg': secagg_state,
+            }
+            
+            state.update(extra_info_state)
+            # create breakpoint file
+            
+            with open(os.path.join(tempfolder_path, tmp_path), "w") as f:
+                json.dump(state, f)
+        
+        agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
+        bkpt_file = 'file_4_breakpoint'
+        extra_fields = {
+            'agg_optimizer': agg_optimizer.get_state()
+        }
+
+        with tempfile.TemporaryDirectory as tmp_path:
+            create_breakpoint(tmp_path, bkpt_file, extra_fields)
+
+            # patch functions for loading breakpoint
+            patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     def test_experiment_38_static_save_aggregated_params(self,
