@@ -240,7 +240,7 @@ case $1 in
                 ;;
             *)
                 source $basedir/scripts/choose_docker_compose
-                docker_compose >/dev/null
+                docker_compose
 
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \

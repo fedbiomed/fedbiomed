@@ -120,7 +120,7 @@ case $1 in
         activate_network
         echo "** Cleaning all caches / temporary files"
         # docker containers
-        DOCKER_COMPOSE=$(docker_compose) # dont call directly `docker_compose` or the calling process exists in case of error
+        DOCKER_COMPOSE=$(docker_compose ; echo $DOCKER_COMPOSE) # dont call directly `docker_compose` or the calling process exists in case of error
         # note: do as much cleaning as possible even if `docker compose` is not found
         (cd ${basedir}/envs/development/docker/ && [ -n "$DOCKER_COMPOSE" ] && $DOCKER_COMPOSE rm -sf &&  echo " * Docker cleaning" )
 

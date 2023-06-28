@@ -93,7 +93,7 @@ check_prerequisite() {
     #
     # verify that every needed commands are installed
     source $basedir/scripts/choose_docker_compose
-    docker_compose >/dev/null
+    docker_compose
 
     commands=( docker "$DOCKER_COMPOSE")
 

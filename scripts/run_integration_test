@@ -206,7 +206,7 @@ cleaning() {
 
     # kill the docker containers
     ( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
-        docker_compose >/dev/null ; $DOCKER_COMPOSE down  )
+        docker_compose ; $DOCKER_COMPOSE down  )
 
     #
     # clean all datasets from nodes
