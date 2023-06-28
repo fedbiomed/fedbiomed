@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict, Collection, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 import torch
 
 from fedbiomed.common.logger import logger
@@ -342,7 +343,7 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError(
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
-        if not isinstance(training_plan.optimizer(), torch.optim):
+        if not isinstance(training_plan.optimizer(), NativeTorchOptimizer):
             raise FedbiomedAggregatorError("Cannot run Scaffold with declearn optimizers. Please use decearn specific Optimizer"
                                            " (ScaffoldServerModule and ScaffoldClientModule) or use a plain PyTorch Optimizer instead.")
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
