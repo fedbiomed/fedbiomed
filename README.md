@@ -22,14 +22,14 @@ According to our coding rules, the develop branch is usable, tests and tutorials
 
 ## Install and run in development environment
 
-Fed-BioMed is developed under Linux Fedora, should be easily ported to other Linux distributions.
+Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
 Full installation instruction are also available at: https://fedbiomed.org/latest/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -37,7 +37,7 @@ An installation guide is also provided for Windows10, which relies on WSL2: http
 To ensure fedbiomed will work fine, you need to install before :
 
 * docker
-* docker-compose
+* docker compose v2 (aka docker compose plugin)
 * conda
 
 ### clone repo

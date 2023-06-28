@@ -19,10 +19,10 @@ This tutorial gives steps for installing Fed-BioMed components (network, node, r
 
 Fed-BioMed is developed and tested under up to date version of :
 
-* **Linux Fedora**, should also work or be easily ported under most Linux distributions (Ubuntu, etc.)
+* **Linux Ubuntu and Fedora**, should also work or be easily ported under most Linux distributions
 * **MacOS**
 
-Check specific guidelines for installation on [Windows 10](../../user-guide/installation/windows-installation.md).
+Check specific guidelines for installation on [Windows 11](../../user-guide/installation/windows-installation.md).
 
 
 ## Software packages
@@ -30,12 +30,12 @@ Check specific guidelines for installation on [Windows 10](../../user-guide/inst
  The following packages are required for Fed-BioMed :
 
  * [`docker`](https://docs.docker.com)
- * [`docker-compose`](https://docs.docker.com/compose)
+ * [`docker compose` v2](https://docs.docker.com/compose): don't confuse it with the obsolete `docker-compose` v1
  * [`conda`](https://conda.io)
  * `git`
 
 
-### Install docker and docker-compose
+### Install `docker` and `docker compose`
 
 #### Linux Fedora
 
@@ -62,20 +62,21 @@ Check with the account used to run Fed-BioMed that docker is up and can be used 
 $ docker run hello-world
 ```
 
-Install docker-compose and git :
+Install `docker compose` and `git` :
 ```
-$ sudo dnf install -y docker-compose git
+$ sudo dnf install -y docker-compose-plugin git
 ```
 
 #### MacOS
 
-Install docker and docker-compose choosing one of the available options for example :
+Install `docker` and `docker compose` choosing one of the available options for example :
 
 * official full [Docker Desktop](https://docs.docker.com/desktop/mac/install/) installation process, please check product license
 * your favorite third party package manager for example :
-    * macports provides [docker](https://ports.macports.org/port/docker/) [docker-compose](https://ports.macports.org/port/docker-compose/) and [git](https://ports.macports.org/port/git/) ports
-    * homebrew provides [docker](https://formulae.brew.sh/formula/docker) [docker-compose](https://formulae.brew.sh/formula/docker-compose) and [git](https://formulae.brew.sh/formula/git) formulae
-
+    * macports provides [docker](https://ports.macports.org/port/docker/) and [git](https://ports.macports.org/port/git/) ports
+    * homebrew provides [docker](https://formulae.brew.sh/formula/docker) and [git](https://formulae.brew.sh/formula/git) formulae
+    * don't use the `docker-compose` v1 from macports or homebrew !
+    * for `docker compose` v2, adapt the [manual plugin install procedure](https://docs.docker.com/compose/install/linux/#install-the-plugin-manually) by picking the [proper binary for your hardware](https://github.com/docker/compose/releases)
 
 Check with the account used to run Fed-BioMed docker is up and can be used by the current account without error :
 
@@ -85,7 +86,7 @@ $ docker run hello-world
 
 #### Other
 
-Connect under an account with administrator privileges, install [`docker`](https://docs.docker.com/engine/install), ensure it is started and give docker privilege for the account used for running Fed-BioMed. Also install [`docker-compose`](https://docs.docker.com/compose/install/) and `git`
+Connect under an account with administrator privileges, install [`docker`](https://docs.docker.com/engine/install), ensure it is started and give docker privilege for the account used for running Fed-BioMed. Also install [`docker compose` v2](https://docs.docker.com/compose/install/) and `git`
 
 Check with the account used to run Fed-BioMed docker is up and can be used by the current account without error :
 

@@ -239,14 +239,17 @@ case $1 in
                 usage network
                 ;;
             *)
+                source $basedir/scripts/choose_docker_compose
+                docker_compose
+
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose build restful mqtt
+                             $DOCKER_COMPOSE build restful mqtt
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose up -d restful mqtt
+                             $DOCKER_COMPOSE up -d restful mqtt
                 ;;
         esac
         ;;
@@ -443,7 +446,7 @@ case $1 in
                 # Windows WSL and others cannot handle using redirect file for securing notebook launch
                 # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
                 NB_OPTS=
-                if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+                if [ -n "$(uname -r | grep -E -i 'microsoft|wsl')" ]
                 # case if windows WSL is used
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'

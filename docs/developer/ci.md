@@ -39,7 +39,7 @@ CI pipeline currently contains :
 
 To view CI test output and logs:
 
-- view the pull request in gitlab (select `Pull requests` in top bar, then select your pull request).
+- view the pull request in github (select `Pull requests` in top bar, then select your pull request).
 - click on the `Checks` at the top bar of the pull request and select the `Check` that you want to display.
 - Click on the jobs to see its console output. 
 

@@ -78,7 +78,7 @@ git pull -p
   - or checkout the `release/$RELEASE_TAG` branch and push it again to re-create on the remote
     ```bash
     git checkout release/$RELEASE_TAG
-    git push origin release/$RELEASE_TAG
+    git push
     ```
 - in github create a pull request for `release/$RELEASE_TAG` to `develop`
   * one can auto-assign the PR, and doesn't need a review for this PR
@@ -196,7 +196,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
     ```bash
     git checkout hotfix/$HOTFIX_NAME
-    git push origin hotfix/$HOTFIX_NAME
+    git push
     ```
 
 - in github create a pull request for `hotfix/$HOTFIX_NAME` to `develop`
