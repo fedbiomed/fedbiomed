@@ -13,8 +13,6 @@ dependencies:
   # python 3.11 recently released 2022-11 and not yet supported by some deps including: torchvision
   - python >=3.10,<3.11
   - pip >= 23.0
-  - jupyter ~=1.0.0
-  - ipython ~=8.13.2
   # tests
   - pytest ~=7.2.0
   - pytest-cov ~=4.1.0
