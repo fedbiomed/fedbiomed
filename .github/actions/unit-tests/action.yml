@@ -17,16 +17,16 @@ runs:
   steps:
     - name: Install researcher dependencies
       run: | 
+        source ~/.bashrc
+        conda clean -i -y
         ./scripts/configure_conda researcher node
         ./scripts/fedbiomed_run network
       shell: bash -l {0}
 
     - name: Run unit tests 
       run: |
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher nosetests -w ${{ inputs.test-dir }} \
-          --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed --with-xunit -v --process-restartworker \
-          -e test_round_0
-      shell: bash -l {0}
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -v --cov=fedbiomed --cov-report term --cov-report xml:${{ inputs.test-dir }}/coverage.xml ${{ inputs.test-dir }}
+      shell: bash  -l {0}
       
     - name: Get coverage rate
       id: coverage-rate

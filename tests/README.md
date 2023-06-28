@@ -2,10 +2,9 @@
 
 ### material
 
-tests are run with [nosetests](https://nose.readthedocs.io/en/latest/testing.html), which uses unittests as test framework.
-nosetests provide additional features:
-- more assert capabilities
-- coverage report, which provides output integrated on our Continous Integration platform
+Tests are run with [pytest](https://pytest.org) using `unittests` as test framework (no specific extension).
+We use pytest for these additional features:
+- coverage report, which provides output integrated with `codecov`
 
 
 ### how to run the tests
@@ -26,7 +25,7 @@ python -m unittest -v
 or
 ```
 cd tests
-nosetests -v
+pytest -v
 ```
 
 Because of the code structure (environ singleton), the tests **must** run
@@ -43,14 +42,14 @@ or
 
 ```
 cd tests
-nosetests --tests=test_XXX.py
+pytest ./test_XXX.py
 ```
 
 * run a specific single test. You must specify all the path to this specific test (test\_file.py:TesctClass.specific\_test\_to_run). Eg:
 
 ```
 cd tests
-nosetests test_message.py:TestMessage.test_dummy_message
+pytest test_requests.py::TestRequests::test_request_01_constructor
 ```
 
 Remarks: **nose** could also be used to run the test (same test files as with
@@ -96,7 +95,7 @@ If you want to check the test coverage, you should use:
 
 ```
 cd tests
-nosetests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
+pytest -v --cov=fedbiomed --cov-report term --cov-report xml:coverage.xml
 coverage html
 ```
 
