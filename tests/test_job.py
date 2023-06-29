@@ -522,12 +522,10 @@ class TestJob(ResearcherTestCase):
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
 
     @patch('uuid.uuid4', autospec=True)
-    @patch('fedbiomed.common.repository.Repository.upload_file', autospec=True)
     @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
     def test_job_16_upload_agg_optimizer_aux_var(
         self,
         patch_serializer_dump,
-        patch_repository_upload,
         patch_uuid,
     ):
         """Test 'upload_agg_optimizer_aux_var' with both shared and node-specific info."""
@@ -539,7 +537,9 @@ class TestJob(ResearcherTestCase):
             "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(3)},
         }
         patch_uuid.return_value = "uuid"
-        patch_repository_upload.return_value = {"file": "url"}
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": 'url'}
+
         # Call the tested method.
         url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
         # Verify that results and mock calls match expectations.
@@ -550,19 +550,17 @@ class TestJob(ResearcherTestCase):
             call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-1_uuid.mpk"),
             call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-2_uuid.mpk"),
         ], any_order=True)
-        patch_repository_upload.assert_has_calls([
-            "dir/aux_var_shared_uuid.mpk",
-            "dir/aux_var_node_node-1_uuid.mpk",
-            "dir/aux_var_node_node-2_uuid.mpk",
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_shared_uuid.mpk"),
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
         ], any_order=True)
 
     @patch('uuid.uuid4', autospec=True)
-    @patch('fedbiomed.common.repository.Repository.upload_file', autospec=True)
     @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
     def test_job_17_upload_agg_optimizer_aux_var_shared_only(
         self,
         patch_serializer_dump,
-        patch_repository_upload,
         patch_uuid,
     ):
         """Test 'upload_agg_optimizer_aux_var' with shared info only."""
@@ -573,27 +571,29 @@ class TestJob(ResearcherTestCase):
             "module_a": {"key": "val"},
             "module_b": {"key": "val"},
         }
-        patch_uuid.return_value = "uuid"
         fake_url = "url"
-        patch_repository_upload.return_value = {"file": fake_url}
+
+        patch_uuid.return_value = "uuid"
+
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": fake_url}
+
         expected_file_path = "dir/aux_var_shared_uuid.mpk"
         # Call the tested method.
         url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
         # Verify that results and mock calls match expectations.
-        self.assertEqual(url_shared, "url")
+        self.assertEqual(url_shared, fake_url)
         self.assertDictEqual(url_bynode, {})
         patch_serializer_dump.assert_called_once_with(
             aux_var, expected_file_path
         )
-        patch_repository_upload.assert_called_once_with(expected_file_path)
+        self.mock_upload_file.assert_called_once_with(expected_file_path)
 
     @patch('uuid.uuid4', autospec=True)
-    @patch('fedbiomed.common.repository.Repository.upload_file', autospec=True)
     @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
     def test_job_18_upload_agg_optimizer_aux_var_bynode_only(
         self,
         patch_serializer_dump,
-        patch_repository_upload,
         patch_uuid,
     ):
         """Test 'upload_agg_optimizer_aux_var' with node-specific info only."""
@@ -605,7 +605,8 @@ class TestJob(ResearcherTestCase):
             "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(2)},
         }
         patch_uuid.return_value = "uuid"
-        patch_repository_upload.return_value = {"file": "url"}
+        self.mock_upload_file.reset_mock()
+        self.mock_upload_file.return_value = {"file": "url"}
         # Call the tested method.
         url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
         # Verify that results and mock calls match expectations.
@@ -616,9 +617,9 @@ class TestJob(ResearcherTestCase):
             call(aux_var_node, "dir/aux_var_node_node-1_uuid.mpk"),
             call(aux_var_node, "dir/aux_var_node_node-2_uuid.mpk"),
         ], any_order=True)
-        patch_repository_upload.assert_has_calls([
-            "dir/aux_var_node_node-1_uuid.mpk",
-            "dir/aux_var_node_node-2_uuid.mpk",
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
         ], any_order=True)
 
     @patch('fedbiomed.common.logger.logger.error')
