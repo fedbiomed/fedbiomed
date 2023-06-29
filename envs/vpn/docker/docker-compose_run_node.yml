@@ -6,7 +6,7 @@ version: "3.7"
 # Minimal dockerfile permits minimal file tree
 # because *all* files dependencies referenced in `docker-compose.yml`
 # (eg: `./*/build_files`, `./*/run_mounts/config/config.env`)
-# need to exist for *all* containers everytime we run a docker-compose command
+# need to exist for *all* containers everytime we run a `docker compose` command
 # thus we would have to copy file trees for vpnserver, researcher, etc. when only
 # running a node
 x-node:

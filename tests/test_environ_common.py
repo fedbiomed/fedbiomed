@@ -51,12 +51,12 @@ class TestEnviron(TestCase):
         values = self.environ._values
 
         self.assertTrue("ROOT_DIR" in values)
-        self.assertEqual(values["ROOT_DIR"], self.base_dir)
-        self.assertEqual(values["CONFIG_DIR"], os.path.join(self.base_dir, 'etc'))
-        self.assertEqual(values["VAR_DIR"], os.path.join(self.base_dir, 'var'))
-        self.assertEqual(values["TMP_DIR"], os.path.join(self.base_dir, 'var', 'tmp'))
-        self.assertEqual(values["CACHE_DIR"], os.path.join(self.base_dir, 'var', 'cache'))
-        self.assertEqual(values["PORT_INCREMENT_FILE"], os.path.join(self.base_dir, 'etc', 'port_increment'))
+        self.assertEqual(os.path.realpath(values["ROOT_DIR"]), os.path.realpath(self.base_dir))
+        self.assertEqual(os.path.realpath(values["CONFIG_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'etc'))
+        self.assertEqual(os.path.realpath(values["VAR_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var'))
+        self.assertEqual(os.path.realpath(values["TMP_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var', 'tmp'))
+        self.assertEqual(os.path.realpath(values["CACHE_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var', 'cache'))
+        self.assertEqual(os.path.realpath(values["PORT_INCREMENT_FILE"]), os.path.join(os.path.realpath(self.base_dir), 'etc', 'port_increment'))
 
     def test_environ_01_initialize_common_variables_02(self):
         """ Test initialize common variables with root dir"""
