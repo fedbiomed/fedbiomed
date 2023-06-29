@@ -753,7 +753,7 @@ class Job:
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reloadthe latest training replies.
         self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies')
+            saved_state.get('training_replies', [])
         )
 
     @staticmethod
@@ -792,6 +792,8 @@ class Job:
         """
 
         training_replies = {}
+        if not bkpt_training_replies:
+            logger.warning("No Replies has been found in this breakpoint")
         for round_ in range(len(bkpt_training_replies)):
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path

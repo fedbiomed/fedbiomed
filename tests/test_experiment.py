@@ -8,7 +8,7 @@ import sys
 import shutil
 import tempfile
 import unittest
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
@@ -36,8 +36,9 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.constants import __breakpoints_version__
 
 import fedbiomed.researcher.experiment
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer, NativeTorchOptimizer
 from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
@@ -1223,7 +1224,7 @@ class TestExperiment(ResearcherTestCase):
         mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
             self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
         }
-        #mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
@@ -1240,8 +1241,8 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_training_plan_class(tp)
 
         # Set default Job
-        job = self.test_exp.set_job()
-        #print("TEST", tp().optimizer(), self.test_exp._job.training_plan.optimizer())
+        self.test_exp.set_job()
+
         # Set strategy
         self.test_exp.set_strategy(None)
         # set training_args
@@ -2053,26 +2054,42 @@ class TestExperiment(ResearcherTestCase):
         self.assertFalse(loaded_exp._monitor)
         self.assertTrue(loaded_exp.secagg.active)
 
+    @patch('fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.get_model_params')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
-    def test_experiment_39_load_breakpoint_optimizer(self, patch_find_breakpoint_path):
+    def test_experiment_39_load_breakpoint_optimizer(self,
+                                                     patch_find_breakpoint_path,
+                                                     patch_upload_file,
+                                                     patch_get_model_params
+                                                     ):
         # INTEGRATION TEST:
         # TODO: find an environment so we are not forced to patch `find_breakpoint_path`
+        def get_module_list(opt: Optimizer) -> List[str]:
+            opt_modules = opt.get_state()['states']['modules']
+            return [opt_modules[x][0] for x in range(len(opt_modules))]
+
+        def get_scaffold_optimizer_aux_var(opt: Optimizer) -> List[Dict[str, torch.Tensor]]:
+            aux_var = opt.get_aux()['scaffold']
+            ordered_aux_var_names = sorted(aux_var)
+
+            aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
+            return aux_var_list
+            
         def create_breakpoint(tempfolder_path: str, file_name: str, extra_info_state: Optional[Dict] = None):
             # Prepare breakpoint data
 
             training_data = {'train_node1': {'name': 'my_first_dataset', 2: 243}}
             training_args = TrainingArgs(only_required=False)
             model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
-            training_plan_path = '/path/to/breakpoint_training_plan_file.py'
-            training_plan_class = 'ThisIsTheTrainingPlan'
+            training_plan_path = os.path.join(os.getcwd(), 'testsupport', 'base_fake_training_plan.py')
+            training_plan_class = 'BaseFakeTrainingPlan'
             round_current = 1
             experimentation_folder = 'My_experiment_folder_258'
             aggregator_params = {'aggregator_name': 'dummy-aggregator',
                                 'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18'}
             strategy_params = {'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3'}
             aggregated_params = {
-                '1': {'params_path': '/path/to/my/params_path_1.mpk'},
-                2: {'params_path': '/path/to/my/params_path_2.mpk'}
+                '1': {'params_path': os.path.join(tempfolder_path, 'params_path_1.mpk')},
             }
             job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
             secagg_state = {
@@ -2151,24 +2168,62 @@ class TestExperiment(ResearcherTestCase):
             
             state.update(extra_info_state)
             # create breakpoint file
-            
-            with open(os.path.join(tempfolder_path, tmp_path), "w") as f:
+            breakpoint_path = os.path.join(tempfolder_path, tmp_path, file_name)
+            with open(breakpoint_path, "w") as f:
                 json.dump(state, f)
-        
-        agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
-        bkpt_file = 'file_4_breakpoint'
-        extra_fields = {
-            'agg_optimizer': agg_optimizer.get_state()
-        }
 
-        with tempfile.TemporaryDirectory as tmp_path:
+        agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
+        
+        model = torch.nn.Linear(4,2)
+        model_params = dict(model.state_dict())
+        patch_get_model_params.return_value = model_params
+        # simulate a training
+        scaffold_aux_var = {
+            'scaffold':
+                {
+                    'node_1': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})},
+                    'node_2': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})}
+                }
+            } # simulate auxiliary variables (correction terms) from the nodes
+
+        agg_optimizer.set_aux(scaffold_aux_var)
+
+        uuid = 1234
+        patch_upload_file.return_value = {'file': 'http://mywebsite.io/url/to/my/training/plan'}
+        self.patcher_job.stop() # stopping job constructor patcher
+        with tempfile.TemporaryDirectory() as tmp_path:
+            bkpt_file = 'file_4_breakpoint'
+            agg_opt_path = os.path.join(tmp_path, f"optimizer_{uuid}.mpk")
+            Serializer.dump(agg_optimizer.get_state(), agg_opt_path)
+            extra_fields = {
+                'agg_optimizer': agg_opt_path
+            }
+            Serializer.dump(1234, os.path.join(tmp_path, 'params_path_1.mpk'))
             create_breakpoint(tmp_path, bkpt_file, extra_fields)
 
             # patch functions for loading breakpoint
-            patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
+            patch_find_breakpoint_path.return_value = tmp_path, bkpt_file
+            
+            reloaded_exp = Experiment.load_breakpoint(os.path.join(tmp_path, bkpt_file))
+            
+        # check 1: check that reloaded optimizer are the same before and after reloading breakpoint
+        # /!\ modules order matters !
+        self.assertListEqual(
+            get_module_list(agg_optimizer),
+            get_module_list(reloaded_exp.agg_optimizer())
+        )
 
+        # check 2: check that auxiliary variables when relaoding breakpoint
+        
+        returned_opt_aux_var = get_scaffold_optimizer_aux_var(agg_optimizer)
+        reloaded_opt_aux_var = get_scaffold_optimizer_aux_var(reloaded_exp.agg_optimizer())
+
+        for var1, var2 in zip(returned_opt_aux_var, reloaded_opt_aux_var):
+            for (k1, v1), (k2, v2) in zip(var1.items(), var2.items()):
+                self.assertTrue(torch.isclose(v1, v2).all())
+        
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
-    def test_experiment_38_static_save_aggregated_params(self,
+    def test_experiment_40_static_save_aggregated_params(self,
                                                          mock_create_unique_file_link):
         """Testing static private method of experiment for saving aggregated params"""
 
@@ -2198,7 +2253,7 @@ class TestExperiment(ResearcherTestCase):
         agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
-    def test_experiment_39_static_load_aggregated_params(self):
+    def test_experiment_41_static_load_aggregated_params(self):
         """Testing static method for loading aggregated params of Experiment"""
 
         # Test invalid type of aggregated params (should be dict)
@@ -2224,7 +2279,7 @@ class TestExperiment(ResearcherTestCase):
             result = Experiment._load_aggregated_params(agg_params)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
-    def test_experiment_40_private_create_object(self):
+    def test_experiment_42_private_create_object(self):
         """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
