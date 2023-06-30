@@ -19,7 +19,7 @@ runs:
       run: | 
         source ~/.bashrc
         conda clean -i -y
-        ./scripts/configure_conda researcher node
+        ./scripts/configure_conda researcher
         ./scripts/fedbiomed_run network
       shell: bash -l {0}
 
