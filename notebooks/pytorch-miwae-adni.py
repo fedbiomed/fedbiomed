@@ -41,7 +41,7 @@ if __name__ == '__main__':
                         help='Scenario for data splitting')
     parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local'],
                         help='Methods for the running experiment')
-    parser.add_argument('--standardization', metavar='-std', type=str, default='dynamic', choices = ['dynamic', 'static'],
+    parser.add_argument('--standardization', metavar='-std', type=str, default='dynamic', choices = ['dynamic', 'static', 'dyn_iota'],
                         help='Dynamic: the mean and std are updated during fed-miwae training. Static: the mean and std are evaluated previously to fed-miwae')
     parser.add_argument('--kind', metavar='-k', type=str, default='single', choices = ['single', 'multiple', 'both'],
                         help='Kind of imputation')
@@ -264,7 +264,7 @@ if __name__ == '__main__':
             n = Clients_data[cls].shape[0] # number of observations
             p = Clients_data[cls].shape[1] # number of features
 
-            xmiss, mask, xhat_local_std, xfull_local_std =\
+            xmiss, mask, xhat_local_std, xfull_local_std, loc_mean, loc_std =\
                  recover_data(Clients_missing[cls], Clients_data[cls])
 
             xhat_cls = np.copy(xhat_local_std)
@@ -293,7 +293,8 @@ if __name__ == '__main__':
                 if args.do_figures==True:
                     Loss_cls[cls].append(loss.item())
                     Like_cls[cls].append(likelihood)
-                    mse_train = testing_func(features,xhat_local_std, xfull_local_std, mask, encoder_cls, decoder_cls, iota_cls, d, 100)
+                    mse_train = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                                             mask=mask, encoder=encoder_cls, decoder=decoder_cls, iota=iota_cls, d=d, L=100)
                     MSE_cls[cls].append(mse_train)
                 if ep % rounds == 1:
                     print('Epoch %g' %ep)
@@ -348,7 +349,8 @@ if __name__ == '__main__':
             if args.do_figures==True:
                 Loss_tot.append(loss.item())
                 Like_tot.append(likelihood)
-                mse_train = testing_func(features,xhat_0_tot, xfull_tot, mask_tot, encoder_cen, decoder_cen, iota_cen, d, 100)
+                mse_train = testing_func(features=features,data_missing=xhat_0_tot, data_full=xfull_tot, 
+                                             mask=mask_tot, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=100)
                 MSE_tot.append(mse_train)
             if ep % rounds == 1:
                 print('Epoch %g' %ep)
@@ -379,37 +381,47 @@ if __name__ == '__main__':
     # Testing on data used during training
     for cls in range(N_cl):
         if ((fed_mean is None) and (fed_std is None)):
-            xmiss, mask, xhat_local_std, xfull_local_std =\
+            xmiss, mask, xhat_local_std, xfull_local_std, loc_mean, loc_std =\
                 recover_data(Clients_missing[cls], Clients_data[cls])
         else:
-            xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+            xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std, loc_mean, loc_std =\
                 recover_data(Clients_missing[cls], Clients_data[cls], fed_mean, fed_std)
         if method != 'Local':
-            MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L)
+            MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                               mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_local', mean=loc_mean, std=loc_std)
             save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                 Perc_missing,Perc_missing[cls],method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'local',MSE)
             if method != 'FedProx_loc':
-                MSE = testing_func(features,xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L)
+                MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
+                                   mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
+                                   idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_global', mean=fed_mean, std=fed_std)
                 save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                     Perc_missing,Perc_missing[cls],method,
                     N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                     std_training,'global',MSE)
         elif method == 'Local':
             # centralized 
-            MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                               mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_local', mean=loc_mean, std=loc_std)
             save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','local',MSE)
-            MSE = testing_func(features,xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L)
+            MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
+                               mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_global', mean=fed_mean, std=fed_std)
             save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','global',MSE)
             # local
-            MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L)
+            MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                               mask=mask, encoder=Encoders_loc[cls], decoder=Decoders_loc[cls], iota=Iota_loc[cls], d=d, L=L,
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Local_cl'+str(idx_clients[cls]), mean=loc_mean, std=loc_std)
             save_results(result_folder,Split_type,idx_clients[cls],idx_clients[cls],
                 Perc_missing[cls],Perc_missing[cls],'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,
@@ -417,43 +429,53 @@ if __name__ == '__main__':
 
     # Testing on external dataset
     if ((fed_mean is None) and (fed_std is None)):
-        xmiss, mask, xhat_local_std, xfull_local_std =\
+        xmiss, mask, xhat_local_std, xfull_local_std, loc_mean, loc_std =\
                 recover_data(data_test_missing, data_test)
     else:
-        xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std =\
+        xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std, loc_mean, loc_std =\
                 recover_data(data_test_missing, data_test, fed_mean, fed_std)
     if method != 'Local':
-        MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, encoder, decoder, iota, d, L,
-                           idx_Test_data,result_folder,method+'_local',kind,num_samples)
+        MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                           mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
+                           idx_cl=idx_Test_data,result_folder=result_folder,method=method+'_local',kind=kind,
+                           num_samples=num_samples, mean=loc_mean, std=loc_std)
         save_results(result_folder,Split_type,idx_clients,idx_Test_data,
             Perc_missing,Perc_missing_test,method,
             N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
             std_training,'local',MSE)
         if method != 'FedProx_loc':
-            MSE = testing_func(features,xhat_global_std, xfull_global_std, mask, encoder, decoder, iota, d, L,
-                           idx_Test_data,result_folder,method+'_global',kind,num_samples)
+            MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
+                               mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
+                               idx_cl=idx_Test_data,result_folder=result_folder,method=method+'_global',
+                               kind=kind,num_samples=num_samples, mean=fed_mean, std=fed_std)
             save_results(result_folder,Split_type,idx_clients,idx_Test_data,
                 Perc_missing,Perc_missing_test,method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
                 std_training,'global',MSE)
     elif method == 'Local':
         # centralized 
-        MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, encoder_cen, decoder_cen, iota_cen, d, L,
-                           idx_Test_data,result_folder,'Centralized_local',kind,num_samples)
+        MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                           mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
+                           idx_cl=idx_Test_data,result_folder=result_folder,method='Centralized_local',
+                           kind=kind,num_samples=num_samples, mean=loc_mean, std=loc_std)
         save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','local',MSE)
-        MSE = testing_func(features,xhat_global_std, xfull_global_std, mask, encoder_cen, decoder_cen, iota_cen, d, L,
-                           idx_Test_data,result_folder,'Centralized_global',kind,num_samples)
+        MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
+                           mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
+                           idx_cl=idx_Test_data,result_folder=result_folder,method='Centralized_global',
+                           kind=kind,num_samples=num_samples, mean=fed_mean, std=fed_std)
         save_results(result_folder,Split_type,sum(idx_clients),idx_Test_data,
             Perc_missing,Perc_missing_test,'Centralized',
             1,[len(xmiss_tot)],1,n_epochs_centralized,
             'Loc','global',MSE)
         # local
         for cls in range(N_cl):
-            MSE = testing_func(features,xhat_local_std, xfull_local_std, mask, Encoders_loc[cls], Decoders_loc[cls], Iota_loc[cls], d, L,
-                           idx_Test_data,result_folder,'Local_cl'+str(idx_clients[cls]),kind,num_samples)
+            MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
+                               mask=mask, encoder=Encoders_loc[cls], decoder=Decoders_loc[cls], iota=Iota_loc[cls], d=d, L=L,
+                               idx_cl=idx_Test_data,result_folder=result_folder,method='Local_cl'+str(idx_clients[cls]),
+                               kind=kind,num_samples=num_samples, mean=loc_mean, std=loc_std)
             save_results(result_folder,Split_type,idx_clients[cls],idx_Test_data,
                 Perc_missing[cls],Perc_missing_test,'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,

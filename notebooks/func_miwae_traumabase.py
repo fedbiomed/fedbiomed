@@ -171,10 +171,12 @@ def miwae_impute(encoder,decoder,iota,data,x_cat,mask,p,d,L,kind="single",num_sa
 
 #     return xm
 
-def mse(xhat,xtrue,mask): # MSE function for imputations
+def mse(xhat,xtrue,mask,normalized=False): # MSE function for imputations
     xhat = np.array(xhat)
     xtrue = np.array(xtrue)
-    return np.mean(np.power(xhat-xtrue,2)[~mask])
+    MSE = np.mean(np.power(xhat-xtrue,2)[~mask])
+    NMSE = MSE/np.mean(np.power(xtrue,2)[~mask])
+    return NMSE if normalized else MSE
 
 def miwae_loss(encoder, decoder, iota, data, xcat, mask, d, p, K):
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
@@ -240,6 +242,10 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
 
     xmiss = np.copy(data_missing)
     xmiss_cont = xmiss[:,n_cov:]
+
+    # Evaluate local mean and std of test dataset
+    mean = np.nanmean(xmiss_cont,0)
+    std = np.nanstd(xmiss_cont,0)
     
     x_cov = xmiss[:,:n_cov]
 
@@ -274,9 +280,9 @@ def recover_data(data_missing, data_full, n_cov, fed_mean = None, fed_std = None
         xfull_cont_global = standardize_data(xfull_cont, fed_mean, fed_std)
         xfull_global_std = np.concatenate((x_cov, xfull_cont_global), axis=1)
 
-        return xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std
+        return xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std, mean, std
     else:
-        return xhat_local_std, xfull_local_std
+        return xhat_local_std, xfull_local_std, mean, std
 
 def create_save_data_prediction(encoder, decoder, iota, data, n_cov, result_folder, filename, d, L, 
                                 standard = False, mean = None, std = None,kind="single",num_samples=20):
@@ -392,7 +398,8 @@ def standardize_data(data, fed_mean = None, fed_std = None):
     return data_norm
 
 def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, decoder, iota, d,L,
-                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20):
+                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20,
+                 mean = None, std = None):
 
     #features = data_full.columns.values.tolist()
     xhat = np.copy(data_missing)
@@ -413,7 +420,22 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
                                               data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,p]), 
                                               x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
                                 mask = torch.from_numpy(mask[i,:]).float().reshape([1,p]),p=p, d = d,L= L).cpu().data.numpy()[0][~mask[i,:]]
-    err = np.array([mse(xhat,xfull,mask)])
+
+    if ((mean is not None) and (std is not None)):
+        if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
+            mean, std = mean.numpy(), std.numpy()
+        xhat_destd = np.copy(xhat)
+        xhat_destd = xhat_destd*std + mean
+        xfull_destd = np.copy(xfull)
+        xfull_destd = xfull_destd*std + mean
+        err_standardized = np.array([mse(xhat,xfull,mask)])
+        err = np.array([mse(xhat_destd,xfull_destd,mask,normalized=True)])
+        normalized = True
+        print('MSE (standardized data)',err_standardized)
+        print('MSE (de-standardized data)',err)
+    else:
+        normalized = False
+        err = np.array([mse(xhat,xfull,mask)])        
 
     #xm = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),
     #                           mask = torch.from_numpy(mask).float(),p=p, d = d,L= L)
@@ -437,7 +459,14 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
                 features_i = np.array(features[ncov:])[~mask[i,:].astype(bool)]
-                multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
+                xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
+                if normalized:
+                    xfull_mask = xfull_mask*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    true_values = true_values*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    single_imp = single_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    mul_imp = mul_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                multiple_imputation_plot(result_folder,xfull_mask,
+                                         mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
 
         return float(err)
 

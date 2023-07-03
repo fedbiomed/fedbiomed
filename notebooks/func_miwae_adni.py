@@ -156,10 +156,17 @@ def miwae_impute(encoder,decoder,iota, data, mask,d,p,L,kind="single",num_sample
     else:
         return xm, xmul_gat
 
-def mse(xhat,xtrue,mask): # MSE function for imputations
+# def mse(xhat,xtrue,mask): # MSE function for imputations
+#     xhat = np.array(xhat)
+#     xtrue = np.array(xtrue)
+#     return np.mean(np.power(xhat-xtrue,2)[~mask])
+
+def mse(xhat,xtrue,mask,normalized=False): # MSE function for imputations
     xhat = np.array(xhat)
     xtrue = np.array(xtrue)
-    return np.mean(np.power(xhat-xtrue,2)[~mask])
+    MSE = np.mean(np.power(xhat-xtrue,2)[~mask])
+    NMSE = MSE/np.mean(np.power(xtrue,2)[~mask])
+    return NMSE if normalized else MSE
 
 def miwae_loss(encoder, decoder, iota, data, mask, d, p, K):
     p_z = td.Independent(td.Normal(loc=torch.zeros(d),scale=torch.ones(d)),1)
@@ -237,13 +244,14 @@ def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
         xfull_global_std = np.copy(data_full)
         xfull_global_std = (xfull_global_std - fed_mean)/fed_std
 
-        return xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std
+        return xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std, mean, std
     else:
-        return xmiss, mask, xhat_local_std, xfull_local_std
+        return xmiss, mask, xhat_local_std, xfull_local_std, mean, std
         
 
 def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota, d,L,
-                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20):
+                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20,
+                 mean = None, std = None):
 
     #features = data_full.columns.values.tolist()
     xhat = np.copy(data_missing)
@@ -256,7 +264,22 @@ def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota,
                                mask = torch.from_numpy(mask).float(),p=p, d = d,L= L)
         
     xhat[~mask] = xm.cpu().data.numpy()[~mask]
-    err = np.array([mse(xhat,xfull,mask)])
+
+    if ((mean is not None) and (std is not None)):
+        if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
+            mean, std = mean.numpy(), std.numpy()
+        xhat_destd = np.copy(xhat)
+        xhat_destd = xhat_destd*std + mean
+        xfull_destd = np.copy(xfull)
+        xfull_destd = xfull_destd*std + mean
+        err_standardized = np.array([mse(xhat,xfull,mask)])
+        err = np.array([mse(xhat_destd,xfull_destd,mask,normalized=True)])
+        normalized = True
+        print('MSE (standardized data)',err_standardized)
+        print('MSE (de-standardized data)',err)
+    else:
+        normalized = False
+        err = np.array([mse(xhat,xfull,mask)])
 
     if (kind=="single"):
         return float(err)
@@ -281,7 +304,13 @@ def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota,
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
                 features_i = np.array(features)[~mask[i,:].astype(bool)]
-                multiple_imputation_plot(result_folder,xfull[:,~mask[i,:].astype(bool)],mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
+                xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
+                if normalized:
+                    xfull_mask = xfull_mask*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    true_values = true_values*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    single_imp = single_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    mul_imp = mul_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
         return float(err)
 
 def save_results(result_folder, Split_type,Train_data,Test_data,

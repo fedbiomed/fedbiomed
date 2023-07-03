@@ -138,7 +138,7 @@ class MIWAETrainingPlan(TorchTrainingPlan):
 
             self.iota = nn.Parameter(torch.zeros(1,n_features),requires_grad=True)
 
-            if model_args['standardization']['type']=='dynamic':
+            if model_args['standardization']['type']!='static':
                 self.mean = nn.Parameter(torch.zeros(n_features,dtype=torch.float64),requires_grad=False)
                 self.std = nn.Parameter(torch.zeros(n_features,dtype=torch.float64),requires_grad=False)
                 self.size = nn.Parameter(torch.zeros(n_features,dtype=torch.float64),requires_grad=False)
@@ -221,13 +221,14 @@ class MIWAETrainingPlan(TorchTrainingPlan):
     
     def standardize_data(self,data):
         data_norm = np.copy(data)
+        loc_mean, loc_std = np.nanmean(data_norm,0), np.nanstd(data_norm,0)
         if self.std_type == 'static':
             if ((self.fed_mean is not None) and (self.fed_std is not None)):
                 print('FEDERATED STANDARDIZATION')
                 data_norm = (data_norm - self.fed_mean)/self.fed_std
             else:
                 print('LOCAL STANDARDIZATION')
-                data_norm = (data_norm - np.nanmean(data_norm,0))/np.nanstd(data_norm,0)
+                data_norm = (data_norm - loc_mean)/loc_std
         else:
             if ((torch.count_nonzero(self._model.init_params['mean'])>0) and (torch.count_nonzero(self._model.init_params['std'])>0)):
                 print('STANDARDIZATION WITH UPDATED MEAN, STD')
@@ -236,8 +237,8 @@ class MIWAETrainingPlan(TorchTrainingPlan):
             else:
                 if ((self.fed_mean is None) and (self.fed_std is None)):
                     print('LOCAL STANDARDIZATION')
-                    self.fed_mean = np.nanmean(data_norm,0)
-                    self.fed_std = np.nanstd(data_norm,0)
+                    self.fed_mean = loc_mean
+                    self.fed_std = loc_std
                 self._model.init_params['mean'] += torch.from_numpy(self.fed_mean)
                 self._model.init_params['std'] += torch.from_numpy(self.fed_std)
             data_norm = (data_norm - self.fed_mean)/self.fed_std
@@ -258,28 +259,32 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         
         self._model.init_training()
    
+        data = self.training_data_loader.dataset.dataset.inputs
         # Data standardization (only continuous varaibles will be standardized)
         if self.standardization:
-            data = self.training_data_loader.dataset.dataset.inputs
             data_std = self.standardize_data(data)
             self.training_data_loader.dataset.dataset.inputs = torch.from_numpy(data_std)
 
         # training with fed-miwae
         num_samples_observed = super().training_routine(history_monitor, node_args)
 
-        if self.std_type == 'dynamic':
+        if self.std_type != 'static':
             # impute missing data with current model
             xhat_0 = self.training_data_loader.dataset.dataset.inputs.numpy()
             xhat = np.copy(xhat_0)
-            mask = np.copy(self.training_data_loader.dataset.dataset.target.numpy())
             N = xhat.shape[0]
-
+            mask = np.copy(self.training_data_loader.dataset.dataset.target.numpy())
+            if self.std_type == 'dyn_iota':
+                np_iota = self.model().iota.detach().numpy()
             for i in range(N):
                 if (np.sum(mask[i,:])<=self.n_features-1):
-                    xhat[i,~mask[i,:].astype(bool)] = self.miwae_impute(
-                        data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,self.n_features]),
-                        mask = torch.from_numpy(mask[i,:]).float().reshape([1,self.n_features])
-                        ).numpy()[0][~mask[i,:].astype(bool)]#.cpu().data.numpy()[0][~mask[i,:]]
+                    if self.std_type == 'dynamic':
+                        xhat[i,~mask[i,:].astype(bool)] = self.miwae_impute(
+                            data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,self.n_features]),
+                            mask = torch.from_numpy(mask[i,:]).float().reshape([1,self.n_features])
+                            ).numpy()[0][~mask[i,:].astype(bool)]#.cpu().data.numpy()[0][~mask[i,:]]
+                    elif self.std_type == 'dyn_iota':
+                        xhat[i,~mask[i,:].astype(bool)] = np_iota[~mask[i,:].astype(bool).reshape([1,self.n_features])]
 
             xhat = xhat*self.fed_std + self.fed_mean
 

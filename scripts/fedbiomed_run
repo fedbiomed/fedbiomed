@@ -242,12 +242,8 @@ case $1 in
             *)
                 source ${basedir}/scripts/fedbiomed_environment network
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
-                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
                              docker-compose build restful mqtt
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
-                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
                              docker-compose up -d restful mqtt
                 ;;
         esac
