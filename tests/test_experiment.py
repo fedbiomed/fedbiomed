@@ -2074,14 +2074,17 @@ class TestExperiment(ResearcherTestCase):
 
             aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
             return aux_var_list
-            
-        def create_breakpoint(tempfolder_path: str, file_name: str, extra_info_state: Optional[Dict] = None):
+
+        def create_breakpoint(tempfolder_path: str,
+                              file_name: str,
+                              training_plan_path:str, 
+                              extra_info_state: Optional[Dict] = None):
             # Prepare breakpoint data
 
             training_data = {'train_node1': {'name': 'my_first_dataset', 2: 243}}
             training_args = TrainingArgs(only_required=False)
             model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
-            training_plan_path = os.path.join(os.getcwd(), 'testsupport', 'base_fake_training_plan.py')
+            
             training_plan_class = 'BaseFakeTrainingPlan'
             round_current = 1
             experimentation_folder = 'My_experiment_folder_258'
@@ -2138,6 +2141,10 @@ class TestExperiment(ResearcherTestCase):
 
             fake_strategy = FakeStrategy(data=training_args)
             fake_strategy._parameters = strategy_params
+            
+            # creating fake training plan
+            new_training_plan_path = os.path.join(tempfolder_path, os.path.basename(training_plan_path))
+            shutil.copy2(training_plan_path, os.path.join(tempfolder_path, new_training_plan_path))
             # breakpoint structure
             state = {
                 'breakpoint_version': str(__breakpoints_version__),
@@ -2189,25 +2196,30 @@ class TestExperiment(ResearcherTestCase):
         agg_optimizer.set_aux(scaffold_aux_var)
 
         uuid = 1234
+        
+       
         patch_upload_file.return_value = {'file': 'http://mywebsite.io/url/to/my/training/plan'}
         self.patcher_job.stop() # stopping job constructor patcher
         with tempfile.TemporaryDirectory() as tmp_path:
             bkpt_file = 'file_4_breakpoint'
             agg_opt_path = os.path.join(tmp_path, f"optimizer_{uuid}.mpk")
+            # creating here a file for saving optimizer state 
             Serializer.dump(agg_optimizer.get_state(), agg_opt_path)
             extra_fields = {
                 'agg_optimizer': agg_opt_path
             }
+            # creating a file to save aggregator state (should be removed in a future version)
             Serializer.dump(1234, os.path.join(tmp_path, 'params_path_1.mpk'))
-            create_breakpoint(tmp_path, bkpt_file, extra_fields)
-
+            
+            training_plan_path = os.path.join(os.getcwd(), 'testsupport', 'base_fake_training_plan.py')
+            create_breakpoint(tmp_path, bkpt_file, training_plan_path, extra_fields)
+            if not os.path.isfile(training_plan_path):
+                # FIXME: on CI it may be not possible to access the training plan, 
+                self.skipTest("Unable to reach trainingplan on system... skipping")
             # patch functions for loading breakpoint
             patch_find_breakpoint_path.return_value = tmp_path, bkpt_file
-            
-            with patch('os.path.isfile') as os_isfile_mock:
-                # need to patch 'os.path.isfile' so CI test is not failing
-                os_isfile_mock.return_value = True
-                reloaded_exp = Experiment.load_breakpoint(os.path.join(tmp_path, bkpt_file))
+
+            reloaded_exp = Experiment.load_breakpoint(os.path.join(tmp_path, bkpt_file))
             
         # check 1: check that reloaded optimizer are the same before and after reloading breakpoint
         # /!\ modules order matters !
