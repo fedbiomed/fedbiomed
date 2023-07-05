@@ -1204,7 +1204,7 @@ class Experiment:
             else:
                 # bad filepath
                 msg = ErrorNumbers.FB410.value + \
-                    f' `training_plan_path` : {training_plan_path} is not a same path to an existing file'
+                    f' `training_plan_path` : {training_plan_path} is not a path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:

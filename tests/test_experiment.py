@@ -2204,7 +2204,10 @@ class TestExperiment(ResearcherTestCase):
             # patch functions for loading breakpoint
             patch_find_breakpoint_path.return_value = tmp_path, bkpt_file
             
-            reloaded_exp = Experiment.load_breakpoint(os.path.join(tmp_path, bkpt_file))
+            with patch('os.path.isfile') as os_isfile_mock:
+                # need to patch 'os.path.isfile' so CI test is not failing
+                os_isfile_mock.return_value = True
+                reloaded_exp = Experiment.load_breakpoint(os.path.join(tmp_path, bkpt_file))
             
         # check 1: check that reloaded optimizer are the same before and after reloading breakpoint
         # /!\ modules order matters !
