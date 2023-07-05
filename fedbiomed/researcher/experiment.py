@@ -1391,7 +1391,7 @@ class Experiment:
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
-    @exp_exceptions
+    
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
