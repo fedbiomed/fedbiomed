@@ -2216,7 +2216,7 @@ class TestExperiment(ResearcherTestCase):
             create_breakpoint(tmp_path, bkpt_file, training_plan_path, extra_fields)
             if not os.path.isfile(training_plan_path):
                 # FIXME: on CI it may be not possible to access the training plan, 
-                self.skipTest("Unable to reach trainingplan on system... skipping")
+                self.skipTest(f"Unable to reach trainingplan on system for file {training_plan_path}... skipping")
             # patch functions for loading breakpoint
             patch_find_breakpoint_path.return_value = tmp_path, bkpt_file
 
