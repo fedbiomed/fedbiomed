@@ -2211,7 +2211,7 @@ class TestExperiment(ResearcherTestCase):
             # creating a file to save aggregator state (should be removed in a future version)
             Serializer.dump(1234, os.path.join(tmp_path, 'params_path_1.mpk'))
             
-            training_plan_path = os.path.join(os.getcwd(), 'testsupport', 'base_fake_training_plan.py')
+            training_plan_path = os.path.join('fedbiomed', 'tests', 'testsupport', 'base_fake_training_plan.py')
             create_breakpoint(tmp_path, bkpt_file, training_plan_path, extra_fields)
             if not os.path.isfile(training_plan_path):
                 # FIXME: on CI it may be not possible to access the training plan, 
