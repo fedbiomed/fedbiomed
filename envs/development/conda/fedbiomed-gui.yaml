@@ -28,8 +28,8 @@ dependencies:
   - cryptography ~=39.0
   - pyopenssl ~=23.0
   # other
-  - itk >=5.3.0,<5.4.0
   - pip:
+      - itk >=5.3.0,<5.4.0
       # sklearn
       #   + scipy >= 1.9 from conda-forge needs recent GLIBC thus causes issue 389 with many current systems
       #   + another option is to install scipy from pip which supports older GLIBC
