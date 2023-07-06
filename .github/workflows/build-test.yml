@@ -154,3 +154,4 @@ jobs:
           source ~/.bashrc
           ./scripts/fedbiomed_run network stop
         shell: bash -l {0}
+

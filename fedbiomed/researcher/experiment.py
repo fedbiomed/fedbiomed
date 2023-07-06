@@ -14,6 +14,8 @@ from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+import numpy as np
+import torch
 from declearn.model.api import Vector
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
@@ -1202,7 +1204,7 @@ class Experiment:
             else:
                 # bad filepath
                 msg = ErrorNumbers.FB410.value + \
-                    f' `training_plan_path` : {training_plan_path} is not a same path to an existing file'
+                    f' `training_plan_path` : {training_plan_path} is not a path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
@@ -1389,7 +1391,7 @@ class Experiment:
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
-    @exp_exceptions
+    
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
@@ -1574,12 +1576,18 @@ class Experiment:
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job.nodes)
 
+        # Collect auxiliary variables from the aggregates optimizer, if any.
+        optim_aux_var = self._collect_optim_aux_var()
+
         # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round_=self._round_current,
-                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
-                                                 aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=True,
-                                                 secagg_arguments=secagg_arguments)
+        self._job.start_nodes_training_round(
+            round_=self._round_current,
+            aggregator_args_thr_msg=aggr_args_thr_msg,
+            aggregator_args_thr_files=aggr_args_thr_file,
+            do_training=True,
+            secagg_arguments=secagg_arguments,
+            optim_aux_var=optim_aux_var,
+        )
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
@@ -1595,8 +1603,9 @@ class Experiment:
                 model_params=model_params
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
-            aggregated_params: Dict[str, Union['torch.tensor', 'nd.ndarray']] = \
+            aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
                 self._job.training_plan._model.unflatten(flatten_params)
+            )
 
         else:
             # aggregate models from nodes to a global model
@@ -1610,6 +1619,7 @@ class Experiment:
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
+        self._process_optim_aux_var()
         aggregated_params = self._run_agg_optimizer(aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
@@ -1643,6 +1653,41 @@ class Experiment:
 
         return 1
 
+    def _collect_optim_aux_var(
+            self,
+        ) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Collect auxiliary variables of the held Optimizer, if any."""
+        if self._agg_optimizer is None:
+            return None
+        return self._agg_optimizer.get_aux()
+
+    def _process_optim_aux_var(
+        self,
+    ) -> None:
+        """Process Optimizer auxiliary variables received during last round.
+
+        Raises:
+            FedbiomedExperimentError: if auxiliary variables were received,
+                but `agg_optimizer` is None and thus cannot process them.
+            FedbiomedOptimizerError: if the received auxiliary variables do
+                not match the expectations of the `agg_optimizer` Optimizer.
+        """
+        # Collect auxiliary variables from participating nodes' replies.
+        aux_var = self._job.extract_received_optimizer_aux_var_from_round(
+            self._round_current
+        )
+        # If an Optimizer is used, pass it the auxiliary variables (if any).
+        if self._agg_optimizer is not None:
+            self._agg_optimizer.set_aux(aux_var)
+        # If no Optimizer is used but auxiliary variables were received, raise.
+        elif aux_var:
+            raise FedbiomedExperimentError(
+                "Received auxiliary variables from 1+ node Optimizer, but "
+                "no `agg_optimizer` was set for this Experiment to process "
+                "them.\nThese variables come from the following plug-in "
+                f"modules: {set(aux_var)}."
+            )
+
     def _run_agg_optimizer(
         self,
         aggregated_params: Dict[str, T],
@@ -1659,7 +1704,7 @@ class Experiment:
             obtained by taking a SGD(-based) step over the aggregated updates.
             Otherwise, the outputs are the same as the inputs.
         """
-        # If not Optimizer is set, return the inputs.
+        # If no Optimizer is used, return the inputs.
         if self._agg_optimizer is None:
             return aggregated_params
         # Run any start-of-round routine.
@@ -1988,7 +2033,7 @@ class Experiment:
                         breakpoint_folder_path: Union[str, None] = None) -> TExperiment:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Useful if training has crashed
+        so experience can be resumed. Usefull if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
