@@ -1,4 +1,3 @@
-import nose.tools.nontrivial
 import unittest
 import tempfile
 import shutil

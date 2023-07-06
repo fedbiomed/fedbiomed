@@ -36,7 +36,7 @@ class FakeSecaggSetup:
         return self._sequence
 
     def setup(self) -> SecaggReply:
-        return NodeMessages.reply_create(
+        return NodeMessages.format_outgoing_message(
             {
                 'researcher_id': self._researcher_id,
                 'secagg_id': self._secagg_id,

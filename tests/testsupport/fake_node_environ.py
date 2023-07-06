@@ -11,6 +11,10 @@ import uuid
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __node_config_version__
+
+
+__config_version__ = __node_config_version__
 
 
 class NodeEnviron:
@@ -38,6 +42,9 @@ class NodeEnviron:
         self._values['TIMEOUT'] = 10
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f"/tmp/{node}/default_training_plans"
         self._values['TRAINING_PLANS_DIR'] = f"/tmp/{node}/registered_training_plans"
+        self._values['SECURE_AGGREGATION'] = False
+        self._values['FORCE_SECURE_AGGREGATION'] = False
+
 
         # TODO: create random directory paths like  for test_taskqueue.py
         os.makedirs(self._values['ROOT_DIR'], exist_ok=True)

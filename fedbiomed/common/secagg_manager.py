@@ -17,9 +17,9 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 _DefaultBiprimeValidator = SchemeValidator({
-    'secagg_id': { "rules" : [str] , "required": True},
-    'biprime': { "rules" : [int] , "required": True},
-    'max_keysize': { "rules" : [int] , "required": True},
+    'secagg_id': {"rules": [str], "required": True},
+    'biprime': {"rules": [int], "required": True},
+    'max_keysize': {"rules": [int], "required": True},
 })
 
 
@@ -73,12 +73,12 @@ class BaseSecaggManager(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if (len(entries) > 1):
+        if len(entries) > 1:
             errmess = f'{ErrorNumbers.FB623.value}: database table "{self._table}" is inconsistent: ' \
                       f'found {len(entries)} entries with unique secagg_id={secagg_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
-        elif (len(entries) == 1):
+        elif len(entries) == 1:
             element = entries[0]
         else:
             element = None
@@ -119,7 +119,7 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], context: str, job_id: Union[str, None]):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: Union[str, None]):
         """Add a new data entry in component secagg element database"""
 
     def _remove_generic(self, secagg_id: str) -> bool:
@@ -204,7 +204,7 @@ class SecaggServkeyManager(BaseSecaggManager):
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: str, job_id: str):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: str):
         """Add a new data entry for a context element in the servkey table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -297,7 +297,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             self,
             secagg_id: str,
             parties: List[str],
-            context: str,
+            context: Dict[str, int],
             job_id: None = None
     ) -> None:
         """Add a new data entry for a context element in the biprime table 
@@ -380,7 +380,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
             if not biprime['secagg_id']:
                 errmess = f'{ErrorNumbers.FB623.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
-                    'must be a non-empty string'
+                          'must be a non-empty string'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
@@ -429,7 +429,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             self._table.remove(self._query.secagg_id.one_of(bp_remove_ids))
         except Exception as e:
             errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
-                f'obsolete default biprimes {bp_remove_ids}: {e}'
+                      f'obsolete default biprimes {bp_remove_ids}: {e}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -450,6 +450,6 @@ class SecaggBiprimeManager(BaseSecaggManager):
                 )
             except Exception as e:
                 errmess = f'{ErrorNumbers.FB623.value}: database upsert operation failed for ' \
-                    f'default biprime {bp["secagg_id"]}: {e}'
+                          f'default biprime {bp["secagg_id"]}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)

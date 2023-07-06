@@ -4,9 +4,8 @@
 """
 Provide a way to easily to manage training arguments.
 """
-
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union, Tuple, Callable
+from typing import Any, Dict, Type, TypeVar, Union, Tuple, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -70,7 +69,7 @@ class TrainingArgs:
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
-        
+
         self._scheme = TrainingArgs.default_scheme()
 
         if not isinstance(extra_scheme, dict):
@@ -256,10 +255,53 @@ class TrainingArgs:
 
         return True
 
+    @staticmethod
+    def optional_type(typespec: Union[Type, Tuple[Type, ...]], argname: str):
+        """Utility factory function to generate functions that check for an optional type(s).
+
+        Args:
+            typespec: type specification which will be passed to the `isinstance` function
+            argname: the name of the training argument for outputting meaningful error messages
+
+        Returns:
+            type_check: a callable that takes a single argument and checks whether it is either None
+                or the required type(s)
+        """
+        @validator_decorator
+        def type_check(v):
+            if v is not None and not isinstance(v, typespec):
+                return False, f"Invalid type: {argname} must be {typespec} or None"
+            return True
+        return type_check
+
     @classmethod
     def default_scheme(cls) -> Dict:
         """
         Returns the default (base) scheme for TrainingArgs.
+
+        A summary of the semantics of each argument is given below. Please refer to the source code of this function
+        for additional information on typing and constraints.
+
+        | argument | meaning |
+        | -------- | ------- |
+        | optimizer_args | supplemental arguments for initializing the optimizer |
+        | batch_size | the number of samples in a batch |
+        | epochs | the number of epochs performed during local training on each node |
+        | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
+        | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
+        | dry_run | perform a single model update for testing on each node and correctly handle GPU execution |
+        | batch_maxnum | prematurely break after batch_maxnum model updates for each epoch (useful for testing) |
+        | test_ratio | the proportion of validation samples to total number of samples in the dataset |
+        | test_on_local_updates | toggles validation after local training |
+        | test_on_global_updates | toggles validation before local training |
+        | test_metric | metric to be used for validation |
+        | test_metric_args | supplemental arguments for the validation metric |
+        | log_interval | output a training logging entry every log_interval model updates |
+        | fedprox_mu | set the value of mu and enable FedProx correction |
+        | dp_args | arguments for Differential Privacy |
+        | share_persistent_buffers | toggle whether nodes share the full state_dict (when True) or only trainable parameters (False) in a TorchTrainingPlan |
+        | random_seed | set random seed at the beginning of each round |
+
         """
         return {
             "optimizer_args": {
@@ -309,6 +351,12 @@ class TrainingArgs:
             "dp_args": {
                 "rules": [cls._validate_dp_args], "required": True, "default": None
             },
+            "share_persistent_buffers": {
+                "rules": [bool], "required": False, "default": True
+            },
+            "random_seed": {
+                "rules": [cls.optional_type(typespec=int, argname='random_seed')], "required": True, "default": None
+            }
         }
 
     def __str__(self) -> str:

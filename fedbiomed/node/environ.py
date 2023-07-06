@@ -17,10 +17,12 @@ print(environ['NODE_ID'])
 
 """
 
+import sys
 import os
 import uuid
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
@@ -40,6 +42,11 @@ class NodeEnviron(Environ):
         """Sets config file path """
 
         return os.path.join(self._values['CONFIG_DIR'], 'config_node.ini')
+
+    def _check_config_version(self):
+        """Check if config version is compatible and set config version"""
+
+        self.check_and_set_config_file_version(__config_version__)
 
     def _set_component_specific_variables(self):
         """Initializes environment variables """
@@ -83,6 +90,15 @@ class NodeEnviron(Environ):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
+        secure_aggregation = self.from_config('security', 'secure_aggregation')
+        self._values["SECURE_AGGREGATION"] = os.getenv('SECURE_AGGREGATION',
+                                                       secure_aggregation).lower() in ('true', '1', 't', True)
+
+        force_secure_aggregation = self.from_config('security', 'force_secure_aggregation')
+        self._values["FORCE_SECURE_AGGREGATION"] = os.getenv(
+            'FORCE_SECURE_AGGREGATION',
+            force_secure_aggregation).lower() in ('true', '1', 't', True)
+
         self._values['EDITOR'] = os.getenv('EDITOR')
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
@@ -111,18 +127,17 @@ class NodeEnviron(Environ):
         self._cfg['default'] = {
             'id': node_id,
             'component': "NODE",
-            'uploads_url': uploads_url
+            'uploads_url': uploads_url,
+            'version': __config_version__
         }
 
         # Security variables
-        # Default hashing algorithm is SHA256
-        allow_default_training_plans = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True)
-        training_plan_approval = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False)
-
         self._cfg['security'] = {
             'hashing_algorithm': HashingAlgorithms.SHA256.value,
-            'allow_default_training_plans': allow_default_training_plans,
-            'training_plan_approval': training_plan_approval
+            'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
+            'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
+            'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
+            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
     def info(self):
@@ -132,6 +147,8 @@ class NodeEnviron(Environ):
         logger.info("training_plan_approval         = " + str(self._values['TRAINING_PLAN_APPROVAL']))
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
+
+sys.tracebacklimit = 3
 
 # global dictionary which contains all environment for the NODE
 environ = NodeEnviron()

@@ -1,0 +1,16 @@
+#
+# environment for fedbiomed-doc
+#
+name: fedbiomed-doc
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python==3.11
+  - pip
+  - pip:
+      - mkdocs-material ==9.1.11
+      - mkdocs-jupyter ==0.24.1
+      - mkdocs-minify-plugin ==0.6.4
+      - mkdocstrings-python ==0.10.1

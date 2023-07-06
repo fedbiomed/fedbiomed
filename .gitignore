@@ -21,6 +21,7 @@ db.sqlite3-journal
 static
 
 
+
 # MP-SDPZ
 bin/*.x
 MP-SPDZ_build
@@ -176,6 +177,9 @@ Thumbs.db #thumbnail cache on Windows
 node_modules
 .pnp
 .pnp.js
+gui/ui/.yarn
+gui/ui/.pnp.cjs
+gui/ui/.pnp.loader.mjs
 
 # testing
 coverage
@@ -417,3 +421,10 @@ data/*
 #**/config/wireguard
 
 .scannerwork
+
+
+# Docs 
+build
+public
+build-tmp
+!envs/build

@@ -6,6 +6,9 @@
 
 from typing import Dict, Union, Mapping
 
+import torch # used by typing
+import numpy # used by typing
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -30,7 +33,7 @@ class FedAverage(Aggregator):
             weights: Dict[str, float],
             *args,
             **kwargs
-    ) -> Mapping[str, Union['torch.Tensor', 'np.ndarray']]:
+    ) -> Mapping[str, Union['torch.Tensor', 'numpy.ndarray']]:
         """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
         strategy.
 
@@ -45,8 +48,10 @@ class FedAverage(Aggregator):
         Returns:
             Aggregated parameters
         """
-        model_params_processed = list()
-        weights_processed = list()
+
+        model_params_processed = []
+        weights_processed = []
+
         for node_id, params in model_params.items():
 
             if node_id not in weights:
@@ -56,7 +61,6 @@ class FedAverage(Aggregator):
                 )
 
             weight = weights[node_id]
-
             model_params_processed.append(params)
             weights_processed.append(weight)
 
@@ -66,4 +70,6 @@ class FedAverage(Aggregator):
                 f"Sample sizes received from nodes might be corrupted."
             )
 
-        return federated_averaging(model_params_processed, weights_processed)
+        agg_params = federated_averaging(model_params_processed, weights_processed)
+
+        return agg_params

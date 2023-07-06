@@ -1,20 +1,22 @@
 """ This file contains dummy Classes for unit testing. It fakes Experiment class
 (from fedbiomed.researcher.experiment)
 """
-from typing import Union, TypeVar, Type, List
+from typing import List, Optional, Type, TypeVar, Union
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.experiment import SecureAggregation
 
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
 Aggregator = TypeVar("Aggregator")
+Optimizer = TypeVar("Optimizer")
 Strategy = TypeVar("Strategy")
 Type_TrainingPlan = TypeVar("Type_TrainingPlan")
 TrainingPlan = TypeVar("TrainingPlan")
 _E = TypeVar("Experiment")
 
-class ExperimentMock():
+
+class ExperimentMock:
     """Provides an interface that behave like the Experiment,
     for a subset of methods
     """
@@ -24,6 +26,7 @@ class ExperimentMock():
                 nodes: Union[List[str], None] = None,
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+                agg_optimizer: Optional[Optimizer] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 round_limit: Union[int, None] = None,
                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
@@ -32,7 +35,8 @@ class ExperimentMock():
                 training_args: dict = {},
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
-                experimentation_folder: Union[str, None] = None
+                experimentation_folder: Union[str, None] = None,
+                secagg: Union[bool, SecureAggregation] = False,
                 ):
         """ Constructor of the class.
 
@@ -42,6 +46,7 @@ class ExperimentMock():
         self._nodes = nodes
         self._fds = training_data
         self._aggregator = aggregator
+        self._agg_optimizer = agg_optimizer
         self._node_selection_strategy = node_selection_strategy
         self._round_current = 0
         self._round_limit = round_limit
@@ -59,7 +64,7 @@ class ExperimentMock():
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
         self._monitor = tensorboard # minimal
-
+        self._secagg = secagg
 
     def _set_round_current(self, round_current: int) -> int:
         """Set `round_current` in mocked class

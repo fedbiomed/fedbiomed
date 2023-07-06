@@ -9,23 +9,28 @@ import sys
 import json
 import inspect
 import traceback
+import uuid
 from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+import numpy as np
+import torch
+from declearn.model.api import Vector
 from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, __breakpoints_version__
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.utils import is_ipython
+from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -37,11 +42,11 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
+from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
-_E = TypeVar("Experiment")  # only for typing
+TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
@@ -49,6 +54,7 @@ training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
 # for typing only
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+T = TypeVar("T")
 
 
 # Exception handling at top lever for researcher
@@ -115,30 +121,30 @@ def exp_exceptions(function):
 
 # Experiment
 
-class Experiment(object):
+class Experiment:
     """
     This class represents the orchestrator managing the federated training
     """
 
     @exp_exceptions
-    def __init__(self,
-                 tags: Union[List[str], str, None] = None,
-                 nodes: Union[List[str], None] = None,
-                 training_data: Union[FederatedDataSet, dict, None] = None,
-                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-                 round_limit: Union[int, None] = None,
-                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-                 training_plan_path: Union[str, None] = None,
-                 model_args: dict = {},
-                 training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
-                 save_breakpoints: bool = False,
-                 tensorboard: bool = False,
-                 experimentation_folder: Union[str, None] = None,
-                 use_secagg: bool = False,
-                 secagg_timeout: float = 0
-                 ):
-
+    def __init__(
+        self,
+        tags: Union[List[str], str, None] = None,
+        nodes: Union[List[str], None] = None,
+        training_data: Union[FederatedDataSet, dict, None] = None,
+        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+        agg_optimizer: Optional[Optimizer] = None,
+        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+        round_limit: Union[int, None] = None,
+        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_path: Union[str, None] = None,
+        model_args: dict = {},
+        training_args: Union[TrainingArgs, dict, None] = None,
+        save_breakpoints: bool = False,
+        tensorboard: bool = False,
+        experimentation_folder: Union[str, None] = None,
+        secagg: Union[bool, SecureAggregation] = False,
+    ) -> None:
         """Constructor of the class.
 
         Args:
@@ -160,6 +166,8 @@ class Experiment(object):
                 to None else)
             aggregator: object or class defining the method for aggregating local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
+            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
+                model updates prior to their application. If None, merely apply the aggregated updates.
             node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
                 non-responding nodes are managed.  Defaults to None:
                 - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
@@ -194,12 +202,8 @@ class Experiment(object):
                 experimentation by `load_breakpoint`
                 - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
-            use_secagg: whether to setup a secure aggregation context for this experiment, and use it
+            secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-            secagg_timeout: when `use_secagg` is `True`, maximum time waiting for answers from other nodes for each
-                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
-                plus the local setup payload execution time for server key and biprime.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
         """
 
         # predefine all class variables, so no need to write try/except
@@ -214,32 +218,20 @@ class Experiment(object):
         self._node_selection_strategy = None
         self._tags = None
         self._monitor = None
+
         self._experimentation_folder = None
         self.aggregator_args = {}
         self._aggregator = None
         self._global_model = None
+        self._agg_optimizer = None  # type: Optional[Optimizer]
 
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
         self._server_state = None
+        self._secagg = None
 
-#        training_data: Union[FederatedDataSet, dict, None] = None,
-#        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-#        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-#        model_class: Union[Type_TrainingPlan, str, None] = None,
-#        model_args: dict = {},
-#        training_args: dict = {},
-#        save_breakpoints: bool = False,
-#        tensorboard: bool = False,
-#        experimentation_folder: Union[str, None] = None
-
-        self._use_secagg = False
-        self._secagg_servkey = None
-        self._secagg_biprime = None
-
-
-        #        use_secagg: bool = False,
-        #        secagg_timeout: float = 0
+        # set self._secagg
+        self.set_secagg(secagg)
 
         # set self._tags and self._nodes
         self.set_tags(tags)
@@ -257,6 +249,9 @@ class Experiment(object):
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
+
+        # set self._agg_optimizer: type Optional[Optimizer]
+        self.set_agg_optimizer(agg_optimizer)
 
         # set self._node_selection_strategy: type Union[Strategy, None]
         self.set_strategy(node_selection_strategy)
@@ -292,8 +287,6 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
-        self.set_use_secagg(use_secagg, secagg_timeout)
-
     # destructor
     @exp_exceptions
     def __del__(self):
@@ -307,6 +300,15 @@ class Experiment(object):
 
         if self._monitor is not None and self._monitor is not False and self._monitor is not True:
             self._monitor.close_writer()
+
+    @property
+    def secagg(self) -> SecureAggregation:
+        """Gets secagg object `SecureAggregation`
+
+        Returns:
+            Secure aggregation object.
+        """
+        return self._secagg
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
@@ -345,7 +347,7 @@ class Experiment(object):
 
     @exp_exceptions
     def aggregator(self) -> Aggregator:
-        """ Retrieves aggregator class that will be used for aggregating model parameters.
+        """Retrieves aggregator class that will be used for aggregating model parameters.
 
         To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.experiment.Experiment.set_aggregator].
 
@@ -354,6 +356,19 @@ class Experiment(object):
 
         """
         return self._aggregator
+
+    @exp_exceptions
+    def agg_optimizer(self) -> Optional[Optimizer]:
+        """Retrieves the optional Optimizer used to refine aggregated model updates.
+
+        To set or update that optimizer:
+        [`set_agg_optimizer`][fedbiomed.researcher.experiment.Experiment.set_agg_optimizer].
+
+        Returns:
+            An [Optimizer][fedbiomed.common.optimizers.Optimizer] instance,
+            or None.
+        """
+        return self._agg_optimizer
 
     @exp_exceptions
     def strategy(self) -> Union[Strategy, None]:
@@ -625,29 +640,6 @@ class Experiment(object):
         else:
             return self._job.training_plan
 
-    @exp_exceptions
-    def use_secagg(self) -> bool:
-        """Retrieves the status of whether secure aggregation will be used for next rounds.
-
-        Please see also[`set_use_secagg`]
-        [fedbiomed.researcher.experiment.Experiment.set_use_secagg]
-
-        Returns:
-            True if secure aggregation will be used for next rounds.
-        """
-
-        return self._use_secagg
-
-    @exp_exceptions
-    def secagg_context(self) -> Tuple[Union[SecaggServkeyContext, None], Union[SecaggBiprimeContext, None]]:
-        """Retrieves the secure aggregation context of the experiment.
-
-        Returns:
-            a tuple of the server key secagg component (or None if it doesn't exist), and the
-                biprime secagg component (or None if it doesn't exist).
-        """
-
-        return self._secagg_servkey, self._secagg_biprime
 
     # a specific getter-like
     @exp_exceptions
@@ -698,8 +690,7 @@ class Experiment(object):
                 self._experimentation_folder,
                 self.experimentation_path(),
                 self._save_breakpoints,
-                f'- Using: {self._use_secagg}\n- Server key context: {self._secagg_servkey}\n' \
-                f'- Biprime context: {self._secagg_biprime}'
+                f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
             ]
             ]
         }
@@ -868,8 +859,6 @@ class Experiment(object):
             logger.debug('Training data changed, you may need to update `job`')
         if self._aggregator is not None:
             logger.debug('Training data changed, you may need to update `aggregator`')
-        if self._secagg_servkey is not None or self._secagg_biprime is not None:
-            logger.debug('Training data changed, you may need to update `use_secagg`')
 
         return self._fds
 
@@ -915,6 +904,35 @@ class Experiment(object):
             self._aggregator.set_fds(self._fds)
 
         return self._aggregator
+
+    @exp_exceptions
+    def set_agg_optimizer(
+        self,
+        agg_optimizer: Optional[Optimizer],
+    ) -> Optional[Optimizer]:
+        """Sets the optional researcher optimizer.
+
+        Args:
+            agg_optimizer: Optional fedbiomed Optimizer instance to be
+                used so as to refine aggregated updates prior to applying them.
+                If None, equivalent to using vanilla SGD with 1.0 learning rate.
+
+        Returns:
+            The optional researcher optimizer attached to this Experiment.
+
+        Raises:
+            FedbiomedExperimentError: if `optimizer` is of unproper type.
+        """
+        if not (
+            agg_optimizer is None
+            or isinstance(agg_optimizer, Optimizer)
+        ):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: 'agg_optimizer' must be an "
+                f"Optimizer instance or None, not {type(agg_optimizer)}."
+            )
+        self._agg_optimizer = agg_optimizer
+        return self._agg_optimizer
 
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
@@ -1186,12 +1204,13 @@ class Experiment(object):
             else:
                 # bad filepath
                 msg = ErrorNumbers.FB410.value + \
-                    f' `training_plan_path` : {training_plan_path} is not a same path to an existing file'
+                    f' `training_plan_path` : {training_plan_path} is not a path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_plan_path` must be string, but got type: {type(training_plan_path)}'
+            msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
+                                             f'but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1259,6 +1278,9 @@ class Experiment(object):
             self._training_args = deepcopy(training_args)
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
+        # Propagate training arguments to job
+        if self._job is not None:
+            self._job.training_args = self._training_args
 
         return self._training_args.dict()
 
@@ -1369,7 +1391,7 @@ class Experiment(object):
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
-    @exp_exceptions
+    
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
@@ -1386,8 +1408,6 @@ class Experiment(object):
             # a job is already defined, and it may also have run some rounds
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
-            # note:
-            # if self._secagg_servkey != None, then it should be redefined
 
         if self._training_plan_is_defined is not True:
             # training plan not properly defined yet
@@ -1463,67 +1483,20 @@ class Experiment(object):
 
         return self._tensorboard
 
-    # TODO: add setters for secagg context elements
-
     @exp_exceptions
-    def set_use_secagg(self, use_secagg: bool = False, timeout: float = 0) -> bool:
-        """Sets use of secure aggregation and create secure aggregation context if it doesn't exist.
+    def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
-        Args:
-            use_secagg: if `True` sets secure aggregation to be used for next rounds and
-                establish secagg context if it doesn't exist
-            timeout:  maximum time waiting for answers from other nodes for each
-                secagg context element (server key and biprime). Thus total secagg setup is at most twice the `timeout`,
-                plus the local setup payload execution time for server key and biprime.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
-
-        Returns:
-            `True` if secure aggregation context could be established
-
-        Raises:
-            FedbiomedExperimentError : Bad argument type
-        """
-        if not isinstance(use_secagg, bool):
-            msg = ErrorNumbers.FB410.value + f' `use_secagg` : {type(use_secagg)}'
+        if isinstance(secagg, bool):
+            self._secagg = SecureAggregation(active=secagg, timeout=10)
+        elif isinstance(secagg, SecureAggregation):
+            self._secagg = secagg
+        else:
+            msg = f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
+                  f"but got {type(secagg)}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        if isinstance(timeout, int):
-            timeout = float(timeout)    # accept int (and bool...)
-        if not isinstance(timeout, float):
-            errmess = f'{ErrorNumbers.FB410.value}: `timeout` : {type(timeout)}'
-            logger.error(errmess)
-            raise FedbiomedExperimentError(errmess)
 
-        # at this point _fds variable exist
-        if use_secagg:
-            # TODO: extend to support non-default strategy with a changing set of selected nodes
-            # using self._node_selection_strategy.sample_nodes(self._round_current)
-            if self._fds:
-                node_parties = self._fds.node_ids()
-            else:
-                node_parties = []
-            parties = [environ['RESEARCHER_ID']] + node_parties
-
-            if not self._secagg_servkey:
-                # a secagg servkey element must be attached to a job_id
-                if self._job:
-                    self._secagg_servkey = SecaggServkeyContext(parties, self._job.id)
-            if self._secagg_servkey and not self._secagg_servkey.status:
-                self._secagg_servkey.setup(timeout)
-            if not self._secagg_biprime:
-                # TODO: support other options than using `default_biprime0`
-                self._secagg_biprime = SecaggBiprimeContext(parties, 'default_biprime0')
-            if not self._secagg_biprime.status:
-                self._secagg_biprime.setup(timeout)
-            if self._secagg_servkey and self._secagg_servkey.status and self._secagg_biprime.status:
-                self._use_secagg = True
-                logger.warning("SECURE AGGREGATION NOT IMPLEMENTED YET, DO NOTHING")
-            else:
-                logger.debug('Experiment not fully configured yet: no secure aggregation')
-        else:
-            self._use_secagg = use_secagg
-
-        return self._use_secagg
+        return self._secagg
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
@@ -1550,7 +1523,7 @@ class Experiment(object):
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run_once` param `increase` : type {type(increase)}'
+                  f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1580,42 +1553,74 @@ class Experiment(object):
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
-            self._global_model = self._job.training_plan.get_model_params()  # initial server state, before optimization/aggregation
+            self._global_model = self._job.training_plan.get_model_params()
+            # initial server state, before optimization/aggregation
 
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
-        # check aggregator parameter(s) before starting a round
+        # If secure aggregation is activated ---------------------------------------------------------------------
+        secagg_arguments = None
+        if self._secagg.active:
+            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
+                               job_id=self._job.id)
+            secagg_arguments = self._secagg.train_arguments()
+        # --------------------------------------------------------------------------------------------------------
+
+        # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                        self._job._nodes)
+                                                                                        self._job.nodes)
+
+        # Collect auxiliary variables from the aggregates optimizer, if any.
+        optim_aux_var = self._collect_optim_aux_var()
 
         # Trigger training round on sampled nodes
-        _ = self._job.start_nodes_training_round(round=self._round_current,
-                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
-                                                 aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=True)
+        self._job.start_nodes_training_round(
+            round_=self._round_current,
+            aggregator_args_thr_msg=aggr_args_thr_msg,
+            aggregator_args_thr_files=aggr_args_thr_file,
+            do_training=True,
+            secagg_arguments=secagg_arguments,
+            optim_aux_var=optim_aux_var,
+        )
 
         # refining/normalizing model weights received from nodes
-        model_params, weights = self._node_selection_strategy.refine(
+        model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
+        if self._secagg.active:
+            flatten_params = self._secagg.aggregate(
+                round_=self._round_current,
+                encryption_factors=encryption_factors,
+                total_sample_size=total_sample_size,
+                model_params=model_params
+            )
+            # FIXME: Access TorchModel through non-private getter once it is implemented
+            aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
+                self._job.training_plan._model.unflatten(flatten_params)
+            )
 
-        # aggregate models from nodes to a global model
-        aggregated_params = self._aggregator.aggregate(model_params,
-                                                       weights,
-                                                       global_model = self._global_model,
-                                                       training_plan=self._job.training_plan,
-                                                       training_replies=self._job.training_replies,
-                                                       node_ids=self._job.nodes,
-                                                       n_updates=self._training_args.get('num_updates'),
-                                                       n_round=self._round_current)
+        else:
+            # aggregate models from nodes to a global model
+            aggregated_params = self._aggregator.aggregate(model_params,
+                                                           weights,
+                                                           global_model=self._global_model,
+                                                           training_plan=self._job.training_plan,
+                                                           training_replies=self._job.training_replies,
+                                                           node_ids=self._job.nodes,
+                                                           n_updates=self._training_args.get('num_updates'),
+                                                           n_round=self._round_current)
+
+        # Optionally refine the aggregated updates using an Optimizer.
+        self._process_optim_aux_var()
+        aggregated_params = self._run_agg_optimizer(aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
@@ -1640,13 +1645,90 @@ class Experiment(object):
         if test_after:
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            self._job._nodes)
-            self._job.start_nodes_training_round(round=self._round_current,
+                                                                                            self._job.nodes)
+            self._job.start_nodes_training_round(round_=self._round_current,
                                                  aggregator_args_thr_msg=aggr_args_thr_msg,
                                                  aggregator_args_thr_files=aggr_args_thr_file,
                                                  do_training=False)
 
         return 1
+
+    def _collect_optim_aux_var(
+            self,
+        ) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Collect auxiliary variables of the held Optimizer, if any."""
+        if self._agg_optimizer is None:
+            return None
+        return self._agg_optimizer.get_aux()
+
+    def _process_optim_aux_var(
+        self,
+    ) -> None:
+        """Process Optimizer auxiliary variables received during last round.
+
+        Raises:
+            FedbiomedExperimentError: if auxiliary variables were received,
+                but `agg_optimizer` is None and thus cannot process them.
+            FedbiomedOptimizerError: if the received auxiliary variables do
+                not match the expectations of the `agg_optimizer` Optimizer.
+        """
+        # Collect auxiliary variables from participating nodes' replies.
+        aux_var = self._job.extract_received_optimizer_aux_var_from_round(
+            self._round_current
+        )
+        # If an Optimizer is used, pass it the auxiliary variables (if any).
+        if self._agg_optimizer is not None:
+            self._agg_optimizer.set_aux(aux_var)
+        # If no Optimizer is used but auxiliary variables were received, raise.
+        elif aux_var:
+            raise FedbiomedExperimentError(
+                "Received auxiliary variables from 1+ node Optimizer, but "
+                "no `agg_optimizer` was set for this Experiment to process "
+                "them.\nThese variables come from the following plug-in "
+                f"modules: {set(aux_var)}."
+            )
+
+    def _run_agg_optimizer(
+        self,
+        aggregated_params: Dict[str, T],
+    ) -> Dict[str, T]:
+        """Optionally refine aggregated parameters into model updates.
+
+        Args:
+            aggregated_params: `Aggregator`-output model weights, equal
+                to $$\\theta^t - aggregate(\\{\\theta_i^{t+1}\\}_{i=1}^I)$$.
+
+        Returns:
+            Updated model weights that should be used to replace the current
+            `self._global_model`. If a researcher optimizer is set, they are
+            obtained by taking a SGD(-based) step over the aggregated updates.
+            Otherwise, the outputs are the same as the inputs.
+        """
+        # If no Optimizer is used, return the inputs.
+        if self._agg_optimizer is None:
+            return aggregated_params
+        # Run any start-of-round routine.
+        self._agg_optimizer.init_round()
+        # Recover the aggregated model updates, wrapped as a Vector.
+        # Optionally restrict weights that require updating to non-frozen ones.
+        # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
+        # hence aggregated_params = w^t - agg(updates_i)
+        # hence agg_gradients = agg_i(updates_i)
+        names = set(
+            self._job.training_plan.get_model_params(only_trainable=True)
+        )
+        init_params = Vector.build(
+            {k: v for k, v in self._global_model.items() if k in names}
+        )
+        agg_gradients = init_params - Vector.build(
+            {k: v for k, v in aggregated_params.items() if k in names}
+        )
+        # Take an Optimizer step to compute the updates.
+        # When using vanilla SGD: agg_updates = - lrate * agg_gradients
+        agg_updates = self._agg_optimizer.step(agg_gradients, init_params)
+        # Return the model weights' new values after this step.
+        weights = (init_params + agg_updates).coefs
+        return {k: weights.get(k, v) for k, v in aggregated_params.items()}
 
     @exp_exceptions
     def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:
@@ -1831,7 +1913,7 @@ class Experiment(object):
         if self._job is None:
             # cannot check training plan status if job not defined
             msg = ErrorNumbers.FB412.value + \
-                ', in method `check_training_plan_status` : no `job` defined for experiment'
+                  ', in method `check_training_plan_status` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1852,6 +1934,7 @@ class Experiment(object):
           - tags
           - experimentation_folder
           - aggregator
+          - agg_optimizer
           - node_selection_strategy
           - training_data
           - training_args
@@ -1860,9 +1943,7 @@ class Experiment(object):
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
-          - use_secagg
-          - secagg_servkey
-          - secagg_biprime
+          - secagg
 
         Raises:
             FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
@@ -1898,17 +1979,8 @@ class Experiment(object):
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
-        # prepare secagg contexts for saving
-        if isinstance(self._secagg_servkey, SecaggContext):
-            secagg_servkey = self._secagg_servkey.save_state()
-        else:
-            secagg_servkey = None
-        if isinstance(self._secagg_biprime, SecaggContext):
-            secagg_biprime = self._secagg_biprime.save_state()
-        else:
-            secagg_biprime = None
-
         state = {
+            'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
@@ -1920,15 +1992,14 @@ class Experiment(object):
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path),  # job state
-            'use_secagg': self._use_secagg,
-            'secagg_servkey': secagg_servkey,
-            'secagg_biprime': secagg_biprime
+            'secagg': self._secagg.save_state()
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1958,11 +2029,11 @@ class Experiment(object):
 
     @classmethod
     @exp_exceptions
-    def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder_path: Union[str, None] = None) -> _E:
+    def load_breakpoint(cls: Type[TExperiment],
+                        breakpoint_folder_path: Union[str, None] = None) -> TExperiment:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Useful if training has crashed
+        so experience can be resumed. Usefull if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
@@ -1972,8 +2043,8 @@ class Experiment(object):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()` method to pursue model
-                training.
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+                method to pursue model training.
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
@@ -2012,21 +2083,26 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
+        # First, check version of breakpoints
+        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
+        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
+                                        f"{ErrorNumbers.FB413.value}: Breakpoint file was generated with version %s "
+                                        f"which is incompatible with the current version %s.")
+
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
         bkpt_fds = FederatedDataSet(bkpt_fds)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
-
+        # retrieve breakpoint researcher optimizer
+        bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
 
         # initializing experiment
-
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
                          training_data=bkpt_fds,
-                        # aggregator=bkpt_aggregator,
+                         agg_optimizer=bkpt_optim,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
                          training_plan_class=saved_state.get("training_plan_class"),
@@ -2034,8 +2110,8 @@ class Experiment(object):
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
-                         experimentation_folder=saved_state.get('experimentation_folder')
-                         )
+                         experimentation_folder=saved_state.get('experimentation_folder'),
+                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
@@ -2058,32 +2134,11 @@ class Experiment(object):
         # retrieve and change federator
         bkpt_aggregator_args = saved_state.get("aggregator")
 
-        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan= training_plan)
+        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
-
-
-        # nota: exceptions should be handled in Job, when refactoring it
-
-        # changing secagg attributes
-        bkpt_secagg_servkey_args = saved_state.get("secagg_servkey")
-        if bkpt_secagg_servkey_args:
-            loaded_exp._secagg_servkey = cls._create_object(
-                bkpt_secagg_servkey_args,
-                parties = bkpt_secagg_servkey_args['parties'],
-                job_id = bkpt_secagg_servkey_args['job_id']
-            )
-
-        bkpt_secagg_biprime_args = saved_state.get("secagg_biprime")
-        if bkpt_secagg_biprime_args:
-            loaded_exp._secagg_biprime = cls._create_object(
-                bkpt_secagg_biprime_args,
-                parties = bkpt_secagg_biprime_args['parties']
-            )
-
-        loaded_exp._use_secagg = saved_state.get('use_secagg')
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -2169,6 +2224,44 @@ class Experiment(object):
             aggreg['params'] = Serializer.load(aggreg['params_path'])
 
         return aggregated_params
+
+    @exp_exceptions
+    def _save_optimizer(self, breakpoint_path: str) -> Optional[str]:
+        """Save the researcher-side Optimizer attached to this Experiment.
+
+        Args:
+            breakpoint_path: Path to the breakpoint folder.
+
+        Returns:
+            Path to the optimizer's save file, or None if no Optimizer is used.
+        """
+        # Case when no researcher optimizer is used.
+        if self._agg_optimizer is None:
+            return None
+        # Case when an Optimizer is used: save its state and return the path.
+        state = self._agg_optimizer.get_state()
+        path = os.path.join(breakpoint_path, f"optimizer_{uuid.uuid4()}.mpk")
+        Serializer.dump(state, path)
+        return path
+
+    @staticmethod
+    @exp_exceptions
+    def _load_optimizer(state_path: Optional[str]) -> Optional[Optimizer]:
+        """Load an optional researcher-side Optimizer from a breakpoint path.
+
+        Args:
+            state_path: Optional path to a breakpoint-attached Optimizer state
+                dump file.
+
+        Returns:
+            Optimizer instantiated from the provided state file, or None.
+        """
+        # Case when no researcher optimizer is used.
+        if state_path is None:
+            return None
+        # Case when an Optimizer is used: de-serialize its state and load it.
+        state = Serializer.load(state_path)
+        return Optimizer.load_state(state)
 
     # TODO: factorize code with Job and node
     @staticmethod

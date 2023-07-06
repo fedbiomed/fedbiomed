@@ -9,6 +9,10 @@ import shutil
 import uuid
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import __researcher_config_version__
+
+
+__config_version__ = __researcher_config_version__
 
 
 class ResearcherEnviron:

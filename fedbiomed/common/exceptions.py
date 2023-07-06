@@ -279,3 +279,19 @@ class FedbiomedMPCControllerError(FedbiomedError):
     pass
 
 
+class FedbiomedSecaggCrypterError(FedbiomedError):
+    """
+    Secure aggregation encryption error
+    """
+
+
+class FedbiomedSecureAggregationError(FedbiomedError):
+    """
+    Secure aggregation error
+    """
+
+
+class FedbiomedVersionError(FedbiomedError):
+    """
+    Error in the versions of one of Fed-BioMed's components
+    """

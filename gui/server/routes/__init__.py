@@ -14,6 +14,7 @@ def before_api_request():
     except Exception as e:
         return error('Invalid token'), 401
 
+
 # Uses api/ prefix for API endpoints
 from .authentication import *
 from .config import *

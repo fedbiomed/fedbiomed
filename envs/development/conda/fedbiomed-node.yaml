@@ -10,54 +10,54 @@ channels:
 
 dependencies:
   # minimal environment
-  - python >=3.9,<3.10
-  - pip
-  - jupyter
-  - ipython
+  # python 3.11 recently released 2022-11 and not yet supported by some deps including: torchvision
+  - python >=3.10,<3.11
+  - pip >= 23.0
+  # ipython currently used by febiomed.common.utils
+  - ipython ~=8.13.2
   # tests
-  - pytest >6.2.2
-  - tinydb >=4.4.0,<5.0.0
-  - tabulate >=0.8.9,<0.9.0
+  - pytest ~=7.2.0
+  - pytest-cov ~=4.1.0
+  - tinydb ~=4.7.1
+  - tabulate >=0.9.0,<0.10.0
   # code
-  - GitPython >=3.1.14,<4.0.0
-  - requests >=2.25.1,<3.0.0
-  - paho-mqtt >=1.5.1,<2.0.0
-  - validators >=0.18.2,<0.19.0
-  - tqdm >=4.59.0,<5.0.0
-  - git
+  - requests ~=2.29.0
+  - paho-mqtt ~=1.6.1
+  - validators >=0.20.0,<0.21.0
+  - git ~=2.40.1
+  - packaging ~=23.1
   # these two have to be aligned
-  - cryptography ~=39.0
-  - pyopenssl ~=23.0
-  # git notebook striper
-  - nbstripout
-  - joblib >=1.0.1
-  # sklearn
-  #   scipy >= 1.9 from conda-forge needs recent GLIBC thus causes issue 389
-  #   with many current systems
-  #   another option is to install scipy from pip
-  - scipy >=1.8.0,<1.9.0
-  - scikit-learn >=1.0.0,<1.1.0
+  - cryptography ~=40.0.0
+  - pyopenssl ~=23.1.1
+  #
+  - joblib >=1.2.0,<1.3.0
   # other
-  - itk
-  # nn
   - pip:
+      # no itk available from conda for macosx-m1
+      - itk >=5.3.0,<5.4.0
+      # sklearn
+      #   + scipy >= 1.9 from conda-forge needs recent GLIBC thus causes issue 389 with many current systems
+      #   + another option is to install scipy from pip which supports older GLIBC
+      - scipy >=1.10.0,<1.11.0
+      - scikit-learn >=1.2.0,<1.3.0
       # nn
-      - torch >=1.8.0,<2.0.0
-      - torchvision >=0.9.0,<0.15.0
-      - opacus >=1.2.0,<1.3.0
-      - monai >=1.0.0,<1.1.0
+      # torch 2.x recently released (2023-03) and not yet supported by some deps including: opacus, declearn
+      - torch ~=1.13.0
+      - torchvision >=0.14.0,<0.15.0
+      - opacus >=1.4.0,<1.5.0
+      - monai >=1.1.0,<1.2.0
       # other
       - msgpack ~=1.0
       - persist-queue >=0.5.1,<0.6.0
       - pytorch-ignite >=0.4.4,<0.5.0
-      - pandas >=1.2.3,<2.0.0
-      - openpyxl >= 3.0.9,<3.1
-      - JSON-log-formatter
-      - python-minifier ==2.5.0
+      # pandas 2.x recently released (2023-04) but few breaking changes
+      - pandas ~=2.0.1
+      - python-minifier ~=2.5.0
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
-      - declearn[torch] ~= 2.1.0
+      - declearn[torch] ~=2.1.0
+      - gmpy2 >=2.1,< 2.2
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
-      - unet == 0.7.7
+      - unet >=0.7.7,<0.8.0

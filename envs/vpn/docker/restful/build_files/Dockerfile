@@ -1,31 +1,23 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with mosquitto image
-# - may need update for properly compiling boringtun (eg: cargo build of package failing on `buster-slim`)
-FROM python:3.9-alpine as builder
+# - may need update for properly compiling boringtun
+FROM python:3.10-alpine3.18 as builder
 
-RUN apk update && apk add git alpine-sdk linux-headers
+RUN apk update && apk add git alpine-sdk linux-headers cargo
 
 # install boringtun userspace implementation of wireguard
 # 
-# - match versions of alpine & boringtun : 0.4.0 is now supported by bullseye with current system/cargo packages
-#   0.5.2 not yet supported
-# - glitch: alpine's apk cargo is too old vs boringtun's cargo packages dependencies, need to install
-#   up to date rust/cargo
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
-    cargo install --locked --bin boringtun --version ~0.4.0 boringtun
+# - match versions of debian & boringtun : up to date 0.5.2 compiles ok for bullseye, but could not have it working
+#   Continue with 0.4.0
+RUN cargo install --locked --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
-ENV WITH_WGQUICK=yes
-RUN git clone https://git.zx2c4.com/wireguard-tools && \
-    make -C wireguard-tools/src && \
-    make -C wireguard-tools/src install
-
-
+RUN apk add wireguard-tools
 
 #
 # docker image for restful server
 #
-FROM python:3.9-alpine
+FROM python:3.10-alpine3.18
 ENV PYTHONUNBUFFERED 1
 
 ARG CONTAINER_GID

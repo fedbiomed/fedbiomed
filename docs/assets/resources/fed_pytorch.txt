@@ -1,0 +1,31 @@
+from fedbiomed.common.training_plans import TorchTrainingPlan
+
+
+class MyRemoteTrainingPlan(TorchTrainingPlan): 
+
+    def init_model(self):
+        # Return model defined by user
+        return Net()
+
+    def init_optimizer(self):
+        return torch.optim.SGD(self.model().parameters(), lr=0.001)
+
+    def init_dependencies(self):
+        # Adds Pytorch dependencies
+        deps = ["from torchvision import datasets, transforms",
+               "from torch.utils.data import DataLoader"]
+        return deps
+
+    class Net(nn.Module):
+        def __init__():
+            super().__init__()
+             # Define your model here
+
+        def forward(self, x):
+            # Implement model forward pass
+
+    def training_step(self, data, target):
+        # define cost function
+
+    def training_data(self, batch_size = 48):
+        # define a Pytorch DataLoader

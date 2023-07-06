@@ -14,6 +14,8 @@ x-node:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
+      - MPSPDZ_COMMIT
+      - MPSPDZ_URL
   image: fedbiomed/vpn-node
   environment:
   # enable overloading build-time id with a run-time id
@@ -21,6 +23,8 @@ x-node:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14001" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module
@@ -39,14 +43,10 @@ x-node2:
   &standard-node2
   container_name: fedbiomed-vpn-node2
   hostname: fedbiomed-vpn-node2
-  build:
-    context: ../../..
-    dockerfile: envs/vpn/docker/node/build_files/Dockerfile
-    args:
-      - CONTAINER_UID
-      - CONTAINER_GID
-      - CONTAINER_USER
-      - CONTAINER_GROUP
+  # dont build images as they are the same as for `node`
+  # this might re-build the same image but with different IMAGE ID
+  # eg: `fedbiomed_vpn status` then fails, etc.
+  # eg: `docker container ps` shows node not attached to `fedbiomed/vpn-node` image
   image: fedbiomed/vpn-node
   environment:
   # enable overloading build-time id with a run-time id
@@ -54,6 +54,8 @@ x-node2:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14002" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module
@@ -67,22 +69,6 @@ x-node2:
     - ./node2/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
 
 services:
-  #
-  # intermediate step : image for building wireguard for base image
-  # we usually dont want to build or launch this service (only used for building "base")
-  builder:
-    container_name: fedbiomed-vpn-builder
-    hostname: fedbiomed-vpn-builder
-    build:
-      context: ./base/build_files
-      target: builder
-    image: fedbiomed/vpn-builder
-    entrypoint: /bin/true
-    # profiles will handle not-launched-by-default services when 
-    # >=1.28 becomes common https://docs.docker.com/compose/profiles/
-    # 
-    # profiles:
-    #  - debug # not started by `docker-compose up` except if `--profile debug`
   #
   # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)
@@ -193,14 +179,20 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=true
+      - GUI_SERVER_NAME
+      - NGINX_PORT_SSL=8443
+      - NGINX_PORT_NOSSL=8484
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484" # flask server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
@@ -210,25 +202,27 @@ services:
   gui2:
     container_name: fedbiomed-vpn-gui2
     hostname: fedbiomed-vpn-gui2
-    build:
-      context: ../../..
-      dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
-      args:
-        - CONTAINER_UID
-        - CONTAINER_GID
-        - CONTAINER_USER
-        - CONTAINER_GROUP
+    # dont build images as they are the same as for `gui`
+    # this might re-build the same image but with different IMAGE ID
+    # eg: `fedbiomed_vpn status` then fails, etc.
+    # eg: `docker container ps` shows gui not attached to `fedbiomed/vpn-gui` image
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=true
+      - GUI_SERVER_NAME
+      - NGINX_PORT_SSL=8444
+      - NGINX_PORT_NOSSL=8485
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8485:8484" # flask server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + gunicorn HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
       - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
@@ -246,6 +240,8 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
+        - MPSPDZ_COMMIT
+        - MPSPDZ_URL
     image: fedbiomed/vpn-researcher
     environment:
     # enable overloading build-time id with a run-time id
@@ -256,6 +252,7 @@ services:
     ports:
       - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
       - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy
+      - "14000" # MP-SPDZ negotiation
     cap_add:
       - net_admin
       - sys_module
@@ -319,7 +316,7 @@ services:
       - CONTAINER_GROUP
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
-      - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
+      - DJANGO_SUPERUSER_EMAIL=dummy@fedbiomed.org
       - DJANGO_SUPERUSER_PASSWORD=admin123
     # no open ports ! this would backdoor the vpnization
     #ports:

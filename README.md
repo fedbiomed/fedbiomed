@@ -1,9 +1,12 @@
+[![Documentation](https://img.shields.io/badge/Documentation-green)](https://fedbiomed.org)
+[![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
+[![Python-versions](https://img.shields.io/badge/python-3.9-brightgreen)](https://www.python.org/)
+[![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
+[![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
+[![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
+
 # Fed-BioMed
-
-version 4 implementation of the Fed-BioMed project
-
-## Table of Contents
-[[_TOC_]]
 
 ## Introduction
 
@@ -11,22 +14,22 @@ Fed-BioMed is an open source project focused on empowering biomedical research u
 
 The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying federated learning analysis in real-world machine learning applications.
 
-The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
+The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
-Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v4.2) aka the master branch.
+Curious users may also be interested by the current developments, occurring in the **develop** branch (https://github.com/fedbiomed/fedbiomed/tree/develop)
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronizing with the code. We only provide support for the last release aka the master branch.
 
 
 ## Install and run in development environment
 
-Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
+Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
-Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/latest/tutorials/installation/0-basic-software-installation/
+Full installation instruction are also available at: https://fedbiomed.org/latest/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/latest/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -34,7 +37,7 @@ An installation guide is also provided for Windows10, which relies on WSL2: http
 To ensure fedbiomed will work fine, you need to install before :
 
 * docker
-* docker-compose
+* docker compose v2 (aka docker compose plugin)
 * conda
 
 ### clone repo
@@ -42,13 +45,13 @@ To ensure fedbiomed will work fine, you need to install before :
 Clone the Fed-BioMed repository for running the software :
 
 ```
-git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+git clone -b master https://github.com/fedbiomed/fedbiomed.git
 ```
 
 Fed-BioMed developers clone of the repository :
 
 ```
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
+git clone git@github.com:fedbiomed/fedbiomed.git
 ```
 
 ### setup conda environments
@@ -318,7 +321,7 @@ may lead to unpredictable behavior. In this case, it is adviced to restart from 
 
 
 
-## Misc developper tools to help debugging
+## Misc developer tools to help debugging
 
 ### scripts/lqueue
 
@@ -340,27 +343,40 @@ Run a full (integration) test by launching:
 Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
-### Testing Doc Strings 
+### Documentation
 
-Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
-that provided in classes and methods. Therefore, before creating a merge request please check 
-whether doc strings are valid for the fedbiomed documentation built. You can use following command
-to check WARNING and ERROR messages that comes from API docs. 
+Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using conda environment to `serve` or `build` the documentation (recommended).
 
-Following command will serve only API docs on the port `:8000`. The site will be different from 
-actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
-to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
-without paying action on visual of the site. 
-
-```python
-./tests/docstrings/check_docstrings
+```
+conda env update -f envs/build/conda/fedbiomed-doc.yaml
+conda activate fedbiomed-doc
 ```
 
-Developer should do the last test on gitlabpages.
+They can also be installed using `pip` (required python version 3.11), as in the real build process (if you know what you're doing).
+- Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
+
+```
+pip install -r envs/development/docs-requirements.txt
+```
+
+Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
+
+```shell 
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh serve
+```
+
+Please see usage for additional options.
+
+```
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh --help
+```
+
 
 ## Using Tensorboard
 
-To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
 
 ```
 exp = Experiment(tags=tags,
@@ -632,7 +648,7 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
+${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
 ```
 
 
@@ -640,13 +656,13 @@ If node and the researcher will be started in the same clone if Fed-BioMed runni
 
 MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
 Fed-BioMed node and researcher components. The script for executing the protocols is located in 
-`{FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
+`${FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
 
 ```bash
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
-{FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
+${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
 
 ```
 

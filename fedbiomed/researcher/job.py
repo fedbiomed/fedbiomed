@@ -157,6 +157,7 @@ class Job:
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
+
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._training_plan_file)
 
@@ -343,15 +344,19 @@ class Job:
 
         return args_thr_msg
 
-    def start_nodes_training_round(self,
-                                   round: int,
-                                   aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
-                                   aggregator_args_thr_files: Dict[str, Dict[str, Any]],
-                                   do_training: bool = True):
+    def start_nodes_training_round(
+        self,
+        round_: int,
+        aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
+        aggregator_args_thr_files: Dict[str, Dict[str, Any]],
+        secagg_arguments: Union[Dict, None] = None,
+        do_training: bool = True,
+        optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> None:
         """ Sends training request to nodes and waits for the responses
 
         Args:
-            round: current number of round the algorithm is performing (a round is considered to be all the
+            round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
             aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
                 strategy, useful to transfer some data when it's required by am aggregator. First key should be the
@@ -359,15 +364,33 @@ class Job:
             aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
                 via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
                 aggregator_args_thr_msg .
+            secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
+            optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
+                Note that such variables may only be used if both the Experiment and node-side training plan
+                hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
+                are coherent with each other as to expected information exchange.
         """
-        headers = {'researcher_id': self._researcher_id,
-                   'job_id': self._id,
-                   'training_args': self._training_args.dict(),
-                   'training': do_training,
-                   'model_args': self._model_args,
-                   'command': 'train',
-                   'aggregator_args': {}}
+
+        # Assign empty dict to secagg arguments if it is None
+        if secagg_arguments is None:
+            secagg_arguments = {}
+
+        headers = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'training_args': self._training_args.dict(),
+            'training': do_training,
+            'model_args': self._model_args,
+            'round': round_,
+            'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
+            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
+            'secagg_random': secagg_arguments.get('secagg_random'),
+            'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
+            'command': 'train',
+            'aggregator_args': {},
+            'aux_var_urls': None,
+        }
 
         msg = {**headers, **self._repository_args}
         time_start = {}
@@ -375,8 +398,19 @@ class Job:
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
+        # Upload optimizer auxiliary variables, when there are.
+        if do_training and optim_aux_var:
+            aux_url_shared, aux_url_bynode = (
+                self.upload_agg_optimizer_aux_var(optim_aux_var)
+            )
+        else:
+            aux_url_shared = None
+            aux_url_bynode = {}
+
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
+            cli_aux_urls = (aux_url_shared, aux_url_bynode.get(cli, None))
+            msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
@@ -388,18 +422,20 @@ class Job:
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
-                msg_print = {key:value for key, value in msg.items() if key != 'aggregator_args' and logger.level != "DEBUG" }
+                msg_print = {key: value for key, value in msg.items()
+                             if key != 'aggregator_args' and logger.level != "DEBUG" }
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: '
+                            f'{str(msg_print)} '
                             f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round] = Responses([])
-        while self.waiting_for_nodes(self._training_replies[round]):
+        self._training_replies[round_] = Responses([])
+        while self.waiting_for_nodes(self._training_replies[round_]):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             # models_done = self._reqs.get_responses(look_for_commands=['train'])
@@ -430,9 +466,14 @@ class Job:
                         m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
 
+                # manage training failure for this job
+                if not m['success']:
+                    logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
+                    self._nodes.remove(m['node_id'])  # remove the faulty node from the list
+                    continue
+
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
 
-                # TODO : handle error depending on status
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     try:
@@ -444,29 +485,147 @@ class Job:
                     results = Serializer.load(params_path)
                     params = results["model_weights"]
                     optimizer_args = results.get("optimizer_args")
+                    optim_aux_var = results.get("optim_aux_var", {})
+                    encryption_factor = results.get('encryption_factor', None)
                 else:
                     params_path = None
                     params = None
                     optimizer_args = None
+                    encryption_factor = None
 
                 # TODO: could choose completely different name/structure for
                 timing = m['timing']
                 timing['rtime_total'] = rtime_total
 
-                r = Responses({'success': m['success'],
-                               'msg': m['msg'],
-                               'dataset_id': m['dataset_id'],
-                               'node_id': m['node_id'],
-                               'params_path': params_path,
-                               'params': params,
-                               'optimizer_args': optimizer_args,
-                               'sample_size': m["sample_size"],
-                               'timing': timing})
-
-                self._training_replies[round].append(r)
+                response = Responses({
+                    'success': m['success'],
+                    'msg': m['msg'],
+                    'dataset_id': m['dataset_id'],
+                    'node_id': m['node_id'],
+                    'params_path': params_path,
+                    'params': params,
+                    'optimizer_args': optimizer_args,
+                    'optim_aux_var': optim_aux_var,
+                    'sample_size': m["sample_size"],
+                    'encryption_factor': encryption_factor,
+                    'timing': timing,
+                })
+                self._training_replies[round_].append(response)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
+
+    def upload_agg_optimizer_aux_var(
+        self,
+        aux_var: Dict[str, Dict[str, Any]],
+    ) -> Tuple[Optional[str], Dict[uuid.UUID, str]]:
+        """Upload auxiliary variables emitted by a researcher-side Optimizer.
+
+        Args:
+            aux_var: Dict of auxiliary variables emitted by an Optimizer held
+                by the researcher, that are to be uploaded after having been
+                structured into multiple files, to avoid information leakage
+                as well as content redundancy.
+
+        Returns:
+            url_shared: url of a file containing auxiliary variables shared
+                across all nodes, or None (in the absence of such information).
+            url_bynode: dict mapping urls of files containing node-specific
+                auxiliary variables to the nodes' id (a missing `nodes` key
+                indicates that this node has no such information to receive).
+
+        !!!info "Note":
+            The use of both a shared URL and node-specific one is merely a
+            way to reduce communication costs by uploading only once the
+            information that is to be downloaded by each and every node.
+        """
+        # Split the information between shared and node-wise dictionaries.
+        aux_shared, aux_bynode = self._prepare_agg_optimizer_aux_var(
+            aux_var=aux_var, nodes=list(self._nodes)
+        )
+        # Upload the shared information that all nodes will download.
+        if aux_shared:
+            path = os.path.join(
+                self._keep_files_dir, f"aux_var_shared_{uuid.uuid4()}.mpk"
+            )
+            Serializer.dump(aux_shared, path)
+            url_shared = self.repo.upload_file(path)["file"]
+        else:
+            url_shared = None
+        # Upload the node-specific information, with node-specific urls.
+        url_bynode = {}  # type: Dict[uuid.UUID, str]
+        for node_id, node_aux in aux_bynode.items():
+            if not node_aux:
+                continue
+            path = os.path.join(
+                self._keep_files_dir,
+                f"aux_var_node_{node_id}_{uuid.uuid4()}.mpk"
+            )
+            Serializer.dump(node_aux, path)
+            url_bynode[node_id] = self.repo.upload_file(path)["file"]
+        # Return the urls of the uploaded files.
+        return url_shared, url_bynode
+
+    @staticmethod
+    def _prepare_agg_optimizer_aux_var(
+        aux_var: Dict[str, Dict[str, Any]],
+        nodes: List[uuid.UUID],
+    ) -> Tuple[
+        Dict[str, Dict[str, Any]],
+        Dict[uuid.UUID, Dict[str, Dict[str, Any]]],
+    ]:
+        """Collect and structure researcher-side Optimizer auxiliary variables.
+
+        Args:
+            aux_var: Auxiliary variables with to structure into multiple dicts,
+                from `{mod_name: (shared_dict | {node_id: node_dict})}` to
+                `{mod_name: shared_dict}` & `{node_id: {mod_name: node_dict}}`.
+            nodes: Ids of the nodes to whom auxiliary variables should be
+                sent. This is used to drop information of non-participating
+                nodes.
+
+        Returns:
+            aux_shared: Dict containing auxiliary variables that are shared
+                across all nodes, with `{mod_name: shared_dict}` format.
+            aux_bynode: Dict containing node-wise dicts of node-specific
+                auxiliary variables, with `{node_id: {mod_name: node_dict}}`
+                format.
+        """
+        aux_shared = {}  # type: Dict[str, Dict[str, Any]]
+        aux_bynode = {}  # type: Dict[uuid.UUID, Dict[str, Dict[str, Any]]]
+        # Iterate over nodes and plug-in-module-wise auxiliary variables.
+        for node_id in nodes:
+            aux_bynode[node_id] = {}
+            for mod_name, mod_info in aux_var.items():
+                # Case of node-specfic information.
+                if node_aux := mod_info.get(str(node_id)):
+                    aux_bynode[node_id][mod_name] = node_aux
+                # Case of global information shared with all nodes.
+                elif mod_name not in aux_shared:
+                    aux_shared[mod_name] = mod_info
+        # Return the restructured auxiliary variables dicts.
+        return aux_shared, aux_bynode
+
+    def extract_received_optimizer_aux_var_from_round(
+        self,
+        round_id: int,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            round_id: Index of the round, replies from which to parse through.
+
+        Returns:
+            Dict of auxiliary variables, collating node-wise information, with
+            format `{mod_name: {node_id: node_dict}}`.
+        """
+        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        for reply in self.training_replies[round_id]:
+            node_id = reply["node_id"]
+            node_av = reply.get("optim_aux_var", {})
+            for module, params in node_av.items():
+                aux_var.setdefault(module, {})[node_id] = params
+        return aux_var
 
     def update_parameters(
         self,
@@ -481,6 +640,14 @@ class Job:
         a pre-exported dump file.
 
         Args:
+            params: data structure containing the new version of the aggregated parameters for this job,
+            defaults to empty dictionary {}
+            filename: path to the file containing the new version of the aggregated parameters for this job,
+            defaults to None.
+            is_model_params: whether params are models parameters or another value that must be sent
+            through file exchange system. Defaults to True (argument are model parameters).
+            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
+
             params: Optional dict storing new aggregated parameters that are to
                 be assigned to this job's training plan's model.
                 If None, export and upload the current model parameters.
@@ -586,7 +753,7 @@ class Job:
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reloadthe latest training replies.
         self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies')
+            saved_state.get('training_replies', [])
         )
 
     @staticmethod
@@ -625,6 +792,8 @@ class Job:
         """
 
         training_replies = {}
+        if not bkpt_training_replies:
+            logger.warning("No Replies has been found in this breakpoint")
         for round_ in range(len(bkpt_training_replies)):
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path

@@ -110,25 +110,7 @@ EOF
         gui)
             cat <<EOF
 
-gui       :
-            Options:
-            - data-folder | --data-folder | -df  [<path>]       :   Folder that data files are stored, by default script will
-                                                                    look for \`data\` in Fed-BioMed directory
-            - config      | --config      | -c   [<config>]     :   Name of the node's config file. GUI will be configured
-                                                                    based on given config file. By default, \`config_node.ini\`.
-                                                                    If config file doesn't exist script will raise an error.
-            - cert        | --cert        | -ct  [<certificate>]:   Name of the certificate to use in order to enable HTTPS.
-                                                                    If cert file doesn't exist script will raise an error.
-            - key         | --primary-key | -k   [<key>]        :   Name of the private key for the SSL certificate.
-                                                                    If the key file doesn't exist, the script will raise an error.
-            - port        | --port        | -p   [<port>]       :   HTTP port that GUI will be served. Default is \`8484\`
-            - host        | --host        | -h   [<host>]       :   HTTP host that GUI will be served, Default is \`localhost\`
-            - recreate    | --recreate    | -rc                 :   Flag that indicates, UI will be rebuilt while launching
-                                                                    the GUI. Use this option if you have updated UI scripts.
-            - debug       | --debug       | -dbg                :   Flag that will start Flask (Server) in debug mode.
-
-            Commands:
-            - start: Launches the Node GUI with given options.
+gui     : Fed-BioMed Node GUI options. Please run 'fedbiomed_run gui -h' for details.
 EOF
         ;;
 
@@ -214,11 +196,6 @@ RED='\033[0;31m' #red
 YLW='\033[1;33m' #yellow
 NC='\033[0m' #no color
 
-# Default GUI host and port variables
-GUI_HOST="localhost"
-GUI_PORT="8484"
-GUI_DEBUG=False
-
 # Error function
 function error(){
       echo -e "${RED}ERROR: ${NC}"
@@ -238,94 +215,11 @@ function forward_command_to_python_cli(){
       error "Please provide a command. See fedbiomed_run $COMPONENT -h"
     fi
 
-    source "$basedir"/scripts/fedbiomed_environment $COMPONENT "$IP_ADDRESS"
+    source "$basedir"/scripts/fedbiomed_environment "$COMPONENT" "$IP_ADDRESS"
 
     # dont write error message in this case, cli already does it
     python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
 
-}
-
-
-# Script for starting GUI
-function start_gui() {
-    # Check config file status
-    if [ -n "$CONFIG_FILE" ]; then
-      echo -e "${YLW}INFO${NC}: Using $CONFIG_FILE file as GUI node config"
-    else
-      CONFIG_FILE="config_node.ini"
-      echo -e "${YLW}INFO${NC}: Config file has not been provided, default config 'config_node.ini' will be used for GUI"
-    fi
-    if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${CONFIG_FILE}" ] ; then
-        echo "ERROR: 'etc/${CONFIG_FILE}' does not exist in Fed-BioMed root directory"
-        exit 1
-    fi
-
-    # Configure data path
-    if [ ! -n "$DATA_PATH" ]; then
-      DATA_PATH="data"
-      echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use \${FEDBIOMED_DIR}/data dir"
-      if [ -z "${INSTALL_ONLY}" -a ! -d "$basedir/$DATA_PATH" ]; then
-        echo "ERROR: 'data' folder does not exist in  directory"
-        exit 1
-      fi
-    else
-        # If the path is absolute
-        if [[ $DATA_PATH == /* ]]; then
-            if [[ -z "${INSTALL_ONLY}"  && ! -d "$DATA_PATH" ]]; then
-              echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
-              exit 1
-            fi
-        # If the path is relative
-        else
-            if [ -z "${INSTALL_ONLY}"  -a ! -d "$basedir/$DATA_PATH" ]; then
-              echo -e "${RED}ERROR${NC}: folder '$basedir/${DATA_PATH}' does not exist. Can not continue.\n"
-              exit 1
-            else
-              DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
-            fi
-            echo "$DATA_PATH"
-        fi
-    fi
-
-    # Activate Fed-BioMed GUI environment
-    source ${basedir}/scripts/fedbiomed_environment gui
-
-    # Install node modules
-    echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
-    cd ./gui/ui
-
-    # Create bundle if there is no build directory/node_modules or recreate is active
-    if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
-        echo -e "${YLW}INFO${NC}: Installing node modules"
-        yarn install || exit
-
-        echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
-        yarn run build || exit
-
-        if [ -d "$basedir/var/gui-build" ];then
-          rm -Rf "$basedir/var/gui-build";
-        fi
-
-        [ -e $basedir/var ] || mkdir $basedir/var # may not exist after cleaning
-        mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
-    fi
-
-    if [ -z "$INSTALL_ONLY" ] ; then
-        cd ../server
-        # Starting flask
-        echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
-        FEDBIOMED_DIR="$basedir" \
-          NODE_CONFIG_FILE="$CONFIG_FILE" \
-          BUILD_DIR="$basedir/var/gui-build" \
-          DATA_PATH="$DATA_PATH" \
-          HOST="$GUI_HOST" \
-          PORT="$GUI_PORT" \
-          DEBUG="$GUI_DEBUG" \
-          CERTIFICATE_NAME="$CERTIFICATE_NAME" \
-          PRIVATE_KEY_NAME="$PRIVATE_KEY_NAME" \
-          FLASK_ENV="development" \
-          python app.py
-    fi
 }
 
 #
@@ -339,118 +233,33 @@ case $1 in
         #
         case $2 in
             stop)
-                source ${basedir}/scripts/fedbiomed_environment network
                 docker-compose down
                 ;;
             help|-h|--help)
                 usage network
                 ;;
             *)
-                source ${basedir}/scripts/fedbiomed_environment network
+                source $basedir/scripts/choose_docker_compose
+                docker_compose
+
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose build restful mqtt
+                             $DOCKER_COMPOSE build restful mqtt
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
                              CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             docker-compose up -d restful mqtt
+                             $DOCKER_COMPOSE up -d restful mqtt
                 ;;
         esac
         ;;
     gui)
-        while true ; do
-            case $2 in
-              config|--config|-c)
-                    if [ $# -lt 3 ] ; then
-                        echo -e "${RED}ERROR${NC}: missing config file name"
-                        exit 1
-                    fi
-                    CONFIG_FILE=$3
-                    shift
-                    shift
-              ;;
-              data-folder|--data-folder|-df)
-                  if [ $# -lt 3 ] ; then
-                      echo -e "${RED}ERROR${NC}: missing data folder path"
-                      exit 1
-                  fi
-                  DATA_PATH="$3"
-                  shift
-                  shift
-                  ;;
-              cert|--certificate|-ct)
-                  if [ $# -lt 3 ] ; then
-                      echo -e "${RED}ERROR${NC}: missing certificate path"
-                      exit 1
-                  fi
-                  CERTIFICATE_NAME="$3"
-                  if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${CERTIFICATE_NAME}" ] ; then
-                    echo -e "${RED}ERROR${NC}: Certificate file 'etc/${CERTIFICATE_NAME}' does not exist in Fed-BioMed root directory"
-                    exit 1
-                  fi
-                  echo -e "${YLW}INFO${NC}: Using 'etc/$CERTIFICATE_NAME' as GUI node SSL certificate"
-                  shift
-                  shift
-                  ;;
-              key|--primary-key|-k)
-                  if [ $# -lt 3 ] ; then
-                      echo -e "${RED}ERROR${NC}: missing primary key path"
-                      exit 1
-                  fi
-                  PRIVATE_KEY_NAME="$3"
-                  if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${PRIVATE_KEY_NAME}" ] ; then
-                    echo -e "${RED}ERROR${NC}: Private key file 'etc/${PRIVATE_KEY_NAME}' does not exist in Fed-BioMed root directory"
-                    exit 1
-                  fi
-                  echo -e "${YLW}INFO${NC}: Using 'etc/$PRIVATE_KEY_NAME' as GUI node private key for SSL certificate"
-                  shift
-                  shift
-                  ;;
-              port|--port |-p)
-                  GUI_PORT="$3"
-                  shift
-                  shift
-                  ;;
-              host|--host)
-                  GUI_HOST="$3"
-                  shift
-                  shift
-                  ;;
-              recreate | --recreate | -rc )
-                  RECREATE=True
-                  shift
-                  ;;
-              install-only | --install-only | -io )
-                  INSTALL_ONLY=True
-                  shift
-                  ;;
-              debug|--debug|-dbg)
-                  GUI_DEBUG=True
-                  shift
-                  ;;
-              help|-h|--help)
-                  usage gui
-                  ;;
-              *)
-                  break
-                  ;;
-            esac
-        done
-        case $2 in
-            start)
-                start_gui
-                ;;
-            *)
-              echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make sure that your command is correct"
-              exit 1
-              ;;
-        esac
+        # Get params starting from second
+        EXTRA_PARAMS=${@:2}
+        eval "$basedir/scripts/fedbiomed_gui $EXTRA_PARAMS"
       ;;
 
-
     node)
-
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, training plan approval and allow default training plans
@@ -507,18 +316,19 @@ case $1 in
             export PARAMS=
         fi
 
-        # Get params starting from second
-        EXTRA_PARAMS=${@:2}
+        # TODO : better test with python module loading attempt and try/except
+#        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
 
         # silently initialize environment before any command
-        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null 2>&1 ; then
+        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null; then
             echo -e "${RED}ERROR:${NC}"
-            echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for node"
+            echo -e "${BOLD}Error while generating the configuration (config) file. Please check the error message above."
             exit 1
         fi
 
-        # TODO : better test with python module loading attempt and try/except
-        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
+        # Get params starting from second
+        EXTRA_PARAMS=${@:2}
+
         if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
@@ -636,7 +446,7 @@ case $1 in
                 # Windows WSL and others cannot handle using redirect file for securing notebook launch
                 # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
                 NB_OPTS=
-                if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+                if [ -n "$(uname -r | grep -E -i 'microsoft|wsl')" ]
                 # case if windows WSL is used
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'

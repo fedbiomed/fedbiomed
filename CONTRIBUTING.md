@@ -3,58 +3,66 @@
 Welcome to the **Fed-BioMed Community** ! 
 Here is a brief summary of how it is structured:
 
-- Fed-BioMed Users: people using Fed-BioMed for research and/or deployment in federated learning applications.
-- Fed-BioMed Contributors: people proposing their changes to the Fed-BioMed code via merge requests.
-- Fed-BioMed Reviewers: people reviewing the merge requests.
-    * Reviewers can be Core Developers or Contributors.
-- Fed-BioMed Core Developers: people developing components and documentation of Fed-BioMed, modifying the API, writing extensions.
-    * Currently, Core Developers also give final approval and merge the merge requests
-    * and new Core Developers are chosen by the existing Core Developers among the Contributors.
-
-
-## Getting started
-
-Please **read carefully** [the Developer guide on the Fed-BioMed webpage](https://fedbiomed.gitlabpages.inria.fr/latest/developer/usage_and_tools/).
-
-When done please contact `fedbiomed _at_ inria _dot_ fr` to receive your contributor credentials consisting of: an account on `gitlab.inria.fr` with access to the gitlab repository, the registration to the developer mailing lists, the invitation to the developers team's Discord server. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisagd contributions, to ask questions, etc.
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
+- **Fed-BioMed Reviewers**: developers reviewing the pull requests.
+    * Reviewers can be Contributors, Team Developers or Core Developers.
+- **Fed-BioMed Team Developers**: developers recurrently proposing changes to the Fed-BioMed code and documentation via pull requests, and working in coordinated manner with other Team Developers
+    * Currently, Team Developers are chosen by the existing Team Developers among the volunteer Contributors.
+- **Fed-BioMed Core Developers**: developers coordinating the coding of components and documentation of Fed-BioMed, design of extensions and modifications the API.
+    * Currently, Core Developers also give final approval and merge the pull requests
+    * and new Core Developers are chosen by the existing Core Developers among the Team Developers.
 
 
 ## How to report issues
 
-
 If you find a bug and want to report it - great ! For that you can:
 
 - either send your report to `fedbiomed-support _at_ inria _dot_ fr` and a developer creates an issue to track it
-- or contact `fedbiomed _at_ inria _dot_ fr` to receive an account on `gitlab.inria.fr` with access to create issues
+- or create your issue on our [GitHub repository](https://github.com/fedbiomed/fedbiomed)
 
 
 ## How to contribute
 
-If you are able to patch a bug or add the feature yourself – fantastic, you are ready to make a merge request with the code! But you can also participate in many other ways: review and extension of the documentation, or review of a pending merge request are also great contributions to the project.
+Please **read carefully** [the developer guide on the Fed-BioMed webpage](https://fedbiomed.org/latest/developer/usage_and_tools/).
+
+When done please fork the [https://github.com/fedbiomed/fedbiomed](https://github.com/fedbiomed/fedbiomed) repository.
+
+If you are able to patch a bug or add the feature yourself – fantastic, you are ready to make a pull request with the code!
+Please request to merge your forked branch to the `develop` branch of [https://github.com/fedbiomed/fedbiomed](https://github.com/fedbiomed/fedbiomed).
+
+But you can also participate in many other ways: improvements and extension of the documentation, or review of a pending pull request are also great contributions to the project.
 
 Use the git signed-off-by (`git commit -s`) mechanism for all your commits is encouraged.
 
-Be sure you have read any documents on contributing and you understand [the Fed-BioMed license](https://gitlab.inria.fr/fedbiomed/fedbiomed/-/blob/develop/LICENSE.md). Once you have submitted a merge request the Reviewer can compare your branch to the existing one and decide whether or not to approve your changes.
+Be sure you have read any documents on contributing and you understand [the Fed-BioMed license](https://github.com/fedbiomed/fedbiomed/blob/develop/LICENSE.md). Once you have submitted a pull request the Reviewer can compare your branch to the existing one and decide whether or not to approve your changes.
+
+
+## How to become a team developer
+
+You are now ready to contribute regularly to Fed-BioMed and would like to work in a more coordinated manner with other regular developers, participate to implementation effort of the new evolutions defined in the roadmap, etc. - marvelous !
+
+Please contact `fedbiomed-developers _at_ inria _dot_ fr` and share your GitHub user name to receive your invitation for Fed-BioMed GitHub repository as well as the registration to the developer mailing lists, the invitation to the developers team's Discord server, an invitation to the developers team's shared files zone. Please feel free to ask for a meeting on Discord to meet Fed-BioMed developers, to explain your interests in the framework and envisaged contributions, to ask questions, etc.
 
 
 ## Fed-BioMed community path
 
-Today, Fed-BioMed is still widely developed by the founding team at Inria and UCA, but increasingly opens to new contributors.
+Today, Fed-BioMed is still widely developed by the founding team at Inria and UCA, but increasingly opens to new developers.
 
-Fed-BioMed mid-term plans include moving to a public repository, setting up of a community governance and decision making process with written status, a steering committee and a technical committee.
+Fed-BioMed mid-term plans include setting up of a community governance and decision making process with written status, a steering committee and a technical committee.
 
 Governance setup may also include creating a consortium or joining an existing open-source software foundation.
 
-The goal is to match the evolving needs of the stakeholders and the contributors of the software, as the community grows and the codebase matures.
+The goal is to match the evolving needs of the stakeholders, the developers and the users of the software, as the community grows and the codebase matures.
 
-Developer's Discord server is a good place to discuss these evolutions.
+Team Developer's Discord server is a good place to discuss these evolutions.
 
 
 ## Fed-BioMed Developer Certificate Of Origin (DCO)
 
 Fed-BioMed is using the [mechanism of the linux project](https://www.kernel.org/doc/html/latest/process/submitting-patches.html#sign-your-work-the-developer-s-certificate-of-origin) to track and secure all issues related to copyrights: the Developper Certificate of Origin (DCO). If you are contributing code or documentation to the Fed-BioMed project, you
 are encouraged to use the git signed-off-by mechanism and thereby agree to this certificate for each commit.
-When opening a merge request, you agree to this certificate.
+When opening a pull request, you agree to this certificate.
 
 This DCO essentially means that:
 

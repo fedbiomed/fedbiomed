@@ -41,6 +41,9 @@ Common Global Variables:
 - MPSPDZ_IP               : MP-SPDZ endpoint IP of component
 - DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
 - ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
+- PORT_INCREMENT_FILE     : File for storing next port to be allocated for MP-SPDZ
+- CERT_DIR                : Directory for storing certificates for MP-SPDZ
+- DEFAULT_BIPRIMES_DIR    : Directory for storing default biprimes files
 '''
 
 import configparser
@@ -56,6 +59,8 @@ from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.certificate_manager import CertificateManager
+import fedbiomed.common.utils
+from fedbiomed.common.utils import raise_for_version_compatibility, FBM_Component_Version
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -116,6 +121,10 @@ class Environ(metaclass=SingletonABCMeta):
         return value
 
     @abstractmethod
+    def _check_config_version(self):
+        """Abstract method for checking if config version is compatible and setting config version"""
+
+    @abstractmethod
     def _set_component_specific_variables(self):
         """Abstract method for setting component specific values to `self._values` """
 
@@ -147,7 +156,7 @@ class Environ(metaclass=SingletonABCMeta):
             _cfg_value = self._cfg.get(section, key)
         except configparser.Error:
             _msg = f"{ErrorNumbers.FB600.value}: no {section}/{key} in config file. Please recreate a new config file"
-            logger.critical(_msg)
+            logger.error(_msg)
             raise FedbiomedEnvironError(_msg)
 
         return _cfg_value
@@ -159,6 +168,9 @@ class Environ(metaclass=SingletonABCMeta):
 
         # Parse config file or create if not existing
         self.parse_write_config_file()
+
+        # Check that config version is compatible
+        self._check_config_version()
 
         # Configuring network variables
         self._set_network_variables()
@@ -467,3 +479,19 @@ class Environ(metaclass=SingletonABCMeta):
             _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + self._values["CONFIG_FILE"]
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
+
+    def check_and_set_config_file_version(self,
+                                          version_from_runtime: Union[str, FBM_Component_Version]):
+        """Check compatibility of config file and set corresponding environment value.
+
+        Args:
+            version_from_runtime: the version hardcoded in common/constants.py
+        """
+        try:
+            config_file_version = self.from_config('default', 'version')
+        except FedbiomedEnvironError:
+            config_file_version = fedbiomed.common.utils.__default_version__
+        raise_for_version_compatibility(config_file_version, version_from_runtime,
+                                        f"Configuration file {self._values['CONFIG_FILE']}: "
+                                        f"found version %s expected version %s")
+        self._values["CONFIG_FILE_VERSION"] = config_file_version

@@ -6,7 +6,7 @@ version: "3.7"
 # Minimal dockerfile permits minimal file tree
 # because *all* files dependencies referenced in `docker-compose.yml`
 # (eg: `./*/build_files`, `./*/run_mounts/config/config.env`)
-# need to exist for *all* containers everytime we run a docker-compose command
+# need to exist for *all* containers everytime we run a `docker compose` command
 # thus we would have to copy file trees for vpnserver, researcher, etc. when only
 # running a node
 x-node:
@@ -20,6 +20,8 @@ x-node:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14001" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module
@@ -45,6 +47,8 @@ x-node2:
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+  ports:
+    - "14002" # MP-SPDZ negotiation
   cap_add:
     - net_admin
     - sys_module
@@ -83,14 +87,20 @@ services:
     image: fedbiomed/vpn-gui
     environment:
       # enable overloading build-time id with a run-time id
+      - SSL_ON=true
+      - GUI_SERVER_NAME
+      - NGINX_PORT_SSL=8443
+      - NGINX_PORT_NOSSL=8484
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484"
+      - "${GUI_SERVER_IP:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
@@ -103,14 +113,20 @@ services:
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
+      - SSL_ON=true
+      - GUI_SERVER_NAME
+      - NGINX_PORT_SSL=8444
+      - NGINX_PORT_NOSSL=8485
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8485:8484" # flask server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + flask HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /data /etc /var directory must be shared with node
+      - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
       - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...

@@ -64,14 +64,8 @@ class TestMessage(unittest.TestCase):
                 self.fail("check_class_args: bad class name")
 
         except Exception as e:
-            print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
+            #print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
-
-        # for DEBUG purpose
-        # if expected_result is True:
-        #    print("DEBUG [should be OK]:", kwargs)
-        # else:
-        #    print("DEBUG [should be KO]:", kwargs)
 
         # decode all cases
         if expected_result is True and result is True:
@@ -157,6 +151,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -222,6 +217,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             researcher_id='toto',
+            protocol_version='99.99',
             success=True,
             databases=[1, 2, 3],
             count="not_an_integer",
@@ -233,6 +229,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             researcher_id=True,
+            protocol_version='99.99',
             success=True,
             databases=[1, 2, 3],
             count=666,
@@ -243,6 +240,7 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             expected_result=False,
 
+            protocol_version='99.99',
             researcher_id='toto',
             success=True,
             databases=[1, 2, 3],
@@ -253,6 +251,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -264,6 +263,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -275,6 +275,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success="not_a_boolean",
@@ -293,6 +294,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -348,6 +350,7 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result=False,
 
+            protocol_version='99.99',
             researcher_id=True,
             node_id='titi',
             success=True,
@@ -358,6 +361,7 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result=False,
 
+            protocol_version='99.99',
             researcher_id='toto',
             node_id=True,
             success=True,
@@ -367,6 +371,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -377,6 +382,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -387,6 +393,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -401,6 +408,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -494,6 +502,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=True,
             job_id='job',
@@ -508,6 +517,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id=True,
@@ -522,6 +532,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -536,6 +547,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -550,6 +562,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -564,6 +577,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -578,6 +592,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -592,6 +607,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -606,6 +622,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job',
@@ -625,6 +642,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -688,6 +706,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -699,6 +718,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=True,
             success=True,
@@ -710,6 +730,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -721,6 +742,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -732,6 +754,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success=True,
@@ -743,6 +766,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             success="not_a_boolean",
@@ -757,6 +781,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=True,
+            protocol_version='99.99',
             researcher_id='toto',
             node_id='titi',
             job_id='tutu',
@@ -793,6 +818,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             node_id='titi',
             job_id='tutu',
@@ -811,6 +837,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             node_id='titi',
             job_id='tutu',
@@ -829,6 +856,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             node_id='titi',
             job_id='tutu',
@@ -847,6 +875,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.AddScalarReply,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             node_id='titi',
             job_id='tutu',
@@ -869,6 +898,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -883,6 +913,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id=12334,
@@ -897,6 +928,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=12344,
             node_id='12334',
@@ -911,6 +943,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='12344',
             node_id='12334',
@@ -925,6 +958,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='12344',
             node_id='12334',
@@ -939,6 +973,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=333,
             node_id=1212,
@@ -953,6 +988,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=333,
             node_id=1212,
@@ -965,6 +1001,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
+            protocol_version='99.99',
 
             success='not a bool',
             approval_obligation=True,
@@ -977,6 +1014,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1031,6 +1069,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             node_id='titi',
@@ -1042,6 +1081,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id=False,
@@ -1053,6 +1093,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1064,6 +1105,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1074,6 +1116,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.LogMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1089,6 +1132,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1143,6 +1187,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             node_id='titi',
@@ -1154,6 +1199,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id=False,
@@ -1165,6 +1211,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1176,6 +1223,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1186,6 +1234,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -1207,18 +1256,21 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             tags=["data", "doto"])
 
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             command='do_it')
 
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             tags=["data", "doto"],
@@ -1229,6 +1281,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             tags=["data", "doto"],
@@ -1237,6 +1290,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             tags="not_a_list",
@@ -1245,6 +1299,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             tags=["data", "doto"],
@@ -1257,6 +1312,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingRequest,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             sequence=100,
@@ -1294,6 +1350,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             sequence=100,
@@ -1302,6 +1359,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             sequence=False,
@@ -1310,6 +1368,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             sequence=100,
@@ -1322,6 +1381,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1332,8 +1392,15 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
+            secagg_servkey_id=None,
+            secagg_biprime_id=None,
+            secagg_random=None,
+            secagg_clipping_range=None,
+            round=1,
             command='do_it',
-            aggregator_args={'aggregator_name': 'fedavg'})
+            aggregator_args={'aggregator_name': 'fedavg'},
+            aux_var_urls=None,
+        )
 
         # bad param number
         self.check_class_args(
@@ -1393,6 +1460,11 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            secagg_clipping_range='non-int')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result=False,
 
             researcher_id='toto',
             job_id='job_number',
@@ -1410,6 +1482,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             job_id='job_number',
@@ -1425,6 +1498,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id=False,
@@ -1432,6 +1506,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_random=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
@@ -1440,6 +1515,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1447,6 +1523,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_random=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
@@ -1455,6 +1532,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1470,6 +1548,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1477,6 +1556,8 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id={"foo": "not_a_str"},
             training=False,
+            secagg_random=None,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
@@ -1485,6 +1566,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1493,6 +1575,8 @@ class TestMessage(unittest.TestCase):
             dataset_id="MNIS",
             training="not a bool",
             model_args={"c": 3, "d": 4},
+            secagg_random=None,
+            secagg_clipping_range=None,
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
             command='do_it')
@@ -1500,6 +1584,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1515,6 +1600,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1522,6 +1608,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url=False,
             training_plan_class='my_model',
@@ -1530,6 +1617,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1537,6 +1625,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class=False,
@@ -1545,6 +1634,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='job_number',
@@ -1552,6 +1642,7 @@ class TestMessage(unittest.TestCase):
             training_args={"a": 1, "b": 2},
             training_data="MNIS",
             training=False,
+            secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class="my_model",
@@ -1565,6 +1656,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListRequest,
             expected_result=True,
+            protocol_version='99.99',
             researcher_id='toto',
             command='sada')
 
@@ -1591,6 +1683,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             tags=["data", "doto"],
             command='do_it')
@@ -1599,6 +1692,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
+            protocol_version='99.99',
             researcher_id=False,
             command=True)
 
@@ -1609,6 +1703,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='sdsd',
@@ -1618,6 +1713,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=True,
             job_id='sdsd',
@@ -1627,6 +1723,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id=122323,
@@ -1636,6 +1733,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             job_id='sdsd',
@@ -1645,6 +1743,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='ttot',
             job_id='sdsd',
@@ -1656,6 +1755,7 @@ class TestMessage(unittest.TestCase):
     def test_message_15_trainmessages(self):
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
             "success": True,
@@ -1665,15 +1765,17 @@ class TestMessage(unittest.TestCase):
             "timing": {"t0": 0.0, "t1": 1.0},
             "msg": 'message_in_a_bottle',
             "sample_size": 100,
-            "command": 'train'}
+            "command": 'train'
+        }
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.TrainReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.TrainReply)
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
             "params_url": "https://dev.null",
@@ -1681,21 +1783,29 @@ class TestMessage(unittest.TestCase):
             "dataset_id": 'my_dataset',
             "training": True,
             "model_args": {},
+            "secagg_servkey_id": "dummy",
+            "secagg_biprime_id": "dummy",
+            "secagg_random": 0.95,
+            "secagg_clipping_range" : None,
+            "round": 1,
             "training_plan_url": "https://dev.null",
             "training_plan_class": "my_model",
             "aggregator_args": {},
-            "command": 'train'}
+            "aux_var_urls": ["https://dev.null", "https://dev.null"],
+            "command": 'train'
+        }
 
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.TrainRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.TrainRequest)
 
     def test_message_16_listmessages(self):
 
         """  Test list datasets messages for node and researcher """
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1703,24 +1813,25 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "command": 'list'}
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ListReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ListReply)
 
         params = {
             "researcher_id": 'toto',
             "command": 'list'}
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ListRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ListRequest)
 
     def test_message_17_searchmessages(self):
 
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1728,36 +1839,37 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "command": 'search'}
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.SearchReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.SearchReply)
 
         params = {
             "researcher_id": 'toto',
             "tags": [],
             "command": 'search'}
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.SearchRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.SearchRequest)
 
     def test_message_18_pingmessages(self):
 
         # ping
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "sequence": 100,
             "success": True,
             "command": 'pong'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.PingReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.PingReply)
 
         params = {
@@ -1765,48 +1877,51 @@ class TestMessage(unittest.TestCase):
             "sequence": 100,
             "command": 'ping'
         }
-        r = message.ResearcherMessages.request_create(params)
+        r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.PingRequest)
 
-        r = message.NodeMessages.request_create(params)
+        r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.PingRequest)
 
     def test_message_19_logmessages(self):
 
         # error
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "level": 'INFO',
             "msg": 'bim boum badaboum',
             "command": 'log'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.LogMessage)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.LogMessage)
 
     def test_message_10_errormessages(self):
 
         # error
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "errnum": ErrorNumbers.FB100,
             "extra_msg": 'bim boum badaboum',
             "command": 'error'
         }
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.ErrorMessage)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ErrorMessage)
 
     def test_message_21_add_scalar_messages(self):
 
         # addScalar
         params = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "job_id": 'job_id',
@@ -1824,10 +1939,10 @@ class TestMessage(unittest.TestCase):
             "command": 'add_scalar'
         }
 
-        r = message.ResearcherMessages.reply_create(params)
+        r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.AddScalarReply)
 
-        r = message.NodeMessages.reply_create(params)
+        r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.AddScalarReply)
 
     def test_message_22_unknowmessages(self):
@@ -1837,7 +1952,7 @@ class TestMessage(unittest.TestCase):
         params = {'command': 'unknown'}
 
         try:
-            r = message.ResearcherMessages.reply_create(params)
+            r = message.ResearcherMessages.format_incoming_message(params)
             # should not reach this line
             self.fail("unknown reply message type for researcher not detected")
 
@@ -1846,7 +1961,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, "unknown reply message type for researcher detected")
 
         try:
-            r = message.ResearcherMessages.request_create(params)
+            r = message.ResearcherMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail("unknown request message type for researcher not detected")
 
@@ -1856,7 +1971,7 @@ class TestMessage(unittest.TestCase):
         pass
 
         try:
-            r = message.NodeMessages.reply_create(params)
+            r = message.NodeMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail("unknown reply message type for node not detected")
 
@@ -1865,7 +1980,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, "unknown reply message type for node detected")
 
         try:
-            r = message.NodeMessages.request_create(params)
+            r = message.NodeMessages.format_incoming_message(params)
             # should not reach this line
             self.fail("unknown request message type for node not detected")
 
@@ -1882,7 +1997,7 @@ class TestMessage(unittest.TestCase):
 
         msg = "unknown reply message type for researcher not detected"
         try:
-            r = message.ResearcherMessages.reply_create(params)
+            r = message.ResearcherMessages.format_incoming_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -1891,7 +2006,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, msg)
 
         try:
-            r = message.ResearcherMessages.request_create(params)
+            r = message.ResearcherMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -1901,7 +2016,7 @@ class TestMessage(unittest.TestCase):
         pass
 
         try:
-            r = message.NodeMessages.reply_create(params)
+            r = message.NodeMessages.format_outgoing_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -1910,7 +2025,7 @@ class TestMessage(unittest.TestCase):
             self.assertTrue(True, msg)
 
         try:
-            r = message.NodeMessages.request_create(params)
+            r = message.NodeMessages.format_incoming_message(params)
             # should not reach this line
             self.fail(msg)
 
@@ -1922,6 +2037,7 @@ class TestMessage(unittest.TestCase):
     def test_message_24_model_status_messages(self):
 
         params_reply = {
+            "protocol_version": '99.99',
             'researcher_id': 'toto',
             'node_id': 'titi',
             'job_id': 'titi',
@@ -1933,10 +2049,10 @@ class TestMessage(unittest.TestCase):
             'command': 'training-plan-status'
         }
 
-        r = message.ResearcherMessages.reply_create(params_reply)
+        r = message.ResearcherMessages.format_incoming_message(params_reply)
         self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
-        r = message.NodeMessages.reply_create(params_reply)
+        r = message.NodeMessages.format_outgoing_message(params_reply)
         self.assertIsInstance(r, message.TrainingPlanStatusReply)
 
         params_request = {
@@ -1946,10 +2062,10 @@ class TestMessage(unittest.TestCase):
             "command": 'training-plan-status'
         }
 
-        r = message.ResearcherMessages.request_create(params_request)
+        r = message.ResearcherMessages.format_outgoing_message(params_request)
         self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
-        r = message.NodeMessages.request_create(params_request)
+        r = message.NodeMessages.format_incoming_message(params_request)
         self.assertIsInstance(r, message.TrainingPlanStatusRequest)
 
 
@@ -1960,6 +2076,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description='this is a description string',
@@ -1978,6 +2095,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description='this is a description string',
@@ -1990,6 +2108,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             description='this is a description string',
@@ -2000,6 +2119,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description=False,
@@ -2010,6 +2130,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description='this is a description string',
@@ -2020,6 +2141,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description='this is a description string',
@@ -2030,6 +2152,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             description='this is a description string',
@@ -2044,6 +2167,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=True,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2063,6 +2187,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2076,6 +2201,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id=False,
             node_id='titi',
@@ -2087,6 +2213,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id=False,
@@ -2098,6 +2225,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2109,6 +2237,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2120,6 +2249,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2131,6 +2261,7 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
+            protocol_version='99.99',
 
             researcher_id='toto',
             node_id='titi',
@@ -2152,13 +2283,14 @@ class TestMessage(unittest.TestCase):
             "command": "approval"
 
         }
-        r = message.ResearcherMessages.request_create(params_request)
+        r = message.ResearcherMessages.format_outgoing_message(params_request)
         self.assertIsInstance(r, message.ApprovalRequest)
 
-        r = message.NodeMessages.request_create(params_request)
+        r = message.NodeMessages.format_incoming_message(params_request)
         self.assertIsInstance(r, message.ApprovalRequest)
 
         params_reply = {
+            "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
             "sequence": 12345,
@@ -2167,12 +2299,11 @@ class TestMessage(unittest.TestCase):
             "command": "approval"
 
         }
-        r = message.ResearcherMessages.reply_create(params_reply)
+        r = message.ResearcherMessages.format_incoming_message(params_reply)
         self.assertIsInstance(r, message.ApprovalReply)
 
-        r = message.NodeMessages.reply_create(params_reply)
+        r = message.NodeMessages.format_outgoing_message(params_reply)
         self.assertIsInstance(r, message.ApprovalReply)
-
 
 
 if __name__ == '__main__':  # pragma: no cover

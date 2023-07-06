@@ -2,11 +2,11 @@ import unittest
 import os
 import tempfile
 import shutil
-
-
-from fedbiomed.common.exceptions import FedbiomedEnvironError
 from unittest import TestCase
 from unittest.mock import patch
+
+import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedVersionError
 from fedbiomed.common.environ import Environ
 
 
@@ -30,6 +30,9 @@ class TestEnviron(TestCase):
         self.patcher = patch.multiple(Environ, __abstractmethods__=set())
         self.abstract_methods = self.patcher.start()
 
+        self.patch_versions_log = patch.object(fedbiomed.common.utils._versions, 'logger')
+        self.mock_versions_log = self.patch_versions_log.start()
+
         self.environ = Environ()
 
     def tearDown(self) -> None:
@@ -48,12 +51,12 @@ class TestEnviron(TestCase):
         values = self.environ._values
 
         self.assertTrue("ROOT_DIR" in values)
-        self.assertEqual(values["ROOT_DIR"], self.base_dir)
-        self.assertEqual(values["CONFIG_DIR"], os.path.join(self.base_dir, 'etc'))
-        self.assertEqual(values["VAR_DIR"], os.path.join(self.base_dir, 'var'))
-        self.assertEqual(values["TMP_DIR"], os.path.join(self.base_dir, 'var', 'tmp'))
-        self.assertEqual(values["CACHE_DIR"], os.path.join(self.base_dir, 'var', 'cache'))
-        self.assertEqual(values["PORT_INCREMENT_FILE"], os.path.join(self.base_dir, 'etc', 'port_increment'))
+        self.assertEqual(os.path.realpath(values["ROOT_DIR"]), os.path.realpath(self.base_dir))
+        self.assertEqual(os.path.realpath(values["CONFIG_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'etc'))
+        self.assertEqual(os.path.realpath(values["VAR_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var'))
+        self.assertEqual(os.path.realpath(values["TMP_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var', 'tmp'))
+        self.assertEqual(os.path.realpath(values["CACHE_DIR"]), os.path.join(os.path.realpath(self.base_dir), 'var', 'cache'))
+        self.assertEqual(os.path.realpath(values["PORT_INCREMENT_FILE"]), os.path.join(os.path.realpath(self.base_dir), 'etc', 'port_increment'))
 
     def test_environ_01_initialize_common_variables_02(self):
         """ Test initialize common variables with root dir"""
@@ -271,6 +274,39 @@ class TestEnviron(TestCase):
 
         self.environ["This_is_a_new_key"] = 123
         self.assertEqual(self.environ["This_is_a_new_key"], 123)
+
+
+    @patch("os.makedirs")
+    @patch("os.path.isdir")
+    def test_10_config_file_version(self,
+                                    mock_is_dir,
+                                    mock_mkdir):
+
+        mock_is_dir.return_value = False
+        self.environ._values["CONFIG_FILE"] = 'test/config/file.ini'
+
+        # Test base case: the version in the config file exactly matches the version in the runtime
+        with patch.object(self.environ, 'from_config', side_effect=['99.99']):
+            self.environ.check_and_set_config_file_version('99.99')
+            self.assertEqual(self.environ._values["CONFIG_FILE_VERSION"], '99.99')
+
+        # Test base case 2: the version in the config file is missing
+        with patch.object(self.environ, 'from_config', side_effect=FedbiomedEnvironError):
+            self.environ.check_and_set_config_file_version(fedbiomed.common.utils.__default_version__)
+            self.assertEqual(self.environ._values["CONFIG_FILE_VERSION"], fedbiomed.common.utils.__default_version__)
+
+        # Test error case: when the version is not compatible
+        self.mock_versions_log.reset_mock()
+        with patch.object(self.environ, 'from_config', side_effect=['1.0']):
+            with self.assertRaises(FedbiomedVersionError):
+                self.environ.check_and_set_config_file_version('2.0')
+                self.assertEqual(self.mock_versions_log.critical.call_count, 1)
+
+        # Test warning case: when the version is not the same, but compatible
+        self.mock_versions_log.reset_mock()
+        with patch.object(self.environ, 'from_config', side_effect=['1.0']):
+            self.environ.check_and_set_config_file_version('1.5')
+            self.assertEqual(self.mock_versions_log.warning.call_count, 1)
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -1,0 +1,1 @@
+::: fedbiomed.node.cli

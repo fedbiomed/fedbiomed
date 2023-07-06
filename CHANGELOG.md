@@ -1,8 +1,36 @@
 # Fed-BioMed changelog
 
+## 2023-06-23 version 4.4.1
+
+- fix secure aggregation vector encoding bug
+
+## 2023-06-05 version 4.4.0
+
+- add HTTPS secure access to Fed-BioMed Node GUI
+- introduce GitHub workflow/actions for CI build tests and testing/publishing documentation.
+- introduce versioning for component config files, MQTT messages and breakpoints
+- migrate to GitHub 
+- migrate `docs` source into main repository and point to https://fedbiomed.org
+- fix robustness of handling secure aggregation training errors.
+- fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
+- fix incorrect calculation of SkLearn model weights
+- fix incorrect compatibility of FedProx feature with `Model` class 
+- fix ordering of weights and node replies after training. 
+
+## 2023-04-26 version 4.3
+
+- introduce secure aggregation using Joye-Libert scheme and Shamir MPC key computation
+- update MONAI and scikit-learn version used
+- fix Scaffold incorrectly applying correction states
+- fix incorrect Perceptron default values for scikit-learn models
+- fix `Experiment.set_training_args()` not propagating updated value
+- fix environment cleaning to handle configuration file content change
+- fix docker wrapping scripts to restrict container account names to alphanumeric characters
+- misc improve node CLI for non-interactive add of MedicalFolderDataset using a json file
+
 ## 2023-02-08 version 4.2
 
-- add support for docker-compose v.2 file syntax
+- add support for `docker compose` v.2 file syntax
 - fix model weights computation occurring during aggregation, by sending dataset sample size from node to researcher
 - fix GUI regression failure, after merging MP-SPDZ certificate generation - such issue was freezing some web browsers
 - fix incoherent tag handling: make explicit the way datasets are tagged on nodes

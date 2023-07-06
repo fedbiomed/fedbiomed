@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+import inspect
 from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -311,7 +312,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        context = {'server_key': key_share}
+        context = {'server_key': int(key_share)}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
         logger.info(
             "Server key share successfully created for "
@@ -373,7 +374,7 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         # create a (currently dummy) context if it does not exist yet
         time.sleep(3)
         context = {
-            'biprime': str(random.randrange(10**12)),   # dummy biprime
+            'biprime': int(random.randrange(10**12)),   # dummy biprime
             'max_keysize': 0                            # prevent using the dummy biprime for real
         }
         logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
@@ -415,7 +416,9 @@ class SecaggSetup:
                 f"{ErrorNumbers.FB318.value}: Received bad request message: incorrect `element` {self._element}")
 
         try:
-            return SecaggSetup.element2class[element.name](**self.kwargs)
+            args_to_init = {key: val for key, val in self.kwargs.items()
+                            if key in inspect.signature(SecaggSetup.element2class[element.name].__init__).parameters}
+            return SecaggSetup.element2class[element.name](**args_to_init)
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation setup with argument "

@@ -1,0 +1,23 @@
+{% if page.toc %}
+<nav class="toc">
+    {% set toc = page.toc %}
+  
+    {% set first = toc | first %}
+    {% if first and first.level == 1 %}
+      {% set toc = first.children %}
+    {% endif %}
+  
+    <!-- Render item list -->
+    {% if toc %}
+      <label class="toc-title" for="__toc">
+        <span class="toc-icon"></span>
+      </label>
+      <ul class="toc-list" data-md-component="toc" data-md-scrollfix>
+        {% for toc_item in toc %}
+          {% include "./include/toc-item.html" %}
+        {% endfor %}
+      </ul>
+    {% endif %}
+</nav>
+
+{% endif %}

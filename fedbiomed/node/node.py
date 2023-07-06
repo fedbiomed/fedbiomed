@@ -5,11 +5,12 @@
 Core code of the node component.
 '''
 from json import decoder
-
 from typing import Optional, Union
 
+import validators
+
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
 from fedbiomed.common.messaging import Messaging
@@ -22,8 +23,6 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-
-import validators
 
 
 class Node:
@@ -88,15 +87,15 @@ class Node:
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
-            request = NodeMessages.request_create(msg).get_dict()
+            request = NodeMessages.format_incoming_message(msg).get_dict()
             if command in ['train', 'secagg']:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'secagg-delete':
-                self._task_secagg_delete(NodeMessages.request_create(msg))
+                self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'ping':
                 self.messaging.send_message(
-                    NodeMessages.reply_create(
+                    NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
                             'node_id': environ['NODE_ID'],
@@ -110,7 +109,7 @@ class Node:
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    self.messaging.send_message(NodeMessages.reply_create(
+                    self.messaging.send_message(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
@@ -121,7 +120,7 @@ class Node:
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
-                self.messaging.send_message(NodeMessages.reply_create(
+                self.messaging.send_message(NodeMessages.format_outgoing_message(
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
@@ -139,28 +138,29 @@ class Node:
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg="Not able to deserialize the message",
                             researcher_id=resid)
         except NotImplementedError:
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg=f"Command `{command}` is not implemented",
                             researcher_id=resid)
         except KeyError:
             # FIXME: this error could be raised for other missing keys (eg
             # researcher_id, ....)
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg="'command' property was not found",
                             researcher_id=resid)
+        except FedbiomedMessageError:  # Message was not properly formatted
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg='Message was not properly formatted',
+                            researcher_id=resid)
         except TypeError:  # Message was not serializable
-            resid = 'researcher_id' in msg.keys(
-            ) and msg['researcher_id'] or 'unknown_researcher_id'
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
@@ -194,7 +194,7 @@ class Node:
                 message = 'Delete request is successful'
             else:
                 message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
-                    f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
+                          f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
         except Exception as e:
             message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
                       f'secagg_id={secagg_id}: {e}'
@@ -209,7 +209,7 @@ class Node:
         Args:
             msg: `SecaggRequest` message object to parse
         """
-        setup_arguments = {key: value for (key, value) in msg.get_dict().items() if key != "command"}
+        setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
@@ -232,7 +232,7 @@ class Node:
             msg: `TrainRequest` message object to parse
 
         Returns:
-            a `Round` object for the training to perform, or None if no training 
+            a `Round` object for the training to perform, or None if no training
         """
         round = None
         # msg becomes a TrainRequest object
@@ -240,6 +240,8 @@ class Node:
                                       researcher_id=msg.get_param('researcher_id'),
                                       client=self.messaging)
         # Get arguments for the model and training
+        # NOTE: `get_param` has no real use save for monkey patching in unit tests
+        # (in real life, if the parameter is missing, an exception will be raised)
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
         training_status = msg.get_param('training') or False
@@ -249,6 +251,8 @@ class Node:
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
+        round_number = msg.get_param('round') or 0
+        aux_var_urls = msg.get_param('aux_var_urls') or None
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -270,7 +274,7 @@ class Node:
             # condition above is likely to be false
             logger.error('Did not found proper data in local datasets ' +
                          f'on node={environ["NODE_ID"]}')
-            self.messaging.send_message(NodeMessages.reply_create(
+            self.messaging.send_message(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
                  'researcher_id': researcher_id,
@@ -294,7 +298,9 @@ class Node:
                 hist_monitor,
                 aggregator_args,
                 self.node_args,
-                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
+                round_number=round_number,
+                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                aux_var_urls=aux_var_urls,
             )
 
         return round
@@ -309,12 +315,12 @@ class Node:
             logger.debug('[TASKS QUEUE] Item:' + str(item_print))
             try:
 
-                item = NodeMessages.request_create(item)
+                item = NodeMessages.format_incoming_message(item)
                 command = item.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
                 self.messaging.send_message(
-                    NodeMessages.reply_create(
+                    NodeMessages.format_outgoing_message(
                         {
                             'command': 'error',
                             'extra_msg': str(e),
@@ -333,13 +339,20 @@ class Node:
                             # iterate over each dataset found
                             # in the current round (here round refers
                             # to a round to be done on a specific dataset).
-                            msg = round.run_model_training()
+                            msg = round.run_model_training(
+                                secagg_arguments={
+                                    'secagg_servkey_id': item.get_param('secagg_servkey_id'),
+                                    'secagg_biprime_id': item.get_param('secagg_biprime_id'),
+                                    'secagg_random': item.get_param('secagg_random'),
+                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
+                                }
+                            )
                             self.messaging.send_message(msg)
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
                         self.messaging.send_message(
-                            NodeMessages.reply_create(
+                            NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
                                     'extra_msg': str(e),
@@ -349,6 +362,7 @@ class Node:
                                 }
                             ).get_dict()
                         )
+                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:
@@ -375,7 +389,7 @@ class Node:
         """
 
         try:
-            reply = NodeMessages.reply_create(
+            reply = NodeMessages.format_outgoing_message(
                 {'node_id': environ['ID'],
                  **msg}
             ).get_dict()
