@@ -46,6 +46,8 @@ nav:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
         - 'Regression with Scikit-Learn':  './tutorials/scikit-learn/02_sklearn_sgd_regressor_tutorial.ipynb'
         - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
+      - Optimizers:
+        - 'Advanced Optimizers': './tutorials/optimizers/01-fedopt-and-scaffold.ipynb'
       - FLamby:
         - 'General Concepts': "./tutorials/flamby/flamby.md"
         - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
