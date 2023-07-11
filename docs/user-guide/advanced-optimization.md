@@ -207,13 +207,73 @@ class MyTrainingPlan(FedSGDClassifier):
 
 
 ```
-## `declearn` optimizer on Researcher side
+## `declearn` optimizer on Researcher side (`FedOpt`)
+
+`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to `Optimizer`s on `Researcher` side.
+To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `Researcher Optimizer`: `Experiment.set_agg_optimizer` 
+
+Below an example using the `set_agg_optimizer` with `FedYogi`:
+
+```python
+from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.aggregators import FedAverage
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
+from declearn.optimizer.modules import YogiModule as FedYogi
+
+tags = ['#my-data']
+
+exp = Experiment()
+exp.set_training_plan_class(training_plan_class=MyTrainingPlan)
+exp.set_tags(tags = tags)
+exp.set_aggregator(aggregator=FedAverage())
+exp.set_round_limit(2)
+exp.set_training_data(training_data=None, from_tags=True)
+exp.set_job()
+exp.set_strategy(node_selection_strategy=DefaultStrategy)
+
+# here we are adding an Optimizer on Researcher side (FedYogi)
+fed_opt = Optimizer(lr=.8, modules=[FedYogi()])
+exp.set_agg_optimizer(fed_opt)
+
+exp.run(increase=True)
+```
+
+
+!!! note "Important": ***you may have noticed that we are using `FedAvg` in the `Experiment` configuration, while using `FedYogi` as an `Optimizer`. In fact, `FedAvg` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
+
+One can also pass directly the `agg_optimizer` in the `Experiment` object constructor:
+
+```python
+from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.aggregators import FedAverage
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
+from declearn.optimizer.modules import YogiModule as FedYogi
+
+
+tags = ['#my-data']
+fed_opt = Optimizer(lr=.8, modules=[FedYogi()])
+
+
+exp = Experiment(tags=tags,
+                 training_plan_class=MyTrainingPlan,s,
+                 round_limit=2,
+                 agg_optimizer=fed_opt,
+                 aggregator=FedAverage(),
+                 node_selection_strategy=None)
+
+exp.run(increase=True)
+
+```
 
 ## `declearn` auxiliary variables based `Optimizers`
 
+In this subsection, we will see some specific `Optimizers` that are built around `auxiliary variables`.
 
 ### What is an auxiliary variable?
 
+`Auxiliary variable` is a parameter that is needed for an `Optimizer` that requieres to be exchanged between `Nodes` and `Researcher`, in addition to model parameters. [`Scaffold`](https://arxiv.org/abs/1910.06378) is an example of such `Optimizer`, because built upon correction states, exchanged from `Nodes` and `Researcher`.
+
+These `Optimizers` may come with a specific `Researcher` version (for `Scaffold` it is `ScaffoldServerModule`) and a `Node` version (resp. `ScaffoldClientModule`). They may requiere synchronicity.
 
 ### An example using `Optimizer` with auxiliary variables: `Scaffold` with `declearn`
 
@@ -223,8 +283,9 @@ You can find more examples in [Advanced Optimizers tutorial]()
 
 ## Common Pitfalls using `declearn` Optimizers in `Fed-BioMed`
 
-Below, we are summerizing all common pitfalls that may occur when using `declearn` package in `Fed-BioMed`
+Below, we are summerizing all common pitfalls that may occur when using `declearn` package in `Fed-BioMed`:
 - `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizer such as PyTorch Optimizers);
 - Some `Optimizers` may requiere some synchronization: it is the case of `ScaffoldClientModule` and `ScaffoldServerModule`;
 - For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) is not compatible with `SecAgg`.
 - check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical.
+- `Scaffold` aggregator must not be used 
