@@ -340,9 +340,10 @@ You can find more examples in [Advanced Optimizers tutorial](../../tutorials/opt
 
 Below, we are summerizing all common pitfalls that may occur when using `declearn` package in `Fed-BioMed`:
 - `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizer such as PyTorch Optimizers);
-- Some `Optimizers` may requiere some synchronization: it is the case of `ScaffoldClientModule` and `ScaffoldServerModule`;
-- For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) is not compatible yet with `SecAgg`.
+- Some `Optimizers` may requiere some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
+- For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation]().
+- For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (in comparison for example to pytorch optimizers `torch.optim.Optimizer` which can have a learning rate per model layer)
 - check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical.
-- `Scaffold` aggregator must not be used 
+- `Scaffold` aggregator must not be used when using both `ScaffoldServerModule` and `ScaffoldClientModule`
 
 # Conclusion
