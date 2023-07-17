@@ -70,6 +70,13 @@ class TestExperiment(ResearcherTestCase):
         """ Should inherit TorchTrainingPlan to pass the condition
             `issubclass` of `TorchTrainingPlan`
         """
+        def __init__(self):
+            super().__init__()
+            # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
+            # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate
+            self._dp_controller = MagicMock()
+            do_nothing = lambda x: x
+            self._dp_controller.side_effect = do_nothing
 
         def init_model(self, args):
             pass
@@ -1237,7 +1244,9 @@ class TestExperiment(ResearcherTestCase):
         tp.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
-        mock_job_training_plan_type.return_value = tp
+        tp._dp_controller = MagicMock()
+        mock_job_training_plan_type.return_value = tp()
+
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(tp)
 

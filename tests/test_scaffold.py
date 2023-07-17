@@ -34,7 +34,15 @@ class TestScaffold(ResearcherTestCase):
         self.zero_model = copy.deepcopy(self.model)  # model where all parameters are equals to 0
         self.responses = Responses([])
         for node_id in self.node_ids:
-            self.responses.append({'node_id': node_id, 'optimizer_args': {'lr' : [.1]}})
+            self.responses.append(
+                {'node_id': node_id, 'optimizer_args': {
+                                'lr' : {
+                                    k: .1 for k in self.model.state_dict().keys()
+                                    }
+                                                    }
+                 }
+                )
+
         self.responses = Responses([self.responses])
 
         self.weights = [{node_id: random.random()} for (node_id, _) in zip(self.node_ids, self.models)]
@@ -97,14 +105,16 @@ class TestScaffold(ResearcherTestCase):
         # Instantiate a Scaffold aggregator and initialize its states.
         agg = Scaffold(server_lr=1., fds=self.fds)
         agg.init_correction_states(self.model.state_dict())
-        agg.nodes_lr = {k: [1] * self.n_nodes for k in self.node_ids}
+        agg.nodes_lr = {k: {layer: 1 for layer in self.model.state_dict().keys()} for k in self.node_ids}
         # Test with zero-valued client models, i.e. updates equal to model.
         agg.update_correction_states(
             {node_id: self.model.state_dict() for node_id in self.node_ids},
             n_updates=1,
         )
+        
         # Check that the local states were properly updated.
         for node_id in self.node_ids:
+
             self.assertTrue(all(
                 (agg.nodes_states[node_id][key] == val).all()
                 for key, val in self.model.state_dict().items()
@@ -119,7 +129,11 @@ class TestScaffold(ResearcherTestCase):
         # Instantiate a Scaffold aggregator and initialize its states.
         agg = Scaffold(server_lr=1., fds=self.fds)
         agg.init_correction_states(self.model.state_dict())
-        agg.nodes_lr = {k: [1] * self.n_nodes for k in self.node_ids}
+        agg.nodes_lr = {k:
+            {
+                layer: 1. for layer in self.models[k].keys()
+        }
+            for k in self.node_ids}
         # Test when a single client has non-zero-updates after 4 steps.
         updates = {
             key: torch.rand_like(val)
@@ -145,7 +159,7 @@ class TestScaffold(ResearcherTestCase):
         """Test that 'aggregate' works properly."""
 
         training_plan = MagicMock()
-        training_plan.get_model_params = MagicMock(return_value = self.node_ids)
+        training_plan.get_model_params = MagicMock(return_value = Linear(10, 3).state_dict())
 
         agg = Scaffold(server_lr=.2, fds=self.fds)
         n_round = 0
@@ -326,7 +340,9 @@ class TestScaffold(ResearcherTestCase):
         n_rounds = 3
 
         # test case were learning rates change from one layer to another
-        lr = [.1,.2,.3]
+        lr = {'layer-1': .1,
+              'layer-2': .2,
+              'layer-3': .3}
         n_model_layer = len(lr)  # number of layers model contains
 
         training_replies = {r:
@@ -365,7 +381,7 @@ class TestScaffold(ResearcherTestCase):
                                                                       n_round=n_round)
 
         # test case where len(lr) != n_model_layer
-        lr += [.333]
+        lr.update({'layer-4': .333})
         training_plan.get_learning_rate = MagicMock(return_value=lr)
 
         for n_round in range(n_rounds):

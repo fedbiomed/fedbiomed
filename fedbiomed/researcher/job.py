@@ -137,6 +137,7 @@ class Job:
             raise NameError(mess)
 
         # create/save TrainingPlan instance
+        print("TEST JOB", inspect.isclass(self._training_plan_class))
         if inspect.isclass(self._training_plan_class):
             self._training_plan = self._training_plan_class()  # contains TrainingPlan
 

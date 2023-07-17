@@ -1016,6 +1016,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         # check that the extracted learning rates
         self.assertGreaterEqual(len(t_model.model.state_dict()), len(lr_extracted))
 
+
 class TestNativeSklearnOptimizer(unittest.TestCase):
     def setUp(self) -> None:
         self._sklearn_model_wrappers = (SkLearnModel(SGDClassifier),

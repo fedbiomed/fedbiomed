@@ -390,6 +390,7 @@ class Scaffold(Aggregator):
             if training_replies[n_round].get_index_from_node_id(node_id) is not None:
                 # get updated learning rate if provided...
                 node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
+                print("TEST", training_replies[n_round][node_idx]['optimizer_args'], n_model_layers)
                 lrs.update(training_replies[n_round][node_idx]['optimizer_args'].get('lr'))
 
             else:
