@@ -1125,7 +1125,7 @@ class Experiment:
         Raises:
             FedbiomedExperimentError : bad training_plan_class type
         """
-        print("TP", training_plan_class, inspect.isclass(training_plan_class)) #, 
+
         if training_plan_class is None:
             self._training_plan_class = None
             self._training_plan_is_defined = False
@@ -1144,7 +1144,6 @@ class Experiment:
                 raise FedbiomedExperimentError(msg)
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
-            print("TP1", issubclass(training_plan_class, training_plans))
             if issubclass(training_plan_class, training_plans):
                 # valid class
                 self._training_plan_class = training_plan_class

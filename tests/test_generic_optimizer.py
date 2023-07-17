@@ -960,26 +960,38 @@ class TestNativeTorchOptimizer(unittest.TestCase):
 
     def test_nativetorchoptimizer_03_getlearningrate_2(self):
         """test_nativetorchoptimizer_03_getlearningrate_2: test the method but with a more complex model,
-        that possesses different learning rate per block / layers"""
+        that possesses different learning rate per block / layers
+        """
         
         lr_1,  lr_block, lr = .1, .2, .3
-        # FIXME: not sure that this model can be trained without raising any errors
+
         class ComplexModel(nn.Module):
+            """a complex model with batchnorms (trainable layers that doesnot requoere learning rates)
+            data input example for using such model
+
+            ```
+            batch_size = 5
+            model = ComplexModel()
+            data = torch.rand(batch_size,1, 25,25) 
+            model.forward(data)
+            ```
+            """
             def __init__(self):
                 super().__init__()
                 self.conv1 = nn.Conv2d(1, 20, 5)
                 self.relu = nn.functional.relu
                 self.conv2 = nn.Conv2d(20, 20, 5)
-                self.block = nn.Sequential(nn.Linear(5, 10),
+                self.block = nn.Sequential(nn.Linear(20 * 17 *17, 10),
                                         nn.BatchNorm1d(10),
                                         nn.Linear(10, 5))
                 self.bn = nn.BatchNorm1d(5)
-                self.upsampler = nn.Upsample()
+                self.upsampler = nn.Upsample(scale_factor=2)
                 self.classifier = nn.Linear(10, 2)
 
             def forward(self, x):
                 x = self.relu(self.conv1(x))
                 x = self.relu(self.conv2(x))
+                x = x.reshape(-1, 20 * 17 *17)
                 x = self.block(x)
                 x = self.bn(x)
                 x = torch.unsqueeze(x, dim=0)
@@ -988,6 +1000,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
                 return self.classifier(x)
         
         model = ComplexModel()
+
         opt = torch.optim.SGD([
             {'params': model.block.parameters(), 'lr': lr_block},
             {'params': model.conv1.parameters(), 'lr': lr_1},

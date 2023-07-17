@@ -1244,7 +1244,7 @@ class TestExperiment(ResearcherTestCase):
         tp.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
-        tp._dp_controller = MagicMock()
+
         mock_job_training_plan_type.return_value = tp()
 
         # Set model class to be able to create Job
