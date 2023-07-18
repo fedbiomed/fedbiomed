@@ -939,7 +939,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         optimizer = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=lr))
         
         lr_extracted = optimizer.get_learning_rate()
-        self.assertListEqual(lr_extracted, [lr])
+        self.assertDictEqual(lr_extracted, {k: lr for k,_ in model.model.named_parameters()})
         
         # then test using a pytorch scheduler
         scheduler = LambdaLR(optimizer.optimizer, lambda e: 2*e)
@@ -956,7 +956,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
 
             # checks
             lr_extracted = optimizer.get_learning_rate()
-            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+            self.assertDictEqual(lr_extracted, {k: lr * 2 * (e+1) for k,_ in model.model.named_parameters()})
 
 
 class TestNativeSklearnOptimizer(unittest.TestCase):

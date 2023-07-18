@@ -5,7 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Mapping, Optional, Tuple, Type, TypeVar, Union
 
 import declearn
 import declearn.model.torch
@@ -222,7 +222,7 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         self.optimizer.zero_grad()
 
-    def get_learning_rate(self) -> List[float]:
+    def get_learning_rate(self) -> Dict[str, float]:
         """Gets learning rate from value set in Pytorch optimizer.
 
         !!! warning
@@ -235,11 +235,14 @@ class NativeTorchOptimizer(BaseOptimizer):
                 (as many as the number of the layers contained in the model)
         """
         logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
-        learning_rates = []
-        params = self.optimizer.param_groups
-        for param in params:
-            learning_rates.append(param['lr'])
-        return learning_rates
+        mapping_lr_layer_name: Mapping[str, float] = {}
+
+        for param_group in self.optimizer.param_groups:
+            for layer_params in param_group['params']:
+                for  layer_name, tensor in self._model.model.named_parameters():
+                    if layer_params is tensor:
+                        mapping_lr_layer_name[layer_name] = param_group['lr']
+        return mapping_lr_layer_name
 
 
 class NativeSkLearnOptimizer(BaseOptimizer):

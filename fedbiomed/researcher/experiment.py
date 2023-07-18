@@ -1498,7 +1498,7 @@ class Experiment:
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
-            self._global_model = self._job.training_plan.get_model_params()
+            self._global_model = self._job.training_plan.after_training_params()
             # initial server state, before optimization/aggregation
 
         self._aggregator.set_training_plan_type(self._job.training_plan.type())

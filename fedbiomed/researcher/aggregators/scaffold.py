@@ -105,7 +105,7 @@ class Scaffold(Aggregator):
         self.global_state: Dict[str, Union[torch.Tensor, np.ndarray]] = {}
         self.nodes_states: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
-        self.nodes_lr: Dict[str, List[float]] = {}
+        self.nodes_lr: Dict[str, Dict[str, float]] = {}
         if fds is not None:
             self.set_fds(fds)
         self._aggregator_args = {}  # we need `_aggregator_args` to be not None
@@ -244,18 +244,26 @@ class Scaffold(Aggregator):
         # c_i^{t+1} = delta_i^t + (x^t - y_i^t) / (M * eta)
         for node_id, updates in model_updates.items():
             d_i = self.nodes_deltas[node_id]
-            self.nodes_states[node_id] = {
-                key: d_i[key] + val / (self.nodes_lr[node_id][idx] * n_updates)
-                for idx, (key, val) in enumerate(updates.items())
-            }
+            for (key, val) in updates.items():
+
+                if self.nodes_lr[node_id].get(key):
+                    self.nodes_states[node_id].update(
+                        {
+                        key: d_i[key] + val / (self.nodes_lr[node_id][key] * n_updates)
+                         }
+                    )
         # Update the global state: c^{t+1} = average(c_i^{t+1})
-        self.global_state = {
-            key: (
-                sum(state[key] for state in self.nodes_states.values())
-                / len(self.nodes_states)
-            )
-            for key in self.global_state
-        }
+        for key in self.global_state:
+            self.global_state[key] = 0
+            for state in self.nodes_states.values():
+                if state.get(key) is not None:
+                    self.global_state[key] = (
+                        sum(state[key] for state in self.nodes_states.values())
+                            / len(self.nodes_states)
+
+                        )
+
+
         # Compute the new node-wise correction states:
         # delta_i^{t+1} = c_i^{t+1} - c^{t+1}
         self.nodes_deltas = {
@@ -373,21 +381,21 @@ class Scaffold(Aggregator):
 
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
-            lrs: List[float] = []
+            lrs: Dict[str, float] = {}
 
             if training_replies[n_round].get_index_from_node_id(node_id) is not None:
                 # get updated learning rate if provided...
                 node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-                lrs += training_replies[n_round][node_idx]['optimizer_args'].get('lr')
+                lrs.update(training_replies[n_round][node_idx]['optimizer_args'].get('lr'))
 
             else:
                 # ...otherwise retrieve default learning rate
                 optim =  training_plan.optimizer()
-                lrs += optim.get_learning_rate()
+                lrs.update(optim.get_learning_rate())
 
             if len(lrs) == 1:
                 # case where there is one learning rate
-                lr = lrs * n_model_layers
+                lrs = {k: lrs.values()[0] for k,v in training_plan.after_model_params().items()}
 
             elif len(lrs) == n_model_layers:
                 # case where there are several learning rates value
