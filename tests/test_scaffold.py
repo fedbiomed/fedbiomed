@@ -4,12 +4,15 @@ import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
 from testsupport.fake_uuid import FakeUuid
 import torch
+import torch.nn as nn
 from torch.nn import Linear
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
@@ -391,6 +394,124 @@ class TestScaffold(ResearcherTestCase):
                 scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
                                                                 training_replies=training_replies,
                                                                 n_round=n_round)
+                
+                
+class TestIntegrationScaffold(unittest.TestCase):
+    # For testing training_plan setter of Experiment
+    class FakeModelTorch(TorchTrainingPlan):
+        """ Should inherit TorchTrainingPlan to pass the condition
+            `issubclass` of `TorchTrainingPlan`
+        """
+
+        class ComplexModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.relu = nn.functional.relu
+                self.conv2 = nn.Conv2d(20, 20, 5)
+                self.block = nn.Sequential(nn.Linear(20 * 17 *17, 10),
+                                        nn.BatchNorm1d(10),
+                                        nn.Linear(10, 5))
+                self.bn = nn.BatchNorm1d(5)
+                self.upsampler = nn.Upsample(scale_factor=2)
+                self.classifier = nn.Linear(10, 2)
+
+            def forward(self, x):
+                x = self.relu(self.conv1(x))
+                x = self.relu(self.conv2(x))
+                x = x.reshape(-1, 20 * 17 *17)
+                x = self.block(x)
+                x = self.bn(x)
+                x = torch.unsqueeze(x, dim=0)
+                x = torch.unsqueeze(x, dim=0)
+                x = self.upsampler(x)
+                return self.classifier(x)
+
+        def __init__(self):
+            super().__init__()
+            # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
+            # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate
+            self._dp_controller = MagicMock()
+            do_nothing = lambda x: x
+            self._dp_controller.side_effect = do_nothing
+
+        def init_model(self, args):
+            return self.ComplexModel()
+
+        def init_optimizer(self):
+            lr_1,  lr_block, lr = .1, .2, .3
+            return torch.optim.SGD(
+                [
+                    {'params': self.model().block.parameters(), 'lr': lr_block},
+                    {'params': self.model().conv1.parameters(), 'lr': lr_1},
+                    {'params': self.model().conv2.parameters()},
+                    {'params': self.model().classifier.parameters()},
+                    {'params': self.model().upsampler.parameters()},
+                    {'params': self.model().bn.parameters()}
+                            ], lr=lr)
+
+        def training_step(self):
+            pass
+
+        def training_data(self):
+            pass
+
+    def setUp(self):
+        self.model = self.FakeModelTorch.ComplexModel()
+        self.n_nodes = 4
+        self.node_ids = [f'node_{i}'for i in range(self.n_nodes)]
+        self.fds = FederatedDataSet({node: {} for node in self.node_ids})
+        self.models = {node_id: copy.deepcopy(self.model.state_dict()) for i, node_id in enumerate(self.node_ids)}
+        self.weights = {node_id: 1 / self.n_nodes for node_id in self.node_ids}
+
+
+        self.weights = [{node_id: random.random()} for (node_id, _) in zip(self.node_ids, self.models)]
+
+
+    # after the tests
+    def tearDown(self):
+        pass
+
+    def test_1_aggregate_and_training_plan(self):
+        # for bug 746: incorrect handling of pytorch model having several learning rates per layer
+        n_updates = 10
+
+        # test different values for `share_persistent_buffers`
+        share_persistent_buffers_options = (False, True)
+
+        for share_persistent_buffers_option in share_persistent_buffers_options:
+            tp = TestIntegrationScaffold.FakeModelTorch()
+            training_args = TrainingArgs({'share_persistent_buffers': share_persistent_buffers_option}, only_required=False)
+            tp.post_init({}, training_args , {})
+
+            # create Responses
+            responses = Responses([])
+            for node_id in self.node_ids:
+                responses.append(
+                    {'node_id': node_id, 'optimizer_args': {
+                                    'lr' : tp.optimizer().get_learning_rate()
+                                                        }
+                    }
+                    )
+            responses = Responses([responses])
+
+            global_params = tp.after_training_params()
+            local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
+            scaffold = Scaffold(server_lr =1)
+
+            scaffold.set_fds(self.fds)
+            agg_params = scaffold.aggregate(local_models,
+                                            self.weights,
+                                            global_model=global_params,
+                                            training_plan=tp,
+                                            training_replies=responses,
+                                            node_ids=self.node_ids, 
+                                            n_updates=n_updates,
+                                            n_round=0)
+            for node_id in self.node_ids:
+                # checking that `nodes_lr` have been populated accordingly
+                self.assertDictEqual(scaffold.nodes_lr[node_id], tp.optimizer().get_learning_rate())
+
 # TODO:
 # ideas for further tests:
 # test 1: check that with one client only, correction terms are zeros

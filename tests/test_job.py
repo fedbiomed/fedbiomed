@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 import numpy as np
 import torch
+import fedbiomed
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -189,18 +190,16 @@ class TestJob(ResearcherTestCase):
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.critical')
-    @patch('inspect.isclass')
     def test_job_06_init_isclass_raises_error(self,
-                                              mock_isclass,
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
-
-        mock_isclass.side_effect = NameError
-        with self.assertRaises(NameError):
-            _ = Job(training_plan_class='FakeModel',
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
-                    data=self.fds)
-            mock_logger_critical.assert_called_once()
+        with patch.object(fedbiomed.researcher.job, 'inspect') as mock_inspect:
+            mock_inspect.isclass.side_effect = NameError
+            with self.assertRaises(NameError):
+                _ = Job(training_plan_class='FakeModel',
+                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                        data=self.fds)
+                mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job_07_initialization_raising_exception_save_and_save_code(self,
