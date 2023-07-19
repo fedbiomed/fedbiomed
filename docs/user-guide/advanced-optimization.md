@@ -1,6 +1,6 @@
 # Advanced Optimization in Fed-BioMed
 
-Advanced Optimization can be done in `Fed-BioMed` through the use of `declearn`, a Python package that provides gradient-based `Optimizers`. `declearn` is cross-machine learning framework, meaning that it can be used with most machine learning frameworks.
+Advanced Optimization can be done in `Fed-BioMed` through the use of `declearn`, a Python package that provides gradient-based `Optimizers`. `declearn` is cross-machine learning framework, meaning that it can be used with most machine learning frameworks (scikit-learn, PyTorch, Tensorflow, JAX, ...).
 
 The following chapter explains in depth how to use `declearn` optimization feature in `Fed-BioMed`. For an example, please refer to the [Advanced Optimizer tutorial]()
 
@@ -70,7 +70,9 @@ For further information on `declearn OptiModule`, please visit [`declearn OptiMo
 To get a list of all available Optimizers in declearn, please enter (after having loaded `Fed-BioMed` conda environment)
 
 ```python
+from declearn.optimizer import list_optim_modules
 
+list_optim_modules()
 
 ```
 
@@ -78,10 +80,10 @@ To get a list of all available Optimizers in declearn, please enter (after havin
 
 `declearn`'s `Regularizers` are objects that enable the use of `Regularizer`, which add a additional term to the loss function one wants to Optimize through the use of optimizer. It mainly helps to get a more generalizable model, and prevents overfitting.
 
-The optimization equaion yields to:
+The optimization equation yields to:
 
 $w_{t+1} := w_t - \eta \nabla_k L(w) + \alpha \norm {w}$
-`Regularizers` should be used with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`]() is also considered as a regularization.
+`Regularizers` should be used with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`](https://arxiv.org/abs/1812.06127) is also considered as a regularization.
 
 **Usage**:
 
@@ -182,7 +184,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 !!! note "Important": you should specify the OptiModules imported in both the imports at the begining of the `Training Plan` as well as in the dependences (in the `init_dependencies` method in the `Training Plan`). The same holds for `declearn`'s `Regularizers`.
 
-The same will hold for scikit-learn as shown below, using the same `Optimizer`:
+Syntax will be the same for scikit-learn as shown below, using the same `Optimizer`:
 
 ```python
 from fedbiomed.common.training_plans import FedSGDClassifier
@@ -209,7 +211,7 @@ class MyTrainingPlan(FedSGDClassifier):
 ```
 ## `declearn` optimizer on Researcher side (`FedOpt`)
 
-`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to `Optimizer`s on `Researcher` side.
+`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizer`s on `Researcher` side.
 To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `Researcher Optimizer`: `Experiment.set_agg_optimizer` 
 
 Below an example using the `set_agg_optimizer` with `FedYogi`:
@@ -239,7 +241,7 @@ exp.run(increase=True)
 ```
 
 
-!!! warning "Important": ***you may have noticed that we are using `FedAvg` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAvg` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
+!!! warning "Important": ***you may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
 
 One can also pass directly the `agg_optimizer` in the `Experiment` object constructor:
 
@@ -281,7 +283,7 @@ In the last sub-section, we introduced [`Scaffold`](https://arxiv.org/abs/1910.0
 
 **`Training Plan` design**
 
-We showcase how to edit your `Training Plan` for PyTorch in order to use `Scaffold`
+In the current subsection, we showcase how to edit your `Training Plan` for PyTorch in order to use `Scaffold`
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -329,12 +331,23 @@ exp.run(increase=True)
 
 ```
 
-!!! warning "Important": ***you may have noticed that we are using `FedAvg` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAvg` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
+!!! warning "Important": ***you may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
 
 
 You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold.ipynb)
 
 ## Table to use common Federated Learning algorithm with `declearn` in `Fed-BioMed`
+
+| Federated Learning Algorithm                                       	| Node Optimizer                                             	| Researcher Optimizer                                     	| Aggregator   	|
+|--------------------------------------------------------------------	|------------------------------------------------------------	|----------------------------------------------------------	|--------------	|
+| [AdaAlter (distributed AdaGrad)](https://arxiv.org/pdf/1911.09030) 	| AdaGrad  `Optimizer(lr=xx, modules=[AdaGradModule()])`     	| None                                                     	| `FedAverage` 	|
+| [FedAdagrad](https://arxiv.org/pdf/2003.00295)                     	| SGD `Optimizer(lr=xx)`                                     	| AdaGrad `Optimizer(lr=xx, modules=[AdaGradModule()])`    	| `FedAverage` 	|
+| [FedAdam](https://arxiv.org/pdf/2003.00295)                        	| SGD `Optimizer(lr=xx)`                                     	| Adam `Optimizer(lr=xx, modules=[AdamModule()])`          	| `FedAverage` 	|
+| [FedAvg](https://arxiv.org/abs/1602.05629)                         	| SGD `Optimizer(lr=xx)`                                     	| None                                                     	| `FedAverage` 	|
+| [FedProx](https://arxiv.org/abs/1812.06127)                        	| SGD  `Optimizer(lr=xx, regularizers=[FedProxRegularizer])` 	| None                                                     	| `FedAverage` 	|
+| [FedYogi](https://arxiv.org/pdf/2003.00295)                        	| SGD `Optimizer(lr=xx)`                                     	| Yogi `Optimizer(lr=xx, modules=[YogiModule()])`          	| `FedAverage` 	|
+| [Scaffold](https://arxiv.org/abs/1910.06378)                       	| SGD `Optimizer(lr=xx, modules=[ScaffoldClientModule()])`   	| SGD `Optimizer(lr=xx, modules=[ScaffoldServerModule()])` 	| `FedAverage` 	|
+
 
 ## Common Pitfalls using `declearn` Optimizers in `Fed-BioMed`
 
