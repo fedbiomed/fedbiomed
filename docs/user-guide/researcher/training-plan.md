@@ -75,8 +75,8 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 In the case of scikit-learn, Fed-BioMed already does a lot of the heavy lifting for you by providing the
 `FedPerceptron`, `FedSGDClassifier` and `FedSGDRegressor` classes as training plans. These classes already take care
-of the model, optimizer, loss function and related dependencies for you, so you only need to define how the data will
-be loaded. For example, in the case of `FedSGDClassifier`:
+of the model and loss functions for you, so you only need to define how the data will
+be loaded, how to optimize the model and the dependencies. For example, in the case of `FedSGDClassifier`:
 
 ```python
 from fedbiomed.common.training_plans import FedSGDClassifier
@@ -84,6 +84,14 @@ from fedbiomed.common.training_plans import FedSGDClassifier
 class MyTrainingPlan(FedSGDClassifier):
     def training_data(self):
         # returns a Fed-BioMed DataManager object
+        pass
+
+    def init_optimizer(self, optimizer_args):
+        # defines and returns an optimizer: only declearn optimizer are permitted here
+        pass
+
+    def init_dependencies(self):
+        # returns a list of dependencies
         pass
 ```
 
@@ -103,10 +111,10 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 | attribute           | function           | TorchTrainingPlan  | SKLearnTrainingPlan | notes | 
 |---------------------|--------------------|--------------------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | model               | `model()`          | :heavy_check_mark: | :heavy_check_mark:  | you may not dynamically reassign a model. The instance of the model is created at initialization by storing the output of the `init_model` function.              |
-| optimizer           | `optimizer()`      | :heavy_check_mark: | :x:                 | you may not dynamically reassign an optimizer. The instance of the optimizer is created at initialization by storing the output of the `init_optimizer` function. |
+| optimizer           | `optimizer()`      | :heavy_check_mark: | :heavy_check_mark:  | you may not dynamically reassign an optimizer. The instance of the optimizer is created at initialization by storing the output of the `init_optimizer` function. |
 | model arguments     | `model_args()`     | :heavy_check_mark: | :heavy_check_mark:  | |
 | training arguments  | `training_args()`  | :heavy_check_mark: | :heavy_check_mark:  | |
-| optimizer arguments | `optimizer_args()` | :heavy_check_mark: | :x:                 | |
+| optimizer arguments | `optimizer_args()` | :heavy_check_mark: | heavy_check_mark:   | |
 
 ####
 
@@ -220,28 +228,40 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ## Defining the optimizer
 
+### Optimizer in PyTorch Training Plans
+
 In Pytorch training plans, you must also define a `init_optimizer` function with the following signature:
 ```python
-def init_optimizer(self, optimizer_args: Dict[str, Any]) -> torch.optim.Optimizer:
+def init_optimizer(self, optimizer_args: Dict[str, Any]) -> Union[torch.optim.Optimizer, fedbiomed.common.optimizer.Optimizer]:
 ```
 
-The purpose of `init_optimizer` is to return an instance of a PyTorch optimizer. You may instantiate a "vanilla" 
-optimizer directly from `torch.optim`, or follow a similar pattern to `init_model` by defining a custom optimizer class 
+The purpose of `init_optimizer` is to return an instance of a PyTorch optimizer or a `Fed-BioMed` optimizer powered with `declearn` optimizzation modules. You may instantiate a "vanilla" optimizer directly from `torch.optim`, or follow a similar pattern to `init_model` by defining a custom optimizer class 
 within the training plan namespace. 
 
 ####
 
-!!! info "The output of `init_optimizer` must be a `torch.optim` type"
+!!! info "The output of `init_optimizer` must be either a `torch.optim` type or a `fedbimed.common.optimizer.Optimizer`"
     The output of `init_optimizer` must be either a vanilla optimizer provided by the `torch.optim` module, or a class
-    that inherits from `torch.optim.Optimizer`
+    that inherits from `torch.optim.Optimizer`, or a [`fedbimed.common.optimizer.Optimizer`](../../developer/api/researcher/experiment/developer/api/common/optimizer/), populated with `declearn`'s `OptiModules` and `Regularizers`.
+
+!!! note "About declearn"
+    `declearn` provides a cross framework optimizers that can be used regardless of the machine learning framework. It also provides well known federated learning algorithms such as `Scaffold`. For further details on `declearn`'s `Optimizer`, [please visit the following webpage](./../advanced-optimization).
 
 Similarly, the `optimizer_args` follow the same pattern as `model_args` described above. 
 Note that the learning rate will always be included in the optimizer arguments with the key `lr`.
 
 A pretty straightforward example can be again found in the getting started notebook
+
 ```python
 def init_optimizer(self, optimizer_args):
     return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
+```
+### Optimizer in scikit-learn Training Plans
+
+In Scikit-Learn `Training Plans`, only `fedbimed.common.optimizer.Optimizer` optimizers can be defined in the `init_optimizer` method. Hence, its signature is:
+
+```python
+def init_optimizer(self, optimizer_args: Dict[str, Any]) -> fedbiomed.common.optimizer.Optimizer:
 ```
 
 ## Defining the loss function
@@ -291,7 +311,7 @@ def init_dependencies(self) -> List[str]:
 ```
 
 Each dependency should be defined as valid import statement in a string, for example `from torch.optim import Adam` or 
-`import torch`. You must specify dependencies for any python module that you wish to use, regardless of whether it 
+`import torch`, or `from declearn.optimizer.modules import AdamModule` (for its `declearn` alternative). You must specify dependencies for any python module that you wish to use, regardless of whether it 
 is for the data, optimizer, model, etc...
 
 ## `training_routine` 
