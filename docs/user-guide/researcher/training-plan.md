@@ -114,7 +114,7 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 | optimizer           | `optimizer()`      | :heavy_check_mark: | :heavy_check_mark:  | you may not dynamically reassign an optimizer. The instance of the optimizer is created at initialization by storing the output of the `init_optimizer` function. |
 | model arguments     | `model_args()`     | :heavy_check_mark: | :heavy_check_mark:  | |
 | training arguments  | `training_args()`  | :heavy_check_mark: | :heavy_check_mark:  | |
-| optimizer arguments | `optimizer_args()` | :heavy_check_mark: | heavy_check_mark:   | |
+| optimizer arguments | `optimizer_args()` | :heavy_check_mark: | :heavy_check_mark:  | |
 
 ####
 
