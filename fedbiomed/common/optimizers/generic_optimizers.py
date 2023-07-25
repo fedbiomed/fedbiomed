@@ -223,7 +223,10 @@ class NativeTorchOptimizer(BaseOptimizer):
         self.optimizer.zero_grad()
 
     def get_learning_rate(self) -> Dict[str, float]:
-        """Gets learning rate from value set in Pytorch optimizer.
+        """Gets learning rates from param groups in Pytorch optimizer.
+        
+        For each optimizer param group, it iterates over all parameters in that parameter group and searches for the corresponding parameter of the model by iterating over all model parameters. If it finds a correspondence, it saves the learning rate value. This function assumes that the parameters in the optimizer and the model have the same reference.
+        
 
         !!! warning
             This function gathers the base learning rate applied to the model weights,
