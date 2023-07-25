@@ -248,7 +248,7 @@ class Scaffold(Aggregator):
 
             for (key, val) in updates.items():
 
-                if self.nodes_lr[node_id].get(key):
+                if self.nodes_lr[node_id].get(key) is not None:
                     self.nodes_states[node_id].update(
                         {
                         key: d_i[key] + val / (self.nodes_lr[node_id][key] * n_updates)
@@ -386,27 +386,30 @@ class Scaffold(Aggregator):
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
-
+            _use_default_learning_rate: bool = False
             if training_replies[n_round].get_index_from_node_id(node_id) is not None:
                 # get updated learning rate if provided...
                 node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-                lrs.update(training_replies[n_round][node_idx]['optimizer_args'].get('lr'))
-
+                lr = training_replies[n_round][node_idx]['optimizer_args'].get('lr')
+                if lr is not None:
+                    lrs.update(lr)
+                else:
+                    _use_default_learning_rate = True
             else:
+                _use_default_learning_rate = True
+
+            if _use_default_learning_rate:
                 # ...otherwise retrieve default learning rate
-                optim =  training_plan.optimizer()
+                optim = training_plan.optimizer()
                 lrs.update(optim.get_learning_rate())
 
-            if len(lrs) == n_model_layers:
-                # case where there are several learning rates value
-                lr = lrs
+            if len(lrs) != n_model_layers:
 
-            else:
                 raise FedbiomedAggregatorError(
                     "Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate."
                 )
 
-            self.nodes_lr[node_id] = lr
+            self.nodes_lr[node_id] = lrs
         return self.nodes_lr
 
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:

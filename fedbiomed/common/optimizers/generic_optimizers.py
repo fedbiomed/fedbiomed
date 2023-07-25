@@ -5,7 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, Generic, List, Mapping, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
 import declearn
 import declearn.model.torch
@@ -223,7 +223,12 @@ class NativeTorchOptimizer(BaseOptimizer):
         self.optimizer.zero_grad()
 
     def get_learning_rate(self) -> Dict[str, float]:
-        """Gets learning rate from value set in Pytorch optimizer.
+        """Gets learning rates from param groups in Pytorch optimizer.
+        
+        For each optimizer param group, it iterates over all parameters in that parameter
+        group and searches for the corresponding parameter of the model by iterating over all
+        model parameters. If it finds a correspondence, it saves the learning rate value. This
+        function assumes that the parameters in the optimizer and the model have the same reference.
 
         !!! warning
             This function gathers the base learning rate applied to the model weights,
@@ -236,7 +241,7 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
         
-        mapping_lr_layer_name: Mapping[str, float] = {}
+        mapping_lr_layer_name: Dict[str, float] = {}
 
         for param_group in self.optimizer.param_groups:
             for layer_params in param_group['params']:
