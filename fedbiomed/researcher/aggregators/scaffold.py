@@ -245,8 +245,7 @@ class Scaffold(Aggregator):
         for node_id, updates in model_updates.items():
             d_i = self.nodes_deltas[node_id]
             for (key, val) in updates.items():
-
-                if self.nodes_lr[node_id].get(key):
+                if self.nodes_lr[node_id].get(key) is not None:
                     self.nodes_states[node_id].update(
                         {
                         key: d_i[key] + val / (self.nodes_lr[node_id][key] * n_updates)
@@ -261,7 +260,6 @@ class Scaffold(Aggregator):
                         sum(state[key] for state in self.nodes_states.values())
                             / len(self.nodes_states)
                         )
-
 
         # Compute the new node-wise correction states:
         # delta_i^{t+1} = c_i^{t+1} - c^{t+1}
@@ -394,7 +392,6 @@ class Scaffold(Aggregator):
 
             if len(lrs) == n_model_layers:
                 lr = lrs
-
             else:
                 raise FedbiomedAggregatorError(
                     "Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate."
