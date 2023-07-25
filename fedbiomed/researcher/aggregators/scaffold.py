@@ -260,7 +260,6 @@ class Scaffold(Aggregator):
                     self.global_state[key] = (
                         sum(state[key] for state in self.nodes_states.values())
                             / len(self.nodes_states)
-
                         )
 
 
