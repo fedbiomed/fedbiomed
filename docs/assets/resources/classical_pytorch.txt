@@ -1,0 +1,20 @@
+import torch.nn as nn
+
+
+class MyLocalTrainingPlan(nn.Module): 
+    def __init__(self):
+        super(MyLocalTrainingPlan, self).__init__()
+        # Define your model here
+        
+        # Define your optimizer
+        self.optimizer = torch.optim.SGD(self.parameters(),
+                                         lr=0.001)
+        
+    def forward(self, x):
+        # Implement model forward pass
+
+    def training_step(self, data, target):
+        # define cost function
+
+    def training_data(self, batch_size = 48):
+        # define a Pytorch DataLoader       

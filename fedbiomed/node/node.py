@@ -5,8 +5,9 @@
 Core code of the node component.
 '''
 from json import decoder
-
 from typing import Optional, Union
+
+import validators
 
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -22,8 +23,6 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-
-import validators
 
 
 class Node:
@@ -233,7 +232,7 @@ class Node:
             msg: `TrainRequest` message object to parse
 
         Returns:
-            a `Round` object for the training to perform, or None if no training 
+            a `Round` object for the training to perform, or None if no training
         """
         round = None
         # msg becomes a TrainRequest object
@@ -241,6 +240,8 @@ class Node:
                                       researcher_id=msg.get_param('researcher_id'),
                                       client=self.messaging)
         # Get arguments for the model and training
+        # NOTE: `get_param` has no real use save for monkey patching in unit tests
+        # (in real life, if the parameter is missing, an exception will be raised)
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
         training_status = msg.get_param('training') or False
@@ -251,6 +252,7 @@ class Node:
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
         round_number = msg.get_param('round') or 0
+        aux_var_urls = msg.get_param('aux_var_urls') or None
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -297,7 +299,8 @@ class Node:
                 aggregator_args,
                 self.node_args,
                 round_number=round_number,
-                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
+                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                aux_var_urls=aux_var_urls,
             )
 
         return round

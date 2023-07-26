@@ -41,9 +41,12 @@ class Custom:
         return {'Metric': 42.0}
 
 
-class FakeTrainingArgs:
+class FakeTrainingArgs(dict):
     """Mimics TrainingArgs class
     """
+    def __init__(self):
+        self['random_seed'] = 42
+
     def optimizer_arguments(self):
         return {'lr': 1e-2}
 

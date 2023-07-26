@@ -539,7 +539,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                                                                aux_var,
                                                                                nodes_scenario['data'][node_id], 
                                                                                nodes_scenario['target'][node_id])
-                        v = node_sklearn_optim_wrappers[node_id].optimizer._optimizer.modules[0].delta
 
                         for k, v in node_models[node_id].get_gradients().items():
                             # ------ CHECKS

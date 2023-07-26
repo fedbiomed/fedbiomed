@@ -68,6 +68,8 @@ class TestTorchnn(unittest.TestCase):
     optimizer = NativeTorchOptimizer(model, Adam([torch.zeros([2, 4])]))
 
     class FakeTrainingArgs(dict):
+        def __init__(self):
+            self['random_seed'] = 42
 
         def pure_training_arguments(self):
             return {"dry_run": True, "epochs": 1, "batch_size": 10, "log_interval": 10}

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Integration test (can also be used on ci.inria.fr)
+# Integration test (can also be used on CI slaves)
 #
 # This script runs all necessary components for a single test:
 # - a dockerized network
@@ -205,7 +205,8 @@ cleaning() {
     fi
 
     # kill the docker containers
-    ( cd $basedir/envs/development/docker ; docker-compose down )
+    ( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
+        docker_compose ; $DOCKER_COMPOSE down  )
 
     #
     # clean all datasets from nodes

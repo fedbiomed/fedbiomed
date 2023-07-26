@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- {% if config.base_uri %}
+      <base href="{{config.base_uri | url }}" />
+    {% endif %} -->
+    <script>
+      const versions_json = "../{{ 'versions.json' | url }}";
+      const search_worker_js = "{{ 'assets/javascript/search-worker.js' | url }}";
+      const search_index_json = "{{ 'search/search_index.json' | url }}";
+      const base_url = '{{ base_url }}';
+    </script>
+    <!-- Site title -->
+    {% block htmltitle %}
+      {% if page and page.meta and page.meta.title %}
+        <title>{{ page.meta.title }} - {{ config.site_name }}</title>
+      {% elif page and page.title and not page.is_homepage %}
+        <title>{{ page.title | striptags }} - {{ config.site_name }}</title>
+      {% else %}
+        <title>{{ config.site_name }}</title>
+      {% endif %}
+       <link rel="icon" type="image/x-icon" href="{{'./favicon.ico' | url}}">
+    {% endblock %}
+
+   
+
+      <!-- Page description -->
+    {% if page and page.meta and page.meta.description %}
+        <meta name="description" content="{{ page.meta.description }}" />
+    {% elif config.site_description %}
+        <meta name="description" content="{{ config.site_description }}" />
+    {% endif %}
+  
+    <!-- Page keywords -->
+    {% if page and page.meta and page.meta.keywords %}
+        <meta name="keywords" content="{{ page.meta.keywords }}" />
+    {% elif config.site_keywords %}
+        <meta name="keywords" content="{{ config.site_keywords }}" />
+    {% endif %}
+  
+    <!-- Page author -->
+    {% if page and page.meta and page.meta.author %}
+      <meta name="author" content="{{ page.meta.author }}" />
+    {% elif config.site_author %}
+      <meta name="author" content="{{ config.site_author }}" />
+    {% endif %}
+    
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+    
+    {% for path in config.extra_css %}
+    <link href="{{ path|url }}" rel="stylesheet">
+    {% endfor %}
+
+    {% block extrahead %}{% endblock %}
+
+  </head>

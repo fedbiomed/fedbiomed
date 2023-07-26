@@ -4,9 +4,8 @@
 """
 Provide a way to easily to manage training arguments.
 """
-
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union, Tuple, Callable
+from typing import Any, Dict, Type, TypeVar, Union, Tuple, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -256,6 +255,25 @@ class TrainingArgs:
 
         return True
 
+    @staticmethod
+    def optional_type(typespec: Union[Type, Tuple[Type, ...]], argname: str):
+        """Utility factory function to generate functions that check for an optional type(s).
+
+        Args:
+            typespec: type specification which will be passed to the `isinstance` function
+            argname: the name of the training argument for outputting meaningful error messages
+
+        Returns:
+            type_check: a callable that takes a single argument and checks whether it is either None
+                or the required type(s)
+        """
+        @validator_decorator
+        def type_check(v):
+            if v is not None and not isinstance(v, typespec):
+                return False, f"Invalid type: {argname} must be {typespec} or None"
+            return True
+        return type_check
+
     @classmethod
     def default_scheme(cls) -> Dict:
         """
@@ -282,6 +300,7 @@ class TrainingArgs:
         | fedprox_mu | set the value of mu and enable FedProx correction |
         | dp_args | arguments for Differential Privacy |
         | share_persistent_buffers | toggle whether nodes share the full state_dict (when True) or only trainable parameters (False) in a TorchTrainingPlan |
+        | random_seed | set random seed at the beginning of each round |
 
         """
         return {
@@ -334,6 +353,9 @@ class TrainingArgs:
             },
             "share_persistent_buffers": {
                 "rules": [bool], "required": False, "default": True
+            },
+            "random_seed": {
+                "rules": [cls.optional_type(typespec=int, argname='random_seed')], "required": True, "default": None
             }
         }
 
