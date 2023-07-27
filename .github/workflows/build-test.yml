@@ -11,8 +11,8 @@ on:
       - synchronize
       - reopened
       - closed
-      - assigned 
-      - ready-for-review
+      - review_requested
+      - ready_for_review
 
     branches:
       - master
@@ -60,8 +60,12 @@ jobs:
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
 
   unit-test:
-    name: Ubuntu 22.04 unit tests
-    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    name: unit tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22-04, fedora38, macosx-m1]
+    runs-on: ${{ matrix.os }}
       
     if: github.event.pull_request.draft == false
     steps:
@@ -92,19 +96,29 @@ jobs:
           test-dir: tests
 
       - name: Upload coverage reports to Codecov
-        if: steps.filter.outputs.module == 'true'
+        if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests # optional
+          flags: unittests-${{ matrix.os }} # optional
           name: codecov-umbrella # optional
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
-
+      
+      - name: Notify upload impossible on m1
+        if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
+        run: |
+          echo "No codecov-action available for macos-m1" # to check from time to time
+          
+          
   mnist-test: 
     name: Test MNIST Notebook 
-    runs-on: [self-hosted, Linux, ubuntu-22-04]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22-04, fedora38, macosx-m1]
+    runs-on: ${{ matrix.os }}
     needs: unit-test
 
     if: github.event.pull_request.draft == false
@@ -132,9 +146,12 @@ jobs:
           ./scripts/configure_conda node
           ./scripts/fedbiomed_run network
           ./scripts/run_test_mnist ../../../..
+        shell: bash -l {0}
       
       - name: Stop network component 
         if: always()
         run: |
           source ~/.bashrc
           ./scripts/fedbiomed_run network stop
+        shell: bash -l {0}
+
