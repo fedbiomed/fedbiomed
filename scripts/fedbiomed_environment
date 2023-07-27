@@ -108,6 +108,8 @@ activate_gui() {
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
 basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 
+# temporary: `docker compose` migration
+source $basedir/scripts/choose_docker_compose
 
 # initialize development environment for....
 case $1 in
@@ -118,7 +120,9 @@ case $1 in
         activate_network
         echo "** Cleaning all caches / temporary files"
         # docker containers
-        (cd ${basedir}/envs/development/docker/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
+        DOCKER_COMPOSE=$(docker_compose ; echo $DOCKER_COMPOSE) # dont call directly `docker_compose` or the calling process exists in case of error
+        # note: do as much cleaning as possible even if `docker compose` is not found
+        (cd ${basedir}/envs/development/docker/ && [ -n "$DOCKER_COMPOSE" ] && $DOCKER_COMPOSE rm -sf &&  echo " * Docker cleaning" )
 
         # network cleaner
         echo " * Network cleaning"
@@ -146,7 +150,14 @@ case $1 in
 
         # gui cleaning
         echo " * Node GUI cleaning"
-        gui_temp_paths='var/gui-build gui/ui/node_modules gui/ui/yarn.lock'
+        gui_temp_paths='
+            var/gui-build
+            gui/ui/node_modules
+            gui/ui/yarn.lock
+            gui/ui/.yarn
+            gui/ui/.pnp.cjs
+            gui/ui/.pnp.loader.mjs
+        '
         for p in $gui_temp_paths ; do
             if [ -e "${basedir}/$p" ] ; then
                 echo "[INFO] Removing directory ${basedir}/$p"
