@@ -265,21 +265,21 @@ if __name__ == '__main__':  # pragma: no cover
 you can run the test with the simple ```python ./test_file.py``` command.
 
 
-#### report all files in code coverage
+#### Report all files in code coverage
 
-The **test\_insert\_untested\_python\_files\_here.py** file contains all files of the fedbiomed package.
-Its purpose is to provide a code coverage report for all files of fedbiomed library, even if not proper
+The **test\_insert\_untested\_python\_files\_here.py** file contains all files of the Fed-BioMed package.
+Its purpose is to provide a code coverage report for all files of Fed-BioMed library, even if not proper
 unit test is provided for the file.
 
 Of course, this is a temporary situation, waiting for all files to be tested properly.
 
 
-## running an integration test
+## Running an end-to-end test
 
 ### global explanation
 
 We provide the script **scripts/run_end_to_end_test** to ease the launching of
-tests during the developement process.
+tests during the development process.
 
 The script usage is:
 
