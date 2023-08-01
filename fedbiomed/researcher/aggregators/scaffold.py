@@ -374,30 +374,26 @@ class Scaffold(Aggregator):
             Dict[str, List[float]]: dictionary mapping node_id and a list of float, as many as
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
-        # to be implemented in a utDict[str, Union[np.ndarray, torch.Tensor]]ils module (for pytorch optimizers)
 
         n_model_layers = len(training_plan.get_model_params())
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
-            if training_replies[n_round].get_index_from_node_id(node_id) is not None:
-                # get updated learning rate if provided...
-                node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-                lrs.update(training_replies[n_round][node_idx]['optimizer_args'].get('lr'))
+            # retrieve node learning rate from training replies
+            node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
+            if node_idx is not None:
+                # case where node provided lr information
+                lrs = training_replies[n_round][node_idx]['optimizer_args'].get('lr')
+            if node_idx is None or lrs is None:
+                # fall back to default value if no lr information was provided
+                lrs = training_plan.optimizer().get_learning_rate()
 
-            else:
-                # ...otherwise retrieve default learning rate
-                optim =  training_plan.optimizer()
-                lrs.update(optim.get_learning_rate())
-
-            if len(lrs) == n_model_layers:
-                lr = lrs
-            else:
+            if len(lrs) != n_model_layers:
                 raise FedbiomedAggregatorError(
                     "Error when setting node learning rate for SCAFFOLD: cannot extract node learning rate."
                 )
 
-            self.nodes_lr[node_id] = lr
+            self.nodes_lr[node_id] = lrs
         return self.nodes_lr
 
     def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
