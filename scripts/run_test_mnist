@@ -79,7 +79,8 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-( cd $basedir/envs/development/docker ; docker-compose down )
+( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
+    docker_compose ; $DOCKER_COMPOSE down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist

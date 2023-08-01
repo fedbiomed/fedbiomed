@@ -27,6 +27,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
+import fedbiomed.researcher.job # needed for specific mocking
 
 
 
@@ -193,6 +194,7 @@ class TestJob(ResearcherTestCase):
     def test_job_06_init_isclass_raises_error(self,
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
+
         with patch.object(fedbiomed.researcher.job, 'inspect') as mock_inspect:
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
