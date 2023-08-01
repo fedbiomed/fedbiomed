@@ -1,6 +1,6 @@
-## unit tests
+## Unit tests
 
-### material
+### Material
 
 Tests are run with [pytest](https://pytest.org) using `unittests` as test framework (no specific extension).
 We use pytest for these additional features:
@@ -85,7 +85,7 @@ add extra methods to this object
   - testing the raise of Exceptions
   - testing the log generation
 
-### doc on unittest
+### Doc on unittest
 
 https://docs.python.org/3/library/unittest.html
 
@@ -278,13 +278,13 @@ Of course, this is a temporary situation, waiting for all files to be tested pro
 
 ### global explanation
 
-We provide the script **scripts/run_integration_test** to ease the launching of
+We provide the script **scripts/run_end_to_end_test** to ease the launching of
 tests during the developement process.
 
 The script usage is:
 
 ```
-Usage: run_integration_test -s file -d dataset.json
+Usage: run_end_to_end_test -s file -d dataset.json
 
   -h, --help                  this help
   -s, --script  <file>        script to run (.py or .ipynb)
@@ -328,7 +328,7 @@ We provide some example datasets in **tests/datasets**, you may need to adjust t
 #### MNIST tutorial
 
 ```
-$ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+$ ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
                                  -d ./tests/datasets/mnist.json
 ```
 
@@ -338,7 +338,7 @@ This will run the first tutorial of Fed-BioMed with one calculation node.
 #### monai notebook tutorial with 3 nodes
 
 ```
-$ ./scripts/run_integration_test \
+$ ./scripts/run_end_to_end_test \
    -s ./notebooks/monai-2d-image-classification.ipynb \
    -d ./tests/datasets/mednist_part_1.json \
    -d ./tests/datasets/mednist_part_2.json \
@@ -356,7 +356,7 @@ You may launch this tutorial in a jupyter notebook for more informations.
 First, create the c1.csv. c2.csv, c3.csv files as described in the notebook, then:
 
 ```
-../scripts/run_integration_test \
+../scripts/run_end_to_end_test \
   -s ../notebooks/sklearn-perceptron.ipynb \
   -d ./datasets/sklearn_perceptron_1.json \
   -d datasets/sklearn_perceptron_2.json \
