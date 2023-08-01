@@ -127,6 +127,7 @@ nav:
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
+        - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - Footer:
     - 'News' : './news/index.md'
