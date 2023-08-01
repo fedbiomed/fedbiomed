@@ -5,7 +5,7 @@
 
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import Any, Dict, Generic, List, Mapping, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 import declearn
 import declearn.model.torch
@@ -238,7 +238,7 @@ class NativeTorchOptimizer(BaseOptimizer):
                 (as many as the number of the layers contained in the model)
         """
         logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
-        mapping_lr_layer_name: Mapping[str, float] = {}
+        mapping_lr_layer_name: Dict[str, float] = {}
 
         for param_group in self.optimizer.param_groups:
             for layer_params in param_group['params']:
