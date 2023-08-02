@@ -8,6 +8,7 @@ import shutil
 import unittest
 from typing import Dict
 from unittest.mock import MagicMock, PropertyMock, patch
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -56,10 +57,17 @@ class TestExperiment(ResearcherTestCase):
             `issubclass` of `TorchTrainingPlan`
         """
 
+        def __init__(self):
+            super().__init__()
+            # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
+            # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate,
+            # according to our test coding rules
+            self._dp_controller = MagicMock()
+            do_nothing = lambda x: x
+            self._dp_controller.side_effect = do_nothing
+
         def init_model(self, args):
             pass
-
-        pass
 
     @staticmethod
     def create_fake_training_plan_file(name: str):
@@ -1183,12 +1191,15 @@ class TestExperiment(ResearcherTestCase):
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
-        training_plan = MagicMock()
+        training_plan = TestExperiment.FakeModelTorch
         training_plan.type = MagicMock()
+        training_plan.optimizer = MagicMock()
+        training_plan.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
+        training_plan.get_model_params = MagicMock(return_value=None)
         mock_job_init.return_value = None
         mock_job_training.return_value = None
         mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_job_training_plan_type.return_value = training_plan()
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
@@ -1196,7 +1207,7 @@ class TestExperiment(ResearcherTestCase):
         mock_experiment_breakpoint.return_value = None
 
         # Set model class to be able to create Job
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_training_plan_class(training_plan)
         # Set default Job
         self.test_exp.set_job()
         # Set strategy

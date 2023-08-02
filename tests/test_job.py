@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 import numpy as np
 import torch
+import fedbiomed
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -190,7 +191,6 @@ class TestJob(ResearcherTestCase):
             mock_logger_critical.assert_called_once()
 
     @patch('fedbiomed.common.logger.logger.critical')
-
     def test_job_06_init_isclass_raises_error(self,
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
