@@ -1,7 +1,7 @@
 """ This file contains dummy Classes for unit testing. It fakes Experiment class
 (from fedbiomed.researcher.experiment)
 """
-from typing import Union, TypeVar, Type, List
+from typing import List, Optional, Type, TypeVar, Union
 
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.experiment import SecureAggregation
@@ -9,6 +9,7 @@ from fedbiomed.researcher.experiment import SecureAggregation
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
 Aggregator = TypeVar("Aggregator")
+Optimizer = TypeVar("Optimizer")
 Strategy = TypeVar("Strategy")
 Type_TrainingPlan = TypeVar("Type_TrainingPlan")
 TrainingPlan = TypeVar("TrainingPlan")
@@ -25,6 +26,7 @@ class ExperimentMock:
                 nodes: Union[List[str], None] = None,
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+                agg_optimizer: Optional[Optimizer] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 round_limit: Union[int, None] = None,
                 training_plan_class: Union[Type_TrainingPlan, str, None] = None,
@@ -44,6 +46,7 @@ class ExperimentMock:
         self._nodes = nodes
         self._fds = training_data
         self._aggregator = aggregator
+        self._agg_optimizer = agg_optimizer
         self._node_selection_strategy = node_selection_strategy
         self._round_current = 0
         self._round_limit = round_limit

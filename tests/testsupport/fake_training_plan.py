@@ -3,10 +3,13 @@
 from typing import Any, Dict, Optional
 from unittest import mock
 import time
-
+from fedbiomed.common.constants import TrainingPlans
+import torch
+from torch.utils.data import Dataset, DataLoader
 from fedbiomed.common.models import Model
+from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
+from fedbiomed.common.data import DataManager
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
 class FakeModel(BaseTrainingPlan):
@@ -29,6 +32,8 @@ class FakeModel(BaseTrainingPlan):
         self._optimizer_args = {}
         self._model = mock.create_autospec(Model, instance=True)
         self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
+        self._optimizer = mock.create_autospec(BaseOptimizer, instance=True)
+        self._optimizer.optimizer = mock.MagicMock()
 
     def post_init(
         self,
@@ -59,12 +64,16 @@ class FakeModel(BaseTrainingPlan):
             the model or into a dictionary. Unused in this dummy class.
         """
     def init_optimizer(self, optimizer_args: Dict[str, Any]):
-        """Fakes `init_optimizer` method, used to initialize an optimizer (either framework 
-        specific like pytorch optimizer, or non-framework specific like declearn) 
+        """Fakes `init_optimizer` method, used to initialize an optimizer (either framework
+        specific like pytorch optimizer, or non-framework specific like declearn)
 
         Args:
             optimizer_args: optimizer parameters as a dictionary
         """
+
+    def optimizer(self):
+        return self._optimizer
+
     def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
@@ -106,3 +115,43 @@ class FakeModel(BaseTrainingPlan):
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
+
+
+class DeclearnAuxVarModel(FakeModel):
+    """for specific test that  tests declearn specific optimizer compatibility"""
+    OPTIM = None
+    TYPE = None
+
+    class CustomDataset(Dataset):
+        def __init__(self, *args):
+            self.value = torch.Tensor([[1, 2, 3], [1, 2, 3]])
+            self.target = torch.Tensor([1, 1])
+
+        def __getitem__(self, index):
+            return self.value[index], self.target[index]
+
+        def __len__(self):
+            return self.target.shape[0]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # overriding specific component 
+        self._optimizer = DeclearnAuxVarModel.OPTIM
+
+    def training_data(self):
+        return DataManager(dataset=self.CustomDataset())
+    
+    def type(self):
+        return DeclearnAuxVarModel.TYPE
+    
+    def training_routine(self, **kwargs):
+        td = self.training_data()
+        td.load(TrainingPlans.TorchTrainingPlan)
+        all_s = td.load_all_samples()
+        
+        for v, t in all_s:
+            o = self._optimizer._model.model(v)
+            loss = t - o # stupid loss function, created only for the sake of testing
+            loss.backward()
+            self._optimizer.step()
+        return super().training_routine(**kwargs)

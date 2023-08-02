@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class defining the shared API of all training plans."""
-
+import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
-from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 import torch
 from torch.utils.data import DataLoader
 
@@ -21,6 +20,7 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
 
@@ -57,6 +57,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     _model: Model
     _optimizer: BaseOptimizer
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -68,6 +69,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def model(self):
         """Gets model instance of the training plan"""
+
+    def optimizer(self) -> Optional[BaseOptimizer]:
+        """Get the BaseOptimizer wrapped by this training plan.
+
+        Returns:
+            BaseOptimizer wrapped by this training plan, or None if
+            it has not been initialized yet.
+        """
+        # FUTURE: return `self._optimizer.optimizer` instead?
+        # Currently, the legacy Scaffold implem. needs the BaseOptimizer,
+        # but IMHO it really should remain a private backend component.
+        return self._optimizer
 
     @abstractmethod
     def post_init(
@@ -86,6 +99,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        # Set random seed: the seed can be either None or an int provided by the researcher.
+        # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
+        rseed = training_args['random_seed']
+        random.seed(rseed)
+        np.random.seed(rseed)
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -199,16 +217,21 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self) -> Dict[str, Any]:
+    def get_model_params(self, only_trainable: bool = False,) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
         The type of data structure used to store weights depends on the actual
         framework of the wrapped model.
 
+        Args:
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights()
+        return self._model.get_weights(only_trainable=only_trainable)
 
     def set_model_params(self, params: Dict[str, Any]) -> None:
         """Assign new values to the model's trainable parameters.
@@ -228,9 +251,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def init_optimizer(self) -> Any:
         """Method for declaring optimizer by default
-        
+
         Returns:
-            either framework specific optimizer (or None) or 
+            either framework specific optimizer (or None) or
             FedBiomed [`Optimizers`][`fedbiomed.common.optimizers.Optimizer`]
         """
 
@@ -532,8 +555,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             return batch_size
 
     def after_training_params(
-            self,
-            flatten: bool = False
+        self,
+        flatten: bool = False,
     ) -> Union[Dict[str, Any], List[float]]:
         """Return the wrapped model's parameters for aggregation.
 
@@ -547,11 +570,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
-
-        # Get flatten model parameters
         if flatten:
             return self._model.flatten()
-
         return self.get_model_params()
 
     def export_model(self, filename: str) -> None:

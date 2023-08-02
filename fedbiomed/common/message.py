@@ -8,7 +8,7 @@ Definition of messages exchanged by the researcher and the nodes
 import functools
 
 from dataclasses import dataclass
-from typing import Dict, Any, Union, Callable
+from typing import Any, Callable, Dict
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -576,6 +576,8 @@ class TrainRequest(Message, RequiresProtocolVersion):
         training_plan_class: Class name of the training plan
         command: Reply command string
         aggregator_args: ??
+        aux_var_urls: Optional list of URLs where Optimizer auxiliary
+            variables files are available
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -596,6 +598,7 @@ class TrainRequest(Message, RequiresProtocolVersion):
     secagg_clipping_range: (int, type(None))
     round: int
     aggregator_args: dict
+    aux_var_urls: (list, type(None))
 
 
 @catch_dataclass_exception
