@@ -10,7 +10,7 @@ for notebook in ./notebooks/*.py; do
 cat <<EOF >>${bats_file}
 bats_require_minimum_version 1.5.0
 @test "$(basename ${notebook})" {
-    run -0 ./scripts/run_integration_test -s ${notebook}  \
+    run -0 ./scripts/run_end_to_end_test -s ${notebook}  \
         -d ./tests/datasets/mnist.json \
         -d ./tests/datasets/celeba.json >&3
 }
@@ -23,7 +23,7 @@ rm -fr ${TEST_OUTPUT}/*
 bats --formatter tap --report-formatter tap --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
 
 # @test "flamby-integration-into-fedbiomed.py" {
-#   run ./scripts/run_integration_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
+#   run ./scripts/run_end_to_end_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
 #                                 -d ./tests/datasets/mnist.json >&2
 # }
 

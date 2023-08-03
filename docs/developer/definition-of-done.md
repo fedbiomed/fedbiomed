@@ -38,6 +38,8 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 - Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage.
 - Add unit test when correcting a bug.
 
+Please refer to [the guide of unit testing practices](./testing-in-fedbiomed.md) before starting to write or to modify the unit tests in Fed-BioMed. 
+
 ## Post-merge actions
 
 After merging:
