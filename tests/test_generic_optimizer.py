@@ -925,7 +925,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
                     optim_w.step()
                 step_patch.assert_called_once()
     
-    def test_nativetorchoptimizer_02_getlearningrate(self):
+    def test_nativetorchoptimizer_02_getlearningrate_1(self):
         """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
         learning rate
         """
@@ -938,7 +938,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         optimizer = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=lr))
         
         lr_extracted = optimizer.get_learning_rate()
-        self.assertListEqual(lr_extracted, [lr])
+        self.assertDictEqual(lr_extracted, {k: lr for k,_ in model.model.named_parameters()})
         
         # then test using a pytorch scheduler
         scheduler = LambdaLR(optimizer.optimizer, lambda e: 2*e)
@@ -955,7 +955,77 @@ class TestNativeTorchOptimizer(unittest.TestCase):
 
             # checks
             lr_extracted = optimizer.get_learning_rate()
-            self.assertListEqual(lr_extracted, [lr * 2 * (e+1)])
+            self.assertDictEqual(lr_extracted, {k: lr * 2 * (e+1) for k,_ in model.model.named_parameters()})
+
+    def test_nativetorchoptimizer_03_getlearningrate_2(self):
+        """test_nativetorchoptimizer_03_getlearningrate_2: test the method but with a more complex model,
+        that possesses different learning rate per block / layers
+        """
+
+        lr_1,  lr_block, lr = .1, .2, .3
+
+        class ComplexModel(nn.Module):
+            """a complex model with batchnorms (trainable layers that doesnot requoere learning rates)
+            data input example for using such model
+            ```
+            batch_size = 5
+            model = ComplexModel()
+            data = torch.rand(batch_size,1, 25,25) 
+            model.forward(data)
+            ```
+            """
+            def __init__(self):
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.relu = nn.functional.relu
+                self.conv2 = nn.Conv2d(20, 20, 5)
+                self.block = nn.Sequential(nn.Linear(20 * 17 *17, 10),
+                                        nn.BatchNorm1d(10),
+                                        nn.Linear(10, 5))
+                self.bn = nn.BatchNorm1d(5)
+                self.upsampler = nn.Upsample(scale_factor=2)
+                self.classifier = nn.Linear(10, 2)
+
+            def forward(self, x):
+                x = self.relu(self.conv1(x))
+                x = self.relu(self.conv2(x))
+                x = x.reshape(-1, 20 * 17 *17)
+                x = self.block(x)
+                x = self.bn(x)
+                x = torch.unsqueeze(x, dim=0)
+                x = torch.unsqueeze(x, dim=0)
+                x = self.upsampler(x)
+                return self.classifier(x)
+
+        model = ComplexModel()
+
+        opt = torch.optim.SGD([
+            {'params': model.block.parameters(), 'lr': lr_block},
+            {'params': model.conv1.parameters(), 'lr': lr_1},
+            {'params': model.conv2.parameters()},
+            {'params': model.classifier.parameters()},
+            {'params': model.upsampler.parameters()},
+            {'params': model.bn.parameters()}
+            ], lr=lr)
+
+        t_model = TorchModel(model)
+        t_opt = NativeTorchOptimizer(t_model, opt)
+        # checks
+        lr_extracted = t_opt.get_learning_rate()
+        model_layers_names = sorted([k for k, _ in model.named_parameters()])
+        self.assertListEqual(sorted(list(lr_extracted.keys())), model_layers_names)
+
+        # check that learning rates are extracted correctly according to the model layer names
+        for k, v in model.named_parameters():
+            if 'block' in k:
+                self.assertEqual(lr_extracted[k], lr_block)
+            elif 'conv1' in k:
+                self.assertEqual(lr_extracted[k], lr_1)
+            else:
+                self.assertEqual(lr_extracted[k], lr)
+
+        # check that the extracted learning rates
+        self.assertGreaterEqual(len(t_model.model.state_dict()), len(lr_extracted))
 
 
 class TestNativeSklearnOptimizer(unittest.TestCase):

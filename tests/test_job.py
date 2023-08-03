@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
+import fedbiomed
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
