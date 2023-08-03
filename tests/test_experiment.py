@@ -71,10 +71,17 @@ class TestExperiment(ResearcherTestCase):
             `issubclass` of `TorchTrainingPlan`
         """
 
+        def __init__(self):
+            super().__init__()
+            # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
+            # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate,
+            # according to our test coding rules
+            self._dp_controller = MagicMock()
+            do_nothing = lambda x: x
+            self._dp_controller.side_effect = do_nothing
+
         def init_model(self, args):
             pass
-
-        pass
 
     @staticmethod
     def create_fake_training_plan_file(name: str):
@@ -1209,7 +1216,9 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_experiment_26_run_once_with_scaffold_and_training_args(self,
+    @patch('fedbiomed.researcher.job.Job.__init__')
+    def test_experiment_25_run_once_with_scaffold_and_training_args(self,
+                                                                    mock_job_init,
                                                                     mock_job_updates_params,
                                                                     mock_job_training,
                                                                     mock_job_training_replies,
@@ -1220,6 +1229,7 @@ class TestExperiment(ResearcherTestCase):
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
+        mock_job_init.return_value = None
         mock_job_training.return_value = None
 
         mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
@@ -1237,6 +1247,7 @@ class TestExperiment(ResearcherTestCase):
         tp.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
+        tp.after_training_params = MagicMock(return_value = None)
         mock_job_training_plan_type.return_value = tp
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(tp)
