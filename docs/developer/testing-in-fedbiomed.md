@@ -36,7 +36,7 @@ Please find the following guidelines to pay attention to while writing unit test
 7. Pay attention to testing the functionality of the wrapper class instead of testing the integration of wrapped classes.
 8. Try to use Fake classes as little as possible. Follow the guide in section 8 to decide if a Fake class is required.
 9. Mock complex classes to reduce complexity.
-10. Do not mock the methods of the class being tested unless if you have to. 
+10. Do not mock the methods of the class being tested unless you have to. 
 11. Start mocking from a higher level rather than a lower layer.
 12. Write separate test cases for private methods if the method is complex and complicated to test through public methods
 13. Focus on what the function does while testing methods that receive generic data types as input.
@@ -55,7 +55,7 @@ Please find the following guidelines to pay attention to while writing unit test
     - If there are functions that require testing GPU functionality, implement those tests as integration tests.
 
 ### 3. Focus on smaller units
-- Each test function should test a single method of a class or a function.
+- Each test function should test a single method of a class, function, or module.
 - Test functions can execute other methods of the class being tested or other functions. However, the purpose should be to prepare the test state rather than testing those executions.
 - If the method being tested executes private members of the class, please follow the section [Private methods of a class](#12-private-methods-of-a-class).
 
