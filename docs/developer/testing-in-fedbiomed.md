@@ -109,7 +109,6 @@ self.abstract_methods_patcher = patch.multiple(AbstractClass, __abstractmethods_
     - 3. Does the object have too many dependencies on other modules of the library?
     - 4. Does the method being tested require many results or states of the object that needs to be mocked?
     - 5. Is mocking saving you a lot of time and reducing complexity?
-    - 6. 
 
 - If 1. is no and any other condition is yes, consider using a fake class.
 - If 1. is yes and any other condition is yes, consider using mocking. 
