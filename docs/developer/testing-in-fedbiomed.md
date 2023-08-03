@@ -32,7 +32,7 @@ Please find the following guidelines to pay attention to while writing unit test
 3. Tests should focus on smaller units and only validate the result of the function being tested.
 4. Test the result of the method/function without getting lost in implementation details.
 5. Make sure abstract classes are tested separately by mocking abstract methods.
-6. Test the classes that inherit from base/abstract classes, but not the ones that are already tested in the base/abstract class.
+6. Test the methods that inherit from base/abstract classes, but not the ones that are already tested in the base/abstract class.
 7. Pay attention to testing the functionality of the wrapper class instead of testing the integration of wrapped classes.
 8. Try to use Fake classes as little as possible. Follow the guide in section 8 to decide if a Fake class is required.
 9. Mock complex classes to reduce complexity.
