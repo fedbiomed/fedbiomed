@@ -669,6 +669,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
+        r3.initialize_validate_training_arguments()
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -680,6 +681,7 @@ class TestRound(NodeTestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
+        r4.initialize_validate_training_arguments()
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 
