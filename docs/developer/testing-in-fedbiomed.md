@@ -17,7 +17,7 @@ In unit-testing the focus is to find the bug that can be found at small software
 Isolation from system means: Isolate from 
 
 - the database 
-- third party dependencies (?)
+- third party dependencies
 - In complex cases: modules/classes within the library 
 - file system
 - API calls
@@ -37,12 +37,12 @@ Please find the following guidelines to pay attention to while writing unit test
 8. Try to use Fake classes as little as possible. Follow the guide in section 8 to decide if a Fake class is required.
 9. Mock complex classes to reduce complexity.
 10. Do not mock the methods of the class being tested unless if you have to. 
-11. Start mocking from a higher level rather than a lower layer.
+11. Instead of mocking lower layer API mock the higher-level instance that is used by the class being tested.
 12. Write separate test cases for private methods if the method is complex and complicated to test through public methods
 13. Focus on what the function does while testing methods that receive generic data types as input.
 14. For methods that can take different data types as arguments, do not write additional tests with different data types if the function doesn't explicitly perform specific actions for those types.
 15. If your tests are difficult to write or complex, rethink the design of the class you're testing, and ensure that your implementation respects the SOLID principles.
-
+16. Please add a new unit tests if a new bug is discovered. 
 
 ### 1. File system operations
 - Tests should not fail due to file system errors. Therefore, use mocking for write/read operations.
@@ -107,16 +107,17 @@ self.abstract_methods_patcher = patch.multiple(AbstractClass, __abstractmethods_
     - 1. Is the object instantiated or used directly within the module or class being tested?
     - 2. Is the object dependent on the system or external actions (e.g., database, network etc)?
     - 3. Does the object have too many dependencies on other modules of the library?
-    - 4. Does the method being tested require many different results or states of the object that needs to be mocked?
+    - 4. Does the method being tested require many results or states of the object that needs to be mocked?
     - 5. Is mocking saving you a lot of time and reducing complexity?
-    - 6. Does mocking not change the intention of the test?
+    - 6. 
 
-- If 1. is no and 2. or 3. is yes, consider using a fake class.
-- If 1. is yes and any other condition is yes, consider using mocking. If 6 is no and all others are yes, try to find another solution besides mocking.
+- If 1. is no and any other condition is yes, consider using a fake class.
+- If 1. is yes and any other condition is yes, consider using mocking. 
+- If mocking changes the intention of the test, try to find another solution besides mocking or using fake class.
 
 ### 10. Avoid mocking the methods of the class being tested
 - Please avoid mocking public/private methods of the class being tested.
-- You can mock in some cases if you think that you have to mock it to reduce complexity. However, the need for mocking can be due to some desing issues. Therefore, please make sure that the class being tested or the test case is designed well. 
+- You can mock in some cases if you think that you have to mock it to reduce complexity. However, the need for mocking can be due to some design issues. Therefore, please make sure that the class being tested, or the test case is designed well. 
 
 ### 11. Leveling Mocks
 - The classes being tested may require instantiating other instances that contain methods that need to be mocked, such as a database connection or file read/write operation. In such scenarios, instead of mocking the built-in read/write methods, mock the higher-level instance that is used by the class being tested.
@@ -146,6 +147,9 @@ self.abstract_methods_patcher = patch.multiple(AbstractClass, __abstractmethods_
         - Specific interfaces are better than one general-purpose interface.
     - Dependency Inversion Principle
         - Classes should depend on interfaces or abstract classes instead of concrete classes and functions.
+
+### 16. Learn from bugs 
+- When a bug is discovered please consider adding a unit tests for it. However, if the bug can not be tested using unit tests please consider adding integration or end-to-end test. 
 
 ## Integration Testing
 
