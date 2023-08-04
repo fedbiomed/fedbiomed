@@ -27,7 +27,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def __init__(self):
         pass
         # ....
-    def training_data(self, batch_size):
+    def training_data(self):
         pass
 ```
 
@@ -70,7 +70,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_optimizer(self):
         # ....
     
-    def training_data(self, batch_size):
+    def training_data(self):
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:15].values
         y = dataset.iloc[:,15]
@@ -100,7 +100,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_optimizer(self):
         # ....
         
-    def training_data(self, batch_size):
+    def training_data(self):
         feature_cols = self.model_args()["feature_cols"]
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:feature_cols].values
@@ -148,7 +148,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_optimizer(self):
         # ....
 
-    def training_data(self, batch_size):
+    def training_data(self):
         feature_cols = self.model_args()["feature_cols"]
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:feature_cols].values
@@ -182,7 +182,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         def __getitem__(self, idx):
             return self.X_train[idx], self.Y_train[idx]
 
-    def training_data(self, batch_size): 
+    def training_data(self): 
         feature_cols = self.model_args()["feature_cols"]    
         dataset = self.CSVDataset(self.dataset_path, feature_cols)
         loader_kwargs = {'batch_size': batch_size, 'shuffle': True}
@@ -206,7 +206,7 @@ from fedbiomed.common.data import DataManager
 
 class SGDRegressorTrainingPlan(FedPerceptron):
 
-    def training_data(self, batch_size):
+    def training_data(self):
         num_cols = self.model_args()["number_cols"]
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:num_cols].values
@@ -221,7 +221,7 @@ Since the method `training_data` is defined by the user, it is possible to do pr
 `DataManager` object. In the code snippet below, a preprocess for normalization is shown for the dataset MNIST.
 
 ```python
-def training_data(self, batch_size = 48):
+def training_data(self):
     # Custom torch Dataloader for MNIST data
     transform = transforms.Compose([transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))])
@@ -255,7 +255,7 @@ class, so please refer to that documentation for the meaning of the supported ke
 
 ```python
 class MyTrainingPlan(SKLearnTrainingPlan):
-    def training_data(self, batch_size):
+    def training_data(self):
         return DataManager(dataset=X, target=Y, 
                            # The following arguments will be passed to the DataLoader:
                            batch_size=batch_size, shuffle=True, drop_last=False)
@@ -271,7 +271,7 @@ As you may have noticed below, `batch_size` represents a special case since it c
     that value as keyworkd argument to the `DataManager`, as such:
     ```python
     class MyTrainingPlan(SKLearnTrainingPlan):
-        def training_data(self, batch_size):
+        def training_data(self):
             return DataManager(dataset=X, target=Y, batch_size=batch_size)
     ```
 
