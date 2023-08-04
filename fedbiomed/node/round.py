@@ -658,8 +658,6 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
         training_plan_type = self.training_plan.type()
-        # inject batch size in loader arguments
-        self.loader_arguments['batch_size'] = self.training_arguments.get('batch_size',1)
         try:
             data_manager = self.training_plan.training_data()
         except TypeError as e:
@@ -676,6 +674,9 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: The method `training_data` should return an "
                                       f"object instance of `fedbiomed.common.data.DataManager`, "
                                       f"not {type(data_manager)}")
+
+        # Set loader arguments
+        data_manager.update_loader_args(self.loader_arguments)
 
         # Specific datamanager based on training plan
         try:

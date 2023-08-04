@@ -6,7 +6,7 @@ Data Management classes
 """
 
 
-from typing import Union
+from typing import Dict, Iterable, Mapping, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -44,8 +44,22 @@ class DataManager(object):
 
         self._dataset = dataset
         self._target = target
-        self._loader_arguments = kwargs
+        self._loader_arguments: Dict = kwargs
         self._data_manager_instance = None
+
+    def update_loader_args(self, updater: Optional[Union[Mapping, Iterable]] = None, **kwargs):
+        """Updates the class' loader arguments
+
+        Respects the same interface as `Dict.update` function.
+
+        Args:
+            updater: the mapping or iterable used to update the loader arguments
+            kwargs: if kwargs are present, they are also used to update the loader arguments
+            """
+        if updater is not None:
+            self._loader_arguments.update(updater)
+        if kwargs is not None:
+            self._loader_arguments.update(kwargs)
 
     def load(self, tp_type: TrainingPlans):
         """Loads proper DataManager based on given TrainingPlan and
