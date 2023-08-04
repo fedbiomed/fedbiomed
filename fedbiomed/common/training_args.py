@@ -133,9 +133,7 @@ class TrainingArgs:
         Returns:
             Contains loader arguments for PyTorch dataloader
         """
-        keys = ["batch_size"]
-
-        return self._extract_args(keys)
+        return self["loader_args"]
 
     def optimizer_arguments(self) -> Dict:
 
@@ -154,8 +152,7 @@ class TrainingArgs:
                 "dry_run",
                 "epochs",
                 "use_gpu",
-                "num_updates",
-                "batch_size"]
+                "num_updates"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -307,8 +304,8 @@ class TrainingArgs:
             "optimizer_args": {
                 "rules": [dict], "required": True, "default": {}
             },
-            "batch_size": {
-                "rules": [int], "required": True, "default": 1
+            "loader_args": {
+                "rules": [dict], "required": True, "default": {}
             },
             "epochs": {
                 "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": True, "default": None
