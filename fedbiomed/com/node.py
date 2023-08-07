@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from typing import Iterable, List
-
+from threading import Semaphore
 import grpc
 import service.message_pb2_grpc as message_pb2_grpc 
 import service.message_pb2 as message_pb2
@@ -16,16 +16,24 @@ class Node:
         self.researcher_channel = grpc.aio.insecure_channel('localhost:50051')
         self.stub = message_pb2_grpc.FLOrchestratorStub(channel=self.researcher_channel)
 
-    def run(self):
-
+    async def run(self):
+        # sem = Semaphore(1)
+        # sem.acquire(1)
+        loop = asyncio.get_event_loop()
         while True:     
-            with self.researcher_channel:
-                experiment = self.stub.PollExperiment(node="Dummy node")
-                print(experiment)
+            response = await self.stub.PollExperiment(
+                    message_pb2.PollExperimentRequest(node="Dummy node")
+                )
+            # sem.release()
+            
+            print(response)
+
+
+        print("Testing")
 
 if __name__ == '__main__':
     node = Node()
-    node.run()
+    asyncio.get_event_loop().run_until_complete(node.run())
 
 # if __name__ == '__main__':
 #     asyncio.get_event_loop().run_until_complete(main())

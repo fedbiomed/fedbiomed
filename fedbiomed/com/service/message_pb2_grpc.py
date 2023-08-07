@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import message_pb2 as message__pb2
+import service.message_pb2 as message__pb2
 
 
 class FLOrchestratorStub(object):
