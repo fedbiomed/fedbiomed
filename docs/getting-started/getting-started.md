@@ -110,7 +110,7 @@ class MyLocalTrainingPlan(nn.Module):
         mnist_dataset = datasets.MNIST(path_file, train=True,
                                        download=True, transform=transform)
         data_loader = torch.utils.data.DataLoader(mnist_dataset,
-                                                  
+                                                  batch_size=48,                       
                                                    shuffle=True)
         return data_loader
 ```
@@ -198,7 +198,9 @@ for _ in range(n_epochs):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'loader_args': {
+        'batch_size': 48,
+    },
     'epochs': 20, 
     'dry_run': False,  
 }
