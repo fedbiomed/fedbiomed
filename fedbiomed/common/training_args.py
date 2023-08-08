@@ -282,7 +282,7 @@ class TrainingArgs:
         | argument | meaning |
         | -------- | ------- |
         | optimizer_args | supplemental arguments for initializing the optimizer |
-        | batch_size | the number of samples in a batch |
+        | loader_args | supplemental arguments passed to the data loader |
         | epochs | the number of epochs performed during local training on each node |
         | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
         | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
