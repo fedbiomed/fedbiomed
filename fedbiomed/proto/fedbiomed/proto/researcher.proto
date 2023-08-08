@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+
+service ResearcherService {
+
+    // Register node in researcher component
+    rpc Register(RegisterRequest) returns (RegisterResponse) {};
+    rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {};
+}
+
+
+message RegisterRequest {
+    string node = 1;
+}
+
+message RegisterResponse {
+    string message = 1;
+    bool status = 2;
+}
+
+
+message GetTaskRequest {
+    string node = 1;
+}
+
+message GetTaskResponse {
+    string task_id = 1;
+    string context = 2;
+}
+
