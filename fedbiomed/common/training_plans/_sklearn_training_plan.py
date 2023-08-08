@@ -97,6 +97,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._aggregator_args = aggregator_args or {}
 
         self._optimizer_args = training_args.optimizer_arguments() or {}
+        self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
 
@@ -156,6 +157,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Training arguments
         """
         return self._training_args
+
+    def loader_args(self) -> Dict[str, Any]:
+        """Retrieve loader arguments
+
+        Returns:
+            Loader arguments
+        """
+        return self._loader_args
 
     def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.

@@ -131,7 +131,7 @@ class TrainingArgs:
         """ Extracts data loader arguments
 
         Returns:
-            Contains loader arguments for PyTorch dataloader
+            The dictionary of arguments for dataloader
         """
         return self["loader_args"]
 

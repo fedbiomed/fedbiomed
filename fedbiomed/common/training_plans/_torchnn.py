@@ -140,6 +140,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model_args = model_args
         # Assign scalar attributes.
         self._optimizer_args = training_args.optimizer_arguments() or {}
+        self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
@@ -222,6 +223,14 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         self.update_optimizer_args()  # update `optimizer_args` (eg after training)
         return self._optimizer_args
+
+    def loader_args(self) -> Dict[str, Any]:
+        """Retrieve loader arguments
+
+        Returns:
+            Loader arguments
+        """
+        return self._loader_args
 
     def initial_parameters(self) -> Dict:
         """Returns initial parameters without DP or training applied
