@@ -676,7 +676,7 @@ class Round:
                                       f"not {type(data_manager)}")
 
         # Set loader arguments
-        data_manager.update_loader_args(self.loader_arguments)
+        data_manager.extend_loader_args(self.loader_arguments)
 
         # Specific datamanager based on training plan
         try:

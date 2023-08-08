@@ -105,7 +105,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
     def training_data(self):
         dataset = FlambyDataset()
-        loader_arguments = {'batch_size': batch_size, 'shuffle': True}
+        loader_arguments = {'shuffle': True}
         return DataManager(dataset, **loader_arguments)
 
     # ... Implement the other functions as needed ...
@@ -134,7 +134,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         myComposedTransform = Compose([Resize((48,60,48)), NormalizeIntensity()])
         dataset.init_transform(myComposedTransform)
 
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = {'shuffle': True}
         return DataManager(dataset, **train_kwargs)
 
     # ... Implement the other functions as needed ...
