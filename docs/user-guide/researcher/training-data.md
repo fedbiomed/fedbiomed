@@ -45,69 +45,6 @@ class MyTrainingPlan(TorchTrainingPlan):
 For details on how arguments are passed to the data loader, please refer to the section below 
 [Passing arguments to data loaders](./training-data.md#passing-arguments-to-data-loaders).
 
-### Reading Datafiles 
-
-As mentioned before, a node can store `IMAGE` and `CSV` dataset types. In this case, the way of loading these datasets 
-might be different. The only information necessary for loading will be the file path where data files are stored. 
-This path is accessible through `self.dataset_path`. If the dataset is a tabular `CSV` dataset  `self.dataset_path` 
-will address to a file. Otherwise, if it is an `IMAGE` dataset, `self.dataset_path` will address to a directory where 
-all the images are stored. Therefore, before loading the dataset it is important to know what type of dataset is going 
-to be loaded. It is possible to send [list request to the nodes to get meta-data of the dataset there are 
-deployed](../../user-guide/researcher/listing-datasets-and-selecting-nodes.md).
-
-The following snippet shows an example of loading operation for a dataset of `CSV` type. 
-
-```python
-import pandas as pd
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
-
-class MyTrainingPlan(TorchTrainingPlan):
-    def init_model(self):
-        # ....
-    def init_dependencies(self):
-        # ....
-    def init_optimizer(self):
-        # ....
-    
-    def training_data(self):
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:15].values
-        y = dataset.iloc[:,15]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
-```
-
-It is also possible to use some model arguments in the training data method. For example, if 
-the following model argument is passed to the model by the experiment. 
-
-```python
-model_args = {
-    'feature_cols' : 15
-}
-```
-`training_data` can be configured as follows:
-
-```python
-import pandas as pd
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
-
-class MyTrainingPlan(TorchTrainingPlan):
-    def init_model(self):
-        # ....
-    def init_dependencies(self):
-        # ....
-    def init_optimizer(self):
-        # ....
-        
-    def training_data(self):
-        feature_cols = self.model_args()["feature_cols"]
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:feature_cols].values
-        y = dataset.iloc[:,feature_cols]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
-```
-
 ### The `DataManager` return type
 
 The method `training_data` should always return `DataManager` of Fed-BioMed defined in the module 
