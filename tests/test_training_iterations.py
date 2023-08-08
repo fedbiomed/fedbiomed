@@ -91,7 +91,7 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
         self.assertEqual(iter_accountant.num_batches_in_last_epoch, 3)
         self.assertEqual(iter_accountant.num_batches_per_epoch, reference_num_batches)
 
-    def test_mini_batch_training_iterations_accountaint_02_iterations(self):
+    def test_mini_batch_training_iterations_accountant_02_iterations(self):
         mock_training_plan.training_args.return_value = {
             'epochs': None,
             'batch_maxnum': None,
@@ -152,12 +152,14 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
         self.assertEqual(batch_counter, 0)
         self.assertEqual(tot_steps_counter, 3*4)
 
-    def test_mini_batch_training_iterations_accountaint_03_reporting(self):
+    def test_mini_batch_training_iterations_accountant_03_reporting(self):
         mock_training_plan.training_args.return_value = {
             'epochs': None,
             'batch_maxnum': None,
             'num_updates': 2*reference_num_batches + 3,
             'log_interval': 1,
+        }
+        mock_training_plan.loader_args.return_value = {
             'batch_size': reference_batch_size
         }
         iter_accountant = MiniBatchTrainingIterationsAccountant(mock_training_plan)
