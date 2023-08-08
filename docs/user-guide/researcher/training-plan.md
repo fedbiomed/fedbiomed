@@ -327,7 +327,7 @@ the [experiment](../../researcher/experiment) through the network component.
         # .....
 
         for epoch in range(1, epochs + 1):
-            training_data = self.training_data(batch_size=batch_size)
+            training_data = self.training_data()
             for batch_idx, (data, target) in enumerate(training_data):
                 self.train() 
                 data, target = data.to(self.device), target.to(self.device)

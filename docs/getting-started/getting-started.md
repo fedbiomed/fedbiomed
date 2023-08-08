@@ -110,7 +110,7 @@ class MyLocalTrainingPlan(nn.Module):
         mnist_dataset = datasets.MNIST(path_file, train=True,
                                        download=True, transform=transform)
         data_loader = torch.utils.data.DataLoader(mnist_dataset,
-                                                  batch_size=batch_size,
+                                                  
                                                    shuffle=True)
         return data_loader
 ```
@@ -169,7 +169,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
                                        train=True,
                                        download=False,
                                        transform=transform)
-        return DataManager(mnist_dataset, batch_size=batch_size, shuffle=True)
+        return DataManager(mnist_dataset,  shuffle=True)
 
 ```
 

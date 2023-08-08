@@ -94,7 +94,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:feature_cols].values
         y = dataset.iloc[:,feature_cols]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
+        return DataManager(dataset=X, target=y.values, )
 ```
 
 It is also possible to define a custom PyTorch `Dataset` and use it in the `DataManager` without declaring the argument
