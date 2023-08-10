@@ -90,15 +90,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+        model_args.setdefault("verbose", 1)
         super().post_init(model_args, training_args, aggregator_args)
         self._model = SkLearnModel(self._model_cls)
-        model_args.setdefault("verbose", 1)
-        self._model_args = model_args
-        self._aggregator_args = aggregator_args or {}
-
-        self._optimizer_args = training_args.optimizer_arguments() or {}
-        self._loader_args = training_args.loader_arguments() or {}
-        self._training_args = training_args.pure_training_arguments()
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
 
         # Add dependencies
@@ -141,30 +135,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
-
-    def model_args(self) -> Dict[str, Any]:
-        """Retrieve model arguments.
-
-        Returns:
-            Model arguments
-        """
-        return self._model_args
-
-    def training_args(self) -> Dict[str, Any]:
-        """Retrieve training arguments.
-
-        Returns:
-            Training arguments
-        """
-        return self._training_args
-
-    def loader_args(self) -> Dict[str, Any]:
-        """Retrieve loader arguments
-
-        Returns:
-            Loader arguments
-        """
-        return self._loader_args
 
     def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
@@ -220,14 +190,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         In the case a Declearn Optimizer is used, this method should be overridden in the Training Plan and return
         a Fedbiomed [`Optimizer`][fedbiomed.common.optimizers.optimizer.Optimizer]"""
         pass
-
-    def optimizer_args(self) -> Dict:
-        """Retrieves optimizer arguments
-
-        Returns:
-            Optimizer arguments
-        """
-        return self._optimizer_args
 
     def training_routine(
             self,

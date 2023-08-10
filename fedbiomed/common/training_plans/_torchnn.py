@@ -74,9 +74,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._optimizer: Union[BaseOptimizer, None] = None
         self._model: Union[TorchModel, None] = None
 
-        self._training_args: Optional[dict] = None
-        self._model_args: Optional[dict] = None
-        self._optimizer_args: Optional[dict] = None
         self._use_gpu: bool = False
         self._share_persistent_buffers = None
 
@@ -136,12 +133,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 configuration goes wrong.
         """
         super().post_init(model_args, training_args, aggregator_args)
-        # Assign model arguments.
-        self._model_args = model_args
         # Assign scalar attributes.
-        self._optimizer_args = training_args.optimizer_arguments() or {}
-        self._loader_args = training_args.loader_arguments() or {}
-        self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
         self._log_interval = self._training_args.get('log_interval')
@@ -149,7 +141,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
         self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
-        # Set random seed
+        # Set random seed (Pytorch-specific)
         rseed = training_args['random_seed']
         rseed = rseed if rseed is not None else torch.seed()
         torch.manual_seed(rseed)
@@ -181,14 +173,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             return None
         return self._model.model
 
-    def model_args(self) -> Dict:
-        """Retrieves model args
-
-        Returns:
-            Model arguments arguments
-        """
-        return self._model_args
-
     def update_optimizer_args(self) -> Dict:
         """
         Updates `_optimizer_args` variable. Can prove useful
@@ -207,30 +191,14 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self._optimizer_args['lr'] = self._optimizer.get_learning_rate()
         return self._optimizer_args
 
-    def training_args(self) -> Dict:
-        """Retrieves training args
-
-        Returns:
-            Training arguments
-        """
-        return self._training_args
-
-    def optimizer_args(self) -> Dict:
+    def optimizer_args(self) -> Dict[str, Any]:
         """Retrieves optimizer arguments
 
         Returns:
             Optimizer arguments
         """
         self.update_optimizer_args()  # update `optimizer_args` (eg after training)
-        return self._optimizer_args
-
-    def loader_args(self) -> Dict[str, Any]:
-        """Retrieve loader arguments
-
-        Returns:
-            Loader arguments
-        """
-        return self._loader_args
+        return super().optimizer_args()
 
     def initial_parameters(self) -> Dict:
         """Returns initial parameters without DP or training applied
