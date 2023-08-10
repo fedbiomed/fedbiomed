@@ -1157,5 +1157,18 @@ class TestRound(NodeTestCase):
 
     # add a test with : shared and node specific auxiliary avraibales
 
+    def test_round_26_split_train_and_test_data_raises_exceptions(self):
+        """Test that _split_train_and_test_data raises correct exceptions"""
+        mock_training_plan = MagicMock()
+        def foo_takes_an_argument(x):
+            return x
+        mock_training_plan.training_data = foo_takes_an_argument
+        mock_training_plan.type.return_value = 'tp type'
+        r = Round()
+        r.training_plan = mock_training_plan
+        with self.assertRaises(FedbiomedRoundError):
+            r._split_train_and_test_data()
+
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

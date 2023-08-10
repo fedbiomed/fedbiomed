@@ -662,11 +662,11 @@ class Round:
             data_manager = self.training_plan.training_data()
         except TypeError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
-                                      f"{str(training_plan_type.value)} should not take any arguments."
+                                      f"{str(training_plan_type)} should not take any arguments."
                                       f"Instead, the following error occurred: {repr(e)}")
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
-                                      f"{str(training_plan_type.value)} has failed: {repr(e)}")
+                                      f"{str(training_plan_type)} has failed: {repr(e)}")
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 import numpy as np
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant  # noqa
+from fedbiomed.common.exceptions import FedbiomedUserInputError
 
 reference_num_batches = np.random.randint(low=4, high=15, size=1)[0]
 reference_batch_size = np.random.randint(low=1, high=5, size=1)[0]
@@ -208,6 +209,17 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
 
         # testing the value of attribute (important since we need it for aggregator weights computation)
         self.assertEqual(iter_accountant.num_samples_observed_in_total, tot_steps_counter * reference_batch_size)
+
+    def test_mini_batch_training_iterations_accountant_04_batch_size(self):
+        """Tests that the batch size argument is handled correctly"""
+        mock_training_plan.loader_args.return_value = {
+            'batch_size_missing': None
+        }
+        iter_accountant = MiniBatchTrainingIterationsAccountant(mock_training_plan)
+        with self.assertRaises(FedbiomedUserInputError):
+            iter_accountant.reporting_on_num_samples()
+
+
 
 
 if __name__ == '__main__':  # pragma: no cover
