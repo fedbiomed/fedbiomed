@@ -657,31 +657,16 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
-
         training_plan_type = self.training_plan.type()
-
-        # Inspect the arguments of the method `training_data`, because this
-        # part is defined by user might include invalid arguments
-        parameters = inspect.signature(self.training_plan.training_data).parameters
-        args = list(parameters.keys())
-
-        # Currently, training_data only accepts batch_size
-        if len(args) > 1 or (len(args) == 1 and 'batch_size' not in args):
-            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `the arguments of `training_data` of training "
-                                      f"plan contains unsupported argument. ")
-
-        # Check batch_size is one of the argument of training_data method
-        # `batch_size` is in used for only TorchTrainingPlan. If it is based to
-        # sklearn, it will raise argument error
-
         try:
-            if 'batch_size' in args:
-                data_manager = self.training_plan.training_data(batch_size=self.loader_arguments['batch_size'])
-            else:
-                data_manager = self.training_plan.training_data()
+            data_manager = self.training_plan.training_data()
+        except TypeError as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
+                                      f"{str(training_plan_type)} should not take any arguments."
+                                      f"Instead, the following error occurred: {repr(e)}")
         except Exception as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
-                                      f"{str(training_plan_type.value)} has failed: {repr(e)}")
+                                      f"{str(training_plan_type)} has failed: {repr(e)}")
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
@@ -689,6 +674,9 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: The method `training_data` should return an "
                                       f"object instance of `fedbiomed.common.data.DataManager`, "
                                       f"not {type(data_manager)}")
+
+        # Set loader arguments
+        data_manager.extend_loader_args(self.loader_arguments)
 
         # Specific datamanager based on training plan
         try:
