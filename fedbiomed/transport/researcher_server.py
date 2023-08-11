@@ -25,12 +25,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         async for req in request_iterator:
             
-            print("Request has arrived")
-            print(req)
+            # print("Request has arrived")
+            # print(req)
             node = req.node
+            
+            #await asyncio.sleep(0.1)
             logger.info(f" Node : {node} requester a task")
-            #await asyncio.sleep(1)
-            yield GetTaskResponse(task_id=f"test-task-{0}", context="Test context")
+            yield GetTaskResponse(task_id=f"{node}-task", context="Test context")
 
 class ResearcherServer:
 
