@@ -5,7 +5,7 @@ service ResearcherService {
 
     // Register node in researcher component
     rpc Register(RegisterRequest) returns (RegisterResponse) {};
-    rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {};
+    rpc GetTask(stream GetTaskRequest) returns (stream GetTaskResponse) {};
 }
 
 
@@ -14,10 +14,9 @@ message RegisterRequest {
 }
 
 message RegisterResponse {
-    string message = 1;
+    string message = 1; 
     bool status = 2;
 }
-
 
 message GetTaskRequest {
     string node = 1;

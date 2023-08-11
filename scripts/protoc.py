@@ -1,4 +1,5 @@
 import os
+import glob
 
 import grpc_tools
 from grpc_tools import protoc
@@ -14,6 +15,10 @@ BASE_DIR = os.path.normpath(
 INPUT_PATH = os.path.join(f"{BASE_DIR}", 'fedbiomed', 'proto')
 OUTPUT_PATH = INPUT_PATH
 
+# Proto files should be kept in folder respecting fedbiomed proto module folder structure.
+# Otherwise, proto buffers ends up with broken imports within the fedbiomed module.
+PROTO_FILES = glob.glob(f"{INPUT_PATH}/fedbiomed/**/*.proto")
+
 
 
 def compile_proto_files() -> None:
@@ -27,11 +32,8 @@ def compile_proto_files() -> None:
         f"--python_out=.",
         f"--grpc_python_out=.",
         f"--pyi_out=.",
-        # Proto files should be kept in folder respecting fedbiomed proto module folder structure.
-        # Otherwise, proto buffers ends up with broken imports within the fedbiomed module.
-        f"{INPUT_PATH}/fedbiomed/**/*.proto"
-    ]
-
+    ] + PROTO_FILES
+    
     status = protoc.main(cmd)
 
     if status != 0:

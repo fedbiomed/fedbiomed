@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n fedbiomed/proto/researcher.proto\"\x1f\n\x0fRegisterRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\"3\n\x10RegisterResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\x08\"\x1e\n\x0eGetTaskRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\"3\n\x0fGetTaskResponse\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontext\x18\x02 \x01(\t2v\n\x11ResearcherService\x12\x31\n\x08Register\x12\x10.RegisterRequest\x1a\x11.RegisterResponse\"\x00\x12.\n\x07GetTask\x12\x0f.GetTaskRequest\x1a\x10.GetTaskResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n fedbiomed/proto/researcher.proto\"\x1f\n\x0fRegisterRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\"3\n\x10RegisterResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\x08\"\x1e\n\x0eGetTaskRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\"3\n\x0fGetTaskResponse\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontext\x18\x02 \x01(\t2z\n\x11ResearcherService\x12\x31\n\x08Register\x12\x10.RegisterRequest\x1a\x11.RegisterResponse\"\x00\x12\x32\n\x07GetTask\x12\x0f.GetTaskRequest\x1a\x10.GetTaskResponse\"\x00(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -30,5 +30,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_GETTASKRESPONSE']._serialized_start=154
   _globals['_GETTASKRESPONSE']._serialized_end=205
   _globals['_RESEARCHERSERVICE']._serialized_start=207
-  _globals['_RESEARCHERSERVICE']._serialized_end=325
+  _globals['_RESEARCHERSERVICE']._serialized_end=329
 # @@protoc_insertion_point(module_scope)
