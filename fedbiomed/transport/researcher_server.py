@@ -29,7 +29,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             print(req)
             node = req.node
             logger.info(f" Node : {node} requester a task")
-            await asyncio.sleep(1)
+            #await asyncio.sleep(1)
             yield GetTaskResponse(task_id=f"test-task-{0}", context="Test context")
 
 class ResearcherServer:

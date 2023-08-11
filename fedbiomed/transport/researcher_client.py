@@ -126,13 +126,11 @@ async def task_reader(stub, node: str, callback: Callable = None):
         # Shared state between two coroutines
         state = type('', (), {})()
 
-        loop = asyncio.get_event_loop()
-        request = loop.create_task(request_tasks(condition))
-        receive = loop.create_task(receive_tasks(condition))
-
         try:
-            await request
-            await receive
+            await asyncio.gather(
+                request_tasks(condition), 
+                receive_tasks(condition)
+                )
         except grpc.aio.AioRpcError as exp:
             if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                 logger.debug("Stream TIMEOUT Error")
@@ -142,6 +140,9 @@ async def task_reader(stub, node: str, callback: Callable = None):
                 raise Exception("Request streaming stopped ") from exp
         finally:
             pass
+
+
+
 
 class ResearcherClient:
     """gRPC researcher component client 
