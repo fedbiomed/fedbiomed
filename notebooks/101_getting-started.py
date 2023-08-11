@@ -73,12 +73,12 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = { 'shuffle': True}
         return DataManager(dataset=dataset1, **train_kwargs)
     
     def training_step(self, data, target):
@@ -97,7 +97,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'loader_args': { 'batch_size': 48, }, 
     'optimizer_args': {
         "lr" : 1e-3
     },

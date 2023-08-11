@@ -100,7 +100,7 @@ class MyLocalTrainingPlan(nn.Module):
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
-    def training_data(self, batch_size = 48):
+    def training_data(self):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
@@ -110,7 +110,7 @@ class MyLocalTrainingPlan(nn.Module):
         mnist_dataset = datasets.MNIST(path_file, train=True,
                                        download=True, transform=transform)
         data_loader = torch.utils.data.DataLoader(mnist_dataset,
-                                                  batch_size=batch_size,
+                                                  batch_size=48,                       
                                                    shuffle=True)
         return data_loader
 ```
@@ -161,7 +161,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
-    def training_data(self, batch_size = 48):
+    def training_data(self):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
@@ -169,7 +169,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
                                        train=True,
                                        download=False,
                                        transform=transform)
-        return DataManager(mnist_dataset, batch_size=batch_size, shuffle=True)
+        return DataManager(mnist_dataset,  shuffle=True)
 
 ```
 
@@ -198,7 +198,9 @@ for _ in range(n_epochs):
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'loader_args': {
+        'batch_size': 48,
+    },
     'epochs': 20, 
     'dry_run': False,  
 }

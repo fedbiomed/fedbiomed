@@ -809,18 +809,18 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_training_args("this is not a dict")
 
         # Test setting model_args properly with dict
-        ma_expected = {'batch_size': 25}
+        ma_expected = {'loader_args': {'batch_size': 25}}
         train_args = self.test_exp.set_training_args(ma_expected)
         self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
 
         # test update of testing_args with argument `reset` set to False
-        ma_expected_2 = {'batch_size': 10}
+        ma_expected_2 = {'loader_args': {'batch_size': 10}}
         train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False)
         ma_expected_2.update(ma_expected_2)
         self.assertSubDictInDict(ma_expected_2, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
-        ma_expected_3 = {'batch_size': 1}
+        ma_expected_3 = {'loader_args': {'batch_size': 1}}
         train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset=True)
         self.assertSubDictInDict(ma_expected_3, train_args_3)
         self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
@@ -836,7 +836,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_job()  # create an actual Job inside the experiment
         # First, make sure that the training_args are the same as above
         self.assertSubDictInDict(ma_expected_3, train_args_3)
-        new_args = {'batch_size': 42}
+        new_args = {'loader_args': {'batch_size': 42}}
         # Then we set new arguments
         _ = self.test_exp.set_training_args(new_args)
         # Test that the new args have been correctly set in the experiment

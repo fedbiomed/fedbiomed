@@ -62,7 +62,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         # returns a list of dependencies
         pass
 
-    def training_data(self, batch_size=1):
+    def training_data(self):
         # returns a Fed-BioMed DataManager object
         pass
     
@@ -129,7 +129,7 @@ specs:
 
 The signature of the `training_data` function is then:
 ```python
-def training_data(self, batch_size) -> DataManager:
+def training_data(self) -> DataManager:
 ```
 
 You can read the documentation for [training data](../../researcher/training-data) to
@@ -205,7 +205,7 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self):
         pass    
     
     def training_step(self, data, target):
@@ -327,7 +327,7 @@ the [experiment](../../researcher/experiment) through the network component.
         # .....
 
         for epoch in range(1, epochs + 1):
-            training_data = self.training_data(batch_size=batch_size)
+            training_data = self.training_data()
             for batch_idx, (data, target) in enumerate(training_data):
                 self.train() 
                 data, target = data.to(self.device), target.to(self.device)
