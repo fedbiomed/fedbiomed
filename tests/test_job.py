@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
+import fedbiomed
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -27,6 +28,9 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import fedbiomed.researcher.job # needed for specific mocking
+
+
+training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
 
 
 class TestJob(ResearcherTestCase):
@@ -96,7 +100,7 @@ class TestJob(ResearcherTestCase):
         # Build Global Job that will be used in most of the tests
         self.job = Job(
             training_plan_class=self.model,
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=self.fds
         )
 
@@ -131,7 +135,7 @@ class TestJob(ResearcherTestCase):
 
         j = Job(training_plan_class=self.model,
                 data=self.fds,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 keep_files_dir=environ['TMP_DIR'])
 
         # Check keep files dir properly set
@@ -142,7 +146,7 @@ class TestJob(ResearcherTestCase):
 
         reqs = Requests()
         j = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds,
                 reqs=reqs)
 
@@ -156,7 +160,7 @@ class TestJob(ResearcherTestCase):
         self.mock_upload_file.reset_mock()
 
         j = Job(training_plan_path=tmp_dir_model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 training_plan_class='FakeModel')
 
         self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
@@ -184,7 +188,7 @@ class TestJob(ResearcherTestCase):
 
         with self.assertRaises(SystemExit):
             _ = Job(training_plan_path=tmp_dir_model,
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_args=training_args_for_testing,
                     training_plan_class='FakeModel')
             mock_logger_critical.assert_called_once()
 
@@ -197,7 +201,7 @@ class TestJob(ResearcherTestCase):
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
                 _ = Job(training_plan_class='FakeModel',
-                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                        training_args=training_args_for_testing,
                         data=self.fds)
                 mock_logger_critical.assert_called_once()
 
@@ -212,7 +216,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -223,7 +227,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -246,9 +250,9 @@ class TestJob(ResearcherTestCase):
         tr = self.job.training_replies
         self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        self.job.training_args = TrainingArgs({'batch_size': 33})
+        self.job.training_args = TrainingArgs({'loader_args': {'batch_size': 33}})
         targs = self.job.training_args
-        self.assertEqual(33, targs['batch_size'], 'Can not get or set training_args correctly')
+        self.assertEqual(33, targs['loader_args']['batch_size'], 'Can not get or set training_args correctly')
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
@@ -775,7 +779,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job with a mock training plan
         test_job_torch = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
         # second create a `training_replies` variable
@@ -848,7 +852,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job
         test_job_sklearn = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
 

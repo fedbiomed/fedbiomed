@@ -66,6 +66,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
 
+        # Arguments provided by the researcher; they will be populated by post_init
+        self._model_args: Dict[str, Any] = None
+        self._aggregator_args: Dict[str, Any] = None
+        self._optimizer_args: Dict[str, Any] = None
+        self._loader_args: Dict[str, Any] = None
+        self._training_args: Dict[str, Any] = None
+
     @abstractmethod
     def model(self):
         """Gets model instance of the training plan"""
@@ -99,6 +106,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
+
+        # Store various arguments provided by the researcher
+        self._model_args = model_args
+        self._aggregator_args = aggregator_args or {}
+        self._optimizer_args = training_args.optimizer_arguments() or {}
+        self._loader_args = training_args.loader_arguments() or {}
+        self._training_args = training_args.pure_training_arguments()
+
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args['random_seed']
@@ -620,3 +635,37 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg) from exc
+
+    def model_args(self) -> Dict[str, Any]:
+        """Retrieve model arguments.
+
+        Returns:
+            Model arguments
+        """
+        return self._model_args
+
+    def training_args(self) -> Dict[str, Any]:
+        """Retrieve training arguments
+
+        Returns:
+            Training arguments
+        """
+        return self._training_args
+
+    def loader_args(self) -> Dict[str, Any]:
+        """Retrieve loader arguments
+
+        Returns:
+            Loader arguments
+        """
+        return self._loader_args
+
+    def optimizer_args(self) -> Dict[str, Any]:
+        """Retrieves optimizer arguments
+
+        Returns:
+            Optimizer arguments
+        """
+        return self._optimizer_args
+
+
