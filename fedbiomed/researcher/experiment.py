@@ -298,7 +298,7 @@ class Experiment:
         #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         #     self._reqs.remove_monitor_callback()
 
-        if self._monitor is not None and self._monitor is not False and self._monitor is not True:
+        if isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
 
     @property
@@ -1069,6 +1069,10 @@ class Experiment:
 
         # everything is OK
         self._round_current = round_current
+
+        # `Monitor` is not yet declared during object initialization
+        if isinstance(self._monitor, Monitor):
+            self._monitor.set_round(self._round_current + 1)
 
         # at this point self._round_current is an int
         return self._round_current
