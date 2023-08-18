@@ -42,6 +42,12 @@ DEFAULT_ADDRESS = "localhost:50051"
 STREAMING_MAX_KEEP_ALIVE_SECONDS = 60 
 
 
+SHUTDOWN_EVENT =  threading.Event()
+SHUTDOWN_FORCE_EVENT = threading.Event()
+REQUEST_DONE = threading.Event()
+
+
+
 def create_channel(
     address: str = DEFAULT_ADDRESS ,
     certificate: str = None
@@ -75,8 +81,7 @@ def create_channel(
 
 async def task_reader_unary(
         stub, 
-        node: str, 
-        event,
+        node: str,
         callback: Callable = lambda x: x,
          
 ):
@@ -91,42 +96,34 @@ async def task_reader_unary(
         node: Node id 
         callback: Callback function to execute each time a task received
     """
-    #queue = asyncio.Queue()
-    task_queue = queue.Queue()
-
-    def cancel_request(unused_signum, unused_frame):
-        task.cancel()
-        sys.exit(0)
-
     
-    while True:
+    # def request_done(x):
+    #     REQUEST_DONE.set()
+
+    while not SHUTDOWN_EVENT.is_set():
         
-        if event.is_set():
-            raise GRPCStop("gRPC has been stooped")
-
-
-        task = stub.GetTaskUnary(
+        request_iterator = stub.GetTaskUnary(
             TaskRequest(node=f"{node}")
         )
-
-        # Cancelation
-        signal.signal(signal.SIGINT, cancel_request)
-
+        #request_iterator.cancel()
+        # request_iterator.add_done_callback(request_done)
+        print("It didn't stop!")
         # Prepare reply
         reply = bytes()
-        async for answer in task:
-            
-            reply += answer.bytes_
+        async for answer in request_iterator:
 
-            if answer.size != answer.iteration:
-                continue
-            else:
-                # Execute callback
-                callback(
-                    Serializer.loads(reply)
-                    )
-                # Reset reply
-                reply = bytes()
+            try:
+                print("print")
+                reply += answer.bytes_
+                if answer.size != answer.iteration:
+                    continue
+                else:
+                    # Execute callback
+                    callback(Serializer.loads(reply))
+                    # Reset reply
+                    reply = bytes()
+            finally:
+                print("Last print")
 
 
 async def task_reader(
@@ -229,7 +226,7 @@ class ResearcherClient:
         self._stop_event = threading.Event()
         self._client_thread = threading.Thread()
 
-    async def connection(self, event):
+    async def connection(self):
         """Create long-lived connection with researcher server"""
         
         self._feedback_channel = create_channel(certificate=None)
@@ -241,16 +238,16 @@ class ResearcherClient:
         logger.info("Waiting for researcher server...")
 
         # Starts loop to ask for
-        await self.get_tasks(event)   
+        await self.get_tasks()   
             
 
-    async def get_tasks(self, event):
+    async def get_tasks(self):
 
-        while True:
+        while not SHUTDOWN_EVENT.is_set():
             logger.info("Sending new task request")
             try:
                 # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_task)
-                await task_reader_unary(stub= self._stub, node=NODE_ID, event=event, callback= lambda x: x)
+                await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
 
             except GRPCStop:
                 # Break gRPC while loop
@@ -279,14 +276,11 @@ class ResearcherClient:
 
     def start(self):
         """Starts researcher gRPC client"""
-
-        self._stop_event = threading.Event()
-
         # Runs gRPC async client 
         def run(event):
             try: 
                 asyncio.run(
-                        self.connection(event), debug=False
+                        self.connection(), debug=False
                     )
             except KeyboardInterrupt:
                 asyncio.get_running_loop().close()
@@ -295,11 +289,11 @@ class ResearcherClient:
         t = threading.Thread(target=run, args=(self._stop_event,))
         t.start()
 
-    def stop(self):
+    def stop(self, force: bool = False):
         """Stop gently running asyncio loop and its thread"""
 
-        self._stop_event.set()
-
+        SHUTDOWN_EVENT.set()
+        SHUTDOWN_FORCE_EVENT.set()
 
 if __name__ == '__main__':
     

@@ -103,6 +103,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         logger.info(f"Received request form {node}")
         task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
+        time.sleep(10)
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             yield TaskResponse(
