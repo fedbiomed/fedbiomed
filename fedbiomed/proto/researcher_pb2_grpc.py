@@ -26,9 +26,9 @@ class ResearcherServiceStub(object):
                 request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
                 )
-        self.FeedBack = channel.stream_unary(
-                '/ResearcherService/FeedBack',
-                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedBackMessage.SerializeToString,
+        self.Feedback = channel.unary_unary(
+                '/ResearcherService/Feedback',
+                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
                 )
 
@@ -52,7 +52,7 @@ class ResearcherServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def FeedBack(self, request_iterator, context):
+    def Feedback(self, request, context):
         """Node logs
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -72,9 +72,9 @@ def add_ResearcherServiceServicer_to_server(servicer, server):
                     request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.FromString,
                     response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.SerializeToString,
             ),
-            'FeedBack': grpc.stream_unary_rpc_method_handler(
-                    servicer.FeedBack,
-                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedBackMessage.FromString,
+            'Feedback': grpc.unary_unary_rpc_method_handler(
+                    servicer.Feedback,
+                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.FromString,
                     response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.SerializeToString,
             ),
     }
@@ -124,7 +124,7 @@ class ResearcherService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def FeedBack(request_iterator,
+    def Feedback(request,
             target,
             options=(),
             channel_credentials=None,
@@ -134,8 +134,8 @@ class ResearcherService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_unary(request_iterator, target, '/ResearcherService/FeedBack',
-            fedbiomed_dot_proto_dot_researcher__pb2.FeedBackMessage.SerializeToString,
+        return grpc.experimental.unary_unary(request, target, '/ResearcherService/Feedback',
+            fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
             fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

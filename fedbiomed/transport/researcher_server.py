@@ -4,7 +4,7 @@ import grpc
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
-from fedbiomed.proto.researcher_pb2 import TaskResponse, TaskResponseUnary
+from fedbiomed.proto.researcher_pb2 import TaskResponse, TaskResponseUnary, Empty
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from concurrent import futures
@@ -94,7 +94,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             logger.info(f"Request finished for {node}")
 
 
-    def GetTaskUnary(self, request, context):
+    async def GetTaskUnary(self, request, context):
 
         node = request.node
 
@@ -103,7 +103,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         logger.info(f"Received request form {node}")
         task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        time.sleep(10)
+        await asyncio.sleep(10)
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             yield TaskResponse(
@@ -111,6 +111,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 iteration=iter_,
                 bytes_=task[start:stop]
             )
+
+    async def Feedback(self, request_iterator, unused_context):
+        
+        print("Received request")
+        # async for req in request_iterator:
+        print(request_iterator)
+        return Empty()
 
 class ResearcherServer:
 

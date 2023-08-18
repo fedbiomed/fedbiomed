@@ -10,7 +10,7 @@ import signal
 from typing import Callable, Dict
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedBackMessage, Log
+from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 
@@ -66,7 +66,7 @@ def create_channel(
     ]
 
     if certificate is None: 
-        channel = grpc.insecure_channel(address, options=channel_options)
+        channel = grpc.aio.insecure_channel(address, options=channel_options)
     else:
         # TODO: Create secure channel
         pass
@@ -76,6 +76,25 @@ def create_channel(
     return channel
 
 
+
+async def task_reader_unary(
+        stub, 
+        node: str,
+        callback: Callable = lambda x: x,
+         
+):
+    """Task reader as unary RPC
+    
+    This methods send unary RPC to gRPC server (researcher) and get tasks 
+    in a stream. Stream is used in order to receive larger messages (more than 4MB)
+    After a task received it sends another task request immediately. 
+
+    Args: 
+        stub: gRPC stub to execute RPCs. 
+        node: Node id 
+        callback: Callback function to execute each time a task received
+    """
+    pass 
 
 
 async def task_reader(
@@ -179,21 +198,19 @@ class ResearcherClient:
         self._feedback_channel = create_channel(certificate=None)
         self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
 
-        self._task_channel = create_channel(certificate=None)
-        self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
-
-    def connection(self):
+    async def connection(self):
         """Create long-lived connection with researcher server"""
         
-
+        self._task_channel = create_channel(certificate=None)
+        self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
         logger.info("Waiting for researcher server...")
 
         # Starts loop to ask for
-        self.get_tasks()   
-        
+        await self.get_tasks()   
+            
 
-    def get_tasks(self):
+    async def get_tasks(self):
 
         while not SHUTDOWN_EVENT.is_set():
             logger.info("Sending new task request")
@@ -208,7 +225,7 @@ class ResearcherClient:
 
                     # Prepare reply
                     reply = bytes()
-                    for answer in self.__request_task_iterator:
+                    async for answer in self.__request_task_iterator:
                         print('----')
                         reply += answer.bytes_
                         if answer.size != answer.iteration:
@@ -223,21 +240,33 @@ class ResearcherClient:
                 print(exp.code())
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("Stream TIMEOUT Error")
-                    time.sleep(2)
+                    await asyncio.sleep(2)
             
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
                     logger.debug("Researcher server is not available, will retry connect in 2 seconds")
-                    time.sleep(2)
+                    await asyncio.sleep(2)
                 else:
                     raise Exception("Request streaming stopped ") from exp
             finally:
                 pass
             
     
-    def send_log(self, log):
+    async def send(self, channel, object):
+        """Sends log """
+        await channel(object)
 
-        self._log_stub.Feedback(Log(log=log))
+    def send_log(self, log):
         
+
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(
+            self.send(
+                self._log_stub.Feedback, FeedbackMessage.Log(log = log)
+            )
+        )
+        # This raises an Resource error. It is a known problem while using same service from different threads
+        # Please see: https://stackoverflow.com/questions/65945944/multi-thread-support-for-python-asyncio-grpc-clients
+        loop.run_until_complete(task)
 
     def start(self):
         """Starts researcher gRPC client"""
@@ -247,8 +276,18 @@ class ResearcherClient:
             SHUTDOWN_EVENT.clear()
 
 
+        def run():
+            try: 
+                asyncio.run(
+                        self.connection(), debug=False
+                    )
+            except asyncio.exceptions.CancelledError:
+                logger.debug("Cancelling event loop...")
+            except KeyboardInterrupt:
+                asyncio.get_running_loop().close()
+
         # Create and start background thread
-        t = threading.Thread(target=self.connection)
+        t = threading.Thread(target=run)
         t.start()
 
 

@@ -8,7 +8,7 @@ class Empty(_message.Message):
     __slots__ = []
     def __init__(self) -> None: ...
 
-class FeedBackMessage(_message.Message):
+class FeedbackMessage(_message.Message):
     __slots__ = ["scalar", "log"]
     class AddScalar(_message.Message):
         __slots__ = ["bytes_"]
@@ -22,9 +22,9 @@ class FeedBackMessage(_message.Message):
         def __init__(self, log: _Optional[str] = ...) -> None: ...
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
-    scalar: FeedBackMessage.AddScalar
-    log: FeedBackMessage.Log
-    def __init__(self, scalar: _Optional[_Union[FeedBackMessage.AddScalar, _Mapping]] = ..., log: _Optional[_Union[FeedBackMessage.Log, _Mapping]] = ...) -> None: ...
+    scalar: FeedbackMessage.AddScalar
+    log: FeedbackMessage.Log
+    def __init__(self, scalar: _Optional[_Union[FeedbackMessage.AddScalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
 
 class TaskRequest(_message.Message):
     __slots__ = ["node"]

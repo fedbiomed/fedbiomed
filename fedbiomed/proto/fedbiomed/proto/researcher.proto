@@ -13,25 +13,27 @@ service ResearcherService {
     rpc GetTaskUnary(TaskRequest) returns (stream TaskResponse) {};
     
     // Node logs
-    rpc FeedBack(stream FeedBackMessage) returns (Empty) {};
+    rpc Feedback(FeedbackMessage) returns (Empty) {};
 }
 
-
+// Empty response
 message Empty {}
 
 
 // Log message from node to researcher
-message FeedBackMessage {
-
+message FeedbackMessage {
+    
+    // Tensorboard scalar values
     message AddScalar {
         bytes bytes_ = 1;
     }
 
+    // Log messages
     message Log {
         string log = 1;
     }
-
-    oneof msg {
+    
+    oneof feedback {
         AddScalar scalar = 1;
         Log log = 2;
     }
