@@ -3,19 +3,27 @@
 import asyncio
 import grpc
 import queue
+import threading
+import sys 
+import signal 
 
-from typing import Callable
+from typing import Callable, Dict
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.proto.researcher_pb2 import RegisterRequest, GetTaskRequest
+from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedBackMessage
 from fedbiomed.common.logger import logger
+from fedbiomed.common.serializer import Serializer
 
 import uuid
 import time
 
+import statistics
 
+class GRPCStop(Exception):
+    """Stop exception for gRPC client"""
+    pass 
 
-class GRPCTimeOUT(Exception):
+class GRPCTimeout(Exception):
     """gRPC timeout error"""
     pass 
 
@@ -28,7 +36,7 @@ logger.setLevel("DEBUG")
 NODE_ID = str(uuid.uuid4())
 
 
-tas_queue = queue.Queue()
+
 
 DEFAULT_ADDRESS = "localhost:50051"
 STREAMING_MAX_KEEP_ALIVE_SECONDS = 60 
@@ -48,9 +56,13 @@ def create_channel(
     Returns: 
         gRPC connection channel
     """
+    channel_options = [
+        ("grpc.max_send_message_length", 100 * 1024 * 1024),
+        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+    ]
 
     if certificate is None: 
-        channel = grpc.aio.insecure_channel(address)
+        channel = grpc.aio.insecure_channel(address, options=channel_options)
     else:
         # TODO: Create secure channel
         pass
@@ -60,7 +72,68 @@ def create_channel(
     return channel
 
 
-async def task_reader(stub, node: str, callback: Callable = None):
+
+async def task_reader_unary(
+        stub, 
+        node: str, 
+        event,
+        callback: Callable = lambda x: x,
+         
+):
+    """Task reader as unary RPC
+    
+    This methods send unary RPC to gRPC server (researcher) and get tasks 
+    in a stream. Stream is used in order to receive larger messages (more than 4MB)
+    After a task received it sends another task request immediately. 
+
+    Args: 
+        stub: gRPC stub to execute RPCs. 
+        node: Node id 
+        callback: Callback function to execute each time a task received
+    """
+    #queue = asyncio.Queue()
+    task_queue = queue.Queue()
+
+    def cancel_request(unused_signum, unused_frame):
+        task.cancel()
+        sys.exit(0)
+
+    
+    while True:
+        
+        if event.is_set():
+            raise GRPCStop("gRPC has been stooped")
+
+
+        task = stub.GetTaskUnary(
+            TaskRequest(node=f"{node}")
+        )
+
+        # Cancelation
+        signal.signal(signal.SIGINT, cancel_request)
+
+        # Prepare reply
+        reply = bytes()
+        async for answer in task:
+            
+            reply += answer.bytes_
+
+            if answer.size != answer.iteration:
+                continue
+            else:
+                # Execute callback
+                callback(
+                    Serializer.loads(reply)
+                    )
+                # Reset reply
+                reply = bytes()
+
+
+async def task_reader(
+        stub, 
+        node: str, 
+        callback: Callable = lambda x: x
+        ) -> None:
         """Low-level task reader implementation 
 
         This methods launches two coroutine asynchronously:
@@ -77,10 +150,9 @@ async def task_reader(stub, node: str, callback: Callable = None):
             callback: Callback function that takes a single task as an arguments
 
         Raises:
-            GRPCTimeOut: Once the timeout is exceeded reader raises time out exception and 
+            GRPCTimeout: Once the timeout is exceeded reader raises time out exception and 
                 closes the streaming.
         """  
-        #condition = asyncio.Condition()
         event = asyncio.Event()
 
         async def request_tasks(event):
@@ -89,35 +161,18 @@ async def task_reader(stub, node: str, callback: Callable = None):
                 # Send starting request without relying on a condition
                 count  = 1
                 logger.info("Sending first request after creating a new stream connection")
-                yield GetTaskRequest(node=f"{count}---------{node}")
-                
-                count = 2
-                timeout = time.time() + 60 * 5 
-                # Cycle of requesting for tasks
-                
+                state.n = time.time()
+                yield TaskRequest(node=f"{count}---------{node}")
+                                
                 while True:
-                    # Won't be executed until condition is notified by the
-                    # task that listens for server responses
-                    logger.info("It came here")
-
-                    print("Acquire condition")
-                    # await condition.acquire()
-                    # # async with condition:
-                    # try:
-                    #     print("Wait condition")
-                    #     await condition.wait()
-                    # finally: 
-                    #     print("Release condition")
-                    #     condition.release()
+                    # Wait before getting answer from previous request
                     await event.wait()
                     event.clear()
-                    if time.time() > timeout:
-                        raise GRPCStreamingKeepAliveExceed() 
 
-                    #logger.info(f"Sending another request ---- within the stream")     
-                    yield GetTaskRequest(node=f"{count}---------{node}")
-                    count += 1
-                    #
+                    #logger.info(f"Sending another request ---- within the stream")   
+                    state.n = time.time()  
+                    yield TaskRequest(node=f"{count}---------{node}")
+                    
 
 
             # Call request iterator withing GetTask stub
@@ -127,39 +182,26 @@ async def task_reader(stub, node: str, callback: Callable = None):
 
         async def receive_tasks(event):
             """Receives tasks form researcher server """
-
             async for answer in state.task_iterator:
-                print("Received response")
-                print(answer)
-            
-                # async with condition:
-                #     condition.notify()
-                #     print("Notified")
                 
-                event.set()
-
-                # try:
-                #     task = tas_queue.get(block=False)
-                # except Exception:
-                #     continue
-
+                reply += answer.bytes_
+                # print(f"{answer.size}, {answer.iteration}")
+                if answer.size != answer.iteration:
+                    continue
+                else:
+                    event.set()
+                    callback(Serializer.loads(reply))
+                    reply = bytes()
+                    
+                
         # Shared state between two coroutines
         state = type('', (), {})()
 
-        try:
-            await asyncio.gather(
-                request_tasks(event), 
-                receive_tasks(event)
-                )
-        except grpc.aio.AioRpcError as exp:
-            if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                logger.debug("Stream TIMEOUT Error")
-                raise GRPCTimeOUT(f"Timeout exceed for streaming") from exp
-            else:
-                print(exp)
-                raise Exception("Request streaming stopped ") from exp
-        finally:
-            pass
+        await asyncio.gather(
+            request_tasks(event), 
+            receive_tasks(event)
+            )
+
 
 
 
@@ -178,96 +220,87 @@ class ResearcherClient:
         ):
 
 
-        # TODO: implement TLS
+        # TODO: implement TLS 
         if certificate is not None:
             # TODO: create channel as secure channel 
             pass 
         
         self._client_registered = False
-        self.handler = handler
+        self._stop_event = threading.Event()
+        self._client_thread = threading.Thread()
 
-    async def connection(self):
+    async def connection(self, event):
         """Create long-lived connection with researcher server"""
         
-        async with create_channel(certificate=None) as channel:
-            
-            self._channel = channel
-            self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._channel)
+        self._feedback_channel = create_channel(certificate=None)
+        self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
 
-            logger.info("Waiting for researcher server...")
-            #task = asyncio.create_task(self._register())
+        self._task_channel = create_channel(certificate=None)
+        self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
-            # Node first sends registration request to researcher
-            await self._register()
+        logger.info("Waiting for researcher server...")
 
-            # Starts loop to ask for
-            # asyncio.ensure_future(self.get_tasks())
-            await self.get_tasks()   
+        # Starts loop to ask for
+        await self.get_tasks(event)   
             
 
-
-    async def _register(self):
-        """Register loop for researcher client
-        
-        """
-        while True: 
-            print("Here")
-            try:
-                response = await self._stub.Register(
-                    RegisterRequest(node=NODE_ID)
-                )
-                print(response)
-                if response.status == True:
-                    self._client_registered = True
-                    logger.info("Client has been registered on researcher server ")
-                    break
-                
-            except grpc.aio.AioRpcError as exp: 
-                
-                if exp.code() == grpc.StatusCode.UNAVAILABLE:
-                    logger.debug("gRPC service is not available...")
-                    time.sleep(2)
-                    continue
-                else:
-                    logger.error("Something went wrong!")
-                    break
-        return 
-    
-
-   
-    async def get_tasks(self, callback = None):
+    async def get_tasks(self, event):
 
         while True:
+            logger.info("Sending new task request")
+            try:
+                # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_task)
+                await task_reader_unary(stub= self._stub, node=NODE_ID, event=event, callback= lambda x: x)
+
+            except GRPCStop:
+                # Break gRPC while loop
+                logger.info("Shutting down node gRPC client... ")
+                break
+
+            except grpc.aio.AioRpcError as exp:
+                print(exp.code())
+                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    logger.debug("Stream TIMEOUT Error")
+                    await asyncio.sleep(2)
             
-            if self._client_registered:
-                try:
+                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
+                    logger.debug("Researcher server is not available, will retry connect in 2 seconds")
+                    await asyncio.sleep(2)
+                else:
+                    raise Exception("Request streaming stopped ") from exp
+            finally:
+                pass
+            
+    
+    async def send_log(self, log):
 
-                    logger.info("Sending new task request")
-                    try:
-                        await task_reader(stub= self._stub, node=NODE_ID)
-                    except GRPCTimeOUT:
-                        # Continue by creating a new streaming connection
-                        continue
-                    except GRPCStreamingKeepAliveExceed as exp:
-                        continue
+        _ = await self._log_tub.Feedback(Log(log=log))
 
-                except Exception as e:
-                    # Retry request if server is down
-                    print(e)
-                    time.sleep(2)
-            time.sleep(2)
 
     def start(self):
+        """Starts researcher gRPC client"""
 
-        try: 
-           asyncio.run(
-                self.connection(), debug=True
-            )
-        except KeyboardInterrupt:
-            asyncio.get_running_loop().close()
+        self._stop_event = threading.Event()
+
+        # Runs gRPC async client 
+        def run(event):
+            try: 
+                asyncio.run(
+                        self.connection(event), debug=False
+                    )
+            except KeyboardInterrupt:
+                asyncio.get_running_loop().close()
 
         
-    
+        t = threading.Thread(target=run, args=(self._stop_event,))
+        t.start()
+
+    def stop(self):
+        """Stop gently running asyncio loop and its thread"""
+
+        self._stop_event.set()
+
 
 if __name__ == '__main__':
+    
     ResearcherClient().start()

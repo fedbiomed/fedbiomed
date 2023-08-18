@@ -1,29 +1,57 @@
 syntax = "proto3";
 
 
+// import "google/protobuf/any.proto";
+
+
 service ResearcherService {
 
-    // Register node in researcher component
-    rpc Register(RegisterRequest) returns (RegisterResponse) {};
-    rpc GetTask(stream GetTaskRequest) returns (stream GetTaskResponse) {};
+    // Gettask streaming API
+    rpc GetTask(stream TaskRequest) returns (stream TaskResponse) {};
+    
+    // Unary RPC long-lived polling
+    rpc GetTaskUnary(TaskRequest) returns (stream TaskResponse) {};
+    
+    // Node logs
+    rpc FeedBack(stream FeedBackMessage) returns (Empty) {};
 }
 
 
-message RegisterRequest {
+message Empty {}
+
+
+// Log message from node to researcher
+message FeedBackMessage {
+
+    message AddScalar {
+        bytes bytes_ = 1;
+    }
+
+    message Log {
+        string log = 1;
+    }
+
+    oneof msg {
+        AddScalar scalar = 1;
+        Log log = 2;
+    }
+}
+
+
+// Task request
+message TaskRequest {
     string node = 1;
 }
 
-message RegisterResponse {
-    string message = 1; 
-    bool status = 2;
+
+// GRPC Message as string that is going to be 
+// sent from researcher to node or node to researcher
+message TaskResponse {
+    int32 size = 1; 
+    int32 iteration = 2; 
+    bytes bytes_ = 3; 
 }
 
-message GetTaskRequest {
-    string node = 1;
+message TaskResponseUnary {
+    bytes bytes_ = 1;
 }
-
-message GetTaskResponse {
-    string task_id = 1;
-    string context = 2;
-}
-
