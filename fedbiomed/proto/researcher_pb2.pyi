@@ -26,6 +26,12 @@ class FeedbackMessage(_message.Message):
     log: FeedbackMessage.Log
     def __init__(self, scalar: _Optional[_Union[FeedbackMessage.AddScalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
 
+class Log(_message.Message):
+    __slots__ = ["log"]
+    LOG_FIELD_NUMBER: _ClassVar[int]
+    log: str
+    def __init__(self, log: _Optional[str] = ...) -> None: ...
+
 class TaskRequest(_message.Message):
     __slots__ = ["node"]
     NODE_FIELD_NUMBER: _ClassVar[int]

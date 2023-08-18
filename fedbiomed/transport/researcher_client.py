@@ -10,7 +10,7 @@ import signal
 from typing import Callable, Dict
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedBackMessage, Log
+from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage, Log
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 
@@ -76,84 +76,6 @@ def create_channel(
     return channel
 
 
-
-
-async def task_reader(
-        stub, 
-        node: str, 
-        callback: Callable = lambda x: x
-        ) -> None:
-        """Low-level task reader implementation 
-
-        This methods launches two coroutine asynchronously:
-            - Task 1 : Send request stream to researcher to get tasks 
-            - Task 2 : Iterates through response to retrieve tasks  
-
-        Task request iterator stops until a task received from the researcher server. This is 
-        managed using asyncio.Condition. Where the condition is "do not ask for new task until receive one"
-
-        Once a task is received reader fires the callback function
-
-        Args: 
-            node: The ID of the node that requests for tasks
-            callback: Callback function that takes a single task as an arguments
-
-        Raises:
-            GRPCTimeout: Once the timeout is exceeded reader raises time out exception and 
-                closes the streaming.
-        """  
-        event = asyncio.Event()
-
-        async def request_tasks(event):
-            """Send request stream to researcher server"""
-            async def request_():
-                # Send starting request without relying on a condition
-                count  = 1
-                logger.info("Sending first request after creating a new stream connection")
-                state.n = time.time()
-                yield TaskRequest(node=f"{count}---------{node}")
-                                
-                while True:
-                    # Wait before getting answer from previous request
-                    await event.wait()
-                    event.clear()
-
-                    #logger.info(f"Sending another request ---- within the stream")   
-                    state.n = time.time()  
-                    yield TaskRequest(node=f"{count}---------{node}")
-                    
-
-
-            # Call request iterator withing GetTask stub
-            state.task_iterator = stub.GetTask(
-                        request_()
-                    )
-
-        async def receive_tasks(event):
-            """Receives tasks form researcher server """
-            async for answer in state.task_iterator:
-                
-                reply += answer.bytes_
-                # print(f"{answer.size}, {answer.iteration}")
-                if answer.size != answer.iteration:
-                    continue
-                else:
-                    event.set()
-                    callback(Serializer.loads(reply))
-                    reply = bytes()
-                    
-                
-        # Shared state between two coroutines
-        state = type('', (), {})()
-
-        await asyncio.gather(
-            request_tasks(event), 
-            receive_tasks(event)
-            )
-
-
-
-
 class ResearcherClient:
     """gRPC researcher component client 
     
@@ -177,7 +99,7 @@ class ResearcherClient:
         self.on_message = lambda x: x
 
         self._feedback_channel = create_channel(certificate=None)
-        self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
+        self._feedback_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
 
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
@@ -235,8 +157,14 @@ class ResearcherClient:
             
     
     def send_log(self, log):
-
-        self._log_stub.Feedback(Log(log=log))
+        
+        try:
+            self._feedback_stub.Feedback(
+                    Log(log=log)
+                )
+        except Exception as e:
+            print(e)
+            pass
         
 
     def start(self):
