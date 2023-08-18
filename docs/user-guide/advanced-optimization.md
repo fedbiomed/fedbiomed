@@ -41,14 +41,14 @@ with the following arguments:
 
  - `decay`: the weight decay;
 
- - `modules`: a list of `declearn` 's `OptiModules`;
+ - `modules`: a list of `declearn` 's `OptiModules` (or a list of `OptiModules' names`);
 
- - `regularizers`: a list of `declearn` 's `Regularizers`.
+ - `regularizers`: a list of `declearn` 's `Regularizers` (or a list of `Regularizers' names`).
 
 <a name="declearn-optimodules" ></a>
 ### 1.3. `declearn`'s `OptiModules`
 
-`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or a scikit learn model) in order to optimize a model. They should be imported from `declearn`'s `declearn.optimizer.modules` 
+`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. They should be imported from `declearn`'s `declearn.optimizer.modules` 
 
 **Usage**:
 
@@ -101,7 +101,7 @@ list_optim_modules()
 
 ### 1.4. `declearn`'s `Regularizers`
 
-`declearn`'s `Regularizers` are objects that enable the use of `Regularizer`, which add a additional term to the loss function one wants to Optimize through the use of optimizer. It mainly helps to get a more generalizable model, and prevents overfitting.
+`declearn`'s `Regularizers` are objects that enable the use of `Regularizer`, which add an additional term to the loss function one wants to Optimize through the use of optimizer. It mainly helps to get a more generalizable model, and prevents overfitting.
 
 The optimization equation yields to:
 
@@ -121,7 +121,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 `Regularizers` should be used with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`](https://arxiv.org/abs/1812.06127) is also considered as a regularization.
 
 !!! note "Regularizer without OptiModules"
-    When no `OptiModules` are specified in the `modules` argument of `Optimizer`, SGD is used for the optimization by default.
+    When no `OptiModules` are specified in the `modules` argument of `Optimizer`, plain SGD algorithm is used for the optimization by default.
 
 **Usage**:
 
@@ -211,13 +211,30 @@ Optimizer(lr=lr,
           regularizers=[LassoRegularizer(), RidgeRegularizer()])
 ```
 
+
+!!! note "Using list of strings instead of list of modules"
+    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same as the one above but by specifying the module names.
+
+
+```python
+from fedbiomed.common.optimizers.optimizer import Optimizer
+
+
+lr = .01
+Optimizer(lr=lr,
+          modules=['adam', 'momentum'],
+          regularizers=['lasso', 'ridge'])
+
+```
+To know the name of each `declearn`'s module, please visit [`declearn` webpage](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/).
+
 #### How to use well-known Federated-Learning algorithms with `declearn` in `Fed-BioMed`?
 
 Please refer to [the following section of this page.](#federated-learning-algorithms-table)
 
 ## 2. `declearn` optimizer on Node side
 
-In order to use `declearn` to optimize `Node`s local model, you will have to edit `init_otpimizer` method in the `TrainingPlan`. Below we showcase how to use it with PyTorch framework
+In order to use `declearn` to optimize `Node`s local model, you will have to edit `init_otpimizer` method in the `TrainingPlan`. Below we showcase how to use it with PyTorch framework.
 
 
 ```python
@@ -246,7 +263,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 ```
 
 !!! note "Important"
-    You should specify the OptiModules imported in both the imports at the begining of the `Training Plan` as well as in the dependencies (in the `init_dependencies` method within the `Training Plan`). The same holds for `declearn`'s `Regularizers`.
+    You should specify the `OptiModules` imported in both the imports at the begining of the `Training Plan` as well as in the dependencies (in the `init_dependencies` method within the `Training Plan`). The same holds for `declearn`'s `Regularizers`.
 
 Syntax will be the same for scikit-learn as shown below, using the same `Optimizer`:
 
@@ -275,7 +292,7 @@ class MyTrainingPlan(FedSGDClassifier):
 ```
 ## 3. `declearn` optimizer on Researcher side (`FedOpt`)
 
-`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side.
+`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updtaes of the global model.
 To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `Researcher Optimizer`: [`Experiment.set_agg_optimizer`](../../developer/api/researcher/experiment/#fedbiomed.researcher.experiment.Experiment.set_agg_optimizer)
 
 Below an example using the `set_agg_optimizer` with `FedYogi`:
@@ -344,7 +361,7 @@ These `Optimizers` may come with a specific `Researcher` version (for `Scaffold`
 
 ### 4.2. An example using `Optimizer` with auxiliary variables: `Scaffold` with `declearn`
 
-In the last sub-section, we introduced [`Scaffold`](https://arxiv.org/abs/1910.06378). Let's see now how to use it in `Fed-BioMed`.
+In the last sub-section, we introduced [`Scaffold`](https://arxiv.org/abs/1910.06378). Let's see now how to use it in `Fed-BioMed` framework.
 
 
 !!! note "About native Scaffold implementation in Fed-BioMed"
