@@ -194,7 +194,7 @@ class ResearcherClient:
             # TODO: create channel as secure channel 
             pass 
         
-        self._send_queue = queue.Queue()
+        self._send_queue = asyncio.Queue()
         self._client_registered = False
         self.on_message = lambda x: x
 
@@ -211,24 +211,26 @@ class ResearcherClient:
 
         logger.info("Waiting for researcher server...")
 
-        # Starts loop to ask for
-        #await self.get_tasks()   
-
         await asyncio.gather(
             self.get_tasks(),
-            self.answer_send()
+            self.answer_send(),
         )
             
     async def answer_send(self):
 
         while not SHUTDOWN_EVENT.is_set(): 
-            # try:
-            msg = self._send_queue.get()
+            try:
+                msg = self._send_queue.get_nowait()
+            except asyncio.queues.QueueEmpty:
+                await asyncio.sleep(1)
+                continue
+            
+            print(msg)
             await self._log_stub.Feedback(
-                            FeedbackMessage.Log(log = msg)
+                            FeedbackMessage.Log(log=msg)
                             )
             # Send operation is completed
-            self._send_queue.task_done()
+            # self._send_queue.task_done()
 
     async def get_tasks(self):
 
@@ -272,7 +274,7 @@ class ResearcherClient:
 
     def send_log(self, log):
 
-        self._send_queue.put(log)
+        self._send_queue.put_nowait(log)
 
         # Other implementation without using ques
         # loop = asyncio.new_event_loop()
@@ -290,7 +292,7 @@ class ResearcherClient:
 
         if SHUTDOWN_EVENT.is_set(): 
             SHUTDOWN_EVENT.clear()
-            
+
         def run():
             try: 
                 asyncio.run(
