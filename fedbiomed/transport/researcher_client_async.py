@@ -38,6 +38,8 @@ NODE_ID = str(uuid.uuid4())
 
 
 
+
+
 DEFAULT_ADDRESS = "localhost:50051"
 STREAMING_MAX_KEEP_ALIVE_SECONDS = 60 
 
@@ -192,23 +194,41 @@ class ResearcherClient:
             # TODO: create channel as secure channel 
             pass 
         
+        self._send_queue = queue.Queue()
         self._client_registered = False
         self.on_message = lambda x: x
 
-        self._feedback_channel = create_channel(certificate=None)
-        self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
 
     async def connection(self):
         """Create long-lived connection with researcher server"""
         
+        self._feedback_channel = create_channel(certificate=None)
+        self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
+
+
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
         logger.info("Waiting for researcher server...")
 
         # Starts loop to ask for
-        await self.get_tasks()   
+        #await self.get_tasks()   
+
+        await asyncio.gather(
+            self.get_tasks(),
+            self.answer_send()
+        )
             
+    async def answer_send(self):
+
+        while not SHUTDOWN_EVENT.is_set(): 
+            # try:
+            msg = self._send_queue.get()
+            await self._log_stub.Feedback(
+                            FeedbackMessage.Log(log = msg)
+                            )
+            # Send operation is completed
+            self._send_queue.task_done()
 
     async def get_tasks(self):
 
@@ -237,7 +257,6 @@ class ResearcherClient:
                             reply = bytes()
             
             except grpc.aio.AioRpcError as exp:
-                print(exp.code())
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("Stream TIMEOUT Error")
                     await asyncio.sleep(2)
@@ -250,23 +269,20 @@ class ResearcherClient:
             finally:
                 pass
             
-    
-    async def send(self, channel, object):
-        """Sends log """
-        await channel(object)
 
     def send_log(self, log):
-        
 
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(
-            self.send(
-                self._log_stub.Feedback, FeedbackMessage.Log(log = log)
-            )
-        )
-        # This raises an Resource error. It is a known problem while using same service from different threads
-        # Please see: https://stackoverflow.com/questions/65945944/multi-thread-support-for-python-asyncio-grpc-clients
-        loop.run_until_complete(task)
+        self._send_queue.put(log)
+
+        # Other implementation without using ques
+        # loop = asyncio.new_event_loop()
+        # task = loop.create_task(
+        #     self._send_queue.put(log)
+        # )
+        # # This raises an Resource error. It is a known problem while using same service from different threads
+        # # Please see: https://stackoverflow.com/questions/65945944/multi-thread-support-for-python-asyncio-grpc-clients
+        # loop.run_until_complete(task)
+
 
     def start(self):
         """Starts researcher gRPC client"""
@@ -274,8 +290,7 @@ class ResearcherClient:
 
         if SHUTDOWN_EVENT.is_set(): 
             SHUTDOWN_EVENT.clear()
-
-
+            
         def run():
             try: 
                 asyncio.run(
