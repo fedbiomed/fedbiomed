@@ -43,8 +43,6 @@ STREAMING_MAX_KEEP_ALIVE_SECONDS = 60
 
 
 SHUTDOWN_EVENT =  threading.Event()
-SHUTDOWN_FORCE_EVENT = threading.Event()
-REQUEST_DONE = threading.Event()
 
 
 
@@ -96,34 +94,7 @@ async def task_reader_unary(
         node: Node id 
         callback: Callback function to execute each time a task received
     """
-    
-    # def request_done(x):
-    #     REQUEST_DONE.set()
-
-    while not SHUTDOWN_EVENT.is_set():
-        
-        request_iterator = stub.GetTaskUnary(
-            TaskRequest(node=f"{node}")
-        )
-        #request_iterator.cancel()
-        # request_iterator.add_done_callback(request_done)
-        print("It didn't stop!")
-        # Prepare reply
-        reply = bytes()
-        async for answer in request_iterator:
-
-            try:
-                print("print")
-                reply += answer.bytes_
-                if answer.size != answer.iteration:
-                    continue
-                else:
-                    # Execute callback
-                    callback(Serializer.loads(reply))
-                    # Reset reply
-                    reply = bytes()
-            finally:
-                print("Last print")
+    pass 
 
 
 async def task_reader(
@@ -202,7 +173,6 @@ async def task_reader(
 
 
 
-
 class ResearcherClient:
     """gRPC researcher component client 
     
@@ -223,6 +193,7 @@ class ResearcherClient:
             pass 
         
         self._client_registered = False
+        self.on_message = lambda x: x
         self._stop_event = threading.Event()
         self._client_thread = threading.Thread()
 
@@ -247,7 +218,29 @@ class ResearcherClient:
             logger.info("Sending new task request")
             try:
                 # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_task)
-                await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
+                # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
+                while not SHUTDOWN_EVENT.is_set():
+                    
+                    self.__request_task_iterator = self._stub.GetTaskUnary(
+                        TaskRequest(node=f"{NODE_ID}")
+                    )
+
+                    #request_iterator.cancel()
+                    # request_iterator.add_done_callback(request_done)
+                    print("It didn't stop!")
+                    # Prepare reply
+                    reply = bytes()
+                    async for answer in self.__request_task_iterator:
+                        print('----')
+                        reply += answer.bytes_
+                        if answer.size != answer.iteration:
+                            continue
+                        else:
+                            # Execute callback
+                            self.on_message(Serializer.loads(reply))
+                            # Reset reply
+                            reply = bytes()
+                
 
             except GRPCStop:
                 # Break gRPC while loop
@@ -276,12 +269,19 @@ class ResearcherClient:
 
     def start(self):
         """Starts researcher gRPC client"""
-        # Runs gRPC async client 
+        # Runs gRPC async client
+
+        if SHUTDOWN_EVENT.is_set(): 
+            SHUTDOWN_EVENT.clear()
+
+
         def run(event):
             try: 
                 asyncio.run(
                         self.connection(), debug=False
                     )
+            except asyncio.exceptions.CancelledError:
+                logger.debug("Cancelling event loop...")
             except KeyboardInterrupt:
                 asyncio.get_running_loop().close()
 
@@ -289,12 +289,13 @@ class ResearcherClient:
         t = threading.Thread(target=run, args=(self._stop_event,))
         t.start()
 
+
     def stop(self, force: bool = False):
         """Stop gently running asyncio loop and its thread"""
 
+        logger.debug("Shutting down researcher client...")
+        self.__request_task_iterator.cancel()
         SHUTDOWN_EVENT.set()
-        SHUTDOWN_FORCE_EVENT.set()
-
 if __name__ == '__main__':
     
     ResearcherClient().start()
