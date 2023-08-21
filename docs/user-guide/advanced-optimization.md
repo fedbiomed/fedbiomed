@@ -136,7 +136,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
     Optimizer(lr=lr, regularizers=[RidgeRegularizer()])
     ```
 
-- **Adam with Lasso Regression**:
+- **[Adam](https://arxiv.org/abs/1412.6980) with Lasso Regression**:
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -147,7 +147,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
     Optimizer(lr=lr, modules=[AdamModule()], regularizers=[LassoRegularizer()])
 
     ```
-- Chaining several Regularizers: an example with Ridge and Lasso regularizers, and Adam with momentum as the Optimizer.
+- Chaining several Regularizers: an example with Ridge and Lasso regularizers, and [Adam](https://arxiv.org/abs/1412.6980) with momentum as the Optimizer.
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -193,9 +193,9 @@ $$\theta_{t+1} := \theta_t - \eta\  \underbrace{ Opt_{i=1} \circ Opt_{i=2} \,\ci
 
 where
 
-$Opt_{1\le i \le n} \textrm{ OptiModules, with }  n   \textrm{ the total number of OptiModules used}$
+$Opt_{1\le i \le n}: \textrm{ OptiModules, with }  n   \textrm{ the total number of OptiModules used}$
 
-$Reg_{1\le i \le m} \textrm{ Regularizers, with }  m   \textrm{ the total number of Regularizers used}$
+$Reg_{1\le i \le m}: \textrm{ Regularizers, with }  m   \textrm{ the total number of Regularizers used}$
 
 **Example**: let's write an `Optimizer` using `RMSProp` and `Momentum` `OptiModules`, and both Lasso and Ridge Regularizers.
 
@@ -213,7 +213,7 @@ Optimizer(lr=lr,
 
 
 !!! note "Using list of strings instead of list of modules"
-    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same as the one above but by specifying the module names.
+    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same `Optimizer` as the one above but by specifying the module names.
 
 
 ```python
@@ -234,7 +234,7 @@ Please refer to [the following section of this page.](#federated-learning-algori
 
 ## 2. `declearn` optimizer on Node side
 
-In order to use `declearn` to optimize `Node`s local model, you will have to edit `init_otpimizer` method in the `TrainingPlan`. Below we showcase how to use it with PyTorch framework.
+In order to use `declearn` to optimize `Node`s local model, you will have to edit `init_otpimizer` method in the `TrainingPlan`. Below we showcase how to use it with PyTorch framework (using Adam and Ridge regularizer for the optimization).
 
 
 ```python
@@ -292,7 +292,7 @@ class MyTrainingPlan(FedSGDClassifier):
 ```
 ## 3. `declearn` optimizer on Researcher side (`FedOpt`)
 
-`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updtaes of the global model.
+`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updates of the global model.
 To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `Researcher Optimizer`: [`Experiment.set_agg_optimizer`](../../developer/api/researcher/experiment/#fedbiomed.researcher.experiment.Experiment.set_agg_optimizer)
 
 Below an example using the `set_agg_optimizer` with `FedYogi`:
@@ -323,7 +323,7 @@ exp.run(increase=True)
 
 
 !!! warning "Important"
-    **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor` on `Researcher` side.**
+    **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated before optimization, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor` on `Researcher` side.**
 
 One can also pass directly the `agg_optimizer` in the `Experiment` object constructor:
 
@@ -351,7 +351,7 @@ exp.run(increase=True)
 
 ## 4. `declearn` auxiliary variables based `Optimizers`
 
-In this subsection, we will tae a look at some specific `Optimizers` that are built around `auxiliary variables`.
+In this subsection, we will take a look at some specific `Optimizers` that are built around `auxiliary variables`.
 
 ### 4.1. What is an auxiliary variable?
 
@@ -420,7 +420,7 @@ exp.run(increase=True)
 ```
 
 !!! warning "Important"
-    **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `ScaffoldServerModule` \ `ScaffoldClientModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
+    **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `ScaffoldServerModule` \ `ScaffoldClientModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated before optimization, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
 
 
 !!! warning "Incompatibility with SecAgg"
@@ -432,7 +432,7 @@ You can find more examples in [Advanced Optimizers tutorial](../../tutorials/opt
 
 <a name="federated-learning-algorithms-table" ></a>
 
-Below we have gathered some of the most well known algorithms in Federated Learning in the following table:
+Below we have gathered some of the most well known algorithms in Federated Learning in the following table (as a reminder, `Node Optimizer` must e defined in the `TrainingPlan`, whereas `Researcher Optimizer` in the `Experiment` object):
 
 | Federated Learning Algorithm                                       	| Node Optimizer                                             	| Researcher Optimizer                                     	| Aggregator   	|
 |--------------------------------------------------------------------	|------------------------------------------------------------	|----------------------------------------------------------	|--------------	|
@@ -449,13 +449,13 @@ Below we have gathered some of the most well known algorithms in Federated Learn
 
 Below, we are summerizing common pitfalls that may occur when using `declearn` package in `Fed-BioMed`:
 
-- `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizer such as PyTorch Optimizers);
+- `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizers such as PyTorch Optimizers);
 - Some `Optimizers` may requiere some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
 - For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation]();
-- For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (multiple learning rates `Optimizers`, for example pytorch optimizers `torch.optim.Optimizer` can have a learning rate per model layer );
+- For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (multiple learning rates `Optimizers`, for example pytorch optimizers `torch.optim.Optimizer` can handle a learning rate per model layer );
 - When chaining `declearn`'s `OptiModules`, it is only possible to use a unique learning rate;
 - check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical, even if it is doable within `declearn`;
-- [`Scaffold` `Fed-BioMed` aggregator](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold)  must not be used when using both `ScaffoldServerModule` and `ScaffoldClientModule`. This `aggregator` is in fact an alternative to the `declearn` `scaffold`, and you have to choose between the `Fed-BioMed` native version of `Scaffold` and the `declearn` 's one.
+- [`Scaffold` `Fed-BioMed` aggregator](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold)  must not be used when using both `ScaffoldServerModule` and `ScaffoldClientModule`. This `aggregator` is in fact an alternative to the `declearn` `scaffold`, and you have to choose between the `Fed-BioMed` native version of `Scaffold` and the `declearn` 's one. Please note that `Fed-BioMed aggregator Scaffold` is deprecated, hence, the use of `ScaffoldServerModule` and `ScaffoldClientModule` is highly encouraged.
 
 
 # Conclusion
@@ -464,11 +464,11 @@ We have seen how to use `declearn` `Optimizers` in `Fed-BioMed`. In `Fed-BioMed`
 
 - On `Node` side, such `Optimizer` is defined in `Training Plan` and is used to optimize `Nodes`' local models;
 
-- On `Researcher` side, `Optimizer` is made for optimizing global model.
+- On `Researcher` side, `Optimizer` is defined in the `Experiment`, and is made for optimizing global model.
 
 
-When used with `declearn` package, `Fedd-BioMed` `Aggregator` is used for aggregating weights: `FedAverage` does the weighted sum of all local models sent back by the `Nodes`.
+When used with `declearn` package, `Fedd-BioMed` `Aggregator` is used for aggregating weights, before any potential optiization: `FedAverage` does the weighted sum of all local models sent back by the `Nodes`.
 
-`declearn` comes with the possibility of *chaining* `Optimizers`, by passing a list of `OptiModule` and `Regularizers`, paving the way to try out some more complex optimization process.
+`declearn` comes with the possibility of *chaining* `Optimizers`, by passing a list of `OptiModule` and `Regularizers`, making possible to try out some more complex optimization process.
 
 Check [the tutorial related to the use of `declearn`'s `Optimizers`](../../tutorials/optimizers/01-fedopt-and-scaffold.ipynb)
