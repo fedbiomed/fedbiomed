@@ -222,7 +222,7 @@ class ResearcherClient:
             try:
                 msg = self._send_queue.get_nowait()
             except asyncio.queues.QueueEmpty:
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
                 continue
             
             print(msg)
@@ -233,7 +233,10 @@ class ResearcherClient:
             # self._send_queue.task_done()
 
     async def get_tasks(self):
+        """Long-lived polling to request tasks from researcher. 
 
+
+        """
         while not SHUTDOWN_EVENT.is_set():
             logger.info("Sending new task request")
             try:
@@ -271,11 +274,16 @@ class ResearcherClient:
             finally:
                 pass
             
+    
+    def send_task_reply(self, reply: Dict):
+
+        self.
 
     def send_log(self, log):
 
         self._send_queue.put_nowait(log)
 
+        
         # Other implementation without using ques
         # loop = asyncio.new_event_loop()
         # task = loop.create_task(

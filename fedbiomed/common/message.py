@@ -7,13 +7,14 @@ Definition of messages exchanged by the researcher and the nodes
 
 import functools
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Optional
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
+from fedbiomed.proto.researcher_pb2 import FeedbackMessage
 
 def catch_dataclass_exception(cls: Callable):
     """Encapsulates the __init__() method of dataclass in order to transform the exceptions sent
@@ -113,12 +114,31 @@ class Message(object):
                 ret = False
         return ret
 
+    @classmethod
+    def fields(cls):
+        """Get dataclass fields"""
+        return list(cls.__dataclass_fields__.keys())
 
+
+    def to_proto(self):
+        """Converts Scalar python dataclass to gRPC proto"""
+        return FeedbackMessage.Scalar(
+            **self.__dict__
+        ) 
+
+    @classmethod
+    def from_proto(
+        cls, 
+        scalar: FeedbackMessage.Scalar):
+
+        return { name: getattr(scalar, name) for name in cls.fields()}
+        
 #
 # messages definition, sorted by
 # - alphabetic order
-# - Request/Reply regroupemnt
+# - Request/Reply regrouping
 #
+
 
 # AddScalar message
 @dataclass
@@ -128,11 +148,22 @@ class RequiresProtocolVersion:
     Attributes:
         protocol_version: version of the messaging protocol used
     """
-    protocol_version: str
+
+    # adds default protocol version
+    protocol_version: str = field(default=str(__messaging_protocol_version__), init=False) 
+    
+
+@dataclass
+class LogMessage(Message, RequiresProtocolVersion):
+    """Describes the message type for log coming from node to researcher """
+
+    researcher_id: str
+    message: str
+
 
 @catch_dataclass_exception
 @dataclass
-class AddScalarReply(Message, RequiresProtocolVersion):
+class Scalar(Message, RequiresProtocolVersion):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -148,12 +179,12 @@ class AddScalarReply(Message, RequiresProtocolVersion):
         batch_samples: Number of samples in batch
         num_batches: Number of batches in single epoch
         iteration: Scalar is received at
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
+    
     researcher_id: str
     node_id: str
     job_id: str
@@ -162,18 +193,18 @@ class AddScalarReply(Message, RequiresProtocolVersion):
     test_on_local_updates: bool
     test_on_global_updates: bool
     metric: dict
-    epoch: (int, type(None))
     total_samples: int
     batch_samples: int
     num_batches: int
-    num_samples_trained: (int, type(None))
     iteration: int
-    command: str
+    epoch: Optional[int] = None
+    num_samples_trained: Optional[int] = None
+    
 
+
+        
 
 # Approval messages
-
-
 @catch_dataclass_exception
 @dataclass
 class ApprovalRequest(Message, RequiresProtocolVersion):
@@ -716,7 +747,7 @@ class ResearcherMessages(MessageFactory):
                                           'log': LogMessage,
                                           'error': ErrorMessage,
                                           'list': ListReply,
-                                          'add_scalar': AddScalarReply,
+                                          'add_scalar': Scalar,
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
@@ -754,7 +785,7 @@ class NodeMessages(MessageFactory):
                                           'pong': PingReply,
                                           'log': LogMessage,
                                           'error': ErrorMessage,
-                                          'add_scalar': AddScalarReply,
+                                          'add_scalar': Scalar,
                                           'list': ListReply,
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,

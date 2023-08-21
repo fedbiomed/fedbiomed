@@ -34,7 +34,7 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             message.PingReply,
             message.TrainReply,
-            message.AddScalarReply,
+            message.Scalar,
             message.LogMessage,
             message.ErrorMessage,
             message.ApprovalReply,
@@ -779,7 +779,7 @@ class TestMessage(unittest.TestCase):
         # well formatted message
 
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=True,
             protocol_version='99.99',
             researcher_id='toto',
@@ -800,12 +800,12 @@ class TestMessage(unittest.TestCase):
 
         # bad param number
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             researcher_id='toto')
 
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             researcher_id='toto',
             node_id='titi',
@@ -816,7 +816,7 @@ class TestMessage(unittest.TestCase):
 
         # bad param type
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             protocol_version='99.99',
             researcher_id=False,
@@ -835,7 +835,7 @@ class TestMessage(unittest.TestCase):
             command='add_scalar')
 
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             protocol_version='99.99',
             researcher_id=False,
@@ -854,7 +854,7 @@ class TestMessage(unittest.TestCase):
             command='add_scalar')
 
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             protocol_version='99.99',
             researcher_id=False,
@@ -873,7 +873,7 @@ class TestMessage(unittest.TestCase):
             command='add_scalar')
 
         self.check_class_args(
-            message.AddScalarReply,
+            message.Scalar,
             expected_result=False,
             protocol_version='99.99',
             researcher_id=False,
@@ -1940,10 +1940,10 @@ class TestMessage(unittest.TestCase):
         }
 
         r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.AddScalarReply)
+        self.assertIsInstance(r, message.Scalar)
 
         r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.AddScalarReply)
+        self.assertIsInstance(r, message.Scalar)
 
     def test_message_22_unknowmessages(self):
         # we only test one error (to get 100% coverage)

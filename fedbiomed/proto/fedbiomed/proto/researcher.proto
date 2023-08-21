@@ -9,9 +9,15 @@ service ResearcherService {
     // Gettask streaming API
     rpc GetTask(stream TaskRequest) returns (stream TaskResponse) {};
     
+
+
     // Unary RPC long-lived polling
     rpc GetTaskUnary(TaskRequest) returns (stream TaskResponse) {};
     
+
+    // RPC to send task replies 
+    rpc ReplyTask(stream TaskReplyMessage) returns (Empty) {}
+
     // Node logs
     rpc Feedback(Log) returns (Empty) {};
 }
@@ -24,17 +30,32 @@ message Empty {}
 message FeedbackMessage {
     
     // Tensorboard scalar values
-    message AddScalar {
-        bytes bytes_ = 1;
+    message Scalar {
+        string researcher_id = 1;
+        string node_id = 2;
+        string job_id = 3;
+        bool train = 4;
+        bool test = 5;
+        bool test_on_local_updates = 6;
+        bool test_on_global_updates = 7;
+        map<string, float> metric = 8;
+        optional int32 epoch = 9; // optional -> None
+        int32 total_samples = 10;
+        int32 batch_samples = 11; 
+        int32 num_batches = 12;
+        optional int32 num_samples_trained = 13; // optional -> None
+        int32 iteration = 14;
+        string protocol_version = 15;
     }
 
     // Log messages
     message Log {
-        string log = 1;
+        string researcher_id = 1;
+        string log = 2;
     }
 
-    oneof msg {
-        AddScalar scalar = 1;
+    oneof feedback_type {
+        Scalar scalar = 1;
         Log log = 2;
     }
 }
@@ -56,6 +77,13 @@ message TaskResponse {
     int32 size = 1; 
     int32 iteration = 2; 
     bytes bytes_ = 3; 
+}
+
+// Reply stream from node to researcher
+message TaskReplyMessage {
+    int32 size = 1; 
+    int32 iteration = 2;
+    bytes bytes_ = 3;
 }
 
 message TaskResponseUnary {

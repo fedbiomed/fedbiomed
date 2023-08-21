@@ -9,10 +9,14 @@ import signal
 
 from typing import Callable, Dict
 
+from google.protobuf.message import Message as ProtobufMessage
+
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
+
 from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage, Log
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.message import Message, Scalar, LogMessage
 
 import uuid
 import time
@@ -156,8 +160,49 @@ class ResearcherClient:
                 pass
             
     
-    def send_log(self, log):
+    def _handle_send(
+            self, 
+            rpc: Callable, 
+            proto: ProtobufMessage
+        ) -> grpc:
+        """Handle RPC calls
+        Args: 
+            rpc: 
+        Raises: 
+            Exception: RPC execution error
+        """
+
+        try:
+            result = rpc(proto)
+        except:
+            raise Exception("Error while sennding message to researcher")
         
+        return result 
+
+    def send(self, message: Message):
+        """Send message from node to researcher
+        
+        Args: 
+            message: An instance of Message
+
+        """
+
+        if not isinstance(message, Message):
+            raise Exception("The argument message is not fedbiomed.common.message.Message type")
+
+
+        # Switch-case for message type and gRPC calls
+        match message.__name__:
+            case Scalar.__name__ | LogMessage.__name__:
+                self._handle_send(self._feedback_stub.Feedback, message.to_proto())
+                
+            case _ :
+                raise Exception('Undefined message type')
+
+        # Convert message to proto
+        proto = message.to_proto()
+
+
         try:
             self._feedback_stub.Feedback(
                     Log(log=log)
