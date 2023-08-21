@@ -246,8 +246,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        # Run preprocessing operations.
-        self._preprocess()
+
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):
             logger.warning(
