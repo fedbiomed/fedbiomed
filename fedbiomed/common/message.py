@@ -10,11 +10,15 @@ import functools
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
+
+from google.protobuf.message import Message as ProtobufMessage
+
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-
 from fedbiomed.proto.researcher_pb2 import FeedbackMessage
+
+
 
 def catch_dataclass_exception(cls: Callable):
     """Encapsulates the __init__() method of dataclass in order to transform the exceptions sent
@@ -122,16 +126,17 @@ class Message(object):
 
     def to_proto(self):
         """Converts Scalar python dataclass to gRPC proto"""
-        return FeedbackMessage.Scalar(
+        
+        return self.__TYPE__(
             **self.__dict__
         ) 
 
     @classmethod
     def from_proto(
         cls, 
-        scalar: FeedbackMessage.Scalar):
+        scalar: ProtobufMessage):
 
-        return { name: getattr(scalar, name) for name in cls.fields()}
+        return { name: getattr(cls.__TYPE__, name) for name in cls.fields()}
         
 #
 # messages definition, sorted by
@@ -141,7 +146,7 @@ class Message(object):
 
 
 # AddScalar message
-@dataclass
+@dataclass(kw_only=True)
 class RequiresProtocolVersion:
     """Mixin class for messages that must be endowed with a version field.
 
@@ -149,13 +154,14 @@ class RequiresProtocolVersion:
         protocol_version: version of the messaging protocol used
     """
 
-    # adds default protocol version
-    protocol_version: str = field(default=str(__messaging_protocol_version__), init=False) 
+    # Adds default protocol version thanks to `kw_oly  True`
+    protocol_version: str = str(__messaging_protocol_version__) 
     
 
 @dataclass
-class LogMessage(Message, RequiresProtocolVersion):
+class Log(Message, RequiresProtocolVersion):
     """Describes the message type for log coming from node to researcher """
+    __TYPE__ = FeedbackMessage.Log
 
     researcher_id: str
     message: str
@@ -184,6 +190,7 @@ class Scalar(Message, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
+    __TYPE__ = FeedbackMessage.Scalar
     
     researcher_id: str
     node_id: str
