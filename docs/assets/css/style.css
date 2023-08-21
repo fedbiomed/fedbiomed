@@ -1451,32 +1451,55 @@ div :is(.info, .todo) > :is(.admonition-title, summary) {
     margin-left: 30px;
 }
 
-.doc .api-section-header {
-    font-size: 26px;
+.doc.doc-children h4, .doc.doc-children h2 {
     margin: 25px 0px;
     border-bottom: 1px solid #999;
 }
 
-.doc .doc-heading.attribute {
-    font-size: 18px;
+
+.doc.doc-children h4 {
+    font-size: 2.4px;
 }
 
-.doc .doc-heading.function {
+.doc.doc-children h2 {
+    font-size: 2.8rem;
+    margin: 25px 0px;
+    border-bottom: 1px solid #999;
+}
+
+.doc.doc-object.doc-function .doc-heading {
     display: flex;
     border-bottom: 1px solid #9999;
     background: #f5f5f5;
     margin: 25px 0px;
 }
-.doc .doc-heading.function .highlight {
-    width:100%;
-    border-bottom: 5px solid #9999
+.doc .doc-object.doc-function .doc.doc-object-name.doc-function-name {
+    width: 100%;
+    border-bottom: 5px solid #9999;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    font-size: 1.5rem;
 }
+
+.doc.doc-object.doc-class .doc-heading {
+    font-size: 2.4rem;
+    font-weight: 300;
+    margin-top: 35px;
+}
+
+.doc.doc-object.doc-attribute .doc-heading {
+    font-size: 1.8rem;
+}
+
+
 .doc .doc-heading.function .highlight pre {
     border-radius: 0px;
     border: 0px;
     margin-bottom: 0px;
 }
-.doc-heading.function::before {
+
+.doc.doc-object.doc-function .doc-heading::before {
     content: '\0192';
     font-size: 20px;
     width: 20px;
