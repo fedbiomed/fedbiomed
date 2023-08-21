@@ -260,6 +260,7 @@ plugins:
           options:
             filters:
               - "!^__"
+              - "!^_"
             docstring_style: google
             docstring_options:
               ignore_init_summary: yes
