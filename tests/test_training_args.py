@@ -35,8 +35,8 @@ class TestTrainingArgs(unittest.TestCase):
         """
         simple initialisation tests
         """
-        t = TrainingArgs({"batch_size": 12, "epochs": 1})
-        self.assertEqual(t['batch_size'], 12)
+        t = TrainingArgs({"loader_args": {"batch_size": 12}, "epochs": 1})
+        self.assertEqual(t['loader_args']['batch_size'], 12)
         self.assertEqual(t['epochs'], 1)
         with self.assertRaises(FedbiomedUserInputError):
             print(t['fedprox_mu'])

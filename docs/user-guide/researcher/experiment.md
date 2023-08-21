@@ -208,16 +208,13 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ### Training Arguments
 
-`training_args` is a dictionary, containing the arguments for the training on the node side (e.g. batch size,
-optimizer_args, epochs, etc.). These arguments are *dynamic*, in the sense that you may change them between two
+`training_args` is a dictionary, containing the arguments for the training on the node side (e.g. data loader arguments,
+optimizer arguments, epochs, etc.). These arguments are *dynamic*, in the sense that you may change them between two
 rounds of the same experiment, and the updated changes will be taken into account (provided you also update the 
 experiment using the `set_training_args` method).
 
 A list of valid arguments is given in the [TrainingArgs.default_scheme][fedbiomed.common.training_args.TrainingArgs.default_scheme]
 documentation.
-
-!!! info "Always specify batch size"
-    Although not a strict requirement, it is good practice to always specify `batch_size` in your training arguments
 
 To set the training arguments you may either pass them to the `Experiment` constructor, or set
 them on an instance with the `set_training_arguments` method:
@@ -262,6 +259,26 @@ Not all configurations are compatible with all types of aggregators and experime
 We list here the known constraints: 
 
 - the [Scaffold](../../user-guide/researcher/aggregation.md#scaffold) aggregator **requires** using `num_updates`
+
+#### Batch size and other data loader arguments
+
+!!! info "Dataloader arguments are automatically injected through the `DataManager` class"
+    It is strongly recommended to always provide a `loader_args` key in your training arguments, with a dictionary
+    as value containing at least the `batch_size` key.
+
+Example of minimal loader arguments:
+```python
+training_args = {
+    'loader_args': {
+        'batch_size': 1
+    }
+}
+```
+
+Note that the `loader_arguments`, as well as any additional keyword arguments that you will specify in your 
+`DataManager` constructor, will be automatically injected in the definition of the data loader. 
+Please refer to the [`training_data`](../../user-guide/researcher/training-data.md) method 
+documentation for more details.
 
 #### Setting a random seed for reproducibility
 

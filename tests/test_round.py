@@ -669,6 +669,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
+        r3.initialize_validate_training_arguments()
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -680,6 +681,7 @@ class TestRound(NodeTestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
+        r4.initialize_validate_training_arguments()
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 
@@ -1154,6 +1156,19 @@ class TestRound(NodeTestCase):
         self.assertRaises(FedbiomedRoundError, rnd.collect_optim_aux_var)
 
     # add a test with : shared and node specific auxiliary avraibales
+
+    def test_round_26_split_train_and_test_data_raises_exceptions(self):
+        """Test that _split_train_and_test_data raises correct exceptions"""
+        mock_training_plan = MagicMock()
+        def foo_takes_an_argument(x):
+            return x
+        mock_training_plan.training_data = foo_takes_an_argument
+        mock_training_plan.type.return_value = 'tp type'
+        r = Round()
+        r.training_plan = mock_training_plan
+        with self.assertRaises(FedbiomedRoundError):
+            r._split_train_and_test_data()
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
