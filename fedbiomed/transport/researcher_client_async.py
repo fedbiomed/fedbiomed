@@ -7,12 +7,15 @@ import threading
 import sys 
 import signal 
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Union
+from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+
+from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage
 
 import uuid
 import time
@@ -196,14 +199,14 @@ class ResearcherClient:
         
         self._send_queue = asyncio.Queue()
         self._client_registered = False
-        self.on_message = lambda x: x
+        self.on_message = lambda x: print(f"Task received! {x}")
 
 
     async def connection(self):
         """Create long-lived connection with researcher server"""
         
         self._feedback_channel = create_channel(certificate=None)
-        self._log_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
+        self._feedback_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
 
 
         self._task_channel = create_channel(certificate=None)
@@ -213,10 +216,11 @@ class ResearcherClient:
 
         await asyncio.gather(
             self.get_tasks(),
-            self.answer_send(),
+            self.send_queue_listener(),
         )
             
-    async def answer_send(self):
+    async def send_queue_listener(self):
+        """Listens queue that contains message to send to researcher """
 
         while not SHUTDOWN_EVENT.is_set(): 
             try:
@@ -225,18 +229,12 @@ class ResearcherClient:
                 await asyncio.sleep(0.5)
                 continue
             
-            print(msg)
-            await self._log_stub.Feedback(
-                            FeedbackMessage.Log(log=msg)
-                            )
-            # Send operation is completed
-            # self._send_queue.task_done()
+            await msg["stub"](msg["message"])
+
 
     async def get_tasks(self):
-        """Long-lived polling to request tasks from researcher. 
+        """Long-lived polling to request tasks from researcher."""
 
-
-        """
         while not SHUTDOWN_EVENT.is_set():
             logger.info("Sending new task request")
             try:
@@ -245,13 +243,12 @@ class ResearcherClient:
                 while not SHUTDOWN_EVENT.is_set():
                     
                     self.__request_task_iterator = self._stub.GetTaskUnary(
-                        TaskRequest(node=f"{NODE_ID}")
+                        TaskRequest(node=f"{NODE_ID}").to_proto()
                     )
 
                     # Prepare reply
                     reply = bytes()
                     async for answer in self.__request_task_iterator:
-                        print('----')
                         reply += answer.bytes_
                         if answer.size != answer.iteration:
                             continue
@@ -274,25 +271,52 @@ class ResearcherClient:
             finally:
                 pass
             
-    
-    def send_task_reply(self, reply: Dict):
 
-        self.
-
-    def send_log(self, log):
-
-        self._send_queue.put_nowait(log)
-
+    def _create_send_task(
+            self,
+            stub: Callable, 
+            message: ProtobufMessage
+        ) -> Dict[str, Union[Callable, ProtobufMessage]]:
+        """Validates and create object tpo add queue of sending messages 
         
-        # Other implementation without using ques
-        # loop = asyncio.new_event_loop()
-        # task = loop.create_task(
-        #     self._send_queue.put(log)
-        # )
-        # # This raises an Resource error. It is a known problem while using same service from different threads
-        # # Please see: https://stackoverflow.com/questions/65945944/multi-thread-support-for-python-asyncio-grpc-clients
-        # loop.run_until_complete(task)
+        Args: 
+            stub: RPC stub to execute 
+            message: Message to send researcher
+        
+        Returns:
+            Contains stub and message to add into the queue
+        """
 
+        if not isinstance(stub, Callable):
+            raise Exception("'stub' must an instance of ResearcherServiceStub")
+        
+        if not isinstance(message, ProtobufMessage):
+            raise Exception("'message' should be be an instance of Protobuf")
+
+        return {"stub": stub, "message": message}
+    
+
+    def send(self, message: Message):
+        """Non-async method for sending messages to researcher 
+        
+        Method picks over message type provide correct stub RPC call, and
+        convert Python dataclass message to gRPC protobuff. 
+
+        """
+        if not isinstance(message, Message):
+            raise Exception("The argument message is not fedbiomed.common.message.Message type")
+
+
+        # Switch-case for message type and gRPC calls
+        match type(message).__name__:
+            case FeedbackMessage.__name__:
+                self._send_queue.put_nowait(
+                    self._create_send_task(self._feedback_stub.Feedback, message.to_proto())
+                )
+            case _ :
+                raise Exception('Undefined message type')
+            
+        return True
 
     def start(self):
         """Starts researcher gRPC client"""
