@@ -8,7 +8,7 @@ Definition of messages exchanged by the researcher and the nodes
 import functools
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, get_origin, get_args
 
 
 from google.protobuf.message import Message as ProtobufMessage
@@ -16,8 +16,7 @@ from google.protobuf.message import Message as ProtobufMessage
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.proto.researcher_pb2 import FeedbackMessage
-
+import fedbiomed.proto.researcher_pb2 as r_pb2
 
 
 def catch_dataclass_exception(cls: Callable):
@@ -125,18 +124,72 @@ class Message(object):
 
 
     def to_proto(self):
-        """Converts Scalar python dataclass to gRPC proto"""
-        
-        return self.__TYPE__(
-            **self.__dict__
-        ) 
+        """Converts recursively python dataclass to gRPC proto"""
+
+        proto_dict = {}
+        for key, _ in self.__dataclass_fields__.items():
+            param = self.get_param(key)
+            if hasattr(param, '__PROTO_TYPE__'):
+                proto_dict.update({key: self.get_param(key).to_proto()})
+            else:
+                proto_dict.update({key: self.get_param(key)})
+
+        return self.__PROTO_TYPE__(**proto_dict) 
+    
+
 
     @classmethod
     def from_proto(
         cls, 
-        scalar: ProtobufMessage):
+        proto: ProtobufMessage
+    ) -> Dict[str, Any]:
+        """Converts given protobuf to python Dict"""
+        dict_ = {}
+        one_of_field_names = []
+        for one_of in proto.DESCRIPTOR.oneofs_by_name.keys():
 
-        return { name: getattr(cls.__TYPE__, name) for name in cls.fields()}
+            one_of_ = proto.WhichOneof(one_of)
+            
+            one_of_field_names.append(one_of_)
+
+            # Validate dataclass has the filed defined in proto message
+            if not one_of_ in cls.__dataclass_fields__:
+                raise FedbiomedMessageError(
+                    f"The field {one_of_} is not implemented in dataclass {cls.__name__}"
+                    )
+
+            field = cls.__dataclass_fields__[one_of_]
+            args = get_args(field.type)
+
+            # Make sure oneof message is typed as Optional
+            if not args: 
+                raise FedbiomedMessageError(
+                    f"Please make sure the field '{one_of_}' in dataclass '{cls.__name__}' "
+                    "is typed as Optional[<dataclass>]. The field that are typed as `oneof` " 
+                    "in proto file should be typed as Optional in python dataclass"
+                    )
+            
+            if not hasattr(args[0], "__PROTO_TYPE__"):
+                raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
+            
+            dict_.update(
+                    {**args[0].from_proto(getattr(proto, one_of_))}
+                 )
+            
+            
+        for key, field in cls.__dataclass_fields__.items():
+            
+            # Do not process 'oneof' fields
+            if key in one_of_field_names: continue
+
+            if hasattr(field.type, '__PROTO_TYPE__'):
+                dict_.update(
+                    {**field.type.from_proto( getattr(proto, key))})
+            else:
+                value = getattr(proto, key)
+                dict_.update({key: value})
+
+        return dict_
         
 #
 # messages definition, sorted by
@@ -157,19 +210,19 @@ class RequiresProtocolVersion:
     # Adds default protocol version thanks to `kw_oly  True`
     protocol_version: str = str(__messaging_protocol_version__) 
     
+# --- gRPC messages --------------------------------------------------------------------------------
 
 @dataclass
-class Log(Message, RequiresProtocolVersion):
+class Log(Message):
     """Describes the message type for log coming from node to researcher """
-    __TYPE__ = FeedbackMessage.Log
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
 
     researcher_id: str
     message: str
 
-
 @catch_dataclass_exception
 @dataclass
-class Scalar(Message, RequiresProtocolVersion):
+class Scalar(Message):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -190,7 +243,7 @@ class Scalar(Message, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
-    __TYPE__ = FeedbackMessage.Scalar
+    __PROTO_TYPE__ =  r_pb2.FeedbackMessage.Scalar
     
     researcher_id: str
     node_id: str
@@ -207,9 +260,42 @@ class Scalar(Message, RequiresProtocolVersion):
     epoch: Optional[int] = None
     num_samples_trained: Optional[int] = None
     
+@dataclass
+class TaskRequest(Message, RequiresProtocolVersion):
+    """Task request message from node to researcher"""
+    __PROTO_TYPE__ =  r_pb2.TaskRequest
+
+    node: str
+
+@dataclass
+class TaskResponse(Message):
+    """Response for task request"""
+    __PROTO_TYPE__ =  r_pb2.TaskResponse
+
+    size: int 
+    iteration: int
+    bytes_: bytes
+
+@dataclass
+class TaskResult(Message):
+    """Response for task request"""
+    __PROTO_TYPE__ =  r_pb2.TaskResult
+
+    size: int 
+    iteration: int
+    bytes_: bytes
 
 
-        
+@dataclass
+class FeedbackMessage(Message, RequiresProtocolVersion):
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage
+
+    log: Optional[Log]
+    scalar: Optional[Scalar] = None
+
+
+# ---------------------------------------------------------------------------
+
 
 # Approval messages
 @catch_dataclass_exception

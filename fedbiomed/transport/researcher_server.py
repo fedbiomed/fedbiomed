@@ -4,9 +4,11 @@ import grpc
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
-from fedbiomed.proto.researcher_pb2 import TaskResponse, Empty
+from fedbiomed.proto.researcher_pb2 import Empty
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.message import Scalar, Log, TaskResponse, TaskRequest, FeedbackMessage
+
 from concurrent import futures
 import time
 import random 
@@ -95,27 +97,31 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 
     async def GetTaskUnary(self, request, context):
-
-        node = request.node
+        
+        print(request)
+        task_request = TaskRequest.from_proto(request)
 
         # Here call task and wait until there is no
 
-        logger.info(f"Received request form {node}")
+        logger.info(f"Received request form {task_request['node']}")
         task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        await asyncio.sleep(5)
+        await asyncio.sleep(2)
+
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
+            
             yield TaskResponse(
                 size=len(chunk_range),
                 iteration=iter_,
                 bytes_=task[start:stop]
-            )
+            ).to_proto()
 
     async def Feedback(self, request, unused_context):
         
-        print("Received request")
-        print(request)
+        feedback = FeedbackMessage.from_proto(request)
+        print("Feedback received!")
+        print(feedback)
 
         return Empty()
 

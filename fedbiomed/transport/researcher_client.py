@@ -13,10 +13,11 @@ from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
-from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage, Log
+# Not used yet
+# from fedbiomed.proto.researcher_pb2 import FeedbackMessage as FB
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Message, Scalar, LogMessage
+from fedbiomed.common.message import Message, FeedbackMessage, TaskRequest
 
 import uuid
 import time
@@ -100,7 +101,7 @@ class ResearcherClient:
             pass 
         
         self._client_registered = False
-        self.on_message = lambda x: x
+        self.on_message = lambda x: print(f"Task received! {x}")
 
         self._feedback_channel = create_channel(certificate=None)
         self._feedback_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)
@@ -129,13 +130,12 @@ class ResearcherClient:
                 while not SHUTDOWN_EVENT.is_set():
                     
                     self.__request_task_iterator = self._stub.GetTaskUnary(
-                        TaskRequest(node=f"{NODE_ID}")
+                        TaskRequest(node=f"{NODE_ID}").to_proto()
                     )
 
                     # Prepare reply
                     reply = bytes()
                     for answer in self.__request_task_iterator:
-                        print('----')
                         reply += answer.bytes_
                         if answer.size != answer.iteration:
                             continue
@@ -174,8 +174,8 @@ class ResearcherClient:
 
         try:
             result = rpc(proto)
-        except:
-            raise Exception("Error while sennding message to researcher")
+        except Exception as exp:
+            raise Exception("Error while sending message to researcher") from exp
         
         return result 
 
@@ -192,25 +192,12 @@ class ResearcherClient:
 
 
         # Switch-case for message type and gRPC calls
-        match message.__name__:
-            case Scalar.__name__ | LogMessage.__name__:
+        match type(message).__name__:
+            case FeedbackMessage.__name__:
                 self._handle_send(self._feedback_stub.Feedback, message.to_proto())
                 
             case _ :
                 raise Exception('Undefined message type')
-
-        # Convert message to proto
-        proto = message.to_proto()
-
-
-        try:
-            self._feedback_stub.Feedback(
-                    Log(log=log)
-                )
-        except Exception as e:
-            print(e)
-            pass
-        
 
     def start(self):
         """Starts researcher gRPC client"""

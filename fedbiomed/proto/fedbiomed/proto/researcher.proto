@@ -16,10 +16,10 @@ service ResearcherService {
     
 
     // RPC to send task replies 
-    rpc ReplyTask(stream TaskReplyMessage) returns (Empty) {}
+    rpc ReplyTask(stream TaskResult) returns (Empty) {}
 
     // Node logs
-    rpc Feedback(Log) returns (Empty) {};
+    rpc Feedback(FeedbackMessage) returns (Empty) {};
 }
 
 // Empty response
@@ -29,6 +29,8 @@ message Empty {}
 // Log message from node to researcher
 message FeedbackMessage {
     
+    string protocol_version = 1;
+
     // Tensorboard scalar values
     message Scalar {
         string researcher_id = 1;
@@ -50,24 +52,21 @@ message FeedbackMessage {
 
     // Log messages
     message Log {
-        string researcher_id = 1;
-        string log = 2;
+            string researcher_id = 1;
+            string message = 2;
     }
 
     oneof feedback_type {
-        Scalar scalar = 1;
-        Log log = 2;
+        Scalar scalar = 2;
+        Log log = 3;
     }
-}
 
-message Log {
-    string log = 1;
 }
-
 
 // Task request
 message TaskRequest {
     string node = 1;
+    string protocol_version = 2;
 }
 
 
@@ -76,16 +75,17 @@ message TaskRequest {
 message TaskResponse {
     int32 size = 1; 
     int32 iteration = 2; 
-    bytes bytes_ = 3; 
+    bytes bytes_ = 3;  
+
 }
 
 // Reply stream from node to researcher
-message TaskReplyMessage {
+message TaskResult {
     int32 size = 1; 
     int32 iteration = 2;
     bytes bytes_ = 3;
 }
 
 message TaskResponseUnary {
-    bytes bytes_ = 1;
+    bytes bytes_ = 1; 
 }

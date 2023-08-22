@@ -10,7 +10,7 @@ class Empty(_message.Message):
     def __init__(self) -> None: ...
 
 class FeedbackMessage(_message.Message):
-    __slots__ = ["scalar", "log"]
+    __slots__ = ["protocol_version", "scalar", "log"]
     class Scalar(_message.Message):
         __slots__ = ["researcher_id", "node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration", "protocol_version"]
         class MetricEntry(_message.Message):
@@ -52,29 +52,27 @@ class FeedbackMessage(_message.Message):
         protocol_version: str
         def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ..., protocol_version: _Optional[str] = ...) -> None: ...
     class Log(_message.Message):
-        __slots__ = ["researcher_id", "log"]
+        __slots__ = ["researcher_id", "message"]
         RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]
-        LOG_FIELD_NUMBER: _ClassVar[int]
+        MESSAGE_FIELD_NUMBER: _ClassVar[int]
         researcher_id: str
-        log: str
-        def __init__(self, researcher_id: _Optional[str] = ..., log: _Optional[str] = ...) -> None: ...
+        message: str
+        def __init__(self, researcher_id: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+    PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
+    protocol_version: str
     scalar: FeedbackMessage.Scalar
     log: FeedbackMessage.Log
-    def __init__(self, scalar: _Optional[_Union[FeedbackMessage.Scalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
-
-class Log(_message.Message):
-    __slots__ = ["log"]
-    LOG_FIELD_NUMBER: _ClassVar[int]
-    log: str
-    def __init__(self, log: _Optional[str] = ...) -> None: ...
+    def __init__(self, protocol_version: _Optional[str] = ..., scalar: _Optional[_Union[FeedbackMessage.Scalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
 
 class TaskRequest(_message.Message):
-    __slots__ = ["node"]
+    __slots__ = ["node", "protocol_version"]
     NODE_FIELD_NUMBER: _ClassVar[int]
+    PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     node: str
-    def __init__(self, node: _Optional[str] = ...) -> None: ...
+    protocol_version: str
+    def __init__(self, node: _Optional[str] = ..., protocol_version: _Optional[str] = ...) -> None: ...
 
 class TaskResponse(_message.Message):
     __slots__ = ["size", "iteration", "bytes_"]
@@ -86,7 +84,7 @@ class TaskResponse(_message.Message):
     bytes_: bytes
     def __init__(self, size: _Optional[int] = ..., iteration: _Optional[int] = ..., bytes_: _Optional[bytes] = ...) -> None: ...
 
-class TaskReplyMessage(_message.Message):
+class TaskResult(_message.Message):
     __slots__ = ["size", "iteration", "bytes_"]
     SIZE_FIELD_NUMBER: _ClassVar[int]
     ITERATION_FIELD_NUMBER: _ClassVar[int]
