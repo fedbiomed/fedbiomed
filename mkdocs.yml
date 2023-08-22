@@ -261,6 +261,9 @@ plugins:
             - https://scikit-learn.org/stable/objects.inv
             - https://pytorch.org/docs/stable/objects.inv
           options:
+            filters:
+              - "!^__"
+              - "!^_"
             docstring_style: google
             docstring_options:
               ignore_init_summary: yes
@@ -273,6 +276,7 @@ plugins:
             disable_private: true
             show_category_heading: true
             show_root_toc_entry: no
+            show_root_full_path: true
   - minify:
       minify_html: true
 
