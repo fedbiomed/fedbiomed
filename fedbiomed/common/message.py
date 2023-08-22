@@ -290,7 +290,7 @@ class TaskResult(Message):
 class FeedbackMessage(Message, RequiresProtocolVersion):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage
 
-    log: Optional[Log]
+    log: Optional[Log] = None
     scalar: Optional[Scalar] = None
 
 
