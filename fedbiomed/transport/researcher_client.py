@@ -117,35 +117,11 @@ class ResearcherClient:
         logger.info("Waiting for researcher server...")
 
         # Starts loop to ask for
-        self.get_tasks()   
-        
-
-    def get_tasks(self):
-
         while not SHUTDOWN_EVENT.is_set():
-            logger.info("Sending new task request")
-            try:
-                # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_task)
-                # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
-                while not SHUTDOWN_EVENT.is_set():
-                    
-                    self.__request_task_iterator = self._stub.GetTaskUnary(
-                        TaskRequest(node=f"{NODE_ID}").to_proto()
-                    )
-
-                    # Prepare reply
-                    reply = bytes()
-                    for answer in self.__request_task_iterator:
-                        reply += answer.bytes_
-                        if answer.size != answer.iteration:
-                            continue
-                        else:
-                            # Execute callback
-                            self.on_message(Serializer.loads(reply))
-                            # Reset reply
-                            reply = bytes()
-            
-            except grpc.aio.AioRpcError as exp:
+             
+            try: 
+                self.get_tasks()
+            except grpc.RpcError as exp:
                 print(exp.code())
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("Stream TIMEOUT Error")
@@ -156,10 +132,31 @@ class ResearcherClient:
                     time.sleep(2)
                 else:
                     raise Exception("Request streaming stopped ") from exp
-            finally:
-                pass
-            
-    
+            except Exception as e:
+                raise Exception("Request streaming stopped ") from e
+
+    def get_tasks(self):
+
+       
+            logger.info("Sending new task request")
+            while not SHUTDOWN_EVENT.is_set():
+                
+                self.__request_task_iterator = self._stub.GetTaskUnary(
+                    TaskRequest(node=f"{NODE_ID}").to_proto()
+                )
+
+                # Prepare reply
+                reply = bytes()
+                for answer in self.__request_task_iterator:
+                    reply += answer.bytes_
+                    if answer.size != answer.iteration:
+                        continue
+                    else:
+                        # Execute callback
+                        self.on_message(Serializer.loads(reply))
+                        # Reset reply
+                        reply = bytes()
+
     def _handle_send(
             self, 
             rpc: Callable, 
@@ -206,11 +203,10 @@ class ResearcherClient:
         if SHUTDOWN_EVENT.is_set(): 
             SHUTDOWN_EVENT.clear()
 
-
+        #self.connection()
         # Create and start background thread
         t = threading.Thread(target=self.connection)
         t.start()
-
 
     def stop(self):
         """Stop gently running asyncio loop and its thread"""
