@@ -1,19 +1,26 @@
 
 import asyncio
 import grpc
-
+import threading
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
 from fedbiomed.proto.researcher_pb2 import Empty
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Scalar, Log, TaskResponse, TaskRequest, FeedbackMessage
+
+from fedbiomed.transport.node_agent import AgentStore
 
 from concurrent import futures
 import time
 import random 
 import json 
 import sys
+
+
+class ServerStop(Exception):
+    pass 
 
 DEFAULT_PORT = 50051
 DEFAULT_HOST = 'localhost'
@@ -66,13 +73,15 @@ small_task = {
 # Max message length as bytes
 MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
+
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
+    def __init__(self, agent_store: AgentStore):
+        super().__init__()
+        self._agent_store = agent_store
 
     async def GetTask(self, request_iterator, context):
-        
-
-        
+                
         async for req in request_iterator:
             
             # print("Request has arrived")
@@ -98,16 +107,25 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
     async def GetTaskUnary(self, request, context):
         
-        print(request)
         task_request = TaskRequest.from_proto(request)
 
         # Here call task and wait until there is no
 
-        logger.info(f"Received request form {task_request['node']}")
-        task = Serializer.dumps(small_task)
-        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        await asyncio.sleep(10)
+        logger.info(f"Received request form {task_request.get('node')}")
+        
 
+        node_agent = await self._agent_store.get_or_register(node_id=task_request["node"],
+                                      node_ip=context.peer())
+        
+        
+        logger.info(f"Node agent created {node_agent.id}" )
+        logger.info(f"Waiting for tasks" )
+        task = await node_agent.get()
+
+        logger.info("Got the task")
+        task = Serializer.dumps(task.get_dict())
+        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
+        
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             
@@ -128,27 +146,55 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 class ResearcherServer:
 
     def __init__(self) -> None:
-        self._server = grpc.aio.server(
-            futures.ThreadPoolExecutor(max_workers=10), 
+        pass
+        self._server = None 
+        self._t = None 
+        self._loop = asyncio.get_event_loop()
+        self._agent_store = AgentStore(loop=self._loop)
+
+    async def _start(self):
+
+        self._server = grpc.aio.server( 
             options=[
-        ("grpc.max_send_message_length", 100 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-    ]
-            )
+                ("grpc.max_send_message_length", 100 * 1024 * 1024),
+                ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+            ])
+        
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
-            ResearcherServicer(), 
+            ResearcherServicer(agent_store=self._agent_store), 
             server=self._server
             )
+        
+        self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))
     
 
-    async def start(self):
-
-        self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))
-
-        logger.info("Starting researcher service...")
+        logger.info("Starting researcher service...")    
         await self._server.start()
         await self._server.wait_for_termination()
 
 
+    def start(self):
+
+        def run():
+           self._loop.run_until_complete(
+                self._start()
+            )
+
+        self._t = threading.Thread(target=run)
+        self._t.start()
+
+    async def stop(self):
+        
+        
+        await self._server.stop(1)
+        self._loop.close()
+        import ctypes
+        stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._t.ident),
+                                                                   ctypes.py_object(ServerStop))
+        if stopped_count != 1:
+            logger.error("stop: could not deliver exception to thread")
+        self._t.join()
+
+
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(ResearcherServer().start())
+    ResearcherServer().start()
