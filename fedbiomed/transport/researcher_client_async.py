@@ -1,6 +1,7 @@
  
 
 import asyncio
+import concurrent.futures
 import grpc
 import queue
 import threading
@@ -314,9 +315,15 @@ class ResearcherClient:
         return {"stub": stub, "message": message}
     
     async def _send_from_thread(self, mes: ProtobufMessage):
-        await self._send_queue.put(
-            self._create_send_task(self._feedback_stub.Feedback,mes)
-        )
+        try:
+            #await asyncio.sleep(5)
+            await self._send_queue.put(
+                self._create_send_task(self._feedback_stub.Feedback,mes)
+            )
+            return True
+        except asyncio.CancelledError:
+            if self._debug: print("_send_from_thread: cancelled send task")
+            return False
 
     # from fedbiomed.common.message import FeedbackMessage, Log
     # m = FeedbackMessage(log=Log(researcher_id='rid', message='test message'))
@@ -337,8 +344,24 @@ class ResearcherClient:
                 if not isinstance(self._thread_loop, asyncio.AbstractEventLoop):
                     raise Exception("send: the thread loop is not ready")
                 else:
-                    future = asyncio.run_coroutine_threadsafe(self._send_from_thread(message.to_proto()), self._thread_loop)
-                    #TODO : use results
+                    try:
+                        future = asyncio.run_coroutine_threadsafe(self._send_from_thread(message.to_proto()), self._thread_loop)
+                    except Exception as e:
+                        if self._debug: print(f"send: exception launching coroutine {e}")
+                    try:
+                        result = future.result(timeout=3)
+                    except concurrent.futures.TimeoutError:
+                        logger.error("send: timeout submitting message to send")
+                        future.cancel()
+                        #raise Exception("end: timeout submitting message to send")
+                        result = False
+                    except Exception as e:
+                        if self._debug: print(f'send: undexpected exception waiting for coroutine result {e}')
+                        raise
+                    else:
+                        if self._debug: print(f"send: the coroutine returned {result}")
+                    finally:
+                        if self._debug: print(f"send: the coroutine completed")                        
 
                 #self._send_queue.put(
                 #    self._create_send_task(self._feedback_stub.Feedback, message.to_proto())
@@ -346,7 +369,7 @@ class ResearcherClient:
             case _ :
                 raise Exception('Undefined message type')
             
-        return True
+        return result
 
     def start(self):
         """Starts researcher gRPC client"""
