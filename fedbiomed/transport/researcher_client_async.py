@@ -204,6 +204,7 @@ class ResearcherClient:
         self._client_registered = False
         self.on_message = self._default_callback
         self._thread = None
+        self._thread_loop = None
 
         self._debug = debug
 
@@ -221,6 +222,8 @@ class ResearcherClient:
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
+        self._thread_loop = asyncio.get_running_loop()
+
         logger.info("Waiting for researcher server...")
 
         await asyncio.gather(
@@ -233,12 +236,13 @@ class ResearcherClient:
 
         #while not SHUTDOWN_EVENT.is_set():
         while True: 
-            try:
-                msg = self._send_queue.get_nowait()
-            except asyncio.queues.QueueEmpty:
-                await asyncio.sleep(0.5)
-                continue
-            
+            #try:
+            #    msg = self._send_queue.get_nowait()
+            #except asyncio.queues.QueueEmpty:
+            #    await asyncio.sleep(0.5)
+            #    continue
+            msg = await self._send_queue.get()
+
             await msg["stub"](msg["message"])
 
 
@@ -280,6 +284,7 @@ class ResearcherClient:
                     logger.debug("Researcher server is not available, will retry connect in 2 seconds")
                     await asyncio.sleep(2)
                 else:
+                    if debug: print(f'get_tasks: unknown exception {exp.__class__.__name__} {exp}')
                     raise Exception("Request streaming stopped ") from exp
             finally:
                 pass
@@ -308,7 +313,13 @@ class ResearcherClient:
 
         return {"stub": stub, "message": message}
     
+    async def _send_from_thread(self, mes: ProtobufMessage):
+        await self._send_queue.put(
+            self._create_send_task(self._feedback_stub.Feedback,mes)
+        )
 
+    # from fedbiomed.common.message import FeedbackMessage, Log
+    # m = FeedbackMessage(log=Log(researcher_id='rid', message='test message'))
     def send(self, message: Message):
         """Non-async method for sending messages to researcher 
         
@@ -323,9 +334,15 @@ class ResearcherClient:
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
-                self._send_queue.put_nowait(
-                    self._create_send_task(self._feedback_stub.Feedback, message.to_proto())
-                )
+                if not isinstance(self._thread_loop, asyncio.AbstractEventLoop):
+                    raise Exception("send: the thread loop is not ready")
+                else:
+                    future = asyncio.run_coroutine_threadsafe(self._send_from_thread(message.to_proto()), self._thread_loop)
+                    #TODO : use results
+
+                #self._send_queue.put(
+                #    self._create_send_task(self._feedback_stub.Feedback, message.to_proto())
+                #)
             case _ :
                 raise Exception('Undefined message type')
             
@@ -350,7 +367,7 @@ class ResearcherClient:
             #
             except Exception as e:
                 if self._debug:
-                    print(f"Run: caught exception: {e.__class__.__name__}")
+                    print(f"Run: caught exception: {e.__class__.__name__}: {e}")
             finally:
                 if self._debug:
                     print("Run: finally")
