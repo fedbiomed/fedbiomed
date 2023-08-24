@@ -203,11 +203,11 @@ class ResearcherClient:
             # TODO: create channel as secure channel 
             pass 
         
-        self._client_registered = False
         self.on_message = self._default_callback
+
         self._thread = None
-        self._thread_loop = None
-        self._send_queue = None
+        # note: _node_configured is not enough, many race conditions remaining ...
+        self._node_configured = False
 
         self._debug = debug
 
@@ -228,6 +228,7 @@ class ResearcherClient:
         # unexpected exception <class 'RuntimeError'> <Queue at 0x12345678 maxsize=0> is bound to a different event loop
         self._send_queue = asyncio.Queue()
         self._thread_loop = asyncio.get_running_loop()
+        self._node_configured = True
 
         logger.info("Waiting for researcher server...")
 
@@ -245,9 +246,10 @@ class ResearcherClient:
             #)
             task_get = asyncio.create_task(self.get_tasks(debug=debug))
             task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
+
             while not task_get.done() or not task_send.done():
                 if debug: print('connection: looping for tasks')
-                await asyncio.wait([task_get, task_send], timeout=2)
+                await asyncio.wait([task_get, task_send], timeout=1)
             
             # never reach this one normally ?
             if debug: print('connection: tasks completed')
@@ -258,9 +260,10 @@ class ResearcherClient:
         except Exception as e:
             if debug:print(f"connection: unexpected exception {type(e)} {e}")
         finally:
+            self._node_configured = False
             if debug: print("connection: finally")
             
-            # this should not be necessary, add task cancellation for safety ?
+            # this should not be necessary, add task cancellation for robustness
             for task in [task_get, task_send]:
                 if isinstance(task, asyncio.Task) and not task.done():
                     task.cancel()
@@ -272,29 +275,44 @@ class ResearcherClient:
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
 
-        try:
-            #while not SHUTDOWN_EVENT.is_set():
-            while True: 
-                #try:
-                #    msg = self._send_queue.get_nowait()
-                #except asyncio.queues.QueueEmpty:
-                #    await asyncio.sleep(0.5)
-                #    continue
-                msg = await self._send_queue.get()
+        while True:
+            try:
+                #while not SHUTDOWN_EVENT.is_set():
+                while True: 
+                    #try:
+                    #    msg = self._send_queue.get_nowait()
+                    #except asyncio.queues.QueueEmpty:
+                    #    await asyncio.sleep(0.5)
+                    #    continue
+                    msg = await self._send_queue.get()
 
-                await msg["stub"](msg["message"])
+                    await msg["stub"](msg["message"])
 
-                self._send_queue.task_done()
-        # not needed
-        #except ClientStop:
-        #    if debug:
-        #        print("send_queue_listener: cancel by user")
-        except Exception as e:
-            if debug:
-                print(f"send_queue_listener: unexpected exception {type(e)} {e}")
-        finally:
-            if debug:
-                print("send_queue_listener: finally")
+                    self._send_queue.task_done()
+            # not needed
+            #except ClientStop:
+            #    if debug:
+            #        print("send_queue_listener: cancel by user")
+            except grpc.aio.AioRpcError as exp:
+                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    logger.debug("send_queue_listener: Stream TIMEOUT Error")
+                    print(exp)
+                    await asyncio.sleep(2)
+
+                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
+                    print(f"send_queue_listener: {self._task_channel.get_state()}")
+                    logger.debug("send_queue_listener: Researcher server is not available, will retry connect in 2 seconds")
+                    await asyncio.sleep(2)
+                else:
+                    if debug:
+                        print(f'send_queue_listener: unknown exception {exp.__class__.__name__} {exp}')
+                    raise Exception("send_queue_listener: Request streaming stopped ") from exp
+            except Exception as e:
+                if debug:
+                    print(f"send_queue_listener: unexpected exception {type(e)} {e}")
+            finally:
+                if debug:
+                    print("send_queue_listener: finally")
 
 
     async def get_tasks(self, debug: bool = False):
@@ -308,7 +326,7 @@ class ResearcherClient:
                 # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
                 while True:
                     logger.info("Sending new task request")
-                    print(self._task_channel.get_state())
+                    print(f"get_tasks: {self._task_channel.get_state()}")
                     self.__request_task_iterator = self._stub.GetTaskUnary(
                         TaskRequest(node=f"{NODE_ID}").to_proto(), timeout=60,
                     )
@@ -327,20 +345,23 @@ class ResearcherClient:
             
             except grpc.aio.AioRpcError as exp:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    logger.debug("Stream TIMEOUT Error")
+                    logger.debug("get_tasks: Stream TIMEOUT Error")
                     print(exp)
                     await asyncio.sleep(2)
             
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
-                    print(self._task_channel.get_state())
-                    logger.debug("Researcher server is not available, will retry connect in 2 seconds")
+                    print(f"get_tasks: {self._task_channel.get_state()}")
+                    logger.debug("get_tasks: Researcher server is not available, will retry connect in 2 seconds")
                     await asyncio.sleep(2)
                 else:
                     if debug: print(f'get_tasks: unknown exception {exp.__class__.__name__} {exp}')
-                    raise Exception("Request streaming stopped ") from exp
+                    raise Exception("get_tasks: Request streaming stopped ") from exp
+            except Exception as e:
+                if debug:
+                    print(f"get_tasks: unexpected exception {type(e)} {e}")
             finally:
                 if debug: print('get_tasks: finally')
-            
+          
 
     def _create_send_task(
             self,
@@ -380,9 +401,6 @@ class ResearcherClient:
     def _run_thread_safe(self, coroutine: asyncio.coroutine):
         """Runs given coroutine as thread-safe"""
 
-        if not isinstance(self._thread_loop, asyncio.AbstractEventLoop):
-            raise Exception("send: the thread loop is not ready")
-
         try:
             future = asyncio.run_coroutine_threadsafe(coroutine, self._thread_loop)
         except Exception as e:
@@ -414,6 +432,9 @@ class ResearcherClient:
         convert Python dataclass message to gRPC protobuff. 
 
         """
+        if not self._node_configured or not self._task_channel.get_state() == grpc.ChannelConnectivity.READY:
+            raise Exception("send: the connection is not ready")
+
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
@@ -435,6 +456,10 @@ class ResearcherClient:
     def start(self):
         """Starts researcher gRPC client"""
         # Runs gRPC async client
+
+        if self._node_configured:
+            logger.error("start: node client is already started")
+            return
 
         def run():
             try: 
@@ -466,18 +491,24 @@ class ResearcherClient:
     def stop(self):
         """Stop gently running asyncio loop and its thread"""
 
-        if self._thread is None:
+        if self._node_configured is False:
+            logger.error("stop: node already stopped")
+            return
+
+        self._node_configured = False
+        if not isinstance(self._thread, threading.Thread):
             stopped_count = 0
         else:
             stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
                                                                    ctypes.py_object(ClientStop))
         if stopped_count != 1:
             logger.error("stop: could not deliver exception to thread")
-        self._thread.join()
+        else:
+            self._thread.join()
 
 
     def is_alive(self) -> bool:
-        return False if self._thread is None else self._thread.is_alive()
+        return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
 
 if __name__ == '__main__':
