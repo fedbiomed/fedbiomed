@@ -17,7 +17,7 @@ from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 
-from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage
+from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult
 
 import uuid
 import time
@@ -250,31 +250,16 @@ class ResearcherClient:
 
     async def get_tasks(self, debug: bool = False):
         """Long-lived polling to request tasks from researcher."""
-<<<<<<< HEAD
 
         #while not SHUTDOWN_EVENT.is_set():
         while True:
             logger.info("Sending new task request")
-=======
-        print(self._task_channel.get_state())
-        logger.debug("Waiting for channel to be READY for RPC requests")
-        while True:
-            
-            logger.debug("Channel is READY. Sending new task request")
->>>>>>> a5ed1c83 (WIP)
             try:
                 # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_message)
                 # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
-<<<<<<< HEAD
-                
-                #while not SHUTDOWN_EVENT.is_set():
-                while True:
-                    
-=======
                 while True:
                     logger.info("Sending new task request")
                     print(self._task_channel.get_state())
->>>>>>> a5ed1c83 (WIP)
                     self.__request_task_iterator = self._stub.GetTaskUnary(
                         TaskRequest(node=f"{NODE_ID}").to_proto(), timeout=60,
                     )
@@ -302,12 +287,8 @@ class ResearcherClient:
                     logger.debug("Researcher server is not available, will retry connect in 2 seconds")
                     await asyncio.sleep(2)
                 else:
-<<<<<<< HEAD
                     if debug: print(f'get_tasks: unknown exception {exp.__class__.__name__} {exp}')
                     raise Exception("Request streaming stopped ") from exp
-=======
-                    raise Exception(f"Request streaming stopped {exp}") from exp
->>>>>>> a5ed1c83 (WIP)
             finally:
                 pass
             
@@ -335,16 +316,44 @@ class ResearcherClient:
 
         return {"stub": stub, "message": message}
     
-    async def _send_from_thread(self, mes: ProtobufMessage):
+    async def _send_from_thread(self, rpc, message: ProtobufMessage):
         try:
             #await asyncio.sleep(5)
             await self._send_queue.put(
-                self._create_send_task(self._feedback_stub.Feedback,mes)
+                self._create_send_task(rpc,message)
             )
             return True
         except asyncio.CancelledError:
             if self._debug: print("_send_from_thread: cancelled send task")
             return False
+
+
+    def _run_thread_safe(self, coroutine: asyncio.coroutine):
+        """Runs given coroutine as thread-safe"""
+
+        if not isinstance(self._thread_loop, asyncio.AbstractEventLoop):
+            raise Exception("send: the thread loop is not ready")
+
+        try:
+            future = asyncio.run_coroutine_threadsafe(coroutine, self._thread_loop)
+        except Exception as e:
+            if self._debug: print(f"send: exception launching coroutine {e}")
+        try:
+            result = future.result(timeout=3)
+        except concurrent.futures.TimeoutError:
+            logger.error("send: timeout submitting message to send")
+            future.cancel()
+            #raise Exception("end: timeout submitting message to send")
+            result = False
+        except Exception as e:
+            if self._debug: print(f'send: undexpected exception waiting for coroutine result {e}')
+            raise
+        else:
+            if self._debug: print(f"send: the coroutine returned {result}")
+        finally:
+            if self._debug: print(f"send: the coroutine completed")                        
+
+        return result
 
     # from fedbiomed.common.message import FeedbackMessage, Log
     # m = FeedbackMessage(log=Log(researcher_id='rid', message='test message'))
@@ -355,41 +364,22 @@ class ResearcherClient:
         convert Python dataclass message to gRPC protobuff. 
 
         """
-        if not isinstance(message, Message):
-            raise Exception("The argument message is not fedbiomed.common.message.Message type")
-
-
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
-                if not isinstance(self._thread_loop, asyncio.AbstractEventLoop):
-                    raise Exception("send: the thread loop is not ready")
-                else:
-                    try:
-                        future = asyncio.run_coroutine_threadsafe(self._send_from_thread(message.to_proto()), self._thread_loop)
-                    except Exception as e:
-                        if self._debug: print(f"send: exception launching coroutine {e}")
-                    try:
-                        result = future.result(timeout=3)
-                    except concurrent.futures.TimeoutError:
-                        logger.error("send: timeout submitting message to send")
-                        future.cancel()
-                        #raise Exception("end: timeout submitting message to send")
-                        result = False
-                    except Exception as e:
-                        if self._debug: print(f'send: undexpected exception waiting for coroutine result {e}')
-                        raise
-                    else:
-                        if self._debug: print(f"send: the coroutine returned {result}")
-                    finally:
-                        if self._debug: print(f"send: the coroutine completed")                        
+                self._run_thread_safe(self._send_from_thread(
+                    rpc= self._feedback_stub.Feedback, 
+                    message = message.to_proto())
+                )
 
-                #self._send_queue.put(
-                #    self._create_send_task(self._feedback_stub.Feedback, message.to_proto())
-                #)
-            case _ :
+            case TaskResult.__name__ :
+                self._run_thread_safe(self._send_from_thread(
+                    rpc= self._feedback_stub.ReplyTask, 
+                    message = message.to_proto())
+                )
+            case _:
                 raise Exception('Undefined message type')
-            
+
         return result
 
     def start(self):
@@ -441,7 +431,6 @@ class ResearcherClient:
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
 
     def handler(signum, frame):
         print(f"Node cancel by signal {signal.Signals(signum).name}")
@@ -461,9 +450,3 @@ if __name__ == '__main__':
             rc.stop()
         except KeyboardInterrupt:
             print("Immediate keyboard interrupt, dont wait to clean")
-=======
-    
-    ResearcherClient().start() 
-    while True:
-        pass
->>>>>>> a5ed1c83 (WIP)
