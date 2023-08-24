@@ -260,6 +260,8 @@ class ResearcherClient:
                 msg = await self._send_queue.get()
 
                 await msg["stub"](msg["message"])
+
+                self._send_queue.task_done()
         except ClientStop:
             if debug:
                 print("send_queue_listener: cancel by user")
