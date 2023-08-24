@@ -231,23 +231,31 @@ class ResearcherClient:
 
         logger.info("Waiting for researcher server...")
 
-        await asyncio.gather(
-            self.get_tasks(debug),
-            self.send_queue_listener(debug),
-        )
+        #await asyncio.gather(
+        #    self.get_tasks(debug),
+        #    self.send_queue_listener(debug),
+        #)
 
-        #try:
-        #    #await asyncio.gather(
-        #    #    self.get_tasks(debug),
-        #    #    self.send_queue_listener(debug),
-        #    #)
-        #    task_get = asyncio.create_task(get_tasks(debug=debug))
-        #except ClientStop:
-        #    if debug: print("connection: cancel by user")
-        #except Exception as e:
-        #    if debug:print(f"connection: unexpected exception {type(e)} {e}")
-        #finally:
-        #    if debug: print("connection: finally")
+        try:
+            #await asyncio.gather(
+            #    self.get_tasks(debug),
+            #    self.send_queue_listener(debug),
+            #)
+            task_get = asyncio.create_task(self.get_tasks(debug=debug))
+            task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
+            while not task_get.done() or not task_send.done():
+                if debug: print('connection: looping for tasks')
+                await asyncio.wait([task_get, task_send], timeout=2)
+            
+            # never reach this one normally ?
+            if debug: print('connection: tasks completed')
+
+        except ClientStop:
+            if debug: print("connection: cancel by user")
+        except Exception as e:
+            if debug:print(f"connection: unexpected exception {type(e)} {e}")
+        finally:
+            if debug: print("connection: finally")
 
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
