@@ -4,6 +4,8 @@ import grpc
 import threading
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
+from typing import Callable
+
 from fedbiomed.proto.researcher_pb2 import Empty
 
 from fedbiomed.common.logger import logger
@@ -76,22 +78,42 @@ MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
-    def __init__(self, agent_store: AgentStore):
+    def __init__(
+            self, 
+            agent_store: AgentStore, 
+            on_message: Callable
+        ) -> None:
+        """Constructor of gRPC researcher servicer"""
         super().__init__()
         self._agent_store = agent_store
+        self._on_message = on_message
+
 
     async def GetTask(self, request_iterator, context):
-                
+        """Stream-Stream get task service 
+        
+        !!! "note"
+            It is not used currently please see GetTaskUnary
+        """
+            
+
         async for req in request_iterator:
             
             # print("Request has arrived")
             # print(req)
             node = req.node
 
+            task_request = TaskRequest.from_proto(req)
+            logger.info(f"Received request form {task_request.get('node')}")
+        
+            node_agent = await self._agent_store.get_or_register(node_id=task_request["node"],
+                                        node_ip=context.peer())
+
             # Here call task and wait until there is no
 
             logger.info(f"Received request form {node}")
             # Dumps the message
+            await asyncio.sleep(5)
             task = Serializer.dumps(small_task)
             chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
             for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
@@ -100,16 +122,20 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     size=len(chunk_range),
                     iteration=iter_,
                     bytes_=task[start:stop]
-                )
+                ).to_proto()
 
             logger.info(f"Request finished for {node}")
 
 
     async def GetTaskUnary(self, request, context):
+        """Gets unary RPC request and return stream of response 
         
-        task_request = TaskRequest.from_proto(request)
+        Args: 
+            request: RPC request
+            context: RPC peer context
+        """
 
-        # Here call task and wait until there is no
+        task_request = TaskRequest.from_proto(request)
 
         logger.info(f"Received request form {task_request.get('node')}")
         
@@ -119,11 +145,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         
         
         logger.info(f"Node agent created {node_agent.id}" )
-        logger.info(f"Waiting for tasks" )
-        task = await node_agent.get()
-
-        logger.info("Got the task")
-        task = Serializer.dumps(task.get_dict())
+        #task = await node_agent.get()
+        
+        await asyncio.sleep(2)
+        task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
@@ -135,8 +160,35 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 bytes_=task[start:stop]
             ).to_proto()
 
+    async def ReplyTask(self, request_iterator, context):
+        """Gets stream replies from the nodes"""
+            
+        reply = bytes()
+        async for answer in request_iterator:
+            reply += answer.bytes_
+            if answer.size != answer.iteration:
+                continue
+            else:
+                # Execute callback
+                message = Serializer.loads(reply)
+                self.on_message(message)
+                # Reset reply
+                reply = bytes()
+
+        return Empty()
+
+
     async def Feedback(self, request, unused_context):
         
+        one_of = request.WhichOneof("feedback_type")
+
+        match one_of:
+            case "log":
+                pass
+            case "scalar":
+                pass 
+
+
         feedback = FeedbackMessage.from_proto(request)
         print("Feedback received!")
         print(feedback)
@@ -145,23 +197,26 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 class ResearcherServer:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, on_message: Callable) -> None:
         self._server = None 
         self._t = None 
         self._loop = asyncio.get_event_loop()
         self._agent_store = AgentStore(loop=self._loop)
+        self._on_message = on_message 
 
     async def _start(self):
 
         self._server = grpc.aio.server( 
+           # futures.ThreadPoolExecutor(max_workers=10),
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
         
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
-            ResearcherServicer(agent_store=self._agent_store), 
+            ResearcherServicer(
+            agent_store=self._agent_store,
+            on_message=self._on_message), 
             server=self._server
             )
         
@@ -184,10 +239,10 @@ class ResearcherServer:
         self._t.start()
 
     async def stop(self):
-        
-        
-        await self._server.stop(1)
+        """Stops researcher server"""
+
         self._loop.close()
+        await self._server.stop(1)
         import ctypes
         stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._t.ident),
                                                                    ctypes.py_object(ServerStop))
@@ -197,4 +252,6 @@ class ResearcherServer:
 
 
 if __name__ == "__main__":
-    ResearcherServer().start()
+    ResearcherServer(on_message=lambda x: x).start()
+    while True:
+        pass

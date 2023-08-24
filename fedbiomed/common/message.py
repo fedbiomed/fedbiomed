@@ -214,23 +214,15 @@ class RequiresProtocolVersion:
     
 # --- gRPC messages --------------------------------------------------------------------------------
 
-@dataclass(kw_only=True)
-class TaskMessage(Message):
-    """Base dataclass for the messages that are declared as task
-    
-    Attributes:
-        task_id: ID of the task created for the node
-    
-    """
-    task_id: Optional[str] = uuid.uuid4()
-
 @dataclass
 class Log(Message):
     """Describes the message type for log coming from node to researcher """
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
 
     researcher_id: str
-    message: str
+    node_id: str
+    level: str
+    msg: str
 
 @catch_dataclass_exception
 @dataclass
@@ -311,7 +303,7 @@ class FeedbackMessage(Message, RequiresProtocolVersion):
 # Approval messages
 @catch_dataclass_exception
 @dataclass
-class ApprovalRequest(TaskMessage, RequiresProtocolVersion):
+class ApprovalRequest(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
@@ -333,7 +325,7 @@ class ApprovalRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalReply(TaskMessage, RequiresProtocolVersion):
+class ApprovalReply(Message, RequiresProtocolVersion):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
@@ -358,7 +350,7 @@ class ApprovalReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ErrorMessage(TaskMessage, RequiresProtocolVersion):
+class ErrorMessage(Message, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
     Attributes:
@@ -382,7 +374,7 @@ class ErrorMessage(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ListRequest(TaskMessage, RequiresProtocolVersion):
+class ListRequest(Message, RequiresProtocolVersion):
     """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
     each node.
 
@@ -400,7 +392,7 @@ class ListRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ListReply(TaskMessage, RequiresProtocolVersion):
+class ListReply(Message, RequiresProtocolVersion):
     """This class describes a list reply message sent by the node that includes list of datasets. It is a
     reply for ListRequest message from the researcher.
 
@@ -452,7 +444,7 @@ class LogMessage(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusRequest(TaskMessage, RequiresProtocolVersion):
+class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
@@ -473,15 +465,15 @@ class TrainingPlanStatusRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusReply(TaskMessage, RequiresProtocolVersion):
+class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         job_id: job id related to the experiment
-        succes: True if the node process the request as expected, false
-            if any execption occurs
+        success: True if the node process the request as expected, false
+            if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
         is_approved: True, if the requested training plan is one of the approved training plan by the node
@@ -509,7 +501,7 @@ class TrainingPlanStatusReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class PingRequest(TaskMessage, RequiresProtocolVersion):
+class PingRequest(Message, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
@@ -528,7 +520,7 @@ class PingRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class PingReply(TaskMessage, RequiresProtocolVersion):
+class PingReply(Message, RequiresProtocolVersion):
     """This class describes a ping message sent by the node.
 
     Attributes:
@@ -552,7 +544,7 @@ class PingReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(TaskMessage, RequiresProtocolVersion):
+class SearchRequest(Message, RequiresProtocolVersion):
     """Describes a search message sent by the researcher.
 
     Attributes:
@@ -570,7 +562,7 @@ class SearchRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SearchReply(TaskMessage, RequiresProtocolVersion):
+class SearchReply(Message, RequiresProtocolVersion):
     """Describes a search message sent by the node
 
     Attributes:
@@ -596,7 +588,7 @@ class SearchReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteRequest(TaskMessage, RequiresProtocolVersion):
+class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
@@ -619,7 +611,7 @@ class SecaggDeleteRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteReply(TaskMessage, RequiresProtocolVersion):
+class SecaggDeleteReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
@@ -644,7 +636,7 @@ class SecaggDeleteReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggRequest(TaskMessage, RequiresProtocolVersion):
+class SecaggRequest(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
@@ -669,7 +661,7 @@ class SecaggRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggReply(TaskMessage, RequiresProtocolVersion):
+class SecaggReply(Message, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
@@ -696,7 +688,7 @@ class SecaggReply(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class TrainRequest(TaskMessage, RequiresProtocolVersion):
+class TrainRequest(Message, RequiresProtocolVersion):
     """Describes a train message sent by the researcher
 
     Attributes:
@@ -738,7 +730,7 @@ class TrainRequest(TaskMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class TrainReply(TaskMessage, RequiresProtocolVersion):
+class TrainReply(Message, RequiresProtocolVersion):
     """Describes a train message sent by the node.
 
     Attributes:

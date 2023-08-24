@@ -53,7 +53,9 @@ message FeedbackMessage {
     // Log messages
     message Log {
             string researcher_id = 1;
-            string message = 2;
+            string node_id = 1;
+            string level = 3;
+            string msg = 4;
     }
 
     oneof feedback_type {

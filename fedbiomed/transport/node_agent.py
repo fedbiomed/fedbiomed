@@ -6,7 +6,7 @@ import contextlib
 from typing import Callable, Any, List
 from datetime import datetime
 
-from fedbiomed.common.message import TaskMessage
+from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
 
@@ -44,10 +44,9 @@ class NodeAgent:
         self.last_request: datetime = None 
         self.active: bool = None
         self._queue = asyncio.Queue()
-        self._task_callbacks = {}
         self._loop = loop 
 
-    def send(self, message: TaskMessage, callback: Callable = None):
+    def send(self, message: Message) -> None:
         """Send task to the client
         
         !!! warning "Important"
@@ -65,26 +64,20 @@ class NodeAgent:
         # the messages are typed on gRPC layer instead serializing 
         # the message string and send as researcher_pb2.TaskResponse
         # please see researcher.proto file
-        if not isinstance(message, TaskMessage):
+        if not isinstance(message, Message):
             raise Exception("Message is not an instance of fedbiomed.common.message.TaskMessage")
 
 
         if not self.active:
             raise Exception(f"Node is not active. Last communication {self.last_request}")
          
-        if callback is not None:
-            self.register_callback(message.param("task_id"), callback)
-        
         try:
             self._loop.call_soon_threadsafe(
                 self._queue.put_nowait, message
             )
-            
-            print(self._queue)
         except Exception as exp:
-            raise Exception("Can't send message to the client")
+            raise Exception(f"Can't send message to the client. Exception: {exp}")
         
-        return True
 
     def register_callback(self, task_id: str, callback: Callable):
         """Registers callback for the task 
@@ -102,52 +95,73 @@ class NodeAgent:
             task_id: callback
         })
 
-
-    def reply(self, reply: TaskMessage):
-
-        # Execute callback 
-        task_id = reply.param('task_id')
-
-        if task_id not in self._task_callbacks:
-            logger.debug(f"No callback registered for the task {task_id}")
-            return 
+    def get(self) -> asyncio.coroutine:
+        """Get tasks assigned by the main thread
         
-        self._task_callbacks[task_id](reply, self.id)
+        !!! note "Returns coroutine"
+            This function return an asyncio coroutine. Please use `await` while calling.
 
-
-    def get(self):
-        """Get tasks assigned by the main thread"""
+        """
         return self._queue.get()
     
 
 class AgentStore:
+    """Stores node agents"""
 
-    def __init__(self, loop):
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Constructs agent store
+        
+        Args: 
+            loop: asyncio event loop that research server runs. Agent store should use
+                same event loop for async operations
+        """
         self._loop = loop
         self.node_agents = {}
 
-    async def get_or_register(self, node_id:str, node_ip: str) -> NodeAgent:
-        """Registers or gets node agent 
+    async def get_or_register(
+            self, 
+            node_id:str, 
+            node_ip: str
+        ) -> NodeAgent:
+        """Registers or gets node agent. 
+
+        Depending of the state this method registers or gets new NodeAgent. 
         
         Args: 
+            node_id: ID of receiving node 
+            node_ip: IP of receiving node
 
+        Return:
+            The node agent to manage tasks that are assigned to it.
         """
 
         node = self.get(node_id=node_id)
+        
+        # If node is existing return immediately by updating active status
         if node:
+            node.active = True
             return node 
         
-        print("Here")
-
+        # Register new NodeAgent
         result = await self._loop.run_in_executor(
             None, self.register,  node_id, node_ip)
         
-        print("And here")
         return result
 
 
-    def register(self, node_id:str, node_ip: str) -> NodeAgent:
+    def register(
+            self, 
+            node_id:str, 
+            node_ip: str
+        ) -> NodeAgent:
+        """Register new node agent. 
+         
+        This method designed to be coroutine and thread-safe
         
+        Args: 
+            node_id: ID to register
+            node_ip: IP to register
+        """
         # Lock the thread for register operation
         try:
             _global_lock.acquire()
@@ -163,7 +177,10 @@ class AgentStore:
         return node
         
 
-    def get(self, node_id: str) -> NodeAgent:
+    def get(
+            self,
+            node_id: str
+        ) -> NodeAgent:
         """Gets node agent by given node id
         
         Args: 
