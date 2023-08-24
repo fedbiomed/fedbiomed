@@ -236,6 +236,8 @@ class ResearcherClient:
         #    self.send_queue_listener(debug),
         #)
 
+        task_get = None
+        task_send = None
         try:
             #await asyncio.gather(
             #    self.get_tasks(debug),
@@ -250,12 +252,22 @@ class ResearcherClient:
             # never reach this one normally ?
             if debug: print('connection: tasks completed')
 
-        except ClientStop:
-            if debug: print("connection: cancel by user")
+        # not needed
+        #except ClientStop:
+        #    if debug: print("connection: cancel by user")
         except Exception as e:
             if debug:print(f"connection: unexpected exception {type(e)} {e}")
         finally:
             if debug: print("connection: finally")
+            
+            # this should not be necessary, add task cancellation for safety ?
+            for task in [task_get, task_send]:
+                if isinstance(task, asyncio.Task) and not task.done():
+                    task.cancel()
+                    if debug: print(f'connection: finally, canceling task')
+                    while not task.done():
+                        await asyncio.sleep(0.1)
+
 
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
@@ -273,9 +285,10 @@ class ResearcherClient:
                 await msg["stub"](msg["message"])
 
                 self._send_queue.task_done()
-        except ClientStop:
-            if debug:
-                print("send_queue_listener: cancel by user")
+        # not needed
+        #except ClientStop:
+        #    if debug:
+        #        print("send_queue_listener: cancel by user")
         except Exception as e:
             if debug:
                 print(f"send_queue_listener: unexpected exception {type(e)} {e}")
