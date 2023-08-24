@@ -232,32 +232,60 @@ class ResearcherClient:
             self.get_tasks(debug),
             self.send_queue_listener(debug),
         )
-            
+
+        #try:
+        #    #await asyncio.gather(
+        #    #    self.get_tasks(debug),
+        #    #    self.send_queue_listener(debug),
+        #    #)
+        #    task_get = asyncio.create_task(get_tasks(debug=debug))
+        #except ClientStop:
+        #    if debug: print("connection: cancel by user")
+        #except Exception as e:
+        #    if debug:print(f"connection: unexpected exception {type(e)} {e}")
+        #finally:
+        #    if debug: print("connection: finally")
+
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
 
-        #while not SHUTDOWN_EVENT.is_set():
-        while True: 
-            #try:
-            #    msg = self._send_queue.get_nowait()
-            #except asyncio.queues.QueueEmpty:
-            #    await asyncio.sleep(0.5)
-            #    continue
-            msg = await self._send_queue.get()
+        try:
+            #while not SHUTDOWN_EVENT.is_set():
+            while True: 
+                #try:
+                #    msg = self._send_queue.get_nowait()
+                #except asyncio.queues.QueueEmpty:
+                #    await asyncio.sleep(0.5)
+                #    continue
+                msg = await self._send_queue.get()
 
-            # If it is aUnary-Unary RPC call
-            if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
-                await msg["stub"](msg["message"])
-            elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                reply = Serializer.dumps(msg["message"].get_dict())
-                chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-                for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
-                    stop = start + MAX_MESSAGE_BYTES_LENGTH 
-                    yield await TaskResult(
-                        size=len(chunk_range),
-                        iteration=iter_,
-                        bytes_=reply[start:stop]
-                    ).to_proto()
+                # If it is aUnary-Unary RPC call
+                if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
+                    await msg["stub"](msg["message"])
+                elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
+                    reply = Serializer.dumps(msg["message"].get_dict())
+                    chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
+                    for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
+                        stop = start + MAX_MESSAGE_BYTES_LENGTH 
+                        yield await TaskResult(
+                            size=len(chunk_range),
+                            iteration=iter_,
+                            bytes_=reply[start:stop]
+                        ).to_proto()
+                    await msg["stub"](msg["message"])
+
+                self._send_queue.task_done()
+                
+        except ClientStop:
+            if debug:
+                print("send_queue_listener: cancel by user")
+        except Exception as e:
+            if debug:
+                print(f"send_queue_listener: unexpected exception {type(e)} {e}")
+        finally:
+            if debug:
+                print("send_queue_listener: finally")
+
 
     async def get_tasks(self, debug: bool = False):
         """Long-lived polling to request tasks from researcher."""
@@ -301,7 +329,7 @@ class ResearcherClient:
                     if debug: print(f'get_tasks: unknown exception {exp.__class__.__name__} {exp}')
                     raise Exception("Request streaming stopped ") from exp
             finally:
-                pass
+                if debug: print('get_tasks: finally')
             
 
     def _create_send_task(
@@ -378,14 +406,13 @@ class ResearcherClient:
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
-                return self._run_thread_safe(self._send_from_thread(
+                result = self._run_thread_safe(self._send_from_thread(
                     rpc= self._feedback_stub.Feedback, 
                     message = message.to_proto())
                 )
-            
-            # Rest considered as task reply
+        
             case _:
-                return self._run_thread_safe(self._send_from_thread(
+                result = self._run_thread_safe(self._send_from_thread(
                     rpc= self._feedback_stub.ReplyTask, 
                     message = message)
                 )

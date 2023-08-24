@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n fedbiomed/proto/researcher.proto\"\x07\n\x05\x45mpty\"\x86\x05\n\x0f\x46\x65\x65\x64\x62\x61\x63kMessage\x12\x18\n\x10protocol_version\x18\x01 \x01(\t\x12)\n\x06scalar\x18\x02 \x01(\x0b\x32\x17.FeedbackMessage.ScalarH\x00\x12#\n\x03log\x18\x03 \x01(\x0b\x32\x14.FeedbackMessage.LogH\x00\x1a\xc8\x03\n\x06Scalar\x12\x15\n\rresearcher_id\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x0e\n\x06job_id\x18\x03 \x01(\t\x12\r\n\x05train\x18\x04 \x01(\x08\x12\x0c\n\x04test\x18\x05 \x01(\x08\x12\x1d\n\x15test_on_local_updates\x18\x06 \x01(\x08\x12\x1e\n\x16test_on_global_updates\x18\x07 \x01(\x08\x12\x33\n\x06metric\x18\x08 \x03(\x0b\x32#.FeedbackMessage.Scalar.MetricEntry\x12\x12\n\x05\x65poch\x18\t \x01(\x05H\x00\x88\x01\x01\x12\x15\n\rtotal_samples\x18\n \x01(\x05\x12\x15\n\rbatch_samples\x18\x0b \x01(\x05\x12\x13\n\x0bnum_batches\x18\x0c \x01(\x05\x12 \n\x13num_samples_trained\x18\r \x01(\x05H\x01\x88\x01\x01\x12\x11\n\titeration\x18\x0e \x01(\x05\x12\x18\n\x10protocol_version\x18\x0f \x01(\t\x1a-\n\x0bMetricEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x42\x08\n\x06_epochB\x16\n\x14_num_samples_trained\x1a-\n\x03Log\x12\x15\n\rresearcher_id\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\tB\x0f\n\rfeedback_type\"5\n\x0bTaskRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\x12\x18\n\x10protocol_version\x18\x02 \x01(\t\"?\n\x0cTaskResponse\x12\x0c\n\x04size\x18\x01 \x01(\x05\x12\x11\n\titeration\x18\x02 \x01(\x05\x12\x0e\n\x06\x62ytes_\x18\x03 \x01(\x0c\"=\n\nTaskResult\x12\x0c\n\x04size\x18\x01 \x01(\x05\x12\x11\n\titeration\x18\x02 \x01(\x05\x12\x0e\n\x06\x62ytes_\x18\x03 \x01(\x0c\"#\n\x11TaskResponseUnary\x12\x0e\n\x06\x62ytes_\x18\x01 \x01(\x0c\x32\xc0\x01\n\x11ResearcherService\x12,\n\x07GetTask\x12\x0c.TaskRequest\x1a\r.TaskResponse\"\x00(\x01\x30\x01\x12/\n\x0cGetTaskUnary\x12\x0c.TaskRequest\x1a\r.TaskResponse\"\x00\x30\x01\x12$\n\tReplyTask\x12\x0b.TaskResult\x1a\x06.Empty\"\x00(\x01\x12&\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12\x10.FeedbackMessage\x1a\x06.Empty\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n fedbiomed/proto/researcher.proto\"\x07\n\x05\x45mpty\"\xa2\x05\n\x0f\x46\x65\x65\x64\x62\x61\x63kMessage\x12\x18\n\x10protocol_version\x18\x01 \x01(\t\x12)\n\x06scalar\x18\x02 \x01(\x0b\x32\x17.FeedbackMessage.ScalarH\x00\x12#\n\x03log\x18\x03 \x01(\x0b\x32\x14.FeedbackMessage.LogH\x00\x1a\xc8\x03\n\x06Scalar\x12\x15\n\rresearcher_id\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x0e\n\x06job_id\x18\x03 \x01(\t\x12\r\n\x05train\x18\x04 \x01(\x08\x12\x0c\n\x04test\x18\x05 \x01(\x08\x12\x1d\n\x15test_on_local_updates\x18\x06 \x01(\x08\x12\x1e\n\x16test_on_global_updates\x18\x07 \x01(\x08\x12\x33\n\x06metric\x18\x08 \x03(\x0b\x32#.FeedbackMessage.Scalar.MetricEntry\x12\x12\n\x05\x65poch\x18\t \x01(\x05H\x00\x88\x01\x01\x12\x15\n\rtotal_samples\x18\n \x01(\x05\x12\x15\n\rbatch_samples\x18\x0b \x01(\x05\x12\x13\n\x0bnum_batches\x18\x0c \x01(\x05\x12 \n\x13num_samples_trained\x18\r \x01(\x05H\x01\x88\x01\x01\x12\x11\n\titeration\x18\x0e \x01(\x05\x12\x18\n\x10protocol_version\x18\x0f \x01(\t\x1a-\n\x0bMetricEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x42\x08\n\x06_epochB\x16\n\x14_num_samples_trained\x1aI\n\x03Log\x12\x15\n\rresearcher_id\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\r\n\x05level\x18\x03 \x01(\t\x12\x0b\n\x03msg\x18\x04 \x01(\tB\x0f\n\rfeedback_type\"5\n\x0bTaskRequest\x12\x0c\n\x04node\x18\x01 \x01(\t\x12\x18\n\x10protocol_version\x18\x02 \x01(\t\"?\n\x0cTaskResponse\x12\x0c\n\x04size\x18\x01 \x01(\x05\x12\x11\n\titeration\x18\x02 \x01(\x05\x12\x0e\n\x06\x62ytes_\x18\x03 \x01(\x0c\"=\n\nTaskResult\x12\x0c\n\x04size\x18\x01 \x01(\x05\x12\x11\n\titeration\x18\x02 \x01(\x05\x12\x0e\n\x06\x62ytes_\x18\x03 \x01(\x0c\"#\n\x11TaskResponseUnary\x12\x0e\n\x06\x62ytes_\x18\x01 \x01(\x0c\x32\xc0\x01\n\x11ResearcherService\x12,\n\x07GetTask\x12\x0c.TaskRequest\x1a\r.TaskResponse\"\x00(\x01\x30\x01\x12/\n\x0cGetTaskUnary\x12\x0c.TaskRequest\x1a\r.TaskResponse\"\x00\x30\x01\x12$\n\tReplyTask\x12\x0b.TaskResult\x1a\x06.Empty\"\x00(\x01\x12&\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12\x10.FeedbackMessage\x1a\x06.Empty\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -26,21 +26,21 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_EMPTY']._serialized_start=36
   _globals['_EMPTY']._serialized_end=43
   _globals['_FEEDBACKMESSAGE']._serialized_start=46
-  _globals['_FEEDBACKMESSAGE']._serialized_end=692
+  _globals['_FEEDBACKMESSAGE']._serialized_end=720
   _globals['_FEEDBACKMESSAGE_SCALAR']._serialized_start=172
   _globals['_FEEDBACKMESSAGE_SCALAR']._serialized_end=628
   _globals['_FEEDBACKMESSAGE_SCALAR_METRICENTRY']._serialized_start=549
   _globals['_FEEDBACKMESSAGE_SCALAR_METRICENTRY']._serialized_end=594
   _globals['_FEEDBACKMESSAGE_LOG']._serialized_start=630
-  _globals['_FEEDBACKMESSAGE_LOG']._serialized_end=675
-  _globals['_TASKREQUEST']._serialized_start=694
-  _globals['_TASKREQUEST']._serialized_end=747
-  _globals['_TASKRESPONSE']._serialized_start=749
-  _globals['_TASKRESPONSE']._serialized_end=812
-  _globals['_TASKRESULT']._serialized_start=814
-  _globals['_TASKRESULT']._serialized_end=875
-  _globals['_TASKRESPONSEUNARY']._serialized_start=877
-  _globals['_TASKRESPONSEUNARY']._serialized_end=912
-  _globals['_RESEARCHERSERVICE']._serialized_start=915
-  _globals['_RESEARCHERSERVICE']._serialized_end=1107
+  _globals['_FEEDBACKMESSAGE_LOG']._serialized_end=703
+  _globals['_TASKREQUEST']._serialized_start=722
+  _globals['_TASKREQUEST']._serialized_end=775
+  _globals['_TASKRESPONSE']._serialized_start=777
+  _globals['_TASKRESPONSE']._serialized_end=840
+  _globals['_TASKRESULT']._serialized_start=842
+  _globals['_TASKRESULT']._serialized_end=903
+  _globals['_TASKRESPONSEUNARY']._serialized_start=905
+  _globals['_TASKRESPONSEUNARY']._serialized_end=940
+  _globals['_RESEARCHERSERVICE']._serialized_start=943
+  _globals['_RESEARCHERSERVICE']._serialized_end=1135
 # @@protoc_insertion_point(module_scope)

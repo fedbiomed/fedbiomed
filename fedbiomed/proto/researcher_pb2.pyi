@@ -52,12 +52,16 @@ class FeedbackMessage(_message.Message):
         protocol_version: str
         def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ..., protocol_version: _Optional[str] = ...) -> None: ...
     class Log(_message.Message):
-        __slots__ = ["researcher_id", "message"]
+        __slots__ = ["researcher_id", "node_id", "level", "msg"]
         RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]
-        MESSAGE_FIELD_NUMBER: _ClassVar[int]
+        NODE_ID_FIELD_NUMBER: _ClassVar[int]
+        LEVEL_FIELD_NUMBER: _ClassVar[int]
+        MSG_FIELD_NUMBER: _ClassVar[int]
         researcher_id: str
-        message: str
-        def __init__(self, researcher_id: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+        node_id: str
+        level: str
+        msg: str
+        def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., level: _Optional[str] = ..., msg: _Optional[str] = ...) -> None: ...
     PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
