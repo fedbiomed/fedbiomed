@@ -16,7 +16,7 @@ import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-
+from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
 from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult
 
 import uuid
@@ -192,7 +192,7 @@ class ResearcherClient:
     """
     def __init__(
             self,
-            handler = None,
+            on_message: Callable = None,
             certificate: str = None,
             debug: bool = False
         ):
@@ -205,7 +205,7 @@ class ResearcherClient:
         
         self._send_queue = asyncio.Queue()
         self._client_registered = False
-        self.on_message = self._default_callback
+        self.on_message = on_message or self._default_callback
         self._thread = None
         self._thread_loop = None
 
@@ -245,8 +245,19 @@ class ResearcherClient:
             #    continue
             msg = await self._send_queue.get()
 
-            await msg["stub"](msg["message"])
-
+            # If it is aUnary-Unary RPC call
+            if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
+                await msg["stub"](msg["message"])
+            elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
+                reply = Serializer.dumps(msg["message"].get_dict())
+                chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
+                for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
+                    stop = start + MAX_MESSAGE_BYTES_LENGTH 
+                    yield await TaskResult(
+                        size=len(chunk_range),
+                        iteration=iter_,
+                        bytes_=reply[start:stop]
+                    ).to_proto()
 
     async def get_tasks(self, debug: bool = False):
         """Long-lived polling to request tasks from researcher."""
@@ -346,7 +357,7 @@ class ResearcherClient:
             #raise Exception("end: timeout submitting message to send")
             result = False
         except Exception as e:
-            if self._debug: print(f'send: undexpected exception waiting for coroutine result {e}')
+            if self._debug: print(f'send: unexpected exception waiting for coroutine result {e}')
             raise
         else:
             if self._debug: print(f"send: the coroutine returned {result}")
@@ -367,20 +378,17 @@ class ResearcherClient:
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
-                self._run_thread_safe(self._send_from_thread(
+                return self._run_thread_safe(self._send_from_thread(
                     rpc= self._feedback_stub.Feedback, 
                     message = message.to_proto())
                 )
-
-            case TaskResult.__name__ :
-                self._run_thread_safe(self._send_from_thread(
-                    rpc= self._feedback_stub.ReplyTask, 
-                    message = message.to_proto())
-                )
+            
+            # Rest considered as task reply
             case _:
-                raise Exception('Undefined message type')
-
-        return result
+                return self._run_thread_safe(self._send_from_thread(
+                    rpc= self._feedback_stub.ReplyTask, 
+                    message = message)
+                )
 
     def start(self):
         """Starts researcher gRPC client"""

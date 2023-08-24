@@ -90,7 +90,7 @@ class ResearcherClient:
     """
     def __init__(
             self,
-            handler = None,
+            on_message = None,
             certificate: str = None,
         ):
 
@@ -101,7 +101,7 @@ class ResearcherClient:
             pass 
         
         self._client_registered = False
-        self.on_message = lambda x: print(f"Task received! {x}")
+        self.on_message = on_message or (lambda x: print(f"Task received! {x}"))
 
         self._feedback_channel = create_channel(certificate=None)
         self._feedback_stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._feedback_channel)

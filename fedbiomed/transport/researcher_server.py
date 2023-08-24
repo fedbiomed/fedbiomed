@@ -145,9 +145,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         
         
         logger.info(f"Node agent created {node_agent.id}" )
-        #task = await node_agent.get()
+        task = await node_agent.get()
         
-        await asyncio.sleep(2)
         task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         

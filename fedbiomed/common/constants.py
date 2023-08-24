@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Fed-BioMed constants/enums"""
+import sys
 
 from packaging.version import Version as FBM_Component_Version
 from enum import Enum
@@ -30,7 +31,6 @@ DB_PREFIX = 'db_'
 NODE_PREFIX = 'node_'
 """Prefix for node ID"""
 
-
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
 __version__ = FBM_Component_Version('4.4.1')  # Fed-BioMed software version
@@ -39,6 +39,11 @@ __node_config_version__ = FBM_Component_Version('1')  # node config file version
 __breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
 __messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
 # Nota: for messaging protocol version, all changes should be a major version upgrade
+
+
+
+# Max message length as bytes
+MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
 

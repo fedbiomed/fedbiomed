@@ -12,7 +12,7 @@ import validators
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -23,7 +23,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-
+from fedbiomed.transport.researcher_client_async import ResearcherClient
 
 class Node:
     """Core code of the node component.
@@ -47,8 +47,11 @@ class Node:
         """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self.messaging = Messaging(self.on_message, ComponentType.NODE,
-                                   environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
+        self.grpc_client = ResearcherClient(
+            on_message=self.on_message
+        )
+        # self.messaging = Messaging(self.on_message, ComponentType.NODE,
+        #                            environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -94,7 +97,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'ping':
-                self.messaging.send_message(
+                self.grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
@@ -102,32 +105,32 @@ class Node:
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
-                        }).get_dict())
+                        }))
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    self.messaging.send_message(NodeMessages.format_outgoing_message(
+                    self.grpc_client.send(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
-                         'count': len(databases)}).get_dict())
+                         'count': len(databases)}))
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
-                self.messaging.send_message(NodeMessages.format_outgoing_message(
+                self.grpc_client.send(NodeMessages.format_outgoing_message(
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
                      'researcher_id': msg['researcher_id'],
                      'databases': databases,
                      'count': len(databases),
-                     }).get_dict())
+                     }))
             elif command == 'approval':
                 # Ask for training plan approval
                 self.tp_security_manager.reply_training_plan_approval_request(request, self.messaging)
@@ -274,13 +277,13 @@ class Node:
             # condition above is likely to be false
             logger.error('Did not found proper data in local datasets ' +
                          f'on node={environ["NODE_ID"]}')
-            self.messaging.send_message(NodeMessages.format_outgoing_message(
+            self.grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
                  'researcher_id': researcher_id,
                  'errnum': ErrorNumbers.FB313,
                  'extra_msg': "Did not found proper data in local datasets"}
-            ).get_dict())
+            ))
         else:
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
@@ -319,7 +322,7 @@ class Node:
                 command = item.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
-                self.messaging.send_message(
+                self.grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'command': 'error',
@@ -328,7 +331,7 @@ class Node:
                             'researcher_id': 'NOT_SET',
                             'errnum': ErrorNumbers.FB300
                         }
-                    ).get_dict()
+                    )
                 )
             else:
                 if command == 'train':
@@ -347,11 +350,11 @@ class Node:
                                     'secagg_clipping_range': item.get_param('secagg_clipping_range')
                                 }
                             )
-                            self.messaging.send_message(msg)
+                            self.grpc_client.send(msg)
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
-                        self.messaging.send_message(
+                        self.grpc_client.send(
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
@@ -360,7 +363,7 @@ class Node:
                                     'researcher_id': 'NOT_SET',
                                     'errnum': ErrorNumbers.FB300
                                 }
-                            ).get_dict()
+                            )
                         )
                         logger.debug(f"{ErrorNumbers.FB300}: {e}")
                 elif command == 'secagg':
@@ -378,7 +381,7 @@ class Node:
         Args:
             block: Whether messager is blocking (or not). Defaults to False.
         """
-        self.messaging.start(block)
+        self.grpc_client.start()
 
     def reply(self, msg: dict):
         """Send reply to researcher
@@ -392,7 +395,7 @@ class Node:
             reply = NodeMessages.format_outgoing_message(
                 {'node_id': environ['ID'],
                  **msg}
-            ).get_dict()
+            )
         except FedbiomedMessageError as e:
             logger.error(f"{ErrorNumbers.FB601.value}: {e}")
             self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: Can not reply "
@@ -403,7 +406,9 @@ class Node:
                                                                  f"Unexpected error occurred")
 
         else:
-            self.messaging.send_message(reply)
+            self.grpc_client.send(reply)
+
+
 
     def send_error(
             self,
@@ -422,4 +427,11 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum=errnum, extra_msg=extra_msg, researcher_id=researcher_id)
+        self.grpc_client.send(
+            ErrorMessage(command='error',
+                        errnum=errnum,
+                        node_id=environ['NODE_ID'],
+                        extra_msg=extra_msg,
+                        researcher_id=researcher_id
+                )
+            )
