@@ -203,11 +203,11 @@ class ResearcherClient:
             # TODO: create channel as secure channel 
             pass 
         
-        self._send_queue = asyncio.Queue()
         self._client_registered = False
         self.on_message = on_message or self._default_callback
         self._thread = None
         self._thread_loop = None
+        self._send_queue = None
 
         self._debug = debug
 
@@ -224,6 +224,9 @@ class ResearcherClient:
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
+        # need to recreate a queue for each thread to avoid a 
+        # unexpected exception <class 'RuntimeError'> <Queue at 0x12345678 maxsize=0> is bound to a different event loop
+        self._send_queue = asyncio.Queue()
         self._thread_loop = asyncio.get_running_loop()
 
         logger.info("Waiting for researcher server...")
@@ -377,6 +380,7 @@ class ResearcherClient:
             future = asyncio.run_coroutine_threadsafe(coroutine, self._thread_loop)
         except Exception as e:
             if self._debug: print(f"send: exception launching coroutine {e}")
+
         try:
             result = future.result(timeout=3)
         except concurrent.futures.TimeoutError:
