@@ -145,8 +145,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         
         
         logger.info(f"Node agent created {node_agent.id}" )
-        task = await node_agent.get()
-        
+        #task = await node_agent.get()
+        await asyncio.sleep(10)
         task = Serializer.dumps(small_task)
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         
@@ -162,6 +162,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
             
+        print("reply received!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -170,6 +171,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Execute callback
                 message = Serializer.loads(reply)
+                print("reply received!!!")
                 self.on_message(message)
                 # Reset reply
                 reply = bytes()
@@ -251,6 +253,6 @@ class ResearcherServer:
 
 
 if __name__ == "__main__":
-    ResearcherServer(on_message=lambda x: x).start()
+    ResearcherServer(on_message=lambda x: print(f"Reply received: {x}")).start()
     while True:
         pass

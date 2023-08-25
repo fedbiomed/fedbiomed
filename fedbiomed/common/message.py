@@ -365,7 +365,7 @@ class ErrorMessage(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     node_id: str
-    errnum: ErrorNumbers
+    errnum: str
     extra_msg: str
     command: str
 

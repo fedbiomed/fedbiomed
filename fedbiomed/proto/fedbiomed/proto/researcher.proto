@@ -81,6 +81,7 @@ message TaskResponse {
 
 }
 
+
 // Reply stream from node to researcher
 message TaskResult {
     int32 size = 1; 

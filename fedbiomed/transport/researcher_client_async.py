@@ -85,27 +85,6 @@ def create_channel(
     return channel
 
 
-
-async def task_reader_unary(
-        stub, 
-        node: str,
-        callback: Callable = lambda x: x,
-         
-):
-    """Task reader as unary RPC
-    
-    This methods send unary RPC to gRPC server (researcher) and get tasks 
-    in a stream. Stream is used in order to receive larger messages (more than 4MB)
-    After a task received it sends another task request immediately. 
-
-    Args: 
-        stub: gRPC stub to execute RPCs. 
-        node: Node id 
-        callback: Callback function to execute each time a task received
-    """
-    pass 
-
-
 async def task_reader(
         stub, 
         node: str, 
@@ -181,7 +160,20 @@ async def task_reader(
             )
 
 
-
+def stream_reply(message: Message):
+    
+    reply = Serializer.dumps(message.get_dict())
+    chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
+    print("About to get in for loop")
+    for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
+        stop = start + MAX_MESSAGE_BYTES_LENGTH 
+        print("Yield task result")
+        yield TaskResult(
+            size=len(chunk_range),
+            iteration=iter_,
+            bytes_=reply[start:stop]
+        ).to_proto()
+        
 
 class ResearcherClient:
     """gRPC researcher component client 
@@ -255,28 +247,15 @@ class ResearcherClient:
         try:
             #while not SHUTDOWN_EVENT.is_set():
             while True: 
-                #try:
-                #    msg = self._send_queue.get_nowait()
-                #except asyncio.queues.QueueEmpty:
-                #    await asyncio.sleep(0.5)
-                #    continue
                 msg = await self._send_queue.get()
 
                 # If it is aUnary-Unary RPC call
                 if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
                     await msg["stub"](msg["message"])
-                elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                    reply = Serializer.dumps(msg["message"].get_dict())
-                    chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-                    for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
-                        stop = start + MAX_MESSAGE_BYTES_LENGTH 
-                        yield await TaskResult(
-                            size=len(chunk_range),
-                            iteration=iter_,
-                            bytes_=reply[start:stop]
-                        ).to_proto()
-                    await msg["stub"](msg["message"])
 
+                elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
+                    call = msg["stub"](stream_reply(msg["message"]))
+                    pass
                 self._send_queue.task_done()
                 
         except ClientStop:
@@ -335,6 +314,7 @@ class ResearcherClient:
                 if debug: print('get_tasks: finally')
             
 
+
     def _create_send_task(
             self,
             stub: Callable, 
@@ -353,8 +333,8 @@ class ResearcherClient:
         if not isinstance(stub, Callable):
             raise Exception("'stub' must an instance of ResearcherServiceStub")
         
-        if not isinstance(message, ProtobufMessage):
-            raise Exception("'message' should be be an instance of Protobuf")
+        if not isinstance(message, (ProtobufMessage, Message)):
+            raise Exception("'message' should be be an instance of Protobuf or Message")
 
         return {"stub": stub, "message": message}
     
@@ -417,7 +397,7 @@ class ResearcherClient:
         
             case _:
                 result = self._run_thread_safe(self._send_from_thread(
-                    rpc= self._feedback_stub.ReplyTask, 
+                    rpc=self._stub.ReplyTask, 
                     message = message)
                 )
 
@@ -429,7 +409,7 @@ class ResearcherClient:
             try: 
                 asyncio.run(
                     #self.connection(), debug=False
-                    self.connection(debug=self._debug), debug=False
+                    self.connection(debug=self._debug), debug=True
                 )
 
             # note: needed to catch this exception
