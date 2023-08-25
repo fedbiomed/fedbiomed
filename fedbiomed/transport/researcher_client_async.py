@@ -432,6 +432,9 @@ class ResearcherClient:
         convert Python dataclass message to gRPC protobuff. 
 
         """
+        # TODO: refactor !
+        # self._node_configured self._task_channel and self._feedback_stub 
+        # should be used only in spawn thread, not in master thread
         if not self._node_configured or not self._task_channel.get_state() == grpc.ChannelConnectivity.READY:
             raise Exception("send: the connection is not ready")
 
