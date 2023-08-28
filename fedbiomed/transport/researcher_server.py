@@ -197,12 +197,8 @@ class ResearcherServer:
 
     def __init__(self, debug: bool = False, on_message: Callable = _default_callback) -> None:
         self._server = None 
-        self.agent_store = AgentStore(loop=self._loop)
-
         self._t = None 
-        self._loop = asyncio.get_event_loop()
         self._debug = debug
-
         self._on_message = on_message 
 
 
@@ -216,7 +212,7 @@ class ResearcherServer:
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
-        self._agent_store = AgentStore(loop=asyncio.get_event_loop())
+        self.agent_store = AgentStore(loop=asyncio.get_event_loop())
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
@@ -242,12 +238,11 @@ class ResearcherServer:
         """Broadcasts given message to all active clients"""
 
         agents = []
-        for _, agent in self.agent_store.nodes.items():
+        for _, agent in self.agent_store.node_agents.items():
             if agent.active == False:
                 logger.info(f"Node {agent.id} is not active")
             agent.send(message)
-            agents.append[agent.id]
-        
+            agents.append(agent.id)       
         return agents
 
     def start(self):

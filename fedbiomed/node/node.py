@@ -48,6 +48,7 @@ class Node:
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.grpc_client = ResearcherClient(
+            node_id=environ["ID"],
             on_message=self.on_message
         )
         # self.messaging = Messaging(self.on_message, ComponentType.NODE,
@@ -112,6 +113,7 @@ class Node:
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
+                    print(databases)
                     self.grpc_client.send(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',

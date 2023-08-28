@@ -184,12 +184,13 @@ class ResearcherClient:
     """
     def __init__(
             self,
+            node_id: str = NODE_ID,
             on_message: Callable = None,
             certificate: str = None,
             debug: bool = False
         ):
 
-
+        self._node_id = node_id
         # TODO: implement TLS 
         if certificate is not None:
             # TODO: create channel as secure channel 
@@ -233,16 +234,16 @@ class ResearcherClient:
         task_get = None
         task_send = None
         try:
-            #await asyncio.gather(
-            #    self.get_tasks(debug),
-            #    self.send_queue_listener(debug),
-            #)
-            task_get = asyncio.create_task(self.get_tasks(debug=debug))
-            task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
+            await asyncio.gather(
+               self.get_tasks(debug),
+               self.send_queue_listener(debug),
+            )
+            # task_get = asyncio.create_task(self.get_tasks(debug=debug))
+            # task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
 
-            while not task_get.done() or not task_send.done():
-                if debug: print('connection: looping for tasks')
-                await asyncio.wait([task_get, task_send], timeout=1)
+            # while not task_get.done() or not task_send.done():
+            #     if debug: print('connection: looping for tasks')
+            #     await asyncio.wait([task_get, task_send], timeout=1)
             
             # never reach this one normally ?
             if debug: print('connection: tasks completed')
@@ -285,8 +286,8 @@ class ResearcherClient:
                         await msg["stub"](msg["message"])
 
                     elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                        call = msg["stub"](stream_reply(msg["message"]))
-                        pass
+                        print("rpc_call")
+                        await msg["stub"](stream_reply(msg["message"]))
                     self._send_queue.task_done()
 
             # not needed
@@ -328,7 +329,7 @@ class ResearcherClient:
                     logger.info("Sending new task request")
                     print(f"get_tasks: {self._task_channel.get_state()}")
                     self.__request_task_iterator = self._stub.GetTaskUnary(
-                        TaskRequest(node=f"{NODE_ID}").to_proto(), timeout=60,
+                        TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60,
                     )
 
                     # Prepare reply
@@ -390,9 +391,11 @@ class ResearcherClient:
     async def _send_from_thread(self, rpc, message: ProtobufMessage):
         try:
             #await asyncio.sleep(5)
+            print("About to add task in the queue")
             await self._send_queue.put(
                 self._create_send_task(rpc,message)
             )
+            print("task added in the queue")
             return True
         except asyncio.CancelledError:
             if self._debug: print("_send_from_thread: cancelled send task")
@@ -408,7 +411,7 @@ class ResearcherClient:
             if self._debug: print(f"send: exception launching coroutine {e}")
 
         try:
-            result = future.result(timeout=3)
+            result = future.result(timeout=20)
         except concurrent.futures.TimeoutError:
             logger.error("send: timeout submitting message to send")
             future.cancel()
@@ -438,6 +441,7 @@ class ResearcherClient:
         # should be used only in spawn thread, not in master thread
         if not self._node_configured or not self._task_channel.get_state() == grpc.ChannelConnectivity.READY:
             raise Exception("send: the connection is not ready")
+
 
         # Switch-case for message type and gRPC calls
         match type(message).__name__:

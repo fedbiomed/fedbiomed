@@ -175,7 +175,7 @@ class Requests(metaclass=SingletonMeta):
         # TODO: Return also  the list of node that the messages are sent
         unused_node_list = self.grpc_server.broadcast(message)
 
-        return  message.get('sequence', None)
+        return  unused_node_list
 
 
 
@@ -312,7 +312,7 @@ class Requests(metaclass=SingletonMeta):
                                                            ))
 
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['search'], expecting = nodes):
+        for resp in self.get_responses(look_for_commands=['search']):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
