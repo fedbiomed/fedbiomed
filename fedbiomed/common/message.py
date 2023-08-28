@@ -199,6 +199,11 @@ class Message(object):
 # - Request/Reply regrouping
 #
 
+@dataclass
+class ProtoSerializableMessage(Message):
+    pass
+
+
 
 # AddScalar message
 @dataclass(kw_only=True)
@@ -215,7 +220,7 @@ class RequiresProtocolVersion:
 # --- gRPC messages --------------------------------------------------------------------------------
 
 @dataclass
-class Log(Message):
+class Log(ProtoSerializableMessage):
     """Describes the message type for log coming from node to researcher """
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
 
@@ -226,7 +231,7 @@ class Log(Message):
 
 @catch_dataclass_exception
 @dataclass
-class Scalar(Message):
+class Scalar(ProtoSerializableMessage):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -265,13 +270,13 @@ class Scalar(Message):
     num_samples_trained: Optional[int] = None
     
 @dataclass
-class TaskRequest(Message, RequiresProtocolVersion):
+class TaskRequest(ProtoSerializableMessage, RequiresProtocolVersion):
     """Task request message from node to researcher"""
     __PROTO_TYPE__ =  r_pb2.TaskRequest
     node: str
 
 @dataclass
-class TaskResponse(Message):
+class TaskResponse(ProtoSerializableMessage):
     """Response for task request"""
     __PROTO_TYPE__ =  r_pb2.TaskResponse
 
@@ -280,7 +285,7 @@ class TaskResponse(Message):
     bytes_: bytes
 
 @dataclass
-class TaskResult(Message):
+class TaskResult(ProtoSerializableMessage):
     """Response for task request"""
     __PROTO_TYPE__ =  r_pb2.TaskResult
 
@@ -290,7 +295,7 @@ class TaskResult(Message):
 
 
 @dataclass
-class FeedbackMessage(Message, RequiresProtocolVersion):
+class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage
 
     log: Optional[Log] = None
