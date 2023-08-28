@@ -13,12 +13,12 @@ import uuid
 
 from python_minifier import minify
 from time import sleep
-from typing import Any, Dict, Callable, Union
+from typing import Any, Dict, Callable, Union, List, Optional
 
-from fedbiomed.common.constants import ComponentType
-from fedbiomed.common.exceptions import FedbiomedTaskQueueError
+from fedbiomed.common.constants import ComponentType, MessageType
+from fedbiomed.common.exceptions import FedbiomedTaskQueueError, FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages
+from fedbiomed.common.message import ResearcherMessages, PingRequest, Message
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
@@ -27,7 +27,8 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
-
+from fedbiomed.transport.researcher_server import ResearcherServer
+from fedbiomed.transport.node_agent import NodeAgent
 class Requests(metaclass=SingletonMeta):
     """
     Represents the requests addressed from Researcher to nodes. It creates a task queue storing reply to each
@@ -46,21 +47,18 @@ class Requests(metaclass=SingletonMeta):
         # eg: a notebook not quitted and launching a script
         self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
-        if mess is None or type(mess) is not Messaging:
-            self.messaging = Messaging(self.on_message,
-                                       ComponentType.RESEARCHER,
-                                       environ['RESEARCHER_ID'],
-                                       environ['MQTT_BROKER'],
-                                       environ['MQTT_BROKER_PORT'])
-            self.messaging.start(block=False)
-        else:
-            self.messaging = mess
+        # Creates grpc server and starts it
+        self.grpc_server = ResearcherServer(
+            on_message=self.on_message
+        )
+        self.grpc_server.start()
 
         # defines the sequence used for ping protocol
         self._sequence = 0
 
         self._monitor_message_callback = None
 
+    # TODO: remove unused get_messaging
     def get_messaging(self) -> Messaging:
         """Retrieves Messaging object
 
@@ -69,7 +67,7 @@ class Requests(metaclass=SingletonMeta):
         """
         return self.messaging
 
-    def on_message(self, msg: Dict[str, Any], topic: str):
+    def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
         """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
         researcher side.
 
@@ -80,27 +78,22 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             msg: de-serialized msg
-            topic: topic to publish message (MQTT channel)
+            type: Reply type one of reply, log, scalar
         """
 
-        if topic == "general/logger":
-            #
+        if type_ == MessageType.LOG:
             # forward the treatment to node_log_handling() (same thread)
-            self.print_node_log_message(ResearcherMessages.format_incoming_message(msg).get_dict())
-        elif topic == "general/researcher":
-            #
-            # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
+            self.print_node_log_message(msg.get_dict())
+        elif type_ == MessageType.REPLY:
+            # Adds reply message to the queue
             self.queue.add(ResearcherMessages.format_incoming_message(msg).get_dict())
 
-            # we may trap FedbiomedTaskQueueError here then queue full
-            # but what can we do except of quitting ?
-
-        elif topic == "general/monitoring":
+        elif type_ == MessageType.SCALAR:
             if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(ResearcherMessages.format_incoming_message(msg).get_dict())
+                self._monitor_message_callback(msg.get_dict())
         else:
-            logger.error("message received on wrong topic (" + topic + ") - IGNORING")
+            logger.error("Undefined message type received  (" +  + ") - IGNORING")
 
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
@@ -125,7 +118,13 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def send_message(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
+    def _add_sequence(self):
+        
+        seq = self._sequence
+        self._sequence =+ 1
+        return seq
+
+    def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> \
             Union[int, None]:
         """
         Ask the messaging class to send a new message (receivers are
@@ -140,17 +139,45 @@ class Requests(metaclass=SingletonMeta):
             If `add_sequence` is True return the sequence number added to the message.
                 If `add_sequence` is False, return None
         """
-        logger.debug(str(environ['RESEARCHER_ID']))
-        sequence = None
-        if add_sequence:
-            sequence = self._sequence
-            self._sequence += 1
-            msg['sequence'] = sequence
+        
+        node: Union[NodeAgent, None] = self.grpc_server.agent_store.get(client)
+        
+        if not node:
+            raise FedbiomedError(f"Node {client} is not existing, not connected or connection is lost.")
+        
 
-        self.messaging.send_message(
-            ResearcherMessages.format_outgoing_message(msg).get_dict(),
-            client=client)
-        return sequence
+        if add_sequence:
+            msg['sequence'] = self._add_sequence()
+
+        # Send message to client
+        node.send(
+            ResearcherMessages.format_outgoing_message(msg)
+        )
+
+        return  msg.get('sequence', None)
+
+    def broadcast(self, message, add_sequence: bool = False):
+        """Broadcast message
+        
+        Args:
+            msg: the message to send to nodes
+            client: defines the channel to which the message will be sent. Defaults to None (all nodes)
+            add_sequence: if `True`, add unique sequence number to the message
+
+        Returns:
+            If `add_sequence` is True return the sequence number added to the message.
+                If `add_sequence` is False, return None
+        """
+
+        if add_sequence:
+            message['sequence'] = self._add_sequence()
+
+        # TODO: Return also  the list of node that the messages are sent
+        unused_node_list = self.grpc_server.broadcast(message)
+
+        return  message.get('sequence', None)
+
+
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -185,11 +212,13 @@ class Requests(metaclass=SingletonMeta):
 
         return Responses(answers)
 
-    def get_responses(self,
-                      look_for_commands: list,
-                      timeout: float = None,
-                      only_successful: bool = True,
-                      while_responses: bool = True) -> Responses:
+    def get_responses(
+            self,
+            look_for_commands: list,
+            timeout: float = None,
+            only_successful: bool = True,
+            while_responses: bool = True,
+        ) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
@@ -235,9 +264,16 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List ids of up and running nodes
         """
-        self.send_message(
-            {'researcher_id': environ['RESEARCHER_ID'], 'command': 'ping'},
-            add_sequence=True)
+
+        # Broadcasts ping request
+        unused_sequence = self.broadcast(
+            PingRequest(
+                    researcher_id = environ["ID"],
+                    sequence = self._sequence,
+                    command = "ping"
+            ),
+            add_sequence=True
+        )
 
         # TODO: check sequence number in pong
         # TODO: (below, above) handle exceptions
@@ -245,7 +281,7 @@ class Requests(metaclass=SingletonMeta):
         return nodes_online
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
-        """ Searches available data by tags
+        """Searches available data by tags
 
         Args:
             tags: Tuple containing tags associated to the data researcher is looking for.
@@ -259,22 +295,24 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
-                self.messaging.send_message(
-                    ResearcherMessages.format_outgoing_message({'tags': tags,
-                                                       'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "search"}
-                                                               ).get_dict(),
+                self.send_message(
+                    ResearcherMessages.format_outgoing_message({
+                        'tags': tags,
+                        'researcher_id': environ['RESEARCHER_ID'],
+                        "command": "search"}),
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
-            self.messaging.send_message(
+            # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted 
+            # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
+            self.broadcast(
                 ResearcherMessages.format_outgoing_message({'tags': tags,
-                                                   'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "search"}
-                                                           ).get_dict())
+                                                            'researcher_id': environ['ID'],
+                                                            "command": "search"}
+                                                           ))
 
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['search']):
+        for resp in self.get_responses(look_for_commands=['search'], expecting = nodes):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
@@ -298,17 +336,18 @@ class Requests(metaclass=SingletonMeta):
         # If nodes list is provided
         if nodes:
             for node in nodes:
-                self.messaging.send_message(
-                    ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "list"}
-                                                               ).get_dict(),
+                self.send_message(
+                    ResearcherMessages.format_outgoing_message({
+                        'researcher_id': environ['RESEARCHER_ID'],
+                        "command": "list"}),
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
-            self.messaging.send_message(
-                ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "list"}).get_dict())
-            logger.info('Listing available datasets in all nodes... ')
+            nodes: List[str] = self.grpc_server.broadcast(
+                ResearcherMessages.format_outgoing_message({
+                    'researcher_id': environ['RESEARCHER_ID'],
+                    "command": "list"}))
+            logger.info(f'Listing available datasets in all nodes... {nodes} ')
 
         # Get datasets from node responses
         data_found = {}
@@ -441,7 +480,7 @@ class Requests(metaclass=SingletonMeta):
                 sequence = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
-            sequence = self.send_message(message, add_sequence=True)
+            sequence = self.broadcast(message, add_sequence=True)
 
         # wait for answers for a certain timeout
         result = {}
