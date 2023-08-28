@@ -428,10 +428,11 @@ class Node:
 
         #
         self.grpc_client.send(
-            ErrorMessage(command='error',
-                        errnum=errnum,
-                        node_id=environ['NODE_ID'],
-                        extra_msg=extra_msg,
-                        researcher_id=researcher_id
-                )
+            ErrorMessage(
+                command='error',
+                errnum=errnum.name,
+                node_id=environ['NODE_ID'],
+                extra_msg=extra_msg,
+                researcher_id=researcher_id
             )
+        )
