@@ -17,7 +17,7 @@ from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
-from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult
+from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult, ProtoSerializableMessage
 
 import uuid
 import time
@@ -268,31 +268,7 @@ class ResearcherClient:
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
 
-<<<<<<< HEAD
-        try:
-            #while not SHUTDOWN_EVENT.is_set():
-            while True: 
-                msg = await self._send_queue.get()
 
-                # If it is aUnary-Unary RPC call
-                if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
-                    await msg["stub"](msg["message"])
-
-                elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                    call = msg["stub"](stream_reply(msg["message"]))
-                    pass
-                self._send_queue.task_done()
-                
-        except ClientStop:
-            if debug:
-                print("send_queue_listener: cancel by user")
-        except Exception as e:
-            if debug:
-                print(f"send_queue_listener: unexpected exception {type(e)} {e}")
-        finally:
-            if debug:
-                print("send_queue_listener: finally")
-=======
         while True:
             try:
                 #while not SHUTDOWN_EVENT.is_set():
@@ -304,9 +280,15 @@ class ResearcherClient:
                     #    continue
                     msg = await self._send_queue.get()
 
-                    await msg["stub"](msg["message"])
+                    # If it is aUnary-Unary RPC call
+                    if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
+                        await msg["stub"](msg["message"])
 
+                    elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
+                        call = msg["stub"](stream_reply(msg["message"]))
+                        pass
                     self._send_queue.task_done()
+
             # not needed
             #except ClientStop:
             #    if debug:
@@ -331,7 +313,6 @@ class ResearcherClient:
             finally:
                 if debug:
                     print("send_queue_listener: finally")
->>>>>>> e742205721ab2dd5be3215f5344d592287beaff9
 
 
     async def get_tasks(self, debug: bool = False):
@@ -460,13 +441,18 @@ class ResearcherClient:
 
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
-            case FeedbackMessage.__name__:
+            case FeedbackMessage.__name__, issubclass(message.__class__, ProtoSerializableMessage):
+                # Note: FeedbackMessage is designed as proto serializable message.
                 result = self._run_thread_safe(self._send_from_thread(
                     rpc= self._feedback_stub.Feedback, 
                     message = message.to_proto())
                 )
         
             case _:
+                # TODO: All other type of messages are not strictly typed
+                # on gRPC communication layer. Those messages are going to be 
+                # send as TaskResult which are formatted as bytes of data.
+                # The future development should type every message on GRPC layer
                 result = self._run_thread_safe(self._send_from_thread(
                     rpc=self._stub.ReplyTask, 
                     message = message)
