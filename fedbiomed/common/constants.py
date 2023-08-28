@@ -46,6 +46,11 @@ __messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT me
 MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
+class MessageType:
+    REPLY = "REPLY"
+    LOG = "LOG"
+    SCALAR = "SCALAR"
+
 
 class _BaseEnum(Enum):
     """
