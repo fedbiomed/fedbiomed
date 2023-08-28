@@ -5,7 +5,9 @@
 import sys
 
 from packaging.version import Version as FBM_Component_Version
+from fedbiomed.common.exceptions import FedbiomedError
 from enum import Enum
+
 
 CONFIG_FOLDER_NAME = "etc"
 """Directory/folder name where configurations are saved"""
@@ -46,11 +48,6 @@ __messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT me
 MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
-class MessageType:
-    REPLY = "REPLY"
-    LOG = "LOG"
-    SCALAR = "SCALAR"
-
 
 class _BaseEnum(Enum):
     """
@@ -60,6 +57,20 @@ class _BaseEnum(Enum):
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
+
+
+class MessageType(_BaseEnum):
+    REPLY = "REPLY"
+    LOG = "LOG"
+    SCALAR = "SCALAR"
+
+    @classmethod
+    def convert(cls, type_):
+        """Converts given text message to to MessageType instance"""
+        try:
+            return getattr(cls, type_.upper())
+        except AttributeError as exp:
+            raise FedbiomedError(f"There is no MessageType as {type_}")
 
 
 class ComponentType(_BaseEnum):

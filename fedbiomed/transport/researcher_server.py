@@ -13,7 +13,7 @@ from fedbiomed.proto.researcher_pb2 import Empty
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
-
+from fedbiomed.common.constants import MessageType
 from fedbiomed.transport.node_agent import AgentStore
 
 from concurrent import futures
@@ -173,7 +173,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Deserialize message
                 message = Serializer.loads(reply)
-                self.on_message(message)
+                self.on_message(message, MessageType.REPLY)
                 # Reset reply
                 reply = bytes()
 
@@ -183,18 +183,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def Feedback(self, request, unused_context):
         
         one_of = request.WhichOneof("feedback_type")
-
-        match one_of:
-            case "log":
-                pass
-            case "scalar":
-                pass 
-
-
         feedback = FeedbackMessage.from_proto(request)
-        print("Feedback received!")
-        print(feedback)
-
+        self._on_message(feedback, MessageType.convert(one_of))
+        
         return Empty()
 
 
