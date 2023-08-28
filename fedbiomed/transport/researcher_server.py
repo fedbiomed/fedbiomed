@@ -2,6 +2,8 @@
 import asyncio
 import grpc
 import threading
+import ctypes
+import signal
 import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
 
 from typing import Callable
@@ -145,9 +147,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         
         
         logger.info(f"Node agent created {node_agent.id}" )
-        #task = await node_agent.get()
+        logger.info(f"Waiting for tasks" )
+        task = await node_agent.get()
         await asyncio.sleep(10)
-        task = Serializer.dumps(small_task)
+        task = Serializer.dumps(task.get_dict())
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
@@ -194,18 +197,27 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         return Empty()
 
+
+
+def _default_callback(self, x):
+    print(f'Default callback: {type(x)} {x}')
+
 class ResearcherServer:
 
-    def __init__(self, on_message: Callable) -> None:
-
+    def __init__(self, debug: bool = False, on_message: Callable = _default_callback) -> None:
+        self._server = None 
         self.agent_store = AgentStore(loop=self._loop)
 
-        self._server = None 
         self._t = None 
         self._loop = asyncio.get_event_loop()
+        self._debug = debug
+
         self._on_message = on_message 
 
+
     async def _start(self):
+
+        self._loop = asyncio.get_event_loop()
 
         self._server = grpc.aio.server( 
            # futures.ThreadPoolExecutor(max_workers=10),
@@ -213,7 +225,8 @@ class ResearcherServer:
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
-        
+        self._agent_store = AgentStore(loop=asyncio.get_event_loop())
+
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
             agent_store=self.agent_store,
@@ -225,7 +238,13 @@ class ResearcherServer:
     
         logger.info("Starting researcher service...")    
         await self._server.start()
-        await self._server.wait_for_termination()
+
+        try:
+            if self._debug: print("_start: done starting server")
+            while await self._server.wait_for_termination(timeout=1):
+                if self._debug: print("_start: loop wait_for_termination")
+        finally:
+            if self._debug: print("_start: finally")
 
 
     def broadcast(self, message: Message):
@@ -243,27 +262,73 @@ class ResearcherServer:
     def start(self):
 
         def run():
-           self._loop.run_until_complete(
-                self._start()
-            )
+            try:
+                asyncio.run(
+                    self._start()
+                )
+            except ServerStop:
+                if self._debug:
+                    print("Run: caught user stop exception")
+            finally:
+                if self._debug:
+                    print("Run: finally")
 
         self._t = threading.Thread(target=run)
         self._t.start()
 
-    async def stop(self):
+
+    async def _stop(self):
+        print("_stop: before")
+        await self._server.stop(1)
+        while await self._server.wait_for_termination(timeout=1):
+            await self._server.stop(1)
+            if self._debug: print("_stop: loop wait_for_termination")
+        print("_stop: after")
+
+    def stop(self):
         """Stops researcher server"""
 
-        self._loop.close()
-        await self._server.stop(1)
-        import ctypes
-        stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._t.ident),
-                                                                   ctypes.py_object(ServerStop))
+        # TODO: call from spawned (communication) thread, not from main thread
+        #await self._server.stop(1)
+        
+        future = asyncio.run_coroutine_threadsafe(self._stop(), self._loop)
+        future.result(timeout=5)
+        print("stop: after future")
+
+        if not isinstance(self._t, threading.Thread):
+            stopped_count = 0
+        else:
+            stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._t.ident),
+                                                                       ctypes.py_object(ServerStop))
         if stopped_count != 1:
             logger.error("stop: could not deliver exception to thread")
-        self._t.join()
+        else:
+            self._t.join()
+        if self._debug: print("stop: finishing")
+
+    def is_alive(self) -> bool:
+        return False if not isinstance(self._t, threading.Thread) else self._t.is_alive()
 
 
 if __name__ == "__main__":
-    ResearcherServer(on_message=lambda x: print(f"Reply received: {x}")).start()
-    while True:
-        pass
+
+    def handler(signum, frame):
+        print(f"Node cancel by signal {signal.Signals(signum).name}")
+        rs.stop()
+        sys.exit(1)
+        
+    rs = ResearcherServer(debug=True)
+    signal.signal(signal.SIGHUP, handler)
+    rs.start()
+
+    try:
+        while rs.is_alive():
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Researcher cancel by keyboard interrupt")
+        try:
+            rs.stop()
+        except KeyboardInterrupt:
+            print("Immediate keyboard interrupt, dont wait to clean")
+        finally:
+            print("main: finally")
