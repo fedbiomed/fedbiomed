@@ -10,7 +10,7 @@ from fedbiomed.proto.researcher_pb2 import Empty
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Scalar, Log, TaskResponse, TaskRequest, FeedbackMessage
+from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
 
 from fedbiomed.transport.node_agent import AgentStore
 
@@ -85,7 +85,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         ) -> None:
         """Constructor of gRPC researcher servicer"""
         super().__init__()
-        self._agent_store = agent_store
+        self.agent_store = agent_store
         self._on_message = on_message
 
 
@@ -106,7 +106,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             task_request = TaskRequest.from_proto(req)
             logger.info(f"Received request form {task_request.get('node')}")
         
-            node_agent = await self._agent_store.get_or_register(node_id=task_request["node"],
+            node_agent = await self.agent_store.get_or_register(node_id=task_request["node"],
                                         node_ip=context.peer())
 
             # Here call task and wait until there is no
@@ -140,7 +140,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         logger.info(f"Received request form {task_request.get('node')}")
         
 
-        node_agent = await self._agent_store.get_or_register(node_id=task_request["node"],
+        node_agent = await self.agent_store.get_or_register(node_id=task_request["node"],
                                       node_ip=context.peer())
         
         
@@ -162,16 +162,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
             
-        print("reply received!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
             if answer.size != answer.iteration:
                 continue
             else:
-                # Execute callback
+                # Deserialize message
                 message = Serializer.loads(reply)
-                print("reply received!!!")
                 self.on_message(message)
                 # Reset reply
                 reply = bytes()
@@ -199,10 +197,12 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 class ResearcherServer:
 
     def __init__(self, on_message: Callable) -> None:
+
+        self.agent_store = AgentStore(loop=self._loop)
+
         self._server = None 
         self._t = None 
         self._loop = asyncio.get_event_loop()
-        self._agent_store = AgentStore(loop=self._loop)
         self._on_message = on_message 
 
     async def _start(self):
@@ -216,18 +216,29 @@ class ResearcherServer:
         
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
-            agent_store=self._agent_store,
+            agent_store=self.agent_store,
             on_message=self._on_message), 
             server=self._server
             )
         
         self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))
     
-
         logger.info("Starting researcher service...")    
         await self._server.start()
         await self._server.wait_for_termination()
 
+
+    def broadcast(self, message: Message):
+        """Broadcasts given message to all active clients"""
+
+        agents = []
+        for _, agent in self.agent_store.nodes.items():
+            if agent.active == False:
+                logger.info(f"Node {agent.id} is not active")
+            agent.send(message)
+            agents.append[agent.id]
+        
+        return agents
 
     def start(self):
 
