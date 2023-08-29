@@ -30,6 +30,8 @@ DB_PREFIX = 'db_'
 NODE_PREFIX = 'node_'
 """Prefix for node ID"""
 
+NODE_STATE_PREFIX = 'node_state_'
+"""Prefix for Node state"""
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
@@ -245,6 +247,8 @@ class ErrorNumbers(_BaseEnum):
     FB320 = "FB320: bad model type"
     FB321 = "FB321: Secure aggregation delete error"
     FB322 = "FB322: Dataset registration error"
+    FB323 = "FB323: Node State error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
