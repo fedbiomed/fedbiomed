@@ -605,59 +605,6 @@ class DatasetManager:
             return self.load_images_dataset(folder_path=dataset['path'],
                                             as_dataset=True)
 
-    # TODO: `load_data` seems unused, prune in next refactor ?
-    def load_data(self, tags: Union[tuple, list], mode: str) -> Any:
-        """Loads content of a dataset.
-
-        Args:
-            tags: Tags describing the dataset to load.
-            mode: Return format for the dataset content.
-
-        Raises:
-            NotImplementedError: `mode` is not implemented yet.
-
-        Returns:
-            Content of the dataset. Its type depends on the `mode` and dataset.
-        """
-
-        # Verify is mode is available
-        mode = mode.lower()
-        modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
-        if mode not in modes:
-            raise NotImplementedError(f'Data mode `{mode}` was not found.'
-                                      f' Data modes available: {modes}')
-
-        # Look for dataset in database
-        dataset = self.search_by_tags(tags)[0]
-        print(dataset)
-        assert len(dataset) > 0, f'Dataset with tags {tags} was not found.'
-
-        dataset_path = dataset['path']
-        # If path is a file, you will aim to read it with
-        if os.path.isfile(dataset_path):
-            df = self.read_csv(dataset_path, index_col=0)
-
-            # Load data as requested
-            if mode == 'pandas':
-                return df
-            elif mode == 'numpy':
-                return df._get_numeric_data().values
-            elif mode == 'torch_tensor':
-                return torch.from_numpy(df._get_numeric_data().values)
-
-        elif os.path.isdir(dataset_path):
-            if mode == 'torch_dataset':
-                return self.load_as_dataloader(dataset)
-            elif mode == 'torch_tensor':
-                raise NotImplementedError('We are working on this'
-                                          ' implementation!')
-            elif mode == 'numpy':
-                raise NotImplementedError('We are working on this'
-                                          'implementation!')
-            else:
-                raise NotImplementedError(f'Mode `{mode}` has not been'
-                                          ' implemented on this version.')
-
     def save_data_loading_plan(self,
                                data_loading_plan: Optional[DataLoadingPlan]
                                ) -> dict:
