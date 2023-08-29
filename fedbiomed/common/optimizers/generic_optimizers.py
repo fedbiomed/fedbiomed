@@ -101,6 +101,14 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """Performs an optimisation step and updates model weights.
         """
 
+    def load_state(self, model: Model, optim_state: Dict):
+        logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
+        return None
+    
+    def save_state(self) -> Union[Dict, None]:
+        logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
+        return None
+
 
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
