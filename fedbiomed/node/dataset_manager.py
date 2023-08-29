@@ -607,7 +607,7 @@ class DatasetManager:
 
     def save_data_loading_plan(self,
                                data_loading_plan: Optional[DataLoadingPlan]
-                               ) -> dict:
+                               ) -> Union[str, None]:
         """Save a DataLoadingPlan to the database.
 
         This function saves a DataLoadingPlan to the database, and returns its ID.
