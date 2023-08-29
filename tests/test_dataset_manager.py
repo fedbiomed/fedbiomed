@@ -127,7 +127,7 @@ class TestDatasetManager(NodeTestCase):
         """
         # action (should return an empty array)
         res = self.dataset_manager.get_by_id('dataset_id_1234')
-        self.assertEqual(res, None)
+        self.assertEqual(res, {})
 
 
     @patch('tinydb.table.Table.get')
@@ -1099,6 +1099,15 @@ class TestDatasetManager(NodeTestCase):
         self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dlb2.data)
 
         dataset_manager._db.close()
+
+    def test_dataset_manager_33_get_dlp_by_id_nonexisting_dlp(self):
+        """
+        Test `get_dlp_by_id` method with a non existing dlp_id
+        """
+        # action (should return an empty array)
+        res = self.dataset_manager.get_dlp_by_id('dlp_id_1234')
+        self.assertEqual(res, tuple(({},[{}])))
+
 
 
 if __name__ == '__main__':  # pragma: no cover
