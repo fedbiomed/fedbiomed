@@ -6,7 +6,6 @@ implementation of Round class of the node component
 '''
 
 import importlib
-import inspect
 import os
 import sys
 import time
@@ -29,6 +28,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.node_state_manager import NodeStateManager
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
@@ -89,6 +89,7 @@ class Round:
         self.training_plan_class = training_plan_class
         self.params_url = params_url
         self.job_id = job_id
+        self.state_id: str = None
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
@@ -112,6 +113,7 @@ class Round:
         self._biprime = None
         self._servkey = None
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
+        self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -374,7 +376,7 @@ class Round:
         error_message = self.process_optim_aux_var()
         if error_message:
             return self._send_round_reply(success=False, message=error_message)
-
+        #self.training_plan.optimizer().load_state()
         # Split training and validation data
         try:
             self._set_training_testing_data_loaders()
@@ -475,6 +477,7 @@ class Round:
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
+            results['state_id'] = self.state_id
             results['model_weights'] = model_weights
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -533,16 +536,17 @@ class Round:
             logger.error(message)
 
         return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
-                                          'job_id': self.job_id,
-                                          'researcher_id': self.researcher_id,
-                                          'command': 'train',
-                                          'success': success,
-                                          'dataset_id': self.dataset['dataset_id'] if success else '',
-                                          'params_url': params_url,
-                                          'msg': message,
-                                          'sample_size': sample_size,
-                                          'timing': timing}).get_dict()
+                                                     'job_id': self.job_id,
+                                                     'researcher_id': self.researcher_id,
+                                                     'command': 'train',
+                                                     'success': success,
+                                                     'dataset_id': self.dataset['dataset_id'] if success else '',
+                                                     'params_url': params_url,
+                                                     'msg': message,
+                                                     'sample_size': sample_size,
+                                                     'timing': timing}).get_dict()
 
+    
     def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
 
@@ -573,6 +577,47 @@ class Round:
             )
         return ""
 
+    def load_round_state(self, state_id: str) -> True:
+        # TODO: check state_id is not None
+        
+        # define here all the object that should be relaoded from the node state database
+        if self.job_id is None:
+            raise FedbiomedRoundError("job_id should not be None")
+        state = self._node_state_manager.get(self.job_id, state_id)
+        # TODO: chck type of optimizer with the one defined in the training plan
+        
+        optim_state_path = state['optimizer_state']['state_path']
+        optim_state = Serializer.load(optim_state_path)
+        optimizer = self._get_base_optimizer()
+        optimizer.load_state(self.training_plan.model(), optim_state)
+        
+        # add below other components that need to be reloaded from node state database
+    
+    def save_round_state(self) -> Tuple[Dict, str]:
+        state: Dict = {}
+        
+        # optimizer state
+        optimizer = self._get_base_optimizer()
+        
+        optimizer_state = optimizer.save_state()
+        if optimizer_state is not None:
+            # TODO: rewrite path
+            optimizer_state = Serializer.dump(optimizer_state, path='./node_state')
+        
+        optimizer_state_entry: Dict = {
+            'optimizer_type': str(type(optimizer)),
+            'state_path': optimizer_state
+        }
+        
+        state['optimizer_state'] = optimizer_state_entry
+
+        # add here other object states (ie model state, ...)
+        
+        # save node state
+        self._state_id = self._node_state_manager.add(self.job_id, state)
+        logger.debug("Node state saved into DataBase")
+        return state, self._state_id
+    
     def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 

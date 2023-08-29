@@ -27,7 +27,8 @@ class NodeStateManager:
         state = self._load_state(job_id, state_id)
         
         if state is None:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: no entries matching job_id and state_id found in the DataBase")
+            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: no entries matching job_id and state_id found"
+                                            " in the DataBase")
         # from this point, state should be a dictionary
         self._check_version(state.get("version_node_id"))
         return state
@@ -57,11 +58,12 @@ class NodeStateManager:
             raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
         return res
     
-    def _save_state(self, state_id, state_entry: Dict) -> True:
+    def _save_state(self, state_id: str, state_entry: Dict) -> True:
         try:
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: failing to save node state into DataBase") from e
+            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: failing to"
+                                            " save node state into DataBase") from e
         return True
     
     def _generate_new_state_id(self) -> str:
