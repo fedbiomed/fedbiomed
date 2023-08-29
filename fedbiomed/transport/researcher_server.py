@@ -149,7 +149,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         logger.info(f"Node agent created {node_agent.id}" )
         logger.info(f"Waiting for tasks" )
         task = await node_agent.get()
-        await asyncio.sleep(10)
         task = Serializer.dumps(task.get_dict())
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         
@@ -164,7 +163,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
-            
+        
+        logger.info("Reply received!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -173,9 +173,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Deserialize message
                 message = Serializer.loads(reply)
-                self.on_message(message, MessageType.REPLY)
-                # Reset reply
-                reply = bytes()
+                logger.info(message)
+                # try:
+                #     self._on_message(message, MessageType.REPLY)
+                # except:
+                #     print("Error parsing message")
+                #     pass
+                # # Reset reply
+                # reply = bytes()
 
         return Empty()
 
