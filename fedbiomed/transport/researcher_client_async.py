@@ -272,13 +272,7 @@ class ResearcherClient:
 
         while True:
             try:
-                #while not SHUTDOWN_EVENT.is_set():
                 while True: 
-                    #try:
-                    #    msg = self._send_queue.get_nowait()
-                    #except asyncio.queues.QueueEmpty:
-                    #    await asyncio.sleep(0.5)
-                    #    continue
                     msg = await self._send_queue.get()
 
                     # If it is aUnary-Unary RPC call
@@ -290,10 +284,6 @@ class ResearcherClient:
                         await msg["stub"](stream_reply(msg["message"]))
                     self._send_queue.task_done()
 
-            # not needed
-            #except ClientStop:
-            #    if debug:
-            #        print("send_queue_listener: cancel by user")
             except grpc.aio.AioRpcError as exp:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("send_queue_listener: Stream TIMEOUT Error")
@@ -447,20 +437,14 @@ class ResearcherClient:
         match type(message).__name__:
             case FeedbackMessage.__name__, issubclass(message.__class__, ProtoSerializableMessage):
                 # Note: FeedbackMessage is designed as proto serializable message.
-                result = self._run_thread_safe(self._send_from_thread(
-                    rpc= self._feedback_stub.Feedback, 
-                    message = message.to_proto())
-                )
-        
+                self._thread_loop.call_soon_threadsafe(self._send_queue.put_nowait, self._create_send_task(self._stub.Feedback, message.to_proto()))        
             case _:
                 # TODO: All other type of messages are not strictly typed
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                result = self._run_thread_safe(self._send_from_thread(
-                    rpc=self._stub.ReplyTask, 
-                    message = message)
-                )
+                self._thread_loop.call_soon_threadsafe(self._send_queue.put_nowait, self._create_send_task(self._stub.ReplyTask, message))
+
 
     def start(self):
         """Starts researcher gRPC client"""
