@@ -24,6 +24,7 @@ import torch
 from torchvision import datasets
 from torchvision import transforms
 
+from fedbiomed.common.db import DBTable
 from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
@@ -46,8 +47,8 @@ class DatasetManager:
 
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
-        self._dataset_table = self._db.table(name='Datasets', cache_size=0)
-        self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
+        self._dataset_table = DBTable(self._db.storage, name='Datasets', cache_size=0)
+        self._dlp_table = DBTable(self._db.storage, name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> Union[dict, None]:
         """Searches for a dataset with given dataset_id.
@@ -59,11 +60,8 @@ class DatasetManager:
             A `dict` containing the dataset's description if a dataset with this `dataset_id`
             exists in the database. `None` if no such dataset exists in the database. 
         """
-        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
-        if result is None:
-            result = []
+        return self._dataset_table.get(self._database.dataset_id == dataset_id)
 
-        return dict(result)
 
     def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
         """Return all existing DataLoadingPlans.
@@ -82,14 +80,13 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError("target_dataset_type should be of the values defined in "
                                                    "fedbiomed.common.constants.DatasetTypes")
 
-            dlps = self._dlp_table.search(
+            return self._dlp_table.search(
                 (self._database.dlp_id.exists()) &
                 (self._database.dlp_name.exists()) &
                 (self._database.target_dataset_type == target_dataset_type))
         else:
-            dlps = self._dlp_table.search(
+            return self._dlp_table.search(
                 (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
-        return [dict(dlp) for dlp in dlps]
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.
@@ -106,14 +103,16 @@ class DatasetManager:
             A Tuple containing a dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
+
+        # TODO: This exception should be removed once non-existing DLP situation is 
+        # handled by higher layers in Round or Node classes
         if dlp_metadata is None:
-            dlp_metadata = {}
-            dlbs_metadata = [{}]
-        else:
-            dlp_metadata = dict(dlp_metadata)
-            dlbs_metadata = [dict(dlb) for dlb in
-                             self._dlp_table.search(self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))]
-        return tuple((dlp_metadata, dlbs_metadata))
+            raise FedbiomedDatasetManagerError(
+                f"{ErrorNumbers.FB315.value}: Non-existing DLP for the dataset."
+            )
+
+        return dlp_metadata, self._dlp_table.search(
+            self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def get_data_loading_blocks_by_ids(self, dlb_ids: Union[str, List[str]]) -> List[dict]:
         """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
@@ -129,7 +128,7 @@ class DatasetManager:
         Returns:
             A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return [dict(dlb) for dlb in self._dlp_table.search(self._database.dlb_id.one_of(dlb_ids))]
+        return self._dlp_table.search(self._database.dlb_id.one_of(dlb_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -140,7 +139,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        return [dict(ds) for ds in self._dataset_table.search(self._database.tags.all(tags))]
+        return self._dataset_table.search(self._database.tags.all(tags))
 
     def search_conflicting_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for registered data that have conflicting tags with the given tags
@@ -155,7 +154,7 @@ class DatasetManager:
             return all(t in val for t in tags) or all(t in tags for t in val)
 
 
-        return [dict(ds) for ds in self._dataset_table.search(self._database.tags.test(_conflicting_tags))]
+        return self._dataset_table.search(self._database.tags.test(_conflicting_tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -585,7 +584,7 @@ class DatasetManager:
         if verbose:
             print(tabulate(my_data, headers='keys'))
 
-        return [dict(ds) for ds in my_data]
+        return my_data
 
     def load_as_dataloader(self, dataset: dict) -> torch.utils.data.Dataset:
         """Loads content of an image dataset.

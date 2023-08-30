@@ -127,7 +127,7 @@ class TestDatasetManager(NodeTestCase):
         """
         # action (should return an empty array)
         res = self.dataset_manager.get_by_id('dataset_id_1234')
-        self.assertEqual(res, {})
+        self.assertEqual(res, None)
 
 
     @patch('tinydb.table.Table.get')
@@ -984,8 +984,9 @@ class TestDatasetManager(NodeTestCase):
         Test `get_dlp_by_id` method with a non existing dlp_id
         """
         # action (should return an empty array)
-        res = self.dataset_manager.get_dlp_by_id('dlp_id_1234')
-        self.assertEqual(res, tuple(({},[{}])))
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            res = self.dataset_manager.get_dlp_by_id('dlp_id_1234')
+        
 
 
 
