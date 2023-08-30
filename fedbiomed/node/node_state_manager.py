@@ -1,11 +1,13 @@
+import os
 from typing import Dict, Optional, Union
 import uuid
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
-from fedbiomed.common.constants import ErrorNumbers, NODE_STATE_PREFIX, __node_state_version__
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX, __node_state_version__, NodeStateFileName
 from fedbiomed.common.exceptions import FedbiomedNodeStateManager
+from fedbiomed.node import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"
 
@@ -66,6 +68,14 @@ class NodeStateManager:
                                             " save node state into DataBase") from e
         return True
     
+    @staticmethod
+    def generate_and_create_file_name(job_id: str, node_state: str, round: int, element: str) -> str:
+        base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"], "job_id_%s" % job_id)
+        os.makedirs(base_dir, exist_ok=True)
+        # TODO catch exception here
+        file_name = NodeStateFileName(element) % (round, node_state)
+        return os.path.join(base_dir, file_name)
+
     def _generate_new_state_id(self) -> str:
         state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
         # TODO: would be better to check if state_id doesnot belong to the database

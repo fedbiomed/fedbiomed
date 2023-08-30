@@ -33,6 +33,9 @@ NODE_PREFIX = 'node_'
 NODE_STATE_PREFIX = 'node_state_'
 """Prefix for Node state"""
 
+JOB_ID_PREFIX = 'job_id_'
+"""Prefix for job id"""
+
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
 __version__ = FBM_Component_Version('4.4.1')  # Fed-BioMed software version
@@ -197,6 +200,16 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
+
+
+class NodeStateFileName(_BaseEnum):
+    """
+    File names should contains 2 %s: one for round number, the second for state_id
+
+    Args:
+        _BaseEnum (_type_): _description_
+    """
+    OPTIMIZER: str = "optim_state_%s_%s"
 
 
 class VEParameters:
