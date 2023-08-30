@@ -24,6 +24,7 @@ import torch
 from torchvision import datasets
 from torchvision import transforms
 
+from fedbiomed.common.db import DBTable
 from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
@@ -46,8 +47,8 @@ class DatasetManager:
 
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
-        self._dataset_table = self._db.table(name='Datasets', cache_size=0)
-        self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
+        self._dataset_table = DBTable(self._db.storage, name='Datasets', cache_size=0)
+        self._dlp_table = DBTable(self._db.storage, name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> Union[dict, None]:
         """Searches for a dataset with given dataset_id.
@@ -59,9 +60,8 @@ class DatasetManager:
             A `dict` containing the dataset's description if a dataset with this `dataset_id`
             exists in the database. `None` if no such dataset exists in the database. 
         """
-        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
+        return self._dataset_table.get(self._database.dataset_id == dataset_id)
 
-        return result
 
     def list_dlp(self, target_dataset_type: Optional[str] = None) -> List[dict]:
         """Return all existing DataLoadingPlans.
@@ -80,14 +80,13 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError("target_dataset_type should be of the values defined in "
                                                    "fedbiomed.common.constants.DatasetTypes")
 
-            dlps = self._dlp_table.search(
+            return self._dlp_table.search(
                 (self._database.dlp_id.exists()) &
                 (self._database.dlp_name.exists()) &
                 (self._database.target_dataset_type == target_dataset_type))
         else:
-            dlps = self._dlp_table.search(
+            return self._dlp_table.search(
                 (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
-        return [dict(dlp) for dlp in dlps]
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.
@@ -104,10 +103,18 @@ class DatasetManager:
             A Tuple containing a dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
+
+        # TODO: This exception should be removed once non-existing DLP situation is 
+        # handled by higher layers in Round or Node classes
+        if dlp_metadata is None:
+            raise FedbiomedDatasetManagerError(
+                f"{ErrorNumbers.FB315.value}: Non-existing DLP for the dataset."
+            )
+
         return dlp_metadata, self._dlp_table.search(
             self._database.dlb_id.one_of(dlp_metadata['loading_blocks'].values()))
 
-    def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
+    def get_data_loading_blocks_by_ids(self, dlb_ids: Union[str, List[str]]) -> List[dict]:
         """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
 
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
@@ -597,62 +604,9 @@ class DatasetManager:
             return self.load_images_dataset(folder_path=dataset['path'],
                                             as_dataset=True)
 
-    # TODO: `load_data` seems unused, prune in next refactor ?
-    def load_data(self, tags: Union[tuple, list], mode: str) -> Any:
-        """Loads content of a dataset.
-
-        Args:
-            tags: Tags describing the dataset to load.
-            mode: Return format for the dataset content.
-
-        Raises:
-            NotImplementedError: `mode` is not implemented yet.
-
-        Returns:
-            Content of the dataset. Its type depends on the `mode` and dataset.
-        """
-
-        # Verify is mode is available
-        mode = mode.lower()
-        modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
-        if mode not in modes:
-            raise NotImplementedError(f'Data mode `{mode}` was not found.'
-                                      f' Data modes available: {modes}')
-
-        # Look for dataset in database
-        dataset = self.search_by_tags(tags)[0]
-        print(dataset)
-        assert len(dataset) > 0, f'Dataset with tags {tags} was not found.'
-
-        dataset_path = dataset['path']
-        # If path is a file, you will aim to read it with
-        if os.path.isfile(dataset_path):
-            df = self.read_csv(dataset_path, index_col=0)
-
-            # Load data as requested
-            if mode == 'pandas':
-                return df
-            elif mode == 'numpy':
-                return df._get_numeric_data().values
-            elif mode == 'torch_tensor':
-                return torch.from_numpy(df._get_numeric_data().values)
-
-        elif os.path.isdir(dataset_path):
-            if mode == 'torch_dataset':
-                return self.load_as_dataloader(dataset)
-            elif mode == 'torch_tensor':
-                raise NotImplementedError('We are working on this'
-                                          ' implementation!')
-            elif mode == 'numpy':
-                raise NotImplementedError('We are working on this'
-                                          'implementation!')
-            else:
-                raise NotImplementedError(f'Mode `{mode}` has not been'
-                                          ' implemented on this version.')
-
     def save_data_loading_plan(self,
                                data_loading_plan: Optional[DataLoadingPlan]
-                               ) -> dict:
+                               ) -> Union[str, None]:
         """Save a DataLoadingPlan to the database.
 
         This function saves a DataLoadingPlan to the database, and returns its ID.
