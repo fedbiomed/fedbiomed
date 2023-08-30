@@ -28,7 +28,7 @@ def cast_(func):
         if add_docs:
             return casted, document
         else: 
-            return document
+            return casted
 
     return wrapped
 
