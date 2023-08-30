@@ -14,7 +14,7 @@ from tabulate import tabulate
 from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
-
+from fedbiomed.common.db import DBTable
 
 class CertificateManager:
     """ Certificate manager to manage certificates of parties
@@ -34,7 +34,7 @@ class CertificateManager:
         self._query: Query = Query()
 
         if db_path is not None:
-            self._db: Table = TinyDB(db_path).table("Certificates")
+            self.set_db(db_path)
 
     def set_db(self, db_path: str) -> None:
         """Sets database
@@ -42,7 +42,9 @@ class CertificateManager:
         Args:
             db_path: The path of DB file where `Certificates` table are stored
         """
-        self._db = TinyDB(db_path).table("Certificates")
+        db = TinyDB(db_path)
+        db.table_class = DBTable
+        self._db: Table = db.table("Certificates")
 
     def insert(
             self,
@@ -109,7 +111,7 @@ class CertificateManager:
         """
 
         v = self._db.get(self._query.party_id == party_id)
-        return dict(v) if v else None
+        return v
 
     def delete(
             self,
@@ -135,7 +137,7 @@ class CertificateManager:
         Returns:
             List of certificate objects registered in DB
         """
-        certificates = [ dict(c) for c in self._db.all() ]
+        certificates = self._db.all()
 
         if verbose:
             to_print = copy.deepcopy(certificates)

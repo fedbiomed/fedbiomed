@@ -1404,7 +1404,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # test
         training_plan_before = self.tp_security_manager.get_training_plan_from_database(training_plan_file)
-
+    
         self.tp_security_manager.reply_training_plan_approval_request(msg, messaging)
 
         training_plan_after = self.tp_security_manager.get_training_plan_from_database(training_plan_file)
