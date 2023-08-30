@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 '''
-Interfaces with the node component database.
+Interfaces with a tinyDB database for converting search results to dict.
 '''
 
 from tinydb.table import Table, Document
@@ -23,8 +23,8 @@ def cast_(func):
             casted = dict(document)
         else:
             # Plain python type 
-            return document
-        
+            casted = document
+
         if add_docs:
             return casted, document
         else: 
@@ -38,14 +38,13 @@ class DBTable(Table):
 
     @cast_
     def search(self, *args, **kwargs):
-       return super().search(*args, **kwargs)
-    
+        return super().search(*args, **kwargs)
+
 
     @cast_
     def get(self, *args, **kwargs):
-       return super().get(*args, **kwargs)
-    
+        return super().get(*args, **kwargs)
+
     @cast_
     def all(self, *args, **kwargs):
-       return super().all(*args, **kwargs)
-
+        return super().all(*args, **kwargs)
