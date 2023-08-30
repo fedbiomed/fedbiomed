@@ -110,6 +110,7 @@ class Node:
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
+                databases = [dict(databases[0])]
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0

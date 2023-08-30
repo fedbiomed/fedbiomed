@@ -6,9 +6,7 @@ from fedbiomed.proto import researcher_pb2 as fedbiomed_dot_proto_dot_researcher
 
 
 class ResearcherServiceStub(object):
-    """import "google/protobuf/any.proto";
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -17,31 +15,29 @@ class ResearcherServiceStub(object):
             channel: A grpc.Channel.
         """
         self.GetTask = channel.stream_stream(
-                '/ResearcherService/GetTask',
+                '/researcher.ResearcherService/GetTask',
                 request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
                 )
         self.GetTaskUnary = channel.unary_stream(
-                '/ResearcherService/GetTaskUnary',
+                '/researcher.ResearcherService/GetTaskUnary',
                 request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
                 )
         self.ReplyTask = channel.stream_unary(
-                '/ResearcherService/ReplyTask',
+                '/researcher.ResearcherService/ReplyTask',
                 request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResult.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
                 )
         self.Feedback = channel.unary_unary(
-                '/ResearcherService/Feedback',
+                '/researcher.ResearcherService/Feedback',
                 request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
                 response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
                 )
 
 
 class ResearcherServiceServicer(object):
-    """import "google/protobuf/any.proto";
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def GetTask(self, request_iterator, context):
         """Gettask streaming API
@@ -96,15 +92,13 @@ def add_ResearcherServiceServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'ResearcherService', rpc_method_handlers)
+            'researcher.ResearcherService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
 class ResearcherService(object):
-    """import "google/protobuf/any.proto";
-
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
     def GetTask(request_iterator,
@@ -117,7 +111,7 @@ class ResearcherService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(request_iterator, target, '/ResearcherService/GetTask',
+        return grpc.experimental.stream_stream(request_iterator, target, '/researcher.ResearcherService/GetTask',
             fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
             fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
             options, channel_credentials,
@@ -134,7 +128,7 @@ class ResearcherService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/ResearcherService/GetTaskUnary',
+        return grpc.experimental.unary_stream(request, target, '/researcher.ResearcherService/GetTaskUnary',
             fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
             fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
             options, channel_credentials,
@@ -151,7 +145,7 @@ class ResearcherService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_unary(request_iterator, target, '/ResearcherService/ReplyTask',
+        return grpc.experimental.stream_unary(request_iterator, target, '/researcher.ResearcherService/ReplyTask',
             fedbiomed_dot_proto_dot_researcher__pb2.TaskResult.SerializeToString,
             fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
             options, channel_credentials,
@@ -168,7 +162,7 @@ class ResearcherService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/ResearcherService/Feedback',
+        return grpc.experimental.unary_unary(request, target, '/researcher.ResearcherService/Feedback',
             fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
             fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
             options, channel_credentials,

@@ -164,7 +164,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
         
-        logger.info("Reply received!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -174,13 +173,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 # Deserialize message
                 message = Serializer.loads(reply)
                 logger.info(message)
-                # try:
-                #     self._on_message(message, MessageType.REPLY)
-                # except:
-                #     print("Error parsing message")
-                #     pass
-                # # Reset reply
-                # reply = bytes()
+                
+                self._on_message(message, MessageType.REPLY)
+                reply = bytes()
 
         return Empty()
 

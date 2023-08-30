@@ -53,6 +53,27 @@ DEFAULT_ADDRESS = "localhost:50051"
 #STREAMING_MAX_KEEP_ALIVE_SECONDS = 60 
 
 
+# Method configuration for retry polic
+# NOTE: DIDN'T WORK
+import json
+# See: https://github.com/grpc/proposal/blob/master/A6-client-retries.md#retry-policy
+# and https://fuchsia.googlesource.com/third_party/grpc/+/HEAD/doc/service_config.md
+# The initial retry attempt will occur at random(0, initialBackoff). 
+# In general, the n-th attempt will occur at random(0, min(initialBackoff*backoffMultiplier**(n-1), maxBackoff)).
+service_config = json.dumps(
+    { "methodConfig": [{ 
+        "name": [{"service": "researcher.ResearcherService"}],
+        "retryPolicy": {
+                "maxAttempts": 4, # max is 5
+                "initialBackoff": '0.1s',
+                "maxBackoff": "30s",
+                "backoffMultiplier": 2,
+                "retryableStatusCodes": ["UNAVAILABLE"],
+            },
+        }]
+    }
+)
+
 
 def create_channel(
     address: str = DEFAULT_ADDRESS ,
@@ -71,7 +92,12 @@ def create_channel(
     channel_options = [
         ("grpc.max_send_message_length", 100 * 1024 * 1024),
         ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ("grpc.keepalive_time_ms", 1000 * 2)
+        ("grpc.keepalive_time_ms", 1000 * 2),
+        ("grpc.initial_reconnect_backoff_ms", 1000),
+        ("grpc.min_reconnect_backoff_ms", 500),
+        ("grpc.max_reconnect_backoff_ms", 2000),
+        # ("grpc.enable_retries", 1), # Not working
+        # ("grpc.service_config", service_config) # Not working
     ]
 
     if certificate is None: 
@@ -164,10 +190,8 @@ def stream_reply(message: Message):
 
     reply = Serializer.dumps(message.get_dict())
     chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-    print("About to get in for loop")
     for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
         stop = start + MAX_MESSAGE_BYTES_LENGTH 
-        print("Yield task result")
         yield TaskResult(
             size=len(chunk_range),
             iteration=iter_,
@@ -234,16 +258,13 @@ class ResearcherClient:
         task_get = None
         task_send = None
         try:
-            await asyncio.gather(
-               self.get_tasks(debug),
-               self.send_queue_listener(debug),
-            )
-            # task_get = asyncio.create_task(self.get_tasks(debug=debug))
-            # task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
 
-            # while not task_get.done() or not task_send.done():
-            #     if debug: print('connection: looping for tasks')
-            #     await asyncio.wait([task_get, task_send], timeout=1)
+            task_get = asyncio.create_task(self.get_tasks(debug=debug))
+            task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
+
+            while not task_get.done() or not task_send.done():
+                if debug: print('connection: looping for tasks')
+                await asyncio.wait([task_get, task_send], timeout=1)
             
             # never reach this one normally ?
             if debug: print('connection: tasks completed')
@@ -271,6 +292,7 @@ class ResearcherClient:
 
 
         while True:
+
             try:
                 while True: 
                     msg = await self._send_queue.get()
@@ -280,18 +302,25 @@ class ResearcherClient:
                         await msg["stub"](msg["message"])
 
                     elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                        print("rpc_call")
-                        await msg["stub"](stream_reply(msg["message"]))
+                        
+                        stream_call = msg["stub"]()
+
+                        for reply in stream_reply(msg["message"]):
+                            await stream_call.write(reply)
+
+                        await stream_call.done_writing()
+
                     self._send_queue.task_done()
 
             except grpc.aio.AioRpcError as exp:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("send_queue_listener: Stream TIMEOUT Error")
                     print(exp)
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
                     print(f"send_queue_listener: {self._task_channel.get_state()}")
+
                     logger.debug("send_queue_listener: Researcher server is not available, will retry connect in 2 seconds")
                     await asyncio.sleep(2)
                 else:
@@ -299,9 +328,13 @@ class ResearcherClient:
                         print(f'send_queue_listener: unknown exception {exp.__class__.__name__} {exp}')
                     raise Exception("send_queue_listener: Request streaming stopped ") from exp
             except Exception as e:
+                print(e)
                 if debug:
                     print(f"send_queue_listener: unexpected exception {type(e)} {e}")
             finally:
+                # Cancel the call
+                # stream_call.cancel()
+                # self._send_queue.task_done()
                 if debug:
                     print("send_queue_listener: finally")
 
@@ -310,7 +343,11 @@ class ResearcherClient:
         """Long-lived polling to request tasks from researcher."""
 
         #while not SHUTDOWN_EVENT.is_set():
+
+
+
         while True:
+
             logger.info("Sending new task request")
             try:
                 # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_message)
@@ -319,9 +356,13 @@ class ResearcherClient:
                     logger.info("Sending new task request")
                     print(f"get_tasks: {self._task_channel.get_state()}")
                     self.__request_task_iterator = self._stub.GetTaskUnary(
-                        TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60,
+                        TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60
                     )
+                    # def done(item):
+                    #     print(item)
+                    #     self.__request_task_iterator.cancel()
 
+                    # self.__request_task_iterator.add_done_callback(done)
                     # Prepare reply
                     reply = bytes()
                     async for answer in self.__request_task_iterator:
@@ -338,11 +379,11 @@ class ResearcherClient:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug("get_tasks: Stream TIMEOUT Error")
                     print(exp)
-                    await asyncio.sleep(2)
             
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
                     print(f"get_tasks: {self._task_channel.get_state()}")
                     logger.debug("get_tasks: Researcher server is not available, will retry connect in 2 seconds")
+                    
                     await asyncio.sleep(2)
                 else:
                     if debug: print(f'get_tasks: unknown exception {exp.__class__.__name__} {exp}')
