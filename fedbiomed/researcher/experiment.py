@@ -1585,6 +1585,8 @@ class Experiment:
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
+        # update NodeStateAgent in case fds has changed form one round to another
+        self._job.update_nodes_states_agent() 
         # Trigger training round on sampled nodes
         self._job.start_nodes_training_round(
             round_=self._round_current,
@@ -1601,6 +1603,8 @@ class Experiment:
 
         self._aggregator.set_fds(self._fds)
 
+        # update NodeStateAgent with the Responses got from Nodes
+        self._job.update_nodes_states_agent() 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(
                 round_=self._round_current,

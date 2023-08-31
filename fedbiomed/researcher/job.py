@@ -28,6 +28,7 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 
@@ -97,6 +98,7 @@ class Job:
 
         self.last_msg = None
         self._data = data
+        self._node_state_agent = NodeStateAgent(self._data)
 
         # Check dataset quality
         if self._data is not None:
@@ -407,10 +409,13 @@ class Job:
             aux_url_shared = None
             aux_url_bynode = {}
 
+        nodes_state_ids = self._node_state_agent.get_last_node_states()
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
             cli_aux_urls = (aux_url_shared, aux_url_bynode.get(cli, None))
             msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
+
+            msg['state_id'] = nodes_state_ids.get(cli)
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
@@ -502,6 +507,7 @@ class Job:
                     'msg': m['msg'],
                     'dataset_id': m['dataset_id'],
                     'node_id': m['node_id'],
+                    'state_id': m['state_id'],
                     'params_path': params_path,
                     'params': params,
                     'optimizer_args': optimizer_args,
@@ -704,6 +710,15 @@ class Job:
             exc = sys.exc_info()
             logger.error("'Job.update_parameters' failed with error: %s", exc)
             sys.exit(-1)
+
+    def update_nodes_states_agent(self, before_training: bool = True):
+        if before_training:
+            self._node_state_agent.update_node_states(self._data)
+        else:
+            # extract last node state
+            last_tr_entry = list(self.training_replies.keys())[-1]
+            # FIXME: for some aggregators, we may want to retrieve even more previous Node replies
+            self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.

@@ -9,7 +9,7 @@ _R = TypeVar('Responses')
 
 
 class Responses:
-    """Class parsing Nodes' responses Reconfigures input data into either a dictionary in a list (List[dict]), or
+    """Class parsing Nodes' responses. Reconfigures input data into either a dictionary in a list (List[dict]), or
     a list with unique values.
     """
 
@@ -148,6 +148,10 @@ class Responses:
         if isinstance(response, self.__class__):
             self._map_node.update(response._map_node)
 
+    def get_node_ids(self) -> List[str]:
+        node_ids = self._map_node.keys()
+        return list(node_ids)
+    
     def get_index_from_node_id(self, node_id: str) -> Union[int, None]:
         """
         Helper that allows to retrieve the index of a given node_id,
