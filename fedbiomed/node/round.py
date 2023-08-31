@@ -28,7 +28,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.node_state_manager import NodeStateManager
+from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
@@ -89,7 +89,6 @@ class Round:
         self.training_plan_class = training_plan_class
         self.params_url = params_url
         self.job_id = job_id
-        self.state_id: str = None
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
@@ -121,6 +120,9 @@ class Round:
         self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
+
+    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
+        self._node_state_manager.initialize(previous_state_id=previous_state_id)
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
         """Retrieves aggregator arguments, that are sent through file exchange service
@@ -269,6 +271,7 @@ class Round:
 
     def run_model_training(
             self,
+            state_id: Optional[str] = None,
             secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
@@ -364,6 +367,10 @@ class Round:
             error_message = f"Can't initialize training plan with the arguments: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+        # load node state
+        if state_id is not None:
+            self.load_round_state(state_id)
+
         # import model params into the training plan instance
         try:
             params = Serializer.load(params_path)["model_weights"]
@@ -376,7 +383,7 @@ class Round:
         error_message = self.process_optim_aux_var()
         if error_message:
             return self._send_round_reply(success=False, message=error_message)
-        #self.training_plan.optimizer().load_state()
+
         # Split training and validation data
         try:
             self._set_training_testing_data_loaders()
@@ -477,7 +484,7 @@ class Round:
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['state_id'] = self.state_id
+            results['state_id'] = self._node_state_manager.state_id
             results['model_weights'] = model_weights
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -490,6 +497,7 @@ class Round:
                 # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
+                self.save_round_state()
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
@@ -546,7 +554,6 @@ class Round:
                                                      'sample_size': sample_size,
                                                      'timing': timing}).get_dict()
 
-    
     def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
 
@@ -593,7 +600,7 @@ class Round:
         
         # add below other components that need to be reloaded from node state database
     
-    def save_round_state(self) -> Tuple[Dict, str]:
+    def save_round_state(self) -> Dict:
         state: Dict = {}
         
         # optimizer state
@@ -601,8 +608,13 @@ class Round:
         
         optimizer_state = optimizer.save_state()
         if optimizer_state is not None:
-            # TODO: rewrite path
-            optimizer_state = Serializer.dump(optimizer_state, path='./node_state')
+            # this condition was made so we dont save 
+            optim_path = self._node_state_manager.generate_folder_and_create_file_name(
+                self.job_id,
+                self._round, 
+                NodeStateFileName.OPTIMIZER  
+            )
+            optimizer_state = Serializer.dump(optimizer_state, path=optim_path)
         
         optimizer_state_entry: Dict = {
             'optimizer_type': str(type(optimizer)),
@@ -613,10 +625,10 @@ class Round:
 
         # add here other object states (ie model state, ...)
         
-        # save node state
-        self._state_id = self._node_state_manager.add(self.job_id, state)
+        # save completed node state
+        self._node_state_manager.add(self.job_id, state)
         logger.debug("Node state saved into DataBase")
-        return state, self._state_id
+        return state
     
     def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.

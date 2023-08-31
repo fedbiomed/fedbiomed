@@ -5,12 +5,22 @@ from tinydb import TinyDB, Query
 from tinydb.table import Table
 
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
-from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX, __node_state_version__, NodeStateFileName
+from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX,
+                                        __node_state_version__)
 from fedbiomed.common.exceptions import FedbiomedNodeStateManager
 from fedbiomed.node import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"
 
+
+class NodeStateFileName(_BaseEnum):
+    """
+    File names should contains 2 %s: one for round number, the second for state_id
+
+    Args:
+        _BaseEnum (_type_): _description_
+    """
+    OPTIMIZER: str = "optim_state_%s_%s"
 
 
 class NodeStateManager:
@@ -19,7 +29,9 @@ class NodeStateManager:
         
             
         self._query: Query = Query()
-        
+        self._node_state_base_dir: str = None  # node state base directory, where all node state related files are saved
+        self.state_id: str = None
+        self.previous_state_id: Optional[str] = None
         try:
             self._db: Table = TinyDB(db_path).table(name=NODE_STATE_TABLE_NAME, cache_size=0) 
         except Exception as e:
@@ -68,18 +80,38 @@ class NodeStateManager:
                                             " save node state into DataBase") from e
         return True
     
-    @staticmethod
-    def generate_and_create_file_name(job_id: str, node_state: str, round: int, element: str) -> str:
-        base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"], "job_id_%s" % job_id)
-        os.makedirs(base_dir, exist_ok=True)
+    def initialize(self, previous_state_id: Optional[str] = None) -> True:
+        self.previous_state_id = previous_state_id
+        self._generate_new_state_id()
+        self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
+        # Should we ALWAYS create a folder when saving a state, even if the folder is empty?
+        try:
+            os.makedirs(self._node_state_base_dir, exist_ok=True)
+        except Exception as e:
+            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to create"
+                                            f" directories {self._node_state_base_dir}") from e
+        return True
+
+    def get_node_state_base_dir(self) -> str:
+        return self._node_state_base_dir
+
+    def generate_folder_and_create_file_name(self, 
+                                             job_id: str,
+                                             round_nb: int,
+                                             element: NodeStateFileName) -> str:
+        base_dir = os.path.join(self.get_node_state_base_dir(), "job_id_%s" % job_id)
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+        except Exception as e:
+            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}") from e
         # TODO catch exception here
-        file_name = NodeStateFileName(element) % (round, node_state)
+        file_name = element.value % (round_nb, self._state_id)
         return os.path.join(base_dir, file_name)
 
     def _generate_new_state_id(self) -> str:
-        state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
+        self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
         # TODO: would be better to check if state_id doesnot belong to the database
-        return state_id
+        return self.state_id
     
     def _check_first_entry_version(self):
         # assuming that this method has been run on each added entry in the database

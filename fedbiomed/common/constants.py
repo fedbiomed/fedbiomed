@@ -202,16 +202,6 @@ class SecaggElementTypes(_BaseEnum):
     BIPRIME: int = 1
 
 
-class NodeStateFileName(_BaseEnum):
-    """
-    File names should contains 2 %s: one for round number, the second for state_id
-
-    Args:
-        _BaseEnum (_type_): _description_
-    """
-    OPTIMIZER: str = "optim_state_%s_%s"
-
-
 class VEParameters:
     CLIPPING_RANGE: int = 3
     TARGET_RANGE: int = 10000
