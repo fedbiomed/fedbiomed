@@ -305,6 +305,8 @@ class Node:
                 aux_var_urls=aux_var_urls,
             )
             # FIXME: should round stops just because it cannot initialize NodeStateManager ?
+            # from remote_pdb import RemotePdb
+            # RemotePdb('127.0.0.1', 4444).set_trace()
             round.initialize_node_state_manager(state_id)  # initialize node state manager
 
         return round

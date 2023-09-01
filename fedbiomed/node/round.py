@@ -545,6 +545,7 @@ class Round:
 
         return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
                                                      'job_id': self.job_id,
+                                                     'state_id': self._node_state_manager.state_id,
                                                      'researcher_id': self.researcher_id,
                                                      'command': 'train',
                                                      'success': success,

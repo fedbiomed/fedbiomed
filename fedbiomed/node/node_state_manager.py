@@ -8,7 +8,7 @@ from fedbiomed.common.utils import raise_for_version_compatibility, __default_ve
 from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX,
                                         __node_state_version__)
 from fedbiomed.common.exceptions import FedbiomedNodeStateManager
-from fedbiomed.node import environ
+from fedbiomed.node.environ import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"
 
@@ -105,11 +105,11 @@ class NodeStateManager:
         except Exception as e:
             raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}") from e
         # TODO catch exception here
-        file_name = element.value % (round_nb, self._state_id)
+        file_name = element.value % (round_nb, self.state_id)
         return os.path.join(base_dir, file_name)
 
     def _generate_new_state_id(self) -> str:
-        self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
+        self.state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
         # TODO: would be better to check if state_id doesnot belong to the database
         return self.state_id
     
