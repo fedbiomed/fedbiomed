@@ -58,6 +58,8 @@ class NodeAgent:
             callback: Callback to execute once the task reply is arrived
         """
 
+
+        print("Sending request!")
         # TODO: The messaged that are going to send to node 
         # should be declared as Task to have task id automatically 
         # created. However, this implementation should change once

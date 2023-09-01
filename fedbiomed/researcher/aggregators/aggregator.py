@@ -123,7 +123,7 @@ class Aggregator:
                     Both dictionaries are mapping node_id to 'Aggregator` parameters specific
                     to each Node.
         """
-        return self._aggregator_args or {}, {}
+        return self._aggregator_args or {}
 
     # def scaling(self, model_param: dict, *args, **kwargs) -> dict:
     #     """Should be overwritten by child if a scaling operation is involved in aggregator"""

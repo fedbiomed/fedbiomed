@@ -137,15 +137,16 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             context: RPC peer context
         """
 
-        task_request = TaskRequest.from_proto(request)
-
+        task_request = TaskRequest.from_proto(request).get_dict()
+        print(task_request)
+        print(type(task_request))
         logger.info(f"Received request form {task_request.get('node')}")
         
 
         node_agent = await self.agent_store.get_or_register(node_id=task_request["node"],
                                       node_ip=context.peer())
         
-        
+
         logger.info(f"Node agent created {node_agent.id}" )
         logger.info(f"Waiting for tasks" )
         task = await node_agent.get()
@@ -164,6 +165,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
         
+        print("Received reply!!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -173,7 +175,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 # Deserialize message
                 message = Serializer.loads(reply)
                 logger.info(message)
-                
+                print("Executing on message")
                 self._on_message(message, MessageType.REPLY)
                 reply = bytes()
 
@@ -183,8 +185,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def Feedback(self, request, unused_context):
         
         one_of = request.WhichOneof("feedback_type")
+        print(request)
         feedback = FeedbackMessage.from_proto(request)
-        self._on_message(feedback, MessageType.convert(one_of))
+        self._on_message(feedback.get_param(one_of), MessageType.convert(one_of))
         
         return Empty()
 
@@ -222,8 +225,6 @@ class ResearcherServer:
             )
         
         self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))
-    
-        logger.info("Starting researcher service...")    
         await self._server.start()
 
         try:
@@ -261,6 +262,12 @@ class ResearcherServer:
 
         self._t = threading.Thread(target=run)
         self._t.start()
+
+        # Sleep 2 seconds before releasing READY event
+        # FIXME: This implementation assumes that nodes will be able connect in 3 seconds
+        logger.info("Starting researcher service...")   
+        time.sleep(3)
+
 
 
     async def _stop(self):

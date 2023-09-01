@@ -26,6 +26,10 @@ service ResearcherService {
 message Empty {}
 
 
+message ProtocolVersion {
+    string protocol_version = 101; 
+}
+
 // Log message from node to researcher
 message FeedbackMessage {
     
@@ -47,7 +51,6 @@ message FeedbackMessage {
         int32 num_batches = 12;
         optional int32 num_samples_trained = 13; // optional -> None
         int32 iteration = 14;
-        string protocol_version = 15;
     }
 
     // Log messages

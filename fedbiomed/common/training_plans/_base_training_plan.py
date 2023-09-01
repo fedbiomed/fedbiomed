@@ -181,16 +181,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             )
         self.add_dependency(dependencies)
 
-    def save_code(self, filepath: str) -> None:
-        """Saves the class source/codes of the training plan class that is created byuser.
+    def get_as_module_source(self) -> str:
 
-        Args:
-            filepath: path to the destination file
-
-        Raises:
-            FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
-            FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
-        """
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as exc:
@@ -202,6 +194,21 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         content = "\n".join(self._dependencies)
         content += "\n"
         content += class_source
+
+        return content
+
+    def save_code(self, filepath: str) -> None:
+        """Saves the class source/codes of the training plan class that is created byuser.
+
+        Args:
+            filepath: path to the destination file
+
+        Raises:
+            FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
+            FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
+        """
+        content = self.get_as_module_source()
+        
         try:
             # should we write it in binary (for the sake of space optimization)?
             with open(filepath, "w", encoding="utf-8") as file:

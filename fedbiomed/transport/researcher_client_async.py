@@ -55,24 +55,10 @@ DEFAULT_ADDRESS = "localhost:50051"
 
 # Method configuration for retry polic
 # NOTE: DIDN'T WORK
-import json
 # See: https://github.com/grpc/proposal/blob/master/A6-client-retries.md#retry-policy
 # and https://fuchsia.googlesource.com/third_party/grpc/+/HEAD/doc/service_config.md
 # The initial retry attempt will occur at random(0, initialBackoff). 
 # In general, the n-th attempt will occur at random(0, min(initialBackoff*backoffMultiplier**(n-1), maxBackoff)).
-service_config = json.dumps(
-    { "methodConfig": [{ 
-        "name": [{"service": "researcher.ResearcherService"}],
-        "retryPolicy": {
-                "maxAttempts": 4, # max is 5
-                "initialBackoff": '0.1s',
-                "maxBackoff": "30s",
-                "backoffMultiplier": 2,
-                "retryableStatusCodes": ["UNAVAILABLE"],
-            },
-        }]
-    }
-)
 
 
 def create_channel(
@@ -229,6 +215,10 @@ class ResearcherClient:
 
         self._debug = debug
 
+        logger.addGrpcHandler(on_log=self.send,
+                              node_id=self._node_id)
+        
+
     def _default_callback(self, x):
         print(f'Default callback: {type(x)} {x}')
 
@@ -298,11 +288,13 @@ class ResearcherClient:
                     msg = await self._send_queue.get()
 
                     # If it is aUnary-Unary RPC call
+                    print(type(msg["stub"]))
                     if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
+                        logger.debug("In feedback!")
                         await msg["stub"](msg["message"])
 
                     elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                        
+                        logger.debug("Here in StreamUnaryMulltipllable")
                         stream_call = msg["stub"]()
 
                         for reply in stream_reply(msg["message"]):
@@ -342,10 +334,6 @@ class ResearcherClient:
     async def get_tasks(self, debug: bool = False):
         """Long-lived polling to request tasks from researcher."""
 
-        #while not SHUTDOWN_EVENT.is_set():
-
-
-
         while True:
 
             logger.info("Sending new task request")
@@ -354,15 +342,9 @@ class ResearcherClient:
                 # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
                 while True:
                     logger.info("Sending new task request")
-                    print(f"get_tasks: {self._task_channel.get_state()}")
                     self.__request_task_iterator = self._stub.GetTaskUnary(
                         TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60
                     )
-                    # def done(item):
-                    #     print(item)
-                    #     self.__request_task_iterator.cancel()
-
-                    # self.__request_task_iterator.add_done_callback(done)
                     # Prepare reply
                     reply = bytes()
                     async for answer in self.__request_task_iterator:
@@ -472,19 +454,23 @@ class ResearcherClient:
         # should be used only in spawn thread, not in master thread
         if not self._node_configured or not self._task_channel.get_state() == grpc.ChannelConnectivity.READY:
             raise Exception("send: the connection is not ready")
-
-
+        
         # Switch-case for message type and gRPC calls
-        match type(message).__name__:
-            case FeedbackMessage.__name__, issubclass(message.__class__, ProtoSerializableMessage):
+        match message.__class__.__name__:
+            case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                self._thread_loop.call_soon_threadsafe(self._send_queue.put_nowait, self._create_send_task(self._stub.Feedback, message.to_proto()))        
+                self._thread_loop.call_soon_threadsafe(
+                    self._send_queue.put_nowait, 
+                    self._create_send_task(self._stub.Feedback, message.to_proto()))        
             case _:
                 # TODO: All other type of messages are not strictly typed
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                self._thread_loop.call_soon_threadsafe(self._send_queue.put_nowait, self._create_send_task(self._stub.ReplyTask, message))
+                print("Sending reply")
+                self._thread_loop.call_soon_threadsafe(
+                    self._send_queue.put_nowait, 
+                    self._create_send_task(self._stub.ReplyTask, message))
 
 
     def start(self):

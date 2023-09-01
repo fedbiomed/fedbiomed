@@ -112,6 +112,7 @@ class ResearcherClient:
             self,
             on_message = None,
             certificate: str = None,
+            node_id = None
         ):
 
 
@@ -129,6 +130,9 @@ class ResearcherClient:
 
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
+
+        logger.addGrpcHandler(on_log=self._send,
+                              node_id=self._messaging_id)
 
     def connection(self):
         """Create long-lived connection with researcher server"""
@@ -216,6 +220,7 @@ class ResearcherClient:
         # Switch-case for message type and gRPC calls
         match type(message).__name__:
             case FeedbackMessage.__name__:
+                print("Here")
                 self._handle_send(self._feedback_stub.Feedback, message.to_proto())
                 
             case _ :

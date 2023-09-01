@@ -238,6 +238,7 @@ class Requests(metaclass=SingletonMeta):
             sleep(timeout)
             new_responses = []
             for resp in self.get_messages(commands=look_for_commands, time=0):
+
                 try:
                     if not only_successful:
                         new_responses.append(resp)

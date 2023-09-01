@@ -14,6 +14,8 @@ from typing import Any, Callable, Dict, Optional, get_origin, get_args
 
 
 from google.protobuf.message import Message as ProtobufMessage
+from google.protobuf.descriptor import FieldDescriptor
+from google._upb._message import RepeatedScalarContainer, ScalarMapContainer
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -146,52 +148,59 @@ class Message(object):
         proto: ProtobufMessage
     ) -> Dict[str, Any]:
         """Converts given protobuf to python Dict"""
-        dict_ = {}
-        one_of_field_names = []
-        for one_of in proto.DESCRIPTOR.oneofs_by_name.keys():
 
-            one_of_ = proto.WhichOneof(one_of)
+        dict_ = {} 
+        one_ofs = proto.DESCRIPTOR.oneofs_by_name
+        for field in proto.DESCRIPTOR.fields:
             
-            one_of_field_names.append(one_of_)
+            one_of_field = False 
+            for one_of, one_of_descriptor in one_ofs.items():
+                if field.name == proto.WhichOneof(one_of):
+                    one_of_field = True
 
-            # Validate dataclass has the filed defined in proto message
-            if not one_of_ in cls.__dataclass_fields__:
-                raise FedbiomedMessageError(
-                    f"The field {one_of_} is not implemented in dataclass {cls.__name__}"
-                    )
 
-            field = cls.__dataclass_fields__[one_of_]
-            args = get_args(field.type)
+            # If the field is oneof and options are in message type
+            if one_of_field and field.type == FieldDescriptor.TYPE_MESSAGE:
 
-            # Make sure oneof message is typed as Optional
-            if not args: 
-                raise FedbiomedMessageError(
-                    f"Please make sure the field '{one_of_}' in dataclass '{cls.__name__}' "
-                    "is typed as Optional[<dataclass>]. The field that are typed as `oneof` " 
-                    "in proto file should be typed as Optional in python dataclass"
-                    )
-            
-            if not hasattr(args[0], "__PROTO_TYPE__"):
-                raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
-            
-            dict_.update(
-                    {**args[0].from_proto(getattr(proto, one_of_))}
-                 )
-            
-            
-        for key, field in cls.__dataclass_fields__.items():
-            
-            # Do not process 'oneof' fields
-            if key in one_of_field_names: continue
+                field_ = cls.__dataclass_fields__[field.name]
+                args = get_args(field_.type)
 
-            if hasattr(field.type, '__PROTO_TYPE__'):
+                # Make sure oneof message is typed as Optional
+                if not args: 
+                    raise FedbiomedMessageError(
+                        f"Please make sure the field '{field_.name}' in dataclass '{cls.__name__}' "
+                        "is typed as Optional[<dataclass>]. The field that are typed as `oneof` " 
+                        "in proto file should be typed as Optional in python dataclass"
+                        )
+                
+                if not hasattr(args[0], "__PROTO_TYPE__"):
+                    raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
+                
                 dict_.update(
-                    {**field.type.from_proto( getattr(proto, key))})
-            else:
-                value = getattr(proto, key)
-                dict_.update({key: value})
+                        {field.name: args[0].from_proto(getattr(proto, field.name))}
+                    )
+                
+            # Detects the types that are declared as `optional`
+            # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.  
+            # However, if the field is labeled as `optional` explicitly, it will have 
+            # presence, otherwise, `has_presence` returns False
+            elif field.has_presence and field.label == FieldDescriptor.LABEL_OPTIONAL:
 
-        return dict_
+                # If proto has the field it means that the value is not None
+                if proto.HasField(field.name):
+                    dict_.update({field.name: getattr(proto, field.name)})
+
+            elif field.label == FieldDescriptor.LABEL_REPEATED:
+                
+                if field.type == FieldDescriptor.TYPE_MESSAGE:
+                    dict_.update({field.name: dict(getattr(proto, field.name))})
+                else:
+                    dict_.update({field.name: list(getattr(proto, field.name))})
+                    
+            else:
+                dict_.update({field.name: getattr(proto, field.name)})      
+
+        return cls(**dict_)
         
 #
 # messages definition, sorted by
@@ -716,21 +725,21 @@ class TrainRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
-    params_url: str
     training_args: dict
     dataset_id: str
     training: bool
     model_args: dict
-    training_plan_url: str
+    params: dict
+    training_plan: str
     training_plan_class: str
     command: str
-    secagg_servkey_id: (str, type(None))
-    secagg_biprime_id: (str, type(None))
-    secagg_random: (float, type(None))
-    secagg_clipping_range: (int, type(None))
     round: int
-    aggregator_args: dict
-    aux_var_urls: (list, type(None))
+    aggregator_args: Dict
+    aux_vars: list
+    secagg_servkey_id: Optional[str] = None
+    secagg_biprime_id: Optional[str] = None
+    secagg_random: Optional[float] = None
+    secagg_clipping_range: Optional[int] = None
 
 
 @catch_dataclass_exception
@@ -742,7 +751,7 @@ class TrainReply(Message, RequiresProtocolVersion):
         researcher_id: Id of the researcher that receives the reply
         job_id: Id of the Job that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
@@ -757,11 +766,15 @@ class TrainReply(Message, RequiresProtocolVersion):
     success: bool
     node_id: str
     dataset_id: str
-    params_url: str
     timing: dict
-    sample_size: (int, type(None))
+    sample_size: Optional[int]
     msg: str
     command: str
+    encrypted: bool = False
+    params: Optional[Dict] = None # None for testing only
+    optimizer_args: Optional[Dict] = None # None for testing only
+    optim_aux_var: Optional[Dict] = None # None for testing only
+    encryption_factor: Optional[float] = None # None for testing only
 
 
 class MessageFactory:

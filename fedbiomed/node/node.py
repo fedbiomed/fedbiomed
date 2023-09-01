@@ -10,7 +10,7 @@ from typing import Optional, Union
 import validators
 
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedMessageError
+from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedSilentRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.messaging import Messaging
@@ -49,10 +49,8 @@ class Node:
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.grpc_client = ResearcherClient(
             node_id=environ["ID"],
-            on_message=self.on_message
+            on_message=self.on_message,
         )
-        # self.messaging = Messaging(self.on_message, ComponentType.NODE,
-        #                            environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -86,7 +84,8 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        msg_print = {key: value for key, value in msg.items() if key != 'aggregator_args'}
+        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
@@ -110,7 +109,6 @@ class Node:
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
-                databases = [dict(databases[0])]
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
@@ -240,76 +238,47 @@ class Node:
         Returns:
             a `Round` object for the training to perform, or None if no training
         """
-        round = None
+        round_ = None
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
-                                      client=self.messaging)
-        # Get arguments for the model and training
-        # NOTE: `get_param` has no real use save for monkey patching in unit tests
-        # (in real life, if the parameter is missing, an exception will be raised)
-        model_kwargs = msg.get_param('model_args') or {}
-        training_kwargs = msg.get_param('training_args') or {}
-        training_status = msg.get_param('training') or False
-        training_plan_url = msg.get_param('training_plan_url')
-        training_plan_class = msg.get_param('training_plan_class')
-        params_url = msg.get_param('params_url')
-        job_id = msg.get_param('job_id')
-        researcher_id = msg.get_param('researcher_id')
-        aggregator_args = msg.get_param('aggregator_args') or None
-        round_number = msg.get_param('round') or 0
-        aux_var_urls = msg.get_param('aux_var_urls') or None
-
-        assert training_plan_url is not None, 'URL for training plan on repository not found.'
-        assert validators.url(
-            training_plan_url), 'URL for training plan on repository is not valid.'
-        assert training_plan_class is not None, 'classname for the training plan and training routine ' \
-                                                'was not found in message.'
-
-        assert isinstance(
-            training_plan_class,
-            str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
-                  'and training routine in the repository'
+                                      send=self.grpc_client.send)
 
         dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
-        if data is None or 'path' not in data.keys():
-            # FIXME: 'the condition above depends on database model
-            # if database model changes (ie `path` field removed/
-            # modified);
-            # condition above is likely to be false
-            logger.error('Did not found proper data in local datasets ' +
+        if data is None:
+            logger.error('Did not found proper data in local datasets '
                          f'on node={environ["NODE_ID"]}')
             self.grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
-                 'researcher_id': researcher_id,
-                 'errnum': ErrorNumbers.FB313,
+                 'researcher_id': msg.get_param('researcher_id'),
+                 'errnum': ErrorNumbers.FB313.name,
                  'extra_msg': "Did not found proper data in local datasets"}
             ))
         else:
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-            round = Round(
-                model_kwargs,
-                training_kwargs,
-                training_status,
-                data,
-                training_plan_url,
-                training_plan_class,
-                params_url,
-                job_id,
-                researcher_id,
-                hist_monitor,
-                aggregator_args,
-                self.node_args,
-                round_number=round_number,
-                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                aux_var_urls=aux_var_urls,
+            round_ = Round(model_kwargs=msg.get_param('model_args') or {},
+                            training_kwargs=msg.get_param('training_args') or {},
+                            training=msg.get_param('training') or False,
+                            dataset=data,
+                            params=msg.get_param('params'),
+                            job_id=msg.get_param('job_id'),
+                            researcher_id=msg.get_param('researcher_id'),
+                            history_monitor=hist_monitor,
+                            aggregator_args=msg.get_param('aggregator_args') or None,
+                            node_args=self.node_args,
+                            training_plan=msg.get_param('training_plan'),
+                            training_plan_class=msg.get_param('training_plan_class'),
+                            round_number=msg.get_param('round'),
+                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                            aux_vars=msg.get_param('aux_vars'),
+                            reply_callback=self.grpc_client.send
             )
 
-        return round
+        return round_
 
     def task_manager(self):
         """Manages training tasks in the queue.
@@ -318,7 +287,9 @@ class Node:
         while True:
             item = self.tasks_queue.get()
             item_print = {key: value for key, value in item.items() if key != 'aggregator_args'}
-            logger.debug('[TASKS QUEUE] Item:' + str(item_print))
+            logger.debug(f"[TASKS QUEUE] Task received by task manager: Command: "
+                         f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
+            logger.info("This log is for researcher")
             try:
 
                 item = NodeMessages.format_incoming_message(item)
@@ -332,7 +303,7 @@ class Node:
                             'extra_msg': str(e),
                             'node_id': environ['NODE_ID'],
                             'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB300
+                            'errnum': ErrorNumbers.FB300.name
                         }
                     )
                 )
@@ -342,10 +313,8 @@ class Node:
                         round = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
                         if round is not None:
-                            # iterate over each dataset found
-                            # in the current round (here round refers
-                            # to a round to be done on a specific dataset).
-                            msg = round.run_model_training(
+                            # Runs model training and send message using callback
+                            round.run_model_training(
                                 secagg_arguments={
                                     'secagg_servkey_id': item.get_param('secagg_servkey_id'),
                                     'secagg_biprime_id': item.get_param('secagg_biprime_id'),
@@ -353,7 +322,8 @@ class Node:
                                     'secagg_clipping_range': item.get_param('secagg_clipping_range')
                                 }
                             )
-                            self.grpc_client.send(msg)
+                    except FedbiomedSilentRoundError as exp:
+                        logger.debug(f"A silent raise caught: {exp}")
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
@@ -364,7 +334,7 @@ class Node:
                                     'extra_msg': str(e),
                                     'node_id': environ['NODE_ID'],
                                     'researcher_id': 'NOT_SET',
-                                    'errnum': ErrorNumbers.FB300
+                                    'errnum': ErrorNumbers.FB300.name
                                 }
                             )
                         )

@@ -3,6 +3,7 @@
 
 import sys
 import inspect
+import importlib.util
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Optional, Union
 from IPython.core.magics.code import extract_symbols
@@ -81,6 +82,23 @@ def is_ipython() -> bool:
             return False
     except NameError:
         return False
+
+
+def import_class_from_spec(code: str, class_name: str):
+
+    if not isinstance(class_name, str):
+        raise FedbiomedError(f"Expected class name type is string but got {type(class_name)}.")
+
+    spec = importlib.util.spec_from_loader("module_", loader=None)
+    module = importlib.util.module_from_spec(spec)
+    exec(code, module.__dict__)
+
+    try:
+        class_ = getattr(module, class_name)
+    except AttributeError as exp:
+        raise FedbiomedError(f"Can not import {class_name} from given code.")
+    
+    return  module, class_
 
 
 def get_ipython_class_file(cls: Callable) -> str:

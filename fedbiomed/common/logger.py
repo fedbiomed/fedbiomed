@@ -105,18 +105,18 @@ class _MqttFormatter(logging.Formatter):
 #
 # mqtt handler
 #
-class _MqttHandler(logging.Handler):
+class _GrpcHandler(logging.Handler):
     """
     (internal) handler class to deal with MQTT
 
     should be imported
     """
 
-    def __init__(self,
-                 mqtt: Any = None,
-                 node_id: str = None,
-                 topic: str = DEFAULT_LOG_TOPIC
-                 ):
+    def __init__(
+            self,
+            on_log: Callable,
+            node_id: str = None,
+        ) -> None:
         """
         Constructor
 
@@ -128,8 +128,7 @@ class _MqttHandler(logging.Handler):
 
         logging.Handler.__init__(self)
         self._node_id = node_id
-        self._mqtt = mqtt
-        self._topic = topic
+        self._on_log = on_log
 
     def emit(self, record: Any):
         """Do the proper job (override the logging.Handler method() )
@@ -143,8 +142,7 @@ class _MqttHandler(logging.Handler):
         # - get the researcher_id from the caller (is it needed ???)
         #   researcher_id is not known then adding the mqtt handler....
 
-        msg = dict(command='log',
-                   level=record.__dict__["levelname"],
+        msg = dict(level=record.__dict__["levelname"],
                    msg=self.format(record),
                    node_id=self._node_id,
                    researcher_id='<unknown>')
@@ -153,8 +151,9 @@ class _MqttHandler(logging.Handler):
             import fedbiomed.common.message as message
 
             # verify the message content with Message validator
-            _ = message.NodeMessages.format_outgoing_message(msg)
-            self._mqtt.publish(self._topic, json.dumps(msg))
+            feedback = message.FeedbackMessage(log=message.Log(**msg))
+            self._on_log(feedback)
+
         except Exception:  # pragma: no cover
             # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher
             # (which was the purpose of the try block which failed)
@@ -282,6 +281,7 @@ class FedLogger(metaclass=SingletonMeta):
         # (where else to log this really ?)
         self._logger.warning("calling selLevel() with bad value: " + str(level))
         self._logger.warning("setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
+
         return DEFAULT_LOG_LEVEL
 
     def addFileHandler(self,
@@ -326,27 +326,24 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
-    def addMqttHandler(self,
-                       mqtt: Any = None,
+    def addGrpcHandler(self,
+                       on_log: Callable = None,
                        node_id: str = None,
-                       topic: Any = DEFAULT_LOG_TOPIC,
                        level: Any = logging.ERROR
                        ):
 
         """Adds a mqtt handler, to publish error message on a topic
 
         Args:
-            mqtt: already opened MQTT object
+            on_log: Provided by higher level GRPC implementation
             node_id: id of the caller (necessary for msg formatting to the researcher)
-            topic: topic to publish to (non-mandatory)
             level: level of this handler (non-mandatory) level must be lower than ERROR to ensure that the
                 research get all ERROR/CRITICAL messages
         """
 
-        handler = _MqttHandler(
-            mqtt=mqtt,
+        handler = _GrpcHandler(
+            on_log=on_log,
             node_id=node_id,
-            topic=topic
         )
 
         # may be not necessary ?

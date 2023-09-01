@@ -1579,7 +1579,8 @@ class Experiment:
                                       training_plan=self._job.training_plan)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
-        aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
+        # TODO: Only used for Legacy Scaffold implementation
+        aggregator_args = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         self._job.nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
@@ -1588,8 +1589,7 @@ class Experiment:
         # Trigger training round on sampled nodes
         self._job.start_nodes_training_round(
             round_=self._round_current,
-            aggregator_args_thr_msg=aggr_args_thr_msg,
-            aggregator_args_thr_files=aggr_args_thr_file,
+            aggregator_args=aggregator_args,
             do_training=True,
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
@@ -1631,7 +1631,7 @@ class Experiment:
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
-        aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
+        aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 

@@ -65,12 +65,12 @@ class TrainingPlanSecurityManager:
                                 'date_created']
 
     @staticmethod
-    def _create_hash(path: str):
+    def _create_hash(source: str, from_string: str = False):
         """Creates hash with given training plan file
 
         Args:
-            path: Training plan file path
-
+            file: Training plan file path or source code
+            source: Training plan source code
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: file cannot be open
@@ -80,27 +80,28 @@ class TrainingPlanSecurityManager:
 
         hash_algo = environ['HASHING_ALGORITHM']
 
-        if not isinstance(path, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f': {path} is not a path')
+        if not isinstance(source, str):
+            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f': {source} is not a path or string containing codes')
 
-        try:
-            with open(path, "r") as training_plan:
-                content = training_plan.read()
-        except FileNotFoundError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": training plan file {path} not found on system")
-        except PermissionError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot open training plan file {path} due" +
-                " to unsatisfactory privilege")
-        except OSError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot open training plan file {path} " +
-                "(file might have been corrupted)")
+        if not from_string:
+            try:
+                with open(source, "r") as training_plan:
+                    source = training_plan.read()
+            except FileNotFoundError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": training plan file {source} not found on system")
+            except PermissionError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": cannot open training plan file {source} due" +
+                    " to unsatisfactory privilege")
+            except OSError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": cannot open training plan file {source} " +
+                    "(file might have been corrupted)")
 
         # Minify training plan file using python_minifier module
         try:
-            mini_content = minify(content,
+            mini_content = minify(source,
                                   remove_annotations=False,
                                   combine_imports=False,
                                   remove_pass=False,
@@ -109,7 +110,7 @@ class TrainingPlanSecurityManager:
                                   rename_locals=False)
         except Exception as err:
             # minify doesn't provide any specific exception
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f": cannot minify file {path}"
+            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f": cannot minify source codde "
                                                                                        f"details: {err}")
         # Hash training plan content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
@@ -329,7 +330,7 @@ class TrainingPlanSecurityManager:
                             f"{err}")
 
     def check_training_plan_status(self,
-                                   training_plan_path: str,
+                                   training_plan_source: str,
                                    state: Union[TrainingPlanApprovalStatus, TrainingPlanStatus, None]) \
             -> Tuple[bool, Dict[str, Any]]:
         """Checks whether training plan exists in database and has the specified status.
@@ -360,7 +361,7 @@ class TrainingPlanSecurityManager:
         """
 
         # Create hash for requested training plan
-        req_training_plan_hash, _ = self._create_hash(training_plan_path)
+        req_training_plan_hash, _ = self._create_hash(training_plan_source, from_string=True)
 
         # If node allows defaults training plans search hash for all training plan types
         # otherwise search only for `registered` training plans

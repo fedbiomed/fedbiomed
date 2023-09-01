@@ -9,10 +9,16 @@ class Empty(_message.Message):
     __slots__ = []
     def __init__(self) -> None: ...
 
+class ProtocolVersion(_message.Message):
+    __slots__ = ["protocol_version"]
+    PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    protocol_version: str
+    def __init__(self, protocol_version: _Optional[str] = ...) -> None: ...
+
 class FeedbackMessage(_message.Message):
     __slots__ = ["protocol_version", "scalar", "log"]
     class Scalar(_message.Message):
-        __slots__ = ["researcher_id", "node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration", "protocol_version"]
+        __slots__ = ["researcher_id", "node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration"]
         class MetricEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -34,7 +40,6 @@ class FeedbackMessage(_message.Message):
         NUM_BATCHES_FIELD_NUMBER: _ClassVar[int]
         NUM_SAMPLES_TRAINED_FIELD_NUMBER: _ClassVar[int]
         ITERATION_FIELD_NUMBER: _ClassVar[int]
-        PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
         researcher_id: str
         node_id: str
         job_id: str
@@ -49,8 +54,7 @@ class FeedbackMessage(_message.Message):
         num_batches: int
         num_samples_trained: int
         iteration: int
-        protocol_version: str
-        def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ..., protocol_version: _Optional[str] = ...) -> None: ...
+        def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
     class Log(_message.Message):
         __slots__ = ["researcher_id", "node_id", "level", "msg"]
         RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]

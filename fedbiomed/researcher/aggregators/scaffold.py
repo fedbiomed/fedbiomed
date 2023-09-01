@@ -299,7 +299,6 @@ class Scaffold(Aggregator):
                 "covered by its attached FederatedDataset."
             )
         # Pack node-wise messages, for the MQTT and file exchange channels.
-        aggregator_msg = {}
         aggregator_dat = {}
         for node_id in node_ids:
             # If a node was late-added to the FederatedDataset, create states.
@@ -312,10 +311,8 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-            aggregator_msg[node_id] = {
-                'aggregator_name': self.aggregator_name
-            }
-        return aggregator_msg, aggregator_dat
+            
+        return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """Check if all values/parameters are correct and have been set before using aggregator.

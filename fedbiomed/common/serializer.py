@@ -4,7 +4,7 @@
 """MsgPack serialization utils, wrapped into a namespace class."""
 
 from math import ceil
-from typing import Any
+from typing import Any, Optional
 
 import msgpack
 import numpy as np
@@ -35,7 +35,7 @@ class Serializer:
     """
 
     @classmethod
-    def dumps(cls, obj: Any) -> bytes:
+    def dumps(cls, obj: Any, write_to: Optional[str] = None) -> bytes:
         """Serialize data into MsgPack-encoded bytes.
 
         Args:
@@ -44,7 +44,14 @@ class Serializer:
         Returns:
             MsgPack-encoded bytes that contains the input data.
         """
-        return msgpack.packb(obj, default=cls._default, strict_types=True)
+        ser = msgpack.packb(obj, default=cls._default, strict_types=True)
+
+        if write_to:
+            with open(write_to, "wb") as file:
+                file.write(ser)
+                file.close()
+        
+        return ser
 
     @classmethod
     def dump(cls, obj: Any, path: str) -> None:

@@ -10,6 +10,7 @@ from ._utils import (
     convert_to_python_float,
     convert_iterator_to_list_of_python_floats,
     compute_dot_product,
+    import_class_from_spec
 )
 from ._config_utils import (
     ROOT_DIR,
@@ -60,5 +61,6 @@ __all__ = [
     # _versions
     "raise_for_version_compatibility",
     "__default_version__"
-    "FBM_Component_version"
+    "FBM_Component_version",
+    "import_class_from_spec"
 ]
