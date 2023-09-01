@@ -271,7 +271,7 @@ class Round:
 
     def run_model_training(
             self,
-            state_id: Optional[str] = None,
+            #state_id: Optional[str] = None,
             secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
@@ -368,8 +368,9 @@ class Round:
             return self._send_round_reply(success=False, message=error_message)
 
         # load node state
-        if state_id is not None:
-            self.load_round_state(state_id)
+        previous_state_id = self._node_state_manager.previous_state_id
+        if previous_state_id is not None:
+            self.load_round_state(previous_state_id)
 
         # import model params into the training plan instance
         try:
@@ -594,20 +595,26 @@ class Round:
         state = self._node_state_manager.get(self.job_id, state_id)
         # TODO: chck type of optimizer with the one defined in the training plan
         
+        # TODO: check that we are loading parameters from optimizers that user havenot changed intentionally
         optim_state_path = state['optimizer_state']['state_path']
-        optim_state = Serializer.load(optim_state_path)
         optimizer = self._get_base_optimizer()
-        optimizer.load_state(self.training_plan.model(), optim_state)
+        if optim_state_path is not None:
+            optim_state = Serializer.load(optim_state_path)
+            logger.warning(f"Optimizer loaded state from DB {optim_state}")
+            logger.warning(f"OPTIM STATE {state_id}")
+            optimizer.load_state(self.training_plan._model, optim_state)
         
+        logger.warning(f"Optimizer loaded state {optimizer.save_state()}")
         # add below other components that need to be reloaded from node state database
     
     def save_round_state(self) -> Dict:
-        state: Dict = {}
+        state: Dict[str, Any] = {}
         
         # optimizer state
         optimizer = self._get_base_optimizer()
         
         optimizer_state = optimizer.save_state()
+        logger.warning(f"optimizer info bfore aving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save 
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
@@ -615,11 +622,11 @@ class Round:
                 self._round, 
                 NodeStateFileName.OPTIMIZER  
             )
-            optimizer_state = Serializer.dump(optimizer_state, path=optim_path)
-        
+            Serializer.dump(optimizer_state, path=optim_path)
+            logger.warning(f"saving optim state{optimizer_state}")
         optimizer_state_entry: Dict = {
             'optimizer_type': str(type(optimizer)),
-            'state_path': optimizer_state
+            'state_path': optim_path
         }
         
         state['optimizer_state'] = optimizer_state_entry

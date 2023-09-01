@@ -1604,7 +1604,7 @@ class Experiment:
         self._aggregator.set_fds(self._fds)
 
         # update NodeStateAgent with the Responses got from Nodes
-        self._job.update_nodes_states_agent() 
+        self._job.update_nodes_states_agent(before_training=False) 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(
                 round_=self._round_current,

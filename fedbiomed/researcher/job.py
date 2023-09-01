@@ -409,6 +409,7 @@ class Job:
             aux_url_shared = None
             aux_url_bynode = {}
 
+        # FIXME: this should be part of a method called from Experiment (behaviour can be defined by user / changed by strategy)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
@@ -416,7 +417,7 @@ class Job:
             msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
 
             msg['state_id'] = nodes_state_ids.get(cli)
-
+            print("STATE ID ", msg['state_id'])
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
                 msg['aggregator_args'] = aggregator_args_thr_msg[cli]

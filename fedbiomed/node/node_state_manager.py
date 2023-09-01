@@ -8,6 +8,7 @@ from fedbiomed.common.utils import raise_for_version_compatibility, __default_ve
 from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX,
                                         __node_state_version__)
 from fedbiomed.common.exceptions import FedbiomedNodeStateManager
+from fedbiomed.common.logger import logger
 from fedbiomed.node.environ import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"
@@ -70,6 +71,7 @@ class NodeStateManager:
             res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
         except Exception as e:
             raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
+        logger.debug("Successfully loaded previous state!")
         return res
     
     def _save_state(self, state_id: str, state_entry: Dict) -> True:
