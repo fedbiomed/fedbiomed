@@ -22,6 +22,7 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer, OptimizerBuilder
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -600,11 +601,18 @@ class Round:
         optimizer = self._get_base_optimizer()
         if optim_state_path is not None:
             optim_state = Serializer.load(optim_state_path)
-            logger.warning(f"Optimizer loaded state from DB {optim_state}")
-            logger.warning(f"OPTIM STATE {state_id}")
-            optimizer.load_state(self.training_plan._model, optim_state)
+            # logger.warning(f"Optimizer loaded state from DB {optim_state}")
+            # logger.warning(f"OPTIM STATE {state_id}")
+            #opt = DeclearnOptimizer(self.training_plan._model, self.training_plan._optimizer.optimizer)
+            # opt = Optimizer.load_state(optim_state)
+            opt2 = DeclearnOptimizer.load_state(self.training_plan._model, optim_state)
+            #opt.load_state(optim_state)
+            self.training_plan._optimizer = opt2
         
-        logger.warning(f"Optimizer loaded state {optimizer.save_state()}")
+        #logger.warning(f"Optimizer loaded state {opt._optimizer.save_state()}")
+        #logger.warning(f"Optimizer loaded state {opt.get_state()}")
+        #logger.warning(f"Optimizer loaded state {DeclearnOptimizer(self.training_plan._model, opt).save_state()}")
+        logger.warning(f"Optimizer 2loaded state {opt2.save_state()}")
         # add below other components that need to be reloaded from node state database
     
     def save_round_state(self) -> Dict:
