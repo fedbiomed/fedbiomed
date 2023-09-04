@@ -434,20 +434,9 @@ class Requests(metaclass=SingletonMeta):
             training_plan_file = os.path.join(environ['TMP_DIR'],
                                               "training_plan_" + str(uuid.uuid4()) + ".py")
 
-            try:
-                training_plan_instance.save_code(training_plan_file)
-            except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the training plan to a file ({e})")
-                logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
-                return {}
-
-        # verify that the file can be minified before sending
-        #
-        # TODO: enforce a stronger check here (user story #179)
+        tp_source = training_plan_instance.source()
         try:
-            with open(training_plan_file, "r") as f:
-                content = f.read()
-            minify(content,
+            minify(tp_source,
                    remove_annotations=False,
                    combine_imports=False,
                    remove_pass=False,
@@ -459,20 +448,11 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"This file is not a python file ({e})")
             return {}
 
-        # create a repository instance and upload the training plan file
-        repository = Repository(environ['UPLOADS_URL'],
-                                environ['TMP_DIR'],
-                                environ['CACHE_DIR'])
-
-        upload_status = repository.upload_file(training_plan_file)
-
-        logger.debug(f"training_plan_approve: upload_status = {upload_status}")
-
         # send message to node(s)
         message = {
             'researcher_id': environ['RESEARCHER_ID'],
             'description': str(description),
-            'training_plan_url': upload_status['file'],
+            'training_plan': tp_source,
             'command': 'approval'}
 
         if nodes:

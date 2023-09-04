@@ -111,17 +111,17 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = 'SHA256'
             full_path = os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], training_plan)
 
-            # Control return vlaues with default hashing algorithm
-            hash, algortihm = self.tp_security_manager._create_hash(full_path)
+            # Control return values with default hashing algorithm
+            hash, algorithm, _ = self.tp_security_manager._create_hash(full_path)
             self.assertIsInstance(hash, str, 'Hash creation is not successful')
-            self.assertEqual(algortihm, 'SHA256', 'Wrong hashing algorithm')
+            self.assertEqual(algorithm, 'SHA256', 'Wrong hashing algorithm')
 
             algorithms = HashingAlgorithms.list()
             for algo in algorithms:
                 TestTrainingPlanSecurityManager.env['HASHING_ALGORITHM'] = algo
-                hash, algortihm = self.tp_security_manager._create_hash(full_path)
+                hash, algorithm, _ = self.tp_security_manager._create_hash(full_path)
                 self.assertIsInstance(hash, str, 'Hash creation is not successful')
-                self.assertEqual(algortihm, algo, 'Wrong hashing algorithm')
+                self.assertEqual(algorithm, algo, 'Wrong hashing algorithm')
 
     def test_training_plan_manager_02_create_hash_hashing_exception(self):
         """Tests `create_hash` method is raising exception if hashing
@@ -207,7 +207,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         shutil.copy(file_path, new_default_training_plan_path)
 
         # update database
-        self.tp_security_manager.register_training_plan(
+        id = self.tp_security_manager.register_training_plan(
             name='test-training-plan',
             path=new_default_training_plan_path,
             training_plan_type='default',
@@ -217,14 +217,14 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         os.remove(new_default_training_plan_path)
 
         # check that training plan is in database
-        training_plan = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_path == new_default_training_plan_path)
+        training_plan = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_id == id)
         self.assertIsNotNone(training_plan)
 
         # action
         self.tp_security_manager.register_update_default_training_plans()
 
         # check that copied training plan entry has been removed
-        removed_training_plan = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_path == new_default_training_plan_path)
+        removed_training_plan = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_id == id)
         self.assertIsNone(removed_training_plan)
 
     def test_training_plan_manager_08_update_errors(self):
@@ -296,29 +296,40 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             os.remove(new_default_training_plan_path)
         self.tp_security_manager.register_update_default_training_plans()
 
-    def test_training_plan_manager_09_update_modified_training_plan_files(self):
-        """ Testing update of modified default training plans """
+    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._create_hash")
+    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing")
+    @patch("fedbiomed.node.training_plan_security_manager.TinyDB.table")
+    @patch("os.listdir")
+    @patch("os.path.getmtime")
+    def test_training_plan_manager_09_update_modified_training_plan_files(
+        self,
+        getmtime,
+        listdir_mock, 
+        table_mock,
+        check_training_plan_not_existing,
+        create_hash,
+    ) -> None:
+        """ Tests if modified file hash is updated """
+        self.tp_security_manager = TrainingPlanSecurityManager()
+        
+        # Newer date than db records
+        getmtime.return_value = 1693833008.885396
+        listdir_mock.return_value = ["x", "y", "z"]
+        table_mock.return_value.search.return_value = [
+            {"training_plan_id": "1", "name": "x", "date_modified": "12-12-2012 12:12:12.1212", "algorithm": "SHA256", "hash": "hash1"},
+            {"training_plan_id": "2", "name": "y", "date_modified": "12-12-2012 12:12:12.1212", "algorithm": "SHA256", "hash": "hash2"},
+            {"training_plan_id": "3", "name": "z", "date_modified":  "12-12-2012 12:12:12.1212", "algorithm": "SHA256", "hash": "hash3"}]
+        
+        # Mock result from create hash
+        create_hash.side_effect = [
+            ["hash11", "SHA256", None ],
+            ["hash22", "SHA256", None ],
+            ["hash33", "SHA256", None ],
+        ]
 
-        default_training_plans = os.listdir(environ['DEFAULT_TRAINING_PLANS_DIR'])
+        # Tests execution
+        self.tp_security_manager.register_update_default_training_plans()
 
-        # Test with only first file
-
-        for training_plan in default_training_plans:
-            file_path = os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], training_plan)
-            self.tp_security_manager.register_update_default_training_plans()
-            doc = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_path == file_path)
-
-            # Open the file in append & read mode ('a+')
-            with open(file_path, "a+") as file:
-                lines = file.readlines()  # lines is list of line, each element '...\n'
-                lines.insert(0, "\nprint('Hello world') \t \n")  # you can use any index if you know the line index
-                file.seek(0)  # file pointer locates at the beginning to write the whole file again
-                file.writelines(lines)
-
-            self.tp_security_manager.register_update_default_training_plans()
-            docAfter = self.tp_security_manager._db.get(self.tp_security_manager._database.training_plan_path == file_path)
-
-            self.assertNotEqual(doc['hash'], docAfter['hash'], "Hash couldn't updated after file has modified")
 
     def test_training_plan_manager_10_register_training_plan(self):
         """ Testing registering method for new training plans """
@@ -409,8 +420,8 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         - Test 3: training plan is no longer stored on computer.
         """
         # patch
-        def create_hash_side_effect(path):
-            return f'a correct unique hash {path}', 'a correct hashing algo'
+        def create_hash_side_effect(*args, **kwargs):
+            return f'a correct unique hash', 'a correct hashing algo', None
         create_hash_patch.side_effect = create_hash_side_effect
 
         # test 1: case where there is no training plan registered
@@ -451,7 +462,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         training_plans = self.tp_security_manager._db.search(self.tp_security_manager._database.training_plan_type.all('registered'))
 
         for training_plan in training_plans:
-            correct_hash, correct_hashing_algo = create_hash_side_effect(training_plan['training_plan_path'])
+            correct_hash, correct_hashing_algo, _ = create_hash_side_effect(training_plan['training_plan_path'])
             self.assertEqual(training_plan['hash'], correct_hash)
             self.assertEqual(training_plan['algorithm'], correct_hashing_algo)
 

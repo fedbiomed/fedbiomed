@@ -181,7 +181,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             )
         self.add_dependency(dependencies)
 
-    def get_as_module_source(self) -> str:
+    def source(self) -> str:
 
         try:
             class_source = get_class_source(self.__class__)
@@ -207,7 +207,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
             FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
         """
-        content = self.get_as_module_source()
+        content = self.source()
         
         try:
             # should we write it in binary (for the sake of space optimization)?

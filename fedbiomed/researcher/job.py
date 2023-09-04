@@ -201,7 +201,7 @@ class Job:
         message = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'training_plan_url': self._repository_args['training_plan_url'],
+            'training_plan': self._training_plan.source(),
             'command': 'training-plan-status'
         }
 
@@ -213,9 +213,7 @@ class Job:
         for cli in node_ids:
             logger.info('Sending request to node ' +
                         str(cli) + " to check model is approved or not")
-            self._reqs.send_message(
-                message,
-                cli)
+            self._reqs.send_message(message, cli)
 
         # Wait for responses
         for resp in self._reqs.get_responses(look_for_commands=['training-plan-status'], only_successful=False):
@@ -369,7 +367,7 @@ class Job:
             'training': do_training,
             'model_args': self._model_args,
             'round': round_,
-            'training_plan': self._training_plan.get_as_module_source(),
+            'training_plan': self._training_plan.source(),
             'training_plan_class': self.training_plan_name,
             'params': self._get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),

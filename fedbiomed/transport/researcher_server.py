@@ -138,8 +138,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         """
 
         task_request = TaskRequest.from_proto(request).get_dict()
-        print(task_request)
-        print(type(task_request))
         logger.info(f"Received request form {task_request.get('node')}")
         
 
@@ -165,7 +163,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(self, request_iterator, context):
         """Gets stream replies from the nodes"""
         
-        print("Received reply!!!!")
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -174,8 +171,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Deserialize message
                 message = Serializer.loads(reply)
-                logger.info(message)
-                print("Executing on message")
                 self._on_message(message, MessageType.REPLY)
                 reply = bytes()
 
@@ -185,7 +180,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def Feedback(self, request, unused_context):
         
         one_of = request.WhichOneof("feedback_type")
-        print(request)
         feedback = FeedbackMessage.from_proto(request)
         self._on_message(feedback.get_param(one_of), MessageType.convert(one_of))
         

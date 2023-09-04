@@ -333,7 +333,7 @@ class ApprovalRequest(Message, RequiresProtocolVersion):
     researcher_id: str
     description: str
     sequence: int
-    training_plan_url: str
+    training_plan: str
     command: str
 
 
@@ -473,7 +473,7 @@ class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
 
     researcher_id: str
     job_id: str
-    training_plan_url: str
+    training_plan: str
     command: str
 
 
@@ -507,7 +507,7 @@ class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     approval_obligation: bool
     status: str
     msg: str
-    training_plan_url: str
+    training_plan: str
     command: str
 
 

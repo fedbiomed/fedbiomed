@@ -134,10 +134,13 @@ class Node:
                      }))
             elif command == 'approval':
                 # Ask for training plan approval
-                self.tp_security_manager.reply_training_plan_approval_request(request, self.messaging)
+                reply = self.tp_security_manager.reply_training_plan_approval_request(request)
+                self.grpc_client.send(reply)
             elif command == 'training-plan-status':
                 # Check is training plan approved
-                self.tp_security_manager.reply_training_plan_status_request(request, self.messaging)
+                reply = self.tp_security_manager.reply_training_plan_status_request(request)
+                print("HERE YOU GO")
+                self.grpc_client.send(reply)
 
             else:
                 raise NotImplementedError('Command not found')

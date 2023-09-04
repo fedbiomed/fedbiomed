@@ -1856,6 +1856,7 @@ class Experiment:
 
     # Training plan checking functions
 
+    # FIXME: Training plan is no longer a file
     @exp_exceptions
     def training_plan_file(self, display: bool = True) -> str:
         """ This method displays saved final training plan for the experiment
@@ -1885,24 +1886,8 @@ class Experiment:
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        training_plan_file = self._job.training_plan_file
-
-        # Display content so researcher can copy
-        try:
-            if display:
-                with open(training_plan_file) as file:
-                    content = file.read()
-                    file.close()
-                    print(content)
-        except OSError as e:
-            # cannot read training plan file content
-            msg = ErrorNumbers.FB412.value + \
-                f', in method `training_plan_file` : error when reading training plan file - {e}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        return self._job.training_plan_file
-
+        return self._job.training_plan.source()
+    
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses
     @exp_exceptions
