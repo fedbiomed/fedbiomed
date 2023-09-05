@@ -599,20 +599,17 @@ class Round:
         # TODO: check that we are loading parameters from optimizers that user havenot changed intentionally
         optim_state_path = state['optimizer_state']['state_path']
         optimizer = self._get_base_optimizer()
-        if optim_state_path is not None:
+        if optim_state_path is not None and str(type(optimizer)) == state['optimizer_state']['optimizer_type']:
             optim_state = Serializer.load(optim_state_path)
-            # logger.warning(f"Optimizer loaded state from DB {optim_state}")
-            # logger.warning(f"OPTIM STATE {state_id}")
-            #opt = DeclearnOptimizer(self.training_plan._model, self.training_plan._optimizer.optimizer)
-            # opt = Optimizer.load_state(optim_state)
-            opt2 = DeclearnOptimizer.load_state(self.training_plan._model, optim_state)
-            #opt.load_state(optim_state)
-            self.training_plan._optimizer = opt2
+            optim = OptimizerBuilder().build(self.training_plan.type(),
+                                             self.training_plan._model, optimizer.optimizer)
+
+            logger.info(f"State {state_id} loaded")
+
+            optim.load_state(optim_state)
+            self.training_plan.set_optimizer(optim)
         
-        #logger.warning(f"Optimizer loaded state {opt._optimizer.save_state()}")
-        #logger.warning(f"Optimizer loaded state {opt.get_state()}")
-        #logger.warning(f"Optimizer loaded state {DeclearnOptimizer(self.training_plan._model, opt).save_state()}")
-        logger.warning(f"Optimizer 2loaded state {opt2.save_state()}")
+        logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
     
     def save_round_state(self) -> Dict:

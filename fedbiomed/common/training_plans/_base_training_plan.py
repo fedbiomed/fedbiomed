@@ -89,6 +89,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # but IMHO it really should remain a private backend component.
         return self._optimizer
 
+    def set_optimizer(self, optimizer: BaseOptimizer):
+        self._optimizer = optimizer
+
     @abstractmethod
     def post_init(
             self,

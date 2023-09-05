@@ -4,6 +4,7 @@
 """API and wrappers to interface framework-specific and generic optimizers."""
 
 from abc import ABCMeta, abstractmethod
+import copy
 from types import TracebackType
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -113,7 +114,10 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
-
+    optimizer = None
+    model = None 
+    
+    
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
@@ -153,11 +157,37 @@ class DeclearnOptimizer(BaseOptimizer):
         aux = self.optimizer.get_aux()
         return aux
 
-    @classmethod
-    def load_state(cls, model: Model, optim_state: Dict) -> 'DeclearnOptimizer':
+    def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
         # state: breakpoint content for optimizer
+        if load_from_state:
+            # first get init state
+            
+            init_optim_state = self.optimizer.get_state()
+            optim_state_copy = copy.deepcopy(optim_state)
+            for component in ( 'modules',):
+                components_to_keep = []
+                idx = 0
+
+                for init_module, new_module in zip(init_optim_state['states'][component],
+                                                   optim_state['states'][component]):
+                    print(init_module[0] , new_module[0])
+                    if init_module[0] == new_module[0]:
+                        
+                        components_to_keep.append((new_module[0], idx))
+                    idx += 1
+            optim_state.update(init_optim_state)
+            print("CHECK", optim_state, components_to_keep)
+            for component in ('modules',):
+
+                for mod in components_to_keep:
+                    for elem in ('config', 'states'):
+                        for mod_state in optim_state_copy[elem][component]:
+                            if mod[0] == mod_state[0]:
+                                logger.info("Detected changes in the optimizer!")
+                                optim_state[elem][component][mod[1]] = mod_state
         relaoded_optim = FedOptimizer.load_state(optim_state)
-        return cls(model, relaoded_optim)
+        self.optimizer = relaoded_optim
+        #return cls(model, relaoded_optim)
 
     def save_state(self) -> Dict:
         optim_state = self.optimizer.get_state()
@@ -293,12 +323,12 @@ class OptimizerBuilder:
     ```python
     >>> import torch
     >>> import torch.nn as nn
+    >>> from fedbiomed.common.models import TorchModel
     >>> opt_builder = OptimizerBuilder()
-    >>> model = nn.Linear(4,2)
-    >>> optimizer = torch.optim.SGD(.1, model.paramaters())
-    >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan,
-                                          model, optimizer)
-    >>> optim_wrapper
+    >>> model = TorchModel(nn.Linear(4,2))
+    >>> optimizer = torch.optim.SGD(model.paramaters(), .1)
+    >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan, model, optimizer)
+    >>> optim_wrapper()
         NativeTorchOptimizer
     ```
     """
@@ -323,8 +353,8 @@ class OptimizerBuilder:
         self,
         tp_type: TrainingPlans,
         model: Model,
-        optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]]=None,
-    ) -> 'BaseOptimizer':
+        optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]] = None,
+     ) -> 'BaseOptimizer':
         """Builds a Optimizer wrapper based on TrainingPlans and optimizer type
 
         Args:
@@ -348,6 +378,7 @@ class OptimizerBuilder:
             raise FedbiomedOptimizerError(err_msg) from exc
         try:
             return selected_optim_wrapper[optim_cls](model, optimizer)
+
         except KeyError as exc:
             raise FedbiomedOptimizerError(
                 f"{ErrorNumbers.FB626.value} Training Plan type {tp_type} not compatible with optimizer {optimizer}"
