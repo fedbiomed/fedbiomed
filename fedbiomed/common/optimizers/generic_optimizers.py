@@ -102,7 +102,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """Performs an optimisation step and updates model weights.
         """
 
-    def load_state(self, model: Model, optim_state: Dict):
+    def load_state(self, optim_state: Dict, load_from_state: bool = False):
         logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
         return None
     
@@ -159,26 +159,31 @@ class DeclearnOptimizer(BaseOptimizer):
 
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
         # state: breakpoint content for optimizer
+
         if load_from_state:
             # first get init state
             
             init_optim_state = self.optimizer.get_state()
+
             optim_state_copy = copy.deepcopy(optim_state)
-            for component in ( 'modules',):
+            optim_state.update(init_optim_state)
+            for component in ( 'modules','regularizers',):
                 components_to_keep = []
                 idx = 0
+                print(component)
+                if not init_optim_state['states'].get(component):
+                    continue
 
                 for init_module, new_module in zip(init_optim_state['states'][component],
-                                                   optim_state['states'][component]):
+                                                   optim_state_copy['states'][component]):
                     print(init_module[0] , new_module[0])
                     if init_module[0] == new_module[0]:
                         
                         components_to_keep.append((new_module[0], idx))
                     idx += 1
-            optim_state.update(init_optim_state)
-            print("CHECK", optim_state, components_to_keep)
-            for component in ('modules',):
-
+            
+                print("CHECK", optim_state, components_to_keep)
+ 
                 for mod in components_to_keep:
                     for elem in ('config', 'states'):
                         for mod_state in optim_state_copy[elem][component]:

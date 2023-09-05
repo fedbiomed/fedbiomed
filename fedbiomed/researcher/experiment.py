@@ -1263,7 +1263,7 @@ class Experiment:
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
-    def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
+    def set_training_args(self, training_args: Union[dict, TrainingArgs], reset: bool = True) -> dict:
         """ Sets `training_args` + verification on arguments type
 
         Args:

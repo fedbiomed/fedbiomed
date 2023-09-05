@@ -606,7 +606,7 @@ class Round:
 
             logger.info(f"State {state_id} loaded")
 
-            optim.load_state(optim_state)
+            optim.load_state(optim_state, load_from_state=True)
             self.training_plan.set_optimizer(optim)
         
         logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
