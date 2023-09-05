@@ -16,12 +16,10 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.exceptions import FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 

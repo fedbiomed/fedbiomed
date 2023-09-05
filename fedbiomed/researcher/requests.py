@@ -19,8 +19,6 @@ from fedbiomed.common.constants import ComponentType, MessageType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages, PingRequest, Message
-from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -58,17 +56,9 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = None
 
-    # TODO: remove unused get_messaging
-    def get_messaging(self) -> Messaging:
-        """Retrieves Messaging object
-
-        Returns:
-            Messaging object
-        """
-        return self.messaging
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
-        """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
+        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  when a message is received on
         researcher side.
 
         It is run in the communication process and must ba as quick as possible:
@@ -156,7 +146,7 @@ class Requests(metaclass=SingletonMeta):
 
         return  msg.get('sequence', None)
 
-    def broadcast(self, message, add_sequence: bool = False):
+    def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
         """Broadcast message
         
         Args:
@@ -173,9 +163,11 @@ class Requests(metaclass=SingletonMeta):
             message['sequence'] = self._add_sequence()
 
         # TODO: Return also  the list of node that the messages are sent
-        unused_node_list = self.grpc_server.broadcast(message)
+        unused_node_list = self.grpc_server.broadcast(
+             ResearcherMessages.format_outgoing_message(message)
+        )
 
-        return  unused_node_list
+        return  message.get('sequence')
 
 
 
@@ -296,21 +288,19 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
-                self.send_message(
-                    ResearcherMessages.format_outgoing_message({
+                self.send_message({
                         'tags': tags,
                         'researcher_id': environ['RESEARCHER_ID'],
-                        "command": "search"}),
+                        "command": "search"},
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
             # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted 
             # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
-            self.broadcast(
-                ResearcherMessages.format_outgoing_message({'tags': tags,
-                                                            'researcher_id': environ['ID'],
-                                                            "command": "search"}
-                                                           ))
+            self.broadcast({'tags': tags,
+                            'researcher_id': environ['ID'],
+                            "command": "search"}
+                        )
 
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
@@ -337,10 +327,9 @@ class Requests(metaclass=SingletonMeta):
         # If nodes list is provided
         if nodes:
             for node in nodes:
-                self.send_message(
-                    ResearcherMessages.format_outgoing_message({
+                self.send_message({
                         'researcher_id': environ['RESEARCHER_ID'],
-                        "command": "list"}),
+                        "command": "list"},
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
@@ -429,10 +418,6 @@ class Requests(metaclass=SingletonMeta):
             else:
                 # also handle case where training plan is already an instance of a class
                 training_plan_instance = training_plan
-
-            # then save this instance to a file
-            training_plan_file = os.path.join(environ['TMP_DIR'],
-                                              "training_plan_" + str(uuid.uuid4()) + ".py")
 
         tp_source = training_plan_instance.source()
         try:

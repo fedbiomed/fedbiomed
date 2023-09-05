@@ -17,11 +17,9 @@ import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus, ErrorNumbers
 from fedbiomed.common.db import DBTable
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError, FedbiomedRepositoryError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.node.environ import environ
 
@@ -57,7 +55,6 @@ class TrainingPlanSecurityManager:
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
-        self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
         self._tags_to_remove = ['training_plan',
                                 'hash',
@@ -504,7 +501,6 @@ class TrainingPlanSecurityManager:
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
-            # 'training_plan_url': msg['training_plan_url'],
             'sequence': msg['sequence'],
             'status': 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
             'command': 'approval'
@@ -526,7 +522,7 @@ class TrainingPlanSecurityManager:
         if not is_existant and downloadable_checkable:
             # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLANS_DIR)
             try:
-                training_plan_hash, hash_algo, _ = self._create_hash(training_plan)
+                training_plan_hash, hash_algo, _ = self._create_hash(training_plan, from_string=True)
                 ctime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                 training_plan_object = dict(name=training_plan_name,
                                             description=msg['description'],

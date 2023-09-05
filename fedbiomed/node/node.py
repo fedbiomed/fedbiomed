@@ -13,7 +13,6 @@ from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedSilentRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
-from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.node.environ import environ

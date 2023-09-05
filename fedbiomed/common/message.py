@@ -767,9 +767,9 @@ class TrainReply(Message, RequiresProtocolVersion):
     node_id: str
     dataset_id: str
     timing: dict
-    sample_size: Optional[int]
     msg: str
     command: str
+    sample_size: Optional[int] = None
     encrypted: bool = False
     params: Optional[Dict] = None # None for testing only
     optimizer_args: Optional[Dict] = None # None for testing only

@@ -151,14 +151,6 @@ class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
     pass
 
-
-class FedbiomedRepositoryError(FedbiomedError):
-    """
-    Exception of the `Repository` class.
-    """
-    pass
-
-
 class FedbiomedResponsesError(FedbiomedError):
     """
     Exception specific to Responses class.

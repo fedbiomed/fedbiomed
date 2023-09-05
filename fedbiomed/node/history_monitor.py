@@ -7,7 +7,6 @@
 from typing import Union, Dict, Callable
 
 from fedbiomed.common.message import FeedbackMessage, Scalar
-from fedbiomed.common.messaging import Messaging
 from fedbiomed.node.environ import environ
 from fedbiomed.common.logger import logger
 

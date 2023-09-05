@@ -24,7 +24,6 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
@@ -378,8 +377,8 @@ class Round:
 
     def _send_round_reply(
             self,
-            message: str = '',
             success: bool = False,
+            message: str = '',
             extend_with: Optional[Dict] = None,
             timing: dict = {},
     ) -> None:

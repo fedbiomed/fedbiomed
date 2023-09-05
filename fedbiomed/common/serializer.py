@@ -13,7 +13,7 @@ from declearn.model.api import Vector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
-
+from fedbiomed.common.metrics import MetricTypes
 
 __all__ = [
     "Serializer",
@@ -119,6 +119,10 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
+        
+        if isinstance(obj, MetricTypes):
+            return {"__type__": "MetricTypes", "value": obj.name}
+
         # Raise on unsupported types.
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
@@ -146,6 +150,10 @@ class Serializer:
             return torch.from_numpy(array)
         if objtype == "Vector":
             return Vector.build(obj["value"])
+        if objtype == "MetricTypes":
+            return MetricTypes.get_metric_type_by_name(obj["value"])
+        
+
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )
