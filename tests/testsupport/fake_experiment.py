@@ -35,6 +35,7 @@ class ExperimentMock:
                 tensorboard: bool = False,
                 experimentation_folder: Union[str, None] = None,
                 secagg: Union[bool, SecureAggregation] = False,
+                skip_data_quality_check = False,
                 ):
         """ Constructor of the class.
 
@@ -62,6 +63,7 @@ class ExperimentMock:
         self._save_breakpoints = save_breakpoints
         self._monitor = tensorboard # minimal
         self._secagg = secagg
+        self._skip_data_quality_check = skip_data_quality_check
 
     def _set_round_current(self, round_current: int) -> int:
         """Set `round_current` in mocked class
