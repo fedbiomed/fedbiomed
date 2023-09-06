@@ -185,11 +185,12 @@ class DeclearnOptimizer(BaseOptimizer):
                 print("CHECK", optim_state, components_to_keep)
  
                 for mod in components_to_keep:
-                    for elem in ('config', 'states'):
+                    for elem in ( 'states',):
                         for mod_state in optim_state_copy[elem][component]:
                             if mod[0] == mod_state[0]:
                                 logger.info("Detected changes in the optimizer!")
                                 optim_state[elem][component][mod[1]] = mod_state
+        print("OPTIM STATE CHECK", optim_state)
         relaoded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = relaoded_optim
         #return cls(model, relaoded_optim)

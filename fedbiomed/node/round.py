@@ -594,27 +594,29 @@ class Round:
         if self.job_id is None:
             raise FedbiomedRoundError("job_id should not be None")
         state = self._node_state_manager.get(self.job_id, state_id)
-        # TODO: chck type of optimizer with the one defined in the training plan
-        
-        # TODO: check that we are loading parameters from optimizers that user havenot changed intentionally
-        optim_state_path = state['optimizer_state']['state_path']
+
         optimizer = self._get_base_optimizer()
-        if optim_state_path is not None and str(type(optimizer)) == state['optimizer_state']['optimizer_type']:
-            optim_state = Serializer.load(optim_state_path)
-            optim = OptimizerBuilder().build(self.training_plan.type(),
-                                             self.training_plan._model, optimizer.optimizer)
+        if state['optimizer_state'] is not None and str(type(optimizer)) == state['optimizer_state']['optimizer_type']:
+            optim_state_path = state['optimizer_state'].get('state_path')
+            try:
+                optim_state = Serializer.load(optim_state_path)
+                optim = OptimizerBuilder().build(self.training_plan.type(),
+                                                 self.training_plan._model, optimizer.optimizer)
+                optim.load_state(optim_state, load_from_state=True)
+                logger.debug(f"Optimizer loaded state {optim_state}")
+                self.training_plan.set_optimizer(optim)
+            except Exception as err:
+                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"
+                               "with efault state")
 
             logger.info(f"State {state_id} loaded")
 
-            optim.load_state(optim_state, load_from_state=True)
-            self.training_plan.set_optimizer(optim)
-        
-        logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
+            logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
     
     def save_round_state(self) -> Dict:
         state: Dict[str, Any] = {}
-        
+        _success: bool = True
         # optimizer state
         optimizer = self._get_base_optimizer()
         
@@ -629,18 +631,25 @@ class Round:
             )
             Serializer.dump(optimizer_state, path=optim_path)
             logger.warning(f"saving optim state{optimizer_state}")
-        optimizer_state_entry: Dict = {
-            'optimizer_type': str(type(optimizer)),
-            'state_path': optim_path
-        }
-        
-        state['optimizer_state'] = optimizer_state_entry
 
+            optimizer_state_entry: Dict = {
+                'optimizer_type': str(type(optimizer)),
+                'state_path': optim_path
+            }
+            
+        else:
+            logger.warning(f"Unable to save optimizer state of type {type(optimizer)}. Skipping...")
+            _success = False
+            optimizer_state_entry = None
+        state['optimizer_state'] = optimizer_state_entry
         # add here other object states (ie model state, ...)
         
         # save completed node state
         self._node_state_manager.add(self.job_id, state)
-        logger.debug("Node state saved into DataBase")
+        if _success:
+            logger.debug("Node state saved into DataBase")
+        else:
+            logger.debug("Node state has been partially saved into the Database")
         return state
     
     def collect_optim_aux_var(self) -> Dict[str, Any]:
