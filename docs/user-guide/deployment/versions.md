@@ -28,9 +28,10 @@ detected.
 ## Breakpoints
 
 | Version | Changelog                                                                                                 |
-|-----|-----------------------------------------------------------------------------------------------------------|
-| 0   | Default version assigned prior to the introduction of versioning                                          |
-| 1   | Introduce `version` field in breakpoint.json file. In case of incompatible version, see the section below |
+|---------|-----------------------------------------------------------------------------------------------------------|
+| 0       | Default version assigned prior to the introduction of versioning                                          |
+| 1       | Introduce `version` field in breakpoint.json file. In case of incompatible version, see the section below |
+| 1.1     | Introduce the `skip_data_quality_check` field                                                             |
 
 ## Messaging protocol
 
