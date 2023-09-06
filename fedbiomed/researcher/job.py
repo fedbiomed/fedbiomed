@@ -50,8 +50,8 @@ class Job:
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
-                 keep_files_dir: str = None):
-
+                 keep_files_dir: str = None,
+                 skip_data_quality_check: Optional[bool] = False):
         """ Constructor of the class
 
         Args:
@@ -64,6 +64,8 @@ class Job:
             data: Federated datasets
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
+            skip_data_quality_check: whether to skip various data quality checks during initialization. Defaults to 
+                `False`
 
         Raises:
             NameError: If model is not defined or if the class can not to be inspected
@@ -99,7 +101,7 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        if self._data is not None:
+        if self._data is not None and not skip_data_quality_check:
             self.check_data_quality()
 
         # Model is mandatory

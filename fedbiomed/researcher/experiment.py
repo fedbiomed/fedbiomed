@@ -136,6 +136,7 @@ class Experiment:
                  tensorboard: bool = False,
                  experimentation_folder: Union[str, None] = None,
                  secagg: Union[bool, SecureAggregation] = False,
+                 skip_data_quality_check: Optional[bool] = False
                  ):
 
         """Constructor of the class.
@@ -195,6 +196,8 @@ class Experiment:
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
+            skip_data_quality_check: whether to skip various data quality checks during experiment initialization.
+                Defaults to `False`.
         """
 
         # predefine all class variables, so no need to write try/except
@@ -219,6 +222,7 @@ class Experiment:
         self._client_states_dict = {}
         self._server_state = None
         self._secagg = None
+        self._skip_data_quality_check = skip_data_quality_check
 
         # set self._secagg
         self.set_secagg(secagg)
@@ -1372,7 +1376,8 @@ class Experiment:
                             model_args=self._model_args,
                             training_args=self._training_args,
                             data=self._fds,
-                            keep_files_dir=self.experimentation_path())
+                            keep_files_dir=self.experimentation_path(),
+                            skip_data_quality_check=self._skip_data_quality_check)
 
         return self._job
 
