@@ -1861,7 +1861,8 @@ class Experiment:
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path),  # job state
-            'secagg': self._secagg.save_state()
+            'secagg': self._secagg.save_state(),
+            'skip_data_quality_check': self._skip_data_quality_check
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1971,7 +1972,8 @@ class Experiment:
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
                          experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
+                         secagg=SecureAggregation.load_state(saved_state.get('secagg')),
+                         skip_data_quality_check=saved_state.get('skip_data_quality_check', False))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
