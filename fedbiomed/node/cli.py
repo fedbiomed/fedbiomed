@@ -45,6 +45,7 @@ logger.setLevel("DEBUG")
 
 readline.parse_and_bind("tab: complete")
 
+_node = None
 
 def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """Signal handler that terminates the process.
@@ -58,15 +59,21 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """
 
     # get the (running) Node object
-    global node
+    global _node
 
-    if node:
-        node.send_error(ErrorNumbers.FB312)
-    else:
-        logger.error("Cannot send error message to researcher (node not initialized yet)")
-    logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
-    time.sleep(1)
-    sys.exit(signum)
+    try:
+        if _node and _node.is_connected():
+            _node.send_error(ErrorNumbers.FB312)
+            logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+        else:
+            # take care of logger level used because message cannot be sent to node
+            logger.info("Cannot send error message to researcher (node not initialized yet)")
+            logger.info("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+    finally:
+        # give some time to send messages to the researcher
+        time.sleep(0.5)
+        _node.stop_messaging()
+        sys.exit(signum)
 
 
 def manage_node(node_args: Union[dict, None] = None):
@@ -82,7 +89,7 @@ def manage_node(node_args: Union[dict, None] = None):
             See `Round()` for details.
     """
 
-    global node
+    global _node
 
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
@@ -101,13 +108,13 @@ def manage_node(node_args: Union[dict, None] = None):
                            'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')
-        node = Node(dataset_manager=dataset_manager,
+        _node = Node(dataset_manager=dataset_manager,
                     tp_security_manager=tp_security_manager,
                     node_args=node_args)
-        node.start_messaging(block=False)
+        _node.start_messaging(block=False)
 
         logger.info('Starting task manager')
-        node.task_manager()  # handling training tasks in queue
+        _node.task_manager()  # handling training tasks in queue
 
     except FedbiomedError:
         logger.critical("Node stopped.")
@@ -115,7 +122,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     except Exception as e:
         # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
-        node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
+        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
         logger.critical("Node stopped.")
 
     finally:
