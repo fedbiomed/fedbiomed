@@ -241,9 +241,9 @@ within the training plan namespace.
 
 ####
 
-!!! info "The output of `init_optimizer` must be either a `torch.optim` type or a `fedbimed.common.optimizer.Optimizer`"
+!!! info "The output of `init_optimizer` must be either a `torch.optim` type or a `fedbiomed.common.optimizer.Optimizer`"
     The output of `init_optimizer` must be either a vanilla optimizer provided by the `torch.optim` module, or a class
-    that inherits from `torch.optim.Optimizer`, or a [`fedbimed.common.optimizer.Optimizer`](../../../developer/api/common/optimizer), populated with `declearn`'s `OptiModules` and `Regularizers`.
+    that inherits from `torch.optim.Optimizer`, or a [`fedbiomed.common.optimizer.Optimizer`](../../../developer/api/common/optimizer), populated with `declearn`'s `OptiModules` and `Regularizers`.
 
 !!! note "About declearn"
     `declearn` provides a cross framework optimizers that can be used regardless of the machine learning framework. It also provides well known federated learning algorithms such as `Scaffold`. For further details on `declearn`'s `Optimizer`, [please visit the following webpage](./../../advanced-optimization).
