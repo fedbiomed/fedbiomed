@@ -294,7 +294,7 @@ class CommonCLI:
         BPrimeManager = SecaggBiprimeManager(self._environ['DB_PATH'])
         BPrimeManager.update_default_biprimes(
             self._environ['ALLOW_DEFAULT_BIPRIMES'], self._environ['DEFAULT_BIPRIMES_DIR'])
-
+        
         print(f"\n{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
 
     def _generate_certificate(self, args: argparse.Namespace):

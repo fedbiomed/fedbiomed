@@ -55,12 +55,19 @@ from typing import Any, Tuple, Union
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
-from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
+from fedbiomed.common.utils import (
+    ROOT_DIR, 
+    CONFIG_DIR, 
+    VAR_DIR, 
+    CACHE_DIR, 
+    TMP_DIR, 
+    __default_version__, 
+    raise_for_version_compatibility, 
+    FBM_Component_Version)
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.certificate_manager import CertificateManager
-import fedbiomed.common.utils
-from fedbiomed.common.utils import raise_for_version_compatibility, FBM_Component_Version
 
 
 class Environ(metaclass=SingletonABCMeta):

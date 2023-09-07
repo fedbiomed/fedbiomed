@@ -108,9 +108,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             task_request = TaskRequest.from_proto(req)
             logger.info(f"Received request form {task_request.get('node')}")
         
-            node_agent = await self.agent_store.get_or_register(node_id=task_request["node"],
-                                        node_ip=context.peer())
-
+            node_agent = await self.agent_store.get_or_register(node_id=task_request["node"])
+            node_agent.set_context(context)
             # Here call task and wait until there is no
 
             logger.info(f"Received request form {node}")
@@ -140,17 +139,20 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.info(f"Received request form {task_request.get('node')}")
         
+        try: 
+            node_agent = await self.agent_store.get_or_register(node_id=task_request["node"])
+            
+            # Update node active status as active
+            node_agent.set_context(context)
+            await node_agent.active()
+        except Exception as e: 
+            logger.debug(e)
 
-        node_agent = await self.agent_store.get_or_register(node_id=task_request["node"],
-                                      node_ip=context.peer())
-        
-
-        logger.info(f"Node agent created {node_agent.id}" )
-        logger.info(f"Waiting for tasks" )
         task = await node_agent.get()
         task = Serializer.dumps(task.get_dict())
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        
+
+            
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             

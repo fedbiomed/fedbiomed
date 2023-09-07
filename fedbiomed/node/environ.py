@@ -150,5 +150,9 @@ class NodeEnviron(Environ):
 
 sys.tracebacklimit = 3
 
-# global dictionary which contains all environment for the NODE
+
+
+# # global dictionary which contains all environment for the NODE
 environ = NodeEnviron()
+
+

@@ -288,7 +288,6 @@ class ResearcherClient:
                     msg = await self._send_queue.get()
 
                     # If it is aUnary-Unary RPC call
-                    print(type(msg["stub"]))
                     if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
                         logger.debug("In feedback!")
                         await msg["stub"](msg["message"])

@@ -1,6 +1,5 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-
 import glob
 import os
 import configparser
@@ -10,6 +9,7 @@ from typing import List, Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
+
 
 
 def _get_fedbiomed_root() -> str:
@@ -22,12 +22,15 @@ def _get_fedbiomed_root() -> str:
     return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
 
 
+
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
 CONFIG_DIR = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME)
 VAR_DIR = os.path.join(ROOT_DIR, VAR_FOLDER_NAME)
 CACHE_DIR = os.path.join(VAR_DIR, CACHE_FOLDER_NAME)
 TMP_DIR = os.path.join(VAR_DIR, TMP_FOLDER_NAME)
+
+
 
 
 def get_component_config(
@@ -139,3 +142,5 @@ def get_existing_component_db_names():
         db_names = {**db_names, component_id: db_name}
 
     return db_names
+
+

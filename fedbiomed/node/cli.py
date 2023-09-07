@@ -40,6 +40,8 @@ __intro__ = """
 
 """
 
+
+
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
@@ -165,14 +167,18 @@ def launch_node(node_args: Union[dict, None] = None):
         sys.exit(0)
 
 
+    
 def launch_cli():
     """Parses command line input for the node component and launches node accordingly.
     """
+
+
 
     cli = CommonCLI()
     cli.set_environ(environ=environ)
     cli.initialize_certificate_parser()
     cli.initialize_create_configuration()
+
 
     # Register description for CLI
     cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
@@ -236,6 +242,8 @@ def launch_cli():
                             help='Force use of a GPU device, if any available, even if researcher doesnt ' +
                                  'request it (default: dont use GPU)',
                             action='store_true')
+
+
 
     print(__intro__)
     print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
@@ -327,6 +335,8 @@ def launch_cli():
             'gpu_num': cli.arguments.gpu_num,
             'gpu_only': (cli.arguments.gpu_only is True)
         }
+
+       
         launch_node(node_args)
 
 
