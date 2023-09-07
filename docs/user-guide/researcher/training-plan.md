@@ -231,6 +231,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 ### Optimizer in PyTorch Training Plans
 
 In Pytorch training plans, you must also define a `init_optimizer` function with the following signature:
+
 ```python
 def init_optimizer(self, optimizer_args: Dict[str, Any]) -> Union[torch.optim.Optimizer, fedbiomed.common.optimizer.Optimizer]:
 ```
@@ -242,10 +243,10 @@ within the training plan namespace.
 
 !!! info "The output of `init_optimizer` must be either a `torch.optim` type or a `fedbimed.common.optimizer.Optimizer`"
     The output of `init_optimizer` must be either a vanilla optimizer provided by the `torch.optim` module, or a class
-    that inherits from `torch.optim.Optimizer`, or a [`fedbimed.common.optimizer.Optimizer`](../../developer/api/researcher/experiment/developer/api/common/optimizer/), populated with `declearn`'s `OptiModules` and `Regularizers`.
+    that inherits from `torch.optim.Optimizer`, or a [`fedbimed.common.optimizer.Optimizer`](../../../developer/api/common/optimizer), populated with `declearn`'s `OptiModules` and `Regularizers`.
 
 !!! note "About declearn"
-    `declearn` provides a cross framework optimizers that can be used regardless of the machine learning framework. It also provides well known federated learning algorithms such as `Scaffold`. For further details on `declearn`'s `Optimizer`, [please visit the following webpage](./../advanced-optimization).
+    `declearn` provides a cross framework optimizers that can be used regardless of the machine learning framework. It also provides well known federated learning algorithms such as `Scaffold`. For further details on `declearn`'s `Optimizer`, [please visit the following webpage](./../../advanced-optimization).
 
 Similarly, the `optimizer_args` follow the same pattern as `model_args` described above. 
 Note that the learning rate will always be included in the optimizer arguments with the key `lr`.
@@ -256,6 +257,7 @@ A pretty straightforward example can be again found in the getting started noteb
 def init_optimizer(self, optimizer_args):
     return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
 ```
+
 ### Optimizer in scikit-learn Training Plans
 
 In Scikit-Learn `Training Plans`, only `fedbimed.common.optimizer.Optimizer` optimizers can be defined in the `init_optimizer` method. Hence, its signature is:
@@ -268,6 +270,7 @@ def init_optimizer(self, optimizer_args: Dict[str, Any]) -> fedbiomed.common.opt
 
 The PyTorch training plan requires you to define the loss function via the `training_step` method, with the following
 signature:
+
 ```python
 def training_step(self, data, target) -> float:
 ```
@@ -285,6 +288,7 @@ An example of training step for PyTorch is shown below.
 ```
 
 ### Type of `data` and `target`
+
 The `training_step` function takes as input two arguments, `data` and `target`, which are obtained by cycling through
 the dataset defined in the `training_data` function. There is some flexibility concerning what type of variables they
 might be. 
@@ -306,6 +310,7 @@ By dependencies we mean here the python modules that are necessary to build all 
 plan on the node side.  
 The method `init_dependencies` allows you to indicate modules that are needed by your model class, with the following 
 signature:
+
 ```python
 def init_dependencies(self) -> List[str]:
 ```

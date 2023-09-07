@@ -290,6 +290,7 @@ class MyTrainingPlan(FedSGDClassifier):
         return Optimizer(lr=.01, modules=[AdamModule()], regularizers=[RidgeRegularizer()])
 
 ```
+
 ## 3. `declearn` optimizer on Researcher side (`FedOpt`)
 
 `Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updates of the global model.
@@ -371,6 +372,7 @@ In the last sub-section, we introduced [`Scaffold`](https://arxiv.org/abs/1910.0
 **`Training Plan` design**
 
 In the current subsection, we showcase how to edit your `Training Plan` for PyTorch in order to use `Scaffold`
+
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -451,7 +453,7 @@ Below, we are summerizing common pitfalls that may occur when using `declearn` p
 
 - `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizers such as PyTorch Optimizers);
 - Some `Optimizers` may requiere some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
-- For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation]();
+- For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation](../../user-guide/secagg/introduction/);
 - For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (multiple learning rates `Optimizers`, for example pytorch optimizers `torch.optim.Optimizer` can handle a learning rate per model layer );
 - When chaining `declearn`'s `OptiModules`, it is only possible to use a unique learning rate;
 - check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical, even if it is doable within `declearn`;
