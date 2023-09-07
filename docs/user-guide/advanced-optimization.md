@@ -9,25 +9,27 @@ keywords: optimization,optimizer,declearn,OptiModule,Regularizer,regularization
 
 Advanced Optimization can be done in `Fed-BioMed` through the use of `declearn`, a Python package that provides gradient-based `Optimizers`. `declearn` is cross-machine learning framework, meaning that it can be used with most machine learning frameworks (scikit-learn, PyTorch, Tensorflow, JAX, ...).
 
-The following chapter explores in depth how to use `declearn` optimization feature in `Fed-BioMed`. For an example, please refer to the [Advanced Optimizer tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold)
+The following chapter explores in depth how to use `declearn` optimization feature in `Fed-BioMed`. For an example, please refer to the [Advanced Optimizer tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold).
 
 ## 1. Introduction to `Declearn` based Optimizer: a cross framework `Optimizer`
 
 ### 1.1. What is `declearn` package?
 
-[`declearn` package](https://gitlab.inria.fr/magnet/declearn/declearn2) is another Federated Learning framework modular and combinable, providing state-of-the-art gradient-based `Optimizer` algorithms. In `Fed-BioMed`, we are only using its `Optimization` facility, leaving aside all other components of `declearn` that we don't use in `Fed-BioMed`.
+[`declearn` package](https://gitlab.inria.fr/magnet/declearn/declearn2) is another Federated Learning framework modular and combinable, providing state-of-the-art gradient-based `Optimizer` algorithms. In `Fed-BioMed`, we are only using [its `Optimization` facility](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md), leaving aside all other components of `declearn` that we don't use in `Fed-BioMed`.
 
 
 **References**: For further details about `declearn`, you may visit:
 
 - [`declearn` repository](https://gitlab.inria.fr/magnet/declearn/declearn2)
 
-- [`declearn` documentation](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/)
+- [`declearn` general documentation](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/)
+
+- [`declearn` Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md)
 
 
 ### 1.2. `declearn` interface in `Fed-BioMed`: the `Optimizer` object
 
-In `Fed-BioMed`, we provide a `Optimizer` object, that works as an interface with `declearn` in order to use `declearn`'s Optimizers (see below [`declearn`'s `OptiModules`](#declearn-optimodules) and [`declearn`'s `Regularizers`](#declearn-regularizers)).
+In `Fed-BioMed`, we provide a `Optimizer` object, that works as an interface with `declearn`, and was made in order to use `declearn`'s Optimizers (see below [`declearn`'s `OptiModules`](#declearn-optimodules) and [`declearn`'s `Regularizers`](#declearn-regularizers)).
 
 ```python
 from fedbiomed.common.optimizers import Optimizer
@@ -46,6 +48,7 @@ with the following arguments:
  - `regularizers`: a list of `declearn` 's `Regularizers` (or a list of `Regularizers' names`).
 
 <a name="declearn-optimodules" ></a>
+
 ### 1.3. `declearn`'s `OptiModules`
 
 `declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. They should be imported from `declearn`'s `declearn.optimizer.modules` 
@@ -53,6 +56,7 @@ with the following arguments:
 **Usage**:
 
  - For basic SGD (Stochastic Gradient Descent), we don't need to specify a `declearn` `OptiModule` and/or  a `Regularizer`
+
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
 
@@ -70,6 +74,7 @@ with the following arguments:
     Optimizer(lr=lr, modules=[AdamModule()])
 
     ```
+
 - It is possible to chain `Optimizer` with several `OptiModules`, meaning to use several `Optimizers`. Some chains of `OptiModule` may be non-sensical, so use it at your own risk! Below we showcase the use of Adam with Momentum
 
     ```python
@@ -82,7 +87,7 @@ with the following arguments:
 
     ```
 
-For further information on `declearn OptiModule`, please visit [`declearn OptiModule`](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/Optimizer/).
+For further information on `declearn OptiModule`, please visit [`declearn OptiModule`](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/Optimizer/) and [`declearn`'s Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md).
 
 
 **List of available Optimizers provided by `declearn`**
@@ -95,7 +100,6 @@ from declearn.optimizer import list_optim_modules
 list_optim_modules()
 
 ```
-
 
 <a name="declearn-regularizers" ></a>
 
@@ -118,9 +122,9 @@ $\alpha : \textrm{regularization coefficient}$
 $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 
 
-`Regularizers` should be used with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`](https://arxiv.org/abs/1812.06127) is also considered as a regularization.
+`Regularizers` should be used and combined with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`](https://arxiv.org/abs/1812.06127) is also considered as a regularization.
 
-!!! note "Regularizer without OptiModules"
+!!! note "Optimizer without OptiModules"
     When no `OptiModules` are specified in the `modules` argument of `Optimizer`, plain SGD algorithm is used for the optimization by default.
 
 **Usage**:
@@ -147,6 +151,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
     Optimizer(lr=lr, modules=[AdamModule()], regularizers=[LassoRegularizer()])
 
     ```
+
 - Chaining several Regularizers: an example with Ridge and Lasso regularizers, and [Adam](https://arxiv.org/abs/1412.6980) with momentum as the Optimizer.
 
     ```python
@@ -159,10 +164,9 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 
 For further information on `declearn Regularizer`, please visit [`declearn Regularizers` documentation webpage](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/regularizers/Regularizer/) 
 
-
 ### 1.5. Chaining `Optimizers` and `Regularizers` with `declearn` modules
 
-It is possible in `declearn` to chain several `OptiModules` and `Regularizers` in an Optimizer. 
+It is possible in `declearn` to chain several `OptiModules` and `Regularizers` in an Optimizer.
 Generaly speaking, `Optimizer` in `declearn` can be written as:
 
 $$
@@ -211,10 +215,8 @@ Optimizer(lr=lr,
           regularizers=[LassoRegularizer(), RidgeRegularizer()])
 ```
 
-
 !!! note "Using list of strings instead of list of modules"
     In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same `Optimizer` as the one above but by specifying the module names.
-
 
 ```python
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -226,6 +228,7 @@ Optimizer(lr=lr,
           regularizers=['lasso', 'ridge'])
 
 ```
+
 To know the name of each `declearn`'s module, please visit [`declearn` webpage](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/).
 
 #### How to use well-known Federated-Learning algorithms with `declearn` in `Fed-BioMed`?
@@ -235,7 +238,6 @@ Please refer to [the following section of this page.](#federated-learning-algori
 ## 2. `declearn` optimizer on Node side
 
 In order to use `declearn` to optimize `Node`s local model, you will have to edit `init_otpimizer` method in the `TrainingPlan`. Below we showcase how to use it with PyTorch framework (using Adam and Ridge regularizer for the optimization).
-
 
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -321,7 +323,6 @@ exp.set_agg_optimizer(fed_opt)
 
 exp.run(increase=True)
 ```
-
 
 !!! warning "Important"
     **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `YogiModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated before optimization, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor` on `Researcher` side.**
@@ -455,12 +456,11 @@ Below, we are summerizing common pitfalls that may occur when using `declearn` p
 - Some `Optimizers` may requiere some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
 - For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation](../../user-guide/secagg/introduction/);
 - For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (multiple learning rates `Optimizers`, for example pytorch optimizers `torch.optim.Optimizer` can handle a learning rate per model layer );
-- When chaining `declearn`'s `OptiModules`, it is only possible to use a unique learning rate;
+- When chaining `declearn`'s `OptiModules`, it is only possible to use a unique learning rate, that will be the same for all `OptiModules`, and that won't change during a `Round`;
 - check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical, even if it is doable within `declearn`;
 - [`Scaffold` `Fed-BioMed` aggregator](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold)  must not be used when using both `ScaffoldServerModule` and `ScaffoldClientModule`. This `aggregator` is in fact an alternative to the `declearn` `scaffold`, and you have to choose between the `Fed-BioMed` native version of `Scaffold` and the `declearn` 's one. Please note that `Fed-BioMed aggregator Scaffold` is deprecated, hence, the use of `ScaffoldServerModule` and `ScaffoldClientModule` is highly encouraged.
 
-
-# Conclusion
+## Conclusion
 
 We have seen how to use `declearn` `Optimizers` in `Fed-BioMed`. In `Fed-BioMed`, it is possible to set an `Optimizer` on both the `Node` and the `Researcher` side:
 
