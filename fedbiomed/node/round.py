@@ -499,10 +499,11 @@ class Round:
                 # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
-                self.save_round_state()
+
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
+            self.save_round_state()
             # end : clean the namespace
             try:
                 del self.training_plan
@@ -621,6 +622,7 @@ class Round:
         optimizer = self._get_base_optimizer()
         
         optimizer_state = optimizer.save_state()
+        print("OPT STATE", optimizer_state)
         logger.warning(f"optimizer info bfore aving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers

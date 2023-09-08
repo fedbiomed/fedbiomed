@@ -84,7 +84,7 @@ class NodeStateManager:
     
     def initialize(self, previous_state_id: Optional[str] = None) -> True:
         self.previous_state_id = previous_state_id
-        self._generate_new_state_id()
+        #self._generate_new_state_id()
         self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
         # Should we ALWAYS create a folder when saving a state, even if the folder is empty?
         try:

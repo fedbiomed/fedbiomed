@@ -233,6 +233,7 @@ class TestRound(NodeTestCase):
         _model_results = {
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
+            'state_id': None,
             'model_weights': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
@@ -307,12 +308,13 @@ class TestRound(NodeTestCase):
         module_file_path = os.path.join(environ['TMP_DIR'],
                                         'training_plan_' + str(FakeUuid.VALUE) + '.py')
 
-        # creating file for toring dummy training plan
+        # creating file for storing dummy training plan
         with open(module_file_path, "w", encoding="utf-8") as file:
             file.write(dummy_training_plan_test)
 
         # action
         msg_test = self.r1.run_model_training()
+        print("NSG", msg_test)
         # checks
         serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
