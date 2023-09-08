@@ -444,8 +444,8 @@ class TrainingPlanSecurityManager:
 
     def get_training_plan_by_id(self,
                                 training_plan_id: str,
-                                secure: bool = True,
-                                content: bool = False) -> Union[Dict[str, Any], None]:
+                                secure: bool = True
+                                ) -> Union[Dict[str, Any], None]:
         """Get a training plan in database given his `training_plan_id`.
 
         Also add a `content` key to the returned dictionary. This method is not used within the 
@@ -477,16 +477,9 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f"database get operation failed, with following error: {str(e)}")
 
-        if isinstance(training_plan, dict):
-            if content:
-                training_plan_content = training_plan["training_plan"]
-            else:
-                training_plan_content = None
-
-            if secure and training_plan is not None:
+        if training_plan:
+            if secure:
                 self._remove_sensible_keys_from_request(training_plan)
-
-            training_plan.update({"content": training_plan_content})
 
         return training_plan
 
