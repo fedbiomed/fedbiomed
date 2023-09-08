@@ -623,7 +623,7 @@ class Round:
         optimizer_state = optimizer.save_state()
         logger.warning(f"optimizer info bfore aving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
-            # this condition was made so we dont save 
+            # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
                 self.job_id,
                 self._round, 
@@ -636,6 +636,8 @@ class Round:
                 'optimizer_type': str(type(optimizer)),
                 'state_path': optim_path
             }
+            # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
+
             
         else:
             logger.warning(f"Unable to save optimizer state of type {type(optimizer)}. Skipping...")
