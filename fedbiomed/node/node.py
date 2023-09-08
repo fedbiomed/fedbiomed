@@ -46,7 +46,7 @@ class Node:
         """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self.grpc_client = ResearcherClient(
+        self._grpc_client = ResearcherClient(
             node_id=environ["ID"],
             on_message=self.on_message,
         )
@@ -96,7 +96,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'ping':
-                self.grpc_client.send(
+                self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
@@ -112,7 +112,7 @@ class Node:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
                     print(databases)
-                    self.grpc_client.send(NodeMessages.format_outgoing_message(
+                    self._grpc_client.send(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
@@ -123,7 +123,7 @@ class Node:
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
-                self.grpc_client.send(NodeMessages.format_outgoing_message(
+                self._grpc_client.send(NodeMessages.format_outgoing_message(
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
@@ -134,12 +134,12 @@ class Node:
             elif command == 'approval':
                 # Ask for training plan approval
                 reply = self.tp_security_manager.reply_training_plan_approval_request(request)
-                self.grpc_client.send(reply)
+                self._grpc_client.send(reply)
             elif command == 'training-plan-status':
                 # Check is training plan approved
                 reply = self.tp_security_manager.reply_training_plan_status_request(request)
                 print("HERE YOU GO")
-                self.grpc_client.send(reply)
+                self._grpc_client.send(reply)
 
             else:
                 raise NotImplementedError('Command not found')
@@ -244,14 +244,14 @@ class Node:
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
-                                      send=self.grpc_client.send)
+                                      send=self._grpc_client.send)
 
         dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
         if data is None:
             logger.error('Did not found proper data in local datasets '
                          f'on node={environ["NODE_ID"]}')
-            self.grpc_client.send(NodeMessages.format_outgoing_message(
+            self._grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
                  'researcher_id': msg.get_param('researcher_id'),
@@ -277,7 +277,7 @@ class Node:
                             round_number=msg.get_param('round'),
                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
                             aux_vars=msg.get_param('aux_vars'),
-                            reply_callback=self.grpc_client.send
+                            reply_callback=self._grpc_client.send
             )
 
         return round_
@@ -298,7 +298,7 @@ class Node:
                 command = item.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
-                self.grpc_client.send(
+                self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'command': 'error',
@@ -329,7 +329,7 @@ class Node:
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
-                        self.grpc_client.send(
+                        self._grpc_client.send(
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
@@ -356,7 +356,20 @@ class Node:
         Args:
             block: Whether messager is blocking (or not). Defaults to False.
         """
-        self.grpc_client.start()
+        # TODO: remove the `block` quote ? Now non blocking only. Or start in blocking mode ?
+        self._grpc_client.start()
+
+    def stop_messaging(self):
+        """Shutdown communications with researcher, wait until completion"""
+        self._grpc_client.stop()
+
+    def is_connected(self) -> bool:
+        """Checks if node is ready for communication with researcher
+
+        Returns:
+            True if node is ready, False if node is not ready
+        """
+        return isinstance(self._grpc_client, ResearcherClient) and self._grpc_client.is_connected()
 
     def reply(self, msg: dict):
         """Send reply to researcher
@@ -381,7 +394,7 @@ class Node:
                                                                  f"Unexpected error occurred")
 
         else:
-            self.grpc_client.send(reply)
+            self._grpc_client.send(reply)
 
 
 
@@ -402,7 +415,7 @@ class Node:
         """
 
         #
-        self.grpc_client.send(
+        self._grpc_client.send(
             ErrorMessage(
                 command='error',
                 errnum=errnum.name,

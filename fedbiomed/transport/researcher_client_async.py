@@ -210,6 +210,8 @@ class ResearcherClient:
         self.on_message = on_message or self._default_callback
 
         self._thread = None
+        self._task_channel = None
+        self._feedback_channel = None
         # note: _node_configured is not enough, many race conditions remaining ...
         self._node_configured = False
 
@@ -335,7 +337,6 @@ class ResearcherClient:
 
         while True:
 
-            logger.info("Sending new task request")
             try:
                 # await task_reader(stub= self._stub, node=NODE_ID, callback=self.on_message)
                 # await task_reader_unary(stub= self._stub, node=NODE_ID, callback= lambda x: x)
@@ -425,7 +426,7 @@ class ResearcherClient:
         try:
             result = future.result(timeout=20)
         except concurrent.futures.TimeoutError:
-            logger.error("send: timeout submitting message to send")
+            logger.info("send: timeout submitting message to send")
             future.cancel()
             #raise Exception("end: timeout submitting message to send")
             result = False
@@ -451,7 +452,7 @@ class ResearcherClient:
         # TODO: refactor !
         # self._node_configured self._task_channel and self._feedback_stub 
         # should be used only in spawn thread, not in master thread
-        if not self._node_configured or not self._task_channel.get_state() == grpc.ChannelConnectivity.READY:
+        if not self.is_connected():
             raise Exception("send: the connection is not ready")
         
         # Switch-case for message type and gRPC calls
@@ -477,7 +478,7 @@ class ResearcherClient:
         # Runs gRPC async client
 
         if self._node_configured:
-            logger.error("start: node client is already started")
+            logger.info("start: node client is already started")
             return
 
         def run():
@@ -511,7 +512,7 @@ class ResearcherClient:
         """Stop gently running asyncio loop and its thread"""
 
         if self._node_configured is False:
-            logger.error("stop: node already stopped")
+            logger.info("stop: node already stopped")
             return
 
         self._node_configured = False
@@ -521,7 +522,7 @@ class ResearcherClient:
             stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
                                                                    ctypes.py_object(ClientStop))
         if stopped_count != 1:
-            logger.error("stop: could not deliver exception to thread")
+            logger.info("stop: could not deliver exception to thread")
         else:
             self._thread.join()
 
@@ -529,6 +530,12 @@ class ResearcherClient:
     def is_alive(self) -> bool:
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
+    def is_connected(self) -> bool:
+        """Node is configured and ready for communication
+        """
+        # TODO: refactor need more checks
+        return self.is_alive() and self._node_configured and isinstance(self._task_channel, grpc.aio.Channel) and \
+            self._task_channel.get_state() == grpc.ChannelConnectivity.READY
 
 if __name__ == '__main__':
 
