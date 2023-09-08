@@ -138,16 +138,10 @@ class Node:
             elif command == 'training-plan-status':
                 # Check is training plan approved
                 reply = self.tp_security_manager.reply_training_plan_status_request(request)
-                print("HERE YOU GO")
                 self._grpc_client.send(reply)
-
             else:
                 raise NotImplementedError('Command not found')
-        except decoder.JSONDecodeError:
-            resid = msg.get('researcher_id', 'unknown_researcher_id')
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg="Not able to deserialize the message",
-                            researcher_id=resid)
+
         except NotImplementedError:
             resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
