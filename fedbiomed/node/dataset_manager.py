@@ -526,16 +526,23 @@ class DatasetManager:
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
-    def remove_database(self, tags: Union[tuple, list]):
-        """Removes datasets from database.
+    def remove_database(self, dataset_id: str):
+        """Removes a dataset from database.
 
-        Only datasets matching the `tags` should be removed.
+        Only the dataset matching the `dataset_id` should be removed.
 
         Args:
-            tags: Dataset description tags.
+            dataset_id: Dataset unique ID.
         """
-        doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
-        self._dataset_table.remove(doc_ids=doc_ids)
+        # TODO: check that there is no more than one dataset with `dataset_id` (consistency, should not happen)
+        _, dataset_document = self._dataset_table.get(self._database.dataset_id == dataset_id, add_docs=True)
+
+        if dataset_document:
+            self._dataset_table.remove(doc_ids=[dataset_document.doc_id])
+        else:
+            _msg = ErrorNumbers.FB322.value + f": No dataset found with id {dataset_id}"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
 
     def modify_database_info(self,
                              dataset_id: str,
