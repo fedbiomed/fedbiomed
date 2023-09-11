@@ -243,7 +243,7 @@ class ErrorNumbers(_BaseEnum):
     FB319 = "FB319: Command not found error"
     FB320 = "FB320: bad model type"
     FB321 = "FB321: Secure aggregation delete error"
-    FB322 = "FB322: Dataset registration error"
+    FB322 = "FB322: Dataset manager error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
