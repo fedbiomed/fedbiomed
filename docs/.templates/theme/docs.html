@@ -7,7 +7,7 @@
             {%- endblock %}
         </div>
         <div class="main-col">
-            <div class="main-docs">
+            <main class="main-docs">
                 {% if page.nb_url %}
                 <div class="row">
                     <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
@@ -21,8 +21,9 @@
                 {% if not "\x3ch1" in page.content %}
                   <h1>{{ page.title | d(config.site_name, true)}}</h1>
                 {% endif %}
-                {{ page.content }}
-
+                <article>
+                    {{ page.content }}  
+                </article>
                 {% if page.nb_url %}
                     <div class="row">
                         <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
@@ -33,7 +34,7 @@
                         </a>
                     </div>
                 {% endif %}
-            </div>
+                </main>
         </div>
         <div class="right-col">
             <div id="right-sidebar" class="sidebar-right">
