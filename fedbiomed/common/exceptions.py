@@ -302,3 +302,9 @@ class FedbiomedNodeStateManager(FedbiomedError):
     """
     Error in Node State Manager
     """
+
+
+class FedBiomedNodeStateAgentError(FedbiomedError):
+    """
+    Error in Node State Agent 
+    """

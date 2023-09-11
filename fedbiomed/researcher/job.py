@@ -739,7 +739,8 @@ class Job:
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'model_params_path': self._model_params_file,
-            'training_replies': self._save_training_replies(self._training_replies)
+            'training_replies': self._save_training_replies(self._training_replies),
+            'node_state_ids': self._node_state_agent.save_state_ids_in_bkpt()
         }
 
         state['model_params_path'] = create_unique_link(
@@ -765,6 +766,7 @@ class Job:
         # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
+        self._node_state_agent.load_state_ids_from_bkpt(saved_state.get('node_state_ids'))
         # Upload the latest model parameters. This records the filename and url.
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reloadthe latest training replies.
