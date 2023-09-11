@@ -574,6 +574,8 @@ class TestDatasetManager(NodeTestCase):
             for doc_id in doc_ids:
                 self.fake_database.pop(str(doc_id))
 
+        # case 1 : existing dataset id
+
         # patchers
         get.return_value = get_result
         db_remove_patch.side_effect = db_remove_side_effect
@@ -585,8 +587,14 @@ class TestDatasetManager(NodeTestCase):
         db_remove_patch.assert_called_once_with(doc_ids=[1])
         self.assertFalse(self.fake_database.get('1', False))
 
+        # case 2 : non existing dataset id
+
+        # patchers
         get.return_value = None, None
-        self.dataset_manager.remove_database(dataset_id)
+
+        # action + check
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            self.dataset_manager.remove_database(dataset_id)
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
