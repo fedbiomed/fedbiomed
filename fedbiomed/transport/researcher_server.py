@@ -196,7 +196,7 @@ class ResearcherServer:
 
     def __init__(self, debug: bool = False, on_message: Callable = _default_callback) -> None:
         self._server = None 
-        self._t = None 
+        self._thread = None 
         self._debug = debug
         self._on_message = on_message 
 
@@ -230,7 +230,6 @@ class ResearcherServer:
         finally:
             if self._debug: print("_start: finally")
 
-
     def broadcast(self, message: Message):
         """Broadcasts given message to all active clients"""
 
@@ -256,8 +255,8 @@ class ResearcherServer:
                 if self._debug:
                     print("Run: finally")
 
-        self._t = threading.Thread(target=run)
-        self._t.start()
+        self._thread = threading.Thread(target=run)
+        self._thread.start()
 
         # Sleep 2 seconds before releasing READY event
         # FIXME: This implementation assumes that nodes will be able connect in 3 seconds
@@ -266,37 +265,35 @@ class ResearcherServer:
 
 
 
-    async def _stop(self):
-        print("_stop: before")
-        await self._server.stop(1)
-        while await self._server.wait_for_termination(timeout=1):
-            await self._server.stop(1)
-            if self._debug: print("_stop: loop wait_for_termination")
-        print("_stop: after")
+    #async def _stop(self):
+    #    print("_stop: before")
+    #    await self._server.stop(1)
+    #    while await self._server.wait_for_termination(timeout=1):
+    #        if self._debug:
+    #            print("_stop: loop wait_for_termination")
+    #        await self._server.stop(1)
+    #    print("_stop: after")
 
     def stop(self):
         """Stops researcher server"""
-
-        # TODO: call from spawned (communication) thread, not from main thread
-        #await self._server.stop(1)
         
-        future = asyncio.run_coroutine_threadsafe(self._stop(), self._loop)
-        future.result(timeout=5)
+        #future = asyncio.run_coroutine_threadsafe(self._stop(), self._loop)
+        #future.result(timeout=5)
         print("stop: after future")
 
-        if not isinstance(self._t, threading.Thread):
+        if not isinstance(self._thread, threading.Thread):
             stopped_count = 0
         else:
-            stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._t.ident),
+            stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
                                                                        ctypes.py_object(ServerStop))
         if stopped_count != 1:
             logger.error("stop: could not deliver exception to thread")
         else:
-            self._t.join()
+            self._thread.join()
         if self._debug: print("stop: finishing")
 
     def is_alive(self) -> bool:
-        return False if not isinstance(self._t, threading.Thread) else self._t.is_alive()
+        return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
 
 if __name__ == "__main__":
@@ -308,9 +305,9 @@ if __name__ == "__main__":
         
     rs = ResearcherServer(debug=True)
     signal.signal(signal.SIGHUP, handler)
-    rs.start()
 
     try:
+        rs.start()
         while rs.is_alive():
             time.sleep(1)
     except KeyboardInterrupt:
@@ -319,5 +316,4 @@ if __name__ == "__main__":
             rs.stop()
         except KeyboardInterrupt:
             print("Immediate keyboard interrupt, dont wait to clean")
-        finally:
-            print("main: finally")
+
