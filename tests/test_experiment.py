@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 from declearn.model.api import Vector
 import numpy as np
 import torch
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -1212,6 +1213,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job._node_state_agent', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
@@ -1223,6 +1225,7 @@ class TestExperiment(ResearcherTestCase):
                                                                     mock_job_training,
                                                                     mock_job_training_replies,
                                                                     mock_job_training_plan_type,
+                                                                    mock_node_state_agent,
                                                                     mock_strategy_refine,
                                                                     mock_scaffold_create_aggregator_args,
                                                                     mock_scaffold_aggregate,
@@ -1231,6 +1234,7 @@ class TestExperiment(ResearcherTestCase):
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
         mock_job_init.return_value = None
         mock_job_training.return_value = None
+        mock_node_state_agent.return_value = NodeStateAgent()
 
         mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
             self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])

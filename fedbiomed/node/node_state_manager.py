@@ -81,7 +81,7 @@ class NodeStateManager:
             raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: failing to"
                                             " save node state into DataBase") from e
         return True
-    
+
     def initialize(self, previous_state_id: Optional[str] = None) -> True:
         self.previous_state_id = previous_state_id
         #self._generate_new_state_id()
