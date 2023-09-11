@@ -547,9 +547,9 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('tinydb.table.Table.remove')
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
+    @patch('fedbiomed.common.db.DBTable.get')
     def test_dataset_manager_19_remove_database(self,
-                                             search_by_tags_patch,
+                                             get,
                                              db_remove_patch):
         """
         Tests `remove_database` method by simulating the removal of a database
@@ -560,8 +560,8 @@ class TestDatasetManager(NodeTestCase):
         # (usually, datasets are added with an integer from 1 to the number of datasets
         # contained in the database)
 
-        dataset_tags = ['some', 'tags']
-        search_result = [doc1]
+        dataset_id= 'some-id'
+        get_result = ({}, doc1)
 
 
         def db_remove_side_effect(doc_ids: List[int]):
@@ -574,17 +574,27 @@ class TestDatasetManager(NodeTestCase):
             for doc_id in doc_ids:
                 self.fake_database.pop(str(doc_id))
 
+        # case 1 : existing dataset id
+
         # patchers
-        search_by_tags_patch.return_value = search_result
+        get.return_value = get_result
         db_remove_patch.side_effect = db_remove_side_effect
 
         # action
-        self.dataset_manager.remove_database(dataset_tags)
+        self.dataset_manager.remove_database(dataset_id)
 
         # checks
-        search_by_tags_patch.assert_called_once_with(dataset_tags)
         db_remove_patch.assert_called_once_with(doc_ids=[1])
         self.assertFalse(self.fake_database.get('1', False))
+
+        # case 2 : non existing dataset id
+
+        # patchers
+        get.return_value = None, None
+
+        # action + check
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            self.dataset_manager.remove_database(dataset_id)
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
