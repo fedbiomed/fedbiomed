@@ -270,8 +270,7 @@ class Node:
                             training_plan_class=msg.get_param('training_plan_class'),
                             round_number=msg.get_param('round'),
                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                            aux_vars=msg.get_param('aux_vars'),
-                            reply_callback=self._grpc_client.send
+                            aux_vars=msg.get_param('aux_vars')
             )
 
         return round_
@@ -310,7 +309,7 @@ class Node:
                         # once task is out of queue, initiate training rounds
                         if round is not None:
                             # Runs model training and send message using callback
-                            round.run_model_training(
+                            msg = round.run_model_training(
                                 secagg_arguments={
                                     'secagg_servkey_id': item.get_param('secagg_servkey_id'),
                                     'secagg_biprime_id': item.get_param('secagg_biprime_id'),
@@ -318,8 +317,7 @@ class Node:
                                     'secagg_clipping_range': item.get_param('secagg_clipping_range')
                                 }
                             )
-                    except FedbiomedSilentRoundError as exp:
-                        logger.debug(f"A silent raise caught: {exp}")
+                            self._grpc_client.send(msg)
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
@@ -329,7 +327,7 @@ class Node:
                                     'command': 'error',
                                     'extra_msg': str(e),
                                     'node_id': environ['NODE_ID'],
-                                    'researcher_id': 'NOT_SET',
+                                    'researcher_id': item["researcher_id"],
                                     'errnum': ErrorNumbers.FB300.name
                                 }
                             )

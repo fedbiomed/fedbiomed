@@ -467,7 +467,6 @@ class ResearcherClient:
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                print("Sending reply")
                 self._thread_loop.call_soon_threadsafe(
                     self._send_queue.put_nowait, 
                     self._create_send_task(self._stub.ReplyTask, message))

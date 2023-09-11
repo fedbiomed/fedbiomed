@@ -14,7 +14,7 @@ from fedbiomed.common.utils import get_method_spec
 
 _node_status_lock = threading.Lock()
 _node_store_lock = threading.Lock()
-_async_io_lock = asyncio.Lock()
+
 
 
 _pool = concurrent.futures.ThreadPoolExecutor()
@@ -33,15 +33,7 @@ class NodeActiveStatus(Enum):
     ACTIVE = 2
     DISCONNECTED = 3 
 
-    
-def _is_called_within_the_same_loop(loop):
 
-    try: 
-        loop_ = asyncio.get_running_loop()
-    except RuntimeError:
-        return False
-    else:
-        return loop_ == loop
 
 # Combines threading.Lock with asyncio
 # See source: https://stackoverflow.com/a/63425191/6111150 
@@ -74,6 +66,7 @@ class NodeAgent:
         self._queue = asyncio.Queue()
         self._loop = loop 
         self._status_task = None
+        self._async_lock = asyncio.Lock()
 
 
     def get_status_threadsafe(self):
@@ -83,7 +76,7 @@ class NodeAgent:
         modified by asyncio thread. 
         """
         async def get():
-            async with _async_io_lock:
+            async with self._async_lock:
                 return self._status
 
         future = asyncio.run_coroutine_threadsafe(get(), self._loop)
@@ -170,17 +163,14 @@ class NodeAgent:
 
     async def active(self) -> None:
         """Updates node status as active"""
-        async with _async_io_lock:
-            print("Active is executed")
+        async with self._async_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self.id} is back online!")
             self._status = NodeActiveStatus.ACTIVE
                     
             # Cancel status task if there is any running
             if self._status_task:
-                print("On going task is canceled")
                 self._status_task.cancel()
-            print("Activated")
 
 
     async def _change_node_status_disconnected(self) -> None:
@@ -193,15 +183,13 @@ class NodeAgent:
         await asyncio.sleep(10)
 
         # If the status still IDLE set status to DISCONNECTED
-        async with _async_io_lock:
-            print("checking if node is IDLE")
+        async with self._async_lock:
             if self._status == NodeActiveStatus.IDLE:
                 self._status = NodeActiveStatus.DISCONNECTED
                 logger.warning(
-                    f"Node {self.id} is disconnected. Request/task that are created for this node will be flushed" 
-                    )
+                    f"Node {self.id} is disconnected. Request/task that are created "
+                    "for this node will be flushed" )
             # TODO: clean the queue
-            print("Finish status set disconnect")
 
 
 class AgentStore:
