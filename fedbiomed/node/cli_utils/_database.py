@@ -249,8 +249,8 @@ def delete_all_database():
         return
 
     for ds in my_data:
-        tags = ds['tags']
-        dataset_manager.remove_database(tags)
-        logger.info('Dataset removed for tags:' + str(tags))
+        d_id = ds['dataset_id']
+        dataset_manager.remove_database(d_id)
+        logger.info('Dataset removed for dataset_id:' + str(d_id))
 
     return
