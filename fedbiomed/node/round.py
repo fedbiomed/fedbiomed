@@ -397,7 +397,7 @@ class Round:
             extend_with = {}
 
         # If round is not successful log error message
-        self._reply(NodeMessages.format_outgoing_message(
+        return NodeMessages.format_outgoing_message(
             {'node_id': environ['NODE_ID'],
             'job_id': self.job_id,
             'researcher_id': self.researcher_id,
@@ -406,13 +406,8 @@ class Round:
             'dataset_id': self.dataset['dataset_id'] if success else '',
             'msg': message,
             'timing': timing,
-            **extend_with}))
+            **extend_with})
 
-        # if not success:
-        #     # Silent error will stop the execution of the remaining tasks without sending 
-        #     # additional error message since it is already sent.
-        #     logger.error(message)
-        #     raise FedbiomedSilentRoundError(message)
 
     def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
