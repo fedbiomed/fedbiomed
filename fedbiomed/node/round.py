@@ -54,7 +54,6 @@ class Round:
         history_monitor: HistoryMonitor,
         aggregator_args: Dict[str, Any],
         node_args: Dict,
-        reply_callback: Callable,
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[List[str]] = None,
@@ -113,7 +112,6 @@ class Round:
         self._biprime = None
         self._servkey = None
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
-        self._reply: Callable = reply_callback
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -146,24 +144,21 @@ class Round:
         secagg_all_none = all([s is None for s in (secagg_servkey_id, secagg_biprime_id)])
         secagg_all_defined = all([s is not None for s in (secagg_servkey_id, secagg_biprime_id)])
 
-        error = None
         if not secagg_all_none and not secagg_all_defined:
-            self._send_round_reply(False,
-                        f"{ErrorNumbers.FB314.value}: Missing secagg context. Please make sure that "
-                        f"train request contains both `secagg_servkey_id` and `secagg_biprime_id`.")
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Missing secagg context. Please make sure that "
+                                      f"train request contains both `secagg_servkey_id` and `secagg_biprime_id`.")
 
         if environ["FORCE_SECURE_AGGREGATION"] and secagg_all_none:
-            self._send_round_reply(False,
-                    f"{ErrorNumbers.FB314.value}: Node requires to apply secure aggregation but "
-                    f"Secure aggregation context for the training is not defined.")
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Node requires to apply secure aggregation but "
+                                      f"Secure aggregation context for the training is not defined.")
 
         if secagg_all_defined and not environ["SECURE_AGGREGATION"]:
-            self._send_round_reply(False,
+            raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation is not activated on the node."
             )
 
         if secagg_all_defined and secagg_random is None:
-            self._send_round_reply(False,
+            raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
                 f"secure aggregation correctness. Please add `secagg_random` to the train request"
             )
@@ -173,15 +168,13 @@ class Round:
             self._servkey = SKManager.get(secagg_id=secagg_servkey_id, job_id=self.job_id)
 
             if self._biprime is None:
-                self._send_round_reply(False,
-                                       f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
-                                       f"is not existing. Aborting train request.")
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
+                                          f"is not existing. Aborting train request.")
 
             if self._servkey is None:
-                 self._send_round_reply(False,
-                                        f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
-                                        f"secagg: {secagg_servkey_id} is not existing. "
-                                        f"Aborting train request.")
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
+                                          f"secagg: {secagg_servkey_id} is not existing. "
+                                          f"Aborting train request.")
 
         return secagg_all_defined
 
@@ -204,13 +197,15 @@ class Round:
         """
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-    
-        secagg_arguments = {} if secagg_arguments is None else secagg_arguments
-        self._use_secagg = self._configure_secagg(
-            secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
-            secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
-            secagg_random=secagg_arguments.get('secagg_random')
-        )
+        try:
+            secagg_arguments = {} if secagg_arguments is None else secagg_arguments
+            self._use_secagg = self._configure_secagg(
+                secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+                secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+                secagg_random=secagg_arguments.get('secagg_random')
+            )
+        except FedbiomedRoundError as e:
+            return self._send_round_reply(success=False, message=str(e))
 
         # Initialize and validate requested experiment/training arguments.
         try:
@@ -348,7 +343,7 @@ class Round:
                     current_round=self._round,
                     key=self._servkey["context"]["server_key"],
                     biprime=self._biprime["context"]["biprime"],
-                    weight=sample_size,
+                    weight=results["sample_size"],
                     clipping_range=secagg_arguments.get('secagg_clipping_range')
                 )
                 model_weights = encrypt(params=model_weights)
@@ -413,11 +408,11 @@ class Round:
             'timing': timing,
             **extend_with}))
 
-        if not success:
-            # Silent error will stop the execution of the remaining tasks without sending 
-            # additional error message since it is already sent.
-            logger.error(message)
-            raise FedbiomedSilentRoundError(message)
+        # if not success:
+        #     # Silent error will stop the execution of the remaining tasks without sending 
+        #     # additional error message since it is already sent.
+        #     logger.error(message)
+        #     raise FedbiomedSilentRoundError(message)
 
     def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
