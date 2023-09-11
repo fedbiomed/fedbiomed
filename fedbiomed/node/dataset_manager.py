@@ -526,7 +526,7 @@ class DatasetManager:
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
-    def remove_database(self, tags: Union[tuple, list]):
+    def remove_database(self, dataset_id: str):
         """Removes datasets from database.
 
         Only datasets matching the `tags` should be removed.
@@ -534,9 +534,13 @@ class DatasetManager:
         Args:
             tags: Dataset description tags.
         """
-        doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
-        self._dataset_table.remove(doc_ids=doc_ids)
+        _, dataset_document = self._dataset_table.get(self._database.dataset_id == dataset_id, add_docs=True)
 
+        if dataset_document:
+            self._dataset_table.remove(doc_ids=[dataset_document.doc_id])
+        else:
+            logger.debug(f"No dataset found with id {dataset_id}")
+            
     def modify_database_info(self,
                              dataset_id: str,
                              modified_dataset: dict):
