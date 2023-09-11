@@ -283,7 +283,7 @@ find_gtimeout() {
 # ---------------
 
 # trap some signals to do a proper cleaning at the end
-trap cleaning_trap INT TERM
+#trap cleaning_trap INT TERM
 
 # locate the topdir of the distribution
 basedir=$(cd $(dirname $0)/.. || exit 1 ; pwd)
