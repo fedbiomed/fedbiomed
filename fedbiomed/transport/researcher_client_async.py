@@ -415,30 +415,30 @@ class ResearcherClient:
             return False
 
 
-    def _run_thread_safe(self, coroutine: asyncio.coroutine):
-        """Runs given coroutine as thread-safe"""
-
-        try:
-            future = asyncio.run_coroutine_threadsafe(coroutine, self._thread_loop)
-        except Exception as e:
-            if self._debug: print(f"send: exception launching coroutine {e}")
-
-        try:
-            result = future.result(timeout=20)
-        except concurrent.futures.TimeoutError:
-            logger.info("send: timeout submitting message to send")
-            future.cancel()
-            #raise Exception("end: timeout submitting message to send")
-            result = False
-        except Exception as e:
-            if self._debug: print(f'send: unexpected exception waiting for coroutine result {e}')
-            raise
-        else:
-            if self._debug: print(f"send: the coroutine returned {result}")
-        finally:
-            if self._debug: print(f"send: the coroutine completed")                        
-
-        return result
+    #def _run_thread_safe(self, coroutine: asyncio.coroutine):
+    #    """Runs given coroutine as thread-safe"""
+#
+    #    try:
+    #        future = asyncio.run_coroutine_threadsafe(coroutine, self._thread_loop)
+    #    except Exception as e:
+    #        if self._debug: print(f"send: exception launching coroutine {e}")
+#
+    #    try:
+    #        result = future.result(timeout=20)
+    #    except concurrent.futures.TimeoutError:
+    #        logger.info("send: timeout submitting message to send")
+    #        future.cancel()
+    #        #raise Exception("end: timeout submitting message to send")
+    #        result = False
+    #    except Exception as e:
+    #        if self._debug: print(f'send: unexpected exception waiting for coroutine result {e}')
+    #        raise
+    #    else:
+    #        if self._debug: print(f"send: the coroutine returned {result}")
+    #    finally:
+    #        if self._debug: print(f"send: the coroutine completed")                        
+#
+    #    return result
 
     # from fedbiomed.common.message import FeedbackMessage, Log
     # m = FeedbackMessage(log=Log(researcher_id='rid', message='test message'))
