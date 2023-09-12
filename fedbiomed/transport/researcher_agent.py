@@ -78,7 +78,7 @@ def create_channel(
 
 
 
-class ResearcherGRPCAgent:
+class GrpcClient:
     """An agent of remote researcher gRPC server
     
     Attributes:
@@ -89,6 +89,7 @@ class ResearcherGRPCAgent:
     task_stub: ResearcherServiceStub
     queue: asyncio.Queue
 
+    
     def __init__(self, ip, host, node_id, loop):
         self._id = None
         self._ip = ip
