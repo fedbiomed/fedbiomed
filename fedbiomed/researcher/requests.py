@@ -47,8 +47,7 @@ class Requests(metaclass=SingletonMeta):
 
         # Creates grpc server and starts it
         self.grpc_server = ResearcherServer(
-            on_message=self.on_message,
-            debug=True
+            on_message=self.on_message
         )
         self.grpc_server.start()
 

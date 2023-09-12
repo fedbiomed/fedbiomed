@@ -78,9 +78,6 @@ def exp_exceptions(function):
             sys.exit(e)
         except KeyboardInterrupt:
             code = 1
-            print("Stopping Fed-BioMed communications ...")
-            if isinstance(args[0], Experiment):
-                args[0].stop_messaging()
             print(
                 '\n--------------------',
                 'Fed-BioMed researcher stopped due to keyboard interrupt',
@@ -110,6 +107,9 @@ def exp_exceptions(function):
             logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
 
         if code != 0:
+            if isinstance(args[0], Experiment):
+                print("Stopping Fed-BioMed communications ...")
+                args[0].stop_messaging()
             if is_ipython():
                 # raise a silent specific exception, don't exit the interactive kernel
                 raise FedbiomedSilentTerminationError
@@ -293,6 +293,8 @@ class Experiment:
     # destructor
     @exp_exceptions
     def __del__(self):
+        self.stop_messaging()
+
         # This part has been commented, self._reqs.remove_monitor_callback() removes monitor
         # callback when initializing an experiment for the second time with same name.
         # While recreating a class with same variable name python first calls __init__ and then __del__.
@@ -301,13 +303,13 @@ class Experiment:
         #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         #     self._reqs.remove_monitor_callback()
 
-        if isinstance(self._monitor, Monitor):
+        if hasattr(self, '_monitor') and isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
 
     @exp_exceptions
     def stop_messaging(self):
         """Shutdown communications with nodes, wait until completion"""
-        if isinstance(self._reqs, Requests):
+        if hasattr(self, '_reqs') and isinstance(self._reqs, Requests):
             self._reqs.grpc_server.stop()
 
     @property
