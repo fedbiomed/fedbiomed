@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 import numpy as np
 import torch
 import fedbiomed
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -92,7 +93,8 @@ class TestJob(ResearcherTestCase):
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
-        self.fds = MagicMock()
+        self.fds = MagicMock(spec=FederatedDataSet)
+        self.fds.data = MagicMock(return_value={})
 
         self.fds.data = MagicMock(return_value={})
         self.mock_request_create.side_effect = TestJob.msg_side_effect
@@ -376,7 +378,9 @@ class TestJob(ResearcherTestCase):
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_1234',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -386,7 +390,9 @@ class TestJob(ResearcherTestCase):
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_4321',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -758,8 +764,8 @@ class TestJob(ResearcherTestCase):
             "model_weights": np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
         }
         # mock FederatedDataSet
-        fds = MagicMock()
-        fds.data = MagicMock(return_value={})
+        fds = MagicMock(spec=FederatedDataSet)
+        fds.data = MagicMock(spec=dict, return_value={})
 
         # mock Responses
         #
