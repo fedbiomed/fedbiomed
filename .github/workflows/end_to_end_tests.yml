@@ -36,7 +36,8 @@ jobs:
         run: |
           echo "Launching end-to-end tests" # to check from time to time
           pwd
-          ls
+          ls ./scripts
+          ls ./scripts/run*
           ./scripts/run_integration_tests.sh
           echo "============== TAP results ====================="
           cat ./report.tap
