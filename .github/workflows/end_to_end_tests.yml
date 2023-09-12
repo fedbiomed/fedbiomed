@@ -35,10 +35,7 @@ jobs:
         id: e2e-tests
         run: |
           echo "Launching end-to-end tests" # to check from time to time
-          pwd
-          ls ./scripts
-          ls ./scripts/run*
-          ./scripts/run_integration_tests.sh
+          ./scripts/run_end_to_end_tests.sh
           echo "============== TAP results ====================="
           cat ./report.tap
         shell: bash -l {0}
