@@ -193,7 +193,7 @@ class DeclearnOptimizer(BaseOptimizer):
         print("OPTIM STATE CHECK", optim_state)
         relaoded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = relaoded_optim
-        #return cls(model, relaoded_optim)
+        return self
 
     def save_state(self) -> Dict:
         optim_state = self.optimizer.get_state()

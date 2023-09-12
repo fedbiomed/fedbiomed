@@ -394,7 +394,8 @@ class TestDeclearnOptimizer(unittest.TestCase):
             self.assertEqual(state['config']['w_decay'], w_decay)
             self.assertListEqual(state['config']['regularizers'], [(reg.name, reg.get_config()) for reg in regs])
             self.assertListEqual(state['config']['modules'], [(mod.name , mod.get_config()) for mod in modules])
-            new_optim_wrapper = DeclearnOptimizer.load_state(model, state)
+            new_optim = FedOptimizer.load_state(state)
+            new_optim_wrapper = DeclearnOptimizer(model, new_optim).load_state(state)
             self.assertDictEqual(new_optim_wrapper.save_state(), state)
             self.assertIsInstance(new_optim_wrapper.optimizer, FedOptimizer)
 

@@ -20,6 +20,7 @@ orchestrating the training process on available nodes. Orchestrating means;
 - Checking the nodes responses to make sure that each round is successfully completed in every node.
 - Downloading the local model parameters after every round of training.
 - Aggregating the local model parameters based on the specified federated approach, and eventually sending the aggregated parameters to the selected nodes for the next round.
+- Optimizing the global model (i.e. the aggregated model).
 
 Please see the following Figure 1 to understand what experiment does after its declaration.
 
@@ -352,7 +353,7 @@ training_args = {
 An aggregator is one of the required arguments for the experiment. It is used on the researcher for aggregating model parameters that are received from the nodes after
 every round. By default, when the experiment is initialized without passing any aggregator, it will automatically use the default `FedAverage`
 aggregator class. However, it is also possible to set a different aggregation algorithm with the method `set_aggregator`. Currently, Fed-BioMed has
-only `FedAverage` class, but it is possible to create a custom aggregator class. You can see the current aggregator by running `exp.aggregator()`.
+only `FedAverage` and `Scaffold` classes, but it is possible to create a custom aggregator class. You can see the current aggregator by running `exp.aggregator()`.
 It will return the aggregator object that will be used for aggregation.
 
 When you pass the aggregator argument as `None` it will use `FedAverage` aggregator (performing a Federated Averaging aggregation) by default.
@@ -371,6 +372,8 @@ exp.set_aggregator(aggregator=FedAverage)
 !!! info ""
     Custom aggregator classes should inherit from the base class <code>Aggregator</code> of Fed-BioMed. Please visit user guide for  [aggregators](./aggregation.md) for more information.
 
+!!! info "About Scaffold Aggregator"
+    `FedAverage` reflects only how local models sent back by `Nodes` are aggregated, whereas `Scaffold` also implement additional elements such as the `Optimizer` on `Researcher` side. Please note that currently only `FedAverage` is compatible with [`declearn`'s `Optimizers`](../../advanced-optimization).
 
 ### Node Selection Strategy
 Node selection Strategy is also one of the required arguments for the experiment. It is used for selecting nodes before each round of training. Since the strategy will be used for selecting nodes, thus, training data should be already set before setting any strategies. Then, strategy will be able to select among training nodes that are currently available regarding their dataset.
@@ -524,14 +527,14 @@ an example of `training_reply` from a node.
 To complete one round of training, the experiment waits until receiving each reply from nodes. At the end of the round,
 it downloads the model parameters that are indicated in the training replies. It aggregates the model parameters
 based on a given aggregation class/algorithm. This process is repeated until every round is completed. Please see Figure 1
-to understand how federated training is performed between the nodes and the researcher (`Experiment`) component.
+to understand how federated training is performed between the nodes and the Researcher (`Experiment`) component.
 
 ![Federated training workflow](../../assets/img/diagrams/Fed-BioMedFederatedTrainingProcessFlow.jpg#img-centered-lr)
 *Figure 2 - Federated training workflow among the components of Fed-BioMed. It illustrates the messages
 exchanged between `Researcher` and 2 `Nodes` during a Federated Training*
 
 
-###  The Methods `run()`and `run_once()`
+### The Methods `run()`and `run_once()`
 
 In order to provide more control over the training rounds, `Experiment` class has two methods as `run` and `run_once`
 to run training rounds.
@@ -578,5 +581,3 @@ exp.run_once(increase=True)
 !!! info ""
     Running experiment with both `run(rounds=rounds, increase=True)` and `run_once(increase=True)` will
     automatically increase/update round limit if it is exceeded.
-
-
