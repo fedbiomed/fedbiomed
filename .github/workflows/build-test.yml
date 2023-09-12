@@ -3,7 +3,7 @@ run-name: Fed-BioMed Build test
 on:
   push: 
     branches:
-      - 'feature/test_ci'
+      - feature/test_ci
 
   pull_request:
     types:
@@ -13,13 +13,9 @@ on:
       - closed
       - review_requested
       - ready_for_review
-
     branches:
       - master
       - develop
-    branches-ignore:
-      - feature/479-bug-in-integration-test
-
 
 jobs:
 
