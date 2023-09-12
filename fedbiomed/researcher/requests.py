@@ -27,6 +27,8 @@ from fedbiomed.researcher.responses import Responses
 
 from fedbiomed.transport.researcher_server import ResearcherServer
 from fedbiomed.transport.node_agent import NodeAgent
+
+
 class Requests(metaclass=SingletonMeta):
     """
     Represents the requests addressed from Researcher to nodes. It creates a task queue storing reply to each
@@ -49,12 +51,17 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server = ResearcherServer(
             on_message=self.on_message,
         )
-        self._grpc_server.start()
+        self.start_messaging()
 
         # defines the sequence used for ping protocol
         self._sequence = 0
 
         self._monitor_message_callback = None
+
+    def start_messaging(self):
+        """Start communications endpoint
+        """
+        self._grpc_server.start()
 
     def stop_messaging(self):
         """Shutdown communications endpoint
