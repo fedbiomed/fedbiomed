@@ -1,0 +1,41 @@
+name: Fed-BioMed End-to_End tests
+run-name: Fed-BioMed End-to_End test
+on:
+  push: 
+    branches:
+      - 'feature/479-bug-in-integration-test'
+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - review_requested
+      - ready_for_review
+
+    branches:
+      - feature/479-bug-in-integration-test
+
+
+jobs:
+  e2e-test:
+    name: e2e tests
+    strategy:
+      fail-fast: false # Importance ?
+      matrix:
+        os: [ubuntu-22-04] #[ubuntu-22-04, fedora38, macosx-m1]
+    runs-on: ${{ matrix.os }}
+      
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v3
+
+      - name: Run unit tests
+        id: e2e-tests
+        run: |
+          echo "Launching end-to-end tests" # to check from time to time
+          ./scripts/run_integration_tests.sh
+          echo "============== TAP results ====================="
+          cat ./report.tap
+
