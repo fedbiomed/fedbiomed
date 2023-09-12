@@ -1,10 +1,6 @@
 name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
-  push: 
-    branches:
-      - feature/test_ci
-
   pull_request:
     types:
       - opened
@@ -15,7 +11,7 @@ on:
       - ready_for_review
     branches:
       - master
-      - develop
+#      - develop
 
 jobs:
 

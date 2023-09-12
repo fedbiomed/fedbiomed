@@ -39,4 +39,5 @@ jobs:
           ./scripts/run_integration_tests.sh
           echo "============== TAP results ====================="
           cat ./report.tap
+        shell: bash -l {0}
 
