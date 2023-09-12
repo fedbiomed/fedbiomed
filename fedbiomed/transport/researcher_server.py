@@ -279,7 +279,7 @@ class ResearcherServer:
         
         #future = asyncio.run_coroutine_threadsafe(self._stop(), self._loop)
         #future.result(timeout=5)
-        print("stop: after future")
+        if self._debug: print("stop: after future")
 
         if not isinstance(self._thread, threading.Thread):
             stopped_count = 0

@@ -78,6 +78,9 @@ def exp_exceptions(function):
             sys.exit(e)
         except KeyboardInterrupt:
             code = 1
+            print("Stopping Fed-BioMed communications ...")
+            if isinstance(args[0], Experiment):
+                args[0].stop_messaging()
             print(
                 '\n--------------------',
                 'Fed-BioMed researcher stopped due to keyboard interrupt',
@@ -301,7 +304,14 @@ class Experiment:
         if isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
 
+    @exp_exceptions
+    def stop_messaging(self):
+        """Shutdown communications with nodes, wait until completion"""
+        if isinstance(self._reqs, Requests):
+            self._reqs.grpc_server.stop()
+
     @property
+    @exp_exceptions
     def secagg(self) -> SecureAggregation:
         """Gets secagg object `SecureAggregation`
 
@@ -1398,6 +1408,7 @@ class Experiment:
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
     
+    @exp_exceptions
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
