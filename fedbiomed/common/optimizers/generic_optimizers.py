@@ -222,8 +222,11 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         self.optimizer.zero_grad()
 
-    def get_learning_rate(self) -> List[float]:
-        """Gets learning rate from value set in Pytorch optimizer.
+    def get_learning_rate(self) -> Dict[str, float]:
+        """Gets learning rates from param groups in Pytorch optimizer.
+        
+        For each optimizer param group, it iterates over all parameters in that parameter group and searches for the corresponding parameter of the model by iterating over all model parameters. If it finds a correspondence, it saves the learning rate value. This function assumes that the parameters in the optimizer and the model have the same reference.
+        
 
         !!! warning
             This function gathers the base learning rate applied to the model weights,
@@ -235,11 +238,14 @@ class NativeTorchOptimizer(BaseOptimizer):
                 (as many as the number of the layers contained in the model)
         """
         logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
-        learning_rates = []
-        params = self.optimizer.param_groups
-        for param in params:
-            learning_rates.append(param['lr'])
-        return learning_rates
+        mapping_lr_layer_name: Dict[str, float] = {}
+
+        for param_group in self.optimizer.param_groups:
+            for layer_params in param_group['params']:
+                for  layer_name, tensor in self._model.model.named_parameters():
+                    if layer_params is tensor:
+                        mapping_lr_layer_name[layer_name] = param_group['lr']
+        return mapping_lr_layer_name
 
 
 class NativeSkLearnOptimizer(BaseOptimizer):

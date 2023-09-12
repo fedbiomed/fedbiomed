@@ -1,5 +1,5 @@
 site_name: Fed-BioMed
-site_url: https://fedbiomed.org/
+site_url: https://fedbiomed.org/latest
 site_dir: public
 
 site_description: >- 
@@ -127,6 +127,7 @@ nav:
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
+        - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - Footer:
     - 'News' : './news/index.md'
@@ -257,6 +258,9 @@ plugins:
             - https://scikit-learn.org/stable/objects.inv
             - https://pytorch.org/docs/stable/objects.inv
           options:
+            filters:
+              - "!^__"
+              - "!^_"
             docstring_style: google
             docstring_options:
               ignore_init_summary: yes
@@ -269,6 +273,7 @@ plugins:
             disable_private: true
             show_category_heading: true
             show_root_toc_entry: no
+            show_root_full_path: true
   - minify:
       minify_html: true
 

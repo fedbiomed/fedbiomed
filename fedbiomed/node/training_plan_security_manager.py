@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Tuple, Union
 import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus, ErrorNumbers
+from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
@@ -52,6 +53,7 @@ class TrainingPlanSecurityManager:
         """
 
         self._tinydb = TinyDB(environ["DB_PATH"])
+        self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
@@ -285,7 +287,7 @@ class TrainingPlanSecurityManager:
         """
 
         try:
-            training_plans = self._db.search(self._database.training_plan_type.all(TrainingPlanStatus.REGISTERED.value))
+            training_plans, docs = self._db.search(self._database.training_plan_type.all(TrainingPlanStatus.REGISTERED.value), add_docs=True)
         except Exception as e:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f"database search operation failed, with following error: {str(e)}")
@@ -293,7 +295,7 @@ class TrainingPlanSecurityManager:
         if not training_plans:
             logger.info('There are no training plans registered')
         else:
-            for training_plan in training_plans:
+            for training_plan, doc in zip(training_plans, docs):
                 # If training plan file is exists
                 if os.path.isfile(training_plan['training_plan_path']):
                     if training_plan['algorithm'] != environ['HASHING_ALGORITHM']:
@@ -320,7 +322,7 @@ class TrainingPlanSecurityManager:
                         f'Training plan : {training_plan["name"]} could not found in : '
                         f'{training_plan["training_plan_path"]}, will be removed')
                     try:
-                        self._db.remove(doc_ids=[training_plan.doc_id])
+                        self._db.remove(doc_ids=[doc.doc_id])
                     except Exception as err:
                         raise FedbiomedTrainingPlanSecurityManagerError(
                             f"{ErrorNumbers.FB606.value}: database remove operation failed, with following error: ",
@@ -395,7 +397,6 @@ class TrainingPlanSecurityManager:
             is_status = True
         else:
             is_status = False
-            training_plan = None
 
         return is_status, training_plan
 
@@ -467,8 +468,6 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f"database get operation failed, with following error: {str(e)}")
 
-        if not training_plan:
-            training_plan = None
         return training_plan
 
     def get_training_plan_by_id(self,
@@ -607,8 +606,9 @@ class TrainingPlanSecurityManager:
                                                 researcher_id=msg['researcher_id'],
                                                 notes=None
                                                 )
-
+                    print(training_plan_object)
                     self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
+                    print("AFTER_UPSERT")
                     # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                     # if same training plan is sent twice to Node for approval
                 except Exception as err:
@@ -768,7 +768,7 @@ class TrainingPlanSecurityManager:
         # Remove training plans that have been removed from file system
         for training_plan_name in training_plans_deleted:
             try:
-                training_plan_doc = self._db.get(self._database.name == training_plan_name)
+                _, training_plan_doc = self._db.get(self._database.name == training_plan_name, add_docs=True)
                 logger.info('Removed default training plan file has been detected,'
                             f' it will be removed from DB as well: {training_plan_name}')
 
@@ -998,7 +998,7 @@ class TrainingPlanSecurityManager:
                                            f"type {type(training_plan_id)}")
 
         try:
-            training_plan = self._db.get(self._database.training_plan_id == training_plan_id)
+            training_plan, doc = self._db.get(self._database.training_plan_id == training_plan_id, add_docs=True)
         except Exception as err:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + ": cannot get training plan from database."
@@ -1010,7 +1010,7 @@ class TrainingPlanSecurityManager:
 
         if training_plan['training_plan_type'] != TrainingPlanStatus.DEFAULT.value:
             try:
-                self._db.remove(doc_ids=[training_plan.doc_id])
+                self._db.remove(doc_ids=[doc.doc_id])
             except Exception as err:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + f": cannot remove training plan from database. Details: {str(err)}"

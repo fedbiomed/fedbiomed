@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Integration test (can also be used on CI slaves)
+# End-to end test (can also be used on CI slaves)
 #
 # This script runs all necessary components for a single test:
 # - a dockerized network
@@ -16,11 +16,11 @@
 # the -d directive can be repeated to run more than one node
 #
 # Example:
-# ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json
 #
 # This will run 3 nodes:
-# ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json
@@ -64,11 +64,11 @@ provided script and dataset is not validated by this launcher
    - it runs a researcher
 
 Example:
-./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
                                -d ./tests/datasets/mnist.json
 
 This will run 3 nodes:
-./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
                                -d ./tests/datasets/mnist.json \
                                -d ./tests/datasets/mnist.json \
                                -d ./tests/datasets/mnist.json
@@ -243,7 +243,7 @@ cleaning_trap() {
     # avoid multiple CTLR-C from impatient users
     trap '' INT TERM
 
-    banner "integration test interrupted"
+    banner "end to end test interrupted"
     cleaning
     echo "== Failure: script was interrupted"
     exit 1

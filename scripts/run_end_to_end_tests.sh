@@ -29,7 +29,7 @@ rm -fr ${TEST_OUTPUT}/*
 bats --formatter tap --report-formatter tap --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
 
 # @test "flamby-integration-into-fedbiomed.py" {
-#   run ./scripts/run_integration_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
+#   run ./scripts/run_end_to_end_test -s ./notebooks/flamby-integration-into-fedbiomed.ipynb  \
 #                                 -d ./tests/datasets/mnist.json >&2
 # }
 

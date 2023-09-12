@@ -78,7 +78,7 @@ class TestDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedDataManagerError):
             data_manager.load(tp_type='NanaNone')
 
-    def test_data_manager_01___getattr___(self):
+    def test_data_manager_02___getattr___(self):
         """ Test __getattr__ magic method of DataManager """
 
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2]))
@@ -92,6 +92,20 @@ class TestDataManager(unittest.TestCase):
         # Test attribute error tyr/catch block
         with self.assertRaises(FedbiomedDataManagerError):
             data_manager.__getattr__('toto')
+
+    def test_data_manager_03_extend_loader_args(self):
+        """Test that extend loader args respects the precedence rules."""
+        dm_keyword_args = {'dm_keyword_argument': 'keyword_argument_data_manager'}
+        data_manager = DataManager(dataset=pd.DataFrame([[1], [1]]), target=pd.Series([1, 2]),
+                                   **dm_keyword_args)
+        self.assertDictEqual(data_manager._loader_arguments, dm_keyword_args)
+        extension_keyword_args = {'new_arg': 'should exist',
+                                  'dm_keyword_argument': 'should not be changed'}
+        data_manager.extend_loader_args(extension_keyword_args)
+        self.assertDictEqual(data_manager._loader_arguments, {
+            **extension_keyword_args,
+            **dm_keyword_args
+        })
 
 
 if __name__ == '__main__':  # pragma: no cover

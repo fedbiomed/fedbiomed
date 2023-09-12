@@ -6,7 +6,7 @@ Data Management classes
 """
 
 
-from typing import Union
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -44,8 +44,22 @@ class DataManager(object):
 
         self._dataset = dataset
         self._target = target
-        self._loader_arguments = kwargs
+        self._loader_arguments: Dict = kwargs
         self._data_manager_instance = None
+
+    def extend_loader_args(self, extension: Dict):
+        """Extends the class' loader arguments
+
+        Extends the class's `_loader_arguments` attribute with additional key-values from
+        the `extension` argument. If a key already exists in the `_loader_arguments`, then
+        it is not replaced.
+
+        Args:
+            extension: the mapping used to extend the loader arguments
+        """
+        self._loader_arguments.update(
+            {key: value for key, value in extension.items() if key not in self._loader_arguments}
+        )
 
     def load(self, tp_type: TrainingPlans):
         """Loads proper DataManager based on given TrainingPlan and

@@ -12,6 +12,7 @@ import json
 from tinydb import TinyDB, Query
 
 from fedbiomed.common.constants import ErrorNumbers, BiprimeType
+from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
@@ -38,6 +39,7 @@ class BaseSecaggManager(ABC):
         """
         try:
             self._db = TinyDB(db_path)
+            self._db.table_class = DBTable
         except Exception as e:
             errmess = f'{ErrorNumbers.FB623.value}: failed to access the database with error: {e}'
             logger.error(errmess)
