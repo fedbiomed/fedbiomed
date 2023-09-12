@@ -17,6 +17,8 @@ on:
     branches:
       - master
       - develop
+    branches-ignore:
+      - feature/479-bug-in-integration-test
 
 
 jobs:

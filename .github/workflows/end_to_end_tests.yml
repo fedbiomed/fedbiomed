@@ -31,10 +31,12 @@ jobs:
       - name: Checkout to commit
         uses: actions/checkout@v3
 
-      - name: Run unit tests
+      - name: Run end-to-end tests
         id: e2e-tests
         run: |
+          pwd
           echo "Launching end-to-end tests" # to check from time to time
+          cd fedbiomed
           ./scripts/run_integration_tests.sh
           echo "============== TAP results ====================="
           cat ./report.tap
