@@ -287,7 +287,7 @@ class ResearcherServer:
             stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
                                                                        ctypes.py_object(ServerStop))
         if stopped_count != 1:
-            logger.error("stop: could not deliver exception to thread")
+            if self._debug: print("stop: could not deliver exception to thread")
         else:
             self._thread.join()
         if self._debug: print("stop: finishing")
