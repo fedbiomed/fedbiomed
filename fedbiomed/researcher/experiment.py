@@ -310,7 +310,7 @@ class Experiment:
     def stop_messaging(self):
         """Shutdown communications with nodes, wait until completion"""
         if hasattr(self, '_reqs') and isinstance(self._reqs, Requests):
-            self._reqs.grpc_server.stop()
+            self._reqs.stop_messaging()
 
     @property
     @exp_exceptions

@@ -255,7 +255,7 @@ class ResearcherServer:
                 if self._debug:
                     print("Run: finally")
 
-        self._thread = threading.Thread(target=run)
+        self._thread = threading.Thread(target=run, daemon=True)
         self._thread.start()
 
         # Sleep 2 seconds before releasing READY event
@@ -281,7 +281,7 @@ class ResearcherServer:
         #future.result(timeout=5)
         if self._debug: print("stop: after future")
 
-        if not isinstance(self._thread, threading.Thread):
+        if not self.is_alive():
             stopped_count = 0
         else:
             stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),

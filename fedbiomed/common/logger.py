@@ -159,8 +159,8 @@ class _GrpcHandler(logging.Handler):
             # (which was the purpose of the try block which failed)
             print(record.__dict__["asctime"],
                   record.__dict__["name"],
-                  "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message")
-            _msg = ErrorNumbers.FB602.value + ": badly formatted MQTT log message. Cannot send MQTT message"
+                  "CRITICAL - cannot send log message")
+            _msg = ErrorNumbers.FB602.value + ": Cannot send log message"
             raise FedbiomedLoggerError(_msg)
 
 

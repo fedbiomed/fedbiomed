@@ -501,7 +501,7 @@ class ResearcherClient:
                     print("Run: finally")
 
 
-        self._thread = threading.Thread(target=run)
+        self._thread = threading.Thread(target=run, daemon=True)
         self._thread.start()
         if self._debug:
             print("start: completed")

@@ -257,21 +257,21 @@ class Node:
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
             round_ = Round(model_kwargs=msg.get_param('model_args') or {},
-                            training_kwargs=msg.get_param('training_args') or {},
-                            training=msg.get_param('training') or False,
-                            dataset=data,
-                            params=msg.get_param('params'),
-                            job_id=msg.get_param('job_id'),
-                            researcher_id=msg.get_param('researcher_id'),
-                            history_monitor=hist_monitor,
-                            aggregator_args=msg.get_param('aggregator_args') or None,
-                            node_args=self.node_args,
-                            training_plan=msg.get_param('training_plan'),
-                            training_plan_class=msg.get_param('training_plan_class'),
-                            round_number=msg.get_param('round'),
-                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                            aux_vars=msg.get_param('aux_vars')
-            )
+                           training_kwargs=msg.get_param('training_args') or {},
+                           training=msg.get_param('training') or False,
+                           dataset=data,
+                           params=msg.get_param('params'),
+                           job_id=msg.get_param('job_id'),
+                           researcher_id=msg.get_param('researcher_id'),
+                           history_monitor=hist_monitor,
+                           aggregator_args=msg.get_param('aggregator_args') or None,
+                           node_args=self.node_args,
+                           training_plan=msg.get_param('training_plan'),
+                           training_plan_class=msg.get_param('training_plan_class'),
+                           round_number=msg.get_param('round'),
+                           dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                           aux_vars=msg.get_param('aux_vars')
+                           )
 
         return round_
 
@@ -281,6 +281,9 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
+            # don't want to treat again in case of failure
+            self.tasks_queue.task_done()
+
             item_print = {key: value for key, value in item.items() if key != 'aggregator_args'}
             logger.debug(f"[TASKS QUEUE] Task received by task manager: Command: "
                          f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
@@ -327,7 +330,7 @@ class Node:
                                     'command': 'error',
                                     'extra_msg': str(e),
                                     'node_id': environ['NODE_ID'],
-                                    'researcher_id': item["researcher_id"],
+                                    'researcher_id': item.get_param('researcher_id'),
                                     'errnum': ErrorNumbers.FB300.name
                                 }
                             )
@@ -339,8 +342,6 @@ class Node:
                     errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
-
-            self.tasks_queue.task_done()
 
     def start_messaging(self, block: Optional[bool] = False):
         """Calls the start method of messaging class.
@@ -407,12 +408,16 @@ class Node:
         """
 
         #
-        self._grpc_client.send(
-            ErrorMessage(
-                command='error',
-                errnum=errnum.name,
-                node_id=environ['NODE_ID'],
-                extra_msg=extra_msg,
-                researcher_id=researcher_id
+        try:
+            self._grpc_client.send(
+                ErrorMessage(
+                    command='error',
+                    errnum=errnum.name,
+                    node_id=environ['NODE_ID'],
+                    extra_msg=extra_msg,
+                    researcher_id=researcher_id
+                )
             )
-        )
+        except Exception as e:
+            # TODO: Need to keep message local, cannot send error
+            logger.error(f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}")
