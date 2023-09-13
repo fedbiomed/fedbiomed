@@ -1074,19 +1074,16 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
     @patch('fedbiomed.researcher.job.Job.id', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.nodes', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+    #@patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
+    #@patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    #@patch('fedbiomed.researcher.experiment.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once(self,
                                     mock_job_init,
-                                    mock_job_updates_params,
-                                    mock_job_training,
-                                    mock_job_training_replies,
-                                    mock_job_training_plan_type,
-                                    mock_job_nodes,
+
+                                    #mock_job_training,
+                                    #mock_job_training_replies,
+                                    #mock_job_training_plan_type,
                                     mock_job_id,
                                     mock_strategy_refine,
                                     mock_fedavg_create_aggregator_args,
@@ -1096,18 +1093,26 @@ class TestExperiment(ResearcherTestCase):
         training_plan = MagicMock()
         training_plan.type = MagicMock()
         mock_job_id.return_value = "dummy-job-id"
-        mock_job_nodes.return_value = ["node-1", "node-2"]
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+
+        )
+        type(mock_job_init.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
+
+        # mock_job_training.return_value = None
+        # mock_job_training_replies.return_value = {
+        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        # }
+        #mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+
         mock_experiment_breakpoint.return_value = None
+        self.patcher_job.stop()
+        
 
         #Test invalid `increase` arguments
         with self.assertRaises(SystemExit):
@@ -1135,10 +1140,12 @@ class TestExperiment(ResearcherTestCase):
 
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
-        mock_job_training.assert_called_once()
+        mock_job_init.return_value.start_nodes_training_round.assert_called_once()
+        mock_job_init.assert_called_once()
+        #mock_job_training.assert_called_once()
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_updates_params.assert_called_once()
+        mock_job_init.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
 
         # Test the scenario where round_limit is reached
@@ -1150,9 +1157,10 @@ class TestExperiment(ResearcherTestCase):
         self.mock_logger_warning.assert_called_once()
 
         # Update training_replies mock value since round_current has been increased
-        mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
+        # FIXME: something may have been broken
+        # mock_job_training_replies.return_value = {
+        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        # }
 
         # Try same scenario with increase argument as True
         round_limit = self.test_exp.round_limit()
@@ -1165,10 +1173,11 @@ class TestExperiment(ResearcherTestCase):
         # Try same scenario with test_after argument as True
 
         # resetting mocks
-        mock_job_training.reset_mock()
+        mock_job_init.reset_mock()
+        #mock_job_training.reset_mock()
         mock_strategy_refine.reset_mock()
         mock_fedavg_aggregate.reset_mock()
-        mock_job_updates_params.reset_mock()
+        #mock_job_updates_params.reset_mock()
         mock_experiment_breakpoint.reset_mock()
         # action
         self.test_exp._round_current = 1
@@ -1176,9 +1185,9 @@ class TestExperiment(ResearcherTestCase):
         # testing calls
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_updates_params.assert_called_once()
+        mock_job_init.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
-        self.assertEqual(mock_job_training.call_count, 2)
+        self.assertEqual(mock_job_init.return_value.start_nodes_training_round.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
 
@@ -1203,6 +1212,7 @@ class TestExperiment(ResearcherTestCase):
 
         # Run experiment with secure aggregation
         # Fix secagg_random value to pass validation step
+
         with patch("fedbiomed.researcher.secagg._secure_aggregation.random.uniform") as s_m:
             s_m.return_value = -2.8131
             self.test_exp.secagg._secagg_random = -2.8131  # hard coded for validation of encryption

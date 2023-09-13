@@ -99,11 +99,13 @@ class Job:
         self.last_msg = None
         self._data = data
 
+
         # Check dataset quality
         if self._data is not None:
             self.check_data_quality()
             self._node_state_agent = NodeStateAgent(self._data or self._nodes)
-
+        else:
+            self._node_state_agent = NodeStateAgent(None)
         # Model is mandatory
         if self._training_plan_class is None:
             mess = "Missing training plan class name or instance in Job arguments"
