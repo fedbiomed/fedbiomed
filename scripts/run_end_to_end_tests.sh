@@ -9,7 +9,7 @@ exec 5>"$bats_file" # associating a file descriptor with the temp file, so that 
 list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 #for notebook in ./notebooks/*.py; do
 test_counter=1
-for notebook in ${list_notebooks[@]:0:1}; do
+for notebook in ${list_notebooks[@]:0:2}; do
 #for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
