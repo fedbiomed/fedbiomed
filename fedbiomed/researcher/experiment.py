@@ -111,9 +111,6 @@ def exp_exceptions(function):
                 # raise a silent specific exception, don't exit the interactive kernel
                 raise FedbiomedSilentTerminationError
             else:
-                if isinstance(args[0], Experiment):
-                    args[0].stop_messaging()
-
                 # exit the process
                 sys.exit(code)
 
@@ -293,10 +290,6 @@ class Experiment:
     # destructor
     @exp_exceptions
     def __del__(self):
-        # Don't stop messaging in destructor: would prevent other experiments to continue
-        #
-        #self.stop_messaging()
-
         # This part has been commented, self._reqs.remove_monitor_callback() removes monitor
         # callback when initializing an experiment for the second time with same name.
         # While recreating a class with same variable name python first calls __init__ and then __del__.
@@ -307,16 +300,6 @@ class Experiment:
 
         if hasattr(self, '_monitor') and isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
-
-    @exp_exceptions
-    def stop_messaging(self):
-        """Shutdown communications with nodes, wait until completion"""
-        if hasattr(self, '_reqs') and isinstance(self._reqs, Requests):
-            if is_ipython():
-                print("Stopping messaging from iPython is not supported. Ignore.")
-            else:
-                print("Stopping Fed-BioMed communications ...")
-                self._reqs.stop_messaging()
 
     @property
     @exp_exceptions

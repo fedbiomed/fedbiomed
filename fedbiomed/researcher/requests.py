@@ -63,11 +63,6 @@ class Requests(metaclass=SingletonMeta):
         """
         self._grpc_server.start()
 
-    def stop_messaging(self):
-        """Shutdown communications endpoint
-        """
-        self._grpc_server.stop()
-
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
         """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  when a message is received on
         researcher side.

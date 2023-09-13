@@ -19,7 +19,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError, 
-    FedbiomedUserInputError, FedbiomedSilentRoundError
+    FedbiomedUserInputError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
@@ -379,18 +379,13 @@ class Round:
     ) -> None:
         """ Sends reply to researcher after training/validation. 
         
-        Message content changes based on success status. If success status false
-        it raises [FedbiomedSilentRoundError][fedbiomed.common.exceptions.FedbiomedSilentRoundError]
-        to avoid sending additional error message from upper layers. 
+        Message content changes based on success status.
 
         Args:
             message: Message regarding the process.
             success: Declares whether training/validation is successful
             params_url: URL where parameters are uploaded
             timing: Timing statistics
-
-        Raises:
-            FedbiomedSilentRoundError: If success status False. 
         """
 
         if extend_with is None:

@@ -4,13 +4,10 @@
 '''
 Core code of the node component.
 '''
-from json import decoder
 from typing import Optional, Union
 
-import validators
-
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedSilentRoundError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
@@ -111,7 +108,6 @@ class Node:
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    print(databases)
                     self._grpc_client.send(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
@@ -351,10 +347,6 @@ class Node:
         """
         # TODO: remove the `block` quote ? Now non blocking only. Or start in blocking mode ?
         self._grpc_client.start()
-
-    def stop_messaging(self):
-        """Shutdown communications with researcher, wait until completion"""
-        self._grpc_client.stop()
 
     def is_connected(self) -> bool:
         """Checks if node is ready for communication with researcher

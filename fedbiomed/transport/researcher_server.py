@@ -23,9 +23,6 @@ import json
 import sys
 
 
-class ServerStop(Exception):
-    pass 
-
 DEFAULT_PORT = 50051
 DEFAULT_HOST = 'localhost'
 
@@ -225,10 +222,15 @@ class ResearcherServer:
 
         try:
             if self._debug: print("_start: done starting server")
-            while await self._server.wait_for_termination(timeout=1):
-                if self._debug: print("_start: loop wait_for_termination")
+            await self._server.wait_for_termination()
         finally:
             if self._debug: print("_start: finally")
+        #try:
+        #    if self._debug: print("_start: done starting server")
+        #    while await self._server.wait_for_termination(timeout=1):
+        #        if self._debug: print("_start: loop wait_for_termination")
+        #finally:
+        #    if self._debug: print("_start: finally")
 
     def broadcast(self, message: Message):
         """Broadcasts given message to all active clients"""
@@ -248,9 +250,9 @@ class ResearcherServer:
                 asyncio.run(
                     self._start()
                 )
-            except ServerStop:
+            except Exception as e:
                 if self._debug:
-                    print("Run: caught user stop exception")
+                    print(f"Run: caught unexpected exception: {e}")
             finally:
                 if self._debug:
                     print("Run: finally")
@@ -263,35 +265,6 @@ class ResearcherServer:
         logger.info("Starting researcher service...")   
         time.sleep(3)
 
-
-
-    #async def _stop(self):
-    #    print("_stop: before")
-    #    await self._server.stop(1)
-    #    while await self._server.wait_for_termination(timeout=1):
-    #        if self._debug:
-    #            print("_stop: loop wait_for_termination")
-    #        await self._server.stop(1)
-    #    print("_stop: after")
-
-    def stop(self):
-        """Stops researcher server"""
-        
-        #future = asyncio.run_coroutine_threadsafe(self._stop(), self._loop)
-        #future.result(timeout=5)
-        if self._debug: print("stop: after future")
-
-        if not self.is_alive():
-            stopped_count = 0
-        else:
-            stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
-                                                                       ctypes.py_object(ServerStop))
-        if stopped_count != 1:
-            if self._debug: print("stop: could not deliver exception to thread")
-        else:
-            self._thread.join()
-        if self._debug: print("stop: finishing")
-
     def is_alive(self) -> bool:
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
@@ -300,7 +273,6 @@ if __name__ == "__main__":
 
     def handler(signum, frame):
         print(f"Node cancel by signal {signal.Signals(signum).name}")
-        rs.stop()
         sys.exit(1)
         
     rs = ResearcherServer(debug=True)
@@ -312,8 +284,4 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("Researcher cancel by keyboard interrupt")
-        try:
-            rs.stop()
-        except KeyboardInterrupt:
-            print("Immediate keyboard interrupt, dont wait to clean")
 
