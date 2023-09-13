@@ -1097,8 +1097,9 @@ class TestExperiment(ResearcherTestCase):
             extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
             update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
             id = "dummy-job-id",
-
         )
+        # according to documentation, this is how we should attach a PropertyMock to a MagicMock
+        # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
         type(mock_job_init.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
 
         # mock_job_training.return_value = None
@@ -1116,8 +1117,10 @@ class TestExperiment(ResearcherTestCase):
 
         #Test invalid `increase` arguments
         with self.assertRaises(SystemExit):
+            # NOTA should raise FedBiomedExperimentError
             self.test_exp.run_once(1)
         with self.assertRaises(SystemExit):
+            # NOTA should raise FedBiomedExperimentError
             self.test_exp.run_once("1")
 
         # Test when ._job is None
@@ -1223,37 +1226,21 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
-    @patch('fedbiomed.researcher.job.Job._node_state_agent', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once_with_scaffold_and_training_args(self,
                                                                     mock_job_init,
-                                                                    mock_job_updates_params,
-                                                                    mock_job_training,
-                                                                    mock_job_training_replies,
-                                                                    mock_job_training_plan_type,
-                                                                    mock_node_state_agent,
                                                                     mock_strategy_refine,
                                                                     mock_scaffold_create_aggregator_args,
                                                                     mock_scaffold_aggregate,
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-        mock_node_state_agent.return_value = NodeStateAgent()
-
-        mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
 
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        #mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
         mock_experiment_breakpoint.return_value = None
 
         tp = TestExperiment.FakeModelTorch
@@ -1262,7 +1249,19 @@ class TestExperiment(ResearcherTestCase):
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
         tp.after_training_params = MagicMock(return_value = None)
-        mock_job_training_plan_type.return_value = tp
+        #mock_job_training_plan_type.return_value = tp
+        
+        
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+
+        )
+        
+        # according to documentation, this is how we should attach a PropertyMock to a MagicMock
+        # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
+        type(mock_job_init.return_value).training_plan = PropertyMock(return_value=tp)
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(tp)
 
@@ -1429,19 +1428,11 @@ class TestExperiment(ResearcherTestCase):
             self.assertTrue(np.isclose(val, expected[key]).all())
 
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_31_strategy(self,
                                     mock_job_init,
-                                    mock_job_updates_params,
-                                    mock_job_training,
-                                    mock_job_training_replies,
-                                    mock_job_training_plan_type,
                                     mock_fedavg_aggregate):
-        """test_experiment_24_strategy: testing several case where strategy may fail"""
+        """test_experiment_31_strategy: testing several case where strategy may fail"""
         # FIXME: this is more of an integration test than a unit test
 
         # set up:
@@ -1456,10 +1447,16 @@ class TestExperiment(ResearcherTestCase):
         training_plan = MagicMock()
         training_plan.type = MagicMock()
         # mocking job
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current():
-            Responses( [{ 'success': True,
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+            _node_state_agent=MagicMock(spec=NodeStateAgent)
+
+        )
+
+        training_replies_content = {self.test_exp.round_current():
+                        Responses( [{ 'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
                              'node_id': node_id,
@@ -1468,15 +1465,16 @@ class TestExperiment(ResearcherTestCase):
                              'sample_size': sample_size
                              } for node_id, sample_size in zip(node_ids, node_sample_size)
                         ])}
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
-
+        type(mock_job_init.return_value).training_replies = PropertyMock(
+            return_value=training_replies_content
+        )
         # mocking aggregator
         mock_fedavg_aggregate.return_value = None
 
         # disable patchers (enabled in the test set up)
         for _patch in self.patchers:
             _patch.stop()
+        #self.patcher_job.start()
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         # Set default Job
@@ -1502,7 +1500,7 @@ class TestExperiment(ResearcherTestCase):
         mock_fedavg_aggregate.assert_called_with(model_params, weigths,
                                                  global_model=unittest.mock.ANY,
                                                  training_plan=unittest.mock.ANY,
-                                                 training_replies=mock_job_training_replies(),
+                                                 training_replies=training_replies_content,#mock_job_training_replies(),
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
                                                  n_round=0
@@ -1511,7 +1509,10 @@ class TestExperiment(ResearcherTestCase):
         # repeat experiment but with a wrong sample_size
 
         node_sample_size = [10, None]
-        mock_job_training_replies.return_value = {self.test_exp.round_current():
+
+        
+        training_replies_raising_fbmstrategyerror = {
+            self.test_exp.round_current():
             Responses([{'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
@@ -1521,7 +1522,10 @@ class TestExperiment(ResearcherTestCase):
                              'sample_size': sample_size
                              } for node_id, sample_size in zip(node_ids, node_sample_size)
                         ])}
-
+        
+        type(mock_job_init.return_value).training_replies = PropertyMock(
+            return_value=training_replies_raising_fbmstrategyerror
+        )
         with self.assertRaises(SystemExit):
             # should raise a FedbiomedStrategyError, describing the error
             self.test_exp.run_once()

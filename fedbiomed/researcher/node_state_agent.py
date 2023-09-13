@@ -9,6 +9,9 @@ from fedbiomed.researcher.responses import Responses
 
 
 class NodeStateAgent:
+    """
+    Node states saving facility, 
+    """
     def __init__(self, fds: Optional[Union[FederatedDataSet, Dict[str, str]]] = None) -> None:
         # NOTA: job's training_replies contains all previous Node states_id, 
         # please consider using it to load previous Rounds

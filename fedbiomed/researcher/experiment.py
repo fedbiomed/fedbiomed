@@ -1569,7 +1569,7 @@ class Experiment:
         # If secure aggregation is activated ---------------------------------------------------------------------
         secagg_arguments = None
         if self._secagg.active:
-            print("TEST SECAGG",  self._job.nodes)
+
             self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
                                job_id=self._job.id)
             secagg_arguments = self._secagg.train_arguments()
@@ -1602,7 +1602,7 @@ class Experiment:
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current)
-        print("TRAINING REPLIES", self._job.training_replies[self._round_current])
+
         self._aggregator.set_fds(self._fds)
 
         # update NodeStateAgent with the Responses got from Nodes
@@ -1686,7 +1686,7 @@ class Experiment:
         """
         # Collect auxiliary variables from participating nodes' replies.
         print("TEST JOB", self._job,)
-        print("TEST CALL",  self._job.extract_received_optimizer_aux_var_from_round(1))
+
         aux_var = self._job.extract_received_optimizer_aux_var_from_round(
             self._round_current
         )
