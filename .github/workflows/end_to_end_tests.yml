@@ -37,6 +37,7 @@ jobs:
         run: |
           echo "Setting up the datasets"
           ./notebooks/101_getting-started-setup.sh
+        shell: bash -l {0}
 
       - name: Run end-to-end tests
         id: e2e-tests
