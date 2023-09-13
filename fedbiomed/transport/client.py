@@ -331,13 +331,11 @@ class Sender(Listener):
         
         while True:
             msg = await self._queue.get()
-
             # If it is aUnary-Unary RPC call
             if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
                 await msg["stub"](msg["message"])
 
-            elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                print("It is here in stream part")
+            elif isinstance(msg["stub"], grpc.aio.StreamUnaryMultiCallable): 
                 stream_call = msg["stub"]()
                 
                 if callback:
@@ -351,7 +349,7 @@ class Sender(Listener):
             self._queue.task_done()
 
 
-    def _stream_reply(message: Message):
+    def _stream_reply(self, message: Message):
         """Streams task result back researcher component"""
 
         reply = Serializer.dumps(message.get_dict())
@@ -367,12 +365,11 @@ class Sender(Listener):
 
     def send(self, message: Message):
 
-
         # Switch-case for message type and gRPC calls
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                self._queue.put_threadsafe({"stub": self._feedback_stub, "message": message.to_proto()})
+                self._queue.put_threadsafe({"stub": self._feedback_stub.Feedback, "message": message.to_proto()})
 
                         
             case _:
@@ -380,7 +377,8 @@ class Sender(Listener):
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                self._queue.put_threadsafe({"stub": self._task_stub, "message": message}) 
+                print("putting reply in the queue")
+                self._queue.put_threadsafe({"stub": self._task_stub.ReplyTask, "message": message}) 
                     
                 
 
