@@ -6,11 +6,13 @@ bats_file=$(mktemp /tmp/run.bats.XXXXXX)
 echo ${bats_file}
 exec 5>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 
-list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
-#for notebook in ./notebooks/*.py; do
+#list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
+list_notebooks=( notebooks/101_getting-started.ipynb notebooks/general-breakpoint-save-resume.ipynb notebooks/general-tensorboard.ipynb notebooks/general-use-gpu.ipynb notebooks/pytorch-celeba-dataset.ipynb notebooks/pytorch-csv-data.ipynb notebooks/pytorch-local-training.ipynb notebooks/pytorch-variational-autoencoder.ipynb notebooks/test_nbconvert.ipynb )
+
+#list_notebooks=( notebooks/*.ipynb )
 test_counter=1
-for notebook in ${list_notebooks[@]:0:5}; do
-#for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
+#for notebook in ${list_notebooks[@]:0:5}; do
+for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "${test_counter} - $(basename ${notebook})" {
