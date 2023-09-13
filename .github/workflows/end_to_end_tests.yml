@@ -36,6 +36,8 @@ jobs:
         id: e2e-setup-datasets
         run: |
           echo "Setting up the datasets"
+          echo $SHELL
+          source $HOME/.bashrc
           ./notebooks/101_getting-started-setup.sh
         shell: bash -l {0}
 
