@@ -47,7 +47,6 @@ jobs:
           echo "Launching end-to-end tests" # to check from time to time
           ./scripts/run_end_to_end_tests.sh
           echo "============== TAP results ====================="
-          cat ./report.tap | grep -v "^#"
         shell: bash -l {0}
 
       - name: Test Report
@@ -55,6 +54,6 @@ jobs:
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: Fedbiomed End-to-End Tests            # Name of the check run which will be created
-          path: report.tap    # Path to test results
+          path: report.xml    # Path to test results
           reporter: java-junit        # Format of test results
 

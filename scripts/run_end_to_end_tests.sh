@@ -26,4 +26,4 @@ done
 TEST_OUTPUT="end_to_end_tests_outputs${BUILD_NUMBER}"
 
 rm -fr ${TEST_OUTPUT}/*
-bats --formatter tap --report-formatter junit --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
+bats --formatter junit --report-formatter junit --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
