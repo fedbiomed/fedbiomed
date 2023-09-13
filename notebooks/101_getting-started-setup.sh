@@ -6,6 +6,7 @@ then
     echo "MNIST already installed, not doing anything"
 else
     echo "MNIST seems not to be installed, installing it"
+    mkdir -p $HOME/Data/fedbiomed/MNIST # \todo brittle workaround for bug #862
     ./scripts/fedbiomed_run node -adff ./tests/datasets/mnist.json
 fi
 
