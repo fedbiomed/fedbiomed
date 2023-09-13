@@ -3,6 +3,15 @@
 
 # # Fed-BioMed Researcher GPU usage example
 
+# Use for developing (autoreloads changes made across packages)
+
+# In[ ]:
+
+
+get_ipython().run_line_magic('load_ext', 'autoreload')
+get_ipython().run_line_magic('autoreload', '2')
+
+
 # This example demonstrates using a Nvidia GPU for training a model.
 # 
 # The nodes for this example need to run on a machine providing a Nvidia GPU with enough GPU memory (and from a not-too-old model, so that it is supported by PyTorch).
@@ -11,7 +20,7 @@
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
+
 # ## Setting the nodes up
 # We need at least 1 node, let's test using 3 nodes. For each node, add the MNIST dataset :
 # 1. `./scripts/fedbiomed_run node config config1.ini add`, `./scripts/fedbiomed_run node config config2.ini add`, `./scripts/fedbiomed_run node config config3.ini add`
@@ -26,9 +35,12 @@
 # 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini start` so that the nodes doesn't offers GPU for training (default behaviour).
 # 6. Wait until you get `Starting task manager` for each node, it means you are online.
 
-# ## Define an experiment model and parameters
+# ## Define an experiment model and parameters"
 
 # Declare a torch training plan MyTrainingPlan class to send for training on the node
+
+# In[ ]:
+
 
 import torch
 import torch.nn as nn
@@ -81,12 +93,12 @@ class MyTrainingPlan(TorchTrainingPlan):
             output = F.log_softmax(x, dim=1)
             return output
 
-    def training_data(self, batch_size = 48):
+    def training_data(self):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = { 'shuffle': True}
         return DataManager(dataset=dataset1, **train_kwargs)
     
     def training_step(self, data, target):
@@ -94,16 +106,20 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
+
 # This group of arguments correspond respectively:
 # * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
 # * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
-#
+# 
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
+
+# In[ ]:
+
 
 model_args = {}
 
 training_args = {
-    'batch_size': 48, 
+    'loader_args': { 'batch_size': 48, }, 
     'optimizer_args': {
         'lr': 1e-3
     }, 
@@ -114,10 +130,14 @@ training_args = {
 }
 
 
-#    ## Declare and run the experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
-#    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+# ## Declare and run the experiment
+# 
+# - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
+# - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
+# - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+
+# In[ ]:
+
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -135,17 +155,26 @@ exp = Experiment(tags=tags,
 
 
 # Let's start the experiment.
+# 
 # By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
+
+# In[ ]:
+
 
 exp.run()
 
+
 # Local training results for each round and each node are available via `exp.training_replies()` (index 0 to (`rounds` - 1) ).
+# 
 # For example you can view the training results for the last round below.
-#
+# 
 # Different timings (in seconds) are reported for each dataset of a node participating in a round :
 # - `rtime_training` real time (clock time) spent in the training function on the node
-# - 'ptime_training` process time (user and system CPU) spent in the training function on the node
+# - `ptime_training` process time (user and system CPU) spent in the training function on the node
 # - `rtime_total` real time (clock time) spent in the researcher between sending the request and handling the response, at the `Job()` layer
+
+# In[ ]:
+
 
 print("\nList the training rounds : ", exp.training_replies().keys())
 
@@ -153,25 +182,29 @@ print("\nList the nodes for the last training round and their timings : ")
 round_data = exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
-        \n\t\trtime_training={rtraining:.2f} seconds\
-        \n\t\tptime_training={ptraining:.2f} seconds\
-        \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['node_id'],
-                rtraining = round_data[c]['timing']['rtime_training'],
-                ptraining = round_data[c]['timing']['ptime_training'],
-                rtotal = round_data[c]['timing']['rtime_total']))
+    \n\t\trtime_training={rtraining:.2f} seconds\
+    \n\t\tptime_training={ptraining:.2f} seconds\
+    \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['node_id'],
+        rtraining = round_data[c]['timing']['rtime_training'],
+        ptraining = round_data[c]['timing']['ptime_training'],
+        rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
-
-print(exp.training_replies()[rounds - 1].dataframe())
+    
+exp.training_replies()[rounds - 1].dataframe()
 
 
 # Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).
+# 
 # For example you can view the federated parameters for the last round of the experiment :
+
+# In[ ]:
+
 
 print("\nList the training rounds : ", exp.aggregated_params().keys())
 
-print("\nAccess the federated params for the last training round : ")
+print("\nAccess the federated params for the last training round :")
 print("\t- params_path: ", exp.aggregated_params()[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params()[rounds - 1]['params'].keys())
 
-# Feel free to run other sample notebooks or try your own models :D
 
+# Feel free to run other sample notebooks or try your own models :D

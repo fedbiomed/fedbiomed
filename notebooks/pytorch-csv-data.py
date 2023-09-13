@@ -3,30 +3,38 @@
 
 # # Fed-BioMed Researcher to train a model on a CSV dataset
 
-# This example shows how to use a CSV format file as a node dataset. The example CSV
-# file is synthetic data with a format inspired from ADNI dataset.
+# Use for developing (autoreloads changes made across packages)
+
+# In[ ]:
+
+
+get_ipython().run_line_magic('load_ext', 'autoreload')
+get_ipython().run_line_magic('autoreload', '2')
+
+
+# This example shows how to use a CSV format file as a node dataset. The example CSV file is synthetic data with a format inspired from ADNI dataset.
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
-## Start the network and setting the node up
-# Before running this notebook, you should start the network from fedbiomed-network
-# Therefore, it is necessary to previously configure a node:
+
+# ## Setting the node up
+# It is necessary to previously configure a node (at least):
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 1 to add a csv file to the node
 #   * Choose the name, tags and description of the dataset
-#     * use `#test_data`` for the tags
-#   * Pick the .csv file from your PC (here: pseudo_adni_mod.csv)
+#     * use `#test_data` for the tags
+#   * Pick the .csv file from your PC, located under `fedbiomed/notebooks/data/CSV` folder (here: [pseudo_adni_mod.csv](./data/CSV/pseudo_adni_mod.csv))
 #   * Data must have been added
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
 # 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
 
-
 # ## Create an experiment to train a model on the data found
 
-
-
 # Declare a torch training plan MyTrainingPlan class to send for training on the node
+
+# In[ ]:
+
+
 import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -73,16 +81,20 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = criterion(output, target.unsqueeze(1))
         return loss
 
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
         x_dim = self.model_args()['in_features']
         x_train = df.iloc[:,:x_dim].values
         y_train = df.iloc[:,-1].values
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = {'shuffle': True}
         
         data_manager = DataManager(dataset=x_train , target=y_train, **train_kwargs)
         
         return data_manager
+
+
+# In[ ]:
+
 
 # model parameters 
 model_args = {
@@ -92,7 +104,7 @@ model_args = {
 
 # training parameters 
 training_args = {
-    'batch_size': 20, 
+    'loader_args': { 'batch_size': 20, }, 
     'optimizer_args': {
         'lr': 1e-3
     }, 
@@ -105,6 +117,9 @@ training_args = {
 # - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
 # - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+
+# In[ ]:
+
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -121,19 +136,28 @@ exp = Experiment(tags=tags,
                  aggregator=FedAverage(),
                  node_selection_strategy=None)
 
+
 # Let's start the experiment.
+# 
 # By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
+
+# In[ ]:
+
 
 exp.run()
 
 
 # Local training results for each round and each node are available via `exp.training_replies()` (index 0 to (`rounds` - 1) ).
+# 
 # For example you can view the training results for the last round below.
-#
+# 
 # Different timings (in seconds) are reported for each dataset of a node participating in a round :
 # - `rtime_training` real time (clock time) spent in the training function on the node
-# - 'ptime_training` process time (user and system CPU) spent in the training function on the node
+# - `ptime_training` process time (user and system CPU) spent in the training function on the node
 # - `rtime_total` real time (clock time) spent in the researcher between sending the request and handling the response, at the `Job()` layer
+
+# In[ ]:
+
 
 print("\nList the training rounds : ", exp.training_replies().keys())
 
@@ -148,15 +172,20 @@ for c in range(len(round_data)):
         ptraining = round_data[c]['timing']['ptime_training'],
         rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
-
+    
 exp.training_replies()[rounds - 1].dataframe()
 
 
-# Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).
+# Federated parameters for each round are available in `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).
+# 
 # For example you can view the federated parameters for the last round of the experiment :
+
+# In[ ]:
+
 
 print("\nList the training rounds : ", exp.aggregated_params().keys())
 
-print("\nAccess the federated params for the last training round : ")
+print("\nAccess the federated params for the last training round :")
 print("\t- params_path: ", exp.aggregated_params()[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params()[rounds - 1]['params'].keys())
+

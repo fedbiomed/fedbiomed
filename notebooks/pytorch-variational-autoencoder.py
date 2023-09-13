@@ -3,13 +3,21 @@
 
 # # Fed-BioMed Researcher to train a variational autoencoder
 
+# Use for developing (autoreloads changes made across packages)
+
+# In[ ]:
+
+
+get_ipython().run_line_magic('load_ext', 'autoreload')
+get_ipython().run_line_magic('autoreload', '2')
+
+
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
-# ## Start the network and setting node up
+
+# ## Start the network and setting the node up
 # 
-# Before running this notebook, you should start the network
-# Therefore, it is necessary to previously configure a node:
+# It is necessary to previously configure a node:
 # 
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 2 (default) to add MNIST to the node
@@ -19,11 +27,13 @@
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
 # 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
-
-
+# 
 # ## Create an experiment to train a model on the data found
 
-# Declare a torch training plan MyTrainingPlan class to send for training on the node
+# Declare VariableAutoencoderPlan class to send for training on the node
+
+# In[ ]:
+
 
 import torch
 import torch.nn as nn
@@ -73,13 +83,13 @@ class VariationalAutoencoderPlan(TorchTrainingPlan):
     
     """ We will work on MNIST data. This is the pytorch wrapper of this data.
     """
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         mnist_transform = transforms.Compose([
                 transforms.ToTensor(),
         ])
         train_dataset = datasets.MNIST(self.dataset_path, transform=mnist_transform, train=True, download=True)
-        return DataManager(train_dataset,batch_size=batch_size,shuffle=True)
+        return DataManager(train_dataset,shuffle=True)
     
     """ Computed loss for variational autoencoders.
     """
@@ -101,10 +111,14 @@ class VariationalAutoencoderPlan(TorchTrainingPlan):
         return loss
 
 
+
+# In[ ]:
+
+
 model_args = {}
 
 training_args = {
-    'batch_size': 48,
+    'loader_args': { 'batch_size': 48, },
     'optimizer_args': {
         'lr': 1e-3
     },
@@ -114,11 +128,13 @@ training_args = {
 }
 
 
+# Define an experiment
+# - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`.
+# - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`.
+# - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds.
 
-#    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
-#    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+# In[ ]:
+
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -134,7 +150,19 @@ exp = Experiment(tags=tags,
                  aggregator=FedAverage(),
                  node_selection_strategy=None)
 
+
 # Let's start the experiment.
+# 
 # By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
 
+# In[ ]:
+
+
 exp.run()
+
+
+# In[ ]:
+
+
+
+

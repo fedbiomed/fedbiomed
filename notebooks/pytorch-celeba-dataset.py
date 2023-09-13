@@ -3,15 +3,14 @@
 
 # # Fed-BioMed Researcher
 
-# This example demonstrates using a convolutional model in PyTorch
-# for recognition of smiling faces, with a CelebA dataset split over 2 nodes.
+# This example demonstrates using a convolutional model in PyTorch for recognition of smiling faces, with a CelebA dataset split over 2 nodes.
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
+
 # ## Setting the node up
-#
-# Install the CelebA dataset with the help of the `README.md` file inside `notebooks/data/Celeba`
+# 
+# Install the CelebA dataset with the help of the [`README.md`](data/Celeba/README.md), inside the [`notebooks/data` folder](./data/Celeba).
 # The script create 3 nodes with each their data. The dataset of the node 3 is used in this notebook as a testing set.  
 # Therefore its not necessary to create a node and run the node 3  
 # 
@@ -28,8 +27,8 @@
 # 
 # It is necessary to previously configure at least 1 node:
 # 1. `./scripts/fedbiomed_run node config (ini file) add`
-#   * Select option 3 (images) to add an image dataset to the node
-#   * Add a name (eg: 'celeba') and the tag for the dataset (tag should contain '#celeba' as it is the tag used for this training) and finaly add the description
+#   * Select option 4 (images) to add an image dataset to the node
+#   * Add a name (eg: 'celeba') and the tag for the dataset (tag should contain `#celeba` as it is the tag used for this training) and finaly add the description
 #   * Pick a data folder from the 3 generated inside `data/Celeba/celeba_preprocessed` (eg: `data_node_1`)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
@@ -38,12 +37,12 @@
 # 
 # For the sake of testing the resulting model, only nodes 1 and 2 were started during training, datas from node 3 is used to test the model.
 
-
 # ## Create an experiment to train a model on the data found
 
+# Declare a TorchTrainingPlan Net class to send for training on the node
 
+# In[ ]:
 
-# Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
 import torch
 import torch.nn as nn
@@ -146,9 +145,9 @@ class CelebaTrainingPlan(TorchTrainingPlan):
     
     # The training_data creates the Dataloader to be used for training in the 
     # general class Torchnn of fedbiomed
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = {'shuffle': True}
         return DataManager(dataset, **train_kwargs)
     
     # This function must return the loss to backward it 
@@ -159,17 +158,17 @@ class CelebaTrainingPlan(TorchTrainingPlan):
         return loss
 
 
-
 # This group of arguments correspond respectively:
 # * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
 # * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
-#
+# 
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
-model_args = {}
+# In[ ]:
+
 
 training_args = {
-    'batch_size': 32, 
+    'loader_args': { 'batch_size': 32, }, 
     'optimizer_args': {
         'lr': 1e-3
     }, 
@@ -178,12 +177,16 @@ training_args = {
     'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
+
 # # Train the federated model
 
-#    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
-#    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+# Define an experiment
+# - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
+# - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
+# - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+
+# In[ ]:
+
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -200,28 +203,45 @@ exp = Experiment(tags=tags,
 
 
 # Let's start the experiment.
+# 
 # By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
+
+# In[ ]:
+
 
 exp.run()
 
+
 # Retrieve the federated model parameters
+
+# In[ ]:
+
 
 fed_model = exp.training_plan().model()
 fed_model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
-print(fed_model)
+
+
+# In[ ]:
+
+
+fed_model
+
+
 # # Test Model
-#
+
 # We define a little testing routine to extract the accuracy metrics on the testing dataset
-# 
 # ## Important
-#
-# This is done to test the model because it can be accessed in a developpement environment
-# In production, the data wont be accessible on the nodes, need a test dataset on the server or accessible from the server.
+# This is done to test the model because it can be accessed in a developpement environment  
+# In production, the data wont be accessible on the nodes, we will need a test dataset on the server or accessible from the server.
+
+# In[ ]:
+
 
 import torch
 import torch.nn as nn
 
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
@@ -260,46 +280,58 @@ def testing_Accuracy(model, data_loader):
 
     return(test_loss, accuracy)
 
+
 # The test dataset is the data from the third node
 
-print("testing accuracy")
-script_path = os.path.dirname(os.path.realpath(__file__))
-test_dataset_path = script_path + "/data/Celeba/celeba_preprocessed/data_node_3"
+# In[ ]:
+
+
+test_dataset_path = "./data/Celeba/celeba_preprocessed/data_node_3"
 
 class CelebaDataset(Dataset):
-        """Custom Dataset for loading CelebA face images"""
+    """Custom Dataset for loading CelebA face images"""
 
-        def __init__(self, txt_path, img_dir, transform=None):
-            df = pd.read_csv(txt_path, sep="\t", index_col=0)
-            self.img_dir = img_dir
-            self.txt_path = txt_path
-            self.img_names = df.index.values
-            self.y = df['Smiling'].values
-            self.transform = transform
-            #print("celeba dataset finished")
+    def __init__(self, txt_path, img_dir, transform=None):
+        df = pd.read_csv(txt_path, sep="\t", index_col=0)
+        self.img_dir = img_dir
+        self.txt_path = txt_path
+        self.img_names = df.index.values
+        self.y = df['Smiling'].values
+        self.transform = transform
+        print("celeba dataset finished")
 
-        def __getitem__(self, index):
-            img = np.asarray(Image.open(os.path.join(self.img_dir,
+    def __getitem__(self, index):
+        img = np.asarray(Image.open(os.path.join(self.img_dir,
                                         self.img_names[index])))
-            img = transforms.ToTensor()(img)
-            label = self.y[index]
-            return img, label
+        img = transforms.ToTensor()(img)
+        label = self.y[index]
+        return img, label
 
-        def __len__(self):
-            return self.y.shape[0]
-
+    def __len__(self):
+        return self.y.shape[0]
+    
 
 dataset = CelebaDataset(test_dataset_path + "/target.csv", test_dataset_path + "/data/")
-train_kwargs = {'batch_size': 128, 'shuffle': True}
+train_kwargs = { 'shuffle': True}
 data_loader = DataLoader(dataset, **train_kwargs)
 
 
 # Loading the testing dataset and computing accuracy metrics for local and federated models
 
+# In[ ]:
+
 
 acc_federated = testing_Accuracy(fed_model, data_loader)
 
 
+# In[ ]:
 
-print(f"model accuracy on testing set : {acc_federated[1]}")
+
+acc_federated[1]
+
+
+# In[ ]:
+
+
+
 
