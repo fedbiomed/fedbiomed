@@ -12,7 +12,8 @@ from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
 
-_node_status_lock = threading.Lock()
+
+
 _node_store_lock = threading.Lock()
 
 
@@ -163,9 +164,13 @@ class NodeAgent:
 
     async def active(self) -> None:
         """Updates node status as active"""
+
         async with self._async_lock:
+
+            # Inform user that node is online again
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self.id} is back online!")
+
             self._status = NodeActiveStatus.ACTIVE
                     
             # Cancel status task if there is any running
@@ -178,7 +183,7 @@ class NodeAgent:
         
         Node becomes DISCONNECTED if it doesn't become ACTIVE in 10 seconds
         """
-        print("Sleeping for 10 seconds")
+
         # Sleep at least 10 seconds in IDLE
         await asyncio.sleep(10)
 
@@ -215,23 +220,19 @@ class AgentStore:
         
         Args: 
             node_id: ID of receiving node 
-            node_ip: IP of receiving node
 
         Return:
             The node agent to manage tasks that are assigned to it.
         """
 
         node = self.get(node_id=node_id)
-        
-        # If node is existing return immediately by updating active status
-        if node:
-            return node 
-        
-        # Register new NodeAgent
-        result = await self._loop.run_in_executor(
-            None, self.register,  node_id)
 
-        return result
+        if not node:
+            node = await self._loop.run_in_executor(None, self.register,  node_id)
+
+        await node.active()
+
+        return node
 
 
     def register(
