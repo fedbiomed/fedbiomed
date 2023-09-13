@@ -115,17 +115,10 @@ class _GrpcHandler(logging.Handler):
                     msg=self.format(record),
                     node_id=self._node_id)
 
-            if record.researcher_id:
-                msg.update({"researcher_id": record.researcher_id})
-
-            if record.broadcast:
-                msg.update({"researcher_id": None})
-
-
      
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
-            feedback = message.FeedbackMessage(log=message.Log(**msg))
+            feedback = message.FeedbackMessage(researcher_id=record.researcher_id, log=message.Log(**msg))
             
             try:
                 self._on_log(feedback, record.broadcast, record.researcher_id)

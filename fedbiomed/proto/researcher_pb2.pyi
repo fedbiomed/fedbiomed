@@ -16,9 +16,9 @@ class ProtocolVersion(_message.Message):
     def __init__(self, protocol_version: _Optional[str] = ...) -> None: ...
 
 class FeedbackMessage(_message.Message):
-    __slots__ = ["protocol_version", "scalar", "log"]
+    __slots__ = ["protocol_version", "researcher_id", "scalar", "log"]
     class Scalar(_message.Message):
-        __slots__ = ["researcher_id", "node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration"]
+        __slots__ = ["node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration"]
         class MetricEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -26,7 +26,6 @@ class FeedbackMessage(_message.Message):
             key: str
             value: float
             def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
-        RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]
         NODE_ID_FIELD_NUMBER: _ClassVar[int]
         JOB_ID_FIELD_NUMBER: _ClassVar[int]
         TRAIN_FIELD_NUMBER: _ClassVar[int]
@@ -40,7 +39,6 @@ class FeedbackMessage(_message.Message):
         NUM_BATCHES_FIELD_NUMBER: _ClassVar[int]
         NUM_SAMPLES_TRAINED_FIELD_NUMBER: _ClassVar[int]
         ITERATION_FIELD_NUMBER: _ClassVar[int]
-        researcher_id: str
         node_id: str
         job_id: str
         train: bool
@@ -54,25 +52,25 @@ class FeedbackMessage(_message.Message):
         num_batches: int
         num_samples_trained: int
         iteration: int
-        def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
+        def __init__(self, node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
     class Log(_message.Message):
-        __slots__ = ["researcher_id", "node_id", "level", "msg"]
-        RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]
+        __slots__ = ["node_id", "level", "msg"]
         NODE_ID_FIELD_NUMBER: _ClassVar[int]
         LEVEL_FIELD_NUMBER: _ClassVar[int]
         MSG_FIELD_NUMBER: _ClassVar[int]
-        researcher_id: str
         node_id: str
         level: str
         msg: str
-        def __init__(self, researcher_id: _Optional[str] = ..., node_id: _Optional[str] = ..., level: _Optional[str] = ..., msg: _Optional[str] = ...) -> None: ...
+        def __init__(self, node_id: _Optional[str] = ..., level: _Optional[str] = ..., msg: _Optional[str] = ...) -> None: ...
     PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    RESEARCHER_ID_FIELD_NUMBER: _ClassVar[int]
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
     protocol_version: str
+    researcher_id: str
     scalar: FeedbackMessage.Scalar
     log: FeedbackMessage.Log
-    def __init__(self, protocol_version: _Optional[str] = ..., scalar: _Optional[_Union[FeedbackMessage.Scalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
+    def __init__(self, protocol_version: _Optional[str] = ..., researcher_id: _Optional[str] = ..., scalar: _Optional[_Union[FeedbackMessage.Scalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
 
 class TaskRequest(_message.Message):
     __slots__ = ["node", "protocol_version"]

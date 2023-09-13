@@ -377,7 +377,6 @@ class Sender(Listener):
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                print("putting reply in the queue")
                 self._queue.put_threadsafe({"stub": self._task_stub.ReplyTask, "message": message}) 
                     
                 

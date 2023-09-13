@@ -34,36 +34,34 @@ message ProtocolVersion {
 message FeedbackMessage {
     
     string protocol_version = 1;
-
+    optional string researcher_id = 2;
     // Tensorboard scalar values
     message Scalar {
-        string researcher_id = 1;
-        string node_id = 2;
-        string job_id = 3;
-        bool train = 4;
-        bool test = 5;
-        bool test_on_local_updates = 6;
-        bool test_on_global_updates = 7;
-        map<string, float> metric = 8;
-        optional int32 epoch = 9; // optional -> None
-        int32 total_samples = 10;
-        int32 batch_samples = 11; 
-        int32 num_batches = 12;
-        optional int32 num_samples_trained = 13; // optional -> None
-        int32 iteration = 14;
+        string node_id = 1;
+        string job_id = 2;
+        bool train = 3;
+        bool test = 4;
+        bool test_on_local_updates = 5;
+        bool test_on_global_updates = 6;
+        map<string, float> metric = 7;
+        optional int32 epoch = 8; // optional -> None
+        int32 total_samples = 9;
+        int32 batch_samples = 10; 
+        int32 num_batches = 11;
+        optional int32 num_samples_trained = 12; // optional -> None
+        int32 iteration = 13;
     }
 
     // Log messages
     message Log {
-            string researcher_id = 1;
-            string node_id = 2;
-            string level = 3;
-            string msg = 4;
+            string node_id = 1;
+            string level = 2;
+            string msg = 3;
     }
 
     oneof feedback_type {
-        Scalar scalar = 2;
-        Log log = 3;
+        Scalar scalar = 3;
+        Log log = 4;
     }
 
 }

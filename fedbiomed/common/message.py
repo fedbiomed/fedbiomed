@@ -233,7 +233,6 @@ class Log(ProtoSerializableMessage):
     """Describes the message type for log coming from node to researcher """
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
 
-    researcher_id: str
     node_id: str
     level: str
     msg: str
@@ -263,7 +262,6 @@ class Scalar(ProtoSerializableMessage):
     """
     __PROTO_TYPE__ =  r_pb2.FeedbackMessage.Scalar
     
-    researcher_id: str
     node_id: str
     job_id: str
     train: bool
@@ -307,6 +305,7 @@ class TaskResult(ProtoSerializableMessage):
 class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage
 
+    researcher_id: Optional[str] = None 
     log: Optional[Log] = None
     scalar: Optional[Scalar] = None
 

@@ -162,7 +162,7 @@ class RPCController:
             broadcast: If True, sends log message to all available researchers
             researcher_id: Sends the log only specified researcher. Ignored if broadcast is `True` 
         """
-
+        print("It is here")
         if broadcast:
             for client in self._client.values():
                 client.send(message)

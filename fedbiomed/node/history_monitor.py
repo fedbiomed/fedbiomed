@@ -63,10 +63,9 @@ class HistoryMonitor:
         """
         logger.debug("Send is executed!")
         self.send(
-            FeedbackMessage(scalar=Scalar(**{
+            FeedbackMessage(researcher_id=self.researcher_id, scalar=Scalar(**{
             'node_id': environ['NODE_ID'],
             'job_id': self.job_id,
-            'researcher_id': self.researcher_id,
             'train': train,
             'test': test,
             'test_on_global_updates': test_on_global_updates,
