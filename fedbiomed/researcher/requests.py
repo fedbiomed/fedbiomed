@@ -25,7 +25,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
-from fedbiomed.transport.researcher_server import ResearcherServer
+from fedbiomed.transport.server import GrpcServer
 from fedbiomed.transport.node_agent import NodeAgent
 class Requests(metaclass=SingletonMeta):
     """
@@ -46,7 +46,7 @@ class Requests(metaclass=SingletonMeta):
         self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
         # Creates grpc server and starts it
-        self.grpc_server = ResearcherServer(
+        self.grpc_server = GrpcServer(
             on_message=self.on_message
         )
         self.grpc_server.start()

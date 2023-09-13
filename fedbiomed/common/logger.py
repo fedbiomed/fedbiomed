@@ -128,7 +128,7 @@ class _GrpcHandler(logging.Handler):
             feedback = message.FeedbackMessage(log=message.Log(**msg))
             
             try:
-                self._on_log(feedback)
+                self._on_log(feedback, record.broadcast, record.researcher_id)
             except Exception:
                 logging.error("Not able to send log message to remote party")
 

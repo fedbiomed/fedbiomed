@@ -145,9 +145,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             
         task = await node_agent.get()
         task = Serializer.dumps(task.get_dict())
-        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
 
-            
+        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)    
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             
@@ -212,9 +211,9 @@ class GrpcServer:
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
-            agent_store=self.agent_store,
-            on_message=self._on_message), 
-            server=self._server
+                agent_store=self.agent_store,
+                on_message=self._on_message), 
+                server=self._server
             )
         
         self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))

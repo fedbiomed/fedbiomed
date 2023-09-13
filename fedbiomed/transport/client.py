@@ -24,6 +24,9 @@ class ClientStatus(Enum):
     CONNECTED = 1
 
 
+
+
+
 def catch_cancellation(method):
     """Wrapper function for async task cancellation"""
     async def wrapper(*args, **kwargs):
@@ -44,7 +47,8 @@ DEFAULT_ADDRESS = "localhost:50051"
 
 
 def create_channel(
-    address: str = DEFAULT_ADDRESS ,
+    port: str,
+    host: str,
     certificate: str = None
 ) -> grpc.Channel :
     """ Create gRPC channel 
@@ -69,7 +73,7 @@ def create_channel(
     ]
 
     if certificate is None: 
-        channel = grpc.aio.insecure_channel(address, options=channel_options)
+        channel = grpc.aio.insecure_channel(f"{host}:{port}", options=channel_options)
     else:
         # TODO: Create secure channel
         pass
@@ -92,24 +96,37 @@ class GrpcClient:
     queue: asyncio.Queue
 
     
-    def __init__(self, ip, host, node_id):
+    def __init__(self, node_id: str, researcher, update_id_map: Callable):
+
         self._id = None
-        self._ip = ip
-        self._host = host
+
+        self._port = researcher.port
+        self._host = researcher.host
         self._node_id = node_id 
 
-        self._feedback_channel = create_channel(certificate=None)
+        self._feedback_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
         self.feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
         
-        self._task_channel = create_channel(certificate=None)
+        self._task_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
         self.task_stub = ResearcherServiceStub(channel=self._task_channel)
 
-        self.task_listener = TaskListener(self.task_stub, self._node_id, self._on_status_change)
-        self.sender = Sender(self.task_stub, self._node_id)
+        self.task_listener = TaskListener(
+            stub=self.task_stub, 
+            node_id=self._node_id, 
+            on_status_change = self._on_status_change, 
+            update_id=self._update_id
+            )
+        self.sender = Sender(
+            feedback_stub=self.feedback_stub, 
+            task_stub=self.task_stub,
+            node_id=self._node_id
+            )
 
         self._loop = asyncio.get_running_loop()
         self._running_tasks = []
         self._status  = ClientStatus.DISCONNECTED
+        self._update_id_map = update_id_map
+        self.tasks = []
 
     def start(self, on_task) -> List[Awaitable[asyncio.Task]]:
         """Start researcher gRPC agent.
@@ -120,7 +137,9 @@ class GrpcClient:
         Args: 
             on_task: Callback function to execute once a task received.
         """
-        return [self.task_listener.listen(on_task), self.sender.listen()]
+        self.tasks = [self.task_listener.listen(on_task), self.sender.listen()]
+
+        return self.tasks
 
 
     def send(self, message: Message):
@@ -140,6 +159,7 @@ class GrpcClient:
 
         for task in self._running_tasks:
             self._loop.call_soon_threadsafe(task.cancel, CancelTypes.SILENT)
+        self.tasks = []
 
     def _on_status_change(self, status:ClientStatus):
         """Callback function to call once researcher status is changed
@@ -149,13 +169,21 @@ class GrpcClient:
         """
         self._status = status
 
+    async def _update_id(self, id_:str):
+        """Updates researcher ID
+        
+        Args: 
+            id_: Researcher Id 
+        """
+        self._id = id_
+        await self._update_id_map(f"{self._host}:{self._port}", id_)
+
 
 class Listener:
 
     def __init__(
-            self, stub: ResearcherServiceStub, 
+            self, 
             node_id: str, 
-            on_status_change: Optional[Callable] = None
         ) -> None:
         """Constructs task listener channels
         
@@ -163,9 +191,8 @@ class Listener:
             stub: RPC stub to be used for polling tasks from researcher
         """
 
-        self._stub = stub
         self._node_id = node_id
-        self._on_status_change = on_status_change
+        
 
     def listen(self, callback: Optional[Callable] = None) -> Awaitable[asyncio.Task]:
         """Listens for tasks from given channels
@@ -186,6 +213,20 @@ class Listener:
  
 class TaskListener(Listener):
     """Listener for the task assigned by the researcher component """            
+
+    def __init__(self,  
+                 node_id: str, 
+                 stub,
+                 on_status_change: Optional[Callable] = None,
+                 update_id: Optional[Callable] = None
+            ):
+        
+        super().__init__(node_id=node_id)
+
+        self._stub = stub
+        self._on_status_change = on_status_change
+        self._update_id = update_id
+
 
     @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
@@ -238,9 +279,13 @@ class TaskListener(Listener):
                 else:
                     # Execute callback
                     logger.debug(f"New task received form researcher")
-                    if callback:
-                        callback(Serializer.loads(reply))
+                    task = Serializer.loads(reply)
+     
+                    await self._update_id(task["researcher_id"])
                     
+                    if callback:
+                        callback(task)
+
                     # Reset reply
                     reply = bytes()
             # Update status as connected
@@ -249,9 +294,18 @@ class TaskListener(Listener):
 
 class Sender(Listener):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,  
+            node_id: str, 
+            feedback_stub: ResearcherServiceStub,
+            task_stub: ResearcherServiceStub,
+        ) -> None:
+
+        super().__init__(node_id=node_id)
         self._queue = _AsyncQueueBridge()
+        self._task_stub = task_stub
+        self._feedback_stub = feedback_stub
+
 
     @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
@@ -276,14 +330,14 @@ class Sender(Listener):
         """Gets task result from the queue"""
         
         while True:
-            msg = await self._send_queue.get()
+            msg = await self._queue.get()
 
             # If it is aUnary-Unary RPC call
             if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
                 await msg["stub"](msg["message"])
 
             elif isinstance(msg["stub"], grpc.aio.grpc.aio.StreamUnaryMultiCallable): 
-                
+                print("It is here in stream part")
                 stream_call = msg["stub"]()
                 
                 if callback:
@@ -294,7 +348,7 @@ class Sender(Listener):
 
                 await stream_call.done_writing()
 
-            self._send_queue.task_done()
+            self._queue.task_done()
 
 
     def _stream_reply(message: Message):
@@ -313,17 +367,12 @@ class Sender(Listener):
 
     def send(self, message: Message):
 
-        # TODO: refactor !
-        # self._node_configured self._task_channel and self._feedback_stub 
-        # should be used only in spawn thread, not in master thread
-        if not self.is_connected():
-            raise Exception("send: the connection is not ready")
-        
+
         # Switch-case for message type and gRPC calls
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                self._queue.put_threadsafe({"stub": self._stub.Feedback, "message": message.to_proto()})
+                self._queue.put_threadsafe({"stub": self._feedback_stub, "message": message.to_proto()})
 
                         
             case _:
@@ -331,7 +380,7 @@ class Sender(Listener):
                 # on gRPC communication layer. Those messages are going to be 
                 # send as TaskResult which are formatted as bytes of data.
                 # The future development should type every message on GRPC layer
-                self._queue.put_threadsafe({"stub": self._stub.Feedback, "message": message}) 
+                self._queue.put_threadsafe({"stub": self._task_stub, "message": message}) 
                     
                 
 
@@ -348,13 +397,13 @@ class _AsyncQueueBridge(asyncio.Queue):
         Args: 
             item: Item to put in the queue
         """
-        self.loop_.call_soon_thread_safe(
+        self.loop_.call_soon_threadsafe(
             super().put_nowait, item
         )
 
     def get_threadsafe(self):
         """Executes get_nowait threadsafe """
-        return self.loop_.call_soon_thread_safe(
+        return self.loop_.call_soon_threadsafe(
             super().get_nowait,
         )
     

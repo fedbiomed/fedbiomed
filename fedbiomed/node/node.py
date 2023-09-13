@@ -22,7 +22,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.transport.researcher_client_async import ResearcherClient
+from fedbiomed.transport.controller import RPCController, ResearcherCredentials
 
 class Node:
     """Core code of the node component.
@@ -46,8 +46,9 @@ class Node:
         """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self._grpc_client = ResearcherClient(
+        self._grpc_client = RPCController(
             node_id=environ["ID"],
+            researchers=[ResearcherCredentials(port='50051', host='localhost' )],
             on_message=self.on_message,
         )
         self.dataset_manager = dataset_manager
@@ -361,7 +362,7 @@ class Node:
         Returns:
             True if node is ready, False if node is not ready
         """
-        return isinstance(self._grpc_client, ResearcherClient) and self._grpc_client.is_connected()
+        return self._grpc_client.is_connected()
 
     def reply(self, msg: dict):
         """Send reply to researcher

@@ -1,12 +1,14 @@
 import asyncio
 import concurrent.futures
 import grpc
+import time
 import queue
 import threading
 import sys 
 import signal 
 import ctypes
 
+from enum import Enum
 from dataclasses import dataclass
 from typing import Callable, Optional, List, Dict, Union
 from google.protobuf.message import Message as ProtobufMessage
@@ -20,6 +22,13 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
 from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult, ProtoSerializableMessage
 
+class CancelTypes(Enum):
+    RAISE = 0
+    SILENT = 1
+
+
+class _RPCStop(Exception):
+    """RPC Stop action"""
 
 def create_channel(
     address: str,
@@ -28,9 +37,8 @@ def create_channel(
     """ Create gRPC channel 
     
     Args: 
-        ip: 
-        port:
-        certificate:
+        address: Address to connect 
+        certificate: TLS certificate
     
     Returns: 
         gRPC connection channel
@@ -42,31 +50,32 @@ def create_channel(
         ("grpc.initial_reconnect_backoff_ms", 1000),
         ("grpc.min_reconnect_backoff_ms", 500),
         ("grpc.max_reconnect_backoff_ms", 2000),
-        # ("grpc.enable_retries", 1), # Not working
-        # ("grpc.service_config", service_config) # Not working
     ]
 
     if certificate is None: 
         channel = grpc.aio.insecure_channel(address, options=channel_options)
     else:
         # TODO: Create secure channel
-        pass
+        raise NotImplemented("Certificate option is not implemented")
     
-    # TODO: add callback fro connection state
-
     return channel
 
 
 @dataclass
 class ResearcherCredentials:
 
-    ip: str
+    port: str
     host: str
-    certificate: Optional[str]
+    certificate: Optional[str] = None
 
 
 class RPCController:
+    """"RPC Controller class 
+    
+    This class is responsible of managing GrpcConnections with researcher components. 
+    It is wrapper class of GrpcClients 
 
+    """
     def __init__(
             self,
             node_id: str,
@@ -74,6 +83,7 @@ class RPCController:
             on_message: Callable = None,
             debug: bool = False
         ):
+        self.on_message = on_message or self._default_callback
 
         self._node_id = node_id
         self._certificate: str = None
@@ -82,7 +92,6 @@ class RPCController:
 
         self._clients: Dict[str, GrpcClient] = {}
         
-        self.on_message = on_message or self._default_callback
 
         self._thread = None
         self._task_channel = None
@@ -92,36 +101,45 @@ class RPCController:
 
         self._debug = debug
 
-        logger.add_grpc_handler(on_log=self.send,
-                              node_id=self._node_id)
+        # Maps researcher ip to corresponding ids
+        self._ip_id_map = {}
+
+        # Adds grpc handler to send node logs to researchers
+        logger.add_grpc_handler(on_log=self.log,
+                                node_id=self._node_id)
 
 
     async def _start(self):
         
         tasks = []
-        for researcher in self.researchers:
-            client = GrpcClient(ip=researcher.ip, host=researcher.id, node_id=self._node_id)
-            tasks.extend(client.start())
-            self._clients[researcher.id] = client
+        for researcher in self._researchers:
+            client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
+            tasks.extend(client.start(on_task=self.on_message))
+            self._clients[f"{researcher.host}:{researcher.port}"] = client
         
         self.loop = asyncio.get_running_loop()
 
         logger.info("Starting task listeners")
         # Run GrpcClient asyncio tasks
-        await asyncio.gather(*tasks)
-
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.exceptions.CancelledError as e:
+            raise _RPCStop
 
     def start(self):
-        """Start GRPCClients"""
+        """Start GRPCClients in a thread"""
 
         def _run():
             try: 
-                asyncio.run(self._start(), debug=True)
+                asyncio.run(self._start(), debug=False)
+            except _RPCStop: 
+                logger.info("Node is stopped.")
             except Exception as e:
-                logger.error(
+                logger.critical(
                     "An exception raised by running tasks within GrpcClients. This will close stopping " 
                     f"gRPC client. Please see error: {e}")
-            
+                logger.info("Node is stopped!")
+
         self._thread = threading.Thread(target=_run)
         self._thread.daemon = True
         self._thread.start()
@@ -132,8 +150,9 @@ class RPCController:
         
         Researcher id should be specified in the message
         """
+        
         researcher = message.researcher_id
-        self._clients[researcher].send(message)
+        self._clients[self._ip_id_map[researcher]].send(message)
 
 
     def log(self, message, broadcast, researcher_id):
@@ -151,17 +170,40 @@ class RPCController:
         elif researcher_id:
             self.send(message)
 
+    async def _update_id_ip_map(self, ip, id_):
+        """Updates researcher IP and researcher ID map
+        
+        Args:
+            ip: IP of the researcher whose ID will be created or updated
+            id_: ID of the researcher to be updated
+        """
+        async with asyncio.Lock():
+            self._ip_id_map = {id_: ip}
+
 
 
     def stop(self):
         """Stops running asyncio loops"""
         # Silently cancel tasks
-        for _, client in self._clients.items():
-            client.cancel_task()
+        logger.info("Gracefully stopping the node!")
+        if hasattr(self, "loop"):
+            tasks = asyncio.all_tasks(self.loop)
 
-        # Close asyncio running loop
-        if not self.loop.is_closed():
-            self.loop.call_soon_threadsafe(self.loop.close)
+            for client in self._clients.values():
+                client.cancel_tasks()
+
+            # Remaining tasks
+            tasks = asyncio.all_tasks(self.loop)
+            for task in tasks:
+                self.loop.call_soon_threadsafe(task.cancel, CancelTypes.SILENT)
+
 
         # Stop the thread
         self._thread.join()
+
+
+    def is_connected(self):
+        """"Checks RPCController is connected to any RPC client"""
+        tasks = [not task.done() for client in self._clients.values() for task in client.tasks]
+
+        return any(tasks) and self._thread.is_alive()
