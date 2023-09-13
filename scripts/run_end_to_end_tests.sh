@@ -25,7 +25,7 @@ EOF
 let test_counter+=1
 done
 
-TEST_OUTPUT="end_to_end_tests_outputs${BUILD_NUMBER}"
+TEST_OUTPUT="end_to_end_tests_outputs"
 
 rm -fr ${TEST_OUTPUT}/*
 bats --formatter junit --report-formatter junit --show-output-of-passing-tests -T -x --verbose-run --gather-test-outputs-in ${TEST_OUTPUT} ${bats_file}
