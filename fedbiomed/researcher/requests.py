@@ -27,6 +27,8 @@ from fedbiomed.researcher.responses import Responses
 
 from fedbiomed.transport.server import GrpcServer
 from fedbiomed.transport.node_agent import NodeAgent
+
+
 class Requests(metaclass=SingletonMeta):
     """
     Represents the requests addressed from Researcher to nodes. It creates a task queue storing reply to each
@@ -46,16 +48,20 @@ class Requests(metaclass=SingletonMeta):
         self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
         # Creates grpc server and starts it
-        self.grpc_server = GrpcServer(
+        self._grpc_server = GrpcServer(
             on_message=self.on_message
         )
-        self.grpc_server.start()
+        self.start_messaging()
 
         # defines the sequence used for ping protocol
         self._sequence = 0
 
         self._monitor_message_callback = None
 
+    def start_messaging(self):
+        """Start communications endpoint
+        """
+        self._grpc_server.start()
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
         """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  when a message is received on
@@ -130,7 +136,7 @@ class Requests(metaclass=SingletonMeta):
                 If `add_sequence` is False, return None
         """
         
-        node: Union[NodeAgent, None] = self.grpc_server.agent_store.get(client)
+        node: Union[NodeAgent, None] = self._grpc_server.agent_store.get(client)
         
         if not node:
             raise FedbiomedError(f"Node {client} is not existing, not connected or connection is lost.")
@@ -163,7 +169,7 @@ class Requests(metaclass=SingletonMeta):
             message['sequence'] = self._add_sequence()
 
         # TODO: Return also  the list of node that the messages are sent
-        unused_node_list = self.grpc_server.broadcast(
+        unused_node_list = self._grpc_server.broadcast(
              ResearcherMessages.format_outgoing_message(message)
         )
 
@@ -333,7 +339,7 @@ class Requests(metaclass=SingletonMeta):
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
-            nodes: List[str] = self.grpc_server.broadcast(
+            nodes: List[str] = self._grpc_server.broadcast(
                 ResearcherMessages.format_outgoing_message({
                     'researcher_id': environ['RESEARCHER_ID'],
                     "command": "list"}))

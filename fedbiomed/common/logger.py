@@ -137,7 +137,7 @@ class _GrpcHandler(logging.Handler):
 class FedLogger(metaclass=SingletonMeta):
     """Base class for the logger. 
     
-    t uses python logging module by composition (only log() method is overwritten)
+    It uses python logging module by composition (only log() method is overwritten)
 
     All methods from the logging module can be accessed through the _logger member of the class if necessary
     (instead of overloading all the methods) (ex:  logger._logger.getEffectiveLevel() )

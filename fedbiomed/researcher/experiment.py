@@ -298,10 +298,11 @@ class Experiment:
         #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         #     self._reqs.remove_monitor_callback()
 
-        if isinstance(self._monitor, Monitor):
+        if hasattr(self, '_monitor') and isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
 
     @property
+    @exp_exceptions
     def secagg(self) -> SecureAggregation:
         """Gets secagg object `SecureAggregation`
 
@@ -1398,6 +1399,7 @@ class Experiment:
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
     
+    @exp_exceptions
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
