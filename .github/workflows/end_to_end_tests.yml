@@ -28,8 +28,15 @@ jobs:
     runs-on: ${{ matrix.os }}
       
     steps:
-      - name: Checkout to commit
+      - name: Checkout of head
+        id: e2e-checkout
         uses: actions/checkout@v3
+
+      - name: setup datasets
+        id: e2e-setup-datasets
+        run: |
+          echo "Setting up the datasets"
+          ./notebooks/101_getting-started-setup.sh
 
       - name: Run end-to-end tests
         id: e2e-tests
@@ -37,6 +44,6 @@ jobs:
           echo "Launching end-to-end tests" # to check from time to time
           ./scripts/run_end_to_end_tests.sh
           echo "============== TAP results ====================="
-          cat ./report.tap
+          cat ./report.tap | grep -v "^#"
         shell: bash -l {0}
 

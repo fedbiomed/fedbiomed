@@ -3,5 +3,5 @@
     "description": "MNIST DATASET",
     "tags": "#MNIST,#dataset",
     "data_type": "default",
-    "path": "$HOME/Data/fedbiomed/mnist"
+    "path": "$HOME/Data/fedbiomed/MNIST"
 }
