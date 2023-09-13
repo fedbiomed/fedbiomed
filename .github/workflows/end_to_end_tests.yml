@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false # Importance ?
       matrix:
-        os: [ubuntu-22-04] #[ubuntu-22-04, fedora38, macosx-m1]
+        os: [ubuntu-22-04, fedora38] # \todo must be restored at the end of debugging: [ubuntu-22-04, fedora38, macosx-m1]
     runs-on: ${{ matrix.os }}
       
     steps:
