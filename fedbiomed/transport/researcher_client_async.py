@@ -61,40 +61,7 @@ DEFAULT_ADDRESS = "localhost:50051"
 # In general, the n-th attempt will occur at random(0, min(initialBackoff*backoffMultiplier**(n-1), maxBackoff)).
 
 
-def create_channel(
-    address: str = DEFAULT_ADDRESS ,
-    certificate: str = None
-) -> grpc.Channel :
-    """ Create gRPC channel 
-    
-    Args: 
-        ip: 
-        port:
-        certificate:
-    
-    Returns: 
-        gRPC connection channel
-    """
-    channel_options = [
-        ("grpc.max_send_message_length", 100 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ("grpc.keepalive_time_ms", 1000 * 2),
-        ("grpc.initial_reconnect_backoff_ms", 1000),
-        ("grpc.min_reconnect_backoff_ms", 500),
-        ("grpc.max_reconnect_backoff_ms", 2000),
-        # ("grpc.enable_retries", 1), # Not working
-        # ("grpc.service_config", service_config) # Not working
-    ]
 
-    if certificate is None: 
-        channel = grpc.aio.insecure_channel(address, options=channel_options)
-    else:
-        # TODO: Create secure channel
-        pass
-    
-    # TODO: add callback fro connection state
-
-    return channel
 
 
 async def task_reader(
@@ -217,7 +184,7 @@ class ResearcherClient:
 
         self._debug = debug
 
-        logger.addGrpcHandler(on_log=self.send,
+        logger.add_grpc_handler(on_log=self.send,
                               node_id=self._node_id)
         
 

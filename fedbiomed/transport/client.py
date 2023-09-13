@@ -3,6 +3,8 @@ import grpc
 import asyncio
 import abc
 
+from enum import Enum
+
 from fedbiomed.proto.researcher_pb2_grpc import ResearcherServiceStub
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
@@ -12,30 +14,30 @@ from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
 
 from typing import List, Callable, Optional, Awaitable
 
-def catch(method):
-    """Catches grpc.AioRPCErrors"""
 
+class CancelTypes(Enum):
+    RAISE = 0
+    SILENT = 1
+
+class ClientStatus(Enum):
+    DISCONNECTED = 0
+    CONNECTED = 1
+
+
+def catch_cancellation(method):
+    """Wrapper function for async task cancellation"""
     async def wrapper(*args, **kwargs):
-
         try: 
-            method(*args, **kwargs)
-
-        # Timeout and services un available errors
-        except grpc.aio.AioRpcError as exp:
-            if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                logger.debug("Timeout ")
-        
-            elif exp.code() == grpc.StatusCode.UNAVAILABLE:
-                logger.debug("Researcher server is not available, will retry connect in 2 seconds")
-                await asyncio.sleep(2)
-
+            await method(*args, **kwargs)
+        except asyncio.exceptions.CancelledError as exp:
+            if len(exp.args) > 0:
+                if  exp.args[0] == CancelTypes.RAISE:
+                    raise exp
+                elif exp.args[0] == CancelTypes.SILENT:
+                    print(f"Canceling task listener for researcher {'ss'}")
             else:
-                raise Exception("get_tasks: Request streaming stopped ") from exp
-            
-        except Exception as exp:
-                raise Exception("get_tasks: Request streaming stopped ") from exp
-        
-    return wrapper
+                raise exp
+    return wrapper 
 
 
 DEFAULT_ADDRESS = "localhost:50051"
@@ -90,7 +92,7 @@ class GrpcClient:
     queue: asyncio.Queue
 
     
-    def __init__(self, ip, host, node_id, loop):
+    def __init__(self, ip, host, node_id):
         self._id = None
         self._ip = ip
         self._host = host
@@ -102,9 +104,12 @@ class GrpcClient:
         self._task_channel = create_channel(certificate=None)
         self.task_stub = ResearcherServiceStub(channel=self._task_channel)
 
-        self.task_listener = TaskListener(self.task_stub, self._node_id)
+        self.task_listener = TaskListener(self.task_stub, self._node_id, self._on_status_change)
         self.sender = Sender(self.task_stub, self._node_id)
 
+        self._loop = asyncio.get_running_loop()
+        self._running_tasks = []
+        self._status  = ClientStatus.DISCONNECTED
 
     def start(self, on_task) -> List[Awaitable[asyncio.Task]]:
         """Start researcher gRPC agent.
@@ -124,9 +129,34 @@ class GrpcClient:
         self.sender.send(message)
 
 
+    def cancel_tasks(self):
+        """Cancels running tasks for the researcher
+        
+        Following cancellation operation raises cancel error by tagging as
+        silent which allows to terminate tasks quietly. However, error within the 
+        tasks can raise CancelError or other custom exception which should be handled
+        upper layers. 
+        """
+
+        for task in self._running_tasks:
+            self._loop.call_soon_threadsafe(task.cancel, CancelTypes.SILENT)
+
+    def _on_status_change(self, status:ClientStatus):
+        """Callback function to call once researcher status is changed
+        
+        Args: 
+            status: New status of the researcher client
+        """
+        self._status = status
+
+
 class Listener:
 
-    def __init__(self, stub: ResearcherServiceStub, node_id: str):
+    def __init__(
+            self, stub: ResearcherServiceStub, 
+            node_id: str, 
+            on_status_change: Optional[Callable] = None
+        ) -> None:
         """Constructs task listener channels
         
         Args: 
@@ -135,6 +165,7 @@ class Listener:
 
         self._stub = stub
         self._node_id = node_id
+        self._on_status_change = on_status_change
 
     def listen(self, callback: Optional[Callable] = None) -> Awaitable[asyncio.Task]:
         """Listens for tasks from given channels
@@ -151,19 +182,39 @@ class Listener:
     @abc.abstractmethod
     def _listen(self, callback):
         pass
-
+    
  
 class TaskListener(Listener):
     """Listener for the task assigned by the researcher component """            
 
+    @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
-        """"Starts the loop for listening task"""
+        """"Starts the loop for listening task
+        
+        Args: 
+            callback: Callback to execute once a task is received
+        """
 
         while True:
-            await self._request(callback)
+            
+            try:
+                await self._request(callback)
+            except grpc.aio.AioRpcError as exp:
+                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    logger.debug(f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
+                    pass
+                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
+                    logger.debug("Researcher server is not available, will retry connect in 2 seconds")
+                    self._on_status_change(ClientStatus.DISCONNECTED)
+                    await asyncio.sleep(2)
 
+                else:
+                    raise Exception("get_tasks: Request streaming stopped ") from exp
+                
+            except Exception as exp:
+                    raise Exception(f"Task listener has stopped due to unknown reason: {exp}") from exp
+            
 
-    @catch
     async def _request(self, callback: Optional[Callable] = None) -> None:
         """Requests tasks from Researcher 
         
@@ -172,7 +223,9 @@ class TaskListener(Listener):
             callback: Callback to execute once a task is arrived
         """
         while True:
+            
             logger.debug(f"Sending new task request to researcher")
+            self._on_status_change(ClientStatus.CONNECTED)
             iterator = self._stub.GetTaskUnary(
                 TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60
             )
@@ -190,7 +243,8 @@ class TaskListener(Listener):
                     
                     # Reset reply
                     reply = bytes()
-
+            # Update status as connected
+            
 
 
 class Sender(Listener):
@@ -199,17 +253,25 @@ class Sender(Listener):
         super().__init__(*args, **kwargs)
         self._queue = _AsyncQueueBridge()
 
-
+    @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
         """Listens for the messages that are going to be sent to researcher"""
 
         # While loop retires to send if first one fails to send the result
         while True: 
             # Waits until there is something to send back to researcher
-            await self._get(callback)
-               
+            try:
+                await self._get(callback)
+            except grpc.aio.AioRpcError as exp:
+                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    logger.debug(f"Timeout reached. Researcher might be busy. ")
+                    self._send_queue.task_done()
+                    pass
+                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
+                    logger.debug("Researcher server is not available, will try to to send the message in 5 seconds")
+                    await asyncio.sleep(5)
 
-    @catch
+
     async def _get(self, callback: Optional[Callable] = None):
         """Gets task result from the queue"""
         

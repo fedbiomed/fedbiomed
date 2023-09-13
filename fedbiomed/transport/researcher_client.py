@@ -131,7 +131,7 @@ class ResearcherClient:
         self._task_channel = create_channel(certificate=None)
         self._stub = researcher_pb2_grpc.ResearcherServiceStub(channel=self._task_channel)
 
-        logger.addGrpcHandler(on_log=self._send,
+        logger.add_grpc_handler(on_log=self._send,
                               node_id=self._messaging_id)
 
     def connection(self):

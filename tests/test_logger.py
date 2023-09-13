@@ -35,18 +35,18 @@ class TestLogger(unittest.TestCase):
         '''
 
         # string -> logging.* translator
-        self.assertEqual( logger._internalLevelTranslator("DEBUG"),
+        self.assertEqual( logger._internal_level_translator("DEBUG"),
                           logging.DEBUG)
-        self.assertEqual( logger._internalLevelTranslator("INFO"),
+        self.assertEqual( logger._internal_level_translator("INFO"),
                           logging.INFO)
-        self.assertEqual( logger._internalLevelTranslator("WARNING"),
+        self.assertEqual( logger._internal_level_translator("WARNING"),
                           logging.WARNING)
-        self.assertEqual( logger._internalLevelTranslator("ERROR"),
+        self.assertEqual( logger._internal_level_translator("ERROR"),
                           logging.ERROR)
-        self.assertEqual( logger._internalLevelTranslator("CRITICAL"),
+        self.assertEqual( logger._internal_level_translator("CRITICAL"),
                           logging.CRITICAL)
 
-        self.assertEqual( logger._internalLevelTranslator("STUPIDO"),
+        self.assertEqual( logger._internal_level_translator("STUPIDO"),
                           DEFAULT_LOG_LEVEL)
         pass
 
@@ -65,15 +65,15 @@ class TestLogger(unittest.TestCase):
         self.assertEqual( len(logger._handlers) , 1 )
 
         # should also return len() = 1
-        logger._internalAddHandler( "CONSOLE", handler)
+        logger._internal_add_handler( "CONSOLE", handler)
         self.assertEqual( len(logger._handlers) , 1 )
 
         # add a new one
-        logger._internalAddHandler( "TEST1", handler)
+        logger._internal_add_handler( "TEST1", handler)
         self.assertEqual( len(logger._handlers) , 2)
 
         # handler already exists -> count does not change
-        logger._internalAddHandler( "TEST1", handler)
+        logger._internal_add_handler( "TEST1", handler)
         self.assertEqual( len(logger._handlers) , 2)
 
 
@@ -158,7 +158,7 @@ class TestLogger(unittest.TestCase):
         # add a new handler and verify its initial level
         handler = logging.NullHandler()
 
-        logger._internalAddHandler( "H_1", handler)
+        logger._internal_add_handler( "H_1", handler)
         self.assertEqual( logger._handlers["H_1"].level,
                           DEFAULT_LOG_LEVEL)
 
@@ -309,7 +309,7 @@ class TestLogger(unittest.TestCase):
 
         randomfile = tempfile.NamedTemporaryFile()
 
-        logger.addFileHandler( filename = randomfile.name)
+        logger.add_file_handler( filename = randomfile.name)
         logger.log("ERROR", "YYY-FIND_THIS_IN_TEMPFILE-XXX")
 
         # give some time to the logger

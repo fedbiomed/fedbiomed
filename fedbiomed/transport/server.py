@@ -138,16 +138,11 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.info(f"Received request form {task_request.get('node')}")
-        
-        try: 
-            node_agent = await self.agent_store.get_or_register(node_id=task_request["node"])
+         
+        node_agent = await self.agent_store.get_or_register(node_id=task_request["node"])
+        # Update node active status as active
+        node_agent.set_context(context)
             
-            # Update node active status as active
-            node_agent.set_context(context)
-            await node_agent.active()
-        except Exception as e: 
-            logger.debug(e)
-
         task = await node_agent.get()
         task = Serializer.dumps(task.get_dict())
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
@@ -192,7 +187,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 def _default_callback(self, x):
     print(f'Default callback: {type(x)} {x}')
 
-class ResearcherServer:
+
+
+class GrpcServer:
 
     def __init__(self, debug: bool = False, on_message: Callable = _default_callback) -> None:
         self._server = None 
@@ -263,17 +260,6 @@ class ResearcherServer:
         logger.info("Starting researcher service...")   
         time.sleep(3)
 
-
-
-    #async def _stop(self):
-    #    print("_stop: before")
-    #    await self._server.stop(1)
-    #    while await self._server.wait_for_termination(timeout=1):
-    #        if self._debug:
-    #            print("_stop: loop wait_for_termination")
-    #        await self._server.stop(1)
-    #    print("_stop: after")
-
     def stop(self):
         """Stops researcher server"""
         
@@ -303,7 +289,7 @@ if __name__ == "__main__":
         rs.stop()
         sys.exit(1)
         
-    rs = ResearcherServer(debug=True)
+    rs = GrpcServer(debug=True)
     signal.signal(signal.SIGHUP, handler)
 
     try:
