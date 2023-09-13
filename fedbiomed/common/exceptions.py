@@ -165,16 +165,6 @@ class FedbiomedRoundError(FedbiomedError):
     pass
 
 
-class FedbiomedSilentRoundError(FedbiomedError):
-    """
-    Silent round error that raises error but does 
-    not send error back to researcher.
-
-    !!! note "When should this exception to be used"
-        Please user this exception if you are sure that error is already sent
-        to researcher
-    """
-
 class FedbiomedModelError(FedbiomedError):
     """
     Exceptions triggered from Model class

@@ -74,7 +74,6 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     finally:
         # give some time to send messages to the researcher
         time.sleep(0.5)
-        _node.stop_messaging()
         sys.exit(signum)
 
 

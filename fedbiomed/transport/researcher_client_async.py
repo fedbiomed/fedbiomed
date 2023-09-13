@@ -221,30 +221,15 @@ class ResearcherClient:
             task_get = asyncio.create_task(self.get_tasks(debug=debug))
             task_send = asyncio.create_task(self.send_queue_listener(debug=debug))
 
-            while not task_get.done() or not task_send.done():
-                if debug: print('connection: looping for tasks')
-                await asyncio.wait([task_get, task_send], timeout=1)
-            
+            await asyncio.wait([task_get, task_send])
+
             # never reach this one normally ?
             if debug: print('connection: tasks completed')
-
-        # not needed
-        #except ClientStop:
-        #    if debug: print("connection: cancel by user")
         except Exception as e:
             if debug:print(f"connection: unexpected exception {type(e)} {e}")
         finally:
             self._node_configured = False
             if debug: print("connection: finally")
-            
-            # this should not be necessary, add task cancellation for robustness
-            for task in [task_get, task_send]:
-                if isinstance(task, asyncio.Task) and not task.done():
-                    task.cancel()
-                    if debug: print(f'connection: finally, canceling task')
-                    while not task.done():
-                        await asyncio.sleep(0.1)
-
 
     async def send_queue_listener(self, debug: bool = False):
         """Listens queue that contains message to send to researcher """
@@ -368,18 +353,18 @@ class ResearcherClient:
 
         return {"stub": stub, "message": message}
     
-    async def _send_from_thread(self, rpc, message: ProtobufMessage):
-        try:
-            #await asyncio.sleep(5)
-            print("About to add task in the queue")
-            await self._send_queue.put(
-                self._create_send_task(rpc,message)
-            )
-            print("task added in the queue")
-            return True
-        except asyncio.CancelledError:
-            if self._debug: print("_send_from_thread: cancelled send task")
-            return False
+    #async def _send_from_thread(self, rpc, message: ProtobufMessage):
+    #    try:
+    #        #await asyncio.sleep(5)
+    #        print("About to add task in the queue")
+    #        await self._send_queue.put(
+    #            self._create_send_task(rpc,message)
+    #        )
+    #        print("task added in the queue")
+    #        return True
+    #    except asyncio.CancelledError:
+    #        if self._debug: print("_send_from_thread: cancelled send task")
+    #        return False
 
 
     #def _run_thread_safe(self, coroutine: asyncio.coroutine):
@@ -453,13 +438,6 @@ class ResearcherClient:
                     #self.connection(), debug=False
                     self.connection(debug=self._debug), debug=True
                 )
-
-            # note: needed to catch this exception
-            except ClientStop:
-                if self._debug:
-                    print("Run: caught user stop exception")
-            # TODO: never reached, suppress ?
-            #
             except Exception as e:
                 if self._debug:
                     print(f"Run: caught exception: {e.__class__.__name__}: {e}")
@@ -468,30 +446,10 @@ class ResearcherClient:
                     print("Run: finally")
 
 
-        self._thread = threading.Thread(target=run)
+        self._thread = threading.Thread(target=run, daemon=True)
         self._thread.start()
         if self._debug:
             print("start: completed")
-
-
-    def stop(self):
-        """Stop gently running asyncio loop and its thread"""
-
-        if self._node_configured is False:
-            logger.info("stop: node already stopped")
-            return
-
-        self._node_configured = False
-        if not isinstance(self._thread, threading.Thread):
-            stopped_count = 0
-        else:
-            stopped_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self._thread.ident),
-                                                                   ctypes.py_object(ClientStop))
-        if stopped_count != 1:
-            logger.info("stop: could not deliver exception to thread")
-        else:
-            self._thread.join()
-
 
     def is_alive(self) -> bool:
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
@@ -507,7 +465,6 @@ if __name__ == '__main__':
 
     def handler(signum, frame):
         print(f"Node cancel by signal {signal.Signals(signum).name}")
-        rc.stop()
         sys.exit(1)
 
     rc = ResearcherClient(debug=True)
@@ -519,7 +476,3 @@ if __name__ == '__main__':
             time.sleep(1)
     except KeyboardInterrupt:
         print("Node cancel by keyboard interrupt")
-        try:
-            rc.stop()
-        except KeyboardInterrupt:
-            print("Immediate keyboard interrupt, dont wait to clean")
