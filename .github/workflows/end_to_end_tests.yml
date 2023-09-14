@@ -47,7 +47,7 @@ jobs:
         run: |
           echo "Launching end-to-end tests" # to check from time to time
           ./scripts/run_end_to_end_tests.sh
-          echo "============== TAP results ====================="
+          ls ./rep*
         shell: bash -l {0}
 
       - name: Test Report
@@ -55,7 +55,7 @@ jobs:
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: (${{ matrix.os }}) Fedbiomed End-to-End Tests            # Name of the check run which will be created
-          artifact: end_to_end_tests_outputs/*
-          path: report.xml    # Path to test results
+          artifact: ./end_to_end_tests_outputs/*
+          path: ./report.xml    # Path to test results
           reporter: java-junit        # Format of test results
 
