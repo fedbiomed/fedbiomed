@@ -631,6 +631,51 @@ class TrainReply(Message, RequiresProtocolVersion):
     msg: str
     command: str
 
+@catch_dataclass_exception
+@dataclass
+class AnalyticsQueryRequest(Message, RequiresProtocolVersion):
+    """Describes a secagg context element delete reply message sent by the node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests deletion
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    job_id: str
+    dataset_id: str
+    command: str
+    query_type: str
+    query_kwargs: dict
+    training_plan_url: str
+    training_plan_class: str
+
+@catch_dataclass_exception
+@dataclass
+class AnalyticsQueryReply(Message, RequiresProtocolVersion):
+    """Describes a train message sent by the node.
+
+    Attributes:
+        researcher_id: Id of the researcher that receives the reply
+        job_id: Id of the Job that is sent by researcher
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replys the request
+        dataset_id: id of the dataset that is used for training
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    job_id: str
+    node_id: str
+    dataset_id: str
+    success: bool
+    command: str
+    query_type: str
+    results: dict
 
 class MessageFactory:
     """Pack message contents into the appropriate Message class."""
@@ -720,7 +765,8 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'analytics_query': AnalyticsQueryReply
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
@@ -730,7 +776,8 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'analytics_query': AnalyticsQueryRequest
                                           }
 
 
@@ -746,7 +793,8 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'analytics_query': AnalyticsQueryRequest
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
@@ -759,5 +807,6 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'analytics_query': AnalyticsQueryReply
                                           }

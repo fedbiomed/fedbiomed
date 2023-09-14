@@ -869,6 +869,42 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             raise FedbiomedDatasetError(f'{ErrorNumbers.FB613.value}: As you have multiple data modalities, transforms '
                                         f'have to be a dictionary using the modality keys: {modalities}')
 
+    def mean(self):
+        (data, _), target = self[0]
+        imaging_means = {modality: torch.zeros_like(image) for modality, image in data.items()}
+        target_means = {modality: torch.zeros_like(image) for modality, image in target.items()}
+        n = len(self)
+        for (data, _), target in self:
+            for modality, image in data.items():
+                imaging_means[modality] += image / n
+            for modality, image in target.items():
+                target_means[modality] += image / n
+        imaging_means = {modality: image.detach().numpy().tolist() for modality, image in imaging_means.items()}
+        target_means = {modality: image.detach().numpy().tolist() for modality, image in target_means.items()}
+        demographics_means = self.demographics.mean(numeric_only=True).to_dict()
+        return {'imaging_means': imaging_means,
+                'target_means': target_means,
+                'demographics_means': demographics_means}
+
+    @staticmethod
+    def aggregate_mean(node_means: list):
+        imaging_mean = {
+            modality: torch.stack([torch.Tensor(x['imaging_means'][modality]) for x in node_means]).mean(axis=0)
+            for modality in node_means[0]['imaging_means']}
+        target_mean = {
+            modality: torch.stack([torch.Tensor(x['target_means'][modality]) for x in node_means]).mean(axis=0)
+            for modality in node_means[0]['target_means']}
+        demographics_means = {
+            column: Tensor([x['demographics_means'][column] for x in node_means]).mean()
+            for column in node_means[0]['demographics_means']
+        }
+        return {
+            'imaging_means': imaging_mean,
+            'target_means': target_mean,
+            'demograpics_means': demographics_means
+        }
+
+
 
 class MedicalFolderController(MedicalFolderBase):
     """Utility class to construct and verify Medical Folder datasets without knowledge of the experiment.

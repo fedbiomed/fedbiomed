@@ -184,7 +184,6 @@ class DatasetTypes(_BaseEnum):
     TEST = 'test'
     NONE = 'none'
 
-
 class SecaggElementTypes(_BaseEnum):
     """Enumeration class for secure aggregation element types
 

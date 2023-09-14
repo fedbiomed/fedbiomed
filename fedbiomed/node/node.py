@@ -12,7 +12,8 @@ import validators
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, \
+    AnalyticsQueryRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -88,7 +89,7 @@ class Node:
             # get the request from the received message (from researcher)
             command = msg['command']
             request = NodeMessages.format_incoming_message(msg).get_dict()
-            if command in ['train', 'secagg']:
+            if command in ['train', 'secagg', 'analytics_query']:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'secagg-delete':
@@ -224,6 +225,36 @@ class Node:
 
         msg = secagg.setup()
         return self.reply(msg)
+
+    def _task_analytics_query(self, msg: AnalyticsQueryRequest) -> None:
+        """Parse a given secagg setup task message and execute secagg task.
+
+        Args:
+            msg: `SecaggRequest` message object to parse
+        """
+
+        dataset_id = msg.get_param('dataset_id')
+        data = self.dataset_manager.get_by_id(dataset_id)
+        dlp_and_loading_block_metadata = None
+        if 'dlp_id' in data:
+            dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+        training_plan_url = msg.get_param('training_plan_url')
+        training_plan_class = msg.get_param('training_plan_class')
+        job_id = msg.get_param('job_id')
+        researcher_id = msg.get_param('researcher_id')
+        round = Round(
+            dataset=data,
+            training_plan_url=training_plan_url,
+            training_plan_class=training_plan_class,
+            job_id=job_id,
+            researcher_id=researcher_id,
+            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+        )
+
+        query_type = msg.get_param('query_type')
+        query_kwargs = msg.get_param('query_kwargs')
+        reply_msg = round.run_analytics_query(query_type=query_type, query_kwargs=query_kwargs)
+        return self.reply(reply_msg)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -365,6 +396,8 @@ class Node:
                         logger.debug(f"{ErrorNumbers.FB300}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
+                elif command == 'analytics_query':
+                    self._task_analytics_query(item)
                 else:
                     errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                     logger.error(errmess)

@@ -710,3 +710,94 @@ class Round:
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)
+
+    def run_analytics_query(self, query_type: str, query_kwargs: Optional[dict] = None):
+        try:
+            # module name cannot contain dashes
+            import_module = 'training_plan_' + str(uuid.uuid4().hex)
+            status, _ = self.repository.download_file(self.training_plan_url,
+                                                      import_module + '.py')
+
+            if status != 200:
+                error_message = "Cannot download training plan file: " + self.training_plan_url
+                return self._send_round_reply(success=False, message=error_message)
+            else:
+                if environ["TRAINING_PLAN_APPROVAL"]:
+                    approved, training_plan_ = self.tp_security_manager.check_training_plan_status(
+                        os.path.join(environ["TMP_DIR"], import_module + '.py'),
+                        TrainingPlanApprovalStatus.APPROVED)
+
+                    if not approved:
+                        error_message = f'Requested training plan is not approved by the node: {environ["NODE_ID"]}'
+                        return self._send_round_reply(success=False, message=error_message)
+                    else:
+                        logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
+
+        except Exception as e:
+            # FIXME: this will trigger if model is not approved by node
+            error_message = f"Cannot download training plan files: {repr(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+
+        try:
+            sys.path.insert(0, environ['TMP_DIR'])
+            module = importlib.import_module(import_module)
+            train_class = getattr(module, self.training_plan_class)
+            training_plan = train_class()
+            sys.path.pop(0)
+        except Exception as e:
+            error_message = f"Cannot instantiate training plan object: {repr(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+
+        training_plan.set_dataset_path(self.dataset['path'])
+
+        training_plan_type = training_plan.type()
+        try:
+            data_manager = training_plan.training_data()
+        except TypeError as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
+                                      f"{str(training_plan_type)} should not take any arguments."
+                                      f"Instead, the following error occurred: {repr(e)}")
+        except Exception as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
+                                      f"{str(training_plan_type)} has failed: {repr(e)}")
+
+        # Check whether training_data returns proper instance
+        # it should be always Fed-BioMed DataManager
+        if not isinstance(data_manager, DataManager):
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: The method `training_data` should return an "
+                                      f"object instance of `fedbiomed.common.data.DataManager`, "
+                                      f"not {type(data_manager)}")
+
+        # Specific datamanager based on training plan
+        try:
+            # This data manager can be data manager for PyTorch or Sk-Learn
+            data_manager.load(tp_type=training_plan_type)
+        except FedbiomedError as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
+
+        # Get dataset property
+        if hasattr(data_manager.dataset, "set_dataset_parameters"):
+            dataset_parameters = self.dataset.get("dataset_parameters", {})
+            data_manager.dataset.set_dataset_parameters(dataset_parameters)
+
+        if self._dlp_and_loading_block_metadata is not None:
+            if hasattr(data_manager.dataset, 'set_dlp'):
+                dlp = DataLoadingPlan().deserialize(*self._dlp_and_loading_block_metadata)
+                data_manager.dataset.set_dlp(dlp)
+            else:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
+                                          f"{self._dlp_and_loading_block_metadata['name']} on dataset of type "
+                                          f"{data_manager.dataset.__class__.__name__} which is not enabled.")
+
+
+        query = getattr(data_manager.dataset, query_type)
+        result = query(**query_kwargs)
+        success = True
+        return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
+                                                     'job_id': self.job_id,
+                                                     'researcher_id': self.researcher_id,
+                                                     'command': 'analytics_query',
+                                                     'success': success,
+                                                     'dataset_id': self.dataset['dataset_id'] if success else '',
+                                                     'query_type': query_type,
+                                                     'results': result}).get_dict()

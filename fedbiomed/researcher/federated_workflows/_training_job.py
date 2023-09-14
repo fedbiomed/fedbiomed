@@ -68,22 +68,102 @@ class TrainingJob(Job):
     def aggregator_args(self):
         return self._aggregator_args
 
-    def get_initialized_workflow_instance(self,
-                                          training_plan_path: str,
-                                          training_plan_class: Union[Type[Callable], str],
-                                          training_args: TrainingArgs,
-                                          model_args: Optional[dict],
-                                          ):
-        skeleton_training_plan = self.create_skeleton_workflow_instance_from_path(training_plan_path,
-                                                                                  training_plan_class)
-        self._save_workflow_code_to_file(skeleton_training_plan)
-        training_plan = skeleton_training_plan.load_training_plan_from_file(
-            self._keep_files_dir,
-            self._training_plan_module,
-            skeleton_training_plan.__class__.__name__)
-        training_plan.post_init(model_args={} if model_args is None else model_args,
-                                training_args=training_args)
-        return training_plan
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @nodes.setter
+    def nodes(self, nodes: dict):
+        self._nodes = nodes
+
+    @property
+    def training_replies(self):
+        return self._training_replies
+
+    @property
+    def training_args(self):
+        return self._training_args.dict()
+
+    @training_args.setter
+    def training_args(self, training_args: TrainingArgs):
+        self._training_args = training_args
+
+    @property
+    def data(self):
+        return self._data
+
+    def check_training_plan_is_approved_by_nodes(self) -> List:
+
+        """ Checks whether model is approved or not.
+
+        This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
+        So, researchers can find out if their model has been approved
+
+        """
+
+        message = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'training_plan_url': self._repository_args['training_plan_url'],
+            'command': 'training-plan-status'
+        }
+
+        responses = Responses([])
+        replied_nodes = []
+        node_ids = self._data.node_ids()
+
+        # Send message to each node that has been found after dataset search request
+        for cli in node_ids:
+            logger.info('Sending request to node ' +
+                        str(cli) + " to check model is approved or not")
+            self._reqs.send_message(
+                message,
+                cli)
+
+        # Wait for responses
+        for resp in self._reqs.get_responses(look_for_commands=['training-plan-status'], only_successful=False):
+            responses.append(resp)
+            replied_nodes.append(resp.get('node_id'))
+
+            if resp.get('success') is True:
+                if resp.get('approval_obligation') is True:
+                    if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
+                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
+                    else:
+                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Training plan status : {resp.get("status")}')
+                else:
+                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
+            else:
+                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+
+        # Get the nodes that haven't replied training-plan-status request
+        non_replied_nodes = list(set(node_ids) - set(replied_nodes))
+        if non_replied_nodes:
+            logger.warning(f"Request for checking training plan status hasn't been replied \
+                             by the nodes: {non_replied_nodes}. You might get error \
+                                 while running your experiment. ")
+
+        return responses
+
+    # TODO: This method should change in the future or as soon as we implement other of strategies different
+    #   than DefaultStrategy
+
+    def waiting_for_nodes(self, responses: Responses) -> bool:
+        """ Verifies if all nodes involved in the job are present and Responding
+
+        Args:
+            responses: contains message answers
+
+        Returns:
+            False if all nodes are present in the Responses object. True if waiting for at least one node.
+        """
+        try:
+            nodes_done = set(responses.dataframe()['node_id'])
+        except KeyError:
+            nodes_done = set()
+
+        return not nodes_done == set(self._nodes)
 
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],

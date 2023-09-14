@@ -40,5 +40,5 @@ __all__ = [
     "FlambyDatasetMetadataBlock",
     "FlambyLoadingBlockTypes",
     "FlambyDataset",
-    "discover_flamby_datasets"
+    "discover_flamby_datasets",
 ]
