@@ -11,8 +11,8 @@ list_notebooks=( notebooks/101_getting-started.ipynb notebooks/general-breakpoin
 
 #list_notebooks=( notebooks/*.ipynb )
 test_counter=1
-#for notebook in ${list_notebooks[@]:0:5}; do
-for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
+for notebook in ${list_notebooks[@]:0:1}; do
+#for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "${test_counter} - $(basename ${notebook})" {
