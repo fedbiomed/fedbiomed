@@ -7,7 +7,7 @@ then
 else
     echo "MNIST seems not to be installed, installing it"
     mkdir -p $HOME/Data/fedbiomed # \todo brittle workaround for bug #862
-    ./scripts/fedbiomed_run node --add-mni
+    ./scripts/fedbiomed_run node --add-dataset-from-file ./tests/datasets/mnist.json
 fi
 
 
