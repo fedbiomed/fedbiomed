@@ -83,7 +83,6 @@ class TestJob(ResearcherTestCase):
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
 
-
         self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
@@ -1034,6 +1033,28 @@ class TestJob(ResearcherTestCase):
         # Call the method and verify that it returns an empty dict.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         self.assertDictEqual(aux_var, {})
+
+    def test_job_27_name_error_bug_864(self):
+        class ShouldNotRaiseNameErrorTrainingPlan(BaseTrainingPlan):
+            def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+                d = defaultdict()
+            def init_dependencies(self):
+                return ['from collections import defaultdict']
+            def model(self):
+                pass
+            def training_routine(self):
+                pass
+            def init_optimizer(self):
+                pass
+
+        j = Job(reqs=MagicMock(),
+                nodes=None,
+                training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
+                training_plan_path=None,
+                training_args={},
+                model_args={},
+                data=None,
+                keep_files_dir='some/path')
 
 
 if __name__ == '__main__':  # pragma: no cover
