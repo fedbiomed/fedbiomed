@@ -49,4 +49,4 @@ class FedAnalytics:
         aggregation_function = getattr(data_manager.dataset, 'aggregate_' + query_type)
         aggregation_result = aggregation_function(results)
 
-        return aggregation_result, self._responses_history[-1].data()[0]['results']
+        return aggregation_result, {x['node_id']: x['results'] for x in self._responses_history[-1].data()}

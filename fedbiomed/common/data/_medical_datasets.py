@@ -889,13 +889,13 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
     @staticmethod
     def aggregate_mean(node_means: list):
         imaging_mean = {
-            modality: torch.stack([torch.Tensor(x['imaging_means'][modality]) for x in node_means]).mean(axis=0)
+            modality: torch.stack([torch.Tensor(x['imaging_means'][modality]) for x in node_means]).mean(axis=0).tolist()
             for modality in node_means[0]['imaging_means']}
         target_mean = {
-            modality: torch.stack([torch.Tensor(x['target_means'][modality]) for x in node_means]).mean(axis=0)
+            modality: torch.stack([torch.Tensor(x['target_means'][modality]) for x in node_means]).mean(axis=0).tolist()
             for modality in node_means[0]['target_means']}
         demographics_means = {
-            column: Tensor([x['demographics_means'][column] for x in node_means]).mean()
+            column: Tensor([x['demographics_means'][column] for x in node_means]).mean().item()
             for column in node_means[0]['demographics_means']
         }
         return {
