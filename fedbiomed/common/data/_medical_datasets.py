@@ -901,9 +901,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         return {
             'imaging_means': imaging_mean,
             'target_means': target_mean,
-            'demograpics_means': demographics_means
+            'demographics_means': demographics_means
         }
-
 
 
 class MedicalFolderController(MedicalFolderBase):
