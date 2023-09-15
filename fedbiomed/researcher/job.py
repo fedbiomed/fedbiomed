@@ -142,8 +142,7 @@ class Job:
 
         else:
             self._training_plan = self._training_plan_class
-        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
-                                      training_args=self._training_args)
+        self._training_plan._configure_dependencies()
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -163,6 +162,9 @@ class Job:
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
+        self._training_plan = self._load_training_plan_from_file()
+        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+                                      training_args=self._training_args)
         # Save model parameters to a local file and upload it to the remote repository.
         # The filename and remote url are assigned to attributes through this call.
         try:
@@ -177,6 +179,13 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
+
+    def _load_training_plan_from_file(self):
+        sys.path.insert(0, self._keep_files_dir)
+        module = importlib.import_module(os.path.split(self._training_plan_file)[1][:-3])
+        train_class = getattr(module, self._training_plan_name)
+        sys.path.pop(0)
+        return train_class()
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
