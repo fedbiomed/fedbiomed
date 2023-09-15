@@ -142,7 +142,7 @@ class Job:
 
         else:
             self._training_plan = self._training_plan_class
-        self._training_plan._configure_dependencies()
+        self._training_plan.configure_dependencies()
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
