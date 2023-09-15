@@ -15,35 +15,9 @@ from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
 from typing import List, Callable, Optional, Awaitable
 
 
-class CancelTypes(Enum):
-    RAISE = 0
-    SILENT = 1
-
 class ClientStatus(Enum):
     DISCONNECTED = 0
     CONNECTED = 1
-
-
-
-
-
-def catch_cancellation(method):
-    """Wrapper function for async task cancellation"""
-    async def wrapper(*args, **kwargs):
-        try: 
-            await method(*args, **kwargs)
-        except asyncio.exceptions.CancelledError as exp:
-            if len(exp.args) > 0:
-                if  exp.args[0] == CancelTypes.RAISE:
-                    raise exp
-                elif exp.args[0] == CancelTypes.SILENT:
-                    print(f"Canceling task listener for researcher {'ss'}")
-            else:
-                raise exp
-    return wrapper 
-
-
-DEFAULT_ADDRESS = "localhost:50051"
 
 
 def create_channel(
@@ -67,9 +41,7 @@ def create_channel(
         ("grpc.keepalive_time_ms", 1000 * 2),
         ("grpc.initial_reconnect_backoff_ms", 1000),
         ("grpc.min_reconnect_backoff_ms", 500),
-        ("grpc.max_reconnect_backoff_ms", 2000),
-        # ("grpc.enable_retries", 1), # Not working
-        # ("grpc.service_config", service_config) # Not working
+        ("grpc.max_reconnect_backoff_ms", 2000)
     ]
 
     if certificate is None: 
@@ -142,26 +114,13 @@ class GrpcClient:
         return self.tasks
 
 
-    def send(self, message: Message):
+    async def send(self, message: Message):
         """Sends messages from node to researcher server"""
 
-        self.sender.send(message)
+        return await self.sender.send(message)
 
 
-    def cancel_tasks(self):
-        """Cancels running tasks for the researcher
-        
-        Following cancellation operation raises cancel error by tagging as
-        silent which allows to terminate tasks quietly. However, error within the 
-        tasks can raise CancelError or other custom exception which should be handled
-        upper layers. 
-        """
-
-        for task in self._running_tasks:
-            self._loop.call_soon_threadsafe(task.cancel, CancelTypes.SILENT)
-        self.tasks = []
-
-    def _on_status_change(self, status:ClientStatus):
+    def _on_status_change(self, status: ClientStatus):
         """Callback function to call once researcher status is changed
         
         Args: 
@@ -228,7 +187,6 @@ class TaskListener(Listener):
         self._update_id = update_id
 
 
-    @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
         """"Starts the loop for listening task
         
@@ -305,31 +263,36 @@ class Sender(Listener):
         self._queue = _AsyncQueueBridge()
         self._task_stub = task_stub
         self._feedback_stub = feedback_stub
+        self._retry_count = 0
 
-
-    @catch_cancellation
     async def _listen(self, callback: Optional[Callable] = None):
         """Listens for the messages that are going to be sent to researcher"""
 
         # While loop retires to send if first one fails to send the result
         while True: 
+            
             # Waits until there is something to send back to researcher
             try:
                 await self._get(callback)
             except grpc.aio.AioRpcError as exp:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     logger.debug(f"Timeout reached. Researcher might be busy. ")
-                    self._send_queue.task_done()
+                    self._queue.task_done()
                     pass
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
                     logger.debug("Researcher server is not available, will try to to send the message in 5 seconds")
-                    await asyncio.sleep(5)
+                    self._retry_count += 1
+                    await asyncio.sleep(3)
 
 
     async def _get(self, callback: Optional[Callable] = None):
         """Gets task result from the queue"""
         
         while True:
+            if self._retry_count > 5:
+                logger.warning("Message can not be sent to researcher after 5 retries")
+                self._queue.task_done()
+
             msg = await self._queue.get()
             # If it is aUnary-Unary RPC call
             if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
@@ -347,7 +310,7 @@ class Sender(Listener):
                 await stream_call.done_writing()
 
             self._queue.task_done()
-
+            self._retry_count = 0
 
     def _stream_reply(self, message: Message):
         """Streams task result back researcher component"""
@@ -363,21 +326,15 @@ class Sender(Listener):
             ).to_proto()
 
 
-    def send(self, message: Message):
-
+    async def send(self, message: Message):
         # Switch-case for message type and gRPC calls
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                self._queue.put_threadsafe({"stub": self._feedback_stub.Feedback, "message": message.to_proto()})
-
-                        
+                return await self._queue.put({"stub": self._feedback_stub.Feedback, "message": message.to_proto()})
+          
             case _:
-                # TODO: All other type of messages are not strictly typed
-                # on gRPC communication layer. Those messages are going to be 
-                # send as TaskResult which are formatted as bytes of data.
-                # The future development should type every message on GRPC layer
-                self._queue.put_threadsafe({"stub": self._task_stub.ReplyTask, "message": message}) 
+                return await self._queue.put({"stub": self._task_stub.ReplyTask, "message": message}) 
                     
                 
 

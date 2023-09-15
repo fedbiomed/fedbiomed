@@ -272,9 +272,6 @@ class Environ(metaclass=SingletonABCMeta):
             # Create new config file
             self._set_component_specific_config_parameters()
 
-            # Updates config file with MQTT configuration
-            self._configure_mqtt()
-
             # Update config with secure aggregation parameters
             self._configure_secure_aggregation()
 
@@ -288,16 +285,6 @@ class Environ(metaclass=SingletonABCMeta):
             FedbiomedEnvironError: In case of missing keys/values
         """
 
-        # broker location
-        broker_ip = self.from_config('mqtt', 'broker_ip')
-        broker_port = self.from_config('mqtt', 'port')
-        self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER', broker_ip)
-        self._values['MQTT_BROKER_PORT'] = int(os.getenv('MQTT_BROKER_PORT', broker_port))
-
-        # Uploads URL
-        uploads_url = self._get_uploads_url(from_config=True)
-
-        self._values['UPLOADS_URL'] = uploads_url
         self._values['TIMEOUT'] = 5
 
         # MPSPDZ variables
@@ -350,18 +337,7 @@ class Environ(metaclass=SingletonABCMeta):
 
         return url
 
-    def _configure_mqtt(self):
-        """Configures MQTT  credentials."""
 
-        # Message broker
-        mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
-        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
-
-        self._cfg['mqtt'] = {
-            'broker_ip': mqtt_broker,
-            'port': mqtt_broker_port,
-            'keep_alive': 60
-        }
 
     def _generate_certificate(
             self,
@@ -497,7 +473,7 @@ class Environ(metaclass=SingletonABCMeta):
         try:
             config_file_version = self.from_config('default', 'version')
         except FedbiomedEnvironError:
-            config_file_version = fedbiomed.common.utils.__default_version__
+            config_file_version = __default_version__
         raise_for_version_compatibility(config_file_version, version_from_runtime,
                                         f"Configuration file {self._values['CONFIG_FILE']}: "
                                         f"found version %s expected version %s")

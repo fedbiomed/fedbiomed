@@ -45,7 +45,7 @@ class Node:
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self._grpc_client = RPCController(
             node_id=environ["ID"],
-            researchers=[ResearcherCredentials(port='50051', host='localhost' )],
+            researchers=environ["RESEARCHERS"],
             on_message=self.on_message,
         )
         self.dataset_manager = dataset_manager

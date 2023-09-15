@@ -20,13 +20,14 @@ print(environ['NODE_ID'])
 import sys
 import os
 import uuid
+import json 
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
-
+from fedbiomed.transport.controller import ResearcherCredentials
 
 class NodeEnviron(Environ):
 
@@ -101,6 +102,16 @@ class NodeEnviron(Environ):
 
         self._values['EDITOR'] = os.getenv('EDITOR')
 
+
+        # Parse each researcher ip and port
+        researcher_sections = [section for section in self._cfg.sections() if section.startswith("researcher")]
+        researchers = self._cfg.items('researcher')
+        self._values["RESEARCHERS"] = []
+        for section in researcher_sections:
+            self._values["RESEARCHERS"].append(ResearcherCredentials(
+                port=self.from_config(section, "port"), host=self.from_config(section, "ip")))
+
+
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
         # https://github.com/pytorch/vision/issues/1938
 
@@ -127,7 +138,6 @@ class NodeEnviron(Environ):
         self._cfg['default'] = {
             'id': node_id,
             'component': "NODE",
-            'uploads_url': uploads_url,
             'version': __config_version__
         }
 
@@ -140,6 +150,11 @@ class NodeEnviron(Environ):
             'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
+
+        self._cfg["researchers"] = [
+            {"ip": "localhost", "port": 50051}
+        ]
+            
     def info(self):
         """Print useful information at environment creation"""
 
