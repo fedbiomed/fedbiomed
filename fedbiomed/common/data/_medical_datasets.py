@@ -884,18 +884,27 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         demographics_means = self.demographics.mean(numeric_only=True).to_dict()
         return {'imaging_means': imaging_means,
                 'target_means': target_means,
-                'demographics_means': demographics_means}
+                'demographics_means': demographics_means,
+                'num_samples': n}
 
     @staticmethod
     def aggregate_mean(node_means: list):
+        from functools import reduce
+        total_num_samples = reduce(lambda x, y: x + y['num_samples'], node_means, 0)
         imaging_mean = {
-            modality: torch.stack([torch.Tensor(x['imaging_means'][modality]) for x in node_means]).mean(axis=0).tolist()
+            modality: (torch.stack(
+                [torch.Tensor(x['imaging_means'][modality])*x['num_samples'] for x in node_means]
+            ).sum(axis=0) / total_num_samples).tolist()
             for modality in node_means[0]['imaging_means']}
         target_mean = {
-            modality: torch.stack([torch.Tensor(x['target_means'][modality]) for x in node_means]).mean(axis=0).tolist()
+            modality: (torch.stack(
+                [torch.Tensor(x['target_means'][modality])*x['num_samples'] for x in node_means]
+            ).sum(axis=0) / total_num_samples).tolist()
             for modality in node_means[0]['target_means']}
         demographics_means = {
-            column: Tensor([x['demographics_means'][column] for x in node_means]).mean().item()
+            column: (Tensor(
+                [x['demographics_means'][column]*x['num_samples'] for x in node_means]
+            ).sum() / total_num_samples).item()
             for column in node_means[0]['demographics_means']
         }
         return {
