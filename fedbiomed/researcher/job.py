@@ -24,6 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
@@ -146,7 +147,8 @@ class Job:
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
-        self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
+        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
@@ -158,7 +160,7 @@ class Job:
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
-        self._training_plan = self._load_training_plan_from_file()
+        self._training_plan = self._load_training_plan_from_file(training_plan_module)
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
         # Save model parameters to a local file and upload it to the remote repository.
@@ -176,9 +178,17 @@ class Job:
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
 
-    def _load_training_plan_from_file(self):
+    def _load_training_plan_from_file(self, training_plan_module: str) -> BaseTrainingPlan:
+        """Import a training plan class from a file and create a training plan object instance.
+
+        Args:
+            training_plan_module: module name of the training plan file
+
+        Returns:
+            The training plan object created
+        """
         sys.path.insert(0, self._keep_files_dir)
-        module = importlib.import_module(os.path.split(self._training_plan_file)[1][:-3])
+        module = importlib.import_module(training_plan_module)
         train_class = getattr(module, self._training_plan_name)
         sys.path.pop(0)
         return train_class()
