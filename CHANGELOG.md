@@ -1,5 +1,19 @@
 # Fed-BioMed changelog
 
+
+## 2023-09-18 version 4.4.4
+
+- fix failure due to erroneous researcher side data quality checks: remove currently useless data quality checks
+
+## 2023-08-02 version 4.4.3
+
+- fix support for per-layer learning rate for PyTorch models
+
+## 2023-07-27 version 4.4.2
+
+- update software dependencies and implement more strict package version checks 
+- fix docker containers build failures due to outdated package dependencies
+
 ## 2023-06-23 version 4.4.1
 
 - fix secure aggregation vector encoding bug
