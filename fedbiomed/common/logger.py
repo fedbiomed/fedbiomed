@@ -115,13 +115,13 @@ class _GrpcHandler(logging.Handler):
                     msg=self.format(record),
                     node_id=self._node_id)
 
-     
+
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
             feedback = message.FeedbackMessage(researcher_id=record.researcher_id, log=message.Log(**msg))
             
             try:
-                self._on_log(feedback, record.broadcast, record.researcher_id)
+                self._on_log(feedback, record.broadcast)
             except Exception:
                 logging.error("Not able to send log message to remote party")
 

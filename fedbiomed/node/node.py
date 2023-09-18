@@ -388,7 +388,8 @@ class Node:
             self,
             errnum: ErrorNumbers,
             extra_msg: str = "",
-            researcher_id: str = "<unknown>"
+            researcher_id: str = "<unknown>",
+            broadcast: bool = False
     ):
         """Sends an error message.
 
@@ -409,7 +410,8 @@ class Node:
                     node_id=environ['NODE_ID'],
                     extra_msg=extra_msg,
                     researcher_id=researcher_id
-                )
+                ),
+                broadcast=broadcast
             )
         except Exception as e:
             # TODO: Need to keep message local, cannot send error

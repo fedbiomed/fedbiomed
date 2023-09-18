@@ -1,40 +1,22 @@
 import asyncio
-import concurrent.futures
 import grpc
-import time
-import queue
 import threading
-import sys 
-import signal 
-import ctypes
 
-from enum import Enum
 from dataclasses import dataclass
-from typing import Callable, Optional, List, Dict, Union
-from google.protobuf.message import Message as ProtobufMessage
+from typing import Callable, Optional, List, Dict
+
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import Message
 
 from .client import GrpcClient
 
-import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
-from fedbiomed.common.logger import logger
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
-from fedbiomed.common.message import Message, TaskRequest, FeedbackMessage, TaskResult, ProtoSerializableMessage
 
-class CancelTypes(Enum):
-    RAISE = 0
-    SILENT = 1
-
-
-class _RPCStop(Exception):
-    """RPC Stop action"""
 
 def create_channel(
     address: str,
     certificate: str = None
 ) -> grpc.Channel :
-    """ Create gRPC channel 
+    """Creates gRPC channel 
     
     Args: 
         address: Address to connect 
@@ -70,17 +52,32 @@ class ResearcherCredentials:
 
 
 class RPCAsyncTaskController:
+    """RPC asynchronous task controller 
+    
+    Launches async tasks for listening the requests/tasks coming form researcher as well as 
+    listener to send the replies that are created by the node. All the methods of this class 
+    are awaitable. 
 
+
+    Attributes: 
+        on_message: Callback function that is going to be executed once there is task received
+    """
     def __init__(self, 
                 node_id: str,
                 researchers: List[ResearcherCredentials],
-                on_message: Callable,
-                debug: bool = False
+                on_message: Callable
     ) -> None:
-
+        """Constructs RPCAsyncTaskController
+        
+        Args: 
+            node_id: The ID of the node component that runs RPC client
+            researchers: List of researchers that the RPC client will connect to.
+            on_message: Callback function to be executed once a task received from the researcher
+            debug: Activates debug mode for `asyncio`
+        
+        """
         self._node_id = node_id
         self._researchers = researchers
-        self.on_message = on_message
 
         self._thread = None
 
@@ -91,6 +88,8 @@ class RPCAsyncTaskController:
         self._clients_lock = asyncio.Lock()
         self._clients: Dict[str, GrpcClient] = {}
 
+        self.on_message = on_message
+        
 
     async def start(self):
         """"Starts the tasks for each GrpcClient"""
@@ -109,34 +108,37 @@ class RPCAsyncTaskController:
 
 
         logger.info("Starting task listeners")
+
         # Run GrpcClient asyncio tasks
         await asyncio.gather(*tasks)
 
-    async def send(self, message):
+    async def send(self, message, broadcast: bool = False) -> None:
         """Sends message to researcher.
 
         Args: 
             message: Message to send
+            broadcast: Broadcast the message to all available researcher. This option should be used for general 
+                node state messages (e.g. general Error)
         """
+
+        if broadcast:
+            return self._broadcast(message)
+    
         async with self._ip_id_map_lock:
             researcher = message.researcher_id
             return await self._clients[self._ip_id_map[researcher]].send(message)
 
-    async def log(self, message, broadcast, researcher_id):
-        """Method to be called by logger
+    async def _broadcast(self, message: Message):
+        """Broadcast given message
+        
         Args: 
-            message: Log message
-            broadcast: If True, sends log message to all available researchers
-            researcher_id: Sends the log only specified researcher. Ignored if broadcast is `True` 
+            message: Message to broadcast
         """
 
         with self._clients_lock:
-            if broadcast:
-                for client in self._client.values():
+            for client in self._client.values():
                     await client.send(message)
 
-            elif researcher_id:
-                await self.send(message)
 
     async def _update_id_ip_map(self, ip, id_):
         """Updates researcher IP and researcher ID map
@@ -149,7 +151,8 @@ class RPCAsyncTaskController:
             self._ip_id_map = {id_: ip}
 
     async def is_connected(self):
-        """Check if """
+        """Checks if there is running tasks"""
+
         async with self._clients_lock:
             tasks = [not task.done() for client in self._clients.values() for task in client.tasks]
             return all(tasks) and self._thread.is_alive()
@@ -159,7 +162,8 @@ class RPCController:
     """"RPC Controller class 
     
     This class is responsible of managing GrpcConnections with researcher components. 
-    It is wrapper class of GrpcClients 
+    It is wrapper class of GrpcClients. It has been designed to be called main or 
+    different threads than the one grpc client runs. 
 
     """
     def __init__(
@@ -169,6 +173,15 @@ class RPCController:
             on_message: Callable = None,
             debug: bool = False
         ):
+        """Constructs RPC controller
+        
+        Args: 
+            node_id: The ID of the node component that runs RPC client
+            researchers: List of researchers that the RPC client will connect to.
+            on_message: Callback function to be executed once a task received from the researcher
+            debug: Activates debug mode for `asyncio`
+        
+        """
         
         self._rpc_async_task_controller = RPCAsyncTaskController(
             node_id=node_id, 
@@ -176,9 +189,11 @@ class RPCController:
             on_message=on_message, 
             debug=debug
         )
+
+        self._debug = debug
         self._node_id = node_id
         # Adds grpc handler to send node logs to researchers
-        logger.add_grpc_handler(on_log=self.log,
+        logger.add_grpc_handler(on_log=self.send,
                                 node_id=self._node_id)
 
 
@@ -187,13 +202,13 @@ class RPCController:
         """Start GRPCClients in a thread"""
 
         def _run():
-            # try: 
-            asyncio.run(self._rpc_async_task_controller.start(), debug=False)
-            # except Exception as e:
-            #     logger.critical(
-            #         "An exception raised by running tasks within GrpcClients. This will close stopping " 
-            #         f"gRPC client. Please see error: {e}")
-            #     logger.info("Node is stopped!")
+            try: 
+                asyncio.run(self._rpc_async_task_controller.start(), debug=self._debug)
+            except Exception as e:
+                logger.critical(
+                    "An exception raised by running tasks within GrpcClients. This will close stopping " 
+                    f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
+                logger.info("Node is stopped!")
 
         self._thread = threading.Thread(target=_run)
         self._thread.daemon = True
@@ -203,6 +218,9 @@ class RPCController:
         """Sends given message to researcher
         
         Researcher id should be specified in the message
+
+        Args: 
+            message: Message to send to researcher
         """
         # Non blocking call 
         #  - Create new thread different than main or spawn one
@@ -220,24 +238,14 @@ class RPCController:
         ) 
                                   
 
-
-    def log(self, message, broadcast, researcher_id):
-        """Method to be called by logger
-        Args: 
-            message: Log message
-            broadcast: If True, sends log message to all available researchers
-            researcher_id: Sends the log only specified researcher. Ignored if broadcast is `True` 
-        """
-        asyncio.run_coroutine_threadsafe(
-            self._rpc_async_task_controller.log(message, broadcast, researcher_id), 
-            self._rpc_async_task_controller.loop
-        ) 
-
-
     def is_connected(self , async_ = False):
-        """"Checks RPCController is connected to any RPC client
+        """"Checks RPCController is connected to any RPC client.
         
         This method should only be called from different thread than the one that asyncio loop running in.
+
+        Args: 
+            async_: If true method returns awaitable async function. If False, method should be 
+                called from outside of the async event loop. 
         """
         
         if async_ == False:
