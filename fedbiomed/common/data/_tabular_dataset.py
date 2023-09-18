@@ -5,12 +5,12 @@
 Torch tabulated data manager
 """
 
-from typing import Union, Tuple
+from typing import Optional, Union, Tuple
 
 import numpy as np
 import pandas as pd
 
-from torch import from_numpy, Tensor
+from torch import from_numpy, stack, Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError
@@ -22,8 +22,8 @@ class TabularDataset(Dataset):
     type of input and target variables
     """
     def __init__(self,
-                 inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 target: Union[np.ndarray, pd.DataFrame, pd.Series]):
+                 inputs: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
+                 target: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None):
         """Constructs PyTorch dataset object
 
         Args:
@@ -40,6 +40,8 @@ class TabularDataset(Dataset):
         # torch tensor. Therefore, if the arguments `inputs` and `target` are
         # instance one of `pd.DataFrame` or `pd.Series`, they should be converted to
         # numpy arrays
+        if inputs is None:
+            return
         if isinstance(inputs, (pd.DataFrame, pd.Series)):
             self.inputs = inputs.to_numpy()
         elif isinstance(inputs, np.ndarray):
@@ -47,25 +49,26 @@ class TabularDataset(Dataset):
         else:
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `inputs` should be "
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
+
+        self.inputs = from_numpy(self.inputs).float()
+
         # Configuring self.target attribute
         if isinstance(target, (pd.DataFrame, pd.Series)):
             self.target = target.to_numpy()
-        elif isinstance(inputs, np.ndarray):
+        elif isinstance(inputs, (np.ndarray, type(None))):
             self.target = target
         else:
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `target` should be "
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
 
-        # The lengths should be equal
-        if len(self.inputs) != len(self.target):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
-                                                    f"variable does not match. Please make sure that they have "
-                                                    f"equal size while creating the method `training_data` of "
-                                                    f"TrainingPlan")
-
-        # Convert `inputs` adn `target` to Torch floats
-        self.inputs = from_numpy(self.inputs).float()
-        self.target = from_numpy(self.target).float()
+        if self.target is not None:
+            self.target = from_numpy(self.target).float()
+            # The lengths should be equal
+            if len(self.inputs) != len(self.target):
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
+                                                        f"variable does not match. Please make sure that they have "
+                                                        f"equal size while creating the method `training_data` of "
+                                                        f"TrainingPlan")
 
     def __len__(self) -> int:
         """Gets sample size of dataset.
@@ -89,7 +92,52 @@ class TabularDataset(Dataset):
             inputs: Input sample
             target: Target sample
         """
-        return self.inputs[item], self.target[item]
+        if self.target is not None:
+            return self.inputs[item], self.target[item]
+        else:
+            return self.inputs[item], None
+
+    def mean(self):
+        if self.target is not None:
+            return {'inputs': self.inputs.mean(axis=0).tolist(),
+                    'targets': self.target.mean(axis=0).tolist(),
+                    'num_samples': self.target.shape[0]}
+        else:
+            return {'inputs': self.inputs.mean(axis=0).tolist(),
+                    'targets': None,
+                    'num_samples': self.target.shape[0]}
+
+    @staticmethod
+    def aggregate_mean(node_means: list):
+        from functools import reduce
+        total_num_samples = reduce(lambda x, y: x + y['num_samples'], node_means, 0)
+        try:
+            inputs = stack(
+                [Tensor(x['inputs'])*x['num_samples'] for x in node_means]
+            )
+        except TypeError:
+            # try to catch case where we have a single feature
+            inputs = stack(
+                [Tensor([x['inputs']])*x['num_samples'] for x in node_means]
+            )
+        agg_inputs_means = inputs.sum(axis=0)/total_num_samples
+        if all([x['targets'] is not None for x in node_means]):
+            try:
+                targets = stack(
+                    [Tensor(x['targets'])*x['num_samples'] for x in node_means]
+                )
+            except TypeError:
+                # try to catch case where target is 1-dimensional
+                targets = stack(
+                    [Tensor([x['targets']])*x['num_samples'] for x in node_means]
+                )
+            agg_targets_mean = targets.sum(axis=0)/total_num_samples
+        else:
+            agg_targets_mean = None
+        return {
+            'inputs':  agg_inputs_means,
+            'targets': agg_targets_mean
+        }
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:
