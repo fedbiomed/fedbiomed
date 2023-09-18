@@ -311,7 +311,7 @@ class CelebaDataset(Dataset):
         return self.y.shape[0]
     
 
-dataset = CelebaDataset(test_dataset_path + "/target.csv", test_dataset_path + "/data/")
+dataset = CelebaDataset( os.path.join( test_dataset_path, "target.csv" ), os.path.join( test_dataset_path, "data/" ) )
 train_kwargs = { 'shuffle': True}
 data_loader = DataLoader(dataset, **train_kwargs)
 
