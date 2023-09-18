@@ -177,6 +177,9 @@ Thumbs.db #thumbnail cache on Windows
 node_modules
 .pnp
 .pnp.js
+gui/ui/.yarn
+gui/ui/.pnp.cjs
+gui/ui/.pnp.loader.mjs
 
 # testing
 coverage

@@ -78,7 +78,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         output = self.model().forward(data)
         return BaselineLoss(output, target)
 
-    def training_data(self, batch_size=2):
+    def training_data(self):
         # See explanation below
         pass
 ```
@@ -103,9 +103,9 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
         return ["from fedbiomed.common.data import FlambyDataset, DataManager"]
 
-    def training_data(self, batch_size=2):
+    def training_data(self):
         dataset = FlambyDataset()
-        loader_arguments = {'batch_size': batch_size, 'shuffle': True}
+        loader_arguments = {'shuffle': True}
         return DataManager(dataset, **loader_arguments)
 
     # ... Implement the other functions as needed ...
@@ -128,13 +128,13 @@ class MyTrainingPlan(TorchTrainingPlan):
                 "from monai.transforms import Compose, Resize, NormalizeIntensity",
                 ]
 
-    def training_data(self, batch_size=2):
+    def training_data(self):
         dataset = FlambyDataset()
         
         myComposedTransform = Compose([Resize((48,60,48)), NormalizeIntensity()])
         dataset.init_transform(myComposedTransform)
 
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = {'shuffle': True}
         return DataManager(dataset, **train_kwargs)
 
     # ... Implement the other functions as needed ...

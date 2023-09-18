@@ -18,7 +18,7 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! info "Supported operating systems and software requirements"
-    Supported operating systems for containers/VPN deployment include **Fedora 35**, **Ubuntu 20.04**, recent **MacOS X**, **Windows 10** 21H2 with WSL2 using Ubuntu-20.04 distribution. Also requires **docker-compose >= 1.27.0**.
+    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires **docker compose >= 2.0**.
 
     Check here for [detailed requirements](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#requirements).
 
@@ -79,7 +79,7 @@ It covers the initial server deployment, including build, configuration and laun
 
     For the rest of this tutorial `${FEDBIOMED_DIR}` represents the base directory of the clone.
 
-    `docker-compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
+    `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
 * clean running containers, containers files, temporary files
 
@@ -155,7 +155,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     For the rest of this tutorial `${FEDBIOMED_DIR}` represents the base directory of the clone.
 
-    `docker-compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
+    `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
 
@@ -180,13 +180,13 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker-compose exec vpnserver bash -ci 'python ./vpn/bin/configure_peer.py genconf node NODETAG'
+    [user@server $] docker compose exec vpnserver bash -ci 'python ./vpn/bin/configure_peer.py genconf node NODETAG'
     ```
 
     The configuration file is now available on the server side in path `${FEDBIOMED_DIR}/envs/vpn/docker/vpnserver/run_mounts/config/config_peers/node/NODETAG/config.env` or with command :
 
     ```bash
-    [user@server $] docker-compose exec vpnserver cat /config/config_peers/node/NODETAG/config.env
+    [user@server $] docker compose exec vpnserver cat /config/config_peers/node/NODETAG/config.env
     ```
 
 * copy the configuration file from the server side **to the node side** via a secure channel, to path `/tmp/config.env` on the node.
@@ -204,13 +204,13 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * start `node` container
 
     ```bash
-    [user@node $] docker-compose up -d node
+    [user@node $] docker compose up -d node
     ```
 
 * retrieve the `node`'s publickey
 
     ```bash
-    [user@node $] docker-compose exec node wg show wg0 public-key | tr -d '\r' >/tmp/publickey-nodeside
+    [user@node $] docker compose exec node wg show wg0 public-key | tr -d '\r' >/tmp/publickey-nodeside
     ```   
 
 * copy the public key from the node side **to the server side** via a secure channel (see above), to path `/tmp/publickey-serverside` on the server.
@@ -219,7 +219,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker-compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py add node NODETAG $(cat /tmp/publickey-serverside)"
+    [user@server $] docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py add node NODETAG $(cat /tmp/publickey-serverside)"
     ```
 
 * check containers running on the node side
@@ -247,7 +247,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * do initial node configuration
 
     ```bash
-    [user@node $] docker-compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
+    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
     ```
 
 
@@ -281,7 +281,7 @@ Optionally launch the node GUI :
 * start `gui` container
 
     ```bash
-    [user@node $] docker-compose up -d gui
+    [user@node $] docker compose up -d gui
     ```
 
 * check containers running on the node side
@@ -336,7 +336,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker-compose exec -u $(id -u) node bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
         ```
 
     * start the Fed-BioMed node, for example in background:
@@ -398,7 +398,7 @@ Optionally use the researcher container's command line instead of the Jupyter no
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker-compose exec -u $(id -u) researcher bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14000 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
+    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14000 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
     ```
 
 * launch a command, for example a training:
@@ -421,7 +421,7 @@ Some possible management commands after initial deployment include:
 * check the VPN peers known from the VPN server
 
     ```bash
-    [user@server $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker-compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py list" )
+    [user@server $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py list" )
     type        id           prefix         peers
     ----------  -----------  -------------  ------------------------------------------------
     management  mqtt         10.220.0.2/32  ['1exampleofdummykey12345abcdef6789ghijklmnop=']
@@ -470,7 +470,7 @@ Some possible management commands after initial deployment include:
 
     ```bash
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop node gui
-    [user@node $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker-compose up -d node gui )
+    [user@node $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker compose up -d node gui )
     ```
 
     VPN configurations and container files are kept unchanged when restarting containers.

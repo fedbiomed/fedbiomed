@@ -83,16 +83,21 @@ class MiniBatchTrainingIterationsAccountant:
             the number of samples observed until the current iteration
             the maximum number of samples to be observed
         """
+        # get batch size
+        if 'batch_size' in self._training_plan.loader_args():
+            batch_size = self._training_plan.loader_args()['batch_size']
+        else:
+            raise FedbiomedUserInputError('Missing required key `batch_size` in `loader_args`.')
+        # compute number of observed samples
         if self._training_plan.training_args()['num_updates'] is not None:
             num_samples = self.num_samples_observed_in_total
             total_batches_to_be_observed = (self.epochs - 1) * self.num_batches_per_epoch + \
                 self.num_batches_in_last_epoch
-            total_n_samples_to_be_observed = \
-                self._training_plan.training_args()['batch_size'] * total_batches_to_be_observed
+            total_n_samples_to_be_observed = batch_size * total_batches_to_be_observed
             num_samples_max = total_n_samples_to_be_observed
         else:
             num_samples = self.num_samples_observed_in_epoch
-            num_samples_max = self._training_plan.training_args()['batch_size']*self.num_batches_in_this_epoch() if \
+            num_samples_max = batch_size*self.num_batches_in_this_epoch() if \
                 self.cur_batch < self.num_batches_in_this_epoch() else num_samples
         return num_samples, num_samples_max
 

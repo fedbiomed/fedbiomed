@@ -3,9 +3,12 @@ import copy
 import inspect
 import logging
 import os
-from typing import Any, Dict
+import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Tuple
+from unittest.mock import MagicMock, create_autospec, patch
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.serializer import Serializer
 
 
 #############################################################
@@ -16,15 +19,22 @@ from testsupport.base_case import NodeTestCase
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
+from testsupport import fake_training_plan
 
+import torch
+from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
+from declearn.optimizer.regularizers import RidgeRegularizer
 
+from fedbiomed.common.constants import DatasetTypes, TrainingPlans
+from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-from fedbiomed.common.exceptions import FedbiomedRoundError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.constants import DatasetTypes
-from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
 # Needed to access length of dataset from Round class
@@ -227,6 +237,7 @@ class TestRound(NodeTestCase):
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
             'encrypted': False,
+            'optim_aux_var': {},
         }
 
         # define context managers for each model method
@@ -658,6 +669,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
+        r3.initialize_validate_training_arguments()
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -669,6 +681,7 @@ class TestRound(NodeTestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
+        r4.initialize_validate_training_arguments()
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 
@@ -872,6 +885,290 @@ class TestRound(NodeTestCase):
         # Back to normal
         environ["SECURE_AGGREGATION"] = False
         environ["FORCE_SECURE_AGGREGATION"] = False
+
+    @patch("uuid.uuid4")
+    @patch('fedbiomed.node.round.importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    def test_round_14_run_model_training_optimizer_aux_var_error(self,
+                                                                 patch_repo_download_file,
+                                                                 patch_repo_upload_file,
+                                                                 tp_security_manager_patch,
+                                                                 importlib_importmodule_patch,
+                                                                 patch_uuid):
+        aux_var = {'scaffold': {'delta': 'some incorrect value for scaffold'}}
+        def create_file(file_path: str, aux_var: Dict):
+            Serializer.dump(aux_var, file_path)
+        repo_uploaded = []
+        def repo_upload_side_effect(file:str):
+            repo_uploaded.append(file)
+            return {'file': file}
+        
+        # patches
+        patch_repo_upload_file.side_effect = repo_upload_side_effect
+        patch_uuid.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {'name': 'my_node_id'})
+        importlib_importmodule_patch.return_value = fake_training_plan
+
+        with tempfile.TemporaryDirectory() as tmp_directory:
+            fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
+            aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
+            model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
+            patch_repo_download_file.side_effect = (
+                    (200, fake_path_towards_tp),
+                    (200, model_param_tmp_path),
+                    (200, aux_var_tmp_path)
+                    )
+            create_file(model_param_tmp_path, {'model_weights': [1,2,3,4,5]},)
+            create_file(aux_var_tmp_path, aux_var)
+
+            # creating Round
+            rnd = Round(
+                training_kwargs={'optimizer_args': {'lr': .1234}}
+            )
+            rnd.researcher_id = 'researcher_id_1234'
+            rnd.job_id = 'job_id_1234'
+            rnd.training_plan_class = "DeclearnAuxVarModel"
+            rnd.dataset = {'dataset_id': 'dataset_id_1234',
+                           'path': os.path.join('path', 'to', 'my', 'dataset')}
+            rnd.aux_var_urls = ['http://url/to/my/file']
+
+            # configure optimizer
+            lr = .1234
+            optim_node = Optimizer(lr=lr, modules=[ScaffoldClientModule(), YogiModule()],
+                                   regularizers=[RidgeRegularizer()])
+
+
+            dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
+
+            fake_training_plan.DeclearnAuxVarModel.OPTIM = dec_node_optim
+            fake_training_plan.DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
+            
+            # action
+            rnd_reply = rnd.run_model_training()
+
+            self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
+                          rnd_reply['msg'])
+
+    @patch("uuid.uuid4")
+    @patch("fedbiomed.common.serializer.Serializer.load")
+    @patch("fedbiomed.common.repository.Repository.download_file")
+    def test_round_15_download_optimizer_aux_var(
+        self,
+        patch_repo_download_file,
+        patch_serializer_load,
+        patch_uuid,
+    ):
+        """Test that 'download_optimizer_aux_var' works properly."""
+        # Set up a Round with two aux var urls, and patch downloading tools.
+        rnd = Round(aux_var_urls=["fake_url_1", "fake_url_2"])
+        patch_uuid.side_effect = ("uuid_1", "uuid_2")
+
+        def fake_repository_download(url: str, path: str) -> Tuple[int, str]:
+            return 200, f"{url}-{path}"
+
+        def fake_serializer_load(path: str) -> Dict[str, Dict[str, Any]]:
+            return {path: {"key": "val"}}
+
+        patch_repo_download_file.side_effect = fake_repository_download
+        patch_serializer_load.side_effect = fake_serializer_load
+        # Run the method.
+        success, error_msg = rnd.download_optimizer_aux_var()
+        # Verify its outputs and side effect.
+        self.assertTrue(success)
+        self.assertEqual(error_msg, "")
+        aux_var = getattr(rnd, "_optim_aux_var")
+        expected = {
+            "fake_url_1-aux_var_uuid_1.mpk": {"key": "val"},
+            "fake_url_2-aux_var_uuid_2.mpk": {"key": "val"},
+        }
+        self.assertDictEqual(aux_var, expected)
+
+    @patch("uuid.uuid4")
+    @patch("fedbiomed.common.repository.Repository.download_file")
+    def test_round_16_download_optimizer_aux_var_download_error(
+        self,
+        patch_repo_download_file,
+        patch_uuid,
+    ):
+        """Test that 'download_optimizer_aux_var' fails properly on 404 error."""
+        # Set up a Round with an aux var url, and failing downloader.
+        fake_url = "fake_url"
+        rnd = Round(aux_var_urls=[fake_url])
+        patch_uuid.return_value = "uuid"
+        patch_repo_download_file.return_value = (404, "fake_path")
+        # Run the method.
+        success, error_msg = rnd.download_optimizer_aux_var()
+        # Verify its outputs and side effect.
+        self.assertFalse(success)
+        self.assertTrue(fake_url in error_msg)
+        aux_var = getattr(rnd, "_optim_aux_var")
+        self.assertDictEqual(aux_var, {})
+        # Verify that the download instructions matched expectations.
+        patch_repo_download_file.assert_called_once_with(
+            fake_url, "aux_var_uuid.mpk"
+        )
+
+    @patch("uuid.uuid4")
+    @patch("fedbiomed.common.serializer.Serializer.load")
+    @patch("fedbiomed.common.repository.Repository.download_file")
+    def test_round_17_download_optimizer_aux_var_serializer_error(
+        self,
+        patch_repo_download_file,
+        patch_serializer_load,
+        patch_uuid,
+    ):
+        """Test that 'download_optimizer_aux_var' fails properly on Serializer error."""
+        # Set up a Round with an aux var url, and failing de-serializer.
+        fake_url = "fake_url"
+        fake_path = "fake_path.mpk"
+        fake_err = "fake serializer error message"
+        rnd = Round(aux_var_urls=[fake_url])
+        patch_uuid.return_value = "uuid"
+        patch_repo_download_file.return_value = (200, fake_path)
+        patch_serializer_load.side_effect = TypeError(fake_err)
+        # Run the method.
+        success, error_msg = rnd.download_optimizer_aux_var()
+        # Verify its outputs and side effect.
+        self.assertFalse(success)
+        self.assertTrue(fake_err in error_msg)
+        aux_var = getattr(rnd, "_optim_aux_var")
+        self.assertDictEqual(aux_var, {})
+        # Verify that the download instructions matched expectations.
+        patch_repo_download_file.assert_called_once_with(
+            fake_url, "aux_var_uuid.mpk"
+        )
+        patch_serializer_load.assert_called_once_with(fake_path)
+
+    def test_round_18_process_optim_aux_var(self):
+        """Test that 'process_optim_aux_var' works properly."""
+        rnd = Round()
+        # Set up a mock BaseOptimizer with an attached Optimizer.
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = mock_optim
+        # Attach the former to the Round's mock TrainingPlan.
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Attach fake auxiliary variables (as though pre-downloaded).
+        fake_aux_var = {"module": {"key": "val"}}
+        setattr(rnd, "_optim_aux_var", fake_aux_var)
+        # Call the tested method and verify its outputs and effects.
+        msg = rnd.process_optim_aux_var()
+        self.assertEqual(msg, "")
+        mock_optim.set_aux.assert_called_once_with(fake_aux_var)
+
+    def test_round_19_process_optim_aux_var_without_aux_var(self):
+        """Test that 'process_optim_aux_var' exits properly without aux vars."""
+        # Set up a Round with a mock Optimizer attached, but no aux vars.
+        rnd = Round()
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = mock_optim
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method, verifying that it exits without effects.
+        msg = rnd.process_optim_aux_var()
+        self.assertEqual(msg, "")
+        mock_optim.set_aux.assert_not_called()
+
+    def test_round_20_process_optim_aux_var_without_base_optimizer(self):
+        """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
+        # Set up a Round with fake aux_vars, but no BaseOptimizer.
+        rnd = Round()
+        setattr(rnd, "_optim_aux_var", {"module": {"key": "val"}})
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = None
+        # Call the tested method, verifying that it returns an error.
+        msg = rnd.process_optim_aux_var()
+        self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
+        self.assertIsInstance(msg, str)
+
+    def test_round_21_process_optim_aux_var_without_optimizer(self):
+        """Test that 'process_optim_aux_var' documents missing Optimizer."""
+        # Set up a Round with aux vars, but a non-Optimizer optimizer.
+        rnd = Round()
+        setattr(rnd, "_optim_aux_var", {"module": {"key": "val"}})
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = MagicMock()  # not a declearn-based Optimizer
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method, verifying that it returns an error.
+        msg = rnd.process_optim_aux_var()
+        self.assertTrue("does not manage a compatible Optimizer" in msg)
+        self.assertIsInstance(msg, str)
+
+    def test_round_22_process_optim_aux_var_with_optimizer_error(self):
+        """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
+        # Set up a Round with fake pre-downloaded aux vars.
+        rnd = Round()
+        fake_aux_var = {"module": {"key": "val"}}
+        setattr(rnd, "_optim_aux_var", fake_aux_var)
+        # Set up a mock BaseOptimizer with an attached failing Optimizer.
+        mock_optim = create_autospec(Optimizer, instance=True)
+        fake_error = "fake FedbiomedOptimizerError on 'set_aux' call"
+        mock_optim.set_aux.side_effect = FedbiomedOptimizerError(fake_error)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = mock_optim
+        # Attach the former to the Round's mock TrainingPlan.
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method, verifying that it returns an error.
+        msg = rnd.process_optim_aux_var()
+        self.assertTrue(fake_error in msg)
+        mock_optim.set_aux.assert_called_once_with(fake_aux_var)
+
+    def test_round_23_collect_optim_aux_var(self):
+        """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
+        # Set up a Round with an attached mock Optimizer.
+        rnd = Round()
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        # why not using DeclearnOptimizer?
+        mock_b_opt.optimizer = mock_optim
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method and verify its outputs.
+        aux_var = rnd.collect_optim_aux_var()
+        self.assertEqual(aux_var, mock_optim.get_aux.return_value)
+        mock_optim.get_aux.assert_called_once()
+
+    def test_round_24_collect_optim_aux_var_without_optimizer(self):
+        """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
+        # Set up a Round with a non-Optimizer optimizer.
+        rnd = Round()
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = MagicMock()  # non-declearn-based object
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method and verify its outputs.
+        aux_var = rnd.collect_optim_aux_var()
+        self.assertEqual(aux_var, {})
+
+    def test_round_25_collect_optim_aux_var_without_base_optimizer(self):
+        """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
+        # Set up a Round without a BaseOptimizer.
+        rnd = Round()
+        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        rnd.training_plan.optimizer.return_value = None
+        # Verify that aux-var collection raises.
+        self.assertRaises(FedbiomedRoundError, rnd.collect_optim_aux_var)
+
+    # add a test with : shared and node specific auxiliary avraibales
+
+    def test_round_26_split_train_and_test_data_raises_exceptions(self):
+        """Test that _split_train_and_test_data raises correct exceptions"""
+        mock_training_plan = MagicMock()
+        def foo_takes_an_argument(x):
+            return x
+        mock_training_plan.training_data = foo_takes_an_argument
+        mock_training_plan.type.return_value = 'tp type'
+        r = Round()
+        r.training_plan = mock_training_plan
+        with self.assertRaises(FedbiomedRoundError):
+            r._split_train_and_test_data()
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

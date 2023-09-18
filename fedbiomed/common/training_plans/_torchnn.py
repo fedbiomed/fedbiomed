@@ -10,16 +10,14 @@ from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterato
 
 
 import torch
-from torch import nn
 
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
-from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
@@ -76,9 +74,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._optimizer: Union[BaseOptimizer, None] = None
         self._model: Union[TorchModel, None] = None
 
-        self._training_args: Optional[dict] = None
-        self._model_args: Optional[dict] = None
-        self._optimizer_args: Optional[dict] = None
         self._use_gpu: bool = False
         self._share_persistent_buffers = None
 
@@ -137,11 +132,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-        # Assign model arguments.
-        self._model_args = model_args
+        super().post_init(model_args, training_args, aggregator_args)
         # Assign scalar attributes.
-        self._optimizer_args = training_args.optimizer_arguments() or {}
-        self._training_args = training_args.pure_training_arguments()
         self._use_gpu = self._training_args.get('use_gpu')
         self._batch_maxnum = self._training_args.get('batch_maxnum')
         self._log_interval = self._training_args.get('log_interval')
@@ -149,6 +141,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._num_updates = self._training_args.get('num_updates', 1)
         self._dry_run = self._training_args.get('dry_run')
         self._share_persistent_buffers = training_args.get('share_persistent_buffers', True)
+        # Set random seed (Pytorch-specific)
+        rseed = training_args['random_seed']
+        rseed = rseed if rseed is not None else torch.seed()
+        torch.manual_seed(rseed)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
@@ -173,22 +169,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Abstract method to return training data"""
 
     def model(self) -> Optional[torch.nn.Module]:
-        if self._model is not None:
-
-            return self._model.model
-        else:
-            return self._model
-
-    def optimizer(self):
-        return self._optimizer
-
-    def model_args(self) -> Dict:
-        """Retrieves model args
-
-        Returns:
-            Model arguments arguments
-        """
-        return self._model_args
+        if self._model is None:
+            return None
+        return self._model.model
 
     def update_optimizer_args(self) -> Dict:
         """
@@ -208,22 +191,14 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self._optimizer_args['lr'] = self._optimizer.get_learning_rate()
         return self._optimizer_args
 
-    def training_args(self) -> Dict:
-        """Retrieves training args
-
-        Returns:
-            Training arguments
-        """
-        return self._training_args
-
-    def optimizer_args(self) -> Dict:
+    def optimizer_args(self) -> Dict[str, Any]:
         """Retrieves optimizer arguments
 
         Returns:
             Optimizer arguments
         """
         self.update_optimizer_args()  # update `optimizer_args` (eg after training)
-        return self._optimizer_args
+        return super().optimizer_args()
 
     def initial_parameters(self) -> Dict:
         """Returns initial parameters without DP or training applied
@@ -288,7 +263,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Validate optimizer
         optim_builder = OptimizerBuilder()
         #  build the optimizer wrapper
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -477,24 +452,24 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         self._model.send_to_device(self._device_init)
         torch.cuda.empty_cache()
-        
+
         # # test (to be removed)
         # assert id(self._optimizer.model.model) == id(self._model.model)
-        
+
         # assert id(self._optimizer.model) == id(self._model)
-        
+
         # for (layer, val), (layer2, val2) in zip(self._model.model.state_dict().items(), self._optimizer.model.model.state_dict().items()):
         #     assert layer == layer2
         #     print(val, layer2)
         #     assert torch.isclose(val, val2).all()
-            
+
         # for attributes, values in self._model.__dict__.items():
         #     print("ATTRIBUTES", values)
         #     assert values == getattr(self._optimizer.model, attributes)
 
         # for attributes, values in self._model.model.__dict__.items():
         #     print("ATTRIBUTES", values)
-        #     assert values == getattr(self._optimizer.model.model, attributes) 
+        #     assert values == getattr(self._optimizer.model.model, attributes)
         return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(self, data: ModelInputType, target: ModelInputType) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -513,7 +488,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         # zero-out gradients
         self._optimizer.zero_grad()
-        # FIXME: `self._optimizer.train()` is never called but should be. 
+        # FIXME: `self._optimizer.train()` is never called but should be.
         # FIXME 2: Should we move training process to `Optimizer` or `Model` class?
 
         # compute loss
@@ -652,6 +627,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         for layer_name, init_coefs in self._model.init_params.items():
             current_model = self.model().get_parameter(layer_name)
 
-            if current_model.requires_grad: 
+            if current_model.requires_grad:
                 norm += torch.linalg.norm(current_model - init_coefs) ** 2
         return norm

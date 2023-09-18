@@ -90,13 +90,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
         """
-        self._model = SkLearnModel(self._model_cls)
         model_args.setdefault("verbose", 1)
-        self._model_args = model_args
-        self._aggregator_args = aggregator_args or {}
-
-        self._optimizer_args = training_args.optimizer_arguments() or {}
-        self._training_args = training_args.pure_training_arguments()
+        super().post_init(model_args, training_args, aggregator_args)
+        self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
 
         # Add dependencies
@@ -104,7 +100,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
-        
+
         # FIXME: should we do that in `_configure_optimizer`
         # from now on, `self._optimizer`` is not None
         # Override default model parameters based on `self._model_args`.
@@ -140,22 +136,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
-    def model_args(self) -> Dict[str, Any]:
-        """Retrieve model arguments.
-
-        Returns:
-            Model arguments
-        """
-        return self._model_args
-
-    def training_args(self) -> Dict[str, Any]:
-        """Retrieve training arguments.
-
-        Returns:
-            Training arguments
-        """
-        return self._training_args
-
     def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
 
@@ -183,7 +163,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                        "can not have more than one argument/parameter (for {prefix} arguments) or " \
                                        "method can be defined without argument and `{alternative}` can be used for " \
                                        "accessing {prefix} arguments defined in the experiment."
-        
+
         if self._model is None:
             raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
         # Get optimizer defined by researcher ---------------------------------------------------------------------
@@ -199,25 +179,17 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                                                                  alternative="self.optimizer_args()"))
         # create optimizer builder
         optim_builder = OptimizerBuilder()
-        
+
         # then build optimizer wrapper given model and optimizer
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer) 
+        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
 
     def init_optimizer(self) -> Optional[FedOptimizer]:
         """Creates and configures optimizer. By default, returns None (meaning native inner scikit
         learn optimization SGD based will be used).
-        
+
         In the case a Declearn Optimizer is used, this method should be overridden in the Training Plan and return
         a Fedbiomed [`Optimizer`][fedbiomed.common.optimizers.optimizer.Optimizer]"""
         pass
-
-    def optimizer_args(self) -> Dict:
-        """Retrieves optimizer arguments
-
-        Returns:
-            Optimizer arguments
-        """
-        return self._optimizer_args
 
     def training_routine(
             self,
@@ -246,8 +218,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-        # Run preprocessing operations.
-        self._preprocess()
+
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):
             logger.warning(

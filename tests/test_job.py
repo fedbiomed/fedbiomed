@@ -4,7 +4,7 @@ import shutil
 import unittest
 import uuid
 from typing import Any, Dict
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
@@ -29,6 +29,8 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import fedbiomed.researcher.job # needed for specific mocking
 
+
+training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
 
 
 class TestJob(ResearcherTestCase):
@@ -98,7 +100,7 @@ class TestJob(ResearcherTestCase):
         # Build Global Job that will be used in most of the tests
         self.job = Job(
             training_plan_class=self.model,
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=self.fds
         )
 
@@ -133,7 +135,7 @@ class TestJob(ResearcherTestCase):
 
         j = Job(training_plan_class=self.model,
                 data=self.fds,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 keep_files_dir=environ['TMP_DIR'])
 
         # Check keep files dir properly set
@@ -144,7 +146,7 @@ class TestJob(ResearcherTestCase):
 
         reqs = Requests()
         j = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds,
                 reqs=reqs)
 
@@ -158,7 +160,7 @@ class TestJob(ResearcherTestCase):
         self.mock_upload_file.reset_mock()
 
         j = Job(training_plan_path=tmp_dir_model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 training_plan_class='FakeModel')
 
         self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
@@ -186,7 +188,7 @@ class TestJob(ResearcherTestCase):
 
         with self.assertRaises(SystemExit):
             _ = Job(training_plan_path=tmp_dir_model,
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_args=training_args_for_testing,
                     training_plan_class='FakeModel')
             mock_logger_critical.assert_called_once()
 
@@ -199,7 +201,7 @@ class TestJob(ResearcherTestCase):
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
                 _ = Job(training_plan_class='FakeModel',
-                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                        training_args=training_args_for_testing,
                         data=self.fds)
                 mock_logger_critical.assert_called_once()
 
@@ -209,12 +211,12 @@ class TestJob(ResearcherTestCase):
 
         """ Test Job initialization when model_instance.save and save_code raises Exception """
 
-        mock_logger_error.return_values = None
+        mock_logger_error.return_value = None
 
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -225,7 +227,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -248,9 +250,9 @@ class TestJob(ResearcherTestCase):
         tr = self.job.training_replies
         self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        self.job.training_args = TrainingArgs({'batch_size': 33})
+        self.job.training_args = TrainingArgs({'loader_args': {'batch_size': 33}})
         targs = self.job.training_args
-        self.assertEqual(33, targs['batch_size'], 'Can not get or set training_args correctly')
+        self.assertEqual(33, targs['loader_args']['batch_size'], 'Can not get or set training_args correctly')
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
@@ -444,8 +446,47 @@ class TestJob(ResearcherTestCase):
         self.assertListEqual(nodes, ['node-1'])
         self.assertEqual(serialize_load_patch.call_count, 1)
 
-    def test_job_12_update_parameters_with_invalid_arguments(self):
-        """ Testing update_parameters method with invalid arguments.s"""
+    def test_job_12_start_nodes_training_round_optim_aux_var(self):
+        """Test that 'optim_aux_var' is properly used in 'start_nodes_training_round'."""
+        fake_aux_var = {"module": {"key": "val"}}
+        # General setup: skip requests sending and replies processing.
+        self.job.nodes = []
+        with (
+            patch('fedbiomed.researcher.requests.Requests.send_message'),
+            patch.object(self.job, "waiting_for_nodes", autospec=True)
+                as patch_waiting_for_nodes,
+        ):
+            patch_waiting_for_nodes.return_value = False
+            # Test that the aux-var upload is called when aux vars are passed.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                patch_upload_agg_optimizer_aux_var.return_value = (None, {})
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=True, optim_aux_var=fake_aux_var
+                )
+                patch_upload_agg_optimizer_aux_var.assert_called_once_with(
+                    fake_aux_var
+                )
+            # Test that the aux-var upload is not called without input aux var.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=True, optim_aux_var=None
+                )
+                patch_upload_agg_optimizer_aux_var.assert_not_called()
+            # Test that the aux-var upload is not called in evaluation mode.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=False, optim_aux_var=fake_aux_var
+                )
+                patch_upload_agg_optimizer_aux_var.assert_not_called()
+
+    def test_job_13_update_parameters_with_invalid_arguments(self):
+        """Testing update_parameters method with invalid arguments."""
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
         params = {'params': [1, 2, 3, 4]}
@@ -456,7 +497,7 @@ class TestJob(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.job.update_parameters()
 
-    def test_job_13_update_parameters_from_params(self):
+    def test_job_14_update_parameters_from_params(self):
         """Testing update_parameters when passing 'params'."""
         params = {'params': [1, 2, 3, 4]}
         with (
@@ -472,7 +513,7 @@ class TestJob(ResearcherTestCase):
             self.job._model_params_file,
         )
 
-    def test_job_14_update_parameters_from_file(self):
+    def test_job_15_update_parameters_from_file(self):
         """Testing update_parameters when passing 'filename'."""
         params = {"params": [1, 2, 3, 4]}
         with (
@@ -484,7 +525,108 @@ class TestJob(ResearcherTestCase):
         self.model.set_model_params.assert_called_once_with(params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
 
-    def test_job_16_save_private_training_replies(self):
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_16_upload_agg_optimizer_aux_var(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with both shared and node-specific info."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {"key": "val"},
+            "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(3)},
+        }
+        patch_uuid.return_value = "uuid"
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": 'url'}
+
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertEqual(url_shared, "url")
+        self.assertDictEqual(url_bynode, {"node-1": "url", "node-2": "url"})
+        patch_serializer_dump.assert_has_calls([
+            call({"module_a": {"key": "val"}}, "dir/aux_var_shared_uuid.mpk"),
+            call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-1_uuid.mpk"),
+            call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_shared_uuid.mpk"),
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_17_upload_agg_optimizer_aux_var_shared_only(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with shared info only."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {"key": "val"},
+            "module_b": {"key": "val"},
+        }
+        fake_url = "url"
+
+        patch_uuid.return_value = "uuid"
+
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": fake_url}
+
+        expected_file_path = "dir/aux_var_shared_uuid.mpk"
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertEqual(url_shared, fake_url)
+        self.assertDictEqual(url_bynode, {})
+        patch_serializer_dump.assert_called_once_with(
+            aux_var, expected_file_path
+        )
+        self.mock_upload_file.assert_called_once_with(expected_file_path)
+
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_18_upload_agg_optimizer_aux_var_bynode_only(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with node-specific info only."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {f"node-{i + 1}": {"key": "val"} for i in range(2)},
+            "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(2)},
+        }
+        patch_uuid.return_value = "uuid"
+        self.mock_upload_file.reset_mock()
+        self.mock_upload_file.return_value = {"file": "url"}
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertIsNone(url_shared)
+        self.assertDictEqual(url_bynode, {"node-1": "url", "node-2": "url"})
+        aux_var_node = {"module_a": {"key": "val"}, "module_b": {"key": "val"}}
+        patch_serializer_dump.assert_has_calls([
+            call(aux_var_node, "dir/aux_var_node_node-1_uuid.mpk"),
+            call(aux_var_node, "dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+
+    def test_job_20_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
@@ -520,7 +662,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.responses.Responses.__getitem__')
     @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_17_private_load_training_replies(
+    def test_job_21_private_load_training_replies(
             self,
             patch_responses_init,
             patch_responses_getitem
@@ -559,7 +701,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job with a mock training plan
         test_job_torch = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
         # second create a `training_replies` variable
@@ -632,7 +774,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job
         test_job_sklearn = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
 
@@ -665,7 +807,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_18_load_state(
+    def test_job_22_load_state(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
@@ -698,7 +840,7 @@ class TestJob(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_19_save_state(
+    def test_job_23_save_state(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -754,7 +896,7 @@ class TestJob(ResearcherTestCase):
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
 
-    def test_job_20_upload_aggregator_args(self):
+    def test_job_24_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
         tensor = torch.Tensor([[1, 2, 4], [2, 3, 4]])
@@ -778,6 +920,42 @@ class TestJob(ResearcherTestCase):
                     filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.mpk")
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
+
+    def test_job_25_extract_received_optimizer_aux_var_from_round(self):
+        """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
+        # Set up: nodes sent back some Optimizer aux var information.
+        responses = Responses([])
+        responses.append(Responses({
+            "node_id": "node-1",
+            "optim_aux_var": {
+                "module_a": {"key": "a1"}, "module_b": {"key": "b1"}
+            },
+        }))
+        responses.append(Responses({
+            "node_id": "node-2",
+            "optim_aux_var": {
+                "module_a": {"key": "a2"}, "module_b": {"key": "b2"}
+            },
+        }))
+        getattr(self.job, "_training_replies")[1] = responses
+        # Call the method and verify that its output matches expectations.
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        expected = {
+            "module_a": {"node-1": {"key": "a1"}, "node-2": {"key": "a2"}},
+            "module_b": {"node-1": {"key": "b1"}, "node-2": {"key": "b2"}},
+        }
+        self.assertDictEqual(aux_var, expected)
+
+    def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
+        """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
+        # Set up: nodes did not send Optimizer aux var information.
+        responses = Responses([])
+        responses.append(Responses({"node_id": "node-1"}))
+        responses.append(Responses({"node_id": "node-2"}))
+        getattr(self.job, "_training_replies")[1] = responses
+        # Call the method and verify that it returns an empty dict.
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        self.assertDictEqual(aux_var, {})
 
 
 if __name__ == '__main__':  # pragma: no cover

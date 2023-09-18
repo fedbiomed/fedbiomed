@@ -34,13 +34,13 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker-compose exec vpnserver bash -ci 'python ./vpn/bin/configure_peer.py genconf node NODE2TAG'
+    [user@server $] docker compose exec vpnserver bash -ci 'python ./vpn/bin/configure_peer.py genconf node NODE2TAG'
     ```
 
     The configuration file is now available on the server side in path `${FEDBIOMED_DIR}/envs/vpn/docker/vpnserver/run_mounts/config/config_peers/node/NODE2TAG/config.env` or with command :
 
     ```bash
-    [user@server $] docker-compose exec vpnserver cat /config/config_peers/node/NODE2TAG/config.env
+    [user@server $] docker compose exec vpnserver cat /config/config_peers/node/NODE2TAG/config.env
     ```
 
 * copy the configuration file from the server side **to the node side** via a secure channel, to path `/tmp/config2.env` on the node.
@@ -58,13 +58,13 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * start `node2` container
 
     ```bash
-    [user@node $] docker-compose up -d node2
+    [user@node $] docker compose up -d node2
     ```
 
 * retrieve the `node2`'s publickey
 
     ```bash
-    [user@node $] docker-compose exec node2 wg show wg0 public-key | tr -d '\r' >/tmp/publickey2-nodeside
+    [user@node $] docker compose exec node2 wg show wg0 public-key | tr -d '\r' >/tmp/publickey2-nodeside
     ```
 
 * copy the public key from the node side **to the server side** via a secure channel (see above), to path `/tmp/publickey2-serverside` on the server.
@@ -73,7 +73,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker-compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py add node NODE2TAG $(cat /tmp/publickey2-serverside)"
+    [user@server $] docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py add node NODE2TAG $(cat /tmp/publickey2-serverside)"
     ```
 
 * check containers running on the node side
@@ -101,7 +101,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker-compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
     ```
 
 
@@ -110,7 +110,7 @@ Optionally launch the node GUI :
 * start `gui2` container
 
     ```bash
-    [user@node $] docker-compose up -d gui2
+    [user@node $] docker compose up -d gui2
     ```
 
 * check containers running on the node side
@@ -144,7 +144,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
     * connect to the container
 
         ```bash
-        [user@node $] docker-compose exec -u $(id -u) node2 bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
         ```
 
     * start the Fed-BioMed node, for example in background:

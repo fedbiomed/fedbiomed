@@ -1,8 +1,14 @@
 import copy
 from json import decoder
+import os
+import tempfile
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.repository import Repository
+from fedbiomed.common.serializer import Serializer
+
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
@@ -10,14 +16,20 @@ from testsupport.base_case import NodeTestCase
 #############################################################
 
 # import dummy classes
+from testsupport.fake_uuid import FakeUuid
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_node_secagg import FakeSecaggServkeySetup, FakeSecaggBiprimeSetup
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
+from testsupport import fake_training_plan
+
+import torch
+from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
+from declearn.optimizer.regularizers import RidgeRegularizer
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, __messaging_protocol_version__
-from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, TrainingPlans, __messaging_protocol_version__
+from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.message import NodeMessages, TrainRequest
+from fedbiomed.common.models import TorchModel
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
@@ -455,22 +467,23 @@ class TestNode(NodeTestCase):
 
         # checks
         self.assertIsInstance(round, Round)
-
-        self.assertEqual(round_patch.call_count, 1)
-        round_patch.assert_called_with(
-                                       dict_msg_1_dataset['model_args'],
-                                       dict_msg_1_dataset['training_args'],
-                                       True,
-                                       self.database_id,
-                                       dict_msg_1_dataset['training_plan_url'],
-                                       dict_msg_1_dataset['training_plan_class'],
-                                       dict_msg_1_dataset['params_url'],
-                                       dict_msg_1_dataset['job_id'],
-                                       dict_msg_1_dataset['researcher_id'],
-                                       unittest.mock.ANY,  # this is for HistoryMonitor
-                                       None,
-                                       None, round_number=0,
-                                       dlp_and_loading_block_metadata=None)
+        round_patch.assert_called_once_with(
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # this is for HistoryMonitor
+            None,
+            None,
+            round_number=0,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=None,
+        )
 
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
@@ -556,7 +569,8 @@ class TestNode(NodeTestCase):
             'command': 'train',
             'dataset_id': 'dataset_id_1234',
             'training': True,
-            'aggregator_args': {}
+            'aggregator_args': {},
+            "aux_var_urls": ["url_shared_aux_var", "url_bynode_aux_var"],
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
@@ -571,20 +585,21 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-                                            dict_msg_1_dataset['model_args'],
-                                            dict_msg_1_dataset['training_args'],
-                                            True,
-                                            self.database_id,
-                                            dict_msg_1_dataset['training_plan_url'],
-                                            dict_msg_1_dataset['training_plan_class'],
-                                            dict_msg_1_dataset['params_url'],
-                                            dict_msg_1_dataset['job_id'],
-                                            dict_msg_1_dataset['researcher_id'],
-                                            unittest.mock.ANY,  # FIXME: should be an history monitor object
-                                            None,
-                                            None, round_number=1,
-                                            dlp_and_loading_block_metadata=None
-                                            )
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # FIXME: should be an history monitor object
+            None,
+            None, round_number=1,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=dict_msg_1_dataset['aux_var_urls'],
+        )
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
@@ -612,7 +627,8 @@ class TestNode(NodeTestCase):
             "round": 1,
             "command": "train",
             "dataset_id": "dataset_id_1234",
-            'aggregator_args': {}
+            'aggregator_args': {},
+            "aux_var_urls": ["single_url_aux_var"],
         }
 
         #
@@ -627,18 +643,21 @@ class TestNode(NodeTestCase):
         self.n1.parser_task_train(msg_1_dataset)
 
         # checks
-        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
-                                            dict_msg_1_dataset['training_args'],
-                                            True,
-                                            self.database_id,
-                                            dict_msg_1_dataset['training_plan_url'],
-                                            dict_msg_1_dataset['training_plan_class'],
-                                            dict_msg_1_dataset['params_url'],
-                                            dict_msg_1_dataset['job_id'],
-                                            dict_msg_1_dataset['researcher_id'],
-                                            unittest.mock.ANY,  # FIXME: should be an history_monitor object
-                                            None, None, round_number=1,
-                                            dlp_and_loading_block_metadata=None)
+        round_patch.assert_called_once_with(
+            dict_msg_1_dataset['model_args'],
+            dict_msg_1_dataset['training_args'],
+            True,
+            self.database_id,
+            dict_msg_1_dataset['training_plan_url'],
+            dict_msg_1_dataset['training_plan_class'],
+            dict_msg_1_dataset['params_url'],
+            dict_msg_1_dataset['job_id'],
+            dict_msg_1_dataset['researcher_id'],
+            unittest.mock.ANY,  # FIXME: should be an history_monitor object
+            None, None, round_number=1,
+            dlp_and_loading_block_metadata=None,
+            aux_var_urls=dict_msg_1_dataset['aux_var_urls'],
+        )
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
@@ -713,6 +732,98 @@ class TestNode(NodeTestCase):
             # of type string
             self.n1.parser_task_train(msg_training_plan_class_bad_type)
 
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.node.round.importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor')
+    def test_node_17_parser_task_train_optimizer(self,
+                                                 hist_monitor_patch,
+                                                 repo_download_file_patch,
+                                                 tp_security_manager_patch,
+                                                 importlib_importmodule_patch,
+                                                 repo_upload_file_patch):
+        """Tests both `parser_task_train` and `Round.run_model_training`"""       
+        aux_var = {'scaffold': {'delta': 1234.}}
+
+        repo_uploaded = []
+        def create_file(file_path: str, aux_var: Dict):
+            Serializer.dump(aux_var, file_path)
+  
+        def repo_upload_side_effect(file:str):
+            repo_uploaded.append(file)
+            return {'file': file}
+
+        repo_upload_file_patch.side_effect = repo_upload_side_effect
+        importlib_importmodule_patch.return_value = fake_training_plan
+
+        with tempfile.TemporaryDirectory() as tmp_directory:
+
+            aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
+            model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
+            fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
+
+            repo_download_file_patch.side_effect = (
+                    (200, fake_path_towards_tp),
+                    (200, model_param_tmp_path),
+                    (200, aux_var_tmp_path)
+                    )
+            create_file(model_param_tmp_path, {'model_weights': [1,2,3,4,5]},)
+            create_file(aux_var_tmp_path, aux_var)
+            hist_monitor_patch.return_value = None
+            tp_security_manager_patch.return_value = (True, {'name': 'my_node_id'})
+            
+            aux_var_urls = ['http://aux/var/url/1']
+            dict_msg_1_dataset = {
+                'protocol_version': '1234',
+                'command': 'train',
+                'model_args': {'some_value': 0.1},
+                'training_args': {'optimizer_args': {'lr': .1234}},
+                'training': True,
+                'training_plan_url': 'https://link.to.somewhere.where.my.model',
+                'training_plan_class': 'my_test_training_plan',
+                'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+                'job_id': 'job_id_1234',
+                'researcher_id': 'researcher_id_1234',
+                'dataset_id': 'dataset_id_1234',
+                'round': 1,
+                'secagg_servkey_id': None,
+                'secagg_biprime_id': None,
+                'secagg_random': None,
+                'secagg_clipping_range': None,
+                'aggregator_args': {},
+                'aux_var_urls': aux_var_urls
+            }
+            msg_1_dataset = TrainRequest(**dict_msg_1_dataset)
+            rnd = self.n1.parser_task_train(msg_1_dataset)
+            rnd.training_plan_class = "DeclearnAuxVarModel"
+            rnd.dataset = {'dataset_id': dict_msg_1_dataset['dataset_id'],
+                           'path': os.path.join('path', 'to', 'my', 'data')}
+            # configure optimizer
+            lr = .1234
+            optim_node = Optimizer(lr=lr, modules=[ScaffoldClientModule(), YogiModule()],
+                                   regularizers=[RidgeRegularizer()])
+
+
+            dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
+
+            fake_training_plan.DeclearnAuxVarModel.OPTIM = dec_node_optim
+            fake_training_plan.DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
+
+            uuid = FakeUuid()
+            with patch('uuid.uuid4') as uuid_patch:
+                uuid_patch.return_value = uuid
+                rnd_reply = rnd.run_model_training()
+            self.assertEqual(rnd_reply['researcher_id'], dict_msg_1_dataset['researcher_id'])
+            self.assertEqual(rnd_reply['job_id'], dict_msg_1_dataset['job_id'])
+            self.assertEqual(rnd_reply['success'], True)
+            self.assertEqual(rnd_reply['dataset_id'], dict_msg_1_dataset['dataset_id'])
+            self.assertEqual(rnd_reply['sample_size'], len(fake_training_plan.DeclearnAuxVarModel.CustomDataset()))
+            self.assertEqual(rnd_reply['msg'], '')
+            self.assertEqual(rnd_reply['command'], dict_msg_1_dataset['command'])
+            self.assertEqual(repo_uploaded[0], os.path.join(environ['TMP_DIR'], f"node_params_{uuid}.mpk"))
+
+
     def test_node_17_task_manager_normal_case_scenario(self):
         """Tests task_manager in the normal case scenario"""
         # TODO: implement such test when we will have methods that makes
@@ -766,7 +877,8 @@ class TestNode(NodeTestCase):
             "round": 1,
             "researcher_id": "researcher_id_1234",
             "command": "train",
-            "dataset_id": "dataset_id_1234"
+            "dataset_id": "dataset_id_1234",
+            "aux_var_urls": None,
         }
         node_parser_task_train_patch.side_effect = SystemExit(
             "mimicking an exception" + " coming from parser_task_train")  # noqa

@@ -41,15 +41,21 @@ class Custom:
         return {'Metric': 42.0}
 
 
-class FakeTrainingArgs:
+class FakeTrainingArgs(dict):
     """Mimics TrainingArgs class
     """
+    def __init__(self):
+        self['random_seed'] = 42
+
     def optimizer_arguments(self):
         return {'lr': 1e-2}
 
     def pure_training_arguments(self):
         return {"epochs": 1,
                 "batch_maxnum": 2}
+
+    def loader_arguments(self):
+        return {'batch_size': 1}
 
 
 class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
@@ -203,7 +209,8 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         training_plan._optimizer = MagicMock(spec=NativeSkLearnOptimizer)
         training_plan._training_args['epochs'] = 1
         training_plan._training_args['num_updates'] = None
-        training_plan._training_args['batch_size'] = train_data_loader.batch_size()
+        batch_size = train_data_loader.batch_size()
+        training_plan._loader_args = {'batch_size':batch_size }
 
         # First scenario: assert that number of training iterations is correct
         training_plan._training_args['batch_maxnum'] = None
@@ -219,10 +226,10 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
             num_samples_observed = training_plan._training_routine(history_monitor=None)
             self.assertEqual(mocked_train.call_count, 4)
             self.assertEqual(num_samples_observed,
-                             len(test_x) / training_plan._training_args['batch_size'] *
-                             training_plan._training_args['epochs'], "Training routine for SkLearnTrainingPlan"
-                                                                     " did not return correct number of samples "
-                                                                     "observed during the training")
+                             len(test_x) / batch_size * training_plan._training_args['epochs'],
+                             "Training routine for SkLearnTrainingPlan"
+                             " did not return correct number of samples "
+                             "observed during the training")
 
         # Second scenario: assert that history monitor is given the correct reporting values
         training_plan._training_args['batch_maxnum'] = 1

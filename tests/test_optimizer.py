@@ -4,14 +4,16 @@
 """Unit tests for the declearn-interfacing Optimizer class."""
 
 import json
+from typing import Dict, List
 import unittest
 from unittest import mock
 
 import declearn
 import numpy as np
+import torch
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
-from declearn.optimizer.modules import OptiModule
+from declearn.optimizer.modules import OptiModule, ScaffoldServerModule, YogiModule
 from declearn.optimizer.regularizers import Regularizer
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
@@ -238,7 +240,38 @@ class TestOptimizer(unittest.TestCase):
         upd_b = opt_b.step(grads, weights)
         self.assertEqual(upd_a, upd_b)
 
-    def test_optimizer_17_load_state_fails(self) -> None:
+    def test_optimizer_17_load_state_and_aux_var(self):
+        """Tests if auxiliary variables are properly re-computed when loading state
+        Uses Scaffold for that
+        """
+        def get_scaffold_optimizer_aux_var(opt: Optimizer) -> List[Dict[str, torch.Tensor]]:
+            aux_var = opt.get_aux()['scaffold']
+            ordered_aux_var_names = sorted(aux_var)
+
+            aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
+            return aux_var_list
+        
+        model = torch.nn.Linear(4,2)
+        model_params = dict(model.state_dict())
+        scaffold_aux_var = {
+            'scaffold':
+                {
+                    'node_1': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})},
+                    'node_2': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})}
+                }
+            }
+        agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
+
+        agg_optimizer.set_aux(scaffold_aux_var)
+        states = agg_optimizer.get_state()
+        reloaded = Optimizer.load_state(states)
+        initial_aux_var = get_scaffold_optimizer_aux_var(agg_optimizer)
+        reloaded_aux_var = get_scaffold_optimizer_aux_var(reloaded)
+        for val_node1, val_node2 in zip(initial_aux_var, reloaded_aux_var):
+            for (k1, v1), (k2, v2) in zip(val_node1.items(), val_node2.items()):
+                self.assertTrue(torch.isclose(v1, v2).all())
+
+    def test_optimizer_18_load_state_fails(self) -> None:
         """Test that `Optimizer.load_state` exceptions are wrapped."""
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer.load_state({})
