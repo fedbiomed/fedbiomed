@@ -33,14 +33,14 @@ jobs:
         id: e2e-checkout
         uses: actions/checkout@v3
 
-      - name: setup datasets
-        id: e2e-setup-datasets
-        run: |
-          echo "Setting up the datasets"
-          echo $SHELL
-          source $HOME/.bashrc
-          ./notebooks/101_getting-started-setup.sh
-        shell: bash -l {0}
+#      - name: setup datasets
+#        id: e2e-setup-datasets
+#        run: |
+#          echo "Setting up the datasets"
+#          echo $SHELL
+#          source $HOME/.bashrc
+#          ./notebooks/101_getting-started-setup.sh
+#        shell: bash -l {0}
 
       - name: Run end-to-end tests
         id: e2e-tests
