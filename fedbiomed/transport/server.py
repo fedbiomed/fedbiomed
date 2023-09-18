@@ -4,11 +4,11 @@ import grpc
 import threading
 import ctypes
 import signal
-import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
+import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
 
 from typing import Callable
 
-from fedbiomed.proto.researcher_pb2 import Empty
+from fedbiomed.transport.protocols.researcher_pb2 import Empty
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer

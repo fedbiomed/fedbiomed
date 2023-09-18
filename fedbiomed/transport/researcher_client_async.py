@@ -12,8 +12,8 @@ import ctypes
 from typing import Callable, Dict, Union
 from google.protobuf.message import Message as ProtobufMessage
 
-import fedbiomed.proto.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.proto.researcher_pb2 import TaskRequest, FeedbackMessage
+import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest, FeedbackMessage
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH

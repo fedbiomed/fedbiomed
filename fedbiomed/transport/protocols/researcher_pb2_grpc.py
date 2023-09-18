@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from fedbiomed.proto import researcher_pb2 as fedbiomed_dot_proto_dot_researcher__pb2
+from fedbiomed.transport.protocols import researcher_pb2 as fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2
 
 
 class ResearcherServiceStub(object):
@@ -16,23 +16,23 @@ class ResearcherServiceStub(object):
         """
         self.GetTask = channel.stream_stream(
                 '/researcher.ResearcherService/GetTask',
-                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
-                response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
+                request_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.SerializeToString,
+                response_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.FromString,
                 )
         self.GetTaskUnary = channel.unary_stream(
                 '/researcher.ResearcherService/GetTaskUnary',
-                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
-                response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
+                request_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.SerializeToString,
+                response_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.FromString,
                 )
         self.ReplyTask = channel.stream_unary(
                 '/researcher.ResearcherService/ReplyTask',
-                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResult.SerializeToString,
-                response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
+                request_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResult.SerializeToString,
+                response_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.FromString,
                 )
         self.Feedback = channel.unary_unary(
                 '/researcher.ResearcherService/Feedback',
-                request_serializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
-                response_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
+                request_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.FeedbackMessage.SerializeToString,
+                response_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.FromString,
                 )
 
 
@@ -72,23 +72,23 @@ def add_ResearcherServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetTask': grpc.stream_stream_rpc_method_handler(
                     servicer.GetTask,
-                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.FromString,
-                    response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.SerializeToString,
+                    request_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.FromString,
+                    response_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.SerializeToString,
             ),
             'GetTaskUnary': grpc.unary_stream_rpc_method_handler(
                     servicer.GetTaskUnary,
-                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.FromString,
-                    response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.SerializeToString,
+                    request_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.FromString,
+                    response_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.SerializeToString,
             ),
             'ReplyTask': grpc.stream_unary_rpc_method_handler(
                     servicer.ReplyTask,
-                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.TaskResult.FromString,
-                    response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.SerializeToString,
+                    request_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResult.FromString,
+                    response_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.SerializeToString,
             ),
             'Feedback': grpc.unary_unary_rpc_method_handler(
                     servicer.Feedback,
-                    request_deserializer=fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.FromString,
-                    response_serializer=fedbiomed_dot_proto_dot_researcher__pb2.Empty.SerializeToString,
+                    request_deserializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.FeedbackMessage.FromString,
+                    response_serializer=fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -112,8 +112,8 @@ class ResearcherService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.stream_stream(request_iterator, target, '/researcher.ResearcherService/GetTask',
-            fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
-            fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.SerializeToString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -129,8 +129,8 @@ class ResearcherService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/researcher.ResearcherService/GetTaskUnary',
-            fedbiomed_dot_proto_dot_researcher__pb2.TaskRequest.SerializeToString,
-            fedbiomed_dot_proto_dot_researcher__pb2.TaskResponse.FromString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskRequest.SerializeToString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -146,8 +146,8 @@ class ResearcherService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.stream_unary(request_iterator, target, '/researcher.ResearcherService/ReplyTask',
-            fedbiomed_dot_proto_dot_researcher__pb2.TaskResult.SerializeToString,
-            fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.TaskResult.SerializeToString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -163,7 +163,7 @@ class ResearcherService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/researcher.ResearcherService/Feedback',
-            fedbiomed_dot_proto_dot_researcher__pb2.FeedbackMessage.SerializeToString,
-            fedbiomed_dot_proto_dot_researcher__pb2.Empty.FromString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.FeedbackMessage.SerializeToString,
+            fedbiomed_dot_transport_dot_protocols_dot_researcher__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
