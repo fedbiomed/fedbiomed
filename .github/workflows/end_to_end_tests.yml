@@ -51,19 +51,11 @@ jobs:
           ls ./end_to_end_tests_outputs/*
         shell: bash -l {0}
 
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
         with:
-          files: |
-            ./report.xml
-            end_to_end_tests_outputs/*
-#      - name: Test Report
-#        uses: dorny/test-reporter@v1
-#        if: success() || failure()    # run this step even if previous step failed
-#        with:
-#          name: (${{ matrix.os }}) Fedbiomed End-to-End Tests            # Name of the check run which will be created
-#          path: ./report.xml    # Path to test results
-#          artifact: /./end_to_end_tests_outputs/(.*)/
-#          reporter: java-junit        # Format of test results
+          name: (${{ matrix.os }}) Fedbiomed End-to-End Tests            # Name of the check run which will be created
+          path: ./report.xml    # Path to test results
+          reporter: jest-junit        # Format of test results
 
