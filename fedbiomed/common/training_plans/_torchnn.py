@@ -148,7 +148,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
         # Add dependencies
-        self._configure_dependencies()
+        self.configure_dependencies()
         # Configure aggregator-related arguments
         # TODO: put fedprox mu inside strategy_args
         self._fedprox_mu = self._training_args.get('fedprox_mu')

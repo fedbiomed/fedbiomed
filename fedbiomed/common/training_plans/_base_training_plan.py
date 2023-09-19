@@ -165,7 +165,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return []
 
-    def _configure_dependencies(self) -> None:
+    def configure_dependencies(self) -> None:
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:

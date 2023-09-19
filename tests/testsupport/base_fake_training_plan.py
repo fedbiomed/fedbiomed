@@ -24,3 +24,10 @@ class BaseFakeTrainingPlan(TorchTrainingPlan):
 
     def training_step(self):
         pass
+
+    def init_dependencies(self):
+        return [
+            'from typing import Any, Dict, Optional',
+            'from fedbiomed.common.training_args import TrainingArgs',
+            'from fedbiomed.common.training_plans import TorchTrainingPlan',
+        ]
