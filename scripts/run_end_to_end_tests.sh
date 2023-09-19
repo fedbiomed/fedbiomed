@@ -10,8 +10,8 @@ rmdir ./data
 ln -s ~/Data/fedbiomed ./data
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
-#list_notebooks=( notebooks/101_getting-started.ipynb notebooks/pytorch-celeba-dataset.ipynb notebooks/general-breakpoint-save-resume.ipynb notebooks/general-tensorboard.ipynb notebooks/general-use-gpu.ipynb notebooks/pytorch-csv-data.ipynb notebooks/pytorch-local-training.ipynb notebooks/pytorch-variational-autoencoder.ipynb notebooks/test_nbconvert.ipynb )
-list_notebooks=(  notebooks/101_getting-started.ipynb notebooks/pytorch-celeba-dataset.ipynb )
+list_notebooks=( notebooks/101_getting-started.ipynb notebooks/pytorch-celeba-dataset.ipynb notebooks/general-breakpoint-save-resume.ipynb notebooks/general-tensorboard.ipynb notebooks/general-use-gpu.ipynb notebooks/pytorch-csv-data.ipynb notebooks/pytorch-local-training.ipynb notebooks/pytorch-variational-autoencoder.ipynb notebooks/test_nbconvert.ipynb )
+#list_notebooks=(  notebooks/101_getting-started.ipynb notebooks/pytorch-celeba-dataset.ipynb )
 
 test_counter=1
 for notebook in ${list_notebooks[@]}; do
