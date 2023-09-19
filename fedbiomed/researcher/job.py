@@ -22,6 +22,8 @@ from fedbiomed.common.exceptions import FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common import utils
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
@@ -69,7 +71,6 @@ class Job:
 
         self._id = str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
-        self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
         self._nodes = nodes
@@ -95,10 +96,6 @@ class Job:
 
         self.last_msg = None
         self._data = data
-
-        # Check dataset quality
-        if self._data is not None:
-            self.check_data_quality()
 
         # Model is mandatory
         if self._training_plan_class is None:
@@ -137,9 +134,21 @@ class Job:
         # create/save TrainingPlan instance
         if inspect.isclass(self._training_plan_class):
             self._training_plan = self._training_plan_class()  # contains TrainingPlan
+            training_plan_class_name = self._training_plan_class.__name__
 
         else:
             self._training_plan = self._training_plan_class
+            training_plan_class_name = type(self._training_plan).__name__
+
+        # configure and load dependencies for the training plan
+
+        # TODO: apply patch from issue 870
+        #
+        #self._training_plan.configure_dependencies()
+        #_, TrainingPlan = utils.import_class_from_spec(
+        #    code=self._training_plan.source(), class_name=training_plan_class_name) 
+        #self._training_plan = TrainingPlan()
+
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
 
@@ -154,10 +163,6 @@ class Job:
     @property
     def training_plan(self):
         return self._training_plan
-
-    @property
-    def training_plan_file(self):
-        return self._training_plan_file
 
     @property
     def requests(self):
@@ -639,66 +644,6 @@ class Job:
 
         return training_replies
 
-    def check_data_quality(self):
-        """Does quality check by comparing datasets that have been found in different nodes. """
-
-        data = self._data.data()
-        # If there are more than two nodes ready for the job
-        if len(data.keys()) > 1:
-
-            # First check data types are same based on searched tags
-            logger.info('Checking data quality of federated datasets...')
-
-            data_types = []  # CSV, Image or default
-            shapes = []  # dimensions
-            dtypes = []  # variable types for CSV datasets
-
-            # Extract features into arrays for comparison
-            for feature in data.values():
-                data_types.append(feature["data_type"])
-                dtypes.append(feature["dtypes"])
-                shapes.append(feature["shape"])
-
-            if len(set(data_types)) > 1:
-                raise FedbiomedDataQualityCheckError(
-                    f'Different type of datasets has been loaded with same tag: {data_types}'
-                )
-
-            if data_types[0] == 'csv':
-                if len(set([s[1] for s in shapes])) > 1:
-                    raise FedbiomedDataQualityCheckError(
-                        f'Number of columns of federated datasets do not match {shapes}.'
-                    )
-
-                dtypes_t = list(map(list, zip(*dtypes)))
-                for t in dtypes_t:
-                    if len(set(t)) > 1:
-                        # FIXME: specifying a specific use case (in the condition above) should be avoided
-                        raise FedbiomedDataQualityCheckError(
-                            f'Variable data types do not match in federated datasets {dtypes}'
-                        )
-
-            elif data_types[0] == 'images':
-                shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
-                dim_state = True
-                for s in shapes_t:
-                    if len(set(s)) != 1:
-                        dim_state = False
-
-                if not dim_state:
-                    logger.error(f'Dimensions of the images in federated datasets \
-                                 do not match. Please consider using resize. {shapes} ')
-
-                if len(set([k[1] for k in shapes])) != 1:
-                    logger.error(f'Color channels of the images in federated \
-                                    datasets do not match. {shapes}')
-
-            # If it is default MNIST dataset pass
-            else:
-                pass
-
-        pass
-
 
 class localJob:
     """Represents the entity that manage the training part. LocalJob is the version of Job but applied locally on a
@@ -724,7 +669,6 @@ class localJob:
         """
 
         self._id = str(uuid.uuid4())
-        self._repository_args = {}
         self._localjob_training_args = training_args
         self._model_args = model_args
         self._training_args = TrainingArgs(training_args, only_required=False)

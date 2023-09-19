@@ -832,8 +832,9 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)  # required for set_job below
         with patch('fedbiomed.researcher.job.Repository', new=MagicMock()) as patched_repo, \
              patch('fedbiomed.researcher.job.Job.update_parameters', return_value=None) as patched_update_params, \
-             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate:
-            self.test_exp.set_job()  # create an actual Job inside the experiment
+             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate, \
+             patch('fedbiomed.researcher.job.Job._load_training_plan_from_file') as patched_load_tp:
+                        self.test_exp.set_job()  # create an actual Job inside the experiment
         # First, make sure that the training_args are the same as above
         self.assertSubDictInDict(ma_expected_3, train_args_3)
         new_args = {'loader_args': {'batch_size': 42}}
