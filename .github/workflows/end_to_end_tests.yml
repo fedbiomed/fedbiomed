@@ -59,3 +59,10 @@ jobs:
           path: ./report.xml    # Path to test results
           reporter: java-junit        # Format of test results
 
+      - name: Upload Test Logs
+        uses: actions/upload-artifact@v2  # upload test results
+        if: success() || failure()      # run this step even if previous step failed
+        with:
+          name: test-results
+          path: ./end_to_end_tests_outputs/*.log
+
