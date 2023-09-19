@@ -1,0 +1,7 @@
+{
+    "name": "test_data_csv",
+    "description": "test dataset CSV",
+    "tags": "#test_data,#dataset",
+    "data_type": "csv",
+    "path": "./data/CSV/pseudo_adni_mod.csv"
+}
