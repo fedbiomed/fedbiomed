@@ -70,6 +70,21 @@ class NodeAgent:
         self._async_lock = asyncio.Lock()
 
 
+    async def active(self) -> None:
+        """Updates node status as active"""
+
+        async with self._async_lock:
+
+            # Inform user that node is online again
+            if self._status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {self.id} is back online!")
+
+            self._status = NodeActiveStatus.ACTIVE
+                    
+            # Cancel status task if there is any running
+            if self._status_task:
+                self._status_task.cancel()
+
     def get_status_threadsafe(self):
         """Gets node status as threadsafe 
         
@@ -86,7 +101,11 @@ class NodeAgent:
     
 
     def set_context(self, context):
-        """Sets context for the current RPC call"""
+        """Sets context for the current RPC call
+        
+        Args:
+            context: RPC call context
+        """
         self.context = context
         self.context.add_done_callback(self._on_get_task_request_done)
 
@@ -103,12 +122,6 @@ class NodeAgent:
             callback: Callback to execute once the task reply is arrived
         """
 
-        # TODO: The messaged that are going to send to node 
-        # should be declared as Task to have task id automatically 
-        # created. However, this implementation should change once
-        # the messages are typed on gRPC layer instead serializing 
-        # the message string and send as researcher_pb2.TaskResponse
-        # please see researcher.proto file
         if not isinstance(message, Message):
             raise Exception("Message is not an instance of fedbiomed.common.message.TaskMessage")
 
@@ -124,22 +137,6 @@ class NodeAgent:
         except Exception as exp:
             raise Exception(f"Can't send message to the client. Exception: {exp}")
         
-
-    def register_callback(self, task_id: str, callback: Callable):
-        """Registers callback for the task 
-        
-        Callback function is executed once the task reply has arrived.
-        """
-
-        spec = get_method_spec(callback)
-
-        if len(spec) != 2: 
-            raise Exception("Callback for reply should have at 2 arguments. First argument " 
-                            "for reply second argument for node id")
-        
-        self._task_callbacks.update({
-            task_id: callback
-        })
 
     def get(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
@@ -161,21 +158,6 @@ class NodeAgent:
         # Imply DISCONNECT after 10seconds rule asynchronously 
         self._status_task = asyncio.create_task(self._change_node_status_disconnected())
 
-
-    async def active(self) -> None:
-        """Updates node status as active"""
-
-        async with self._async_lock:
-
-            # Inform user that node is online again
-            if self._status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {self.id} is back online!")
-
-            self._status = NodeActiveStatus.ACTIVE
-                    
-            # Cancel status task if there is any running
-            if self._status_task:
-                self._status_task.cancel()
 
 
     async def _change_node_status_disconnected(self) -> None:
@@ -207,8 +189,10 @@ class AgentStore:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
         """
+        self.node_agents: NodeAgent = {}
+
         self._loop = loop
-        self.node_agents = {}
+        self.store_lock = asyncio.Lock()
 
     async def get_or_register(
             self, 
@@ -228,34 +212,36 @@ class AgentStore:
         node = self.get(node_id=node_id)
 
         if not node:
-            node = await self._loop.run_in_executor(None, self.register,  node_id)
+            node = await self.register(node_id)
 
         await node.active()
 
         return node
 
 
-    def register(
+    async def register(
             self, 
             node_id:str
         ) -> NodeAgent:
         """Register new node agent. 
-         
-        This method designed to be coroutine and thread-safe
         
         Args: 
             node_id: ID to register
-            node_ip: IP to register
         """
         # Lock the thread for register operation
         node = NodeAgent(id=node_id, loop=self._loop)
-        with _node_store_lock:
+        async with self.store_lock:
             self.node_agents.update({node_id: node})
 
         return node
         
+    async def get_all(self):
+        """Returns all node agents regardless ACTIVE or DISCONNECTED"""
 
-    def get(
+        async with self.store_lock:
+            return self.node_agents
+        
+    async def get(
             self,
             node_id: str
         ) -> NodeAgent:
@@ -264,4 +250,5 @@ class AgentStore:
         Args: 
             node_id: Id of the node
         """
-        return self.node_agents.get(node_id)
+        async with self.store_lock:
+            return self.node_agents.get(node_id)

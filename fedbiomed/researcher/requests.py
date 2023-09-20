@@ -136,7 +136,7 @@ class Requests(metaclass=SingletonMeta):
                 If `add_sequence` is False, return None
         """
         
-        node: Union[NodeAgent, None] = self._grpc_server.agent_store.get(client)
+        node: Union[NodeAgent, None] = self._grpc_server.get_agent(client)
         
         if not node:
             raise FedbiomedError(f"Node {client} is not existing, not connected or connection is lost.")
