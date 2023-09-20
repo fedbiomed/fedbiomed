@@ -169,7 +169,7 @@ class Requests(metaclass=SingletonMeta):
             message['sequence'] = self._add_sequence()
 
         # TODO: Return also  the list of node that the messages are sent
-        unused_node_list = self._grpc_server.broadcast(
+        self._grpc_server.broadcast(
              ResearcherMessages.format_outgoing_message(message)
         )
 
