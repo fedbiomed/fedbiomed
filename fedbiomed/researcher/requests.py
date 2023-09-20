@@ -13,9 +13,9 @@ import uuid
 
 from python_minifier import minify
 from time import sleep
-from typing import Any, Dict, Callable, Union, List, Optional
+from typing import Any, Dict, Callable, Union, List, Optional, Tuple
 
-from fedbiomed.common.constants import ComponentType, MessageType
+from fedbiomed.common.constants import MessageType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages, PingRequest, Message
@@ -66,8 +66,8 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server.start()
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
-        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  when a message is received on
-        researcher side.
+        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  
+        when a message is received on researcher side.
 
         It is run in the communication process and must ba as quick as possible:
         - it deals with quick messages (eg: ping/pong)
@@ -91,7 +91,7 @@ class Requests(metaclass=SingletonMeta):
                 # Pass message to Monitor's on message handler
                 self._monitor_message_callback(msg.get_dict())
         else:
-            logger.error("Undefined message type received  (" +  + ") - IGNORING")
+            logger.error(f"Undefined message type received  {type_} - IGNORING")
 
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
@@ -116,14 +116,19 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def _add_sequence(self):
-        
+    def _add_sequence(self) -> int:
+        """Increases sequence number and saves it each time it is called
+
+        Returns:
+            Current sequence number
+        """
         seq = self._sequence
-        self._sequence =+ 1
+        self._sequence = + 1
+
         return seq
 
     def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> \
-            Union[int, None]:
+            Tuple[Union[int, None], NodeAgent]:
         """
         Ask the messaging class to send a new message (receivers are
         deduced from the message content)
@@ -134,15 +139,15 @@ class Requests(metaclass=SingletonMeta):
             add_sequence: if `True`, add unique sequence number to the message
 
         Returns:
-            If `add_sequence` is True return the sequence number added to the message.
+            sequence: If `add_sequence` is True return the sequence number added to the message.
                 If `add_sequence` is False, return None
+            node: The agent of the node that the message is sent 
         """
-        
+
         node: Union[NodeAgent, None] = self._grpc_server.get_agent(client)
-        
+
         if not node:
             raise FedbiomedError(f"Node {client} is not existing, not connected or connection is lost.")
-        
 
         if add_sequence:
             msg['sequence'] = self._add_sequence()
@@ -152,11 +157,11 @@ class Requests(metaclass=SingletonMeta):
             ResearcherMessages.format_outgoing_message(msg)
         )
 
-        return msg.get('sequence', None)
+        return msg.get('sequence', None), node
 
     def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
         """Broadcast message
-        
+
         Args:
             msg: the message to send to nodes
             client: defines the channel to which the message will be sent. Defaults to None (all nodes)
@@ -218,7 +223,7 @@ class Requests(metaclass=SingletonMeta):
             timeout: float = None,
             only_successful: bool = True,
             while_responses: bool = True,
-        ) -> Responses:
+    ) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
@@ -450,7 +455,7 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             # send message to each node
             for n in nodes:
-                sequence = self.send_message(message, client=n, add_sequence=True)
+                sequence, _ = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
             sequence = self.broadcast(message, add_sequence=True)

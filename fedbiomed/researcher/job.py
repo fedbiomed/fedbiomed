@@ -262,10 +262,10 @@ class Job:
             nodes_done = set()
 
         return not nodes_done == set(self._nodes)
-    
+
     def _get_training_testing_results(self, round_, timer: Dict) -> None:
         """"Waits for training replies 
-        
+
         args: 
             round_: Training round
             training: If True the round is for training, otherwise for testing/validation
@@ -275,10 +275,10 @@ class Job:
         # Recollect models trained
         self._training_replies[round_] = Responses([])
         while self.waiting_for_nodes(self._training_replies[round_]):
-            
+
             # collect nodes responses from researcher request 'train'
             models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful=False)
-            
+
             for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
                 # manage error messages during training
@@ -406,7 +406,7 @@ class Job:
             timer[node] = time.perf_counter()
 
             # Sends training request
-            self._reqs.send_message(msg, node)  # send request to node
+            _, node = self._reqs.send_message(msg, node)  # send request to node
 
         self._get_training_testing_results(round_=round_, timer=timer)
 
