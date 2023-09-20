@@ -199,16 +199,20 @@ class TaskListener(Listener):
             try:
                 await self._request(callback)
             except grpc.aio.AioRpcError as exp:
-                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    logger.debug(f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
-                    pass
-                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
-                    logger.debug("Researcher server is not available, will retry connect in 2 seconds")
-                    self._on_status_change(ClientStatus.DISCONNECTED)
-                    await asyncio.sleep(2)
-
-                else:
-                    raise Exception("get_tasks: Request streaming stopped ") from exp
+                match exp.code():
+                    case grpc.StatusCode.DEADLINE_EXCEEDED:
+                        logger.debug(f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
+                    
+                    case grpc.StatusCode.UNAVAILABLE:
+                        logger.debug("Researcher server is not available, will retry connect in 2 seconds")
+                        self._on_status_change(ClientStatus.DISCONNECTED)
+                        await asyncio.sleep(2)
+                    case grpc.StatusCode.UNKNOWN:
+                        logger.debug("Unexpected error raised by researcher gRPC server. This is probably due to "
+                                     f"bug on the researcher side. {exp}")
+                        raise Exception("Task listener stopped due to error on the researcher side")
+                    case _:
+                        raise Exception(f"Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
                 
             except Exception as exp:
                     raise Exception(f"Task listener has stopped due to unknown reason: {exp}") from exp

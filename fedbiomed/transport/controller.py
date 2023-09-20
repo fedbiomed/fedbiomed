@@ -65,7 +65,8 @@ class RPCAsyncTaskController:
     def __init__(self, 
                 node_id: str,
                 researchers: List[ResearcherCredentials],
-                on_message: Callable
+                on_message: Callable,
+                debug: bool = False
     ) -> None:
         """Constructs RPCAsyncTaskController
         
@@ -88,6 +89,7 @@ class RPCAsyncTaskController:
         self._clients_lock = asyncio.Lock()
         self._clients: Dict[str, GrpcClient] = {}
 
+        self.debug = debug
         self.on_message = on_message
         
 
@@ -158,7 +160,7 @@ class RPCAsyncTaskController:
             return all(tasks) and self._thread.is_alive()
     
 
-class RPCController:
+class RPCController(RPCAsyncTaskController):
     """"RPC Controller class 
     
     This class is responsible of managing GrpcConnections with researcher components. 
@@ -166,51 +168,28 @@ class RPCController:
     different threads than the one grpc client runs. 
 
     """
-    def __init__(
-            self,
-            node_id: str,
-            researchers: List[ResearcherCredentials],
-            on_message: Callable = None,
-            debug: bool = False
-        ):
-        """Constructs RPC controller
+    def __init__(self, *args, **kwargs):
+        """Constructs RPC controller"""
         
-        Args: 
-            node_id: The ID of the node component that runs RPC client
-            researchers: List of researchers that the RPC client will connect to.
-            on_message: Callback function to be executed once a task received from the researcher
-            debug: Activates debug mode for `asyncio`
-        
-        """
-        
-        self._rpc_async_task_controller = RPCAsyncTaskController(
-            node_id=node_id, 
-            researchers=researchers, 
-            on_message=on_message, 
-            debug=debug
-        )
+        super().__init__(*args, **kwargs)
 
-        self._debug = debug
-        self._node_id = node_id
         # Adds grpc handler to send node logs to researchers
-        logger.add_grpc_handler(on_log=self.send,
-                                node_id=self._node_id)
+        logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
-
+    def _run(self):
+        """Runs async task controller"""
+        try: 
+            asyncio.run(super().start(), debug=self.debug)
+        except Exception as e:
+            logger.critical(
+                "An exception raised by running tasks within GrpcClients. This will close stopping " 
+                f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
+            logger.info("Node is stopped!")
 
     def start(self):
         """Start GRPCClients in a thread"""
 
-        def _run():
-            try: 
-                asyncio.run(self._rpc_async_task_controller.start(), debug=self._debug)
-            except Exception as e:
-                logger.critical(
-                    "An exception raised by running tasks within GrpcClients. This will close stopping " 
-                    f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
-                logger.info("Node is stopped!")
-
-        self._thread = threading.Thread(target=_run)
+        self._thread = threading.Thread(target=self._run)
         self._thread.daemon = True
         self._thread.start()
         
@@ -222,37 +201,23 @@ class RPCController:
         Args: 
             message: Message to send to researcher
         """
-        # Non blocking call 
-        #  - Create new thread different than main or spawn one
-        #  - runs coroutine `_send` as threadsafe from that thread 
-        # This guarantees that `_send` will be called from different thread
-        # even `send` is called within async-thread  
-        # self.loop.run_in_executor(None, 
-        #                           asyncio.run_coroutine_threadsafe, 
-        #                           self._send(message), 
-        #                           self.loop)
 
         asyncio.run_coroutine_threadsafe(
-            self._rpc_async_task_controller.send(message), 
-            self._rpc_async_task_controller.loop
+            super().send(message), self.loop
         ) 
                                   
 
-    def is_connected(self , async_ = False):
+    def is_connected(self) -> bool:
         """"Checks RPCController is connected to any RPC client.
         
         This method should only be called from different thread than the one that asyncio loop running in.
-
-        Args: 
-            async_: If true method returns awaitable async function. If False, method should be 
-                called from outside of the async event loop. 
-        """
         
-        if async_ == False:
-            future = asyncio.run_coroutine_threadsafe(
-                self._rpc_async_task_controller.is_connected(),
-                self._rpc_async_task_controller.loop
-                )
-            return future.result()
+        Returns:
+            Connection status
+        """
 
-        return self._rpc_async_task_controller.is_connected()
+        future = asyncio.run_coroutine_threadsafe(
+                super().is_connected(), self.loop
+            )
+        
+        return future.result()
