@@ -49,6 +49,8 @@ class Requests(metaclass=SingletonMeta):
 
         # Creates grpc server and starts it
         self._grpc_server = GrpcServer(
+            host=environ["SERVER_HOST"],
+            port=environ["SERVER_PORT"],
             on_message=self.on_message
         )
         self.start_messaging()
@@ -150,7 +152,7 @@ class Requests(metaclass=SingletonMeta):
             ResearcherMessages.format_outgoing_message(msg)
         )
 
-        return  msg.get('sequence', None)
+        return msg.get('sequence', None)
 
     def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
         """Broadcast message
@@ -170,10 +172,10 @@ class Requests(metaclass=SingletonMeta):
 
         # TODO: Return also  the list of node that the messages are sent
         self._grpc_server.broadcast(
-             ResearcherMessages.format_outgoing_message(message)
+            ResearcherMessages.format_outgoing_message(message)
         )
 
-        return  message.get('sequence')
+        return message.get('sequence')
 
 
 
@@ -265,11 +267,11 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # Broadcasts ping request
-        unused_sequence = self.broadcast(
+        self.broadcast(
             PingRequest(
-                    researcher_id = environ["ID"],
-                    sequence = self._sequence,
-                    command = "ping"
+                researcher_id=environ["ID"],
+                sequence=self._sequence,
+                command="ping"
             ),
             add_sequence=True
         )
@@ -294,10 +296,10 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
-                self.send_message({
-                        'tags': tags,
-                        'researcher_id': environ['RESEARCHER_ID'],
-                        "command": "search"},
+                self.send_message(
+                    {'tags': tags,
+                     'researcher_id': environ['RESEARCHER_ID'],
+                     "command": "search"},
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
@@ -305,8 +307,7 @@ class Requests(metaclass=SingletonMeta):
             # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
             self.broadcast({'tags': tags,
                             'researcher_id': environ['ID'],
-                            "command": "search"}
-                        )
+                            "command": "search"})
 
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
@@ -333,9 +334,9 @@ class Requests(metaclass=SingletonMeta):
         # If nodes list is provided
         if nodes:
             for node in nodes:
-                self.send_message({
-                        'researcher_id': environ['RESEARCHER_ID'],
-                        "command": "list"},
+                self.send_message(
+                    {"researcher_id": environ['RESEARCHER_ID'],
+                     "command": "list"},
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
