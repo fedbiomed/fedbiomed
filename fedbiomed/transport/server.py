@@ -6,8 +6,7 @@ import ctypes
 import signal
 
 
-from abc import abstractmethod
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List
 from google.protobuf.message import Message as ProtoBufMessage
 
 
@@ -19,7 +18,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
 from fedbiomed.common.constants import MessageType
-from fedbiomed.transport.node_agent import AgentStore
+from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
 
 from concurrent import futures
 import time
@@ -30,50 +29,6 @@ import sys
 
 DEFAULT_PORT = 50051
 DEFAULT_HOST = 'localhost'
-
-logger.setLevel("INFO")
-
-rnd = random.sample(range(0, 1000000), 100000)
-
-training_task = {
-    "researcher_id" : "test-researcher",
-    "job_id" : "test-job",
-     "training_args" : {"args_1": 12, "args_2": True, "args_3": "string"},
-     "model_args": {"args_1": 12, "args_2": True, "args_3": "string"},
-    "dataset_id": "ddd-id",
-    "training": True, 
-    "training_plan": "Basic training plan",
-    "secagg_servkey_id": None,
-    "secagg_biprime_id ": None,
-    "secagg_random": None, 
-    "secagg_clipping_range":  None,
-    "round": 1,
-    "aggregator_args": {"args_1": 12, "args_2": True, "args_3": "string"},
-    "aux_vars": {"arg_1": rnd, "args_2": rnd, "args_3": rnd, "args_4": rnd, "args_5": rnd, "args_6": rnd, "args_7": rnd,
-                 "arg_1x": rnd, "args_2x": rnd, "args_3x": rnd, "args_4x": rnd, "args_5x": rnd, "args_6x": rnd, "args_7x": rnd,
-                 "arg_1y": rnd, "args_2y": rnd, "args_3y": rnd, "args_4y": rnd, "args_5y": rnd, "args_6y": rnd, "args_7y": rnd,
-                 "arg_1z": rnd, "args_2z": rnd, "args_3z": rnd, "args_4z": rnd, "args_5z": rnd, "args_6z": rnd, "args_7z": rnd,
-                 "arg_1d": rnd, "args_2d": rnd, "args_3d": rnd, "args_4d": rnd, "args_5d": rnd, "args_6d": rnd, "args_7d": rnd
-                  },
-    "model_params": {"arg_1": rnd, "args_2": rnd, "args_3": rnd, "args_4": rnd, "args_5": rnd, "args_6": rnd, "args_7": rnd },
-
-}
-
-
-small_task = {
-        "researcher_id" : "test-researcher",
-    "job_id" : "test-job",
-     "training_args" : {"args_1": 12, "args_2": True, "args_3": "string"},
-     "model_args": {"args_1": 12, "args_2": True, "args_3": "string"},
-    "dataset_id": "ddd-id",
-    "training": True, 
-    "training_plan": "Basic training plan",
-    "secagg_servkey_id": None,
-    "secagg_biprime_id ": None,
-    "secagg_random": None, 
-    "secagg_clipping_range":  None,
-    "round": 1,
-}
 
 
 # Max message length as bytes
@@ -188,6 +143,8 @@ def _default_callback(self, x):
 class _GrpcAsyncServer:
     """GRPC Server class"""
 
+    agent_store: AgentStore
+
     def __init__(
             self, 
             debug: bool = False, 
@@ -204,21 +161,21 @@ class _GrpcAsyncServer:
         self._thread = None 
         self._debug = debug
         self._on_message = on_message
-        self._loop = None
+        self.loop = None
 
 
     async def start(self):
-
-        self._loop = asyncio.get_event_loop()
-
+        """Starts gRPC server"""
+        
         self._server = grpc.aio.server( 
            # futures.ThreadPoolExecutor(max_workers=10),
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
-    
-        self.agent_store = AgentStore(loop=asyncio.get_event_loop())
+
+        self.loop = asyncio.get_running_loop()
+        self.agent_store = AgentStore(loop=self.loop)
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
@@ -229,8 +186,7 @@ class _GrpcAsyncServer:
         
         self._server.add_insecure_port(DEFAULT_HOST + ':' + str(DEFAULT_PORT))
         
-        
-
+        # Starts async gRPC server
         await self._server.start()
 
         try:
@@ -242,38 +198,73 @@ class _GrpcAsyncServer:
                 logger.debug("Done starting the server")
 
 
-    async def broadcast(self, message: Message):
-        """Broadcasts given message to all active clients"""
+    async def broadcast(self, message: Message) -> List[NodeAgent]:
+        """Broadcasts given message to all active clients
+        
+        Args: 
+            message: Message to broadcast
+
+        Returns:
+            Node agents that the message broadcasted to. Includes node agents 
+                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING] 
+                status. 
+        """
 
         agents = await self.agent_store.get_all()
-        for _, agent in agents:
-            if agent.active == False:
-                logger.info(f"Node {agent.id} is not active")
-            agent.send(message)
-            agents.append(agent.id)      
+        ab = []
+        for _, agent in agents.items():
+            print("Here already")
+            async with agent.status_lock:
+                if agent.status == NodeActiveStatus.DISCONNECTED:
+                    logger.info(f"Node {agent.id} is disconnected.")
+                    continue
+                
+                if agent.status == NodeActiveStatus.WAITING:
+                    logger.info(f"Node {agent.id} is in WAITING status. Server is "
+                                "waiting for receiving a request from "
+                                "this node to convert it as ACTIVE. Node will be updated "
+                                "as DISCONNECTED soon if no request received.")
 
-        return agents
+            print("Sending")
+            await agent.send_(message)
+            ab.append(agent)      
 
-    async def get_agent(self, node_id: str):
+        return ab
 
+    async def get_agent(self, node_id: str) -> NodeAgent:
+        """Gets node agent by given node ID
+        
+        Args: 
+            node_id: ID of the node whose agent will be retrieved
+        
+        Returns:
+            Node agent object to control remote node
+        """
         async with self._agent_store_lock:
-            self.agent_store.get(node_id)
+            return self.agent_store.get(node_id)
 
     
 
 class GrpcServer(_GrpcAsyncServer):
+    """Grpc server implementation to be used by threads
     
+    This class extends async implementation of gRPC server to be able to
+    call async methods from different thread. Currently, it is used by 
+    [fedbiomed.researcher.requests.Requests][`Requests`] class that is
+    instantiated in the main thread
+    """
+    
+    def _run(self):
+        """Runs asyncio application"""
+        try:
+            asyncio.run(super().start())
+        except Exception as e:
+            logger.error(f"Researcher gRPC server has stopped. Please try to restart your kernel, {e}")
+
     def start(self):
         """Stats async GrpcServer """
 
-        def run():
-            try:
-                asyncio.run(super().start())
-            except Exception as e:
-                logger.error("Researcher gRPC server has stopped. Please try to restart your kernel")
-            
-
-        self._thread = threading.Thread(target=run, daemon=True)
+        self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
         # FIXME: This implementation assumes that nodes will be able connect in 3 seconds
@@ -290,7 +281,24 @@ class GrpcServer(_GrpcAsyncServer):
             message: Message to broadcast
         """
 
-        return self._run_threadsafe(super().broadcast(message))
+        return self._run_threadsafe(
+            super().broadcast(message)
+        ) 
+
+
+    def get_agent(self, node_id: str):
+        """Gets node agent by node id
+        
+        Args:
+            node_id: Id of the node
+        """
+        return self._run_threadsafe(self.agent_store.get(node_id))
+    
+    def get_all_agents(self):
+        """Gets all agents from agent store"""
+
+        return self._run_threadsafe(self.agent_store.get_all())
+
 
     def is_alive(self) -> bool:
         """Checks if the thread running gRPC server still alive
@@ -299,19 +307,6 @@ class GrpcServer(_GrpcAsyncServer):
             gRPC server running status
         """
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
-
-    def get_agent(self, node_id: str):
-        """Gets node agent by node id
-        
-        Args:
-            node_id: Id of the node
-        """
-        return self._run_threadsafe(super().agent_store.get(node_id))
-    
-    def get_all_agents(self):
-        """Gets all agents from agent store"""
-
-        return self._run_threadsafe(super().agent_store.get_all())
 
 
     def _run_threadsafe(self, coroutine):
@@ -322,11 +317,14 @@ class GrpcServer(_GrpcAsyncServer):
         """
 
         future = asyncio.run_coroutine_threadsafe(
-            coroutine, self._loop
+            coroutine, self.loop
         )
 
         return future.result()
 
+
+
+# TODO: Remove before merging 
 if __name__ == "__main__":
 
     def handler(signum, frame):
