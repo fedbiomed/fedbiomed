@@ -102,7 +102,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """Performs an optimisation step and updates model weights.
         """
 
-    def load_state(self, optim_state: Dict, load_from_state: bool = False):
+    def load_state(self, optim_state: Dict, load_from_state: bool = False) -> Union['BaseOptimizer', None]:
         logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
         return None
     
@@ -159,7 +159,9 @@ class DeclearnOptimizer(BaseOptimizer):
 
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
         # state: breakpoint content for optimizer
-
+        if isinstance(optim_state, Dict):
+            raise FedbiomedOptimizerError(f"Error, incorrect type of argument `optim_state`: expecting a dict, but got {type(optim_state)}")
+            return None
         if load_from_state:
             # first get init state
             
@@ -167,6 +169,8 @@ class DeclearnOptimizer(BaseOptimizer):
 
             optim_state_copy = copy.deepcopy(optim_state)
             optim_state.update(init_optim_state)
+            # check if opimizer state has changed from last optimizer to the current one
+            # if it has changed, find common modules and update common states
             for component in ( 'modules','regularizers',):
                 components_to_keep = []
                 idx = 0
@@ -178,7 +182,7 @@ class DeclearnOptimizer(BaseOptimizer):
                                                    optim_state_copy['states'][component]):
                     print(init_module[0] , new_module[0])
                     if init_module[0] == new_module[0]:
-                        
+                        # if we have the same modules from last to current round, update module wrt last saved state
                         components_to_keep.append((new_module[0], idx))
                     idx += 1
             
@@ -188,9 +192,11 @@ class DeclearnOptimizer(BaseOptimizer):
                     for elem in ( 'states',):
                         for mod_state in optim_state_copy[elem][component]:
                             if mod[0] == mod_state[0]:
-                                logger.info("Detected changes in the optimizer!")
+                                # if we do find same module in the current optimizer than the previous one, 
+                                # we load the previous optimizer module state into the current one
                                 optim_state[elem][component][mod[1]] = mod_state
-        print("OPTIM STATE CHECK", optim_state)
+
+        logger.info(f"Loading optimizer with the following state {optim_state}")
         relaoded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = relaoded_optim
         return self

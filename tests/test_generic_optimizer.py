@@ -14,7 +14,7 @@ import declearn
 from declearn.optimizer import Optimizer as DecOptimizer
 from declearn.optimizer.modules import (
         ScaffoldServerModule, ScaffoldClientModule, GaussianNoiseModule,
-        YogiMomentumModule, L2Clipping, AdaGradModule, YogiModule)
+        YogiMomentumModule, L2Clipping, AdaGradModule, YogiModule, AdamModule, MomentumModule)
 from declearn.optimizer.regularizers import FedProxRegularizer, LassoRegularizer, RidgeRegularizer
 from declearn.model.torch import TorchVector
 from declearn.model.sklearn import NumpyVector
@@ -49,6 +49,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             YogiMomentumModule(),
             L2Clipping(),
             AdaGradModule(),
+            AdamModule(),
             YogiModule()]
         self.regularizers = [FedProxRegularizer(), LassoRegularizer(), RidgeRegularizer()]
 
@@ -423,6 +424,226 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     
                     check_state(state, learning_rate, w_decay, selected_modules, selected_reg, model)
 
+    def test_declearnoptimizer_07_loading_from_previous_state_1_unchanged_optim(self):
+        # simulates loading of an optimizer state from previous round into a new defined optimizer
+        # in the case when declearn optimizer is left unchanged
+        lr = .12345
+        previous_round_optim = FedOptimizer(lr=lr,
+                                      modules=[AdamModule(), YogiMomentumModule()],
+                                      regularizers=[LassoRegularizer()])
+        
+        for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
+            for model in model_wrappers:
+                previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+                previous_optim_state = previous_round_optim_w.save_state()
+                current_round_optim = copy.deepcopy(previous_round_optim)
+                current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
+                current_round_optim_w.load_state(previous_optim_state, load_from_state=True)
+                current_optim_state = current_round_optim_w.save_state()
+                
+                self.assertDictEqual(previous_optim_state, current_optim_state)
+                self.assertNotEqual(id(current_round_optim), id(previous_round_optim))  # make sure they are not same object
+                
+    def test_declearnoptimizer_07_loading_from_previous_state_2_fully_changed_optim(self):
+        # simulates loading of an optimizer state from previous round into a new defined optimizer
+        # case where optimizer has been fully redefined
+        previous_r_lr = .12345
+        current_r_lr = .3456
+        previous_round_optim = FedOptimizer(lr=previous_r_lr,
+                                      modules=[YogiMomentumModule(), AdaGradModule()],
+                                      regularizers=[LassoRegularizer()])
+        
+        current_round_optim = FedOptimizer(lr=current_r_lr, 
+                                          modules=[AdamModule()])
+        
+        
+        for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
+            for model in model_wrappers:
+                previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+                current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
+                previous_round_optim_state = previous_round_optim_w.save_state()
+                current_round_optim_state = current_round_optim_w.save_state()
+                
+                current_round_optim_w.load_state(copy.deepcopy(previous_round_optim_state),
+                                                 load_from_state=True)
+                
+                current_round_optim_state_after_loading = current_round_optim_w.save_state()
+                
+                for module_name in current_round_optim_state['states']:
+                    prev = previous_round_optim_state['states'][module_name]
+                    current = current_round_optim_state['states'][module_name]
+                    current_after_loading = current_round_optim_state_after_loading['states'][module_name]
+                    self.assertNotEqual(prev, current)
+                    self.assertEqual(current, current_after_loading)
+                self.assertNotEqual(
+                    previous_round_optim_state['config']['lrate'],
+                    current_round_optim_state_after_loading['config']['lrate']
+                )
+                
+                self.assertEqual(current_round_optim_state_after_loading['config']['lrate'], current_r_lr)
+                self.assertDictEqual(current_round_optim_state_after_loading, current_round_optim_state)
+                # these states are equal because model hasnot been trained from previous round to current
+
+    def test_declearnoptimizer_08_loading_from_previous_state_1_unchanged_optim_sklearn(self):
+        # simulates training for sklearn models
+        # FIXME: this looks more like an integration test
+        learning_rate = .12345
+        
+        w_decay = .54321
+        n_iter = 10
+        data = np.array([[1, 1, 1, 1,],
+                        [1, 0, 1, 0],
+                        [1, 1, 1, 1]])
+        
+        targets = np.array([[1], [0], [1], [1]])
+
+        for model in self._sklearn_model_wrappers:
+            # TODO: add ScaffoldModule in the list when it will be updated
+            previous_round_optim = FedOptimizer(lr=learning_rate,
+                                            decay=w_decay,
+                                            modules=[AdamModule(), YogiMomentumModule()],
+                                            regularizers=[LassoRegularizer()])
+        
+            current_round_optim = copy.deepcopy(previous_round_optim)
+            previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+            for _ in range(n_iter):
+                previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+                model.set_init_params({'n_features': 4, 'n_classes': 2})
+                
+                with previous_round_optim_w.optimizer_processing():
+                    previous_round_optim_w.init_training()
+                    model.train(data, targets)
+                    previous_round_optim_w.step()
+                
+            current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
+            self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
+
+    def test_declearnoptimizer_08_loading_from_previous_state_1_unchanged_optim_pytorch(self):       
+        # tests on pytorch models
+        learning_rate = .12345
+        
+        w_decay = .54321
+        n_iter = 10
+        data = torch.Tensor([[1,1,1,1],
+                             [1,0,0,1]])
+        targets = torch.Tensor([[1, 1], [0, 1]])
+        
+        loss_func = torch.nn.MSELoss()
+
+        for model in self._torch_model_wrappers:
+            previous_round_optim = FedOptimizer(lr=learning_rate,
+                                            decay=w_decay,
+                                            modules=[AdamModule(), YogiMomentumModule()],
+                                            regularizers=[LassoRegularizer()])
+        
+            current_round_optim = copy.deepcopy(previous_round_optim)
+            previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+            for _ in range(n_iter):
+                
+                previous_round_optim_w.init_training()
+                previous_round_optim_w.zero_grad()
+                output = model.model.forward(data)
+                loss = loss_func(output, targets)
+                loss.backward()
+                previous_round_optim_w.step()
+
+            current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
+            self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
+
+    def check_optimizer_states(self, previous_round_optim: DeclearnOptimizer, current_round_optim: DeclearnOptimizer, is_same_optimizer:bool):
+        previous_round_optim_state = previous_round_optim.save_state()
+        optim_state_before_loading = copy.deepcopy(current_round_optim.save_state())
+        current_round_optim.load_state(previous_round_optim_state, load_from_state=True)
+        current_round_optim_state = current_round_optim.save_state()
+
+        # checks
+        if is_same_optimizer:
+            # here we check that optimizer that has been trained is reloaded for the next round accordingly
+            # (provided optimizer has not changed from one Round to another)
+            self.assertDictEqual(current_round_optim_state, previous_round_optim_state)
+        # check that reloaded optimodules have different states than the original ones
+        for curr_module_state, before_loading_module_state in zip(
+            current_round_optim_state['states']['modules'],
+            optim_state_before_loading['states']['modules']
+            ):
+
+            self.assertNotEqual(curr_module_state, before_loading_module_state)
+
+    def test_declearnoptimizer_08_loading_from_previous_state_3_partially_changed_optimizer_sklearn(self):
+        # test that optimizer is loaded accordingly, when partial changes are detected in the modules of
+        # the declearn optimizer
+        
+        previous_r_lr = .12345
+        current_r_lr = .3456
+        w_decay = .54321
+        n_iter = 10
+        data = np.array([[1, 1, 1, 1,],
+                        [1, 0, 1, 0],
+                        [1, 1, 1, 1]])
+        
+        targets = np.array([[1], [0], [1], [1]])
+
+        
+        for model in self._sklearn_model_wrappers:
+            common_opi_module = YogiMomentumModule()
+            previous_round_optim = FedOptimizer(lr=previous_r_lr,
+                                                decay=w_decay,
+                                        modules=[YogiMomentumModule(), AdaGradModule()],
+                                        regularizers=[LassoRegularizer()])
+            
+            current_round_optim = FedOptimizer(lr=current_r_lr, 
+                                            modules=[YogiMomentumModule(), AdamModule()])
+            previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+            for _ in range(n_iter):
+                
+                model.set_init_params({'n_features': 4, 'n_classes': 2})
+                
+                with previous_round_optim_w.optimizer_processing():
+                    previous_round_optim_w.init_training()
+                    model.train(data, targets)
+                    previous_round_optim_w.step()
+                
+            current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
+            #self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=False)
+            # check that YogiModule has been reloaded accordingly
+            previous_round_optim_state = copy.deepcopy(previous_round_optim_w.save_state())
+
+            current_round_optim_w.load_state(copy.deepcopy(previous_round_optim_state), load_from_state=True)
+            current_round_optim_state = current_round_optim_w.save_state()
+            
+            for curr_module_state, prev_module_state in zip(
+            current_round_optim_state['states']['modules'],
+            previous_round_optim_state['states']['modules']
+            ):
+                if curr_module_state[0] == common_opi_module.name:
+                    self.assertEqual(curr_module_state, prev_module_state)
+                else:
+                    self.assertNotEqual(curr_module_state, prev_module_state)
+
+    def test_declearnoptimizer_07_loading_states_from_non_compatible_optimizer(self):
+        # here we test that it is possible to load optimizer from previous optimizer state that is framework-native or corss-framework
+        declearn_learning_rate = .12345
+        torch_learning_rate = .234
+        w_decay = .54321
+
+        for model in self._torch_model_wrappers:
+            torch_optim = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=torch_learning_rate))
+            
+            
+            dec_optim = FedOptimizer(lr=declearn_learning_rate,
+                                                    decay=w_decay,
+                                            modules=[YogiMomentumModule(), AdaGradModule()],
+                                            regularizers=[LassoRegularizer()])
+            dec_optim = DeclearnOptimizer(model, dec_optim)
+            
+            for previous_optim, current_optim in ((torch_optim, dec_optim, ), (dec_optim, torch_optim,),):
+                pass
+                # TODO: test that in `Round` Test
+                # previous_optim_state = previous_optim.save_state()
+                # current_optim.load_state(copy.deepcopy(previous_optim_state), load_from_state=True)
+                # current_optim_state = current_optim.save_state()
+
+        
     def test_declearnoptimizer_05_declearn_optimizers_1_sklearnModel(self):
         # performs a number of optimization steps with randomly created optimizers
         # FIXME: nothing is being asserted here...
@@ -435,8 +656,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
                         [1, 1, 1, 1]])
         
         targets = np.array([[1], [0], [1], [1]])
-        optim, modules , regs = self.create_random_declearn_optimizer(learning_rate, w_decay)
+        
         for _ in range(nb_tests):
+            optim, modules , regs = self.create_random_declearn_optimizer(learning_rate, w_decay)
             for model in self._sklearn_model_wrappers:
                 optim_w = DeclearnOptimizer(model, optim)
                 model.set_init_params({'n_features': 4, 'n_classes': 2})
@@ -455,10 +677,11 @@ class TestDeclearnOptimizer(unittest.TestCase):
         
         learning_rate = .12345
         w_decay = .54321
-        optim, modules , regs = self.create_random_declearn_optimizer(learning_rate, w_decay)
+
         loss_func = torch.nn.MSELoss()
         nb_tests = 10
         for _ in range(nb_tests):
+            optim, modules , regs = self.create_random_declearn_optimizer(learning_rate, w_decay)
             for model in self._torch_model_wrappers:
                 optim_w = DeclearnOptimizer(model, optim)
 
