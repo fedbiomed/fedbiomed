@@ -16,11 +16,11 @@
 # the -d directive can be repeated to run more than one node
 #
 # Example:
-# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json
 #
 # This will run 3 nodes:
-# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json

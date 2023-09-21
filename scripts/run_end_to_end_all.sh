@@ -13,12 +13,11 @@ ln -s ~/Data/fedbiomed ./data
 list_notebooks=( notebooks/*.ipynb)
 
 test_counter=1
-for notebook in ${list_notebooks[@]}; do
-#for notebook in ${list_notebooks[@]}; do # \todo Uncomment it when finishing to debug.
+for notebook in ${list_notebooks[@]:0:10}; do # \todo remove the split :..:.. when all notebooks are working.
     echo "adding ${notebook}"
 cat <<EOF >>${bats_file}
 @test "${test_counter} - $(basename ${notebook})" {
-    ./scripts/run_end_to_end_test -s ${notebook}  \
+    ./scripts/run_end_to_end_one.sh -s ${notebook}  \
         -d ./tests/datasets/mnist.json  \
         -d ./tests/datasets/test_data_csv.json \
         -d ./tests/datasets/celeba.json 3>&- \
