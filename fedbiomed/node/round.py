@@ -392,7 +392,6 @@ class Round:
             # end : clean the namespace
             try:
                 del self.training_plan
-                del CurrentTrainingPlan
                 del CurrentTPModule
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
