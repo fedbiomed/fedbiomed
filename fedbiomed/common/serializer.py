@@ -8,6 +8,7 @@ from typing import Any
 
 import msgpack
 import numpy as np
+import pandas as pd
 import torch
 from declearn.model.api import Vector
 
@@ -112,6 +113,12 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
+        if isinstance(obj, pd.DataFrame):
+            obj = obj.to_records()
+            spec = [obj.tobytes(), obj.dtype]
+            return {"__type__": "pd.DataFrame", "value": spec}
+        if isinstance(obj, pd.Series):
+            return {"__type__": "pd.Series", "value": obj.to_dict()}
         # Raise on unsupported types.
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
@@ -139,6 +146,11 @@ class Serializer:
             return torch.from_numpy(array)
         if objtype == "Vector":
             return Vector.build(obj["value"])
+        if objtype == "pd.DataFrame":
+            data, dtype = obj["value"]
+            return pd.DataFrame(np.frombuffer(data, dtype=dtype))
+        if objtype == "pd.Series":
+            return pd.Series(obj["value"])
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )

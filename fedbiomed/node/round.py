@@ -792,6 +792,7 @@ class Round:
 
         query = getattr(data_manager.dataset, query_type)
         result = query(**query_kwargs)
+        result = Serializer.dumps(result).hex()
         success = True
         return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
                                                      'job_id': self.job_id,

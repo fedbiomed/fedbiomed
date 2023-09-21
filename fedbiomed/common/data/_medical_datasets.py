@@ -879,9 +879,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                 imaging_means[modality] += image / n
             for modality, image in target.items():
                 target_means[modality] += image / n
-        imaging_means = {modality: image.detach().numpy().tolist() for modality, image in imaging_means.items()}
-        target_means = {modality: image.detach().numpy().tolist() for modality, image in target_means.items()}
-        demographics_means = self.demographics.mean(numeric_only=True).to_dict()
+        imaging_means = {modality: image.detach() for modality, image in imaging_means.items()}
+        target_means = {modality: image.detach() for modality, image in target_means.items()}
+        demographics_means = self.demographics.mean(numeric_only=True)
         return {'imaging_means': imaging_means,
                 'target_means': target_means,
                 'demographics_means': demographics_means,
@@ -892,21 +892,17 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         from functools import reduce
         total_num_samples = reduce(lambda x, y: x + y['num_samples'], node_means, 0)
         imaging_mean = {
-            modality: (torch.stack(
+            modality: torch.stack(
                 [torch.Tensor(x['imaging_means'][modality])*x['num_samples'] for x in node_means]
-            ).sum(axis=0) / total_num_samples).tolist()
+            ).sum(axis=0) / total_num_samples
             for modality in node_means[0]['imaging_means']}
         target_mean = {
-            modality: (torch.stack(
+            modality: torch.stack(
                 [torch.Tensor(x['target_means'][modality])*x['num_samples'] for x in node_means]
-            ).sum(axis=0) / total_num_samples).tolist()
+            ).sum(axis=0) / total_num_samples
             for modality in node_means[0]['target_means']}
-        demographics_means = {
-            column: (Tensor(
-                [x['demographics_means'][column]*x['num_samples'] for x in node_means]
-            ).sum() / total_num_samples).item()
-            for column in node_means[0]['demographics_means']
-        }
+        demographics_means = reduce(lambda x, y: x + y['demographics_means']*y['num_samples'],
+                                    node_means, 0)
         return {
             'imaging_means': imaging_mean,
             'target_means': target_mean,

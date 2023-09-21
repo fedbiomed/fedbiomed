@@ -4,6 +4,7 @@
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.job import Job
+from fedbiomed.common.serializer import Serializer
 
 
 class FedAnalytics:
@@ -41,6 +42,7 @@ class FedAnalytics:
             query_results = self._job.requests.get_responses(look_for_commands=['analytics_query', 'error'],
                                                              only_successful=False)
             for result in query_results.data():
+                result['results'] = Serializer.loads(bytes.fromhex(result['results']))
                 self._responses_history[-1].append(result)
 
         results = [x['results'] for x in self._responses_history[-1]]

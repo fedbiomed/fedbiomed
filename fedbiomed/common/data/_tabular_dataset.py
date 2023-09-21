@@ -99,11 +99,11 @@ class TabularDataset(Dataset):
 
     def mean(self):
         if self.target is not None:
-            return {'inputs': self.inputs.mean(axis=0).tolist(),
-                    'targets': self.target.mean(axis=0).tolist(),
+            return {'inputs': self.inputs.mean(axis=0),
+                    'targets': self.target.mean(axis=0),
                     'num_samples': self.target.shape[0]}
         else:
-            return {'inputs': self.inputs.mean(axis=0).tolist(),
+            return {'inputs': self.inputs.mean(axis=0),
                     'targets': None,
                     'num_samples': self.target.shape[0]}
 

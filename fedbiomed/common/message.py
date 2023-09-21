@@ -675,7 +675,7 @@ class AnalyticsQueryReply(Message, RequiresProtocolVersion):
     success: bool
     command: str
     query_type: str
-    results: dict
+    results: str  # bytes encoded a utf-8 string
 
 class MessageFactory:
     """Pack message contents into the appropriate Message class."""
