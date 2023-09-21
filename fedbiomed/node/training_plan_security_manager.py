@@ -488,7 +488,6 @@ class TrainingPlanSecurityManager:
 
         Args:
             msg: approval request message, received from Researcher
-            messaging: MQTT client to send reply  to researcher
         """
 
         reply = {
@@ -568,7 +567,6 @@ class TrainingPlanSecurityManager:
         Args:
             msg: Message that is received from researcher.
                 Formatted as TrainingPlanStatusRequest
-            messaging: MQTT client to send reply  to researcher
         """
 
         # Main header for the training plan status request

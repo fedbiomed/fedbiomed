@@ -113,15 +113,11 @@ class Aggregator:
         self._training_plan_type = training_plan_type
         return self._training_plan_type
 
-    def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
+    def create_aggregator_args(self, *args, **kwargs) -> Dict:
         """Returns aggregator arguments that are expecting by the nodes
 
         Returns:
-            dict: contains `Aggregator` parameters that will be sent through MQTT message
-                    service
-            dict: contains parameters that will be sent through file exchange message.
-                    Both dictionaries are mapping node_id to 'Aggregator` parameters specific
-                    to each Node.
+            contains `Aggregator` parameters/argument that will be shared with the nodes 
         """
         return self._aggregator_args or {}
 

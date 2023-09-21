@@ -10,10 +10,10 @@ Following features were added from to the original module:
 
 - provides a logger instance of FedLogger, which is also a singleton, so it can be used "as is"
 - provides a dedicated file handler
-- provides a JSON/MQTT handler: all messages with priority greater than error are sent to the MQQT handler
+- provides a JSON/gRPC handler
 (this permit to send error messages from a node to a researcher)
 - works on python scripts / ipython / notebook
-- manages a dictionary of handlers. Default keys are 'CONSOLE', 'MQTT', 'FILE',
+- manages a dictionary of handlers. Default keys are 'CONSOLE', 'GRPC', 'FILE',
   but any key is allowed (only one handler by key)
 - allow changing log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
@@ -55,8 +55,9 @@ DEFAULT_LOG_FILE = 'mylog.log'
 DEFAULT_LOG_LEVEL = logging.WARNING
 DEFAULT_FORMAT = '%(asctime)s %(name)s %(levelname)s - %(message)s'
 
+
 class _GrpcFormatter(logging.Formatter):
-    """Mqtt  formatter """
+    """gRPC log  formatter """
 
     # ATTENTION: should not be imported from this module
 
@@ -77,7 +78,7 @@ class _GrpcFormatter(logging.Formatter):
 
 class _GrpcHandler(logging.Handler):
     """Logger handler for GRPC connections 
-    
+
     This class handles the log messages that are tagged as to be sent to
     researcher.
     """
@@ -86,12 +87,12 @@ class _GrpcHandler(logging.Handler):
             self,
             on_log: Callable,
             node_id: str = None,
-        ) -> None:
+    ) -> None:
         """Constructor
 
         Args:
             on_log: Method to call to send log to researcher
-            node_id: unique MQTT client id
+            node_id: unique node id
         """
 
         logging.Handler.__init__(self)

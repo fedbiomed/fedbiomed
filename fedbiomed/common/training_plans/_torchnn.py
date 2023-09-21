@@ -555,13 +555,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self.model().train()  # restore training behaviors
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
-        """Handles and loads aggregators arguments sent through MQTT and
-        file exchanged system. If sent through file exchanged system, loads the arguments.
+        """Handles and loads aggregators arguments to received from the researcher
 
         Args:
-            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
-            'aggregator_correction' with correction states)
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument 
+                name with its value (eg 'aggregator_correction' with correction states)
         """
+        
         self.aggregator_name = aggregator_args.get('aggregator_name', self.aggregator_name)
         # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
         # by an aggregator handler that contains all keys for all strategies

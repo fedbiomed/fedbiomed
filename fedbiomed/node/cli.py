@@ -164,7 +164,7 @@ def launch_node(node_args: Union[dict, None] = None):
     except KeyboardInterrupt:
         p.terminate()
 
-        # give time to the node to send a MQTT message
+        # give time to the node to send message
         time.sleep(1)
         while p.is_alive():
             logger.info("Terminating process id =" + str(p.pid))

@@ -356,12 +356,8 @@ class Job:
         Args:
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
-                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
-                node_id, and sub-dictionary sould be parameters to be sent through MQTT messaging system
-            aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
-                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
-                aggregator_args_thr_msg .
+            aggregator_args: dictionary containing some metadata about the aggregation
+                strategy, useful to transfer some data when it's required by am aggregator.
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
