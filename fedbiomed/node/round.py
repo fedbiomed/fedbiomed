@@ -5,6 +5,9 @@
 implementation of Round class of the node component
 '''
 
+import atexit
+import tempfile
+import shutil
 import importlib
 import inspect
 import os
@@ -61,14 +64,14 @@ class Round:
         """Constructor of the class
 
         Args:
+            training_plan: code of the training plan for this round
+            training_plan_class: class name of the training plan
             model_kwargs: contains model args. Defaults to None.
             training_kwargs: contains training arguments. Defaults to None.
             training: whether to perform a model training or just to perform a validation check (model infering)
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description... . Defaults to None.
-            training_plan_url: url from which to download training plan file
-            training_plan_class: name of the training plan (eg 'MyTrainingPlan')
-            params_url: url from which to upload/download model params
+            params: parameters of the model
             job_id: job id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
@@ -80,8 +83,9 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
-            aux_var_urls: Optional tuple of URLs of files containing Optimizer auxiliary variables
-                that are to be processed by the training plan's optimizer.
+            dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
+            round_number: number of the iteration for this experiment
+            aux_var: auxiliary variables of the model.
         """
 
         self._use_secagg: bool = False
@@ -112,6 +116,11 @@ class Round:
         self._biprime = None
         self._servkey = None
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
+
+        self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+        atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
+        # when script ends running (replace
+        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -216,19 +225,42 @@ class Round:
 
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
-            approved, training_plan_ = self.tp_security_manager.\
-                check_training_plan_status(
-                    self.training_plan_source,
-                    TrainingPlanApprovalStatus.APPROVED)
+            try:
+                approved, training_plan_ = self.tp_security_manager.\
+                    check_training_plan_status(
+                        self.training_plan_source,
+                        TrainingPlanApprovalStatus.APPROVED)
 
-            if not approved:
-                self._send_round_reply(False, 
-                                       f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
-            else:
-                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
+                if not approved:
+                    self._send_round_reply(False,
+                                           f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
+                else:
+                    logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
+            except Exception as e:
+                # FIXME: this will trigger if model is not approved by node
+                error_message = f"Cannot download training plan files: {repr(e)}"
+                return self._send_round_reply(success=False, message=error_message)
 
-        TPModule, TrainingPlan = utils.import_class_from_spec(code=self.training_plan_source, class_name=self.training_plan_class) 
-        self.training_plan = TrainingPlan()
+        # Import training plan, save to file, reload, instantiate a training plan
+        CurrentTPModule, CurrentTrainingPlan = utils.import_class_from_spec(
+            code=self.training_plan_source, class_name=self.training_plan_class)
+        self.training_plan = CurrentTrainingPlan()
+
+        # save and load training plan to a file to be sure
+        # 1. a file is associated to training plan so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
+        try:
+            self.training_plan.save_code(training_plan_file, from_code=self.training_plan_source)
+        except Exception as e:
+            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
+            return
+        del CurrentTrainingPlan
+        del CurrentTPModule
+
+        CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
+            self._keep_files_dir, training_plan_module, self.training_plan_class)
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
@@ -358,7 +390,8 @@ class Round:
             # end : clean the namespace
             try:
                 del self.training_plan
-                del TPModule
+                del CurrentTrainingPlan
+                del CurrentTPModule
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
 

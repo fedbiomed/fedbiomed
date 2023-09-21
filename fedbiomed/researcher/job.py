@@ -140,7 +140,7 @@ class Job:
         # configure and load dependencies for the training plan
         self._training_plan.configure_dependencies()
 
-        # save and load training plan to be sure
+        # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied
         training_plan_module = 'my_model_' + str(uuid.uuid4())
@@ -150,8 +150,9 @@ class Job:
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
+        del self._training_plan
 
-        self._training_plan = utils.import_class_from_file(
+        _, self._training_plan = utils.import_class_object_from_file(
             self._keep_files_dir, training_plan_module, self._training_plan_class.__name__)
 
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,

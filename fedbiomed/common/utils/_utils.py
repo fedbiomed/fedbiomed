@@ -5,7 +5,7 @@ import sys
 import inspect
 import importlib.util
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Optional, Union, Any
+from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
 from IPython.core.magics.code import extract_symbols
 
 import torch
@@ -86,7 +86,7 @@ def is_ipython() -> bool:
         return False
 
 
-def import_class_from_file(module_dir: str, module_name: str, class_name: str) -> Any:
+def import_class_object_from_file(module_dir: str, module_name: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and create an instance of a specified class of the module.
 
     Args:
@@ -95,7 +95,7 @@ def import_class_from_file(module_dir: str, module_name: str, class_name: str) -
         class_name: name of the class
 
     Returns:
-        The training plan object created
+        Tuple of the module creaged and the training plan object created
 
     Raises:
         FedbiomedError: bad argument type
@@ -114,23 +114,40 @@ def import_class_from_file(module_dir: str, module_name: str, class_name: str) -
         raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Cannot import class '{class_name}' "
                              "from directory '{module_dir}': {e}") 
 
-    return train_class()
+    return module, train_class()
 
-def import_class_from_spec(code: str, class_name: str):
+def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any] :
+    """Import a module from a code and extract the code of a specified class of the module.
 
-    if not isinstance(class_name, str):
-        raise FedbiomedError(f"Expected class name type is string but got {type(class_name)}.")
+    Args:
+        code: code of the module
+        class_name: name of the class
 
-    spec = importlib.util.spec_from_loader("module_", loader=None)
-    module = importlib.util.module_from_spec(spec)
-    exec(code, module.__dict__)
+    Returns:
+        Tuple of the module created and the extracted class
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot load module or extract clas
+    """
+
+    for arg in [code, class_name]:
+        if not isinstance(arg, str):
+            raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
+
+    try:
+        spec = importlib.util.spec_from_loader("module_", loader=None)
+        module = importlib.util.module_from_spec(spec)
+        exec(code, module.__dict__)
+    except Exception as e:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not load module from given code: {e}")
 
     try:
         class_ = getattr(module, class_name)
-    except AttributeError as exp:
-        raise FedbiomedError(f"Can not import {class_name} from given code.")
-    
-    return  module, class_
+    except AttributeError:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not import {class_name} from given code")
+
+    return module, class_
 
 
 def get_ipython_class_file(cls: Callable) -> str:

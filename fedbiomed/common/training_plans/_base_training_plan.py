@@ -197,7 +197,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         return content
 
-    def save_code(self, filepath: str) -> None:
+    def save_code(self, filepath: str, from_code: Union[str, None] = None) -> None:
         """Saves the class source/codes of the training plan class that is created byuser.
 
         Args:
@@ -207,8 +207,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
             FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
         """
-        content = self.source()
-        
+        if from_code is None:
+            content = self.source()
+        else:
+            if not isinstance(from_code, str):
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
+                                                 "got: {type(from_code)}")
+            content = from_code
+
         try:
             # should we write it in binary (for the sake of space optimization)?
             with open(filepath, "w", encoding="utf-8") as file:
