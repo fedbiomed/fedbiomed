@@ -187,7 +187,6 @@ class RPCController:
             node_id=node_id, 
             researchers=researchers, 
             on_message=on_message, 
-            debug=debug
         )
 
         self._debug = debug

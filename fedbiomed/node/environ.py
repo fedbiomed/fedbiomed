@@ -105,7 +105,6 @@ class NodeEnviron(Environ):
 
         # Parse each researcher ip and port
         researcher_sections = [section for section in self._cfg.sections() if section.startswith("researcher")]
-        researchers = self._cfg.items('researcher')
         self._values["RESEARCHERS"] = []
         for section in researcher_sections:
             self._values["RESEARCHERS"].append(ResearcherCredentials(
@@ -150,10 +149,12 @@ class NodeEnviron(Environ):
             'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
+        # Default researcher network endpoint
+        self._cfg["researcher"] = {
+            "ip": "localhost",
+            "port": 50051
+        }
 
-        self._cfg["researchers"] = [
-            {"ip": "localhost", "port": 50051}
-        ]
             
     def info(self):
         """Print useful information at environment creation"""
