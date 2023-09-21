@@ -39,7 +39,7 @@ __version__ = FBM_Component_Version('4.4.4')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __breakpoints_version__ = FBM_Component_Version('2')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
+__messaging_protocol_version__ = FBM_Component_Version('2')  # format of gRPC messages.
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 
@@ -226,7 +226,7 @@ class VEParameters:
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
-    # MQTT errors
+    # GRPC errors
     FB100 = "FB100: undetermined messaging server error"
     FB101 = "FB101: cannot connect to the messaging server"
     FB102 = "FB102: messaging server does not answer in dedicated time"

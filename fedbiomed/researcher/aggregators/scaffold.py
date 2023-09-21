@@ -275,7 +275,7 @@ class Scaffold(Aggregator):
         self,
         global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
         node_ids: Collection[str]
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """Return correction states that are to be sent to the nodes.
 
         Args:
@@ -284,11 +284,7 @@ class Scaffold(Aggregator):
             node_ids: identifiers of the nodes that are to receive messages.
 
         Returns:
-            aggregator_msg: Dict associating MQTT-transmitted messages to node
-                identifiers.
-            aggregator_dat: Dict associating file-exchange-transmitted messages
-                to node identifiers. The Scaffold correction states are part of
-                this dict.
+            Aggregator arguments to share with the nodes for the next round
         """
         # Optionally initialize states, and verify that nodes are known.
         if not self.nodes_deltas:
@@ -298,7 +294,7 @@ class Scaffold(Aggregator):
                 "Scaffold cannot create aggregator args for nodes that are not"
                 "covered by its attached FederatedDataset."
             )
-        # Pack node-wise messages, for the MQTT and file exchange channels.
+
         aggregator_dat = {}
         for node_id in node_ids:
             # If a node was late-added to the FederatedDataset, create states.
@@ -311,7 +307,7 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-            
+    
         return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:

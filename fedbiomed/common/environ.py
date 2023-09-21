@@ -35,8 +35,6 @@ Common Global Variables:
 - VAR_DIR                 : Var directory of Fed-BioMed
 - CACHE_DIR               : Cache directory of Fed-BioMed
 - TMP_DIR                 : Temporary directory
-- MQTT_BROKER             : MQTT broker IP address
-- MQTT_BROKER_PORT        : MQTT broker port
 - UPLOADS_URL             : Upload URL for file repository
 - MPSPDZ_IP               : MP-SPDZ endpoint IP of component
 - DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
