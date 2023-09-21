@@ -651,6 +651,10 @@ class AnalyticsQueryRequest(Message, RequiresProtocolVersion):
     query_kwargs: str  # bytes encoded as a hex string
     training_plan_url: str
     training_plan_class: str
+    secagg_servkey_id: (str, type(None))
+    secagg_biprime_id: (str, type(None))
+    secagg_random: (float, type(None))
+    secagg_clipping_range: (int, type(None))
 
 @catch_dataclass_exception
 @dataclass
