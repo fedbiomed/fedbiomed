@@ -257,6 +257,41 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 deltas[node_id].update(delta)
         return deltas
     
+    def check_optimizer_states(self,
+                               previous_round_optim: DeclearnOptimizer,
+                               current_round_optim: DeclearnOptimizer,
+                               is_same_optimizer:bool):
+        """Checks that states of `previous_round_optim` (that mimicks the optimizer of previous round)is different
+        from state of `current_round_optim` (that mimicks optimizer of the current round).
+
+        Args:
+            previous_round_optim (DeclearnOptimizer): mimicks optimizer of previous round
+            current_round_optim (DeclearnOptimizer): mimicks optimizer of current round
+            is_same_optimizer (bool): set `True` to perform an additional test, that checks if optimizers states
+                are equal.
+        
+        Raises:
+            AssertionError: as expected for tests, raised if test fails
+        """
+        previous_round_optim_state = previous_round_optim.save_state()
+        optim_state_before_loading = copy.deepcopy(current_round_optim.save_state())
+        current_round_optim.load_state(previous_round_optim_state, load_from_state=True)
+        current_round_optim_state = current_round_optim.save_state()
+
+        # checks
+        if is_same_optimizer:
+            # here we check that optimizer that has been trained is reloaded for the next round accordingly
+            # (provided optimizer has not changed from one Round to another)
+            self.assertDictEqual(current_round_optim_state, previous_round_optim_state)
+        # check that reloaded optimodules have different states than the original ones
+        for curr_module_state, before_loading_module_state in zip(
+            current_round_optim_state['states']['modules'],
+            optim_state_before_loading['states']['modules']
+            ):
+
+            self.assertNotEqual(curr_module_state, before_loading_module_state)
+
+
     # -------- TESTS ------------------------------------
     def test_declearnoptimizer_01_init_invalid_model_arguments(self):
 
@@ -550,24 +585,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
             current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
             self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
 
-    def check_optimizer_states(self, previous_round_optim: DeclearnOptimizer, current_round_optim: DeclearnOptimizer, is_same_optimizer:bool):
-        previous_round_optim_state = previous_round_optim.save_state()
-        optim_state_before_loading = copy.deepcopy(current_round_optim.save_state())
-        current_round_optim.load_state(previous_round_optim_state, load_from_state=True)
-        current_round_optim_state = current_round_optim.save_state()
-
-        # checks
-        if is_same_optimizer:
-            # here we check that optimizer that has been trained is reloaded for the next round accordingly
-            # (provided optimizer has not changed from one Round to another)
-            self.assertDictEqual(current_round_optim_state, previous_round_optim_state)
-        # check that reloaded optimodules have different states than the original ones
-        for curr_module_state, before_loading_module_state in zip(
-            current_round_optim_state['states']['modules'],
-            optim_state_before_loading['states']['modules']
-            ):
-
-            self.assertNotEqual(curr_module_state, before_loading_module_state)
 
     def test_declearnoptimizer_08_loading_from_previous_state_3_partially_changed_optimizer_sklearn(self):
         # test that optimizer is loaded accordingly, when partial changes are detected in the modules of
@@ -619,29 +636,6 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     self.assertEqual(curr_module_state, prev_module_state)
                 else:
                     self.assertNotEqual(curr_module_state, prev_module_state)
-
-    def test_declearnoptimizer_07_loading_states_from_non_compatible_optimizer(self):
-        # here we test that it is possible to load optimizer from previous optimizer state that is framework-native or corss-framework
-        declearn_learning_rate = .12345
-        torch_learning_rate = .234
-        w_decay = .54321
-
-        for model in self._torch_model_wrappers:
-            torch_optim = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=torch_learning_rate))
-            
-            
-            dec_optim = FedOptimizer(lr=declearn_learning_rate,
-                                                    decay=w_decay,
-                                            modules=[YogiMomentumModule(), AdaGradModule()],
-                                            regularizers=[LassoRegularizer()])
-            dec_optim = DeclearnOptimizer(model, dec_optim)
-            
-            for previous_optim, current_optim in ((torch_optim, dec_optim, ), (dec_optim, torch_optim,),):
-                pass
-                # TODO: test that in `Round` Test
-                # previous_optim_state = previous_optim.save_state()
-                # current_optim.load_state(copy.deepcopy(previous_optim_state), load_from_state=True)
-                # current_optim_state = current_optim.save_state()
 
         
     def test_declearnoptimizer_05_declearn_optimizers_1_sklearnModel(self):
@@ -1251,6 +1245,36 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         # check that the extracted learning rates
         self.assertGreaterEqual(len(t_model.model.state_dict()), len(lr_extracted))
 
+    def test_declearnoptimizer_04_loading_states_from_non_compatible_optimizer(self):
+        # here we test that it is possible to load optimizer from previous optimizer state that is framework-native or corss-framework
+        declearn_learning_rate = .12345
+        torch_learning_rate = .234
+        w_decay = .54321
+
+        for model in self.torch_models:
+            model = TorchModel(model)
+            torch_optim = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=torch_learning_rate))
+            
+            
+            dec_optim = FedOptimizer(lr=declearn_learning_rate,
+                                                    decay=w_decay,
+                                            modules=[YogiMomentumModule(), AdaGradModule()],
+                                            regularizers=[LassoRegularizer()])
+            dec_optim = DeclearnOptimizer(model, dec_optim)
+            
+            dec_optim_state = dec_optim.save_state()
+            
+            torch_optim.load_state(dec_optim_state, load_from_state=True)
+            torch_optim_state = torch_optim.save_state()
+
+            self.assertIsInstance(torch_optim.optimizer, torch.optim.Optimizer)
+            self.assertIsNone(torch_optim_state)
+            for previous_optim, current_optim in ((torch_optim, dec_optim, ), (dec_optim, torch_optim,),):
+                pass
+                # TODO: test that in `Round` Test
+                # previous_optim_state = previous_optim.save_state()
+                # current_optim.load_state(copy.deepcopy(previous_optim_state), load_from_state=True)
+                # current_optim_state = current_optim.save_state()
 
 class TestNativeSklearnOptimizer(unittest.TestCase):
     def setUp(self) -> None:

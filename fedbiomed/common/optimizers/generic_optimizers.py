@@ -158,10 +158,38 @@ class DeclearnOptimizer(BaseOptimizer):
         return aux
 
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
+        """Reconfigures optimizer from a given state (contained in `optim_state`).
+        Usage:
+        ```
+        >>> import torch.nn as nn
+        >>> from fedbiomed.common.optimizers import Optimizer
+        >>> model = nn.Linear(4, 2)
+        >>> optimizer = Optimizer(lr=.1)
+        >>> optim = DeclearnOptimizer(model, optimizer)
+        
+        >>> optim.load_state(state)  # provided state contains the state one wants to load the optimizer with
+        ```
+
+        Args:
+            optim_state (Dict): state of the Optimizer to be loaded. Will change the current state of the optimizer
+                with the one loaded
+            load_from_state (bool, optional): strategy for loading states: whether to load from saved states (True) or
+                from breakpoint (False).
+                If set to True, loading is done partially in the sense that if some of the OptimModules is different in
+                the optim_state and the original state of the optimizer,it loads only the OptiModule that they have in
+                common. Defaults to False.
+
+        Raises:
+            FedbiomedOptimizerError: raised if state is not of dict type.
+
+        Returns:
+            DeclearnOptimizer: Optimizer wrapper reloaded from `optim_state` 
+        """
         # state: breakpoint content for optimizer
-        if isinstance(optim_state, Dict):
-            raise FedbiomedOptimizerError(f"Error, incorrect type of argument `optim_state`: expecting a dict, but got {type(optim_state)}")
-            return None
+        if not isinstance(optim_state, Dict):
+            raise FedbiomedOptimizerError("Error, incorrect type of argument `optim_state`: expecting a dict, but got"
+                                          f" {type(optim_state)}")
+
         if load_from_state:
             # first get init state
             
@@ -171,23 +199,18 @@ class DeclearnOptimizer(BaseOptimizer):
             optim_state.update(init_optim_state)
             # check if opimizer state has changed from last optimizer to the current one
             # if it has changed, find common modules and update common states
-            for component in ( 'modules','regularizers',):
+            for component in ( 'modules', 'regularizers',):
                 components_to_keep = []
-                idx = 0
-                print(component)
+                
                 if not init_optim_state['states'].get(component):
                     continue
-
-                for init_module, new_module in zip(init_optim_state['states'][component],
-                                                   optim_state_copy['states'][component]):
-                    print(init_module[0] , new_module[0])
-                    if init_module[0] == new_module[0]:
-                        # if we have the same modules from last to current round, update module wrt last saved state
-                        components_to_keep.append((new_module[0], idx))
-                    idx += 1
-            
+                self._collect_common_optimodules(
+                    init_optim_state,
+                    optim_state_copy,
+                    component,
+                    components_to_keep
+                )
                 print("CHECK", optim_state, components_to_keep)
- 
                 for mod in components_to_keep:
                     for elem in ( 'states',):
                         for mod_state in optim_state_copy[elem][component]:
@@ -201,6 +224,35 @@ class DeclearnOptimizer(BaseOptimizer):
         self.optimizer = relaoded_optim
         return self
 
+    def _collect_common_optimodules(self,
+                                    init_state: Dict,
+                                    optim_state: Dict,
+                                    component_name: str,
+                                    components_to_keep: List[Tuple[str, int]]):
+        """Methods that checks which methods are common from `init_state`, the current state Optimizer state,
+        and `optim_state`, the previous optimizer state.
+
+        Args:
+            init_state (Dict): current state Optimizer state
+            optim_state (Dict): previous optimizer state
+            component_name (str): component string names that access the list of OptiModule or Regularizers
+                (usually either 'modules' or 'regularizers')
+            components_to_keep (List[Tuple[str, int]]): list containing tuples of common modules between `init_state` and `optim_state`
+                (module_name, index of the list).
+        """
+        idx: int = 0  # list index
+        print(component_name)
+        
+
+        for init_module, new_module in zip(init_state['states'][component_name],
+                                            optim_state['states'][component_name]):
+            print(init_module[0] , new_module[0])
+            if init_module[0] == new_module[0]:
+                # if we have the same modules from last to current round, update module wrt last saved state
+                components_to_keep.append((new_module[0], idx))
+            idx += 1
+            
+                
     def save_state(self) -> Dict:
         optim_state = self.optimizer.get_state()
         return optim_state
