@@ -9,6 +9,8 @@ from typing import Optional, Union, Tuple
 
 import numpy as np
 import pandas as pd
+from functools import reduce
+from functools import reduce
 
 from torch import from_numpy, stack, Tensor
 from torch.utils.data import Dataset
@@ -109,7 +111,6 @@ class TabularDataset(Dataset):
 
     @staticmethod
     def aggregate_mean(node_means: list):
-        from functools import reduce
         total_num_samples = reduce(lambda x, y: x + y['num_samples'], node_means, 0)
         try:
             inputs = stack(
@@ -138,6 +139,48 @@ class TabularDataset(Dataset):
             'inputs':  agg_inputs_means,
             'targets': agg_targets_mean
         }
+
+    def std(self, fed_mean=None):
+        if self.target is not None:
+            return {'inputs': {
+                        'local_std': self.inputs.std(axis=0),
+                        'fed_sum_of_squares': np.power(
+                            (self.inputs - fed_mean['inputs']), 2
+                        ).sum(axis=0)
+                    },
+                    'targets': {
+                        'local_std': self.target.std(axis=0),
+                        'fed_sum_of_squares': np.power(
+                            (self.target - fed_mean['targets']), 2
+                        ).sum(axis=0)
+                    },
+                    'num_samples': self.target.shape[0]}
+        else:
+            return {'inputs': {
+                        'local_std': self.inputs.std(axis=0),
+                        'fed_sum_of_squares': np.power(
+                            (self.inputs - fed_mean['inputs']), 2
+                        ).sum(axis=0)
+                    },
+                    'targets': None,
+                    'num_samples': self.target.shape[0]}
+
+    @staticmethod
+    def aggregate_std(node_results: list):
+        total_num_samples = reduce(lambda x, y: x + y['num_samples'], node_results, 0)
+        total_ss_inputs = reduce(lambda x, y: x + y['inputs']['fed_sum_of_squares'], node_results, 0)
+        agg_inputs_std = np.sqrt(total_ss_inputs/(total_num_samples-1))
+        if all([x['targets'] is not None for x in node_results]):
+            total_ss_targets = reduce(lambda x, y: x + y['targets']['fed_sum_of_squares'], node_results, 0)
+            agg_targets_std = np.sqrt(total_ss_targets/(total_num_samples-1))
+        else:
+            agg_targets_std = None
+        return {
+            'inputs':  agg_inputs_std,
+            'targets': agg_targets_std
+        }
+
+
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:
