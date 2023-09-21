@@ -65,7 +65,10 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
 
     try:
         if _node and _node.is_connected():
-            _node.send_error(ErrorNumbers.FB312)
+            _node.send_error(ErrorNumbers.FB312, 
+                             extra_msg = "Node is stopped",
+                             broadcast=True)
+            time.sleep(2)
             logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
         else:
             # take care of logger level used because message cannot be sent to node

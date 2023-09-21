@@ -25,12 +25,12 @@ class NodeActiveStatus(Enum):
     """Node active status types 
     
     Attributes:
-        IDLE: Corresponds status where researcher server waits another GetTask request after 
+        WAITING: Corresponds status where researcher server waits another GetTask request after 
             the previous one is completed. 
         ACTIVE: Listening for the task with open RPC call
         DISCONNECTED: No GetTask RPC call running from the node 
     """
-    IDLE = 1
+    WAITING = 1
     ACTIVE = 2
     DISCONNECTED = 3 
 
@@ -62,12 +62,43 @@ class NodeAgent:
         self.last_request: datetime = None 
 
         # Node should be active when it is first instantiated
-        self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
+        self.status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
         self._queue = asyncio.Queue()
         self._loop = loop 
         self._status_task = None
-        self._async_lock = asyncio.Lock()
+        self.status_lock = asyncio.Lock()
+
+    async def active(self) -> None:
+        """Updates node status as active"""
+
+        async with self.status_lock:
+
+            # Inform user that node is online again
+            if self.status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {self.id} is back online!")
+
+            self.status = NodeActiveStatus.ACTIVE
+                    
+            # Cancel status task if there is any running
+            if self._status_task:
+                self._status_task.cancel()
+
+    async def send_(self, message: Message):
+        """Async function send message to researcher"""
+
+        if not isinstance(message, Message):
+            raise Exception("Message is not an instance of fedbiomed.common.message.TaskMessage")
+
+
+        async with self.status_lock:
+            if self.status == NodeActiveStatus.DISCONNECTED:
+                raise Exception(f"Node is not active. Last communication {self.last_request}")
+
+        try:
+            await self._queue.put(message)
+        except Exception as exp:
+            raise Exception(f"Can't send message to the client. Exception: {exp}")
 
 
     def get_status_threadsafe(self):
@@ -77,8 +108,8 @@ class NodeAgent:
         modified by asyncio thread. 
         """
         async def get():
-            async with self._async_lock:
-                return self._status
+            async with self.status_lock:
+                return self.status
 
         future = asyncio.run_coroutine_threadsafe(get(), self._loop)
         return future.result()
@@ -86,7 +117,11 @@ class NodeAgent:
     
 
     def set_context(self, context):
-        """Sets context for the current RPC call"""
+        """Sets context for the current RPC call
+        
+        Args:
+            context: RPC call context
+        """
         self.context = context
         self.context.add_done_callback(self._on_get_task_request_done)
 
@@ -103,43 +138,11 @@ class NodeAgent:
             callback: Callback to execute once the task reply is arrived
         """
 
-        # TODO: The messaged that are going to send to node 
-        # should be declared as Task to have task id automatically 
-        # created. However, this implementation should change once
-        # the messages are typed on gRPC layer instead serializing 
-        # the message string and send as researcher_pb2.TaskResponse
-        # please see researcher.proto file
-        if not isinstance(message, Message):
-            raise Exception("Message is not an instance of fedbiomed.common.message.TaskMessage")
-
-
-        status = self.get_status_threadsafe()
-        if status == NodeActiveStatus.DISCONNECTED:
-            raise Exception(f"Node is not active. Last communication {self.last_request}")
-         
         try:
-            self._loop.call_soon_threadsafe(
-                self._queue.put_nowait, message
-            )
+            return asyncio.run_coroutine_threadsafe(self.send_(message), self._loop)
         except Exception as exp:
             raise Exception(f"Can't send message to the client. Exception: {exp}")
         
-
-    def register_callback(self, task_id: str, callback: Callable):
-        """Registers callback for the task 
-        
-        Callback function is executed once the task reply has arrived.
-        """
-
-        spec = get_method_spec(callback)
-
-        if len(spec) != 2: 
-            raise Exception("Callback for reply should have at 2 arguments. First argument " 
-                            "for reply second argument for node id")
-        
-        self._task_callbacks.update({
-            task_id: callback
-        })
 
     def get(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
@@ -156,26 +159,11 @@ class NodeAgent:
         The callback is executed when the RPC call is canceled, done or aborted, including
         if the process on the node side stops.        
         """
-        self._status = NodeActiveStatus.IDLE
+        self.status = NodeActiveStatus.WAITING
 
         # Imply DISCONNECT after 10seconds rule asynchronously 
         self._status_task = asyncio.create_task(self._change_node_status_disconnected())
 
-
-    async def active(self) -> None:
-        """Updates node status as active"""
-
-        async with self._async_lock:
-
-            # Inform user that node is online again
-            if self._status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {self.id} is back online!")
-
-            self._status = NodeActiveStatus.ACTIVE
-                    
-            # Cancel status task if there is any running
-            if self._status_task:
-                self._status_task.cancel()
 
 
     async def _change_node_status_disconnected(self) -> None:
@@ -184,13 +172,13 @@ class NodeAgent:
         Node becomes DISCONNECTED if it doesn't become ACTIVE in 10 seconds
         """
 
-        # Sleep at least 10 seconds in IDLE
+        # Sleep at least 10 seconds in WAITING
         await asyncio.sleep(10)
 
-        # If the status still IDLE set status to DISCONNECTED
-        async with self._async_lock:
-            if self._status == NodeActiveStatus.IDLE:
-                self._status = NodeActiveStatus.DISCONNECTED
+        # If the status still WAITING set status to DISCONNECTED
+        async with self.status_lock:
+            if self.status == NodeActiveStatus.WAITING:
+                self.status = NodeActiveStatus.DISCONNECTED
                 logger.warning(
                     f"Node {self.id} is disconnected. Request/task that are created "
                     "for this node will be flushed" )
@@ -207,8 +195,10 @@ class AgentStore:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
         """
+        self.node_agents: NodeAgent = {}
+
         self._loop = loop
-        self.node_agents = {}
+        self.store_lock = asyncio.Lock()
 
     async def get_or_register(
             self, 
@@ -225,37 +215,39 @@ class AgentStore:
             The node agent to manage tasks that are assigned to it.
         """
 
-        node = self.get(node_id=node_id)
+        node = await self.get(node_id=node_id)
 
         if not node:
-            node = await self._loop.run_in_executor(None, self.register,  node_id)
+            node = await self.register(node_id)
 
         await node.active()
 
         return node
 
 
-    def register(
+    async def register(
             self, 
             node_id:str
         ) -> NodeAgent:
         """Register new node agent. 
-         
-        This method designed to be coroutine and thread-safe
         
         Args: 
             node_id: ID to register
-            node_ip: IP to register
         """
         # Lock the thread for register operation
         node = NodeAgent(id=node_id, loop=self._loop)
-        with _node_store_lock:
+        async with self.store_lock:
             self.node_agents.update({node_id: node})
 
         return node
         
+    async def get_all(self) -> List[NodeAgent]:
+        """Returns all node agents regardless ACTIVE or DISCONNECTED"""
 
-    def get(
+        async with self.store_lock:
+            return self.node_agents
+        
+    async def get(
             self,
             node_id: str
         ) -> NodeAgent:
@@ -264,4 +256,5 @@ class AgentStore:
         Args: 
             node_id: Id of the node
         """
-        return self.node_agents.get(node_id)
+        async with self.store_lock:
+            return self.node_agents.get(node_id)
