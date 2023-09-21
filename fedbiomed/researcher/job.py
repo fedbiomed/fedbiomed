@@ -144,10 +144,10 @@ class Job:
 
         # TODO: apply patch from issue 870
         #
-        self._training_plan.configure_dependencies()
-        _, TrainingPlan = utils.import_class_from_spec(
-            code=self._training_plan.source(), class_name=training_plan_class_name) 
-        self._training_plan = TrainingPlan()
+        #self._training_plan.configure_dependencies()
+        #_, TrainingPlan = utils.import_class_from_spec(
+        #    code=self._training_plan.source(), class_name=training_plan_class_name) 
+        #self._training_plan = TrainingPlan()
 
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
