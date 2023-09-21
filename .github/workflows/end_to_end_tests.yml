@@ -37,7 +37,7 @@ jobs:
         id: e2e-tests
         run: |
           echo "Launching end-to-end tests" # to check from time to time
-          ./scripts/run_end_to_end_tests.sh
+          ./scripts/run_end_to_end_all.sh
           ls ./rep*
           ls ./end_to_end_tests_outputs/*
         shell: bash -l {0}
