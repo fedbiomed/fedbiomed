@@ -479,7 +479,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 self.assertDictEqual(previous_optim_state, current_optim_state)
                 self.assertNotEqual(id(current_round_optim), id(previous_round_optim))  # make sure they are not same object
                 
-    def test_declearnoptimizer_07_loading_from_previous_state_2_fully_changed_optim(self):
+    def test_declearnoptimizer_07_loading_from_previous_state_1_fully_changed_optim(self):
         # simulates loading of an optimizer state from previous round into a new defined optimizer
         # case where optimizer has been fully redefined
         previous_r_lr = .12345
@@ -519,7 +519,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 self.assertDictEqual(current_round_optim_state_after_loading, current_round_optim_state)
                 # these states are equal because model hasnot been trained from previous round to current
 
-    def test_declearnoptimizer_08_loading_from_previous_state_1_unchanged_optim_sklearn(self):
+    def test_declearnoptimizer_07_loading_from_previous_state_2_unchanged_optim_sklearn(self):
         # simulates training for sklearn models
         # FIXME: this looks more like an integration test
         learning_rate = .12345
@@ -553,7 +553,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
             self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
 
-    def test_declearnoptimizer_08_loading_from_previous_state_1_unchanged_optim_pytorch(self):       
+    def test_declearnoptimizer_07_loading_from_previous_state_3_unchanged_optim_pytorch(self):       
         # tests on pytorch models
         learning_rate = .12345
         
@@ -586,7 +586,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
 
 
-    def test_declearnoptimizer_08_loading_from_previous_state_3_partially_changed_optimizer_sklearn(self):
+    def test_declearnoptimizer_07_loading_from_previous_state_4_partially_changed_optimizer_sklearn(self):
         # test that optimizer is loaded accordingly, when partial changes are detected in the modules of
         # the declearn optimizer
         
@@ -638,7 +638,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     self.assertNotEqual(curr_module_state, prev_module_state)
 
         
-    def test_declearnoptimizer_05_declearn_optimizers_1_sklearnModel(self):
+    def test_declearnoptimizer_08_declearn_optimizers_1_sklearnModel(self):
         # performs a number of optimization steps with randomly created optimizers
         # FIXME: nothing is being asserted here...
         nb_tests = 10  # number of time the following test will be executed
@@ -662,7 +662,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     model.train(data, targets)
                     optim_w.step()
 
-    def test_declearnoptimizer_05_declearn_optimizers_2_torchmodel(self):
+    def test_declearnoptimizer_08_declearn_optimizers_2_torchmodel(self):
         # performs a number of optimization steps with randomly created optimizers
         # FIXME: nothing is being asserted here...
         data = torch.Tensor([[1,1,1,1],
@@ -687,7 +687,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 optim_w.step()
 
     
-    def test_declearnoptimizer_06_declearn_scaffold_1_sklearnModel(self):
+    def test_declearnoptimizer_09_declearn_scaffold_1_sklearnModel(self):
         # FIXME: this test is more a funcitonal test and should belong to trainingplan tests
         # test with one server and one node on a SklearnModel
         
@@ -792,7 +792,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     for  (k, v) in model.get_weights().items():
                         self.assertTrue(np.array_equal(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]))
 
-    def test_declearnoptimizer_06_declearn_scaffold_2_torchModel(self):
+    def test_declearnoptimizer_09_declearn_scaffold_2_torchModel(self):
         # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables for scaffold
         # in addition to model parameters
         # it tests:
@@ -903,7 +903,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     for  (k, v) in model.get_weights().items():
                         self.assertTrue(torch.isclose(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]).all())
 
-    def test_declearnoptimizer_07_multiple_scaffold(self):
+    def test_declearnoptimizer_10_multiple_scaffold(self):
         # the goal of this test is to check that user will get error if specifying non sensical 
         # Optimizer when passing both `ScaffoldServerModule()`and `ScaffoldClientModule()` modules
 
@@ -1275,6 +1275,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
                 # previous_optim_state = previous_optim.save_state()
                 # current_optim.load_state(copy.deepcopy(previous_optim_state), load_from_state=True)
                 # current_optim_state = current_optim.save_state()
+
 
 class TestNativeSklearnOptimizer(unittest.TestCase):
     def setUp(self) -> None:
