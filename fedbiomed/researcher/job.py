@@ -759,13 +759,15 @@ class Job:
         Args:
             saved_state: breakpoint content
         """
+        # update node_state_agent when reloading Job's state
+        self._node_state_agent.set_federated_dataset(self._data or self._nodes)
         # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
         self._node_state_agent.load_state_ids_from_bkpt(saved_state.get('node_state_ids'))
         # Upload the latest model parameters. This records the filename and url.
         self.update_parameters(filename=saved_state.get("model_params_path"))
-        # Reloadthe latest training replies.
+        # Reload the latest training replies.
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies', [])
         )

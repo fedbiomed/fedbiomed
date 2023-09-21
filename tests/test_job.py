@@ -819,14 +819,19 @@ class TestJob(ResearcherTestCase):
             patch_job_load_training_replies
     ):
         """
-        test if the job state values correctly initialize job
+        test if the job state values correctly initialize job (from breakpoints)
         """
-
+        node_states = {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'}
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = node_states
+        self.job.nodes = node_states
         job_state = {
             'researcher_id': 'my_researcher_id_123456789',
             'job_id': 'my_job_id_abcdefghij',
             'model_params_path': '/path/to/my/model_file.py',
-            'training_replies': {0: 'un', 1: 'deux'}
+            'training_replies': {0: 'un', 1: 'deux'},
+            'node_state_ids': node_states
         }
         new_training_replies = {2: 'trois', 3: 'quatre'}
 
@@ -842,6 +847,7 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
         self.assertEqual(self.job._id, job_state['job_id'])
         self.assertEqual(self.job._training_replies, new_training_replies)
+        self.assertDictEqual(self.job._node_state_agent.get_last_node_states(), job_state['node_state_ids'])        
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
@@ -855,6 +861,16 @@ class TestJob(ResearcherTestCase):
         """
         test that job breakpoint state structure + file links are created
         """
+        fds_content = {'node_id_xxx': MagicMock(), 'node_id_xyx': MagicMock()}
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = fds_content
+        
+        test_job = Job(
+            training_plan_class=self.model,
+            training_args=training_args_for_testing,
+            data=self.fds
+        )
 
         new_training_replies = [
             [
@@ -890,17 +906,20 @@ class TestJob(ResearcherTestCase):
         breakpoint_path = 'xxx'
 
         # action
-        save_state = self.job.save_state(breakpoint_path)
-
+        save_state = test_job.save_state(breakpoint_path)
+        node_states = {k: None for k in fds_content}
         self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
-        self.assertEqual(self.job._id, save_state['job_id'])
+        self.assertEqual(test_job._id, save_state['job_id'])
         self.assertEqual(link_path, save_state['model_params_path'])
+        self.assertDictEqual(node_states, save_state['node_state_ids'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
             for response_i, _ in enumerate(round):
                 self.assertEqual(
                     save_state['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
+                
+        # TODO: extend test with case when Job got replies form Nodes
 
     def test_job_24_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},

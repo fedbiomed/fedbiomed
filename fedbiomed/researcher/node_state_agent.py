@@ -15,7 +15,7 @@ class NodeStateAgent:
     def __init__(self, fds: Optional[Union[FederatedDataSet, Dict[str, str]]] = None) -> None:
         # NOTA: job's training_replies contains all previous Node states_id, 
         # please consider using it to load previous Rounds
-        self._data: Union[FederatedDataSet, Dict[str, str]] = None
+        self._data: Union[FederatedDataSet, Dict[str, str]] = None  # Mapping <node_id, state_id>
         self._collection_state_ids: Dict[str, str] = None
         if fds is not None:
             self.set_federated_dataset(fds)
