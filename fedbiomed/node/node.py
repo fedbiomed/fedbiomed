@@ -16,6 +16,7 @@ from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRe
     AnalyticsQueryRequest
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.serializer import Serializer
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -252,7 +253,8 @@ class Node:
         )
 
         query_type = msg.get_param('query_type')
-        query_kwargs = msg.get_param('query_kwargs')
+        serialized_query_kwargs = msg.get_param('query_kwargs')
+        query_kwargs = Serializer.loads(bytes.fromhex(serialized_query_kwargs))
         reply_msg = round.run_analytics_query(query_type=query_type, query_kwargs=query_kwargs)
         return self.reply(reply_msg)
 

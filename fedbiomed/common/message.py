@@ -648,7 +648,7 @@ class AnalyticsQueryRequest(Message, RequiresProtocolVersion):
     dataset_id: str
     command: str
     query_type: str
-    query_kwargs: dict
+    query_kwargs: str  # bytes encoded as a hex string
     training_plan_url: str
     training_plan_class: str
 
@@ -675,7 +675,7 @@ class AnalyticsQueryReply(Message, RequiresProtocolVersion):
     success: bool
     command: str
     query_type: str
-    results: str  # bytes encoded a utf-8 string
+    results: str  # bytes encoded as a hex string
 
 class MessageFactory:
     """Pack message contents into the appropriate Message class."""

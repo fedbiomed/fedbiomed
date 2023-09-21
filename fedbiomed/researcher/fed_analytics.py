@@ -19,16 +19,20 @@ class FedAnalytics:
     def fed_mean(self, **kwargs):
         return self._submit_fed_analytics_query(query_type='mean', query_kwargs=kwargs)
 
+    def fed_std(self, **kwargs):
+        return self._submit_fed_analytics_query(query_type='std', query_kwargs=kwargs)
+
     def _submit_fed_analytics_query(self, query_type: str, query_kwargs: dict):
 
         self._job.nodes = self._job.data.node_ids()
+        serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
 
         msg = {
             'researcher_id': self._researcher_id,
             'job_id': self._job.id,
             'command': 'analytics_query',
             'query_type': query_type,
-            'query_kwargs': query_kwargs,
+            'query_kwargs': serialized_query_kwargs,
             'training_plan_url': self._job._repository_args['training_plan_url'],
             'training_plan_class': self._job._repository_args['training_plan_class']
         }
