@@ -5,11 +5,13 @@ import sys
 import inspect
 import importlib.util
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Optional, Union
+from typing import Callable, Iterator, List, Optional, Union, Any
 from IPython.core.magics.code import extract_symbols
 
 import torch
 import numpy as np
+
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -28,7 +30,7 @@ def read_file(path):
             file.close()
     except Exception as e:
         raise FedbiomedError(
-            f"Can not read file {path}. Error: {e}"
+            f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
         )
     else:
         return content
@@ -51,7 +53,7 @@ def get_class_source(cls: Callable) -> str:
     """
 
     if not inspect.isclass(cls):
-        raise FedbiomedError('The argument `cls` must be a python class')
+        raise FedbiomedError(f'{ErrorNumbers.FB627.value}: The argument `cls` must be a python class')
 
     # Check ipython status
     status = is_ipython()
@@ -83,6 +85,36 @@ def is_ipython() -> bool:
     except NameError:
         return False
 
+
+def import_class_from_file(module_dir: str, module_name: str, class_name: str) -> Any:
+    """Import a module from a file and create an instance of a specified class of the module.
+
+    Args:
+        module_dir: directory of the module file
+        module_name: name of the module (without the file trailing `.py`)
+        class_name: name of the class
+
+    Returns:
+        The training plan object created
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot load module or create object
+    """
+    for arg in [module_dir, module_name, class_name]:
+        if not isinstance(arg, str):
+            raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
+
+    try:
+        sys.path.insert(0, module_dir)
+        module = importlib.import_module(module_name)
+        train_class = getattr(module, class_name)
+        sys.path.pop(0)
+    except Exception as e:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Cannot import class '{class_name}' "
+                             "from directory '{module_dir}': {e}") 
+
+    return train_class()
 
 def import_class_from_spec(code: str, class_name: str):
 
@@ -123,7 +155,7 @@ def get_ipython_class_file(cls: Callable) -> str:
             if inspect.isfunction(member) and cls.__qualname__ + '.' + member.__name__ == member.__qualname__:
                 return inspect.getfile(member)
     else:
-        raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')
+        raise FedbiomedError(f'{ErrorNumbers.FB627.value}: {cls} has no attribute `__module__`, source is not found.')
 
 
 def get_method_spec(method: Callable) -> dict:
@@ -159,14 +191,15 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, 
     """
 
     if not isinstance(value, (torch.Tensor, np.integer, np.floating, float, int)):
-        raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB627.value}: Converting {type(value)} to python to float is not supported.")
 
     # if the result is a tensor, convert it back to numpy
     if isinstance(value, torch.Tensor):
         value = value.numpy()
 
     if isinstance(value, Iterable) and value.size > 1:
-        raise FedbiomedError("Can not convert array-type objects to float.")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not convert array-type objects to float.")
 
     return float(value)
 
@@ -182,7 +215,7 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
     """
 
     if not isinstance(iterator, Iterable):
-        raise FedbiomedError(f"object {type(iterator)} is not iterable")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: object {type(iterator)} is not iterable")
 
     list_of_floats = []
     if isinstance(iterator, dict):

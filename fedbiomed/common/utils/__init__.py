@@ -5,12 +5,13 @@ from ._utils import (
     read_file,
     get_class_source,
     is_ipython,
+    import_class_from_spec,
+    import_class_from_file,
     get_ipython_class_file,
     get_method_spec,
     convert_to_python_float,
     convert_iterator_to_list_of_python_floats,
     compute_dot_product,
-    import_class_from_spec
 )
 
 
@@ -46,6 +47,8 @@ __all__ = [
     "read_file",
     "get_class_source",
     "is_ipython",
+    "import_class_from_file"
+    "import_class_from_spec",
     "get_ipython_class_file",
     "get_method_spec",
     "convert_to_python_float",
@@ -66,8 +69,7 @@ __all__ = [
     "matching_parties_biprime",
     # _versions
     "raise_for_version_compatibility",
-    "__default_version__"
+    "__default_version__",
     "FBM_Component_version",
-    "import_class_from_spec"
 ]
 
