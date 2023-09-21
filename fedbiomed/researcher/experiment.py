@@ -2357,7 +2357,7 @@ class Experiment:
 
     @exp_exceptions
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
+                              training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -2370,11 +2370,7 @@ class Experiment:
         If the node id(s) list is None (default), the message is broadcast to all nodes.
 
         Args:
-            training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training_plan (class)
-                   - an instance of a training plan
+            training_plan: the training plan class to send to the nodes for approval.
             nodes: list of nodes (specified by their UUID)
             description: Description for training plan approve request
             timeout: maximum waiting time for the answers

@@ -120,7 +120,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         random.seed(rseed)
         np.random.seed(rseed)
 
-    def add_dependency(self, dep: List[str]) -> None:
+    def _add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
 
         These dependencies are used while creating a python module.
@@ -165,7 +165,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return []
 
-    def configure_dependencies(self) -> None:
+    def _configure_dependencies(self) -> None:
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
@@ -179,7 +179,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
                 "tuple of str, but got {type(dependencies)}"
             )
-        self.add_dependency(dependencies)
+        self._add_dependency(dependencies)
 
     def source(self) -> str:
 

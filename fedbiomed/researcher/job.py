@@ -137,9 +137,6 @@ class Job:
         else:
             self._training_plan = self._training_plan_class
 
-        # configure and load dependencies for the training plan
-        self._training_plan.configure_dependencies()
-
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied

@@ -44,7 +44,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     - a `training_data()` function
     - a `training_step()` function
 
-    Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
+    Researcher may have to add extra dependencies/python imports, by using `init_dependencies` method.
 
     Attributes:
         dataset_path: The path that indicates where dataset has been stored
@@ -98,7 +98,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._device = self._device_init
 
         # list dependencies of the model
-        self.add_dependency(["import torch",
+        self._add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from fedbiomed.common.training_plans import TorchTrainingPlan",
@@ -110,6 +110,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Aggregated model parameters
         #self._init_params: List[torch.Tensor] = None
+
+        # Add dependencies
+        self._configure_dependencies()
 
     def post_init(
             self,
@@ -147,8 +150,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         torch.manual_seed(rseed)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
-        # Add dependencies
-        self.configure_dependencies()
         # Configure aggregator-related arguments
         # TODO: put fedprox mu inside strategy_args
         self._fedprox_mu = self._training_args.get('fedprox_mu')

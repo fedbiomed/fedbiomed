@@ -157,7 +157,7 @@ class TestTorchnn(unittest.TestCase):
         self.assertTrue(os.path.isfile(file))
         os.remove(file)
 
-    @patch("fedbiomed.common.training_plans.TorchTrainingPlan.configure_dependencies")
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer")
     def test_torch_training_plan_02_post_init(self, conf_optimizer_model, conf_deps):
 
@@ -175,16 +175,16 @@ class TestTorchnn(unittest.TestCase):
         conf_optimizer_model.assert_called_once()
         conf_deps.assert_called_once()
 
-    @patch('fedbiomed.common.training_plans.BaseTrainingPlan.add_dependency')
-    def test_torch_training_plan_03_configure_deps(self, add_dependency):
+    @patch('fedbiomed.common.training_plans.BaseTrainingPlan._add_dependency')
+    def test_torch_training_plan_03_configure_deps(self, _add_dependency):
         """Test private method configure dependencies """
-        add_dependency.return_value = None
+        _add_dependency.return_value = None
 
         # Test default init dependencies
         tp = TorchTrainingPlan()
-        add_dependency.reset_mock()
-        tp.configure_dependencies()
-        add_dependency.assert_called_once()
+        _add_dependency.reset_mock()
+        tp._configure_dependencies()
+        _add_dependency.assert_called_once()
 
         # Wrong 1 -----------------------------------------------------------------
         class FakeWrongTP(BaseFakeTrainingPlan):
@@ -193,7 +193,7 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeWrongTP()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp.configure_dependencies()
+            tp._configure_dependencies()
 
         # Wrong 2 -----------------------------------------------------------------
         class FakeWrongTP(BaseFakeTrainingPlan):
@@ -202,7 +202,7 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeWrongTP()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp.configure_dependencies()
+            tp._configure_dependencies()
 
     def test_torch_training_plan_04_configure_model_and_optimizer_1(self):
         """Tests method for configuring model and optimizer """

@@ -51,11 +51,11 @@ class TestBaseTrainingPlan(unittest.TestCase):
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
 
-    def test_base_training_plan_01_add_dependency(self):
+    def test_base_training_plan_01__add_dependency(self):
         """ Test  adding dependencies """
 
         expected = ['from torch import nn']
-        self.tp.add_dependency(expected)
+        self.tp._add_dependency(expected)
         self.assertListEqual(expected, self.tp._dependencies, 'Can not set dependency properly')
 
     def test_base_training_plan_02_set_dataset_path(self):
@@ -76,7 +76,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
         # Test with adding dependencies
         with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
-            self.tp.add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
+            self.tp._add_dependency(['from fedbiomed.common.training_plans import TorchTrainingPlan'])
             self.tp.save_code(expected_filepath)
             mock_open.assert_called_once_with(expected_filepath, "w", encoding="utf-8")
 

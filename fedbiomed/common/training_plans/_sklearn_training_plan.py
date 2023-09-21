@@ -65,14 +65,17 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
-        self.add_dependency([
+        self._add_dependency([
             "import inspect",
             "import numpy as np",
             "import pandas as pd",
             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
             "from fedbiomed.common.data import DataManager",
         ])
-        self.add_dependency(list(self._model_dep))
+        self._add_dependency(list(self._model_dep))
+
+        # Add dependencies
+        self._configure_dependencies()
 
     def post_init(
             self,
@@ -94,9 +97,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         super().post_init(model_args, training_args, aggregator_args)
         self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
-
-        # Add dependencies
-        self.configure_dependencies()
 
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
