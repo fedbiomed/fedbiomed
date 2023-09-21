@@ -119,8 +119,7 @@ class Round:
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
-        # when script ends running (replace
-        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
+
 
     def initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
@@ -241,6 +240,7 @@ class Round:
                 error_message = f"Cannot download training plan files: {repr(e)}"
                 return self._send_round_reply(success=False, message=error_message)
 
+
         # Import training plan, save to file, reload, instantiate a training plan
         CurrentTPModule, CurrentTrainingPlan = utils.import_class_from_spec(
             code=self.training_plan_source, class_name=self.training_plan_class)
@@ -254,8 +254,10 @@ class Round:
         try:
             self.training_plan.save_code(training_plan_file, from_code=self.training_plan_source)
         except Exception as e:
-            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
-            return
+            error_message = "Cannot save the training plan to a local tmp dir" 
+            logger.error(f"Cannot save the training plan to a local tmp dir : {e}")
+            return self._send_round_reply(success=False, message=error_message)
+
         del CurrentTrainingPlan
         del CurrentTPModule
 
@@ -409,14 +411,14 @@ class Round:
             extend_with: Optional[Dict] = None,
             timing: dict = {},
     ) -> None:
-        """ Sends reply to researcher after training/validation. 
+        """Sends reply to researcher after training/validation. 
         
         Message content changes based on success status.
 
         Args:
-            message: Message regarding the process.
             success: Declares whether training/validation is successful
-            params_url: URL where parameters are uploaded
+            message: Message regarding the process.
+            extend_with: Extends the train reply
             timing: Timing statistics
         """
 
@@ -426,14 +428,14 @@ class Round:
         # If round is not successful log error message
         return NodeMessages.format_outgoing_message(
             {'node_id': environ['NODE_ID'],
-            'job_id': self.job_id,
-            'researcher_id': self.researcher_id,
-            'command': 'train',
-            'success': success,
-            'dataset_id': self.dataset['dataset_id'] if success else '',
-            'msg': message,
-            'timing': timing,
-            **extend_with})
+             'job_id': self.job_id,
+             'researcher_id': self.researcher_id,
+             'command': 'train',
+             'success': success,
+             'dataset_id': self.dataset['dataset_id'] if success else '',
+             'msg': message,
+             'timing': timing,
+             **extend_with})
 
 
     def process_optim_aux_var(self) -> str:
@@ -474,12 +476,15 @@ class Round:
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
         empty dict. If it does not hold any BaseOptimizer however, raise a
         FedbiomedRoundError.
+
+        Returns: 
+            Auxiliary variables 
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
             aux_var = optimizer.optimizer.get_aux()
 
-            if aux_var and self._use_secagg:
+            if aux_var and self._use_secagg: 
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, but those are not encrypted with SecAgg.'
@@ -494,6 +499,9 @@ class Round:
         This method is merely a failsafe for the case when the training plan's
         optimizer initialization step is malfunctioning, which should never
         happen, lest the end-user writes wrongful code.
+
+        Returns: 
+            Optimizer defined in training plan
         """
         optimizer = self.training_plan.optimizer()
         if optimizer is None:
