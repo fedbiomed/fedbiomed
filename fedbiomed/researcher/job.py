@@ -134,20 +134,25 @@ class Job:
         # create/save TrainingPlan instance
         if inspect.isclass(self._training_plan_class):
             self._training_plan = self._training_plan_class()  # contains TrainingPlan
-            training_plan_class_name = self._training_plan_class.__name__
-
         else:
             self._training_plan = self._training_plan_class
-            training_plan_class_name = type(self._training_plan).__name__
 
         # configure and load dependencies for the training plan
+        self._training_plan.configure_dependencies()
 
-        # TODO: apply patch from issue 870
-        #
-        #self._training_plan.configure_dependencies()
-        #_, TrainingPlan = utils.import_class_from_spec(
-        #    code=self._training_plan.source(), class_name=training_plan_class_name) 
-        #self._training_plan = TrainingPlan()
+        # save and load training plan to be sure
+        # 1. a file is associated to training plan so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
+        try:
+            self._training_plan.save_code(self._training_plan_file)
+        except Exception as e:
+            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
+            return
+
+        self._training_plan = utils.import_class_from_file(
+            self._keep_files_dir, training_plan_module, self._training_plan_class.__name__)
 
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
@@ -163,6 +168,10 @@ class Job:
     @property
     def training_plan(self):
         return self._training_plan
+
+    @ property
+    def training_plan_file(self):
+        return self._training_plan_file
 
     @property
     def requests(self):

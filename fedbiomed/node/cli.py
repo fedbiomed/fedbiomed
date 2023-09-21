@@ -113,8 +113,8 @@ def manage_node(node_args: Union[dict, None] = None):
 
         logger.info('Starting communication channel with network')
         _node = Node(dataset_manager=dataset_manager,
-                    tp_security_manager=tp_security_manager,
-                    node_args=node_args)
+                     tp_security_manager=tp_security_manager,
+                     node_args=node_args)
         _node.start_messaging(block=False)
 
         logger.info('Starting task manager')

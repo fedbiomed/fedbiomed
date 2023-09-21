@@ -20,7 +20,6 @@ from google._upb._message import RepeatedScalarContainer, ScalarMapContainer
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
 
