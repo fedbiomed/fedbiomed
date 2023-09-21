@@ -325,7 +325,7 @@ class Node:
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
-                                    'extra_msg': str(e),
+                                    'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
                                     'researcher_id': item.get_param('researcher_id'),
                                     'errnum': ErrorNumbers.FB300.name
