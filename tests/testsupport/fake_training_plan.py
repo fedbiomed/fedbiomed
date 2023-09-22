@@ -75,6 +75,19 @@ class FakeModel(BaseTrainingPlan):
     def optimizer(self):
         return self._optimizer
 
+    def init_dependencies(self):
+        return ['from fedbiomed.common.training_plans import BaseTrainingPlan',
+                'from typing import Any, Dict, Optional',
+                'from unittest import mock',
+                'import time',
+                'from fedbiomed.common.constants import TrainingPlans',
+                'import torch',
+                'from torch.utils.data import Dataset, DataLoader',
+                'from fedbiomed.common.models import Model',
+                'from fedbiomed.common.optimizers import BaseOptimizer',
+                'from fedbiomed.common.data import DataManager',
+        ]
+
     def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
@@ -96,6 +109,7 @@ class FakeModel(BaseTrainingPlan):
         Args:
             path (str): saving path
         """
+        super().save_code(path)
 
     def set_dataset_path(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally

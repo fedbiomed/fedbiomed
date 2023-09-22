@@ -96,7 +96,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
 
         # Add dependencies
-        self._configure_dependencies()
+        self.configure_dependencies()
 
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
