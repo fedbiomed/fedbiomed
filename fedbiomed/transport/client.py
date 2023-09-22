@@ -1,4 +1,3 @@
-import queue
 import grpc
 import asyncio
 import abc
@@ -26,12 +25,12 @@ def create_channel(
     certificate: str = None
 ) -> grpc.Channel :
     """ Create gRPC channel 
-    
+
     Args: 
         ip: 
         port:
         certificate:
-    
+
     Returns: 
         gRPC connection channel
     """
@@ -49,7 +48,7 @@ def create_channel(
     else:
         # TODO: Create secure channel
         pass
-    
+
     # TODO: add callback fro connection state
 
     return channel
@@ -58,7 +57,7 @@ def create_channel(
 
 class GrpcClient:
     """An agent of remote researcher gRPC server
-    
+
     Attributes:
         id: Remote researcher ID
         stub: RPC stub use for researcher services
@@ -67,7 +66,7 @@ class GrpcClient:
     task_stub: ResearcherServiceStub
     queue: asyncio.Queue
 
-    
+
     def __init__(self, node_id: str, researcher, update_id_map: Callable):
 
         self._id = None
@@ -78,7 +77,7 @@ class GrpcClient:
 
         self._feedback_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
         self.feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
-        
+
         self._task_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
         self.task_stub = ResearcherServiceStub(channel=self._task_channel)
 
@@ -86,13 +85,12 @@ class GrpcClient:
             stub=self.task_stub, 
             node_id=self._node_id, 
             on_status_change = self._on_status_change, 
-            update_id=self._update_id
-            )
+            update_id=self._update_id)
+
         self.sender = Sender(
             feedback_stub=self.feedback_stub, 
             task_stub=self.task_stub,
-            node_id=self._node_id
-            )
+            node_id=self._node_id)
 
         self._loop = asyncio.get_running_loop()
         self._running_tasks = []
@@ -102,7 +100,7 @@ class GrpcClient:
 
     def start(self, on_task) -> List[Awaitable[asyncio.Task]]:
         """Start researcher gRPC agent.
-        
+
         Starts long-lived task polling and the async queue for the replies
         that is going to be sent back to researcher.
 
@@ -122,15 +120,15 @@ class GrpcClient:
 
     def _on_status_change(self, status: ClientStatus):
         """Callback function to call once researcher status is changed
-        
+
         Args: 
             status: New status of the researcher client
         """
         self._status = status
 
-    async def _update_id(self, id_:str):
+    async def _update_id(self, id_: str):
         """Updates researcher ID
-        
+
         Args: 
             id_: Researcher Id 
         """
@@ -143,19 +141,19 @@ class Listener:
     def __init__(
             self, 
             node_id: str, 
-        ) -> None:
+    ) -> None:
         """Constructs task listener channels
-        
+
         Args: 
             stub: RPC stub to be used for polling tasks from researcher
         """
 
         self._node_id = node_id
-        
+
 
     def listen(self, callback: Optional[Callable] = None) -> Awaitable[asyncio.Task]:
         """Listens for tasks from given channels
-        
+
         Args:
             callback: Callback function 
 
@@ -164,22 +162,23 @@ class Listener:
         """
 
         return asyncio.create_task(self._listen(callback))
-    
+
     @abc.abstractmethod
     def _listen(self, callback):
         pass
-    
- 
+
+
 class TaskListener(Listener):
     """Listener for the task assigned by the researcher component """            
 
-    def __init__(self,  
-                 node_id: str, 
-                 stub,
-                 on_status_change: Optional[Callable] = None,
-                 update_id: Optional[Callable] = None
-            ):
-        
+    def __init__(
+            self,  
+            node_id: str, 
+            stub,
+            on_status_change: Optional[Callable] = None,
+            update_id: Optional[Callable] = None
+    ) -> None:
+
         super().__init__(node_id=node_id)
 
         self._stub = stub
@@ -189,20 +188,21 @@ class TaskListener(Listener):
 
     async def _listen(self, callback: Optional[Callable] = None):
         """"Starts the loop for listening task
-        
+
         Args: 
             callback: Callback to execute once a task is received
         """
 
         while True:
-            
+
             try:
                 await self._request(callback)
             except grpc.aio.AioRpcError as exp:
                 match exp.code():
                     case grpc.StatusCode.DEADLINE_EXCEEDED:
-                        logger.debug(f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
-                    
+                        logger.debug(
+                            f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
+
                     case grpc.StatusCode.UNAVAILABLE:
                         logger.debug("Researcher server is not available, will retry connect in 2 seconds")
                         self._on_status_change(ClientStatus.DISCONNECTED)
@@ -223,7 +223,7 @@ class TaskListener(Listener):
 
     async def _request(self, callback: Optional[Callable] = None) -> None:
         """Requests tasks from Researcher 
-        
+
         Args: 
             researcher: Single researcher GRPC agent
             callback: Callback to execute once a task is arrived
@@ -242,7 +242,7 @@ class TaskListener(Listener):
                     continue
                 else:
                     # Execute callback
-                    logger.debug(f"New task received form researcher")
+                    logger.debug("New task received form researcher")
                     task = Serializer.loads(reply)
 
                     await self._update_id(task["researcher_id"])
@@ -275,13 +275,13 @@ class Sender(Listener):
 
         # While loop retires to send if first one fails to send the result
         while True: 
-            
+
             # Waits until there is something to send back to researcher
             try:
                 await self._get(callback)
             except grpc.aio.AioRpcError as exp:
                 if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    logger.debug(f"Timeout reached. Researcher might be busy. ")
+                    logger.debug("Timeout reached. Researcher might be busy. ")
                     self._queue.task_done()
                     pass
                 elif exp.code() == grpc.StatusCode.UNAVAILABLE:
@@ -292,7 +292,7 @@ class Sender(Listener):
 
     async def _get(self, callback: Optional[Callable] = None):
         """Gets task result from the queue"""
-        
+
         while True:
             if self._retry_count > 5:
                 logger.warning("Message can not be sent to researcher after 5 retries")
@@ -305,7 +305,7 @@ class Sender(Listener):
 
             elif isinstance(msg["stub"], grpc.aio.StreamUnaryMultiCallable): 
                 stream_call = msg["stub"]()
-                
+
                 if callback:
                     callback(msg["message"])
 
@@ -322,7 +322,7 @@ class Sender(Listener):
 
         reply = Serializer.dumps(message.get_dict())
         chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
+        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
             yield TaskResult(
                 size=len(chunk_range),
@@ -337,11 +337,11 @@ class Sender(Listener):
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
                 return await self._queue.put({"stub": self._feedback_stub.Feedback, "message": message.to_proto()})
-          
+
             case _:
                 return await self._queue.put({"stub": self._task_stub.ReplyTask, "message": message}) 
-                    
-                
+
+
 
 class _AsyncQueueBridge(asyncio.Queue): 
     """Provides threadsafe operations for put and get """
@@ -352,7 +352,7 @@ class _AsyncQueueBridge(asyncio.Queue):
 
     def put_threadsafe(self, item):
         """Executes put_nowait as thread safe 
-        
+
         Args: 
             item: Item to put in the queue
         """
@@ -365,4 +365,3 @@ class _AsyncQueueBridge(asyncio.Queue):
         return self.loop_.call_soon_threadsafe(
             super().get_nowait,
         )
-    
