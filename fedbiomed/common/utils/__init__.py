@@ -7,6 +7,7 @@ from ._utils import (
     is_ipython,
     import_class_from_spec,
     import_class_object_from_file,
+    import_class_from_file,
     get_ipython_class_file,
     get_method_spec,
     convert_to_python_float,
@@ -71,5 +72,7 @@ __all__ = [
     "raise_for_version_compatibility",
     "__default_version__",
     "FBM_Component_version",
+    "import_class_object_from_file",
+    "import_class_from_spec",
+    "import_class_from_file"
 ]
-

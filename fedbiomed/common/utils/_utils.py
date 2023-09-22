@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
+import os
 import inspect
 import importlib.util
+import re
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
 from IPython.core.magics.code import extract_symbols
@@ -115,6 +117,40 @@ def import_class_object_from_file(module_dir: str, module_name: str, class_name:
                              "from directory '{module_dir}': {e}") 
 
     return module, train_class()
+
+
+def import_class_from_file(path: str, class_name: str):
+    """Imports classes from python files
+    
+    Args: 
+        path: Path to python file
+    """
+    if not os.path.isfile(path):
+        raise FedbiomedError(f"{ErrorNumbers.FB627}: Given path for importing {class_name} is not existing")
+
+    module_base_name = os.path.basename(path) 
+    pattern = re.compile("(.*).py$")
+
+    match = pattern.match(module_base_name) 
+    if not match:
+        raise FedbiomedError(f"{ErrorNumbers.FB627}: File is not a python file.")
+
+    module = match.group(1)
+    sys.path.insert(0, os.path.dirname(path))
+
+    try:
+        module = importlib.import_module(module)
+    except ModuleNotFoundError as exp:
+        raise FedbiomedError(f"Specified module is not existing. {exp}") from exp
+
+    try:
+        class_ = getattr(module, class_name)
+    except AttributeError as exp:
+        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class " 
+                             f"{class_name} from {path}") from exp
+    sys.path.pop(0)
+
+    return class_ 
 
 def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any] :
     """Import a module from a code and extract the code of a specified class of the module.
