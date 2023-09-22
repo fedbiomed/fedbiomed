@@ -11,14 +11,14 @@ import shutil
 import tempfile
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Type
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -26,6 +26,12 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
+
+# for checking class passed to job (same definitions as experiment ...)
+# TODO : should we move this to common/constants.py ? No because it means import training plans in it ...
+training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
+# for typing only
+Typevar_TrainingPlanClass = TypeVar('Typevar_TrainingPlanClass', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 
 
 class Job:
@@ -40,7 +46,7 @@ class Job:
     def __init__(self,
                  reqs: Optional[Requests] = None,
                  nodes: Optional[dict] = None,
-                 training_plan_class: Optional[BaseTrainingPlan] = None,
+                 training_plan_class: Optional[Typevar_TrainingPlanClass] = None,
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
@@ -66,7 +72,7 @@ class Job:
             msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             logger.critical(msg)
             raise FedbiomedJobError(msg)
-        if not issubclass(training_plan_class, BaseTrainingPlan):
+        if not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
             logger.critical(msg)
             raise FedbiomedJobError(msg)
@@ -621,7 +627,7 @@ class localJob:
 
     def __init__(self,
                  dataset_path: Optional[str] = None,
-                 training_plan_class: Optional[BaseTrainingPlan] = None,
+                 training_plan_class: Optional[Typevar_TrainingPlanClass] = None,
                  training_args: Optional[TrainingArgs] = None,
                  model_args: Optional[dict] = None):
 
@@ -642,7 +648,7 @@ class localJob:
             msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             logger.critical(msg)
             raise FedbiomedJobError(msg)
-        if not issubclass(training_plan_class, BaseTrainingPlan):
+        if not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
             logger.critical(msg)
             raise FedbiomedJobError(msg)

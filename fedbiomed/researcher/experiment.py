@@ -54,11 +54,11 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 
 # for checking class passed to experiment
-# TODO : should we move this to common/constants.py ?
-training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
+# TODO : should we move this to common/constants.py ? No because it means import training plans in it ...
+training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
 # for typing only
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+Typevar_TrainingPlanObject = TypeVar('Typevar_TrainingPlanObject', TorchTrainingPlan, SKLearnTrainingPlan)
+Typevar_TrainingPlanClass = TypeVar('Typevar_TrainingPlanClass', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 T = TypeVar("T")
 
 
@@ -141,7 +141,7 @@ class Experiment:
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
-        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_class: Optional[Typevar_TrainingPlanClass] = None,
         training_plan_path: Union[str, None] = None,
         model_args: dict = {},
         training_args: Union[TrainingArgs, dict, None] = None,
@@ -181,15 +181,15 @@ class Experiment:
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
                 the experiment. `None` means that no limit is defined. Defaults to None.
             training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`Type_TrainingPlan`) to use for training.
+                (`Typevar_TrainingPlanClass`) to use for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be:
                 - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
+                - a `Typevar_TrainingPlanClass` when `training_plan_class_path` is None (training plan class passed
                     as argument).
                 Defaults to None (no training plan class defined yet)
 
             training_plan_path: path to a file containing training plan code [`str`][str] or None (no file containing
-                training plan code, `training_plan` needs to be a class matching `Type_TrainingPlan`) Defaults to None.
+                training plan code, `training_plan` needs to be a class matching `Typevar_TrainingPlanClass`) Defaults to None.
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -436,13 +436,13 @@ class Experiment:
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     @exp_exceptions
-    def training_plan_class(self) -> Union[Type_TrainingPlan, str, None]:
+    def training_plan_class(self) -> Union[Typevar_TrainingPlanClass, str, None]:
         """Retrieves the training plan (training plan class) that is created for training.
 
         Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
 
         Returns:
-            Training plan class as one of [`Type_TrainingPlan`][fedbiomed.researcher.experiment.Type_TrainingPlan]. None
+            Training plan class as one of [`Typevar_TrainingPlanClass`][fedbiomed.researcher.experiment.Typevar_TrainingPlanClass]. None
                 if it isn't declared yet. [`str`][str] if [`training_plan_path`]
                 [fedbiomed.researcher.experiment.Experiment.training_plan_path]that represents training plan class
                 created externally is provided.
@@ -621,10 +621,10 @@ class Experiment:
         else:
             return self._job.training_replies
 
-    # TODO: better checking of training plan object type in Job() to guarantee it is a TrainingPlan
+    # TODO: better checking of training plan object type in Job() to guarantee it is a Typevar_TrainingPlanObject
 
     @exp_exceptions
-    def training_plan(self) -> Union[TrainingPlan, None]:
+    def training_plan(self) -> Union[Typevar_TrainingPlanObject, None]:
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
 
@@ -1119,8 +1119,8 @@ class Experiment:
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
-            Union[Type_TrainingPlan, str, None]:
+    def set_training_plan_class(self, training_plan_class: Union[Typevar_TrainingPlanClass, str, None]) -> \
+            Union[Typevar_TrainingPlanClass, str, None]:
         """Sets  `training_plan` + verification on arguments type
 
         Args:
@@ -1128,7 +1128,7 @@ class Experiment:
                 of [`TrainingPlans`] [fedbiomed.common.training_plans] to use for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be:
                     - a `str` when `training_plan_path` is not None (training plan class comes from a file).
-                    - a `Type_TrainingPlan` when `training_plan_path` is None (training plan class passed
+                    - a `Typevar_TrainingPlanClass` when `training_plan_path` is None (training plan class passed
                     as argument).
 
         Returns:
@@ -1155,7 +1155,7 @@ class Experiment:
                 raise FedbiomedExperimentError(msg)
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans):
+            if issubclass(training_plan_class, training_plans_types):
                 # valid class
                 self._training_plan_class = training_plan_class
                 # training_plan_class_path may not be defined at this point
