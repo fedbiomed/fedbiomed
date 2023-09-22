@@ -10,8 +10,8 @@ from typing import Optional, Union, Tuple
 import numpy as np
 import pandas as pd
 from functools import reduce
-from functools import reduce
 
+import torch
 from torch import from_numpy, stack, Tensor
 from torch.utils.data import Dataset
 
@@ -108,6 +108,31 @@ class TabularDataset(Dataset):
             return {'inputs': self.inputs.mean(axis=0),
                     'targets': None,
                     'num_samples': self.target.shape[0]}
+
+    @staticmethod
+    def flatten_mean(means: dict):
+        format = {}
+        inputs_means = means.pop('inputs')
+        format['inputs'] = list(inputs_means.shape) or [1]
+        inputs_means = inputs_means.flatten()
+        targets_means = means.pop('targets')
+        format['targets'] = list(targets_means.shape) or [1]
+        targets_means = targets_means.flatten()
+        return {'flat': torch.cat((inputs_means, targets_means), dim=0),
+                'format': format,
+                **means}
+
+    @staticmethod
+    def unflatten(flat_results: dict):
+        out = {}
+        offset = 0
+        for key, shape in flat_results['format'].items():
+            numel = reduce(lambda x, y: x * y, shape, 1)
+            t = flat_results['flat'][offset:offset + numel]
+            out[key] = torch.Tensor(t).reshape(shape)
+            offset += numel
+        return out
+
 
     @staticmethod
     def aggregate_mean(node_means: list):

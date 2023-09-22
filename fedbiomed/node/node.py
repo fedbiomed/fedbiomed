@@ -255,7 +255,14 @@ class Node:
         query_type = msg.get_param('query_type')
         serialized_query_kwargs = msg.get_param('query_kwargs')
         query_kwargs = Serializer.loads(bytes.fromhex(serialized_query_kwargs))
-        reply_msg = round.run_analytics_query(query_type=query_type, query_kwargs=query_kwargs)
+        reply_msg = round.run_analytics_query(query_type=query_type,
+                                              query_kwargs=query_kwargs,
+                                              secagg_arguments={
+                                                  'secagg_servkey_id': msg.get_param('secagg_servkey_id'),
+                                                  'secagg_biprime_id': msg.get_param('secagg_biprime_id'),
+                                                  'secagg_random': msg.get_param('secagg_random'),
+                                                  'secagg_clipping_range': msg.get_param('secagg_clipping_range')
+                                              })
         return self.reply(reply_msg)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:

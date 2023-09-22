@@ -711,7 +711,21 @@ class Round:
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)
 
-    def run_analytics_query(self, query_type: str, query_kwargs: Optional[dict] = None):
+    def run_analytics_query(self,
+                            query_type: str,
+                            query_kwargs: Optional[Dict] = None,
+                            secagg_arguments: Optional[Dict] = None,
+                            ):
+        try:
+            secagg_arguments = {} if secagg_arguments is None else secagg_arguments
+            self._use_secagg = self._configure_secagg(
+                secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+                secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+                secagg_random=secagg_arguments.get('secagg_random')
+            )
+        except FedbiomedRoundError as e:
+            return self._send_round_reply(success=False, message=str(e))
+
         try:
             # module name cannot contain dashes
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
@@ -789,9 +803,24 @@ class Round:
                                           f"{self._dlp_and_loading_block_metadata['name']} on dataset of type "
                                           f"{data_manager.dataset.__class__.__name__} which is not enabled.")
 
-
         query = getattr(data_manager.dataset, query_type)
         result = query(**query_kwargs)
+        if self._use_secagg:
+            flatten = getattr(data_manager.dataset, 'flatten_' + query_type)
+            result = flatten(result)
+            encrypt = functools.partial(
+                self._secagg_crypter.encrypt,
+                num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
+                current_round=0,
+                key=self._servkey["context"]["server_key"],
+                biprime=self._biprime["context"]["biprime"],
+                weight=1,  # currently not used
+                clipping_range=secagg_arguments.get('secagg_clipping_range')
+            )
+            result['flat'] = encrypt(params=result['flat'].tolist())
+            result["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
+            logger.info("Encryption is completed!")
+
         result = Serializer.dumps(result).hex()
         success = True
         return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
