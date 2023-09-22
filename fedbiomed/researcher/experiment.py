@@ -2004,7 +2004,7 @@ class Experiment:
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(global_model=self._global_model),  # aggregator state
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state

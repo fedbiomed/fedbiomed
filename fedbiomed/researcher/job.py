@@ -167,7 +167,7 @@ class Job:
     def training_plan(self):
         return self._training_plan
 
-    @ property
+    @property
     def training_plan_file(self):
         return self._training_plan_file
 
@@ -323,12 +323,15 @@ class Job:
                 timing = m['timing']
                 timing['rtime_total'] = rtime_total
 
+                params_path = os.path.join(self._keep_files_dir, f"params_{m['node_id']}.mpk")
+                Serializer.dump(m["params"], params_path)
+                
                 response = Responses({
                     'success': m['success'],
                     'msg': m['msg'],
                     'dataset_id': m['dataset_id'],
                     'node_id': m['node_id'],
-                    # 'params_path': params_path, # TODO: check if it is useful to save params
+                    'params_path': params_path, 
                     'params': m["params"],
                     'optimizer_args': m["optimizer_args"],
                     'optim_aux_var': m["optim_aux_var"],
@@ -487,7 +490,7 @@ class Job:
         Args: 
             path: The path where model parameters are saved
         """
-        params = Serializer.load(path)["model_weights"]
+        params = Serializer.load(path)
         self._training_plan.set_model_params(params)
 
         return True
@@ -592,7 +595,8 @@ class Job:
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
         # Upload the latest model parameters. This records the filename and url.
-        # self.update_parameters(filename=saved_state.get("model_params_path"))
+        params = Serializer.load(saved_state.get("model_params_path"))
+        self.update_parameters(params)
 
         self._load_and_set_model_params_from_file(saved_state.get("model_params_path"))
         # Reloadthe latest training replies.
@@ -642,7 +646,7 @@ class Job:
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node["params"] = Serializer.load(node["params_path"])["model_weights"]
+                node["params"] = Serializer.load(node["params_path"])
             training_replies[round_] = loaded_training_reply
 
         return training_replies
