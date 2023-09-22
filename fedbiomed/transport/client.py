@@ -9,8 +9,8 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
-from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH
-
+from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 from typing import List, Callable, Optional, Awaitable
 
@@ -210,13 +210,16 @@ class TaskListener(Listener):
                     case grpc.StatusCode.UNKNOWN:
                         logger.debug("Unexpected error raised by researcher gRPC server. This is probably due to "
                                      f"bug on the researcher side. {exp}")
-                        raise Exception("Task listener stopped due to error on the researcher side")
+                        raise FedbiomedCommunicationError(
+                            f"{ErrorNumbers.FB628}: Task listener stopped " "due to error on the researcher side")
                     case _:
-                        raise Exception(f"Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
-                
+                        raise FedbiomedCommunicationError(
+                            f"{ErrorNumbers.FB628}: Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
+
             except Exception as exp:
-                    raise Exception(f"Task listener has stopped due to unknown reason: {exp}") from exp
-            
+                raise FedbiomedCommunicationError(
+                    f"{ErrorNumbers.FB628}: Task listener has stopped due to unknown reason: {exp}") from exp
+
 
     async def _request(self, callback: Optional[Callable] = None) -> None:
         """Requests tasks from Researcher 
@@ -226,8 +229,7 @@ class TaskListener(Listener):
             callback: Callback to execute once a task is arrived
         """
         while True:
-            
-            logger.debug(f"Sending new task request to researcher")
+            logger.debug("Sending new task request to researcher")
             self._on_status_change(ClientStatus.CONNECTED)
             iterator = self._stub.GetTaskUnary(
                 TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60
@@ -242,16 +244,15 @@ class TaskListener(Listener):
                     # Execute callback
                     logger.debug(f"New task received form researcher")
                     task = Serializer.loads(reply)
-     
+
                     await self._update_id(task["researcher_id"])
-                    
+
                     if callback:
                         callback(task)
 
                     # Reset reply
                     reply = bytes()
             # Update status as connected
-            
 
 
 class Sender(Listener):
@@ -261,7 +262,7 @@ class Sender(Listener):
             node_id: str, 
             feedback_stub: ResearcherServiceStub,
             task_stub: ResearcherServiceStub,
-        ) -> None:
+    ) -> None:
 
         super().__init__(node_id=node_id)
         self._queue = _AsyncQueueBridge()

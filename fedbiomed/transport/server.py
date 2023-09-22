@@ -270,7 +270,7 @@ class GrpcServer(_GrpcAsyncServer):
 
     def broadcast(self, message: Message):
         """Broadcast message
-        
+
         !!! warning "Important"
             This method should be called only from main thread.
 
@@ -285,12 +285,12 @@ class GrpcServer(_GrpcAsyncServer):
 
     def get_agent(self, node_id: str):
         """Gets node agent by node id
-        
+
         Args:
             node_id: Id of the node
         """
         return self._run_threadsafe(self.agent_store.get(node_id))
-    
+
     def get_all_agents(self):
         """Gets all agents from agent store"""
 

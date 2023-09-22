@@ -321,7 +321,7 @@ class ErrorNumbers(_BaseEnum):
     FB625 = "FB625: Component version error"
     FB626 = "FB626: Fed-BioMed optimizer error"
     FB627 = "FB627: Utility function error"
-
+    FB628 = "FB628: Communication error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

@@ -11,7 +11,8 @@ from datetime import datetime
 from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
-
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.constants import ErrorNumbers
 
 
 _node_store_lock = threading.Lock()
@@ -56,7 +57,7 @@ class NodeAgent:
             self, 
             id: str, 
             loop,
-        ):
+    ) -> None:
         """Represent the client that connects to gRPC server"""
         self.id: str = id 
         self.last_request: datetime = None 
@@ -88,22 +89,25 @@ class NodeAgent:
         """Async function send message to researcher"""
 
         if not isinstance(message, Message):
-            raise Exception("Message is not an instance of fedbiomed.common.message.TaskMessage")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Message is not an instance of fedbiomed.common.message.TaskMessage")
 
 
         async with self.status_lock:
             if self.status == NodeActiveStatus.DISCONNECTED:
-                raise Exception(f"Node is not active. Last communication {self.last_request}")
+                raise FedbiomedCommunicationError(
+                    f"{ErrorNumbers.FB628}: Node is not active. Last communication {self.last_request}")
 
         try:
             await self._queue.put(message)
         except Exception as exp:
-            raise Exception(f"Can't send message to the client. Exception: {exp}")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
 
 
     def get_status_threadsafe(self):
         """Gets node status as threadsafe 
-        
+
         Node status should be accessed using this method since it can be 
         modified by asyncio thread. 
         """
@@ -141,7 +145,8 @@ class NodeAgent:
         try:
             return asyncio.run_coroutine_threadsafe(self.send_(message), self._loop)
         except Exception as exp:
-            raise Exception(f"Can't send message to the client. Exception: {exp}")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
         
 
     def get(self) -> asyncio.coroutine:

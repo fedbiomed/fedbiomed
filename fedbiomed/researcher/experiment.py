@@ -30,7 +30,12 @@ from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
+from fedbiomed.common.utils import (
+    is_ipython, 
+    raise_for_version_compatibility, 
+    __default_version__,
+    import_class_from_file    
+)
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -1994,7 +1999,7 @@ class Experiment:
             'model_args': self._model_args,
             'training_plan_path': self._job.training_plan_file,  # only in Job we always model saved to a file
             # with current version
-            'training_plan_class': self._job.training_plan_name,  # not always available properly
+            'training_plan_class_name': self._job.training_plan_name,  # not always available properly
             # formatted in Experiment with current version
             'round_current': self._round_current,
             'round_limit': self._round_limit,
@@ -2106,6 +2111,12 @@ class Experiment:
         # retrieve breakpoint researcher optimizer
         bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
 
+        # Import TP class
+        tp_class = import_class_from_file(
+            path=saved_state.get("training_plan_path"),
+            class_name=saved_state.get("training_plan_class_name")
+        )
+
         # initializing experiment
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
@@ -2113,8 +2124,7 @@ class Experiment:
                          agg_optimizer=bkpt_optim,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
-                         training_plan_class=saved_state.get("training_plan_class"),
-                         training_plan_path=saved_state.get("training_plan_path"),
+                         training_plan_class=tp_class,
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
