@@ -1,30 +1,19 @@
 import asyncio
-import threading
-import concurrent
-import contextlib
 import grpc 
 
 from enum import Enum
-from typing import Callable, Any, List
+from typing import List
 from datetime import datetime
 
 from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-_node_store_lock = threading.Lock()
-
-
-
-_pool = concurrent.futures.ThreadPoolExecutor()
-
-
 class NodeActiveStatus(Enum): 
     """Node active status types 
-    
+
     Attributes:
         WAITING: Corresponds status where researcher server waits another GetTask request after 
             the previous one is completed. 
@@ -34,21 +23,6 @@ class NodeActiveStatus(Enum):
     WAITING = 1
     ACTIVE = 2
     DISCONNECTED = 3 
-
-
-
-# Combines threading.Lock with asyncio
-# See source: https://stackoverflow.com/a/63425191/6111150 
-@contextlib.asynccontextmanager
-async def async_thread_lock(lock):
-    loop = asyncio.get_event_loop()
-
-    await loop.run_in_executor(_pool, lock.acquire)
-
-    try:
-        yield
-    finally:
-        lock.release()
 
 
 class NodeAgent:
@@ -80,7 +54,7 @@ class NodeAgent:
                 logger.info(f"Node {self.id} is back online!")
 
             self.status = NodeActiveStatus.ACTIVE
-                    
+
             # Cancel status task if there is any running
             if self._status_task:
                 self._status_task.cancel()
@@ -118,11 +92,10 @@ class NodeAgent:
         future = asyncio.run_coroutine_threadsafe(get(), self._loop)
         return future.result()
 
-    
 
     def set_context(self, context):
         """Sets context for the current RPC call
-        
+
         Args:
             context: RPC call context
         """
@@ -132,11 +105,11 @@ class NodeAgent:
 
     def send(self, message: Message) -> None:
         """Send task to the client
-        
+
         !!! warning "Important"
             You can send only the message that defined within the scope of `TaskResponse`
             please see Message class
-        
+
         Args: 
             message: The task that is going to be sent to the node
             callback: Callback to execute once the task reply is arrived
@@ -147,17 +120,17 @@ class NodeAgent:
         except Exception as exp:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
-        
+
 
     def get(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
-        
+
         !!! note "Returns coroutine"
             This function return an asyncio coroutine. Please use `await` while calling.
 
         """
         return self._queue.get()
-    
+
     def _on_get_task_request_done(self, context: grpc.aio.ServicerContext) -> None:
         """Callback to execute each time RPC call is completed
 
@@ -173,7 +146,7 @@ class NodeAgent:
 
     async def _change_node_status_disconnected(self) -> None:
         """Updates node status as `DISCONNECTED`
-        
+
         Node becomes DISCONNECTED if it doesn't become ACTIVE in 10 seconds
         """
 
@@ -195,7 +168,7 @@ class AgentStore:
 
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         """Constructs agent store
-        
+
         Args: 
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
@@ -207,12 +180,12 @@ class AgentStore:
 
     async def get_or_register(
             self, 
-            node_id:str
-        ) -> NodeAgent:
+            node_id: str
+    ) -> NodeAgent:
         """Registers or gets node agent. 
 
         Depending of the state this method registers or gets new NodeAgent. 
-        
+
         Args: 
             node_id: ID of receiving node 
 
@@ -232,10 +205,10 @@ class AgentStore:
 
     async def register(
             self, 
-            node_id:str
-        ) -> NodeAgent:
+            node_id: str
+    ) -> NodeAgent:
         """Register new node agent. 
-        
+
         Args: 
             node_id: ID to register
         """
@@ -245,19 +218,19 @@ class AgentStore:
             self.node_agents.update({node_id: node})
 
         return node
-        
+
     async def get_all(self) -> List[NodeAgent]:
         """Returns all node agents regardless ACTIVE or DISCONNECTED"""
 
         async with self.store_lock:
             return self.node_agents
-        
+
     async def get(
             self,
             node_id: str
-        ) -> NodeAgent:
+    ) -> NodeAgent:
         """Gets node agent by given node id
-        
+
         Args: 
             node_id: Id of the node
         """
