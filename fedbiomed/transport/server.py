@@ -2,31 +2,21 @@
 import asyncio
 import grpc
 import threading
-import ctypes
-import signal
-
+import time
 
 from typing import Callable, Iterable, List
 from google.protobuf.message import Message as ProtoBufMessage
 
-
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
-
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
-from fedbiomed.common.constants import MessageType
+from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
 
 
-import time
-import sys
-
-
-# Max message length as bytes
-MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
@@ -71,7 +61,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task = Serializer.dumps(task.get_dict())
 
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)    
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range)+1)):
+        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH 
 
             yield TaskResponse(
@@ -299,7 +289,7 @@ class GrpcServer(_GrpcAsyncServer):
 
     def is_alive(self) -> bool:
         """Checks if the thread running gRPC server still alive
-        
+
         Return:
             gRPC server running status
         """
@@ -308,7 +298,7 @@ class GrpcServer(_GrpcAsyncServer):
 
     def _run_threadsafe(self, coroutine):
         """Runs given coroutine threadsafe
-        
+
         Args:
             coroutine: Awaitable function to be executed as threadsafe
         """
@@ -318,23 +308,3 @@ class GrpcServer(_GrpcAsyncServer):
         )
 
         return future.result()
-
-
-
-# TODO: Remove before merging 
-if __name__ == "__main__":
-
-    def handler(signum, frame):
-        print(f"Node cancel by signal {signal.Signals(signum).name}")
-        sys.exit(1)
-        
-    rs = GrpcServer(debug=True)
-    signal.signal(signal.SIGHUP, handler)
-
-    try:
-        rs.start()
-        while rs.is_alive():
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Researcher cancel by keyboard interrupt")
-
