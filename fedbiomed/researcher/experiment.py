@@ -31,10 +31,10 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common.utils import (
-    is_ipython, 
-    raise_for_version_compatibility, 
+    is_ipython,
+    raise_for_version_compatibility,
     __default_version__,
-    import_class_from_file    
+    import_class_from_file
 )
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
@@ -1292,7 +1292,7 @@ class Experiment:
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
-    
+
     @exp_exceptions
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
@@ -1998,8 +1998,8 @@ class Experiment:
         bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
 
         # Import TP class
-        tp_class = import_class_from_file(
-            path=saved_state.get("training_plan_path"),
+        _, tp_class = import_class_from_file(
+            module_path=saved_state.get("training_plan_path"),
             class_name=saved_state.get("training_plan_class_name")
         )
 

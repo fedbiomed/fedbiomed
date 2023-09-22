@@ -121,7 +121,7 @@ class Job:
         del self._training_plan
 
         _, self._training_plan = utils.import_class_object_from_file(
-            self._keep_files_dir, training_plan_module, self._training_plan_class.__name__)
+            self._training_plan_file, self._training_plan_class.__name__)
 
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
@@ -239,11 +239,11 @@ class Job:
         return not nodes_done == set(self._nodes)
 
     def _get_training_testing_results(self, round_, timer: Dict) -> None:
-        """"Waits for training replies 
+        """"Waits for training replies
 
-        Args: 
+        Args:
             round_: Training round
-            timer: Stores time elapsed on the researcher side 
+            timer: Stores time elapsed on the researcher side
         """
 
         # Recollect models trained
@@ -292,13 +292,13 @@ class Job:
 
                 params_path = os.path.join(self._keep_files_dir, f"params_{m['node_id']}.mpk")
                 Serializer.dump(m["params"], params_path)
-                
+
                 response = Responses({
                     'success': m['success'],
                     'msg': m['msg'],
                     'dataset_id': m['dataset_id'],
                     'node_id': m['node_id'],
-                    'params_path': params_path, 
+                    'params_path': params_path,
                     'params': m["params"],
                     'optimizer_args': m["optimizer_args"],
                     'optim_aux_var': m["optim_aux_var"],
@@ -334,7 +334,7 @@ class Job:
         """
 
         # Assign empty dict to secagg arguments if it is None
-        secagg_arguments = {} if secagg_arguments is None else secagg_arguments 
+        secagg_arguments = {} if secagg_arguments is None else secagg_arguments
 
         msg = {
             'researcher_id': self._researcher_id,
@@ -454,7 +454,7 @@ class Job:
     def _load_and_set_model_params_from_file(self, path: str) -> bool:
         """Loads model parameters from given path
 
-        Args: 
+        Args:
             path: The path where model parameters are saved
         """
         params = Serializer.load(path)
@@ -482,7 +482,7 @@ class Job:
     def _log_round_info(self, node: str, message: Dict, training: True) -> None:
         """Logs round details
 
-        Args: 
+        Args:
             node: Node id
             message: Message that will be sent to the node
             training: If True round will do training, otherwise it is the last validation round
@@ -507,7 +507,7 @@ class Job:
     ) -> Tuple[str, str]:
         """Update model parameters
 
-        Args: 
+        Args:
             params: Aggregated model parameters
         """
         self._update_model_params(params)

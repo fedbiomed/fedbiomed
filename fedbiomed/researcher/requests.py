@@ -69,7 +69,7 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server.start()
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
-        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,  
+        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,
         when a message is received on researcher side.
 
         It is run in the communication process and must ba as quick as possible:
@@ -144,7 +144,7 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             sequence: If `add_sequence` is True return the sequence number added to the message.
                 If `add_sequence` is False, return None
-            node: The agent of the node that the message is sent 
+            node: The agent of the node that the message is sent
         """
 
         node: Union[NodeAgent, None] = self._grpc_server.get_agent(client)
@@ -311,7 +311,7 @@ class Requests(metaclass=SingletonMeta):
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
-            # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted 
+            # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted
             # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
             self.broadcast({'tags': tags,
                             'researcher_id': environ['ID'],
@@ -424,7 +424,7 @@ class Requests(metaclass=SingletonMeta):
 
             try:
                 _, training_plan_instance = import_class_object_from_file(
-                    tmp_dir, training_plan_module, training_plan.__name__)
+                    training_plan_file, training_plan.__name__)
                 tp_source = training_plan_instance.source()
             except Exception as e:
                 logger.error(f"Cannot instantiate the training plan: {e}")

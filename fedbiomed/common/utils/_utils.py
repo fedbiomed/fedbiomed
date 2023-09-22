@@ -88,55 +88,60 @@ def is_ipython() -> bool:
         return False
 
 
-def import_class_object_from_file(module_dir: str, module_name: str, class_name: str) -> Tuple[Any, Any]:
+def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and create an instance of a specified class of the module.
 
     Args:
-        module_dir: directory of the module file
-        module_name: name of the module (without the file trailing `.py`)
+        module_path: path to python module file
         class_name: name of the class
 
     Returns:
-        Tuple of the module creaged and the training plan object created
+        Tuple of the module created and the training plan object created
 
     Raises:
         FedbiomedError: bad argument type
-        FedbiomedError: cannot load module or create object
+        FedbiomedError: cannot instantiate object
     """
-    for arg in [module_dir, module_name, class_name]:
+    for arg in [module_path, class_name]:
         if not isinstance(arg, str):
             raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
 
+    module, train_class = import_class_from_file(module_path, class_name)
+
     try:
-        sys.path.insert(0, module_dir)
-        module = importlib.import_module(module_name)
-        train_class = getattr(module, class_name)
-        sys.path.pop(0)
+        train_class_instance = train_class()
     except Exception as e:
-        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Cannot import class '{class_name}' "
-                             "from directory '{module_dir}': {e}") 
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Cannot instantiate training plan object: {e}")
 
-    return module, train_class()
+    return module, train_class_instance
 
 
-def import_class_from_file(path: str, class_name: str):
-    """Imports classes from python files
-    
-    Args: 
-        path: Path to python file
+def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
+    """Import a module from a file and return a specified class of the module.
+
+    Args:
+        module_path: path to python module file
+        class_name: name of the class
+
+    Returns:
+        Tuple of the module created and the training plan class loaded
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot load module or class
     """
-    if not os.path.isfile(path):
+    if not os.path.isfile(module_path):
         raise FedbiomedError(f"{ErrorNumbers.FB627}: Given path for importing {class_name} is not existing")
 
-    module_base_name = os.path.basename(path) 
+    module_base_name = os.path.basename(module_path)
     pattern = re.compile("(.*).py$")
 
-    match = pattern.match(module_base_name) 
+    match = pattern.match(module_base_name)
     if not match:
         raise FedbiomedError(f"{ErrorNumbers.FB627}: File is not a python file.")
 
     module = match.group(1)
-    sys.path.insert(0, os.path.dirname(path))
+    sys.path.insert(0, os.path.dirname(module_path))
 
     try:
         module = importlib.import_module(module)
@@ -146,11 +151,12 @@ def import_class_from_file(path: str, class_name: str):
     try:
         class_ = getattr(module, class_name)
     except AttributeError as exp:
-        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class " 
-                             f"{class_name} from {path}") from exp
+        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
+                             f"{class_name} from {module_path}") from exp
     sys.path.pop(0)
 
-    return class_ 
+    return module, class_
+
 
 def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any] :
     """Import a module from a code and extract the code of a specified class of the module.

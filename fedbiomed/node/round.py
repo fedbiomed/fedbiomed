@@ -262,7 +262,7 @@ class Round:
         del CurrentTPModule
 
         CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
-            self._keep_files_dir, training_plan_module, self.training_plan_class)
+            training_plan_file, self.training_plan_class)
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
