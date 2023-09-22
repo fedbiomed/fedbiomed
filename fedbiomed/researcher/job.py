@@ -5,20 +5,16 @@
 
 import atexit
 import copy
-import importlib
 import inspect
 import os
-import re
-import sys
 import shutil
 import tempfile
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedDataQualityCheckError
+from fedbiomed.common.constants import TrainingPlanApprovalStatus, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -37,16 +33,14 @@ class Job:
     Represents the entity that manage the training part at  the nodes level
 
     Starts a message queue, loads python model file created by researcher (through
-    [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a temporary file
-    (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
+    [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a file/
 
     """
 
     def __init__(self,
-                 reqs: Requests = None,
-                 nodes: dict = None,
-                 training_plan_class: Union[Type[Callable], str] = None,
-                 training_plan_path: str = None,
+                 reqs: Optional[Requests] = None,
+                 nodes: Optional[dict] = None,
+                 training_plan_class: Optional[BaseTrainingPlan] = None,
                  training_args: TrainingArgs = None,
                  model_args: dict = None,
                  data: FederatedDataSet = None,
@@ -57,8 +51,7 @@ class Job:
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
-            training_plan_class: instance or class of the TrainingPlan.
-            training_plan_path: Path to file containing model class code
+            training_plan_class: Class containing the code of the TrainingPlan.
             training_args: Contains training parameters; lr, epochs, batch_size.
             model_args: Contains output and input feature dimension
             data: Federated datasets
@@ -66,8 +59,17 @@ class Job:
                 of the job. Defaults to None, files are not kept after the end of the job.
 
         Raises:
-            NameError: If model is not defined or if the class can not to be inspected
+            FedbiomedJobError: bad argument type or value
         """
+        # Check arguments
+        if not inspect.isclass(training_plan_class):
+            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
+        if not issubclass(training_plan_class, BaseTrainingPlan):
+            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
 
         self._id = str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
@@ -78,7 +80,6 @@ class Job:
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
-        # self._training_plan = None  # declared below, as a TrainingPlan instance
         self._aggregator_args = None
 
         if keep_files_dir:
@@ -97,45 +98,8 @@ class Job:
         self.last_msg = None
         self._data = data
 
-        # Model is mandatory
-        if self._training_plan_class is None:
-            mess = "Missing training plan class name or instance in Job arguments"
-            logger.critical(mess)
-            raise NameError(mess)
-
-        # handle case when model is in a file
-        if training_plan_path is not None:
-            try:
-                # import model from python file
-
-                model_module = os.path.basename(training_plan_path)
-                model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(training_plan_path))
-
-                module = importlib.import_module(model_module)
-                tr_class = getattr(module, self._training_plan_class)
-                self._training_plan_class = tr_class
-                sys.path.pop(0)
-
-            except Exception as e:
-                e = sys.exc_info()
-                logger.critical(f"Cannot import class {self._training_plan_class} from "
-                                f"path {training_plan_path} - Error: {str(e)}")
-                sys.exit(-1)
-
-        # check class is defined
-        try:
-            _ = inspect.isclass(self._training_plan_class)
-        except NameError:
-            mess = f"Cannot find training plan for Job, training plan class {self._training_plan_class} is not defined"
-            logger.critical(mess)
-            raise NameError(mess)
-
-        # create/save TrainingPlan instance
-        if inspect.isclass(self._training_plan_class):
-            self._training_plan = self._training_plan_class()  # contains TrainingPlan
-        else:
-            self._training_plan = self._training_plan_class
+        # create TrainingPlan instance
+        self._training_plan = self._training_plan_class()  # contains TrainingPlan
 
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
@@ -145,8 +109,9 @@ class Job:
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
-            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
-            return
+            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
         del self._training_plan
 
         _, self._training_plan = utils.import_class_object_from_file(
@@ -161,7 +126,7 @@ class Job:
 
     @property
     def training_plan_name(self):
-        return self._training_plan.__class__.__name__
+        return self._training_plan_class.__name__
 
     @property
     def training_plan(self):
@@ -199,13 +164,14 @@ class Job:
     def training_args(self, training_args: TrainingArgs):
         self._training_args = training_args
 
-    def check_training_plan_is_approved_by_nodes(self) -> List:
-
+    def check_training_plan_is_approved_by_nodes(self) -> List[Responses]:
         """ Checks whether model is approved or not.
 
         This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
         So, researchers can find out if their model has been approved
 
+        Returns:
+            A list of Responses objects, one for each job's nodes
         """
 
         message = {
@@ -273,9 +239,8 @@ class Job:
     def _get_training_testing_results(self, round_, timer: Dict) -> None:
         """"Waits for training replies 
 
-        args: 
+        Args: 
             round_: Training round
-            training: If True the round is for training, otherwise for testing/validation
             timer: Stores time elapsed on the researcher side 
         """
 
@@ -336,7 +301,7 @@ class Job:
                     'encryption_factor': m["encryption_factor"],
                     'timing': timing,
                 })
-                
+
                 self._training_replies[round_].append(response)
 
 
@@ -344,7 +309,7 @@ class Job:
         self,
         round_: int,
         aggregator_args: Dict[str, Dict[str, Any]],
-        secagg_arguments: Union[Dict, None] = None,
+        secagg_arguments: Optional[Dict] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
@@ -483,7 +448,7 @@ class Job:
 
     def _load_and_set_model_params_from_file(self, path: str) -> bool:
         """Loads model parameters from given path
-        
+
         Args: 
             path: The path where model parameters are saved
         """
@@ -491,7 +456,7 @@ class Job:
         self._training_plan.set_model_params(params)
 
         return True
-    
+
     def _serialize_model_params(self) -> Dict[str, Any]:
         """Serialize and saves model parameters
         Args:
@@ -502,7 +467,7 @@ class Job:
 
     def _update_model_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """"Updates the parameters of the model by given params
-        
+
         Args:
             params: Parameters that are going to be loaded into model
 
@@ -511,7 +476,7 @@ class Job:
 
     def _log_round_info(self, node: str, message: Dict, training: True) -> None:
         """Logs round details
-        
+
         Args: 
             node: Node id
             message: Message that will be sent to the node
@@ -536,7 +501,7 @@ class Job:
         params: Optional[Dict[str, Any]]
     ) -> Tuple[str, str]:
         """Update model parameters
-        
+
         Args: 
             params: Aggregated model parameters
         """
@@ -654,27 +619,37 @@ class localJob:
     networks.
     """
 
-    def __init__(self, dataset_path: str = None,
-                 training_plan_class: str = 'MyTrainingPlan',
-                 training_plan_path: str = None,
-                 training_args: TrainingArgs = None,
-                 model_args: dict = None):
+    def __init__(self,
+                 dataset_path: Optional[str] = None,
+                 training_plan_class: Optional[BaseTrainingPlan] = None,
+                 training_args: Optional[TrainingArgs] = None,
+                 model_args: Optional[dict] = None):
 
         """
         Constructor of the class
 
         Args:
             dataset_path : The path where data is stored on local disk.
-            training_plan_class: Name of the model class to use for training or model class.
-            training_plan_path: path to file containing model code. Defaults to None.
-            training_args: contains training parameters: lr, epochs, batch_size...
-            model_args: contains output and input feature dimension.
-        """
+            training_plan_class: Class containing the code of the TrainingPlan.
+            training_args: Contains training parameters: lr, epochs, batch_size...
+            model_args: Contains output and input feature dimension.
 
-        self._id = str(uuid.uuid4())
-        self._localjob_training_args = training_args
+        Raises:
+            FedbiomedJobError: bad argument type or value
+        """
+        # Check arguments
+        if not inspect.isclass(training_plan_class):
+            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
+        if not issubclass(training_plan_class, BaseTrainingPlan):
+            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
+
+        # Initialize values
+        self._training_args = training_args
         self._model_args = model_args
-        self._training_args = TrainingArgs(training_args, only_required=False)
         self.dataset_path = dataset_path
 
         if training_args is not None:
@@ -683,30 +658,8 @@ class localJob:
                 # if user wants to perform validation, display this message
                 logger.warning("Cannot perform validation, not supported for LocalJob")
 
-        # handle case when model is in a file
-        if training_plan_path is not None:
-            try:
-                model_module = os.path.basename(training_plan_path)
-                model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(training_plan_path))
-
-                module = importlib.import_module(model_module)
-                tr_class = getattr(module, training_plan_class)
-                self._training_plan = tr_class()
-                sys.path.pop(0)
-
-            except Exception as e:
-                e = sys.exc_info()
-                logger.critical("Cannot import class " + training_plan_class + " from path " +
-                                training_plan_path + " - Error: " + str(e))
-                sys.exit(-1)
-        else:
-
-            # create/save model instance
-            if inspect.isclass(training_plan_class):
-                self._training_plan = training_plan_class()
-            else:
-                self._training_plan = training_plan_class
+        # create/save model instance
+        self._training_plan = training_plan_class()
 
         self._training_plan.post_init(model_args=self._model_args,
                                       training_args=self._training_args)
@@ -716,21 +669,17 @@ class localJob:
         return self._training_plan
 
     @property
-    def model(self):
-        return self._training_plan.model()
-
-    @property
     def training_args(self):
-        return self._localjob_training_args
+        return self._training_args.dict()
 
     @training_args.setter
-    def training_args(self, training_args: dict):
-        self._localjob_training_args = training_args
+    def training_args(self, training_args: TrainingArgs):
+        self._training_args = training_args
 
     def start_training(self):
-        """Sends training task to nodes and waits for the responses"""
+        """Run the local training"""
         # Run import statements (very unsafely).
-        for i in self._training_plan._dependencies:
+        for i in self._training_plan.dependencies:
             exec(i, globals())
 
         # Run the training routine.
