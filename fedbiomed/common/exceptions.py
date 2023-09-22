@@ -287,3 +287,9 @@ class FedbiomedVersionError(FedbiomedError):
     """
     Error in the versions of one of Fed-BioMed's components
     """
+
+
+class FedbiomedCommunicationError(FedbiomedError):
+    """
+    Fedbiomed errors related to gRPC communication
+    """
