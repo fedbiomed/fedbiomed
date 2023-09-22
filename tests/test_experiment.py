@@ -300,11 +300,6 @@ class TestExperiment(ResearcherTestCase):
         training_plan = self.test_exp.training_plan_class()
         self.assertIsNone(training_plan, 'Getter for training_plan did not return expected training_plan')
 
-        # Test getter for training_plan_path
-        training_plan_path = self.test_exp.training_plan_path()
-        self.assertIsNone(training_plan_path,
-                          'Getter for training_plan_path did not return expected training_plan_path')
-
         # Test getter for model arguments
         model_args = self.test_exp.model_args()
         self.assertDictEqual(model_args, {}, 'Getter for model_args did not return expected value')
@@ -743,43 +738,6 @@ class TestExperiment(ResearcherTestCase):
         #  Second   : Update Job since training_plan has changed
         self.assertEqual(self.mock_logger_debug.call_count, 2, 'Logger debug is called unexpected time while setting '
                                                                'model class')
-
-    def test_experiment_14_set_training_plan_path(self):
-        """ Testing setter for training_plan_path of experiment """
-
-        # Test training_plan_path is None
-        training_plan_path = self.test_exp.set_training_plan_path(None)
-        self.assertIsNone(training_plan_path, 'Setter for training_plan_path did not set training_plan_path to None')
-
-        # Test passing path for training_plan_file
-        fake_training_plan_path = self.create_fake_training_plan_file('fake_model_2.py')
-        training_plan_path = self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(training_plan_path, fake_training_plan_path,
-                         'Setter for training_plan_path did not set training_plan_path properly')
-
-        # Test
-        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filepath') as m:
-            m.return_value = 'test'
-            with self.assertRaises(SystemExit):
-                self.test_exp.set_training_plan_path(fake_training_plan_path)
-
-        # Test invalid type of training_plan_path argument
-        with self.assertRaises(SystemExit):
-            self.test_exp.set_training_plan_path(12)
-
-        # Test when mode class is also set
-        self.test_exp.set_training_plan_class('FakeModel')
-        self.test_exp.set_training_plan_path(fake_training_plan_path)
-        self.assertEqual(self.test_exp._training_plan_is_defined, True,
-                         '_training_plan_is_defined returns False even training_plan and '
-                         'training_plan_path is fully configured')
-        # Test if `._job` is not None
-        self.mock_logger_debug.reset_mock()
-        self.test_exp._job = MagicMock(return_value=True)
-        self.test_exp.set_training_plan_path(fake_training_plan_path)
-        # There will be one debug call. If model_is_defined is False there might be two calls.
-        # Since _training_plan_is_defined has become True with previous test block there will be only one call
-        self.mock_logger_debug.assert_called_once()
 
     def test_experiment_15_set_model_arguments(self):
         """ Testing setter for model arguments of Experiment """
@@ -1782,7 +1740,6 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._job = DummyJob()
         # patch Job training_plan / training_plan_file
         self.test_exp._job.training_plan_file = training_plan_file
-        self.test_exp._job.training_plan_name = training_plan_class
 
         # researcher-side optimizer (optional)
         optimizer = create_autospec(Optimizer, instance=True)

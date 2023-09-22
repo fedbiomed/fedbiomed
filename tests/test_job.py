@@ -252,7 +252,6 @@ class TestJob(ResearcherTestCase):
         """
         self.assertEqual(self.model, self.job.training_plan,
                          'Can not get Requests attribute from Job properly')
-        self.assertEqual('BaseTrainingPlan', self.job.training_plan_name, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
         model_file = self.job.training_plan_file

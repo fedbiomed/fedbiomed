@@ -77,6 +77,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def model(self):
         """Gets model instance of the training plan"""
 
+    @property
+    def dependencies(self):
+            return self._dependencies
+
     def optimizer(self) -> Optional[BaseOptimizer]:
         """Get the BaseOptimizer wrapped by this training plan.
 
