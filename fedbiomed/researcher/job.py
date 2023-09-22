@@ -131,10 +131,6 @@ class Job:
         return self._id
 
     @property
-    def training_plan_name(self):
-        return self._training_plan_class.__name__
-
-    @property
     def training_plan(self):
         return self._training_plan
 
@@ -345,7 +341,7 @@ class Job:
             'model_args': self._model_args,
             'round': round_,
             'training_plan': self._training_plan.source(),
-            'training_plan_class': self.training_plan_name,
+            'training_plan_class': self._training_plan_class.__name__,
             'params': self._get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
