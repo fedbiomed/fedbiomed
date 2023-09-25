@@ -1,22 +1,20 @@
 
-import asyncio
-import grpc
 import threading
 import time
-
 from typing import Callable, Iterable, List
-from google.protobuf.message import Message as ProtoBufMessage
 
-from fedbiomed.transport.protocols.researcher_pb2 import Empty
-import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+import asyncio
+import grpc
+from google.protobuf.message import Message as ProtoBufMessage
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
+
+from fedbiomed.transport.protocols.researcher_pb2 import Empty
+import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
-
-
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):

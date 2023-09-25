@@ -8,39 +8,7 @@ from typing import Callable, Optional, List, Dict
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
 
-from .client import GrpcClient
-
-
-
-def create_channel(
-    address: str,
-    certificate: str = None
-) -> grpc.Channel :
-    """Creates gRPC channel 
-
-    Args: 
-        address: Address to connect 
-        certificate: TLS certificate
-
-    Returns: 
-        gRPC connection channel
-    """
-    channel_options = [
-        ("grpc.max_send_message_length", 100 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ("grpc.keepalive_time_ms", 1000 * 2),
-        ("grpc.initial_reconnect_backoff_ms", 1000),
-        ("grpc.min_reconnect_backoff_ms", 500),
-        ("grpc.max_reconnect_backoff_ms", 2000),
-    ]
-
-    if certificate is None: 
-        channel = grpc.aio.insecure_channel(address, options=channel_options)
-    else:
-        # TODO: Create secure channel
-        raise NotImplementedError("Certificate option is not implemented")
-
-    return channel
+from fedbiomed.transport.client import GrpcClient
 
 
 @dataclass

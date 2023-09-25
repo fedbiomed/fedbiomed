@@ -1,17 +1,17 @@
-import grpc
+from typing import List, Callable, Optional, Awaitable
+from enum import Enum
 import asyncio
 import abc
 
-from enum import Enum
+import grpc
 
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
 from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-
-from typing import List, Callable, Optional, Awaitable
 
 
 class ClientStatus(Enum):
