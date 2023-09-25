@@ -89,7 +89,7 @@ class RPCAsyncTaskController:
         async with self._clients_lock:
             async with self._ip_id_map_lock:
                 researcher = message.researcher_id
-                return await self._clients[self._ip_id_map[researcher]].send(message)
+                await self._clients[self._ip_id_map[researcher]].send(message)
 
     async def _broadcast(self, message: Message) -> None:
         """Broadcast given message
