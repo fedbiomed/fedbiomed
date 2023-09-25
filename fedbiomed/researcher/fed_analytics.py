@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 from functools import reduce
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -83,7 +84,9 @@ class FedAnalytics:
                 }
             )
             unflatten = getattr(data_manager.dataset, 'unflatten')
-            aggregation_result = unflatten(flattened)
+            aggregation_result = unflatten({
+                'flat': flattened,
+                'format': results[0]['format']})
         else:
             aggregation_function = getattr(data_manager.dataset, 'aggregate_' + query_type)
             aggregation_result = aggregation_function(results)
