@@ -1,5 +1,4 @@
 import asyncio
-import grpc
 import threading
 
 from dataclasses import dataclass
@@ -24,11 +23,7 @@ class RPCAsyncTaskController:
 
     Launches async tasks for listening the requests/tasks coming form researcher as well as 
     listener to send the replies that are created by the node. All the methods of this class 
-    are awaitable. 
-
-
-    Attributes: 
-        on_message: Callback function that is going to be executed once there is task received
+    are awaitable, except the constructor. 
     """
     def __init__(
             self, 
@@ -50,28 +45,28 @@ class RPCAsyncTaskController:
         self._researchers = researchers
 
         self._thread = None
+        self._loop = None
 
         # Maps researcher ip to corresponding ids
-        self._ip_id_map_lock = asyncio.Lock()
-        self._ip_id_map = {}
+        self._ip_id_map_lock = None
 
-        self._clients_lock = asyncio.Lock()
+        self._clients_lock = None
         self._clients: Dict[str, GrpcClient] = {}
 
-        self.debug = debug
-        self.on_message = on_message
+        self._debug = debug
+        self._on_message = on_message
 
 
-    async def start(self):
+    async def _start(self):
         """"Starts the tasks for each GrpcClient"""
 
         tasks = []
         for researcher in self._researchers:
             client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
-            tasks.extend(client.start(on_task=self.on_message))
+            tasks.extend(client.start(on_task=self._on_message))
             self._clients[f"{researcher.host}:{researcher.port}"] = client
 
-        self.loop = asyncio.get_running_loop()
+        self._loop = asyncio.get_running_loop()
 
         # Create asyncio locks
         self._ip_id_map_lock = asyncio.Lock()
@@ -120,12 +115,12 @@ class RPCAsyncTaskController:
         async with self._ip_id_map_lock:
             self._ip_id_map = {id_: ip}
 
-    async def is_connected(self):
+    async def _is_connected(self):
         """Checks if there is running tasks"""
 
         async with self._clients_lock:
             tasks = [not task.done() for client in self._clients.values() for task in client.tasks]
-            return all(tasks) and self._thread.is_alive()
+            return all(tasks) and self._thread is not None and self._thread.is_alive()
 
 
 class RPCController(RPCAsyncTaskController):
@@ -147,7 +142,7 @@ class RPCController(RPCAsyncTaskController):
     def _run(self):
         """Runs async task controller"""
         try: 
-            asyncio.run(super().start(), debug=self.debug)
+            asyncio.run(self._start(), debug=self._debug)
         except Exception as e:
             logger.critical(
                 "An exception raised by running tasks within GrpcClients. This will close stopping " 
@@ -157,8 +152,7 @@ class RPCController(RPCAsyncTaskController):
     def start(self):
         """Start GRPCClients in a thread"""
 
-        self._thread = threading.Thread(target=self._run)
-        self._thread.daemon = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def send(self, message: Message, broadcast=False):
@@ -173,7 +167,7 @@ class RPCController(RPCAsyncTaskController):
                 The attribute `researcher_id` in the message should be `<unknown>`
         """
         asyncio.run_coroutine_threadsafe(
-            super().send(message, broadcast), self.loop
+            super().send(message, broadcast), self._loop
         )
 
 
@@ -187,7 +181,7 @@ class RPCController(RPCAsyncTaskController):
         """
 
         future = asyncio.run_coroutine_threadsafe(
-            super().is_connected(), self.loop
+            self._is_connected(), self._loop
         )
 
         return future.result()
