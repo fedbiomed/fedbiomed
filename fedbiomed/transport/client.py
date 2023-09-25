@@ -1,4 +1,4 @@
-from typing import List, Callable, Optional, Awaitable
+from typing import List, Callable, Optional, Awaitable, Iterable
 from enum import Enum
 import asyncio
 import abc
@@ -103,7 +103,8 @@ class GrpcClient:
 
         self._sender = Sender(
             feedback_stub=feedback_stub,
-            task_stub=task_stub)
+            task_stub=task_stub,
+            on_status_change = self._on_status_change)
 
         # TODO: use `self._status` for finer gRPC agent handling.
         # Currently, the (tentative) status is maintained but not used
@@ -152,13 +153,16 @@ class GrpcClient:
 
         Args:
             id_: Researcher Id
+
+        Raises:
+            FedbiomedCommunicationError: suspected malicious researcher
         """
         if self._id is not None and self._id != id_:
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Suspected malicious researcher activity ! "
-                f"Researcher ID changed for {self._host}:{self._port} from "
+            msg = f"{ErrorNumbers.FB628}: Suspected malicious researcher activity ! " \
+                f"Researcher ID changed for {self._host}:{self._port} from " \
                 f"`{self._id}` to `{id_}`"
-            )
+            logger.error(msg)
+            raise FedbiomedCommunicationError(msg)
 
         self._id = id_
         await self._update_id_map(f"{self._host}:{self._port}", id_)
@@ -220,29 +224,33 @@ class TaskListener(Listener):
 
         Args:
             callback: Callback to execute once a task is received
+
+        Raises:
+            FedbiomedCommunicationError: communication error with researcher
         """
 
         while True:
 
             try:
                 await self._request(callback)
+
             except grpc.aio.AioRpcError as exp:
                 match exp.code():
                     case grpc.StatusCode.DEADLINE_EXCEEDED:
                         logger.debug(
-                            f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
+                            "Researcher did not request executing a task before timeout. Send new task request")
                     case grpc.StatusCode.UNAVAILABLE:
                         self._on_status_change(ClientStatus.DISCONNECTED)
-                        logger.debug(
+                        logger.info(
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
-                        logger.debug("Unexpected error raised by researcher gRPC server. This is probably due to "
-                                     f"bug on the researcher side. {exp}")
+                        logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
+                                     f"bug on the researcher side: {exp}")
                         raise FedbiomedCommunicationError(
-                            f"{ErrorNumbers.FB628}: Task listener stopped " "due to error on the researcher side")
+                            f"{ErrorNumbers.FB628}: Task listener stopped due to error on the researcher side")
                     case _:
                         self._on_status_change(ClientStatus.FAILED)
                         raise FedbiomedCommunicationError(
@@ -291,19 +299,35 @@ class TaskListener(Listener):
 class Sender(Listener):
 
     def __init__(
-            self,
-            feedback_stub: ResearcherServiceStub,
-            task_stub: ResearcherServiceStub,
+        self,
+        feedback_stub: ResearcherServiceStub,
+        task_stub: ResearcherServiceStub,
+        on_status_change: Callable,
     ) -> None:
+        """Class constructor.
 
+        Args:
+            feedback_stub: RPC stub to use for node feedback messages (logs, scalar update on training)
+            task_stub: RPC stub to use for node replies to researcher task requests
+            on_status_change: Callback function to run for changing node agent status
+        """
         super().__init__()
+
         self._queue = asyncio.Queue()
         self._task_stub = task_stub
         self._feedback_stub = feedback_stub
+        self._on_status_change = on_status_change
         self._retry_count = 0
 
-    async def _listen(self, callback: Optional[Callable] = None):
-        """Listens for the messages that are going to be sent to researcher"""
+    async def _listen(self, callback: Optional[Callable] = None) -> None:
+        """Listens for the messages that are going to be sent to researcher.
+
+        Args:
+            callback: Callback to execute once a task is received
+
+        Raises:
+            FedbiomedCommunicationError: communication error with researcher
+        """
 
         # While loop retires to send if first one fails to send the result
         while True:
@@ -311,19 +335,44 @@ class Sender(Listener):
             # Waits until there is something to send back to researcher
             try:
                 await self._get(callback)
+
             except grpc.aio.AioRpcError as exp:
-                if exp.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    logger.debug("Timeout reached. Researcher might be busy. ")
-                    self._queue.task_done()
-                    pass
-                elif exp.code() == grpc.StatusCode.UNAVAILABLE:
-                    logger.debug("Researcher server is not available, will try to to send the message in 5 seconds")
-                    self._retry_count += 1
-                    await asyncio.sleep(3)
+                match exp.code():
+                    case grpc.StatusCode.DEADLINE_EXCEEDED:
+                        self._on_status_change(ClientStatus.DISCONNECTED)
+                        logger.warning(
+                            "Researcher not answering after timeout, looks like server failure or disconnect. "
+                            "Discard message.")
+                        self._queue.task_done()
+                    case grpc.StatusCode.UNAVAILABLE:
+                        self._on_status_change(ClientStatus.DISCONNECTED)
+                        logger.debug(
+                            f"Researcher server is not available, will try to send the message in "
+                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        self._retry_count += 1
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                    case grpc.StatusCode.UNKNOWN:
+                        self._on_status_change(ClientStatus.FAILED)
+                        logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
+                                     f"bug on the researcher side: {exp}")
+                        raise FedbiomedCommunicationError(
+                            f"{ErrorNumbers.FB628}: Sender stopped due to error on the researcher side")
+                    case _:
+                        self._on_status_change(ClientStatus.FAILED)
+                        raise FedbiomedCommunicationError(
+                            f"{ErrorNumbers.FB628}: Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
 
+            except Exception as exp:
+                self._on_status_change(ClientStatus.FAILED)
+                raise FedbiomedCommunicationError(
+                    f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: {exp}") from exp
 
-    async def _get(self, callback: Optional[Callable] = None):
-        """Gets task result from the queue"""
+    async def _get(self, callback: Optional[Callable] = None) -> None:
+        """Gets task result from the queue.
+
+        Args:
+            callback: Callback to execute once a task is received
+        """
 
         while True:
             if self._retry_count > 5:
@@ -331,7 +380,8 @@ class Sender(Listener):
                 self._queue.task_done()
 
             msg = await self._queue.get()
-            # If it is aUnary-Unary RPC call
+
+            # If it is a Unary-Unary RPC call
             if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
                 await msg["stub"](msg["message"])
 
@@ -350,8 +400,15 @@ class Sender(Listener):
             self._queue.task_done()
             self._retry_count = 0
 
-    def _stream_reply(self, message: Message):
-        """Streams task result back researcher component"""
+    def _stream_reply(self, message: Message) -> Iterable:
+        """Streams task result back researcher component.
+
+        Args:
+            message: Message to stream
+
+        Returns:
+            A stream of researcher reply chunks
+        """
 
         reply = Serializer.dumps(message.get_dict())
         chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
@@ -363,8 +420,12 @@ class Sender(Listener):
                 bytes_=reply[start:stop]
             ).to_proto()
 
-
     async def send(self, message: Message) -> None:
+        """Send a message to peer researcher.
+
+        Args:
+            message: Message to send
+        """
         # Switch-case for message type and gRPC calls
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
