@@ -119,7 +119,7 @@ class GrpcClient:
     async def send(self, message: Message):
         """Sends messages from node to researcher server"""
 
-        return await self.sender.send(message)
+        return await self._sender.send(message)
 
 
     def _on_status_change(self, status: ClientStatus):
