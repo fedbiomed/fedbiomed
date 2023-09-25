@@ -49,6 +49,7 @@ class RPCAsyncTaskController:
 
         # Maps researcher ip to corresponding ids
         self._ip_id_map_lock = None
+        self._ip_id_map = {}
 
         self._clients_lock = None
         self._clients: Dict[str, GrpcClient] = {}
