@@ -27,7 +27,7 @@ from fedbiomed.common.constants import __node_config_version__ as __config_versi
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
-from fedbiomed.transport.controller import ResearcherCredentials
+from fedbiomed.transport.client import ResearcherCredentials
 
 class NodeEnviron(Environ):
 

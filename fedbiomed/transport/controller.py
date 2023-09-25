@@ -1,23 +1,13 @@
 import asyncio
 import threading
+from typing import Callable, List, Dict
 
-from dataclasses import dataclass
-from typing import Callable, Optional, List, Dict
+from fedbiomed.transport.client import GrpcClient, ResearcherCredentials
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
-
-from fedbiomed.transport.client import GrpcClient
-
-
-@dataclass
-class ResearcherCredentials:
-
-    port: str
-    host: str
-    certificate: Optional[str] = None
 
 
 class RPCAsyncTaskController:
@@ -121,7 +111,7 @@ class RPCAsyncTaskController:
         async with self._ip_id_map_lock:
             self._ip_id_map = {id_: ip}
 
-    async def is_connected(self):
+    async def is_connected(self) -> bool:
         """Checks if there is running tasks"""
 
         async with self._clients_lock:
@@ -144,24 +134,34 @@ class RPCController(RPCAsyncTaskController):
         on_message: Callable,
         debug: bool = False
     ) -> None:
-        """Constructs RPC controller"""
+        """Constructs RPC controller
+
+        Args:
+            node_id: The ID of the node component that runs RPC client
+            researchers: List of researchers that the RPC client will connect to.
+            on_message: Callback function to be executed once a task received from the researcher
+            debug: Activates debug mode for `asyncio`
+
+        Raises:
+            FedbiomedCommunicationError: bad argument type
+        """
 
         if not isinstance(node_id, str):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: "
-                f"bad parameter type for node_id, expected str, got `{type(node_id)}`")
+                f"bad argument type for node_id, expected str, got `{type(node_id)}`")
         if not isinstance(on_message, Callable):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: "
-                f"bad parameter type for on_message, expected Callable, got `{type(on_message)}`")
+                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
         if not isinstance(debug, bool):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: "
-                f"bad parameter type for debug, expected bool, got `{type(debug)}`")
+                f"bad argument type for debug, expected bool, got `{type(debug)}`")
         if not isinstance(researchers, list) or not all(isinstance(r, ResearcherCredentials) for r in researchers):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: "
-                f"bad parameter type for researchers, expected list of researchers, got `{type(researchers)}`")
+                f"bad argument type for researchers, expected list of researchers, got `{type(researchers)}`")
 
         super().__init__(node_id, researchers, on_message, debug)
 
@@ -195,13 +195,16 @@ class RPCController(RPCAsyncTaskController):
             broadcast: If True, broadcasts the given message to all available.
                 This does not prevent adding `researcher_id` to the message.
                 The attribute `researcher_id` in the message should be `<unknown>`
+
+        Raises:
+            FedbiomedCommunicationError: bad argument type
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad parameter type for message, expected `Message`, got `{type(message)}`")
+                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
         if not isinstance(broadcast, bool):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad parameter type for broadcast, expected bool, got `{type(broadcast)}`")
+                f"{ErrorNumbers.FB628}: bad argument type for broadcast, expected bool, got `{type(broadcast)}`")
 
         if not self._is_started:
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication loop is not initialized.")
@@ -217,6 +220,9 @@ class RPCController(RPCAsyncTaskController):
 
         Returns:
             Connection status
+
+        Raises:
+            FedbiomedCommunicationError: bad argument type
         """
         if self._thread is None or not self._is_started:
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication cliebnt is not initialized.")

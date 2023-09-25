@@ -2,6 +2,7 @@ from typing import List, Callable, Optional, Awaitable
 from enum import Enum
 import asyncio
 import abc
+from dataclasses import dataclass
 
 import grpc
 
@@ -14,6 +15,14 @@ from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 
+@dataclass
+class ResearcherCredentials:
+
+    port: str
+    host: str
+    certificate: Optional[str] = None
+
+
 class ClientStatus(Enum):
     DISCONNECTED = 0
     CONNECTED = 1
@@ -22,14 +31,14 @@ class ClientStatus(Enum):
 def create_channel(
     port: str,
     host: str,
-    certificate: str = None
+    certificate: Optional[str] = None
 ) -> grpc.Channel :
     """ Create gRPC channel 
 
     Args: 
-        ip: 
-        port:
-        certificate:
+        ip: IP address of the channel
+        port: TCP port of the channel
+        certificate: certificate for secure channel, or None for unsecure channel
 
     Returns: 
         gRPC connection channel
@@ -49,7 +58,7 @@ def create_channel(
         # TODO: Create secure channel
         pass
 
-    # TODO: add callback fro connection state
+    # TODO: add callback for connection state
 
     return channel
 
@@ -57,46 +66,41 @@ def create_channel(
 
 class GrpcClient:
     """An agent of remote researcher gRPC server
-
-    Attributes:
-        id: Remote researcher ID
-        stub: RPC stub use for researcher services
     """
-    id: Optional[str]
-    task_stub: ResearcherServiceStub
-    queue: asyncio.Queue
 
+    def __init__(self, node_id: str, researcher: ResearcherCredentials, update_id_map: Callable) -> None:
+        """Class constructor
 
-    def __init__(self, node_id: str, researcher, update_id_map: Callable):
-
+        Args:
+            node_id: unique ID of this node (connection client)
+            researcher: the researcher to which the node connects (connection server)
+            update_id_map: function to call when updating the researcher ID, needs proper prototype
+        """
         self._id = None
 
         self._port = researcher.port
         self._host = researcher.host
-        self._node_id = node_id 
 
-        self._feedback_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
-        self.feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
+        feedback_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
+        feedback_stub = ResearcherServiceStub(channel=feedback_channel)
 
-        self._task_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
-        self.task_stub = ResearcherServiceStub(channel=self._task_channel)
+        task_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
+        task_stub = ResearcherServiceStub(channel=task_channel)
 
-        self.task_listener = TaskListener(
-            stub=self.task_stub, 
-            node_id=self._node_id, 
+        self._task_listener = TaskListener(
+            stub=task_stub, 
+            node_id=node_id, 
             on_status_change = self._on_status_change, 
             update_id=self._update_id)
 
-        self.sender = Sender(
-            feedback_stub=self.feedback_stub, 
-            task_stub=self.task_stub,
-            node_id=self._node_id)
+        self._sender = Sender(
+            feedback_stub=feedback_stub, 
+            task_stub=task_stub,
+            node_id=node_id)
 
-        self._loop = asyncio.get_running_loop()
-        self._running_tasks = []
         self._status  = ClientStatus.DISCONNECTED
         self._update_id_map = update_id_map
-        self.tasks = []
+        self._tasks = []
 
     def start(self, on_task) -> List[Awaitable[asyncio.Task]]:
         """Start researcher gRPC agent.
@@ -105,11 +109,11 @@ class GrpcClient:
         that is going to be sent back to researcher.
 
         Args: 
-            on_task: Callback function to execute once a task received.
+            on_task: Callback function to execute once a payload received from researcher.
         """
-        self.tasks = [self.task_listener.listen(on_task), self.sender.listen()]
+        self._tasks = [self._task_listener.listen(on_task), self._sender.listen()]
 
-        return self.tasks
+        return self._tasks
 
 
     async def send(self, message: Message):
@@ -173,10 +177,10 @@ class TaskListener(Listener):
 
     def __init__(
             self,  
+            stub: ResearcherServiceStub,
             node_id: str, 
-            stub,
-            on_status_change: Optional[Callable] = None,
-            update_id: Optional[Callable] = None
+            on_status_change: Callable,
+            update_id: Callable
     ) -> None:
 
         super().__init__(node_id=node_id)
@@ -259,13 +263,13 @@ class Sender(Listener):
 
     def __init__(
             self,  
-            node_id: str, 
             feedback_stub: ResearcherServiceStub,
             task_stub: ResearcherServiceStub,
+            node_id: str, 
     ) -> None:
 
         super().__init__(node_id=node_id)
-        self._queue = _AsyncQueueBridge()
+        self._queue = asyncio.Queue()
         self._task_stub = task_stub
         self._feedback_stub = feedback_stub
         self._retry_count = 0
@@ -341,27 +345,3 @@ class Sender(Listener):
             case _:
                 return await self._queue.put({"stub": self._task_stub.ReplyTask, "message": message}) 
 
-
-
-class _AsyncQueueBridge(asyncio.Queue): 
-    """Provides threadsafe operations for put and get """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.loop_ = asyncio.get_running_loop()
-
-    def put_threadsafe(self, item):
-        """Executes put_nowait as thread safe 
-
-        Args: 
-            item: Item to put in the queue
-        """
-        self.loop_.call_soon_threadsafe(
-            super().put_nowait, item
-        )
-
-    def get_threadsafe(self):
-        """Executes get_nowait threadsafe """
-        return self.loop_.call_soon_threadsafe(
-            super().get_nowait,
-        )
