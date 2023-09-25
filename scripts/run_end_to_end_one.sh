@@ -380,6 +380,7 @@ done
 # Activate researcher conda environment
 # (necessary to find a proper python/ipython)
 source $basedir/scripts/fedbiomed_environment researcher
+conda activate -s researcher-end-to-end
 
 # is script ok ?
 CMD_TO_RUN=$(script_executor $SCRIPT)
