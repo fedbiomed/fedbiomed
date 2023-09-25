@@ -5,16 +5,15 @@
 Implements the message exchanges from researcher to nodes
 """
 
-import inspect
 import json
 import os
 import tabulate
 import uuid
 import tempfile
-
-from python_minifier import minify
 from time import sleep
 from typing import Any, Dict, Callable, Union, List, Optional, Tuple
+
+from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError, FedbiomedError
@@ -25,11 +24,11 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.responses import Responses
-
 from fedbiomed.transport.server import GrpcServer
 from fedbiomed.transport.node_agent import NodeAgent
+
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.responses import Responses
 
 
 class Requests(metaclass=SingletonMeta):

@@ -8,14 +8,11 @@ implementation of Round class of the node component
 import atexit
 import tempfile
 import shutil
-import importlib
-import inspect
 import os
-import sys
 import time
 import functools
 import uuid
-from typing import Dict, Union, Any, Callable, Optional, Tuple, List
+from typing import Dict, Union, Any, Optional, Tuple, List
 
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
@@ -27,15 +24,14 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
+from fedbiomed.common.secagg import SecaggCrypter
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.common.secagg import SecaggCrypter
 
 
 class Round:

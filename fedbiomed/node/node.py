@@ -12,6 +12,8 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
 
+from fedbiomed.transport.controller import RPCController
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -19,7 +21,6 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.transport.controller import RPCController, ResearcherCredentials
 
 class Node:
     """Core code of the node component.
