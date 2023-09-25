@@ -26,6 +26,14 @@ class ResearcherCredentials:
 class ClientStatus(Enum):
     DISCONNECTED = 0
     CONNECTED = 1
+    FAILED = 2
+
+
+# timeout in seconds for retrying connection to the server when it does not reply
+GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
+
+# timeout in seconds of a request to the server for a task (payload) to run on the node
+GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 60
 
 
 def create_channel(
@@ -104,7 +112,7 @@ class GrpcClient:
         self._update_id_map = update_id_map
         self._tasks = []
 
-    def start(self, on_task) -> List[Awaitable[Optional[asyncio.Task]]]:
+    def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
         """Start researcher gRPC agent.
 
         Starts long-lived tasks, one waiting for server requests, one waiting on the async queue
@@ -145,6 +153,13 @@ class GrpcClient:
         Args:
             id_: Researcher Id
         """
+        if self._id is not None and self._id != id_:
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Suspected malicious researcher activity ! "
+                f"Researcher ID changed for {self._host}:{self._port} from "
+                f"`{self._id}` to `{id_}`"
+            )
+
         self._id = id_
         await self._update_id_map(f"{self._host}:{self._port}", id_)
 
@@ -157,7 +172,7 @@ class Listener:
         pass
 
 
-    def listen(self, callback: Optional[Callable] = None) -> Awaitable[asyncio.Task]:
+    def listen(self, callback: Optional[Callable] = None) -> Awaitable[Optional[Callable]]:
         """Listens for tasks from given channels
 
         Args:
@@ -169,7 +184,7 @@ class Listener:
         return asyncio.create_task(self._listen(callback))
 
     @abc.abstractmethod
-    def _listen(self, callback):
+    def _listen(self, callback: Optional[Callable] = None):
         pass
 
 
@@ -187,9 +202,9 @@ class TaskListener(Listener):
 
         Args:
             stub: RPC stub to be used for polling tasks from researcher
-            node_id:
-            on_status_change:
-            update_id:
+            node_id: unique ID for this node
+            on_status_change: Callback function to run for changing node agent status
+            update_id: Callback function to run updating peer researcher ID
         """
 
         super().__init__()
@@ -200,7 +215,7 @@ class TaskListener(Listener):
         self._update_id = update_id
 
 
-    async def _listen(self, callback: Optional[Callable] = None):
+    async def _listen(self, callback: Optional[Callable] = None) -> None:
         """"Starts the loop for listening task
 
         Args:
@@ -216,21 +231,25 @@ class TaskListener(Listener):
                     case grpc.StatusCode.DEADLINE_EXCEEDED:
                         logger.debug(
                             f"TaskListener has reach timeout. Re-sending request to {'researcher'} collect tasks")
-
                     case grpc.StatusCode.UNAVAILABLE:
-                        logger.debug("Researcher server is not available, will retry connect in 2 seconds")
                         self._on_status_change(ClientStatus.DISCONNECTED)
-                        await asyncio.sleep(2)
+                        logger.debug(
+                            "Researcher server is not available, will retry connect in "
+                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                     case grpc.StatusCode.UNKNOWN:
+                        self._on_status_change(ClientStatus.FAILED)
                         logger.debug("Unexpected error raised by researcher gRPC server. This is probably due to "
                                      f"bug on the researcher side. {exp}")
                         raise FedbiomedCommunicationError(
                             f"{ErrorNumbers.FB628}: Task listener stopped " "due to error on the researcher side")
                     case _:
+                        self._on_status_change(ClientStatus.FAILED)
                         raise FedbiomedCommunicationError(
                             f"{ErrorNumbers.FB628}: Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
 
             except Exception as exp:
+                self._on_status_change(ClientStatus.FAILED)
                 raise FedbiomedCommunicationError(
                     f"{ErrorNumbers.FB628}: Task listener has stopped due to unknown reason: {exp}") from exp
 
@@ -239,14 +258,13 @@ class TaskListener(Listener):
         """Requests tasks from Researcher
 
         Args:
-            researcher: Single researcher GRPC agent
             callback: Callback to execute once a task is arrived
         """
         while True:
             logger.debug("Sending new task request to researcher")
             self._on_status_change(ClientStatus.CONNECTED)
             iterator = self._stub.GetTaskUnary(
-                TaskRequest(node=f"{self._node_id}").to_proto(), timeout=60
+                TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
             )
             # Prepare reply
             reply = bytes()
@@ -259,14 +277,15 @@ class TaskListener(Listener):
                     logger.debug("New task received form researcher")
                     task = Serializer.loads(reply)
 
+                    # Guess ID of connected researcher, for un-authenticated connection
                     await self._update_id(task["researcher_id"])
 
-                    if callback:
+                    if isinstance(callback, Callable):
+                        # we could check the callback prototype
                         callback(task)
 
                     # Reset reply
                     reply = bytes()
-            # Update status as connected
 
 
 class Sender(Listener):
@@ -319,7 +338,8 @@ class Sender(Listener):
             elif isinstance(msg["stub"], grpc.aio.StreamUnaryMultiCallable):
                 stream_call = msg["stub"]()
 
-                if callback:
+                if isinstance(callback, Callable):
+                    # we could check the callback prototype
                     callback(msg["message"])
 
                 for reply in self._stream_reply(msg["message"]):
