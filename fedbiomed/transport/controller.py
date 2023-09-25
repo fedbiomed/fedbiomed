@@ -4,6 +4,8 @@ import threading
 from dataclasses import dataclass
 from typing import Callable, Optional, List, Dict
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
 
@@ -19,14 +21,14 @@ class ResearcherCredentials:
 
 
 class RPCAsyncTaskController:
-    """RPC asynchronous task controller 
+    """RPC asynchronous task controller
 
-    Launches async tasks for listening the requests/tasks coming form researcher as well as 
-    listener to send the replies that are created by the node. All the methods of this class 
-    are awaitable, except the constructor. 
+    Launches async tasks for listening the requests/tasks coming form researcher as well as
+    listener to send the replies that are created by the node. All the methods of this class
+    are awaitable, except the constructor.
     """
     def __init__(
-            self, 
+            self,
             node_id: str,
             researchers: List[ResearcherCredentials],
             on_message: Callable,
@@ -34,23 +36,26 @@ class RPCAsyncTaskController:
     ) -> None:
         """Constructs RPCAsyncTaskController
 
-        Args: 
+        Args:
             node_id: The ID of the node component that runs RPC client
             researchers: List of researchers that the RPC client will connect to.
             on_message: Callback function to be executed once a task received from the researcher
             debug: Activates debug mode for `asyncio`
 
         """
+        self._is_started = False
+
         self._node_id = node_id
         self._researchers = researchers
 
-        self._thread = None
         self._loop = None
 
         # Maps researcher ip to corresponding ids
         self._ip_id_map_lock = None
         self._ip_id_map = {}
 
+        # Clients lock not needed for now (client list not modified after initialization)
+        # but guarantees to be future safe for dynamic researcher clients' list
         self._clients_lock = None
         self._clients: Dict[str, GrpcClient] = {}
 
@@ -58,7 +63,7 @@ class RPCAsyncTaskController:
         self._on_message = on_message
 
 
-    async def _start(self):
+    async def start(self) -> None:
         """"Starts the tasks for each GrpcClient"""
 
         tasks = []
@@ -73,40 +78,40 @@ class RPCAsyncTaskController:
         self._ip_id_map_lock = asyncio.Lock()
         self._clients_lock = asyncio.Lock()
 
+        self._is_started = True
 
         logger.info("Starting task listeners")
 
         # Run GrpcClient asyncio tasks
         await asyncio.gather(*tasks)
 
-    async def send(self, message, broadcast: bool = False) -> None:
+    async def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends message to researcher.
 
-        Args: 
+        Args:
             message: Message to send
-            broadcast: Broadcast the message to all available researcher. This option should be used for general 
+            broadcast: Broadcast the message to all available researcher. This option should be used for general
                 node state messages (e.g. general Error)
         """
         if broadcast:
             return await self._broadcast(message)
 
-        async with self._ip_id_map_lock:
-            researcher = message.researcher_id
-            return await self._clients[self._ip_id_map[researcher]].send(message)
+        async with self._clients_lock:
+            async with self._ip_id_map_lock:
+                researcher = message.researcher_id
+                return await self._clients[self._ip_id_map[researcher]].send(message)
 
-    async def _broadcast(self, message: Message):
+    async def _broadcast(self, message: Message) -> None:
         """Broadcast given message
 
-        Args: 
+        Args:
             message: Message to broadcast
         """
-
-        async with self._clients_lock:
-            for _, client in self._clients.items():
-                await client.send(message)
+        for _, client in self._clients.items():
+            await client.send(message)
 
 
-    async def _update_id_ip_map(self, ip, id_):
+    async def _update_id_ip_map(self, ip, id_) -> None:
         """Updates researcher IP and researcher ID map
 
         Args:
@@ -116,61 +121,94 @@ class RPCAsyncTaskController:
         async with self._ip_id_map_lock:
             self._ip_id_map = {id_: ip}
 
-    async def _is_connected(self):
+    async def is_connected(self):
         """Checks if there is running tasks"""
 
         async with self._clients_lock:
             tasks = [not task.done() for client in self._clients.values() for task in client.tasks]
-            return all(tasks) and self._thread is not None and self._thread.is_alive()
+            return all(tasks)
 
 
 class RPCController(RPCAsyncTaskController):
-    """"RPC Controller class 
+    """"RPC Controller class
 
-    This class is responsible of managing GrpcConnections with researcher components. 
-    It is wrapper class of GrpcClients. It has been designed to be called main or 
-    different threads than the one grpc client runs. 
+    This class is responsible of managing GrpcConnections with researcher components.
+    It is wrapper class of GrpcClients. It has been designed to be called main or
+    different threads than the one grpc client runs.
 
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        node_id: str,
+        researchers: List[ResearcherCredentials],
+        on_message: Callable,
+        debug: bool = False
+    ) -> None:
         """Constructs RPC controller"""
 
-        super().__init__(*args, **kwargs)
+        if not isinstance(node_id, str):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad parameter type for node_id, expected str, got `{type(node_id)}`")
+        if not isinstance(on_message, Callable):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad parameter type for on_message, expected Callable, got `{type(on_message)}`")
+        if not isinstance(debug, bool):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad parameter type for debug, expected bool, got `{type(debug)}`")
+        if not isinstance(researchers, list) or not all(isinstance(r, ResearcherCredentials) for r in researchers):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad parameter type for researchers, expected list of researchers, got `{type(researchers)}`")
 
+        super().__init__(node_id, researchers, on_message, debug)
+
+        self._thread = None
         # Adds grpc handler to send node logs to researchers
         logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
-    def _run(self):
+    def _run(self) -> None:
         """Runs async task controller"""
-        try: 
-            asyncio.run(self._start(), debug=self._debug)
+        try:
+            asyncio.run(super().start(), debug=self._debug)
         except Exception as e:
             logger.critical(
-                "An exception raised by running tasks within GrpcClients. This will close stopping " 
+                "An exception raised by running tasks within GrpcClients. This will stop "
                 f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
             logger.info("Node is stopped!")
 
-    def start(self):
+    def start(self) -> None:
         """Start GRPCClients in a thread"""
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def send(self, message: Message, broadcast=False):
+    def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends given message to researcher
 
-        Researcher id should be specified in the message
+        Researcher id must exist in the message.
 
-        Args: 
+        Args:
             message: Message to send to researcher
-            broadcast: If True, broadcasts the given message to all available. 
-                This does not prevent adding `researcher_id` to the message. 
+            broadcast: If True, broadcasts the given message to all available.
+                This does not prevent adding `researcher_id` to the message.
                 The attribute `researcher_id` in the message should be `<unknown>`
         """
+        if not isinstance(message, Message):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad parameter type for message, expected `Message`, got `{type(message)}`")
+        if not isinstance(broadcast, bool):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad parameter type for broadcast, expected bool, got `{type(broadcast)}`")
+
+        if not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication loop is not initialized.")
+
         asyncio.run_coroutine_threadsafe(
             super().send(message, broadcast), self._loop
         )
-
 
     def is_connected(self) -> bool:
         """"Checks RPCController is connected to any RPC client.
@@ -180,9 +218,13 @@ class RPCController(RPCAsyncTaskController):
         Returns:
             Connection status
         """
+        if self._thread is None or not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication cliebnt is not initialized.")
+
+        if not self._thread.is_alive():
+            return False
 
         future = asyncio.run_coroutine_threadsafe(
-            self._is_connected(), self._loop
+            super().is_connected(), self._loop
         )
-
         return future.result()
