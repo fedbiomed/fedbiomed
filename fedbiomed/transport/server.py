@@ -1,20 +1,25 @@
 
-import threading
 import time
 from typing import Callable, Iterable, List
+import threading
 
 import asyncio
 import grpc
 from google.protobuf.message import Message as ProtoBufMessage
+
+from fedbiomed.transport.protocols.researcher_pb2 import Empty
+import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT
+from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
-from fedbiomed.transport.protocols.researcher_pb2 import Empty
-import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
+
+# timeout in seconds for server to establish connections with nodes and initialize
+GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
@@ -141,11 +146,10 @@ class _GrpcAsyncServer:
             on_message: Callback function to execute once a message received from the nodes
         """
 
-        self.host = host 
-        self.port = port
+        self._host = host 
+        self._port = port
 
-        self._server = None 
-        self._thread = None 
+        self._server = None  
         self._debug = debug
         self._on_message = on_message
         self.loop = None
@@ -171,7 +175,7 @@ class _GrpcAsyncServer:
             server=self._server
         )
 
-        self._server.add_insecure_port(self.host + ':' + str(self.port))
+        self._server.add_insecure_port(self._host + ':' + str(self._port))
 
         # Starts async gRPC server
         await self._server.start()
@@ -239,6 +243,21 @@ class GrpcServer(_GrpcAsyncServer):
     instantiated in the main thread
     """
 
+    def __init__(
+            self, 
+            host: str,
+            port: str,
+            debug: bool = False, 
+            on_message: Callable = _default_callback,
+    ) -> None:
+        """TODO !!!"""
+
+        # TODO: check args !
+
+        super().__init__(host, port, debug, on_message)
+
+        self._thread = None
+
     def _run(self):
         """Runs asyncio application"""
         try:
@@ -252,9 +271,9 @@ class GrpcServer(_GrpcAsyncServer):
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-        # FIXME: This implementation assumes that nodes will be able connect in 3 seconds
+        # FIXME: This implementation assumes that nodes will be able connect and server complete setup with this delay
         logger.info("Starting researcher service...")   
-        time.sleep(3)
+        time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
 
     def broadcast(self, message: Message):
         """Broadcast message
