@@ -281,7 +281,7 @@ class SecaggContext(ABC):
         # researcher side
         sequence = {}
         for node in self._parties[1:]:
-            sequence[node], _ = self._requests.send_message(msg, node, add_sequence=True)
+            sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
         status = {}
 
         # basic implementation: synchronous payload on researcher, then read answers from other parties

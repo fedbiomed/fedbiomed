@@ -25,7 +25,6 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
 from fedbiomed.transport.server import GrpcServer
-from fedbiomed.transport.node_agent import NodeAgent
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -129,45 +128,32 @@ class Requests(metaclass=SingletonMeta):
 
         return seq
 
-    def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> \
-            Tuple[Union[int, None], NodeAgent]:
-        """
-        Ask the messaging class to send a new message (receivers are
-        deduced from the message content)
+    def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> Optional[int]:
+        """Request the communication layer to send a message to a node.
 
         Args:
-            msg: the message to send to nodes
-            client: defines the channel to which the message will be sent. Defaults to None (all nodes)
+            msg: the message to send to node
+            client: unique node ID of the destination node for the message 
             add_sequence: if `True`, add unique sequence number to the message
 
         Returns:
             sequence: If `add_sequence` is True return the sequence number added to the message.
                 If `add_sequence` is False, return None
-            node: The agent of the node that the message is sent
         """
-
-        node: Union[NodeAgent, None] = self._grpc_server.get_agent(client)
-
-        if not node:
-            raise FedbiomedError(f"Node {client} is not existing, not connected or connection is lost.")
 
         if add_sequence:
             msg['sequence'] = self._add_sequence()
 
         # Send message to client
         self._grpc_server.send(ResearcherMessages.format_outgoing_message(msg), client)
-        #node.send(
-        #    ResearcherMessages.format_outgoing_message(msg)
-        #)
 
-        return msg.get('sequence', None), node
+        return msg.get('sequence', None)
 
     def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
-        """Broadcast message
+        """Request the communication layer to roadcast a message to all nodes.
 
         Args:
             msg: the message to send to nodes
-            client: defines the channel to which the message will be sent. Defaults to None (all nodes)
             add_sequence: if `True`, add unique sequence number to the message
 
         Returns:
@@ -183,7 +169,7 @@ class Requests(metaclass=SingletonMeta):
             ResearcherMessages.format_outgoing_message(message)
         )
 
-        return message.get('sequence')
+        return message.get('sequence', None)
 
 
 
@@ -289,12 +275,12 @@ class Requests(metaclass=SingletonMeta):
         nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
         return nodes_online
 
-    def search(self, tags: tuple, nodes: list = None) -> dict:
+    def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
 
         Args:
             tags: Tuple containing tags associated to the data researcher is looking for.
-            nodes: optionally filter nodes with this list. Default is no filtering, consider all nodes
+            nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
 
         Returns:
             A dict with node_id as keys, and list of dicts describing available data as values

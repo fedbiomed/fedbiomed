@@ -59,7 +59,7 @@ class NodeAgent:
             if self._status_task:
                 self._status_task.cancel()
 
-    async def send_(self, message: Message) -> None:
+    async def send(self, message: Message) -> None:
         """Async function send message to researcher"""
 
         if not isinstance(message, Message):
@@ -87,23 +87,6 @@ class NodeAgent:
         self.context = context
         self.context.add_done_callback(self._on_get_task_request_done)
 
-    def send(self, message: Message) -> None:
-        """Send task to the client
-
-        !!! warning "Important"
-            You can send only the message that defined within the scope of `TaskResponse`
-            please see Message class
-
-        Args: 
-            message: The task that is going to be sent to the node
-            callback: Callback to execute once the task reply is arrived
-        """
-
-        try:
-            return asyncio.run_coroutine_threadsafe(self.send_(message), self._loop)
-        except Exception as exp:
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
 
     def get(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread

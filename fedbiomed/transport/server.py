@@ -215,7 +215,7 @@ class _GrpcAsyncServer:
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
             
-        await agent.send_(message)    
+        await agent.send(message)    
 
 
     async def broadcast(self, message: Message) -> List[NodeAgent]:
@@ -244,7 +244,7 @@ class _GrpcAsyncServer:
                                 "this node to convert it as ACTIVE. Node will be updated "
                                 "as DISCONNECTED soon if no request received.")
 
-            await agent.send_(message)
+            await agent.send(message)
             ab.append(agent)      
 
         return ab
@@ -333,7 +333,7 @@ class GrpcServer(_GrpcAsyncServer):
         ) 
 
 
-    # TODO : remove
+    # TODO : use for send check
     def get_agent(self, node_id: str):
         """Gets node agent by node id
 

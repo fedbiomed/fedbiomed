@@ -379,7 +379,7 @@ class Job:
             timer[node] = time.perf_counter()
 
             # Sends training request
-            _, node = self._reqs.send_message(msg, node)  # send request to node
+            self._reqs.send_message(msg, node)  # send request to node
 
         self._get_training_testing_results(round_=round_, timer=timer)
 
