@@ -1,25 +1,20 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 from functools import reduce
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.common.serializer import Serializer
 
 
 class FedAnalytics:
     def __init__(self,
-                 job: Job,
-                 secagg: SecureAggregation
+                 exp: 'Experiment'
                  ):
-        self._job = job
         self._researcher_id = environ['RESEARCHER_ID']
         self._responses_history = list()
         self._aggregation_results_history = list()
-        self._secagg = secagg
+        self._exp = exp
 
     def fed_mean(self, **kwargs):
         return self._submit_fed_analytics_query(query_type='mean', query_kwargs=kwargs)
@@ -29,49 +24,49 @@ class FedAnalytics:
 
     def _submit_fed_analytics_query(self, query_type: str, query_kwargs: dict):
 
-        self._job.nodes = self._job.data.node_ids()
+        self._exp.job().nodes = self._exp.job().data.node_ids()
         serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
 
         # If secure aggregation is activated ---------------------------------------------------------------------
         secagg_arguments = {}
-        if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
-                               job_id=self._job.id)
-            secagg_arguments = self._secagg.train_arguments()
+        if self._exp.secagg.active:
+            self._exp.secagg.setup(parties=[environ["ID"]] + self._exp.job().nodes,
+                               job_id=self._exp.job().id)
+            secagg_arguments = self._exp.secagg.train_arguments()
         # --------------------------------------------------------------------------------------------------------
 
         msg = {
             'researcher_id': self._researcher_id,
-            'job_id': self._job.id,
+            'job_id': self._exp.job().id,
             'command': 'analytics_query',
             'query_type': query_type,
             'query_kwargs': serialized_query_kwargs,
-            'training_plan_url': self._job._repository_args['training_plan_url'],
-            'training_plan_class': self._job._repository_args['training_plan_class'],
+            'training_plan_url': self._exp.job()._repository_args['training_plan_url'],
+            'training_plan_class': self._exp.job()._repository_args['training_plan_class'],
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
         }
-        for cli in self._job.nodes:
-            msg['dataset_id'] = self._job.data.data()[cli]['dataset_id']
-            self._job.requests.send_message(msg, cli)  # send request to node
+        for cli in self._exp.job().nodes:
+            msg['dataset_id'] = self._exp.job().data.data()[cli]['dataset_id']
+            self._exp.job().requests.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
         self._responses_history.append(Responses(list()))
-        while self._job.waiting_for_nodes(self._responses_history[-1]):
-            query_results = self._job.requests.get_responses(look_for_commands=['analytics_query', 'error'],
+        while self._exp.job().waiting_for_nodes(self._responses_history[-1]):
+            query_results = self._exp.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
                                                              only_successful=False)
             for result in query_results.data():
                 result['results'] = Serializer.loads(bytes.fromhex(result['results']))
                 self._responses_history[-1].append(result)
 
         results = [x['results'] for x in self._responses_history[-1]]
-        data_manager = self._job.training_plan.training_data()
-        data_manager.load(tp_type=self._job.training_plan.type())
+        data_manager = self._exp.job().training_plan.training_data()
+        data_manager.load(tp_type=self._exp.job().training_plan.type())
 
-        if self._secagg.active:
-            flattened = self._secagg.aggregate(
+        if self._exp.secagg.active:
+            flattened = self._exp.secagg.aggregate(
                 round_=0,
                 encryption_factors={
                     x['node_id']: x['results']['encryption_factor'] for x in self._responses_history[-1]
