@@ -78,21 +78,6 @@ class NodeAgent:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
 
-
-    def get_status_threadsafe(self):
-        """Gets node status as threadsafe 
-
-        Node status should be accessed using this method since it can be 
-        modified by asyncio thread. 
-        """
-        async def get():
-            async with self.status_lock:
-                return self.status
-
-        future = asyncio.run_coroutine_threadsafe(get(), self._loop)
-        return future.result()
-
-
     def set_context(self, context):
         """Sets context for the current RPC call
 
@@ -101,7 +86,6 @@ class NodeAgent:
         """
         self.context = context
         self.context.add_done_callback(self._on_get_task_request_done)
-
 
     def send(self, message: Message) -> None:
         """Send task to the client
@@ -120,7 +104,6 @@ class NodeAgent:
         except Exception as exp:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
-
 
     def get(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
