@@ -811,7 +811,7 @@ class Round:
             encrypt = functools.partial(
                 self._secagg_crypter.encrypt,
                 num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
-                current_round=0,
+                current_round=1,
                 key=self._servkey["context"]["server_key"],
                 biprime=self._biprime["context"]["biprime"],
                 weight=1,  # currently not used

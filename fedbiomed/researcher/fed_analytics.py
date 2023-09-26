@@ -67,7 +67,7 @@ class FedAnalytics:
 
         if self._exp.secagg.active:
             flattened = self._exp.secagg.aggregate(
-                round_=0,
+                round_=1,
                 encryption_factors={
                     x['node_id']: x['results']['encryption_factor'] for x in self._responses_history[-1]
                 },
