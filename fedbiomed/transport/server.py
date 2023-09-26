@@ -264,7 +264,6 @@ class _GrpcAsyncServer:
             return self.agent_store.get(node_id)
 
 
-
 class GrpcServer(_GrpcAsyncServer):
     """Grpc server implementation to be used by threads
 

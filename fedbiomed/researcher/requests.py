@@ -262,11 +262,11 @@ class Requests(metaclass=SingletonMeta):
 
         # Broadcasts ping request
         self.broadcast(
-            PingRequest(
-                researcher_id=environ["ID"],
-                sequence=self._sequence,
-                command="ping"
-            ),
+            {
+                'researcher_id': environ["ID"],
+                'sequence': self._sequence,
+                'command': "ping"
+            },
             add_sequence=True
         )
 
@@ -287,7 +287,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # Search datasets based on node specifications
-        if nodes:
+        if nodes is None:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
                 self.send_message(
@@ -300,9 +300,11 @@ class Requests(metaclass=SingletonMeta):
             # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted
             # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
             self.broadcast({'tags': tags,
-                            'researcher_id': environ['ID'],
+                            'researcher_id': environ['RESEARCHER_ID'],
                             "command": "search"})
 
+        # TODO: currently a node with no dataset does not answer
+        # We may robustify by having any node answer and check this matches the list of ACTIVE nodes
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
             if not nodes:
@@ -317,16 +319,19 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
-    def list(self, nodes: list = None, verbose: bool = False) -> dict:
+    def list(self, nodes: Optional[list] = None, verbose: bool = False) -> dict:
         """Lists available data in each node
 
         Args:
-            nodes: Listings datasets by given node ids. Default is None.
+            nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
             verbose: If it is true it prints datasets in readable format
+
+        Returns:
+            A dict with node_id as keys, and list of dicts describing available data as values
         """
 
         # If nodes list is provided
-        if nodes:
+        if nodes is not None:
             for node in nodes:
                 self.send_message(
                     {"researcher_id": environ['RESEARCHER_ID'],
@@ -334,10 +339,8 @@ class Requests(metaclass=SingletonMeta):
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
-            nodes: List[str] = self._grpc_server.broadcast(
-                ResearcherMessages.format_outgoing_message({
-                    'researcher_id': environ['RESEARCHER_ID'],
-                    "command": "list"}))
+            self.broadcast({'researcher_id': environ['RESEARCHER_ID'],
+                            "command": "list"})
             logger.info(f'Listing available datasets in all nodes... {nodes} ')
 
         # Get datasets from node responses
