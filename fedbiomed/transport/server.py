@@ -122,11 +122,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         return Empty()
 
 
-
-def _default_callback(self, x):
-    print(f'Default callback: {type(x)} {x}')
-
-
 class _GrpcAsyncServer:
     """GRPC Server class"""
 
@@ -136,8 +131,8 @@ class _GrpcAsyncServer:
             self, 
             host: str,
             port: str,
+            on_message: Callable,
             debug: bool = False, 
-            on_message: Callable = _default_callback,
     ) -> None:
         """Constructs GrpcServer 
 
@@ -189,6 +184,40 @@ class _GrpcAsyncServer:
                 logger.debug("Done starting the server")
 
 
+    async def send(self, message: Message, node_id: str) -> None:
+        """Broadcasts given message to all active clients.
+
+        Args: 
+            message: Message to broadcast
+
+        Returns:
+            Node agents that the message broadcasted to. Includes node agents 
+                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING] 
+                status. 
+        """
+
+        agent = await self.agent_store.get(node_id)
+        
+        # For now, AgentStore does not discard node, but upper layer
+        # may use non-existing node ID
+        if not isinstance(agent, NodeAgent):
+            logger.info(f"Node {node_id} is not registered on server. Discard message.")
+            return
+
+        async with agent.status_lock:
+            if agent.status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {node_id} is disconnected. Discard message.")
+                return
+
+            if agent.status == NodeActiveStatus.WAITING:
+                logger.debug(f"Node {node_id} is in WAITING status. Server is "
+                            "waiting for receiving a request from "
+                            "this node to convert it as ACTIVE. Node will be updated "
+                            "as DISCONNECTED soon if no request received.")
+            
+        await agent.send_(message)    
+
+
     async def broadcast(self, message: Message) -> List[NodeAgent]:
         """Broadcasts given message to all active clients.
 
@@ -220,6 +249,8 @@ class _GrpcAsyncServer:
 
         return ab
 
+
+    # TODO: remove
     async def get_agent(self, node_id: str) -> NodeAgent:
         """Gets node agent by given node ID
 
@@ -247,16 +278,17 @@ class GrpcServer(_GrpcAsyncServer):
             self, 
             host: str,
             port: str,
+            on_message: Callable,
             debug: bool = False, 
-            on_message: Callable = _default_callback,
     ) -> None:
         """TODO !!!"""
 
         # TODO: check args !
 
-        super().__init__(host, port, debug, on_message)
+        super().__init__(host=host, port=port, on_message=on_message, debug=debug)
 
         self._thread = None
+
 
     def _run(self):
         """Runs asyncio application"""
@@ -275,6 +307,17 @@ class GrpcServer(_GrpcAsyncServer):
         logger.info("Starting researcher service...")   
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
 
+
+    def send(self, message: Message, node_id: str) -> None:
+        """Send message to a specific node.
+        
+        Args:
+            message: Message to send
+            node_id: Destination node unique ID
+        """
+        self._run_threadsafe(super().send(message, node_id)) 
+
+
     def broadcast(self, message: Message):
         """Broadcast message
 
@@ -290,6 +333,7 @@ class GrpcServer(_GrpcAsyncServer):
         ) 
 
 
+    # TODO : remove
     def get_agent(self, node_id: str):
         """Gets node agent by node id
 

@@ -71,7 +71,6 @@ def create_channel(
     return channel
 
 
-
 class GrpcClient:
     """An agent of remote researcher gRPC server
     """
@@ -113,6 +112,7 @@ class GrpcClient:
         self._update_id_map = update_id_map
         self._tasks = []
 
+
     def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
         """Start researcher gRPC agent.
 
@@ -148,6 +148,7 @@ class GrpcClient:
         """
         self._status = status
 
+
     async def _update_id(self, id_: str) -> None:
         """Updates researcher ID
 
@@ -169,6 +170,7 @@ class GrpcClient:
 
 
 class Listener:
+    """Abstract generic listener method for a node's communications."""
 
     def __init__(self) -> None:
         """Constructs task listener channels
@@ -186,6 +188,7 @@ class Listener:
             Asyncio task to run task listener
         """
         return asyncio.create_task(self._listen(callback))
+
 
     @abc.abstractmethod
     def _listen(self, callback: Optional[Callable] = None):
@@ -319,6 +322,7 @@ class Sender(Listener):
         self._on_status_change = on_status_change
         self._retry_count = 0
 
+
     async def _listen(self, callback: Optional[Callable] = None) -> None:
         """Listens for the messages that are going to be sent to researcher.
 
@@ -367,6 +371,7 @@ class Sender(Listener):
                 raise FedbiomedCommunicationError(
                     f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: {exp}") from exp
 
+
     async def _get(self, callback: Optional[Callable] = None) -> None:
         """Gets task result from the queue.
 
@@ -399,6 +404,7 @@ class Sender(Listener):
 
             self._queue.task_done()
             self._retry_count = 0
+
 
     def _stream_reply(self, message: Message) -> Iterable:
         """Streams task result back researcher component.

@@ -155,9 +155,10 @@ class Requests(metaclass=SingletonMeta):
             msg['sequence'] = self._add_sequence()
 
         # Send message to client
-        node.send(
-            ResearcherMessages.format_outgoing_message(msg)
-        )
+        self._grpc_server.send(ResearcherMessages.format_outgoing_message(msg), client)
+        #node.send(
+        #    ResearcherMessages.format_outgoing_message(msg)
+        #)
 
         return msg.get('sequence', None), node
 

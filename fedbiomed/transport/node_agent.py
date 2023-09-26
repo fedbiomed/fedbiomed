@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 import asyncio
@@ -59,7 +59,7 @@ class NodeAgent:
             if self._status_task:
                 self._status_task.cancel()
 
-    async def send_(self, message: Message):
+    async def send_(self, message: Message) -> None:
         """Async function send message to researcher"""
 
         if not isinstance(message, Message):
@@ -211,7 +211,7 @@ class AgentStore:
     async def get(
             self,
             node_id: str
-    ) -> NodeAgent:
+    ) -> Optional[NodeAgent]:
         """Gets node agent by given node id
 
         Args: 

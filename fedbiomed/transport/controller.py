@@ -75,6 +75,7 @@ class RPCAsyncTaskController:
         # Run GrpcClient asyncio tasks
         await asyncio.gather(*tasks)
 
+
     async def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends message to researcher.
 
@@ -90,6 +91,7 @@ class RPCAsyncTaskController:
             async with self._ip_id_map_lock:
                 researcher = message.researcher_id
                 await self._clients[self._ip_id_map[researcher]].send(message)
+
 
     async def _broadcast(self, message: Message) -> None:
         """Broadcast given message
@@ -110,6 +112,7 @@ class RPCAsyncTaskController:
         """
         async with self._ip_id_map_lock:
             self._ip_id_map = {id_: ip}
+
 
     async def is_connected(self) -> bool:
         """Checks if there is running tasks"""
@@ -169,6 +172,7 @@ class RPCController(RPCAsyncTaskController):
         # Adds grpc handler to send node logs to researchers
         logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
+
     def _run(self) -> None:
         """Runs async task controller"""
         try:
@@ -184,6 +188,7 @@ class RPCController(RPCAsyncTaskController):
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+
 
     def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends given message to researcher
@@ -212,6 +217,7 @@ class RPCController(RPCAsyncTaskController):
         asyncio.run_coroutine_threadsafe(
             super().send(message, broadcast), self._loop
         )
+
 
     def is_connected(self) -> bool:
         """"Checks RPCController is connected to any RPC client.
