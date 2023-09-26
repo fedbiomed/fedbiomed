@@ -250,20 +250,6 @@ class _GrpcAsyncServer:
         return ab
 
 
-    # TODO: remove
-    async def get_agent(self, node_id: str) -> NodeAgent:
-        """Gets node agent by given node ID
-
-        Args: 
-            node_id: ID of the node whose agent will be retrieved   
-
-        Returns:
-            Node agent object to control remote node
-        """
-        async with self._agent_store_lock:
-            return self.agent_store.get(node_id)
-
-
 class GrpcServer(_GrpcAsyncServer):
     """Grpc server implementation to be used by threads
 
@@ -330,16 +316,6 @@ class GrpcServer(_GrpcAsyncServer):
         return self._run_threadsafe(
             super().broadcast(message)
         ) 
-
-
-    # TODO : use for send check
-    def get_agent(self, node_id: str):
-        """Gets node agent by node id
-
-        Args:
-            node_id: Id of the node
-        """
-        return self._run_threadsafe(self.agent_store.get(node_id))
 
     def get_all_agents(self):
         """Gets all agents from agent store"""
