@@ -1,6 +1,6 @@
 
 import time
-from typing import Callable, Iterable, List, Any, Coroutine, Dict
+from typing import Callable, Iterable, List, Any, Coroutine, Dict, Optional
 import threading
 import copy
 
@@ -40,7 +40,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             on_message: Callback function to execute once a message received from the nodes
         """
         super().__init__()
-        self.agent_store = agent_store
+        self._agent_store = agent_store
         self._on_message = on_message
 
 
@@ -59,7 +59,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
-        node_agent = await self.agent_store.get_or_register(node_id=task_request["node"])
+        node_agent = await self._agent_store.get_or_register(node_id=task_request["node"])
         # Update node active status as active
         node_agent.set_context(context)
 
@@ -130,9 +130,6 @@ class _GrpcAsyncServer:
 
     All the methods of this class are awaitable, except the constructor.
     """
-
-    agent_store: AgentStore
-
     def __init__(
             self,
             host: str,
@@ -148,6 +145,7 @@ class _GrpcAsyncServer:
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
         """
+        self._is_started = False
 
         self._host = host
         self._port = port
@@ -155,7 +153,8 @@ class _GrpcAsyncServer:
         self._server = None
         self._debug = debug
         self._on_message = on_message
-        self.loop = None
+        self._loop = None
+        self._agent_store : Optional[AgentStore] = None
 
 
     async def start(self):
@@ -168,12 +167,12 @@ class _GrpcAsyncServer:
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
 
-        self.loop = asyncio.get_running_loop()
-        self.agent_store = AgentStore(loop=self.loop)
+        self._loop = asyncio.get_running_loop()
+        self._agent_store = AgentStore(loop=self._loop)
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
-                agent_store=self.agent_store,
+                agent_store=self._agent_store,
                 on_message=self._on_message),
             server=self._server
         )
@@ -182,6 +181,8 @@ class _GrpcAsyncServer:
 
         # Starts async gRPC server
         await self._server.start()
+        # OK to read self._is_started from other thread as it is only set once & basic variable
+        self._is_started = True
 
         try:
             if self._debug:
@@ -197,14 +198,9 @@ class _GrpcAsyncServer:
 
         Args:
             message: Message to broadcast
-
-        Returns:
-            Node agents that the message broadcasted to. Includes node agents
-                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING]
-                status.
         """
 
-        agent = await self.agent_store.get(node_id)
+        agent = await self._agent_store.get(node_id)
 
         # For now, AgentStore does not discard node, but upper layer
         # may use non-existing node ID
@@ -212,58 +208,53 @@ class _GrpcAsyncServer:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        async with agent.status_lock:
-            if agent.status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {node_id} is disconnected. Discard message.")
-                return
+        agent_status = await agent.status()
+        if agent_status == NodeActiveStatus.DISCONNECTED:
+            logger.info(f"Node {node_id} is disconnected. Discard message.")
+            return
 
-            if agent.status == NodeActiveStatus.WAITING:
-                logger.debug(f"Node {node_id} is in WAITING status. Server is "
-                            "waiting for receiving a request from "
-                            "this node to convert it as ACTIVE. Node will be updated "
-                            "as DISCONNECTED soon if no request received.")
+        if agent_status == NodeActiveStatus.WAITING:
+            logger.debug(f"Node {node_id} is in WAITING status. Server is "
+                         "waiting for receiving a request from "
+                         "this node to convert it as ACTIVE. Node will be updated "
+                         "as DISCONNECTED soon if no request received.")
 
         await agent.send(message)
 
 
-    async def broadcast(self, message: Message) -> List[NodeAgent]:
+    async def broadcast(self, message: Message) -> None:
         """Broadcasts given message to all active clients.
 
         Args:
             message: Message to broadcast
-
-        Returns:
-            Node agents that the message broadcasted to. Includes node agents
-                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING]
-                status.
         """
 
-        agents = await self.agent_store.get_all()
-        ab = []
-        for _, agent in agents.items():
-            async with agent.status_lock:
-                if agent.status == NodeActiveStatus.DISCONNECTED:
-                    logger.info(f"Node {agent.id} is disconnected.")
-                    continue
+        agents = await self._agent_store.get_all()
+        for id, agent in agents.items():
+            agent_status = await agent.status()
+            if agent_status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {id} is disconnected.")
+                continue
 
-                if agent.status == NodeActiveStatus.WAITING:
-                    logger.info(f"Node {agent.id} is in WAITING status. Server is "
-                                "waiting for receiving a request from "
-                                "this node to convert it as ACTIVE. Node will be updated "
-                                "as DISCONNECTED soon if no request received.")
+            if agent_status == NodeActiveStatus.WAITING:
+                logger.info(f"Node {id} is in WAITING status. Server is "
+                            "waiting for receiving a request from "
+                            "this node to convert it as ACTIVE. Node will be updated "
+                            "as DISCONNECTED soon if no request received.")
 
             await agent.send(message)
-            ab.append(agent)
-
-        return ab
 
 
     async def get_all_nodes(self) -> Dict[str, str]:
-        """Returns all known nodes and their status"""
+        """Returns all known nodes and their status
 
-        agents = await self.agent_store.get_all()
+        Returns:
+            A dictionary of node IDs (keys) and status (values)
+        """
 
-        return copy.deepcopy({n.id: n.status.name for n in agents.values()})
+        agents = await self._agent_store.get_all()
+
+        return copy.deepcopy({node.id: (await node.status()).name for node in agents.values()})
 
 
 
@@ -338,6 +329,9 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for node_id, expected str, got `{type(node_id)}`")
 
+        if not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+
         self._run_threadsafe(super().send(message, node_id))
 
     def broadcast(self, message: Message) -> None:
@@ -350,12 +344,18 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
+        if not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+
         self._run_threadsafe(super().broadcast(message))
 
     # TODO: Currently unused
 
     def get_all_nodes(self):
         """Gets all nodes ID known by server and their status"""
+
+        if not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
 
@@ -367,6 +367,9 @@ class GrpcServer(_GrpcAsyncServer):
         Return:
             gRPC server running status
         """
+        if not self._is_started:
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+
         # TODO: more tests about gRPC server and task status ?
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
@@ -381,7 +384,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
 
         future = asyncio.run_coroutine_threadsafe(
-            coroutine, self.loop
+            coroutine, self._loop
         )
 
         return future.result()

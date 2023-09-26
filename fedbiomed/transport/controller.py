@@ -68,6 +68,7 @@ class GrpcAsyncTaskController:
         self._ip_id_map_lock = asyncio.Lock()
         self._clients_lock = asyncio.Lock()
 
+        # OK to read self._is_started from other thread as it is only set once & basic variable
         self._is_started = True
 
         logger.info("Starting task listeners")
@@ -212,7 +213,7 @@ class GrpcController(GrpcAsyncTaskController):
                 f"{ErrorNumbers.FB628}: bad argument type for broadcast, expected bool, got `{type(broadcast)}`")
 
         if not self._is_started:
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication loop is not initialized.")
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         asyncio.run_coroutine_threadsafe(
             super().send(message, broadcast), self._loop
@@ -231,7 +232,7 @@ class GrpcController(GrpcAsyncTaskController):
             FedbiomedCommunicationError: bad argument type
         """
         if self._thread is None or not self._is_started:
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication cliebnt is not initialized.")
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         if not self._thread.is_alive():
             return False

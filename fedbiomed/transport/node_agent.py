@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, Dict
 from datetime import datetime
+import copy
 
 import asyncio
 import grpc
@@ -37,27 +38,33 @@ class NodeAgent:
         self.last_request: datetime = None
 
         # Node should be active when it is first instantiated
-        self.status: NodeActiveStatus = NodeActiveStatus.ACTIVE
+        self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
         self._queue = asyncio.Queue()
         self._loop = loop
-        self._status_task = None
-        self.status_lock = asyncio.Lock()
+        self._status_task : Optional[asyncio.Task] = None
+        self._status_lock = asyncio.Lock()
+
+    async def status(self) -> NodeActiveStatus:
+        async with self._status_lock:
+            st = copy.deepcopy(self._status)
+        return st
 
     async def active(self) -> None:
         """Updates node status as active"""
 
-        async with self.status_lock:
+        async with self._status_lock:
 
             # Inform user that node is online again
-            if self.status == NodeActiveStatus.DISCONNECTED:
+            if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self.id} is back online!")
 
-            self.status = NodeActiveStatus.ACTIVE
+            self._status = NodeActiveStatus.ACTIVE
 
             # Cancel status task if there is any running
             if self._status_task:
                 self._status_task.cancel()
+                self._status_task = None
 
     async def send(self, message: Message) -> None:
         """Async function send message to researcher"""
@@ -66,9 +73,9 @@ class NodeAgent:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Message is not an instance of fedbiomed.common.message.TaskMessage")
 
-
-        async with self.status_lock:
-            if self.status == NodeActiveStatus.DISCONNECTED:
+        # TODO: this may happen, discard message ? put in queue silently ?
+        async with self._status_lock:
+            if self._status == NodeActiveStatus.DISCONNECTED:
                 raise FedbiomedCommunicationError(
                     f"{ErrorNumbers.FB628}: Node is not active. Last communication {self.last_request}")
 
@@ -103,10 +110,11 @@ class NodeAgent:
         The callback is executed when the RPC call is canceled, done or aborted, including
         if the process on the node side stops.
         """
-        self.status = NodeActiveStatus.WAITING
+        self._status = NodeActiveStatus.WAITING
 
         # Imply DISCONNECT after 10seconds rule asynchronously
-        self._status_task = asyncio.create_task(self._change_node_status_disconnected())
+        if self._status_task is None:
+            self._status_task = asyncio.create_task(self._change_node_status_disconnected())
 
 
     async def _change_node_status_disconnected(self) -> None:
@@ -119,9 +127,9 @@ class NodeAgent:
         await asyncio.sleep(10)
 
         # If the status still WAITING set status to DISCONNECTED
-        async with self.status_lock:
-            if self.status == NodeActiveStatus.WAITING:
-                self.status = NodeActiveStatus.DISCONNECTED
+        async with self._status_lock:
+            if self._status == NodeActiveStatus.WAITING:
+                self._status = NodeActiveStatus.DISCONNECTED
                 logger.warning(
                     f"Node {self.id} is disconnected. Request/task that are created "
                     "for this node will be flushed" )
@@ -183,11 +191,11 @@ class AgentStore:
 
         return node
 
-    async def get_all(self) -> List[NodeAgent]:
+    async def get_all(self) -> Dict[str, NodeAgent]:
         """Returns all node agents regardless of their status (ACTIVE, DISCONNECTED, ...).
 
         Returns:
-            List of node agent objects
+            Dictionary of node agent objects, by node ID
         """
 
         async with self.store_lock:
