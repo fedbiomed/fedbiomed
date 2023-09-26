@@ -287,7 +287,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # Search datasets based on node specifications
-        if nodes is None:
+        if nodes is not None:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
                 self.send_message(

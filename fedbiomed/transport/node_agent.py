@@ -1,9 +1,9 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Optional, List
 from datetime import datetime
 
 import asyncio
-import grpc 
+import grpc
 
 from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
@@ -11,36 +11,36 @@ from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-class NodeActiveStatus(Enum): 
-    """Node active status types 
+class NodeActiveStatus(Enum):
+    """Node active status types
 
     Attributes:
-        WAITING: Corresponds status where researcher server waits another GetTask request after 
-            the previous one is completed. 
+        WAITING: Corresponds status where researcher server waits another GetTask request after
+            the previous one is completed.
         ACTIVE: Listening for the task with open RPC call
-        DISCONNECTED: No GetTask RPC call running from the node 
+        DISCONNECTED: No GetTask RPC call running from the node
     """
     WAITING = 1
     ACTIVE = 2
-    DISCONNECTED = 3 
+    DISCONNECTED = 3
 
 
 class NodeAgent:
 
     def __init__(
-            self, 
-            id: str, 
+            self,
+            id: str,
             loop,
     ) -> None:
         """Represent the client that connects to gRPC server"""
-        self.id: str = id 
-        self.last_request: datetime = None 
+        self.id: str = id
+        self.last_request: datetime = None
 
         # Node should be active when it is first instantiated
         self.status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
         self._queue = asyncio.Queue()
-        self._loop = loop 
+        self._loop = loop
         self._status_task = None
         self.status_lock = asyncio.Lock()
 
@@ -101,13 +101,12 @@ class NodeAgent:
         """Callback to execute each time RPC call is completed
 
         The callback is executed when the RPC call is canceled, done or aborted, including
-        if the process on the node side stops.        
+        if the process on the node side stops.
         """
         self.status = NodeActiveStatus.WAITING
 
-        # Imply DISCONNECT after 10seconds rule asynchronously 
+        # Imply DISCONNECT after 10seconds rule asynchronously
         self._status_task = asyncio.create_task(self._change_node_status_disconnected())
-
 
 
     async def _change_node_status_disconnected(self) -> None:
@@ -135,7 +134,7 @@ class AgentStore:
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         """Constructs agent store
 
-        Args: 
+        Args:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
         """
@@ -145,15 +144,15 @@ class AgentStore:
         self.store_lock = asyncio.Lock()
 
     async def get_or_register(
-            self, 
+            self,
             node_id: str
     ) -> NodeAgent:
-        """Registers or gets node agent. 
+        """Registers or gets node agent.
 
-        Depending of the state this method registers or gets new NodeAgent. 
+        Depending of the state this method registers or gets new NodeAgent.
 
-        Args: 
-            node_id: ID of receiving node 
+        Args:
+            node_id: ID of receiving node
 
         Return:
             The node agent to manage tasks that are assigned to it.
@@ -168,14 +167,13 @@ class AgentStore:
 
         return node
 
-
     async def register(
-            self, 
+            self,
             node_id: str
     ) -> NodeAgent:
-        """Register new node agent. 
+        """Register new node agent.
 
-        Args: 
+        Args:
             node_id: ID to register
         """
         # Lock the thread for register operation
@@ -186,7 +184,11 @@ class AgentStore:
         return node
 
     async def get_all(self) -> List[NodeAgent]:
-        """Returns all node agents regardless ACTIVE or DISCONNECTED"""
+        """Returns all node agents regardless of their status (ACTIVE, DISCONNECTED, ...).
+
+        Returns:
+            List of node agent objects
+        """
 
         async with self.store_lock:
             return self.node_agents
@@ -197,7 +199,7 @@ class AgentStore:
     ) -> Optional[NodeAgent]:
         """Gets node agent by given node id
 
-        Args: 
+        Args:
             node_id: Id of the node
         """
         async with self.store_lock:

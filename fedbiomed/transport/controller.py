@@ -10,7 +10,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
 
 
-class RPCAsyncTaskController:
+class GrpcAsyncTaskController:
     """RPC asynchronous task controller
 
     Launches async tasks for listening the requests/tasks coming form researcher as well as
@@ -24,7 +24,7 @@ class RPCAsyncTaskController:
             on_message: Callable,
             debug: bool = False
     ) -> None:
-        """Constructs RPCAsyncTaskController
+        """Constructs GrpcAsyncTaskController
 
         Args:
             node_id: The ID of the node component that runs RPC client
@@ -122,8 +122,8 @@ class RPCAsyncTaskController:
             return all(tasks)
 
 
-class RPCController(RPCAsyncTaskController):
-    """"RPC Controller class
+class GrpcController(GrpcAsyncTaskController):
+    """"gRPC Controller class
 
     This class is responsible of managing GrpcConnections with researcher components.
     It is wrapper class of GrpcClients. It has been designed to be called main or
@@ -220,7 +220,7 @@ class RPCController(RPCAsyncTaskController):
 
 
     def is_connected(self) -> bool:
-        """"Checks RPCController is connected to any RPC client.
+        """"Checks GrpcController is connected to any RPC client.
 
         This method should only be called from different thread than the one that asyncio loop running in.
 

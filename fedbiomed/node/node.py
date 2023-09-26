@@ -12,7 +12,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
 
-from fedbiomed.transport.controller import RPCController
+from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -44,7 +44,7 @@ class Node:
         """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self._grpc_client = RPCController(
+        self._grpc_client = GrpcController(
             node_id=environ["ID"],
             researchers=environ["RESEARCHERS"],
             on_message=self.on_message,

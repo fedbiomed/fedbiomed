@@ -1,7 +1,8 @@
 
 import time
-from typing import Callable, Iterable, List
+from typing import Callable, Iterable, List, Any, Coroutine, Dict
 import threading
+import copy
 
 import asyncio
 import grpc
@@ -12,6 +13,8 @@ import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT
 from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
@@ -26,14 +29,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
 
     def __init__(
-            self, 
-            agent_store: AgentStore, 
+            self,
+            agent_store: AgentStore,
             on_message: Callable
     ) -> None:
         """Constructor of gRPC researcher servicer
 
-        Args: 
-            agent_store: The class that stores node agents 
+        Args:
+            agent_store: The class that stores node agents
             on_message: Callback function to execute once a message received from the nodes
         """
         super().__init__()
@@ -42,13 +45,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 
     async def GetTaskUnary(
-            self, 
-            request: ProtoBufMessage, 
+            self,
+            request: ProtoBufMessage,
             context: grpc.aio.ServicerContext
     ) -> None:
-        """Gets unary RPC request and return stream of response 
+        """Gets unary RPC request and return stream of response
 
-        Args: 
+        Args:
             request: RPC request
             context: RPC peer context
         """
@@ -63,9 +66,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task = await node_agent.get()
         task = Serializer.dumps(task.get_dict())
 
-        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)    
+        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
-            stop = start + MAX_MESSAGE_BYTES_LENGTH 
+            stop = start + MAX_MESSAGE_BYTES_LENGTH
 
             yield TaskResponse(
                 size=len(chunk_range),
@@ -75,14 +78,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 
     async def ReplyTask(
-            self, 
-            request_iterator: Iterable[ProtoBufMessage], 
+            self,
+            request_iterator: Iterable[ProtoBufMessage],
             unused_context: grpc.aio.ServicerContext
     ) -> None:
         """Gets stream replies from the nodes
 
-        Args: 
-            request_iterator: Iterator for streaming 
+        Args:
+            request_iterator: Iterator for streaming
             unused_context: Request service context
         """
 
@@ -101,14 +104,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 
     async def Feedback(
-            self, 
-            request: ProtoBufMessage, 
+            self,
+            request: ProtoBufMessage,
             unused_context: grpc.aio.ServicerContext
     ) -> None:
         """Executed for Feedback request received from the nodes
 
         Args:
-            request: Feedback message  
+            request: Feedback message
             unused_context: Request service context
         """
 
@@ -123,28 +126,33 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
 
 class _GrpcAsyncServer:
-    """GRPC Server class"""
+    """GRPC Server class.
+
+    All the methods of this class are awaitable, except the constructor.
+    """
 
     agent_store: AgentStore
 
     def __init__(
-            self, 
+            self,
             host: str,
             port: str,
             on_message: Callable,
-            debug: bool = False, 
+            debug: bool = False,
     ) -> None:
-        """Constructs GrpcServer 
+        """Class constructor
 
-        Args: 
-            debug: Activate debug mode for gRPC asyncio
+        Args:
+            host: server DNS name or IP address
+            port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
+            debug: Activate debug mode for gRPC asyncio
         """
 
-        self._host = host 
+        self._host = host
         self._port = port
 
-        self._server = None  
+        self._server = None
         self._debug = debug
         self._on_message = on_message
         self.loop = None
@@ -153,7 +161,7 @@ class _GrpcAsyncServer:
     async def start(self):
         """Starts gRPC server"""
 
-        self._server = grpc.aio.server( 
+        self._server = grpc.aio.server(
             # futures.ThreadPoolExecutor(max_workers=10),
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
@@ -166,7 +174,7 @@ class _GrpcAsyncServer:
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
                 agent_store=self.agent_store,
-                on_message=self._on_message), 
+                on_message=self._on_message),
             server=self._server
         )
 
@@ -176,28 +184,28 @@ class _GrpcAsyncServer:
         await self._server.start()
 
         try:
-            if self._debug: 
+            if self._debug:
                 logger.debug("Waiting for termination")
             await self._server.wait_for_termination()
         finally:
-            if self._debug: 
+            if self._debug:
                 logger.debug("Done starting the server")
 
 
     async def send(self, message: Message, node_id: str) -> None:
         """Broadcasts given message to all active clients.
 
-        Args: 
+        Args:
             message: Message to broadcast
 
         Returns:
-            Node agents that the message broadcasted to. Includes node agents 
-                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING] 
-                status. 
+            Node agents that the message broadcasted to. Includes node agents
+                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING]
+                status.
         """
 
         agent = await self.agent_store.get(node_id)
-        
+
         # For now, AgentStore does not discard node, but upper layer
         # may use non-existing node ID
         if not isinstance(agent, NodeAgent):
@@ -214,20 +222,20 @@ class _GrpcAsyncServer:
                             "waiting for receiving a request from "
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
-            
-        await agent.send(message)    
+
+        await agent.send(message)
 
 
     async def broadcast(self, message: Message) -> List[NodeAgent]:
         """Broadcasts given message to all active clients.
 
-        Args: 
+        Args:
             message: Message to broadcast
 
         Returns:
-            Node agents that the message broadcasted to. Includes node agents 
-                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING] 
-                status. 
+            Node agents that the message broadcasted to. Includes node agents
+                that are in [fedbiomed.transport.node_agent.NodeActiveStatus][NodeActiveStatus.WAITING]
+                status.
         """
 
         agents = await self.agent_store.get_all()
@@ -245,83 +253,113 @@ class _GrpcAsyncServer:
                                 "as DISCONNECTED soon if no request received.")
 
             await agent.send(message)
-            ab.append(agent)      
+            ab.append(agent)
 
         return ab
+
+
+    async def get_all_nodes(self) -> Dict[str, str]:
+        """Returns all known nodes and their status"""
+
+        agents = await self.agent_store.get_all()
+
+        return copy.deepcopy({n.id: n.status.name for n in agents.values()})
+
 
 
 class GrpcServer(_GrpcAsyncServer):
     """Grpc server implementation to be used by threads
 
     This class extends async implementation of gRPC server to be able to
-    call async methods from different thread. Currently, it is used by 
+    call async methods from different thread. Currently, it is used by
     [fedbiomed.researcher.requests.Requests][`Requests`] class that is
     instantiated in the main thread
     """
-
     def __init__(
-            self, 
+            self,
             host: str,
             port: str,
             on_message: Callable,
-            debug: bool = False, 
+            debug: bool = False,
     ) -> None:
-        """TODO !!!"""
+        """Class constructor
 
-        # TODO: check args !
+        Args:
+            host: server DNS name or IP address
+            port: server TCP port
+            on_message: Callback function to execute once a message received from the nodes
+            debug: Activate debug mode for gRPC asyncio
+        """
+        if not isinstance(host, str) or not isinstance(port, str):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad argument type for `host:port` `{host}:{port}`, expected strings, "
+                f"got `{type(host)}`:`{type(port)}`")
+        if not isinstance(on_message, Callable):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
+        if not isinstance(debug, bool):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for debug, expected bool, got `{type(debug)}`")
 
         super().__init__(host=host, port=port, on_message=on_message, debug=debug)
 
         self._thread = None
 
-
-    def _run(self):
+    def _run(self) -> None:
         """Runs asyncio application"""
         try:
             asyncio.run(super().start())
         except Exception as e:
-            logger.error(f"Researcher gRPC server has stopped. Please try to restart your kernel, {e}")
+            logger.error(f"Researcher gRPC server has stopped. Please try to restart: {e}")
 
-    def start(self):
+    def start(self) -> None:
         """Stats async GrpcServer """
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
         # FIXME: This implementation assumes that nodes will be able connect and server complete setup with this delay
-        logger.info("Starting researcher service...")   
+        logger.info("Starting researcher service...")
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
-
 
     def send(self, message: Message, node_id: str) -> None:
         """Send message to a specific node.
-        
+
         Args:
             message: Message to send
             node_id: Destination node unique ID
         """
-        self._run_threadsafe(super().send(message, node_id)) 
+        if not isinstance(message, Message):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
+        if not isinstance(node_id, str):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad argument type for node_id, expected str, got `{type(node_id)}`")
 
+        self._run_threadsafe(super().send(message, node_id))
 
-    def broadcast(self, message: Message):
-        """Broadcast message
-
-        !!! warning "Important"
-            This method should be called only from main thread.
+    def broadcast(self, message: Message) -> None:
+        """Broadcast message to all known and reachable nodes
 
         Args:
             message: Message to broadcast
         """
+        if not isinstance(message, Message):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
-        return self._run_threadsafe(
-            super().broadcast(message)
-        ) 
+        self._run_threadsafe(super().broadcast(message))
 
-    def get_all_agents(self):
-        """Gets all agents from agent store"""
+    # TODO: Currently unused
 
-        return self._run_threadsafe(self.agent_store.get_all())
+    def get_all_nodes(self):
+        """Gets all nodes ID known by server and their status"""
 
+        return self._run_threadsafe(super().get_all_nodes())
+
+    # TODO: Currently unused
 
     def is_alive(self) -> bool:
         """Checks if the thread running gRPC server still alive
@@ -329,14 +367,17 @@ class GrpcServer(_GrpcAsyncServer):
         Return:
             gRPC server running status
         """
+        # TODO: more tests about gRPC server and task status ?
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()
 
-
-    def _run_threadsafe(self, coroutine):
+    def _run_threadsafe(self, coroutine: Coroutine) -> Any:
         """Runs given coroutine threadsafe
 
         Args:
             coroutine: Awaitable function to be executed as threadsafe
+
+        Returns:
+            Coroutine return value.
         """
 
         future = asyncio.run_coroutine_threadsafe(
