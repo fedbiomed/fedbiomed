@@ -1,6 +1,6 @@
 
 import time
-from typing import Callable, Iterable, List, Any, Coroutine, Dict, Optional
+from typing import Callable, Iterable, Any, Coroutine, Dict, Optional
 import threading
 import copy
 
@@ -182,7 +182,7 @@ class _GrpcAsyncServer:
 
         # Starts async gRPC server
         await self._server.start()
-        
+
         self._is_started.set()
         try:
             if self._debug:
@@ -208,7 +208,7 @@ class _GrpcAsyncServer:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        agent_status = await agent.status()
+        agent_status = await agent.status
         if agent_status == NodeActiveStatus.DISCONNECTED:
             logger.info(f"Node {node_id} is disconnected. Discard message.")
             return
@@ -231,7 +231,7 @@ class _GrpcAsyncServer:
 
         agents = await self._agent_store.get_all()
         for id, agent in agents.items():
-            agent_status = await agent.status()
+            agent_status = await agent.status
             if agent_status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {id} is disconnected.")
                 continue
@@ -254,7 +254,7 @@ class _GrpcAsyncServer:
 
         agents = await self._agent_store.get_all()
 
-        return copy.deepcopy({node.id: (await node.status()).name for node in agents.values()})
+        return copy.deepcopy({node.id: (await node.status).name for node in agents.values()})
 
 
 
@@ -280,6 +280,9 @@ class GrpcServer(_GrpcAsyncServer):
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
+        
+        Raises:
+            FedbiomedCommunicationError: bad argument type
         """
         if not isinstance(host, str) or not isinstance(port, str):
             raise FedbiomedCommunicationError(
@@ -321,6 +324,10 @@ class GrpcServer(_GrpcAsyncServer):
         Args:
             message: Message to send
             node_id: Destination node unique ID
+        
+        Raises:
+            FedbiomedCommunicationError: bad argument type
+            FedbiomedCommunicationError: server is not started
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
@@ -339,6 +346,10 @@ class GrpcServer(_GrpcAsyncServer):
 
         Args:
             message: Message to broadcast
+
+        Raises:
+            FedbiomedCommunicationError: bad argument type
+            FedbiomedCommunicationError: server is not started
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
@@ -351,8 +362,15 @@ class GrpcServer(_GrpcAsyncServer):
 
     # TODO: Currently unused
 
-    def get_all_nodes(self):
-        """Gets all nodes ID known by server and their status"""
+    def get_all_nodes(self) -> Dict[str, str]:
+        """Gets all nodes ID known by server and their status.
+
+        Returns:
+            A dictionary of node IDs (keys) and status (values)
+        
+        Raises:
+            FedbiomedCommunicationError: server is not started
+        """
 
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
@@ -364,8 +382,11 @@ class GrpcServer(_GrpcAsyncServer):
     def is_alive(self) -> bool:
         """Checks if the thread running gRPC server still alive
 
-        Return:
+        Returns:
             gRPC server running status
+        
+        Raises:
+            FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")

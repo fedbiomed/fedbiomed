@@ -204,6 +204,7 @@ class GrpcController(GrpcAsyncTaskController):
 
         Raises:
             FedbiomedCommunicationError: bad argument type
+            FedbiomedCommunicationError: node is not started
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
@@ -229,7 +230,7 @@ class GrpcController(GrpcAsyncTaskController):
             Connection status
 
         Raises:
-            FedbiomedCommunicationError: bad argument type
+            FedbiomedCommunicationError: node is not started
         """
         if self._thread is None or not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")

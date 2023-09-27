@@ -34,8 +34,8 @@ class NodeAgent:
             loop,
     ) -> None:
         """Represent the client that connects to gRPC server"""
-        self.id: str = id
-        self.last_request: datetime = None
+        self._id: str = id
+        self._last_request: Optional[datetime] = None
 
         # Node should be active when it is first instantiated
         self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
@@ -45,10 +45,16 @@ class NodeAgent:
         self._status_task : Optional[asyncio.Task] = None
         self._status_lock = asyncio.Lock()
 
+
+    @property
     async def status(self) -> NodeActiveStatus:
         async with self._status_lock:
-            st = copy.deepcopy(self._status)
-        return st
+            # deepcopy is not needed as long as this remains a simple value ...
+            return self._status
+
+    @property
+    def id(self) -> str:
+        return self._id
 
     async def active(self) -> None:
         """Updates node status as active"""
@@ -57,9 +63,10 @@ class NodeAgent:
 
             # Inform user that node is online again
             if self._status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {self.id} is back online!")
+                logger.info(f"Node {self._id} is back online!")
 
             self._status = NodeActiveStatus.ACTIVE
+            self._last_request = datetime.now()
 
             # Cancel status task if there is any running
             if self._status_task:
@@ -69,15 +76,11 @@ class NodeAgent:
     async def send(self, message: Message) -> None:
         """Async function send message to researcher"""
 
-        if not isinstance(message, Message):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Message is not an instance of fedbiomed.common.message.TaskMessage")
-
         # TODO: this may happen, discard message ? put in queue silently ?
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
                 raise FedbiomedCommunicationError(
-                    f"{ErrorNumbers.FB628}: Node is not active. Last communication {self.last_request}")
+                    f"{ErrorNumbers.FB628}: Node is not active. Last communication {self._last_request}")
 
         try:
             await self._queue.put(message)
@@ -131,7 +134,7 @@ class NodeAgent:
             if self._status == NodeActiveStatus.WAITING:
                 self._status = NodeActiveStatus.DISCONNECTED
                 logger.warning(
-                    f"Node {self.id} is disconnected. Request/task that are created "
+                    f"Node {self._id} is disconnected. Request/task that are created "
                     "for this node will be flushed" )
             # TODO: clean the queue
 
@@ -146,10 +149,10 @@ class AgentStore:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
         """
-        self.node_agents: NodeAgent = {}
+        self._node_agents: NodeAgent = {}
 
         self._loop = loop
-        self.store_lock = asyncio.Lock()
+        self._store_lock = asyncio.Lock()
 
     async def get_or_register(
             self,
@@ -186,8 +189,8 @@ class AgentStore:
         """
         # Lock the thread for register operation
         node = NodeAgent(id=node_id, loop=self._loop)
-        async with self.store_lock:
-            self.node_agents.update({node_id: node})
+        async with self._store_lock:
+            self._node_agents.update({node_id: node})
 
         return node
 
@@ -198,8 +201,8 @@ class AgentStore:
             Dictionary of node agent objects, by node ID
         """
 
-        async with self.store_lock:
-            return self.node_agents
+        async with self._store_lock:
+            return self._node_agents
 
     async def get(
             self,
@@ -210,5 +213,5 @@ class AgentStore:
         Args:
             node_id: Id of the node
         """
-        async with self.store_lock:
-            return self.node_agents.get(node_id)
+        async with self._store_lock:
+            return self._node_agents.get(node_id)
