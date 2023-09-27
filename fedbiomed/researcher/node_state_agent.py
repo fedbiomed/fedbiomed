@@ -38,7 +38,10 @@ class NodeStateAgent:
             print("RESPONSES", self._data)
             for node_reply in resp:
                 # adds Node responses 
-                node_id, state_id = node_reply['node_id'], node_reply['state_id']
+                try:
+                    node_id, state_id = node_reply['node_id'], node_reply['state_id']
+                except KeyError as ke:
+                    raise FedBiomedNodeStateAgentError("Missing entry in Response") from ke
                 print("STATE_ID", state_id)
                 self._collection_state_ids[node_id] = state_id
 

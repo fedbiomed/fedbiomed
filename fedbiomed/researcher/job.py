@@ -77,7 +77,7 @@ class Job:
         self._training_args = training_args
         self._model_args = model_args
         self._nodes = nodes
-        self._training_replies = {}  # will contain all node replies for every round
+        self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
@@ -533,7 +533,7 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
-
+        print("RESONSES", response)
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 

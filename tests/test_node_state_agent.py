@@ -107,7 +107,25 @@ class TestNodeStateAgent(unittest.TestCase):
         # TODO: to be continued...
         
         resp = Responses([{'node_id': 'node_id_1234',
-                           'node_state': 'node_state_1234'}, ])
+                           'state_id': 'node_state_1234'}, 
+                          {'node_id': 'node_id_5678',
+                           'state_id': 'node_state_5678'}
+                          ])
+        print("RESPONSE", resp)
+        
+        nsa.update_node_states(fds_data_2, resp)
+        res = nsa.get_last_node_states()
+        self.assertIn(list(res.keys()), list(fds_data_2.keys()))
+        
+        # finally, we update with a node_id that is not present in the FederatedDataset
+        
+        resp = Responses([{'node_id': 'node_id_1234',
+                           'state_id': 'node_state_1234'}, 
+                          {'node_id': 'node_id_5678',
+                           'state_id': 'node_state_5678'},
+                           {'node_id': 'unknown-node_id', 
+                            'state_id': 'unknown_state-id'}
+                          ])
         
     def test_node_state_agent_5_save_state_ids_in_bkpt(self):
         pass
