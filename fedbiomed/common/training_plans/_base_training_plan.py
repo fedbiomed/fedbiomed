@@ -47,6 +47,9 @@ class BaseTrainingPlan(FederatedDataPlan):
     _model: Model
     _optimizer: BaseOptimizer
 
+    # static attributes
+    dataset_class = None
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         # Arguments provided by the researcher; they will be populated by post_init
