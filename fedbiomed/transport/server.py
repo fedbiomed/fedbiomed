@@ -145,7 +145,8 @@ class _GrpcAsyncServer:
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
         """
-        self._is_started = False
+        # inform all threads whether server is started
+        self._is_started = threading.Event()
 
         self._host = host
         self._port = port
@@ -181,9 +182,8 @@ class _GrpcAsyncServer:
 
         # Starts async gRPC server
         await self._server.start()
-        # OK to read self._is_started from other thread as it is only set once & basic variable
-        self._is_started = True
-
+        
+        self._is_started.set()
         try:
             if self._debug:
                 logger.debug("Waiting for termination")
@@ -329,7 +329,7 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for node_id, expected str, got `{type(node_id)}`")
 
-        if not self._is_started:
+        if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
@@ -344,7 +344,7 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
-        if not self._is_started:
+        if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         self._run_threadsafe(super().broadcast(message))
@@ -354,7 +354,7 @@ class GrpcServer(_GrpcAsyncServer):
     def get_all_nodes(self):
         """Gets all nodes ID known by server and their status"""
 
-        if not self._is_started:
+        if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
@@ -367,7 +367,7 @@ class GrpcServer(_GrpcAsyncServer):
         Return:
             gRPC server running status
         """
-        if not self._is_started:
+        if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         # TODO: more tests about gRPC server and task status ?

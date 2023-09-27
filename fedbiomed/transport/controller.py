@@ -33,7 +33,8 @@ class GrpcAsyncTaskController:
             debug: Activates debug mode for `asyncio`
 
         """
-        self._is_started = False
+        # inform all threads whether communication client is started
+        self._is_started = threading.Event()
 
         self._node_id = node_id
         self._researchers = researchers
@@ -68,8 +69,7 @@ class GrpcAsyncTaskController:
         self._ip_id_map_lock = asyncio.Lock()
         self._clients_lock = asyncio.Lock()
 
-        # OK to read self._is_started from other thread as it is only set once & basic variable
-        self._is_started = True
+        self._is_started.set()
 
         logger.info("Starting task listeners")
 
@@ -212,7 +212,7 @@ class GrpcController(GrpcAsyncTaskController):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for broadcast, expected bool, got `{type(broadcast)}`")
 
-        if not self._is_started:
+        if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         asyncio.run_coroutine_threadsafe(
@@ -231,7 +231,7 @@ class GrpcController(GrpcAsyncTaskController):
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
-        if self._thread is None or not self._is_started:
+        if self._thread is None or not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         if not self._thread.is_alive():
