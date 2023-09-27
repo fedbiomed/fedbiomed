@@ -143,7 +143,7 @@ class AgentStore:
     """Stores node agents"""
 
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Constructs agent store
+        """Constructor of the agent store
 
         Args:
             loop: asyncio event loop that research server runs. Agent store should use
@@ -154,13 +154,14 @@ class AgentStore:
         self._loop = loop
         self._store_lock = asyncio.Lock()
 
-    async def get_or_register(
+    async def retrieve(
             self,
             node_id: str
     ) -> NodeAgent:
-        """Registers or gets node agent.
+        """Retrieves a node agent for a given node ID.
 
-        Depending of the state this method registers or gets new NodeAgent.
+        Depending if this node is already known to the store this method gets existing agent or.
+        registers a new agent.
 
         Args:
             node_id: ID of receiving node
@@ -168,29 +169,12 @@ class AgentStore:
         Return:
             The node agent to manage tasks that are assigned to it.
         """
-
-        node = await self.get(node_id=node_id)
-
-        if not node:
-            node = await self.register(node_id)
-
-        await node.active()
-
-        return node
-
-    async def register(
-            self,
-            node_id: str
-    ) -> NodeAgent:
-        """Register new node agent.
-
-        Args:
-            node_id: ID to register
-        """
-        # Lock the thread for register operation
-        node = NodeAgent(id=node_id, loop=self._loop)
+        # Lock during all sequence to ensure atomicity
         async with self._store_lock:
-            self._node_agents.update({node_id: node})
+            node = self._node_agents.get(node_id)
+            if not node:
+                node = NodeAgent(id=node_id, loop=self._loop)
+                self._node_agents.update({node_id: node})
 
         return node
 
@@ -202,7 +186,10 @@ class AgentStore:
         """
 
         async with self._store_lock:
-            return self._node_agents
+            # a shallow copy is wanted so that
+            # - we have a distinct (stable) list of NodeAgents that can be processed in calling func
+            # - we use same NodeAgents objects (not a copy)
+            return copy.copy(self._node_agents)
 
     async def get(
             self,
@@ -211,7 +198,7 @@ class AgentStore:
         """Gets node agent by given node id
 
         Args:
-            node_id: Id of the node
+            node_id: Id of the node, or None if no agent exists for this node ID
         """
         async with self._store_lock:
             return self._node_agents.get(node_id)

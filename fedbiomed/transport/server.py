@@ -2,7 +2,6 @@
 import time
 from typing import Callable, Iterable, Any, Coroutine, Dict, Optional
 import threading
-import copy
 
 import asyncio
 import grpc
@@ -59,8 +58,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
-        node_agent = await self._agent_store.get_or_register(node_id=task_request["node"])
+        node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
         # Update node active status as active
+        await node_agent.active()
         node_agent.set_context(context)
 
         task = await node_agent.get()
@@ -254,7 +254,7 @@ class _GrpcAsyncServer:
 
         agents = await self._agent_store.get_all()
 
-        return copy.deepcopy({node.id: (await node.status).name for node in agents.values()})
+        return {node.id: (await node.status).name for node in agents.values()}
 
 
 
@@ -280,7 +280,7 @@ class GrpcServer(_GrpcAsyncServer):
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
-        
+
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
@@ -324,7 +324,7 @@ class GrpcServer(_GrpcAsyncServer):
         Args:
             message: Message to send
             node_id: Destination node unique ID
-        
+
         Raises:
             FedbiomedCommunicationError: bad argument type
             FedbiomedCommunicationError: server is not started
@@ -367,7 +367,7 @@ class GrpcServer(_GrpcAsyncServer):
 
         Returns:
             A dictionary of node IDs (keys) and status (values)
-        
+
         Raises:
             FedbiomedCommunicationError: server is not started
         """
@@ -384,7 +384,7 @@ class GrpcServer(_GrpcAsyncServer):
 
         Returns:
             gRPC server running status
-        
+
         Raises:
             FedbiomedCommunicationError: server is not started
         """
