@@ -1,11 +1,3 @@
-# This file is originally part of Fed-BioMed
-# SPDX-License-Identifier: Apache-2.0
-
-"""Code of the researcher. Implements the experiment orchestration"""
-
-import os
-import json
-import inspect
 import uuid
 from re import findall
 from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union

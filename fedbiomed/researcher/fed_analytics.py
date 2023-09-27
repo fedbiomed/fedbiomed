@@ -165,15 +165,11 @@ class FedAnalytics:
 
         self._exp.job().nodes = self._exp.job().data.node_ids()
         serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
-
-        # If secure aggregation is activated ---------------------------------------------------------------------
-        secagg_arguments = {}
-        if self._exp.secagg.active:
-            self._exp.secagg.setup(parties=[environ["ID"]] + self._exp.job().nodes,
-                               job_id=self._exp.job().id)
-            secagg_arguments = self._exp.secagg.train_arguments()
-        # --------------------------------------------------------------------------------------------------------
-
+        # set participating nodes
+        self._exp.job().nodes = self._exp.job().data.node_ids()
+        # setup secagg
+        secagg_arguments = self._exp.secagg_setup()
+        # prepare query request
         msg = {
             'researcher_id': self._researcher_id,
             'job_id': self._exp.job().id,
