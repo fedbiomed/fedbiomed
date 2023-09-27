@@ -60,10 +60,12 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
         # Update node active status as active
-        await node_agent.active()
+        await node_agent.set_active()
         node_agent.set_context(context)
 
-        task = await node_agent.get()
+        task = await node_agent.get_task()
+        # Choice: be simple, mark task as de-queued as soon as retrieved
+        node_agent.task_done()
         task = Serializer.dumps(task.get_dict())
 
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)

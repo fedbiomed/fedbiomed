@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional, Dict
 from datetime import datetime
 import copy
+from threading import Event
 
 import asyncio
 import grpc
@@ -10,6 +11,9 @@ from fedbiomed.common.message import Message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.constants import ErrorNumbers
+
+# timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
+GPRC_SERVER_TASK_WAIT_TIMEOUT = 10
 
 
 class NodeActiveStatus(Enum):
@@ -31,7 +35,7 @@ class NodeAgent:
     def __init__(
             self,
             id: str,
-            loop,
+            loop: asyncio.AbstractEventLoop,
     ) -> None:
         """Represent the client that connects to gRPC server"""
         self._id: str = id
@@ -43,20 +47,34 @@ class NodeAgent:
         self._queue = asyncio.Queue()
         self._loop = loop
         self._status_task : Optional[asyncio.Task] = None
-        self._status_lock = asyncio.Lock()
 
+        # protect read/write operations on self._status + self._status_task + self._last_request)
+        self._status_lock = asyncio.Lock()
+        # handle race condition when a task in finished/canceled between (1) receiving new task
+        # (2) executing coroutine for handling task end
+        self._is_waiting = Event()
 
     @property
     async def status(self) -> NodeActiveStatus:
+        """Getter for node status.
+
+        Returns:
+            node status
+        """
         async with self._status_lock:
-            # deepcopy is not needed as long as this remains a simple value ...
+            # (deep)copy is not needed as long as this remains a simple value ...
             return self._status
 
     @property
     def id(self) -> str:
+        """Getter for node id.
+
+        Returns:
+            node id
+        """
         return self._id
 
-    async def active(self) -> None:
+    async def set_active(self) -> None:
         """Updates node status as active"""
 
         async with self._status_lock:
@@ -73,14 +91,21 @@ class NodeAgent:
                 self._status_task.cancel()
                 self._status_task = None
 
+            # we are not waiting for a task request from node
+            self._is_waiting.clear()
+
     async def send(self, message: Message) -> None:
-        """Async function send message to researcher"""
+        """Async function send message to researcher.
+
+        Args:
+            message: Message to send to the researcher
+        """
 
         # TODO: this may happen, discard message ? put in queue silently ?
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
-                raise FedbiomedCommunicationError(
-                    f"{ErrorNumbers.FB628}: Node is not active. Last communication {self._last_request}")
+                logger.info(f"Node {self._id} is disconnected. Discard message.")
+                return
 
         try:
             await self._queue.put(message)
@@ -88,46 +113,65 @@ class NodeAgent:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
 
-    def set_context(self, context):
+    def set_context(self, context) -> None:
         """Sets context for the current RPC call
 
         Args:
             context: RPC call context
         """
-        self.context = context
-        self.context.add_done_callback(self._on_get_task_request_done)
+        context.add_done_callback(self._on_get_task_request_done)
 
 
-    def get(self) -> asyncio.coroutine:
+    def get_task(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
 
         !!! note "Returns coroutine"
             This function return an asyncio coroutine. Please use `await` while calling.
 
+        Returns:
+            Coroutine to await for retrieving a task
         """
         return self._queue.get()
+
+    def task_done(self) -> None:
+        """Acknowledge completion of a de-queued task
+        """
+        self._queue.task_done()
 
     def _on_get_task_request_done(self, context: grpc.aio.ServicerContext) -> None:
         """Callback to execute each time RPC call is completed
 
         The callback is executed when the RPC call is canceled, done or aborted, including
         if the process on the node side stops.
+
+        Args:
+            context: ignored
         """
-        self._status = NodeActiveStatus.WAITING
+        # Avoid a (rare ?) race condition where new node task requests arrives before the coroutine
+        # elf._change_node_status_after_task() is executed ...
+        self._is_waiting.set()
 
-        # Imply DISCONNECT after 10seconds rule asynchronously
-        if self._status_task is None:
-            self._status_task = asyncio.create_task(self._change_node_status_disconnected())
+        asyncio.create_task(self._change_node_status_after_task())
 
+    async def _change_node_status_after_task(self) -> None:
+        """Coroutine to execute each time RPC call is completed
+        """
+        async with self._status_lock:
+            if self._is_waiting.is_set():
+                self._status = NodeActiveStatus.WAITING
+
+                if self._status_task is None:
+                    self._status_task = asyncio.create_task(self._change_node_status_disconnected())
 
     async def _change_node_status_disconnected(self) -> None:
-        """Updates node status as `DISCONNECTED`
+        """Task coroutine to change node status as `DISCONNECTED` after a delay
 
-        Node becomes DISCONNECTED if it doesn't become ACTIVE in 10 seconds
+        Node becomes DISCONNECTED if it doesn't become ACTIVE in GPRC_SERVER_TASK_WAIT_TIMEOUT seconds,
+        which cancels this task
         """
 
-        # Sleep at least 10 seconds in WAITING
-        await asyncio.sleep(10)
+        # Sleep at least GPRC_SERVER_TASK_WAIT_TIMEOUT seconds in WAITING
+        await asyncio.sleep(GPRC_SERVER_TASK_WAIT_TIMEOUT)
 
         # If the status still WAITING set status to DISCONNECTED
         async with self._status_lock:
@@ -136,7 +180,7 @@ class NodeAgent:
                 logger.warning(
                     f"Node {self._id} is disconnected. Request/task that are created "
                     "for this node will be flushed" )
-            # TODO: clean the queue
+                # TODO: empty the queue when becoming disconnected ?
 
 
 class AgentStore:
@@ -152,6 +196,8 @@ class AgentStore:
         self._node_agents: NodeAgent = {}
 
         self._loop = loop
+
+        # protect read/write operations on self._node_agents
         self._store_lock = asyncio.Lock()
 
     async def retrieve(
