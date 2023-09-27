@@ -10,6 +10,7 @@ from typing import Optional, Union, Tuple
 import numpy as np
 import pandas as pd
 from functools import reduce
+from collections import OrderedDict
 
 import torch
 from torch import from_numpy, stack, Tensor
@@ -111,7 +112,7 @@ class TabularDataset(Dataset):
 
     @staticmethod
     def flatten_mean(means: dict):
-        format = {}
+        format = OrderedDict()
         inputs_means = means.pop('inputs')
         format['inputs'] = list(inputs_means.shape) or [1]
         inputs_means = inputs_means.flatten()
@@ -123,7 +124,7 @@ class TabularDataset(Dataset):
                 **means}
 
     @staticmethod
-    def unflatten(flat_results: dict):
+    def _unflatten(flat_results: dict):
         out = {}
         offset = 0
         for key, shape in flat_results['format'].items():
@@ -133,6 +134,8 @@ class TabularDataset(Dataset):
             offset += numel
         return out
 
+    def unflatten_mean(flat_results: dict):
+        return TabularDataset._unflatten(flat_results)
 
     @staticmethod
     def aggregate_mean(node_means: list):
@@ -205,7 +208,25 @@ class TabularDataset(Dataset):
             'targets': agg_targets_std
         }
 
+    @staticmethod
+    def flatten_std(stds: dict):
+        """
 
+        inputs are discarded.
+        """
+        format = OrderedDict()
+        ssq_stds = stds.pop('fed_sum_of_squares')
+        format['fed_sum_of_squares'] = list(ssq_stds.shape) or [1]
+        ssq_stds = ssq_stds.flatten()
+        targets_stds = stds.pop('targets')
+        format['targets'] = list(targets_stds.shape) or [1]
+        targets_stds = targets_stds.flatten()
+        return {'flat': torch.cat((inputs_stds, ssq_stds, targets_stds), dim=0),
+                'format': format,
+                **stds}
+
+    def unflatten_std(flat_results: dict):
+        return TabularDataset._unflatten(flat_results)
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:
