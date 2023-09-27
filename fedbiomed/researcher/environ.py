@@ -88,15 +88,12 @@ class ResearcherEnviron(Environ):
                     raise FedbiomedEnvironError(_msg)
 
     def _set_component_specific_config_parameters(self):
-        # get uploads url
-        uploads_url = self._get_uploads_url()
-
+    
         # Default configuration
         researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
         self._cfg['default'] = {
             'id': researcher_id,
             'component': "RESEARCHER",
-            'uploads_url': uploads_url,
             'version': __config_version__
         }
 

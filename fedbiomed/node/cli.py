@@ -49,6 +49,7 @@ readline.parse_and_bind("tab: complete")
 
 _node = None
 
+
 def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """Signal handler that terminates the process.
 
@@ -65,7 +66,7 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
 
     try:
         if _node and _node.is_connected():
-            _node.send_error(ErrorNumbers.FB312, 
+            _node.send_error(ErrorNumbers.FB312,
                              extra_msg = "Node is stopped",
                              broadcast=True)
             time.sleep(2)
@@ -176,7 +177,6 @@ def launch_node(node_args: Union[dict, None] = None):
         sys.exit(0)
 
 
-    
 def launch_cli():
     """Parses command line input for the node component and launches node accordingly.
     """
@@ -345,7 +345,6 @@ def launch_cli():
             'gpu_only': (cli.arguments.gpu_only is True)
         }
 
-       
         launch_node(node_args)
 
 

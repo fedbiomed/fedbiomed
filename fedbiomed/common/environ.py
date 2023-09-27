@@ -35,7 +35,6 @@ Common Global Variables:
 - VAR_DIR                 : Var directory of Fed-BioMed
 - CACHE_DIR               : Cache directory of Fed-BioMed
 - TMP_DIR                 : Temporary directory
-- UPLOADS_URL             : Upload URL for file repository
 - MPSPDZ_IP               : MP-SPDZ endpoint IP of component
 - DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
 - ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
@@ -305,37 +304,6 @@ class Environ(metaclass=SingletonABCMeta):
             "MPSPDZ_CERTIFICATE_PEM",
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
-
-    def _get_uploads_url(self,
-                         from_config: bool = False
-                         ) -> str:
-        """Gets uploads url from env
-
-        # TODO: Get IP, port and end-point information separately
-
-        Args:
-            from_config: if True, use uploads URL value from config as default value, if False use last resort
-                default value.
-
-        Returns:
-            Uploads url
-        """
-
-        uploads_url = self.from_config("default", "uploads_url") if \
-            from_config is True else \
-            "http://localhost:8844/upload/"
-
-        # Modify URL with custom IP
-        uploads_ip = os.getenv('UPLOADS_IP')
-        if uploads_ip:
-            uploads_url = f"http://{uploads_ip}:8844/upload/"
-
-        # Environment variable always overwrites config value
-        url = os.getenv('UPLOADS_URL', uploads_url)
-
-        return url
-
-
 
     def _generate_certificate(
             self,

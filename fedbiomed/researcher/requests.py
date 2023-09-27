@@ -133,7 +133,7 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             msg: the message to send to node
-            client: unique node ID of the destination node for the message 
+            client: unique node ID of the destination node for the message
             add_sequence: if `True`, add unique sequence number to the message
 
         Returns:
