@@ -18,7 +18,7 @@ from typing import Dict, Union, Any, Optional, Tuple, List
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import (
-    FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError, 
+    FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError,
     FedbiomedUserInputError
 )
 from fedbiomed.common.logger import logger
@@ -250,7 +250,7 @@ class Round:
         try:
             self.training_plan.save_code(training_plan_file, from_code=self.training_plan_source)
         except Exception as e:
-            error_message = "Cannot save the training plan to a local tmp dir" 
+            error_message = "Cannot save the training plan to a local tmp dir"
             logger.error(f"Cannot save the training plan to a local tmp dir : {e}")
             return self._send_round_reply(success=False, message=error_message)
 
@@ -407,8 +407,8 @@ class Round:
             extend_with: Optional[Dict] = None,
             timing: dict = {},
     ) -> None:
-        """Sends reply to researcher after training/validation. 
-        
+        """Sends reply to researcher after training/validation.
+
         Message content changes based on success status.
 
         Args:
@@ -443,13 +443,13 @@ class Round:
         # Early-exit if there are no auxiliary variables to process.
         if not self._optim_aux_var:
             return
-        
+
         # Fetch the training plan's BaseOptimizer.
         try:
             optimizer = self._get_base_optimizer()
         except FedbiomedRoundError as exc:
             return str(exc)
-        
+
         # Verify that the BaseOptimizer wraps an Optimizer.
         if not isinstance(optimizer.optimizer, Optimizer):
             return (
@@ -473,18 +473,19 @@ class Round:
         empty dict. If it does not hold any BaseOptimizer however, raise a
         FedbiomedRoundError.
 
-        Returns: 
-            Auxiliary variables 
+        Returns:
+            Auxiliary variables
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
             aux_var = optimizer.optimizer.get_aux()
 
-            if aux_var and self._use_secagg: 
+            if aux_var and self._use_secagg:
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
-                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, but those are not encrypted with SecAgg.'
-                               'Auxiliary Variables may contain sensitive information about the Nodes.' 
+                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
+                               'Researcher, but those are not encrypted with SecAgg.'
+                               'Auxiliary Variables may contain sensitive information about the Nodes.'
                                'This issue will be fixed in a future version of Fed-BioMed')
             return aux_var
         return {}
@@ -496,7 +497,7 @@ class Round:
         optimizer initialization step is malfunctioning, which should never
         happen, lest the end-user writes wrongful code.
 
-        Returns: 
+        Returns:
             Optimizer defined in training plan
         """
         optimizer = self.training_plan.optimizer()

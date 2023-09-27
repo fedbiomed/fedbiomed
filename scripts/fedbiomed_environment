@@ -42,14 +42,11 @@ environment_info() {
     environment_printvar "FEDBIOMED_DIR " "${FEDBIOMED_DIR}"
     environment_printvar "MQTT   host   " "${MQTT_BROKER}"
     environment_printvar "MQTT   port   " "${MQTT_BROKER_PORT}"
-    environment_printvar "UPLOADS url   " "${UPLOADS_URL}"
 }
 
 development_env() {
     export FEDBIOMED_DIR=$basedir
     export IP_ADDRESS=${1:-localhost}
-    # use the (if provided) UPLOADS_URL var env
-    [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
     [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="${IP_ADDRESS}" ; }
     [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
 }
@@ -62,7 +59,6 @@ environment_reset() {
     unset MQTT_BROKER
     unset MQTT_BROKER_PORT
     unset IP_ADDRESS
-    unset UPLOADS_URL
     [[ ! -z "$verbose" ]] && environment_info
 }
 

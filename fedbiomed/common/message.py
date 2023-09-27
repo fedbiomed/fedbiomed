@@ -6,21 +6,17 @@ Definition of messages exchanged by the researcher and the nodes
 '''
 
 import functools
-import uuid
-
-
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, get_origin, get_args
-
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional, get_args
 
 from google.protobuf.message import Message as ProtobufMessage
 from google.protobuf.descriptor import FieldDescriptor
-from google._upb._message import RepeatedScalarContainer, ScalarMapContainer
+
+import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
 
 def catch_dataclass_exception(cls: Callable):
@@ -138,23 +134,22 @@ class Message(object):
             else:
                 proto_dict.update({key: self.get_param(key)})
 
-        return self.__PROTO_TYPE__(**proto_dict) 
-    
+        return self.__PROTO_TYPE__(**proto_dict)
 
 
     @classmethod
     def from_proto(
-        cls, 
+        cls,
         proto: ProtobufMessage
     ) -> Dict[str, Any]:
         """Converts given protobuf to python Dict"""
 
-        dict_ = {} 
+        dict_ = {}
         one_ofs = proto.DESCRIPTOR.oneofs_by_name
         for field in proto.DESCRIPTOR.fields:
-            
-            one_of_field = False 
-            for one_of, one_of_descriptor in one_ofs.items():
+
+            one_of_field = False
+            for one_of, _ in one_ofs.items():
                 if field.name == proto.WhichOneof(one_of):
                     one_of_field = True
 
@@ -166,23 +161,23 @@ class Message(object):
                 args = get_args(field_.type)
 
                 # Make sure oneof message is typed as Optional
-                if not args: 
+                if not args:
                     raise FedbiomedMessageError(
                         f"Please make sure the field '{field_.name}' in dataclass '{cls.__name__}' "
-                        "is typed as Optional[<dataclass>]. The field that are typed as `oneof` " 
+                        "is typed as Optional[<dataclass>]. The field that are typed as `oneof` "
                         "in proto file should be typed as Optional in python dataclass"
-                        )
-                
+                    )
+
                 if not hasattr(args[0], "__PROTO_TYPE__"):
                     raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
-                
+
                 dict_.update(
-                        {field.name: args[0].from_proto(getattr(proto, field.name))}
-                    )
-                
+                    {field.name: args[0].from_proto(getattr(proto, field.name))}
+                )
+
             # Detects the types that are declared as `optional`
-            # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.  
-            # However, if the field is labeled as `optional` explicitly, it will have 
+            # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.
+            # However, if the field is labeled as `optional` explicitly, it will have
             # presence, otherwise, `has_presence` returns False
             elif field.has_presence and field.label == FieldDescriptor.LABEL_OPTIONAL:
 
@@ -191,17 +186,18 @@ class Message(object):
                     dict_.update({field.name: getattr(proto, field.name)})
 
             elif field.label == FieldDescriptor.LABEL_REPEATED:
-                
+
                 if field.type == FieldDescriptor.TYPE_MESSAGE:
                     dict_.update({field.name: dict(getattr(proto, field.name))})
                 else:
                     dict_.update({field.name: list(getattr(proto, field.name))})
-                    
+
             else:
-                dict_.update({field.name: getattr(proto, field.name)})      
+                dict_.update({field.name: getattr(proto, field.name)})
 
         return cls(**dict_)
-        
+
+
 #
 # messages definition, sorted by
 # - alphabetic order
@@ -213,8 +209,8 @@ class ProtoSerializableMessage(Message):
     pass
 
 
-
 # AddScalar message
+
 @dataclass(kw_only=True)
 class RequiresProtocolVersion:
     """Mixin class for messages that must be endowed with a version field.
@@ -224,9 +220,10 @@ class RequiresProtocolVersion:
     """
 
     # Adds default protocol version thanks to `kw_oly  True`
-    protocol_version: str = str(__messaging_protocol_version__) 
-    
+    protocol_version: str = str(__messaging_protocol_version__)
+
 # --- gRPC messages --------------------------------------------------------------------------------
+
 
 @dataclass
 class Log(ProtoSerializableMessage):
@@ -236,6 +233,7 @@ class Log(ProtoSerializableMessage):
     node_id: str
     level: str
     msg: str
+
 
 @catch_dataclass_exception
 @dataclass
@@ -260,8 +258,8 @@ class Scalar(ProtoSerializableMessage):
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
-    __PROTO_TYPE__ =  r_pb2.FeedbackMessage.Scalar
-    
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage.Scalar
+
     node_id: str
     job_id: str
     train: bool
@@ -275,28 +273,31 @@ class Scalar(ProtoSerializableMessage):
     iteration: int
     epoch: Optional[int] = None
     num_samples_trained: Optional[int] = None
-    
+
+
 @dataclass
 class TaskRequest(ProtoSerializableMessage, RequiresProtocolVersion):
     """Task request message from node to researcher"""
-    __PROTO_TYPE__ =  r_pb2.TaskRequest
+    __PROTO_TYPE__ = r_pb2.TaskRequest
     node: str
+
 
 @dataclass
 class TaskResponse(ProtoSerializableMessage):
     """Response for task request"""
-    __PROTO_TYPE__ =  r_pb2.TaskResponse
+    __PROTO_TYPE__ = r_pb2.TaskResponse
 
-    size: int 
+    size: int
     iteration: int
     bytes_: bytes
+
 
 @dataclass
 class TaskResult(ProtoSerializableMessage):
     """Response for task request"""
-    __PROTO_TYPE__ =  r_pb2.TaskResult
+    __PROTO_TYPE__ = r_pb2.TaskResult
 
-    size: int 
+    size: int
     iteration: int
     bytes_: bytes
 
@@ -305,7 +306,7 @@ class TaskResult(ProtoSerializableMessage):
 class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage
 
-    researcher_id: Optional[str] = None 
+    researcher_id: Optional[str] = None
     log: Optional[Log] = None
     scalar: Optional[Scalar] = None
 
@@ -622,6 +623,7 @@ class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     job_id: (str, type(None))
     command: str
 
+
 @catch_dataclass_exception
 @dataclass
 class SecaggDeleteReply(Message, RequiresProtocolVersion):
@@ -646,6 +648,7 @@ class SecaggDeleteReply(Message, RequiresProtocolVersion):
     node_id: str
     msg: str
     command: str
+
 
 @catch_dataclass_exception
 @dataclass
@@ -672,6 +675,7 @@ class SecaggRequest(Message, RequiresProtocolVersion):
     parties: list
     command: str
 
+
 @catch_dataclass_exception
 @dataclass
 class SecaggReply(Message, RequiresProtocolVersion):
@@ -696,6 +700,7 @@ class SecaggReply(Message, RequiresProtocolVersion):
     node_id: str
     msg: str
     command: str
+
 
 # Train messages
 
@@ -770,10 +775,10 @@ class TrainReply(Message, RequiresProtocolVersion):
     command: str
     sample_size: Optional[int] = None
     encrypted: bool = False
-    params: Optional[Dict] = None # None for testing only
-    optimizer_args: Optional[Dict] = None # None for testing only
-    optim_aux_var: Optional[Dict] = None # None for testing only
-    encryption_factor: Optional[float] = None # None for testing only
+    params: Optional[Dict] = None  # None for testing only
+    optimizer_args: Optional[Dict] = None  # None for testing only
+    optim_aux_var: Optional[Dict] = None  # None for testing only
+    encryption_factor: Optional[float] = None  # None for testing only
 
 
 class MessageFactory:

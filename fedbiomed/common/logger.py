@@ -42,7 +42,7 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
     Please pay attention to not create dependency loop then importing other fedbiomed package
 """
 
-import json 
+import json
 import logging
 import logging.handlers
 
@@ -77,7 +77,7 @@ class _GrpcFormatter(logging.Formatter):
 
 
 class _GrpcHandler(logging.Handler):
-    """Logger handler for GRPC connections 
+    """Logger handler for GRPC connections
 
     This class handles the log messages that are tagged as to be sent to
     researcher.
@@ -100,27 +100,27 @@ class _GrpcHandler(logging.Handler):
         self._on_log = on_log
 
     def emit(self, record: Any):
-        """Emits the logged record 
+        """Emits the logged record
 
         Args:
             record: is automatically passed by the logger class
         """
 
         if hasattr(record, 'broadcast') and hasattr(record, 'researcher_id'):
-    
+
             if not record.broadcast and record.researcher_id is None:
-                return 
+                return
 
             msg = dict(
-                    level=record.__dict__["levelname"],  
-                    msg=self.format(record),
-                    node_id=self._node_id)
+                level=record.__dict__["levelname"],
+                msg=self.format(record),
+                node_id=self._node_id)
 
 
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
             feedback = message.FeedbackMessage(researcher_id=record.researcher_id, log=message.Log(**msg))
-            
+
             try:
                 self._on_log(feedback, record.broadcast)
             except Exception:
@@ -129,8 +129,8 @@ class _GrpcHandler(logging.Handler):
 
 
 class FedLogger(metaclass=SingletonMeta):
-    """Base class for the logger. 
-    
+    """Base class for the logger.
+
     It uses python logging module by composition (only log() method is overwritten)
 
     All methods from the logging module can be accessed through the _logger member of the class if necessary
@@ -236,7 +236,7 @@ class FedLogger(metaclass=SingletonMeta):
             upper_level = level.upper()
             if upper_level in self._nameToLevel:
                 return self._nameToLevel[upper_level]
-            
+
         self._logger.warning("Calling selLevel() with bad value: " + str(level))
         self._logger.warning("Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
 
@@ -246,8 +246,7 @@ class FedLogger(metaclass=SingletonMeta):
             self,
             filename: str = DEFAULT_LOG_FILE,
             format: str = DEFAULT_FORMAT,
-            level: any = DEFAULT_LOG_LEVEL
-        ):
+            level: any = DEFAULT_LOG_LEVEL):
         """Adds a file handler
 
         Args:
@@ -263,11 +262,11 @@ class FedLogger(metaclass=SingletonMeta):
         handler.setFormatter(formatter)
 
         self._internal_add_handler("FILE", handler)
-        
+
 
     def add_console_handler(self,
-                          format: str = DEFAULT_FORMAT,
-                          level: Any = DEFAULT_LOG_LEVEL):
+                            format: str = DEFAULT_FORMAT,
+                            level: Any = DEFAULT_LOG_LEVEL):
 
         """Adds a console handler
 
@@ -287,10 +286,10 @@ class FedLogger(metaclass=SingletonMeta):
         pass
 
     def add_grpc_handler(self,
-                       on_log: Callable = None,
-                       node_id: str = None,
-                       level: Any = logging.ERROR
-                       ):
+                         on_log: Callable = None,
+                         node_id: str = None,
+                         level: Any = logging.ERROR
+                         ):
 
         """Adds a gRPC handler, to publish error message on a topic
 
@@ -370,37 +369,37 @@ class FedLogger(metaclass=SingletonMeta):
 
 
     def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
-        """Extends arguments of info message. 
+        """Extends arguments of info message.
 
         Valid only GrpcHandler is existing
 
-        Args: 
+        Args:
             msg: Message to log
             broadcast: Broadcast message to all available researchers
-            researcher_id: ID of the researcher that the message will be sent. 
+            researcher_id: ID of the researcher that the message will be sent.
                 If broadcast True researcher id will be ignored
         """
-        self._logger.info(msg, *args, **kwargs, 
+        self._logger.info(msg, *args, **kwargs,
                           extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.debug(msg, *args, **kwargs, 
+        self._logger.debug(msg, *args, **kwargs,
                            extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.warning(msg, *args, **kwargs, 
+        self._logger.warning(msg, *args, **kwargs,
                              extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.critical(msg, *args, **kwargs, 
+        self._logger.critical(msg, *args, **kwargs,
                               extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.error( msg, *args, **kwargs, 
+        self._logger.error(msg, *args, **kwargs,
                            extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
 

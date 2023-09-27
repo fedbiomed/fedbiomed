@@ -63,11 +63,11 @@ class TrainingPlanSecurityManager:
 
     @staticmethod
     def _create_hash(source: str, from_string: str = False):
-        """Creates hash with given training plan file
+        """Creates hash with given training plan
 
         Args:
-            file: Training plan file path or source code
-            source: Training plan source code
+            source: Training plan source code, or path to training plan file
+            from_string: if True read training plan from file, if False receive it as a string
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: file cannot be open
@@ -78,7 +78,8 @@ class TrainingPlanSecurityManager:
         hash_algo = environ['HASHING_ALGORITHM']
 
         if not isinstance(source, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f': {source} is not a path or string containing codes')
+            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
+                                                            f': {source} is not a path or string containing codes')
 
         if not from_string:
             try:
@@ -241,7 +242,7 @@ class TrainingPlanSecurityManager:
         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
 
         training_plan_record = dict(name=name, description=description,
-                                    hash=training_plan_hash, 
+                                    hash=training_plan_hash,
                                     training_plan=source,
                                     training_plan_id=training_plan_id, training_plan_type=training_plan_type,
                                     training_plan_status=TrainingPlanApprovalStatus.APPROVED.value,
@@ -314,7 +315,7 @@ class TrainingPlanSecurityManager:
         or training_plan_type {registered, requested, default}.
 
         Args:
-            training_plan_source: The source code of requested training plan 
+            training_plan_source: The source code of requested training plan
             state: training plan status or training plan type, to check against training plan. `None` accepts
                 any training plan status or type.
 
@@ -448,7 +449,7 @@ class TrainingPlanSecurityManager:
                                 ) -> Union[Dict[str, Any], None]:
         """Get a training plan in database given his `training_plan_id`.
 
-        Also add a `content` key to the returned dictionary. This method is not used within the 
+        Also add a `content` key to the returned dictionary. This method is not used within the
         library source code but it is used for Fed-BioMed GUI.
 
         Args:
@@ -530,7 +531,7 @@ class TrainingPlanSecurityManager:
                                             date_last_action=None,
                                             researcher_id=msg['researcher_id'],
                                             notes=None)
-                
+
                 self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                 # if same training plan is sent twice to Node for approval

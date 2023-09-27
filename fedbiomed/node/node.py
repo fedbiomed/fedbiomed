@@ -22,6 +22,7 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 
+
 class Node:
     """Core code of the node component.
 
@@ -282,7 +283,6 @@ class Node:
             # don't want to treat again in case of failure
             self.tasks_queue.task_done()
 
-            item_print = {key: value for key, value in item.items() if key != 'aggregator_args'}
             logger.debug(f"[TASKS QUEUE] Task received by task manager: Command: "
                          f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
             logger.info("This log is for researcher")

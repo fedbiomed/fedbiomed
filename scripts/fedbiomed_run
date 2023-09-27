@@ -389,9 +389,6 @@ case $1 in
                     ;;
 
                 start|--start|-s)
-                    #export MQTT_BROKER=localhost
-                    #export MQTT_BROKER_PORT=1883
-                    #export UPLOADS_URL='http://localhost:8844/upload/'
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
 
@@ -406,10 +403,6 @@ case $1 in
         ;;
 
     researcher)
-        #export MQTT_BROKER=localhost
-        #export MQTT_BROKER_PORT=1883
-        #export UPLOADS_URL='http://localhost:8844/upload/'
-
         while true ; do
             case $2 in
                 ip_address)
