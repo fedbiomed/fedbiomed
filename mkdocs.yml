@@ -119,6 +119,7 @@ nav:
                 - Aggregators: './developer/api/researcher/aggregators.md'
                 - Datasets: './developer/api/researcher/datasets.md'
                 - Experiment: './developer/api/researcher/experiment.md'
+                - Analytics: './developer/api/researcher/analytics.md'
                 - Filetools: './developer/api/researcher/filetools.md'
                 - Job: './developer/api/researcher/job.md'
                 - Monitor: './developer/api/researcher/monitor.md'
