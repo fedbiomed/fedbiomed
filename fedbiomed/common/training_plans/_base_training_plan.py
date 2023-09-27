@@ -275,7 +275,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
         """
-        return self._model.set_weights(params)
+        self._model.set_weights(params)
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")

@@ -60,6 +60,13 @@ class _BaseEnum(Enum):
 
 
 class MessageType(_BaseEnum):
+    """Types of messages received by researcher
+
+    Attributes:
+        REPLY: reply messages (TrainReply, SearchReply, etc.)
+        LOG: 'log' message (LogMessage)
+        SCALAR: 'add_scalar' message (Scalar)
+    """
     REPLY = "REPLY"
     LOG = "LOG"
     SCALAR = "SCALAR"

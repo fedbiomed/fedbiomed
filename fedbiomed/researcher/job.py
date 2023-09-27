@@ -66,6 +66,7 @@ class Job:
 
         Raises:
             FedbiomedJobError: bad argument type or value
+            FedbiomedJobError: cannot save training plan to file
         """
         # Check arguments
         if not inspect.isclass(training_plan_class):
@@ -374,7 +375,7 @@ class Job:
 
             # FIXME: There might be another node join recently
             msg['aggregator_args'] = aggregator_args.get(node, {}) if aggregator_args else {}
-            self._log_round_info(node=node, message=msg, training=do_training)
+            self._log_round_info(node=node, training=do_training)
 
             timer[node] = time.perf_counter()
 
@@ -448,10 +449,14 @@ class Job:
         return aux_var
 
     def _get_model_params(self) -> Dict[str, Any]:
-        """Gets model parameters form the training plan"""
+        """Gets model parameters form the training plan.
+
+        Returns:
+            Model weights, as a dictionary mapping parameters' names to their value.
+        """
         return self._training_plan.get_model_params()
 
-    def _load_and_set_model_params_from_file(self, path: str) -> bool:
+    def _load_and_set_model_params_from_file(self, path: str) -> None:
         """Loads model parameters from given path
 
         Args:
@@ -460,31 +465,19 @@ class Job:
         params = Serializer.load(path)
         self._training_plan.set_model_params(params)
 
-        return True
-
-    def _serialize_model_params(self) -> Dict[str, Any]:
-        """Serialize and saves model parameters
-        Args:
-
-            params: Model parameters to be serialized and saved
-        """
-        return Serializer.dumps(self._get_model_params())
-
-    def _update_model_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_model_params(self, params: Dict[str, Any]) -> None:
         """"Updates the parameters of the model by given params
 
         Args:
             params: Parameters that are going to be loaded into model
-
         """
         self._training_plan.set_model_params(params)
 
-    def _log_round_info(self, node: str, message: Dict, training: True) -> None:
+    def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
 
         Args:
             node: Node id
-            message: Message that will be sent to the node
             training: If True round will do training, otherwise it is the last validation round
         """
 
@@ -494,8 +487,6 @@ class Job:
                         f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                         f'aggregated parameters \n {5 * "-------------"}')
         else:
-            # msg_print = {key: value for key, value in message.items()
-            #                 if key != 'aggregator_args' and logger.level != "DEBUG" }
             logger.info(f'\033[1mSending request\033[0m \n'
                         f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
                         f'\t\t\t\t\t\033[1m Request: \033[0m: TRAIN'
@@ -509,6 +500,9 @@ class Job:
 
         Args:
             params: Aggregated model parameters
+
+        Returns:
+            Path of filename where parameters are saved
         """
         self._update_model_params(params)
         filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")

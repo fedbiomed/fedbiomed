@@ -70,9 +70,9 @@ class Requests(metaclass=SingletonMeta):
         """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,
         when a message is received on researcher side.
 
-        It is run in the communication process and must ba as quick as possible:
+        It is run in the communication process and must be as quick as possible:
         - it deals with quick messages (eg: ping/pong)
-        - it stores the replies of the nodes to the task queue, the message will bee
+        - it stores the replies of the nodes to the task queue, the message will be
         treated by the main (computing) thread.
 
         Args:
@@ -95,7 +95,7 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"Undefined message type received  {type_} - IGNORING")
 
     @staticmethod
-    def print_node_log_message(log: Dict[str, Any]):
+    def print_node_log_message(log: Dict[str, Any]) -> None:
         """Prints logger messages coming from the node
 
         It is run on the communication process and must be as quick as possible:
@@ -170,8 +170,6 @@ class Requests(metaclass=SingletonMeta):
         )
 
         return message.get('sequence', None)
-
-
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -378,8 +376,8 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             training_plan: the training plan class to send to the nodes for approval.
-            nodes: list of nodes (specified by their UUID)
             description: Description of training plan approval request
+            nodes: list of nodes (specified by their UUID)
             timeout: maximum waiting time for the answers
 
         Returns:

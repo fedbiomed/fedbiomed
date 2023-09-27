@@ -116,6 +116,10 @@ class Aggregator:
     def create_aggregator_args(self, *args, **kwargs) -> Dict:
         """Returns aggregator arguments that are expecting by the nodes
 
+        Args:
+            args: ignored
+            kwargs: ignored
+
         Returns:
             contains `Aggregator` parameters/argument that will be shared with the nodes 
         """
