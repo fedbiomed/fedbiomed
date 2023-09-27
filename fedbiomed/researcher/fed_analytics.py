@@ -9,7 +9,7 @@ on the datasets belonging to the federation of Fed-BioMed nodes in an experiment
 """
 
 from functools import reduce
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple, TypeVar
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.serializer import Serializer
@@ -17,6 +17,9 @@ from fedbiomed.common.serializer import Serializer
 
 QueryResult = Any  # generic type indicating the result from an analytics query
 NodeId = str
+DataManager = TypeVar('DataManager')  # fedbiomed.common.data.DataManager
+Experiment = TypeVar('Experiment')  # fedbiomed.researcher.experiment.Experiment
+Responses = TypeVar('Responses')  # fedbiomed.researcher.responses.Responses
 
 
 class FedAnalytics:
@@ -110,7 +113,7 @@ class FedAnalytics:
 
     """
     def __init__(self,
-                 exp: 'Experiment'
+                 exp: Experiment
                  ):
         """Initialize FedAnalytics by establishing a link to a valid Experiment instance.
 
@@ -118,9 +121,9 @@ class FedAnalytics:
             exp: an instance of [`Experiment`][fedbiomed.researcher.experiment.Experiment] to be linked to this class
         """
         self._researcher_id: str = environ['RESEARCHER_ID']
-        self._responses_history: list = list()
-        self._aggregation_results_history: list = list()
-        self._exp: 'Experiment' = exp
+        self._responses_history: List[Responses] = list()
+        self._aggregation_results_history: List[QueryResult] = list()
+        self._exp: Experiment = exp
 
     def fed_mean(self, **kwargs) -> QueryResult:
         """
@@ -162,8 +165,7 @@ class FedAnalytics:
             - the aggregated result
             - a dictionary of {node_id: node-specific results}
         """
-
-        self._exp.job().nodes = self._exp.job().data.node_ids()
+        # serialize query arguments
         serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
         # set participating nodes
         self._exp.job().nodes = self._exp.job().data.node_ids()
@@ -183,11 +185,11 @@ class FedAnalytics:
             'secagg_random': secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
         }
+        # send query request to nodes
         for cli in self._exp.job().nodes:
             msg['dataset_id'] = self._exp.job().data.data()[cli]['dataset_id']
-            self._exp.job().requests.send_message(msg, cli)  # send request to node
-
-        # Recollect models trained
+            self._exp.job().requests.send_message(msg, cli)
+        # collect query results from nodes
         self._responses_history.append(Responses(list()))
         while self._exp.job().waiting_for_nodes(self._responses_history[-1]):
             query_results = self._exp.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
@@ -195,30 +197,51 @@ class FedAnalytics:
             for result in query_results.data():
                 result['results'] = Serializer.loads(bytes.fromhex(result['results']))
                 self._responses_history[-1].append(result)
-
+        # parse results
         results = [x['results'] for x in self._responses_history[-1]]
+        # prepare data manager (only static methods from the dataset can be used)
         data_manager = self._exp.job().training_plan.training_data()
         data_manager.load(tp_type=self._exp.job().training_plan.type())
-
+        # aggregate results
         if self._exp.secagg.active:
-            flattened = self._exp.secagg.aggregate(
-                round_=1,
-                encryption_factors={
-                    x['node_id']: x['results']['encryption_factor'] for x in self._responses_history[-1]
-                },
-                total_sample_size=reduce(
-                    lambda x,y: x + y['results']['num_samples'],
-                    self._responses_history[-1], 0),
-                model_params={
-                    x['node_id']: x['results']['flat'] for x in self._responses_history[-1]
-                }
-            )
-            unflatten = getattr(data_manager.dataset, 'unflatten')
-            aggregation_result = unflatten({
-                'flat': flattened,
-                'format': results[0]['format']})
+            aggregation_result = self._secure_aggregate(results, data_manager)
         else:
             aggregation_function = getattr(data_manager.dataset, 'aggregate_' + query_type)
             aggregation_result = aggregation_function(results)
+        # combine aggregated and node-specific results
+        combined_result = (
+            aggregation_result,
+            {x['node_id']: x['results'] for x in self._responses_history[-1].data()}
+        )
+        # store combined results in history
+        self._aggregation_results_history.append(combined_result)
+        return combined_result
 
-        return aggregation_result, {x['node_id']: x['results'] for x in self._responses_history[-1].data()}
+    def _secure_aggregate(self,
+                          results: List[QueryResult],
+                          data_manager: DataManager) -> QueryResult:
+        """Computes secure aggregation of analytics query results from each node.
+
+        !!! warning "Limitations"
+            The only supported aggregation method is plain (i.e. unweighted) averaging. Thus secure aggregation will
+            only yield correct results if the number of samples on each node is the same, and if averaging is the
+            correct aggregation operation for a given query.
+        """
+        # compute average of flattened query results
+        flattened = self._exp.secagg.aggregate(
+            round_=1,
+            encryption_factors={
+                x['node_id']: x['results']['encryption_factor'] for x in self._responses_history[-1]
+            },
+            total_sample_size=reduce(
+                lambda x,y: x + y['results']['num_samples'],
+                self._responses_history[-1], 0),
+            model_params={
+                x['node_id']: x['results']['flat'] for x in self._responses_history[-1]
+            }
+        )
+        # unflatten aggregated results
+        unflatten = getattr(data_manager.dataset, 'unflatten')
+        return unflatten({
+            'flat': flattened,
+            'format': results[0]['format']})
