@@ -11,7 +11,8 @@ on:
       - ready_for_review
     branches:
       - master
-#      - develop
+      - develop
+      - 'feature/479-bug-in-integration-test' # \todo To remove when merging.
 
 jobs:
 

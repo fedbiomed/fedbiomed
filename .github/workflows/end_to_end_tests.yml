@@ -9,7 +9,7 @@ on:
 
   push:
     branches:
-      - 'feature/479-bug-in-integration-test'
+      - 'feature/479-bug-in-integration-test' # \todo To remove when merging.
       - 'develop'
       - 'master'
 
