@@ -107,8 +107,11 @@ class NodeEnviron(Environ):
         researcher_sections = [section for section in self._cfg.sections() if section.startswith("researcher")]
         self._values["RESEARCHERS"] = []
         for section in researcher_sections:
-            self._values["RESEARCHERS"].append(ResearcherCredentials(
-                port=self.from_config(section, "port"), host=self.from_config(section, "ip")))
+            self._values["RESEARCHERS"].append({
+                'port': self.from_config(section, "port"),
+                'host': self.from_config(section, "ip"),
+                'certificate': None
+            })
 
     def _set_component_specific_config_parameters(self):
         """Updates config file with Node specific parameters"""
@@ -134,7 +137,7 @@ class NodeEnviron(Environ):
         # Default researcher network endpoint
         self._cfg["researcher"] = {
             "ip": "localhost",
-            "port": 50051
+            "port": '50051'
         }
 
 

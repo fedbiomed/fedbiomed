@@ -13,6 +13,7 @@ from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRe
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.transport.controller import GrpcController
+from fedbiomed.transport.client import ResearcherCredentials
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -45,9 +46,11 @@ class Node:
         """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
+        # TODO: extend for multiple researchers, currently expect only one
+        res = environ["RESEARCHERS"][0]
         self._grpc_client = GrpcController(
             node_id=environ["ID"],
-            researchers=environ["RESEARCHERS"],
+            researchers=[ResearcherCredentials(port=res['port'], host=res['host'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
         self.dataset_manager = dataset_manager
