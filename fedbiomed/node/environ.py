@@ -105,13 +105,24 @@ class NodeEnviron(Environ):
 
         # Parse each researcher ip and port
         researcher_sections = [section for section in self._cfg.sections() if section.startswith("researcher")]
-        self._values["RESEARCHERS"] = []
-        for section in researcher_sections:
-            self._values["RESEARCHERS"].append({
-                'port': self.from_config(section, "port"),
-                'host': self.from_config(section, "ip"),
-                'certificate': None
-            })
+        self._values['RESEARCHERS'] = os.getenv('NODE_RESEARCHERS')
+        if os.getenv('RESEARCHER_SERVER_HOST'):
+            # Environ variables currently permit to specify only 1 researcher
+            self._values["RESEARCHERS"] = [
+                {
+                    'port': os.getenv('RESEARCHER_SERVER_PORT', '50051'),  # use default port if not specified
+                    'host': os.getenv('RESEARCHER_SERVER_HOST'),
+                    'certificate': None
+                }
+            ]
+        else:
+            self._values["RESEARCHERS"] = []
+            for section in researcher_sections:
+                self._values["RESEARCHERS"].append({
+                    'port': self.from_config(section, "port"),
+                    'host': self.from_config(section, "ip"),
+                    'certificate': None
+                })
 
     def _set_component_specific_config_parameters(self):
         """Updates config file with Node specific parameters"""
