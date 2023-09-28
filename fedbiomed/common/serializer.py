@@ -10,6 +10,7 @@ import msgpack
 import numpy as np
 import pandas as pd
 import torch
+from collections import OrderedDict
 from declearn.model.api import Vector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
@@ -119,6 +120,8 @@ class Serializer:
             return {"__type__": "pd.DataFrame", "value": spec}
         if isinstance(obj, pd.Series):
             return {"__type__": "pd.Series", "value": obj.to_dict()}
+        if isinstance(obj, OrderedDict):
+            return {"__type__": "OrderedDict", "value": [list(obj.keys()), list(obj.values())]}
         # Raise on unsupported types.
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
@@ -151,6 +154,8 @@ class Serializer:
             return pd.DataFrame(np.frombuffer(data, dtype=dtype))
         if objtype == "pd.Series":
             return pd.Series(obj["value"])
+        if objtype == "OrderedDict":
+            return OrderedDict(zip(*obj["value"]))
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )
