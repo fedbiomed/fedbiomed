@@ -197,7 +197,7 @@ class SecaggElementTypes(_BaseEnum):
 
 class VEParameters:
     CLIPPING_RANGE: int = 3
-    TARGET_RANGE: int = 10000
+    TARGET_RANGE: int = 2**31-1
     KEY_SIZE: int = 2048
 
 
