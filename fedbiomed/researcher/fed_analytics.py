@@ -117,7 +117,7 @@ def _submit_fed_analytics_query(exp_instance: TExperiment,
     dataset_class = exp_instance.training_plan().dataset_class
     # aggregate results
     if exp_instance.secagg.active:
-        aggregation_result = exp_instance._secure_aggregate(results, dataset_class)
+        aggregation_result = exp_instance._secure_aggregate(query_type, results, dataset_class)
     else:
         aggregation_function = getattr(dataset_class, 'aggregate_' + query_type)
         aggregation_result = aggregation_function(results)
@@ -132,6 +132,7 @@ def _submit_fed_analytics_query(exp_instance: TExperiment,
 
 
 def _secure_aggregate(exp_instance: TExperiment,
+                      query_type: str,
                       results: List[QueryResult],
                       dataset_class: TDataset) -> QueryResult:
     """Computes secure aggregation of analytics query results from each node.
@@ -164,7 +165,7 @@ def _secure_aggregate(exp_instance: TExperiment,
         }
     )
     # unflatten aggregated results
-    unflatten = getattr(dataset_class, 'unflatten')
+    unflatten = getattr(dataset_class, 'unflatten_' + query_type)
     return unflatten({
         'flat': flattened,
         'format': results[0]['format']})
