@@ -14,7 +14,8 @@ from enum import Enum
 import torch
 import pandas as pd
 
-from functools import cache
+from functools import cache, reduce
+from collections import OrderedDict
 from monai.data import ITKReader
 from monai.transforms import LoadImage, ToTensor, Compose
 from torch import Tensor
@@ -909,7 +910,43 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             'demographics_means': demographics_means
         }
 
+    @staticmethod
+    def flatten_mean(means: dict):
+        format = OrderedDict()
+        inputs_means = means.pop('imaging_means')
+        flat_inputs_means = None
+        for modality in inputs_means.keys():
+            format['imaging_means.' + modality] = list(inputs_means[modality].shape) or [1]
+            if flat_inputs_means is None:
+                flat_inputs_means = inputs_means[modality].flatten()
+            else:
+                flat_inputs_means = torch.cat((flat_inputs_means, inputs_means[modality].flatten()), dim=0)
+        targets_means = means.pop('target_means')
+        flat_targets_means = None
+        for modality in targets_means.keys():
+            format['target_means.' + modality] = list(targets_means[modality].shape) or [1]
+            if flat_targets_means is None:
+                flat_targets_means = targets_means[modality].flatten()
+            else:
+                flat_targets_means = torch.cat((flat_targets_means, targets_means[modality].flatten()), dim=0)
+        _ = means.pop('demographics_means')  # TODO: instead provide correct flattening procedure
+        return {'flat': torch.cat((inputs_means, targets_means), dim=0),
+                'format': format,
+                **means}
 
+    @staticmethod
+    def _unflatten(flat_results: dict):
+        out = {}
+        offset = 0
+        for key, shape in flat_results['format'].items():
+            numel = reduce(lambda x, y: x * y, shape, 1)
+            t = flat_results['flat'][offset:offset + numel]
+            out[key] = torch.Tensor(t).reshape(shape)
+            offset += numel
+        return out
+
+    def unflatten_mean(flat_results: dict):
+        return MedicalFolderDataset._unflatten(flat_results)
 
 class MedicalFolderController(MedicalFolderBase):
     """Utility class to construct and verify Medical Folder datasets without knowledge of the experiment.
