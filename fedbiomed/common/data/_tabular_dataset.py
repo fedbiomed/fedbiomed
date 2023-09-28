@@ -215,13 +215,15 @@ class TabularDataset(Dataset):
         inputs are discarded.
         """
         format = OrderedDict()
-        ssq_stds = stds.pop('fed_sum_of_squares')
-        format['fed_sum_of_squares'] = list(ssq_stds.shape) or [1]
-        ssq_stds = ssq_stds.flatten()
-        targets_stds = stds.pop('targets')
-        format['targets'] = list(targets_stds.shape) or [1]
-        targets_stds = targets_stds.flatten()
-        return {'flat': torch.cat((inputs_stds, ssq_stds, targets_stds), dim=0),
+        inputs_ssq_stds = stds['inputs'].pop('fed_sum_of_squares')
+        format['inputs'] = list(inputs_ssq_stds.shape) or [1]
+        inputs_ssq_stds = inputs_ssq_stds.flatten()
+        _ = stds['inputs'].pop('local_std')
+        targets_ssq_stds = stds['targets'].pop('fed_sum_of_squares')
+        format['targets'] = list(targets_ssq_stds.shape) or [1]
+        targets_ssq_stds = targets_ssq_stds.flatten()
+        _ = stds['targets'].pop('local_std')
+        return {'flat': torch.cat((inputs_ssq_stds, targets_ssq_stds), dim=0),
                 'format': format,
                 **stds}
 
