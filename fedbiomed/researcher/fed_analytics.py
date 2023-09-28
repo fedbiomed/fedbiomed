@@ -26,6 +26,10 @@ def fed_mean(exp_instance: TExperiment, **kwargs) -> QueryResult:
     """
     Computes federated mean.
 
+    !!! warning "Not standalone"
+        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
+        decorator.
+
     Args:
         exp_instance: the instance of the experiment
         kwargs: any keyword arguments as defined by the corresponding `mean` function implemented in the `Dataset`
@@ -40,6 +44,10 @@ def fed_mean(exp_instance: TExperiment, **kwargs) -> QueryResult:
 def fed_std(exp_instance: TExperiment, **kwargs) -> QueryResult:
     """
     Computes federated standard deviation.
+
+    !!! warning "Not standalone"
+        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
+        decorator.
 
     Args:
         exp_instance: the instance of the experiment
@@ -56,6 +64,10 @@ def _submit_fed_analytics_query(exp_instance: TExperiment,
                                 query_type: str,
                                 query_kwargs: dict) -> Tuple[QueryResult, Dict[NodeId, QueryResult]]:
     """Helper function executing one round of communication for executing an analytics query on the nodes.
+
+    !!! warning "Not standalone"
+        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
+        decorator.
 
     Args:
         exp_instance: the instance of the experiment
@@ -124,6 +136,10 @@ def _secure_aggregate(exp_instance: TExperiment,
                       dataset_class: TDataset) -> QueryResult:
     """Computes secure aggregation of analytics query results from each node.
 
+    !!! warning "Not standalone"
+        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
+        decorator.
+
     !!! warning "Limitations"
         The only supported aggregation method is plain (i.e. unweighted) averaging. Thus secure aggregation will
         only yield correct results if the number of samples on each node is the same, and if averaging is the
@@ -161,7 +177,7 @@ def fed_analytics(cls):
     This decorator also defines the logic for "translating" an analytics query request by the researcher into a job
     to be executed on the nodes, and for orchestrating said job.
 
-    !!! info "Researcher interface"
+    !!! info "`Experiment` decorator"
         The intention of this module is to provide additional methods to `Experiment` without cluttering it. Hence,
         it is implemented as a decorator.
 
