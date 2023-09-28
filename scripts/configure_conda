@@ -4,11 +4,9 @@
 #
 
 # List of available environemnts for Fed-BioMed
-fed_envs=(network node researcher gui)
+fed_envs=(node researcher gui)
 
 # Environments that are required to be installed for Fed-BioMed components
-# Note: network component is only necessary if restful module of network component  
-# is to be started locally rather than docker.
 fed_envs_auto_create=(node researcher gui)
 
 

@@ -30,14 +30,6 @@ eval "$(conda shell.bash hook)"
 
 kpids= # PIDs to be killed
 
-# launch network
-echo "INFO: launching fedbiomed network"
-# this is done by `fedbiomed_run network`
-#source $basedir/scripts/fedbiomed_environment network
-$basedir/scripts/fedbiomed_run network
-conda deactivate
-sleep 3
-
 # populate node
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node
@@ -79,8 +71,6 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
-    docker_compose ; $DOCKER_COMPOSE down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
