@@ -104,15 +104,15 @@ def _submit_fed_analytics_query(exp_instance: TExperiment,
         msg['dataset_id'] = exp_instance.job().data.data()[cli]['dataset_id']
         exp_instance.job().requests.send_message(msg, cli)
     # collect query results from nodes
-    exp_instance._responses_history.append(Responses(list()))
-    while exp_instance.job().waiting_for_nodes(exp_instance._responses_history[-1]):
+    exp_instance._analytics_responses_history.append(Responses(list()))
+    while exp_instance.job().waiting_for_nodes(exp_instance._analytics_responses_history[-1]):
         query_results = exp_instance.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
                                                           only_successful=False)
         for result in query_results.data():
             result['results'] = Serializer.loads(bytes.fromhex(result['results']))
-            exp_instance._responses_history[-1].append(result)
+            exp_instance._analytics_responses_history[-1].append(result)
     # parse results
-    results = [x['results'] for x in exp_instance._responses_history[-1]]
+    results = [x['results'] for x in exp_instance._analytics_responses_history[-1]]
     # prepare data manager (only static methods from the dataset can be used)
     dataset_class = exp_instance.training_plan().dataset_class
     # aggregate results
@@ -124,7 +124,7 @@ def _submit_fed_analytics_query(exp_instance: TExperiment,
     # combine aggregated and node-specific results
     combined_result = (
         aggregation_result,
-        {x['node_id']: x['results'] for x in exp_instance._responses_history[-1].data()}
+        {x['node_id']: x['results'] for x in exp_instance._analytics_responses_history[-1].data()}
     )
     # store combined results in history
     exp_instance._aggregation_results_history.append(combined_result)
@@ -155,13 +155,13 @@ def _secure_aggregate(exp_instance: TExperiment,
     flattened = exp_instance.secagg.aggregate(
         round_=1,
         encryption_factors={
-            x['node_id']: x['results']['encryption_factor'] for x in exp_instance._responses_history[-1]
+            x['node_id']: x['results']['encryption_factor'] for x in exp_instance._analytics_responses_history[-1]
         },
         total_sample_size=reduce(
             lambda x,y: x + y['results']['num_samples'],
-            exp_instance._responses_history[-1], 0),
+            exp_instance._analytics_responses_history[-1], 0),
         model_params={
-            x['node_id']: x['results']['flat'] for x in exp_instance._responses_history[-1]
+            x['node_id']: x['results']['flat'] for x in exp_instance._analytics_responses_history[-1]
         }
     )
     # unflatten aggregated results
@@ -190,7 +190,7 @@ def fed_analytics(cls):
     The decorator adds the following attributes to the `Experiment` class.
 
     Attributes:
-       _responses_history (list): a record of all successful query responses from nodes
+       _analytics_responses_history (list): a record of all successful query responses from nodes
        _aggregation_results_history (list): a record of all aggregation results
 
     Adding a new analytics query
@@ -259,7 +259,7 @@ def fed_analytics(cls):
 
     """
     # Additional attributes for Experiment class
-    cls._responses_history: List[TResponses] = list()
+    cls._analytics_responses_history: List[TResponses] = list()
     cls._aggregation_results_history: List[Tuple[QueryResult, Dict[NodeId, QueryResult]]] = list()
     # Analytics Public API
     cls.fed_mean = fed_mean
