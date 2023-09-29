@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Optional
 
 from fedbiomed.transport.client import GrpcClient, ResearcherCredentials
 
@@ -32,7 +32,26 @@ class GrpcAsyncTaskController:
             on_message: Callback function to be executed once a task received from the researcher
             debug: Activates debug mode for `asyncio`
 
+        Raises:
+            FedbiomedCommunicationError: bad argument type
         """
+        if not isinstance(node_id, str):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for node_id, expected str, got `{type(node_id)}`")
+        if not isinstance(on_message, Callable):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
+        if not isinstance(debug, bool):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for debug, expected bool, got `{type(debug)}`")
+        if not isinstance(researchers, list) or not all(isinstance(r, ResearcherCredentials) for r in researchers):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for researchers, expected list of researchers, got `{type(researchers)}`")
+
         # inform all threads whether communication client is started
         self._is_started = threading.Event()
 
@@ -130,49 +149,11 @@ class GrpcController(GrpcAsyncTaskController):
     It is wrapper class of GrpcClients. It has been designed to be called main or
     different threads than the one grpc client runs.
 
+    Attributes:
+        _thread: background thread of gRPC controller
     """
-    def __init__(
-        self,
-        node_id: str,
-        researchers: List[ResearcherCredentials],
-        on_message: Callable,
-        debug: bool = False
-    ) -> None:
-        """Constructs RPC controller
 
-        Args:
-            node_id: The ID of the node component that runs RPC client
-            researchers: List of researchers that the RPC client will connect to.
-            on_message: Callback function to be executed once a task received from the researcher
-            debug: Activates debug mode for `asyncio`
-
-        Raises:
-            FedbiomedCommunicationError: bad argument type
-        """
-
-        if not isinstance(node_id, str):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for node_id, expected str, got `{type(node_id)}`")
-        if not isinstance(on_message, Callable):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
-        if not isinstance(debug, bool):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for debug, expected bool, got `{type(debug)}`")
-        if not isinstance(researchers, list) or not all(isinstance(r, ResearcherCredentials) for r in researchers):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for researchers, expected list of researchers, got `{type(researchers)}`")
-
-        super().__init__(node_id, researchers, on_message, debug)
-
-        self._thread = None
-        # Adds grpc handler to send node logs to researchers
-        logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
-
+    _thread: Optional[threading.Thread] = None
 
     def _run(self) -> None:
         """Runs async task controller"""
@@ -186,6 +167,8 @@ class GrpcController(GrpcAsyncTaskController):
 
     def start(self) -> None:
         """Start GRPCClients in a thread"""
+        # Adds grpc handler to send node logs to researchers
+        logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()

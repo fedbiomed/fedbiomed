@@ -146,7 +146,22 @@ class _GrpcAsyncServer:
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
+        Raises:
+            FedbiomedCommunicationError: bad argument type
         """
+        if not isinstance(host, str) or not isinstance(port, str):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: bad argument type for `host:port` `{host}:{port}`, expected strings, "
+                f"got `{type(host)}`:`{type(port)}`")
+        if not isinstance(on_message, Callable):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
+        if not isinstance(debug, bool):
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: "
+                f"bad argument type for debug, expected bool, got `{type(debug)}`")
+
         # inform all threads whether server is started
         self._is_started = threading.Event()
 
@@ -210,17 +225,6 @@ class _GrpcAsyncServer:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        agent_status = await agent.status
-        if agent_status == NodeActiveStatus.DISCONNECTED:
-            logger.info(f"Node {node_id} is disconnected. Discard message.")
-            return
-
-        if agent_status == NodeActiveStatus.WAITING:
-            logger.debug(f"Node {node_id} is in WAITING status. Server is "
-                         "waiting for receiving a request from "
-                         "this node to convert it as ACTIVE. Node will be updated "
-                         "as DISCONNECTED soon if no request received.")
-
         await agent.send(message)
 
 
@@ -232,18 +236,7 @@ class _GrpcAsyncServer:
         """
 
         agents = await self._agent_store.get_all()
-        for id, agent in agents.items():
-            agent_status = await agent.status
-            if agent_status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {id} is disconnected.")
-                continue
-
-            if agent_status == NodeActiveStatus.WAITING:
-                logger.info(f"Node {id} is in WAITING status. Server is "
-                            "waiting for receiving a request from "
-                            "this node to convert it as ACTIVE. Node will be updated "
-                            "as DISCONNECTED soon if no request received.")
-
+        for _, agent in agents.items():
             await agent.send(message)
 
 
@@ -267,41 +260,12 @@ class GrpcServer(_GrpcAsyncServer):
     call async methods from different thread. Currently, it is used by
     [fedbiomed.researcher.requests.Requests][`Requests`] class that is
     instantiated in the main thread
+
+    Attributes:
+        _thread: background thread of gRPC server
     """
-    def __init__(
-            self,
-            host: str,
-            port: str,
-            on_message: Callable,
-            debug: bool = False,
-    ) -> None:
-        """Class constructor
 
-        Args:
-            host: server DNS name or IP address
-            port: server TCP port
-            on_message: Callback function to execute once a message received from the nodes
-            debug: Activate debug mode for gRPC asyncio
-
-        Raises:
-            FedbiomedCommunicationError: bad argument type
-        """
-        if not isinstance(host, str) or not isinstance(port, str):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for `host:port` `{host}:{port}`, expected strings, "
-                f"got `{type(host)}`:`{type(port)}`")
-        if not isinstance(on_message, Callable):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
-        if not isinstance(debug, bool):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for debug, expected bool, got `{type(debug)}`")
-
-        super().__init__(host=host, port=port, on_message=on_message, debug=debug)
-
-        self._thread = None
+    _thread: Optional[threading.Thread] = None
 
     def _run(self) -> None:
         """Runs asyncio application"""

@@ -101,11 +101,16 @@ class NodeAgent:
             message: Message to send to the researcher
         """
 
-        # TODO: this may happen, discard message ? put in queue silently ?
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self._id} is disconnected. Discard message.")
                 return
+
+            if self._status == NodeActiveStatus.WAITING:
+                logger.info(f"Node {self._id} is in WAITING status. Server is "
+                            "waiting for receiving a request from "
+                            "this node to convert it as ACTIVE. Node will be updated "
+                            "as DISCONNECTED soon if no request received.")
 
         try:
             await self._queue.put(message)
