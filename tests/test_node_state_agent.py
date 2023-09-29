@@ -99,39 +99,84 @@ class TestNodeStateAgent(unittest.TestCase):
         
         all_node_ids = list(fds_data_2.keys())
         all_node_ids.extend(list(self.fds_data_1))
-        expected_res = {k: None for k in all_node_ids}
-        self.assertDictEqual(res, expected_res)
+        expected_res = {k: None for k in fds_data_2.keys()}
+        self.assertDictEqual(res, expected_res)  # we check here that keys and ini
         
         # now we update wrt Responses
-        
-        # TODO: to be continued...
         
         resp = Responses([{'node_id': 'node_id_1234',
                            'state_id': 'node_state_1234'}, 
                           {'node_id': 'node_id_5678',
                            'state_id': 'node_state_5678'}
                           ])
-        print("RESPONSE", resp)
+
         
         nsa.update_node_states(fds_data_2, resp)
         res = nsa.get_last_node_states()
-        self.assertIn(list(res.keys()), list(fds_data_2.keys()))
+        self.assertListEqual(list(res.keys()), list(fds_data_2.keys()))
         
         # finally, we update with a node_id that is not present in the FederatedDataset
         
-        resp = Responses([{'node_id': 'node_id_1234',
-                           'state_id': 'node_state_1234'}, 
-                          {'node_id': 'node_id_5678',
-                           'state_id': 'node_state_5678'},
-                           {'node_id': 'unknown-node_id', 
-                            'state_id': 'unknown_state-id'}
-                          ])
+        nodes_replies_content = [{'node_id': 'node_id_1234',
+                                  'state_id': 'node_state_1234'}, 
+                                 {'node_id': 'node_id_5678',
+                                  'state_id': 'node_state_5678'},
+                                 {'node_id': 'unknown-node_id', 
+                                  'state_id': 'unknown_state-id'}]
+        resp = Responses(nodes_replies_content)
         
+        nsa.update_node_states(fds_data_2, resp)
+        res = nsa.get_last_node_states()
+        
+        nodes_replies_content_nodes_id = [x['node_id'] for x in nodes_replies_content]
+        nodes_replies_content_nodes_id.remove('unknown-node_id')
+        self.assertListEqual(list(res.keys()), list(fds_data_2.keys()))
+        self.assertNotIn('unknown-node_id', res)
+        for node_id in nodes_replies_content_nodes_id:
+            self.assertIn(node_id, list(fds_data_2.keys()))
+
     def test_node_state_agent_5_save_state_ids_in_bkpt(self):
-        pass
-    
-    def test_node_state_agent_6_loa_state_ids_in_bkpt(self):
-        pass
+        nsa = NodeStateAgent(self.fds_data_1)
         
+        nsa_bkpt = nsa.save_state_ids_in_bkpt()
+        res = nsa.get_last_node_states()
+        
+        self.assertDictEqual(nsa_bkpt, res)
+        self.assertListEqual(list(nsa_bkpt.keys()), list(self.fds_data_1.keys()))
+    
+    def test_node_state_agent_6_load_state_ids_in_bkpt(self):
+        nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
+                             'node_id_5678': 'state_id_5678',
+                             'node_id_9012': 'state_id_9012'}
+
+        nsa = NodeStateAgent(self.fds_data_1)
+        nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
+
+        reloaded_nodes_states_bkpt = nsa.save_state_ids_in_bkpt()
+
+        self.assertDictEqual(nodes_states_bkpt, reloaded_nodes_states_bkpt)
+
+    def test_node_state_agent_7_load_state_ids_in_bkpt_raise_error(self):
+        nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
+                             'node_id_5678': 'state_id_5678',
+                             'node_id_unknown': 'state_id_unknown'}
+        
+        nsa = NodeStateAgent(self.fds_data_1)
+        with self.assertRaises(FedBiomedNodeStateAgentError):
+            nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
+        
+    def test_node_state_agent_8_save_and_load_bkpt(self):
+        nsa = NodeStateAgent(self.fds_data_1)
+        last_nodes_states_before_saving = nsa.get_last_node_states()
+
+        nodes_states_bkpt = nsa.save_state_ids_in_bkpt()
+        nsa2 = NodeStateAgent(self.fds_data_1)
+        nsa2.load_state_ids_from_bkpt(nodes_states_bkpt)
+
+        last_nodes_states_after_saving = nsa2.get_last_node_states()
+
+        self.assertDictEqual(last_nodes_states_after_saving, last_nodes_states_before_saving)
+
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -1,6 +1,7 @@
 
 
 
+import copy
 from typing import Dict, Optional, Union
 from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError
 
@@ -31,9 +32,15 @@ class NodeStateAgent:
         if self._collection_state_ids is None:
             self._initiate_collection_state_data()
         # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
+        _previous_node_ids = copy.deepcopy(set(self._collection_state_ids.keys()))
         for node_id in self._data:
-            if not self._collection_state_ids.get(node_id, False):
+            if self._collection_state_ids.get(node_id, False) is False:
                 self._collection_state_ids[node_id] = None
+        for node_id in _previous_node_ids:
+            if node_id not in self._data:
+                # remove previous node_ids of collection_state_ids if _data has changed
+                print("REMOVED", node_id, _previous_node_ids)
+                self._collection_state_ids.pop(node_id)
         if resp is not None:
             print("RESPONSES", self._data)
             for node_reply in resp:
@@ -43,7 +50,8 @@ class NodeStateAgent:
                 except KeyError as ke:
                     raise FedBiomedNodeStateAgentError("Missing entry in Response") from ke
                 print("STATE_ID", state_id)
-                self._collection_state_ids[node_id] = state_id
+                if node_id in self._collection_state_ids:
+                    self._collection_state_ids[node_id] = state_id
 
     def _initiate_collection_state_data(self):
 
@@ -53,13 +61,14 @@ class NodeStateAgent:
 
     def set_federated_dataset(self, fds: Union[FederatedDataSet, Dict[str, str]]) -> Union[FederatedDataSet, Dict[str, str]]:
         if isinstance(fds, FederatedDataSet):
-            self._data: Dict[str, str] = fds.data()
+            data: Dict[str, str] = fds.data()
         elif isinstance(fds, dict):
-            self._data: Dict[str, str] = fds
+            data: Dict[str, str] = fds
         else:
             raise FedBiomedNodeStateAgentError("fds argument should be either a FederatedDataset or a dict,"
                                               f" not a {type(fds)}")
-            
+        self._data = data
+
     def save_state_ids_in_bkpt(self) -> Dict[str, str]:
         # FIXME: duplicate of get_last_node_state method
         return self._collection_state_ids
@@ -71,5 +80,5 @@ class NodeStateAgent:
                 self._collection_state_ids.update(collection_state_ids)
             else:
                 raise FedBiomedNodeStateAgentError("Error while loading breakpoints: some Node ids "
-                                                   f"{set(self._data) - set(collection_state_ids.keys())} in the state"
+                                                   f"{set(collection_state_ids.keys()) - set(self._data)} in the state"
                                                    " agent are not present in the Federated Dataset!")
