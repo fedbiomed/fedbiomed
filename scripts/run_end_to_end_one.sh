@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -xv
 #
 # End-to end test (can also be used on CI slaves)
 #
@@ -286,7 +286,7 @@ find_gtimeout() {
 #trap cleaning_trap INT TERM
 
 # locate the topdir of the distribution
-basedir=$(cd $(dirname $0)/.. || exit 1 ; pwd)
+basedir=$(cd "$(dirname $0)"/.. || exit 1 ; pwd)
 
 banner "decoding & verifying arguments"
 
@@ -406,42 +406,48 @@ $basedir/scripts/fedbiomed_run network
 sleep 3
 
 # run and start nodes, memorize the pids of all these processes and subprocesses
-i=0
 ALL_PIDS=""
 ALL_CONFIG=()
-seed=$RANDOM
-while [ $i -lt ${#DATASETS[@]} ]
+i_node=0
+while [ $i_node -lt 2 ] # in order to generate two nodes containing all the datasets.
 do
-    dataset=${DATASETS[$i]}
+  (( i_node=i_node+1 ))
+  i_dataset=0
+  seed=$RANDOM
 
-    banner "launching node using: $dataset"
+  # generate a random config file name
+  config=$(generate_config_filename $seed)
 
-    if [ ! -f "$dataset" ]
-    then
-        echo "== ERROR: dataset $dataset is not a valid"
-        cleaning
-        exit 1
-    fi
+  # store it for later cleaning
+  ALL_CONFIG+=("$config")
 
-    # generate a random config file name
-    config=$(generate_config_filename $seed)
+  while [ $i_dataset -lt ${#DATASETS[@]} ]
+  do
+      dataset=${DATASETS[$i_dataset]}
+      banner "i_dataset = $i_dataset"
+      banner "launching node using: $dataset"
 
-    # store it for later cleaning
-    ALL_CONFIG+=("$config")
+      if [ ! -f "$dataset" ]
+      then
+          echo "== ERROR: dataset $dataset is not a valid"
+          cleaning
+          exit 1
+      fi
 
-    # populate node
-    echo "== INFO: populating fedbiomed node"
-    $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
+      # populate node
+      echo "== INFO: populating fedbiomed node"
+      $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
 
-    # launch node
-    echo "== INFO: launching fedbiomed node"
-    $basedir/scripts/fedbiomed_run node config ${config} start &
-    pid=$!
-    sleep 10
+  done
+  # launch node
+  echo "== INFO: launching fedbiomed node"
+  $basedir/scripts/fedbiomed_run node config ${config} start &
+  pid=$!
+  sleep 10
 
-    # store node pid and subprocesses pids
-    ALL_PIDS+=" $pid $(subprocess $pid)"
-    i=$(( $i + 1 ))
+  # store node pid and subprocesses pids
+  ALL_PIDS+=" $pid $(subprocess $pid)"
+  (( i_dataset=i_dataset+1 ))
 done
 
 
