@@ -1,5 +1,8 @@
 # Fed-BioMed changelog
 
+## Next version
+
+- add end_to_end workflow that test nightly the notebooks.
 
 ## 2023-09-18 version 4.4.4
 
