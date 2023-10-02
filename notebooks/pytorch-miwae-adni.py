@@ -41,7 +41,7 @@ if __name__ == '__main__':
                         help='Scenario for data splitting')
     parser.add_argument('--method', metavar='-m', type=str, default='FedAvg', choices = ['FedAvg', 'FedProx', 'FedProx_loc', 'Scaffold', 'Local'],
                         help='Methods for the running experiment')
-    parser.add_argument('--standardization', metavar='-std', type=str, default='dynamic', choices = ['dynamic', 'static', 'dyn_iota'],
+    parser.add_argument('--standardization', metavar='-std', type=str, default='static', choices = ['dynamic', 'static', 'dyn_iota'],
                         help='Dynamic: the mean and std are updated during fed-miwae training. Static: the mean and std are evaluated previously to fed-miwae')
     parser.add_argument('--kind', metavar='-k', type=str, default='single', choices = ['single', 'multiple', 'both'],
                         help='Kind of imputation')
@@ -186,7 +186,7 @@ if __name__ == '__main__':
             standardization.update({'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()})
 
         model_args = {'n_features':data_size, 'n_latent':d,'n_hidden':h,'n_samples':K, 'use_gpu': True, 'n_samples_test':100,
-                    'standardization':standardization, 'test_ratio': args.testing_ratio, 'test_on_local_updates': True}
+                    'standardization':standardization, 'test_ratio': args.testing_ratio, 'test_on_local_updates': False}
 
         training_args = {
             'batch_size': batch_size, 
@@ -389,7 +389,8 @@ if __name__ == '__main__':
         if method != 'Local':
             MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
                                mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
-                               idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_local', mean=loc_mean, std=loc_std)
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_local', mean=loc_mean, std=loc_std,
+                                             kind=kind,num_samples=49)
             save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                 Perc_missing,Perc_missing[cls],method,
                 N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
@@ -397,7 +398,8 @@ if __name__ == '__main__':
             if method != 'FedProx_loc':
                 MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
                                    mask=mask, encoder=encoder, decoder=decoder, iota=iota, d=d, L=L,
-                                   idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_global', mean=fed_mean, std=fed_std)
+                                   idx_cl=idx_clients[cls],result_folder=result_folder,method=method+'_global', mean=fed_mean, std=fed_std,
+                                             kind=kind,num_samples=49)
                 save_results(result_folder,Split_type,idx_clients,idx_clients[cls],
                     Perc_missing,Perc_missing[cls],method,
                     N_cl,[len(Clients_missing[i]) for i in range(N_cl)],rounds,n_epochs,
@@ -406,14 +408,16 @@ if __name__ == '__main__':
             # centralized 
             MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
                                mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
-                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_local', mean=loc_mean, std=loc_std)
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_local', mean=loc_mean, std=loc_std,
+                                             kind=kind,num_samples=49)
             save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
                 'Loc','local',MSE)
             MSE = testing_func(features=features,data_missing=xhat_global_std, data_full=xfull_global_std, 
                                mask=mask, encoder=encoder_cen, decoder=decoder_cen, iota=iota_cen, d=d, L=L,
-                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_global', mean=fed_mean, std=fed_std)
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Centralized_global', mean=fed_mean, std=fed_std,
+                                             kind=kind,num_samples=49)
             save_results(result_folder,Split_type,sum(idx_clients),idx_clients[cls],
                 Perc_missing,Perc_missing[cls],'Centralized',
                 1,[len(xmiss_tot)],1,n_epochs_centralized,
@@ -421,7 +425,8 @@ if __name__ == '__main__':
             # local
             MSE = testing_func(features=features,data_missing=xhat_local_std, data_full=xfull_local_std, 
                                mask=mask, encoder=Encoders_loc[cls], decoder=Decoders_loc[cls], iota=Iota_loc[cls], d=d, L=L,
-                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Local_cl'+str(idx_clients[cls]), mean=loc_mean, std=loc_std)
+                               idx_cl=idx_clients[cls],result_folder=result_folder,method='Local_cl'+str(idx_clients[cls]), mean=loc_mean, std=loc_std,
+                                             kind=kind,num_samples=49)
             save_results(result_folder,Split_type,idx_clients[cls],idx_clients[cls],
                 Perc_missing[cls],Perc_missing[cls],'Local_cl'+str(idx_clients[cls]),
                 1,[len(Clients_missing[cls])],1,n_epochs_local,

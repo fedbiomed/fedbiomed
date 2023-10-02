@@ -267,7 +267,7 @@ if __name__ == '__main__':
             n = Clients_data[cls].shape[0] # number of observations
             p = Clients_data[cls].shape[1]-num_covariates # number of features
 
-            xhat_local_std, xfull_local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1)
+            xhat_local_std, xfull_local_std, local_mean, local_std = recover_data(Clients_missing[cls], Clients_data[cls], num_covariates-1)
 
             if task == 'imputation':            
                 mask_cls_test = np.copy(Clients_mask[cls])
@@ -304,7 +304,7 @@ if __name__ == '__main__':
                     Loss_cls[cls].append(loss.item())
                     Like_cls[cls].append(likelihood)
                     mse_train = testing_func(xhat_local_std[:,num_covariates:], xfull_local_std[:,num_covariates:], x_cat_cls, 
-                                            mask_cls_test[:,num_covariates:], encoder_cls, decoder_cls, iota_cls, d, 100,kind,num_samples)
+                                            mask_cls_test[:,num_covariates:], encoder_cls, decoder_cls, iota_cls, d, 100)
                     MSE_cls[cls].append(mse_train)
                 if ep % rounds == 1:
                     likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cls,decoder = decoder_cls,iota=iota_cls, 
@@ -393,7 +393,7 @@ if __name__ == '__main__':
                 Loss_tot.append(loss.item())
                 Like_tot.append(likelihood)
                 mse_train = testing_func(xhat_0_tot, xfull_tot[:,num_covariates:], x_cat_tot, mask_tot_test[:,num_covariates:], 
-                                        encoder_cen, decoder_cen, iota_cen, d, 100,kind,num_samples)
+                                        encoder_cen, decoder_cen, iota_cen, d, 100)#,kind,num_samples)
                 MSE_tot.append(mse_train)
             if ep % rounds == 1:
                 likelihood = (-np.log(K)-miwae_loss(encoder = encoder_cen,decoder = decoder_cen,iota=iota_cen, 

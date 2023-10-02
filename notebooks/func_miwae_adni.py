@@ -161,11 +161,15 @@ def miwae_impute(encoder,decoder,iota, data, mask,d,p,L,kind="single",num_sample
 #     xtrue = np.array(xtrue)
 #     return np.mean(np.power(xhat-xtrue,2)[~mask])
 
-def mse(xhat,xtrue,mask,normalized=False): # MSE function for imputations
+def mse(xhat,xtrue,mask=None,normalized=False): # MSE function for imputations
     xhat = np.array(xhat)
     xtrue = np.array(xtrue)
-    MSE = np.mean(np.power(xhat-xtrue,2)[~mask])
-    NMSE = MSE/np.mean(np.power(xtrue,2)[~mask])
+    if mask is not None:
+        MSE = np.mean(np.power(xhat-xtrue,2)[~mask])
+        NMSE = MSE/np.mean(np.power(xtrue,2)[~mask])
+    else:
+        MSE = np.mean(np.power(xhat-xtrue,2))
+        NMSE = MSE/np.mean(np.power(xtrue,2))
     return NMSE if normalized else MSE
 
 def miwae_loss(encoder, decoder, iota, data, mask, d, p, K):
@@ -282,36 +286,39 @@ def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota,
         err = np.array([mse(xhat,xfull,mask)])
 
     if (kind=="single"):
-        return float(err)
+        return [float(err)] if normalized==False else [float(err_standardized),float(err)]
     else:
         n = data_full.shape[0]
+        xhat_mul = np.copy(xhat) if normalized==False else np.copy(xhat_destd)
+        xfull_mul = np.copy(xfull) if normalized==False else np.copy(xfull_destd)
         for i in range(n):
             if (np.sum(mask[i,:])<=p-2):
-        #two_miss = False
-        #while two_miss != True:
-        #    i = torch.randint(high=n,size=(1,))
-        #    if (np.sum(mask[i,:])>p-2):
-        #        print('This data point has less than two missing values, therefore the visualisation will fail.')
-        #    else:
-        #        two_miss = True
                 xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
                                                         data = torch.from_numpy(xhat_0[i,:]).reshape([1,p]).float(), 
                                                         mask = torch.from_numpy(mask[i,:]).reshape([1,p]).float(),
                                                         p=p, d = d,L= L,kind=kind,num_samples=num_samples)
 
 
+                xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
                 true_values = xfull[i,~mask[i,:].astype(bool)]
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
                 features_i = np.array(features)[~mask[i,:].astype(bool)]
-                xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
                 if normalized:
-                    xfull_mask = xfull_mask*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    true_values = true_values*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    single_imp = single_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    mul_imp = mul_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                    xfull_mask *= std[~mask[i,:].astype(bool)]
+                    xfull_mask += mean[~mask[i,:].astype(bool)]
+                    true_values *=std[~mask[i,:].astype(bool)]
+                    true_values += mean[~mask[i,:].astype(bool)]
+                    single_imp *= std[~mask[i,:].astype(bool)]
+                    single_imp += mean[~mask[i,:].astype(bool)]
+                    mul_imp *= std[~mask[i,:].astype(bool)]
+                    mul_imp += mean[~mask[i,:].astype(bool)]
                 multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
-        return float(err)
+                mul_imp_i = (sum(mul_imp)+single_imp.numpy())/(num_samples+1)
+                xhat_mul[i,~mask[i,:].astype(bool)] = mul_imp_i
+        err_mul = np.array([mse(xhat_mul,xfull_mul,mask,normalized=normalized)])
+        print(err_mul,err)
+        return [float(err),float(err_mul)] if normalized==False else [float(err_standardized),float(err),float(err_mul)]
 
 def save_results(result_folder, Split_type,Train_data,Test_data,
                 perc_missing_train,perc_missing_test,model,
