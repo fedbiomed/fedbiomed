@@ -37,11 +37,9 @@ An installation guide is also provided for Windows11, which relies on WSL2: http
 To ensure fedbiomed will work fine, you need to install before :
 
 * conda
+* git
 
-To use the docker + VPN mode you also need to install:
-
-* docker
-* docker compose v2 (aka docker compose plugin)
+`docker` is not needed anymore for using development environment, unless you use secure aggregation with MP-SPDZ for multi party computation and plan to [rebuild the Shamir protocol binary](./MP-SPDZ/README.md)
 
 ### clone repo
 
@@ -200,6 +198,13 @@ source ./scripts/fedbiomed_environment clean
 ```
 
 ## Install and run in vpn+development environment
+
+### Prerequisites
+
+To use the docker + VPN mode you need to install:
+
+* docker
+* docker compose v2 (aka docker compose plugin)
 
 ### Files
 
