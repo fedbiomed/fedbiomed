@@ -15,10 +15,21 @@ the very beginning of the first round.
 
 ## Defining The Method Training Data
 
-The method `training_data` is the method that should be defined while creating the training plan class. This method can 
-take one input argument which is the `batch_size`. This argument represents the batch size that is going to be used for the 
-data loader. Although this argument is not mandatory for `training_data`, if it exists,  each node will pass the value 
-`batch_size` defined in the `training_args` while calling the `training_data` method. 
+The method `training_data` defines the logic related to loading data on the node. In particular, 
+it defines:
+
+- the type of data and the `Dataset` class
+- any preprocessing (either data transforms, imputation, or augmentation)
+- also implicitly defines the `DataLoader` for iterating over the data 
+
+This method takes no inputs and returns a [`DataManager`](./training-data.md#the-datamanager-return-type), 
+therefore its signature is:
+
+```python
+def training_data(self) -> fedbiomed.common.data.DataManager
+```
+
+The `training_data` method is always part of the training plan, as follows:
 
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -27,93 +38,23 @@ class MyTrainingPlan(TorchTrainingPlan):
     def __init__(self):
         pass
         # ....
-    def training_data(self, batch_size):
+    def training_data(self):
         pass
 ```
 
-You can also remove the `batch_size` argument and define it inside the method. In this case, the `batch_size`defined in 
-the training arguments will no longer have an impact. 
+For details on how arguments are passed to the data loader, please refer to the section below 
+[Passing arguments to data loaders](./training-data.md#passing-arguments-to-data-loaders).
 
-```python
-def training_data(self):
-    batch_size = 48
-    pass
-```
-
-!!! note ""
-    `training_data` can have a maximum of one argument which is `batch_size`. Since `training_data` is executed by the node and the nodes are aware of only one argument, 
-     adding extra argument to this method will raise errors on the node side.
-
-
-### Reading Datafiles 
-
-As mentioned before, a node can store `IMAGE` and `CSV` dataset types. In this case, the way of loading these datasets 
-might be different. The only information necessary for loading will be the file path where data files are stored. 
-This path is accessible through `self.dataset_path`. If the dataset is a tabular `CSV` dataset  `self.dataset_path` 
-will address to a file. Otherwise, if it is an `IMAGE` dataset, `self.dataset_path` will address to a directory where 
-all the images are stored. Therefore, before loading the dataset it is important to know what type of dataset is going 
-to be loaded. It is possible to send [list request to the nodes to get meta-data of the dataset there are 
-deployed](../../user-guide/researcher/listing-datasets-and-selecting-nodes.md).
-
-The following snippet shows an example of loading operation for a dataset of `CSV` type. 
-
-```python
-import pandas as pd
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
-
-class MyTrainingPlan(TorchTrainingPlan):
-    def init_model(self):
-        # ....
-    def init_dependencies(self):
-        # ....
-    def init_optimizer(self):
-        # ....
-    
-    def training_data(self, batch_size):
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:15].values
-        y = dataset.iloc[:,15]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
-```
-
-It is also possible to use some model arguments in the training data method. For example, if 
-the following model argument is passed to the model by the experiment. 
-
-```python
-model_args = {
-    'feature_cols' : 15
-}
-```
-`training_data` can be configured as follows:
-
-```python
-import pandas as pd
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
-
-class MyTrainingPlan(TorchTrainingPlan):
-    def init_model(self):
-        # ....
-    def init_dependencies(self):
-        # ....
-    def init_optimizer(self):
-        # ....
-        
-    def training_data(self, batch_size):
-        feature_cols = self.model_args()["feature_cols"]
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:feature_cols].values
-        y = dataset.iloc[:,feature_cols]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
-```
-
-### What `training_data` Should Return?
+### The `DataManager` return type
 
 The method `training_data` should always return `DataManager` of Fed-BioMed defined in the module 
 `fedbiomed.common.data.DataManager`. `DataManager` has been designed for managing different types of data objects for 
 different types of training plans. It is also responsible for splitting a given dataset into training and validation if 
 model validation is activated in the experiment. 
+
+!!! info "What is a `DataManager`?"
+    A `DataManager` is a Fed-BioMed concept that makes the link between a `Dataset` and the corresponding `DataLoader`.
+    It has a generic interface that is framework-agnostic (Pytorch, sklearn, etc...)
 
 `DataManager` takes two main input arguments as `dataset` and `target`. `dataset` should be an instance of one of PyTorch `Dataset`,
 Numpy `ndarray`, `pd.DataFrame` or `pd.Series`. The argument `target` should be an instance of one of Numpy `ndarray`, 
@@ -148,12 +89,12 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_optimizer(self):
         # ....
 
-    def training_data(self, batch_size):
+    def training_data(self):
         feature_cols = self.model_args()["feature_cols"]
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:feature_cols].values
         y = dataset.iloc[:,feature_cols]
-        return DataManager(dataset=X, target=y.values, batch_size=batch_size)
+        return DataManager(dataset=X, target=y.values, )
 ```
 
 It is also possible to define a custom PyTorch `Dataset` and use it in the `DataManager` without declaring the argument
@@ -182,7 +123,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         def __getitem__(self, idx):
             return self.X_train[idx], self.Y_train[idx]
 
-    def training_data(self, batch_size): 
+    def training_data(self): 
         feature_cols = self.model_args()["feature_cols"]    
         dataset = self.CSVDataset(self.dataset_path, feature_cols)
         loader_kwargs = {'batch_size': batch_size, 'shuffle': True}
@@ -206,7 +147,7 @@ from fedbiomed.common.data import DataManager
 
 class SGDRegressorTrainingPlan(FedPerceptron):
 
-    def training_data(self, batch_size):
+    def training_data(self):
         num_cols = self.model_args()["number_cols"]
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
         X = dataset.iloc[:,0:num_cols].values
@@ -221,7 +162,7 @@ Since the method `training_data` is defined by the user, it is possible to do pr
 `DataManager` object. In the code snippet below, a preprocess for normalization is shown for the dataset MNIST.
 
 ```python
-def training_data(self, batch_size = 48):
+def training_data(self):
     # Custom torch Dataloader for MNIST data
     transform = transforms.Compose([transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))])
@@ -247,36 +188,43 @@ for:
 
 ### Passing arguments to Data Loaders
 
-Any keyword argument, except `dataset` and `target`, that was provided to the `DataManager` constructor in the 
-`training_data` function will be passed as a keyword argument to the `DataLoader`. 
+!!! important ""
+    All of the key-value pairs contained in the `loader_args` sub-dictionary of
+    [`training_args`](./experiment.md#batch-size-and-other-loader-arguments)
+    are passed as keyword arguments to the data loader.
+    Additionally, any keyword arguments passed to the `DataManager` class inside the
+    `training_data` function are also passed as keyword arguments to the data loader.
+
+For example, the following setup:
+
+```python
+class MyTrainingPlan(TorchTrainingPlan):
+    # ....
+    def training_data(self):
+        dataset = MyDataset()
+        return DataManager(dataset, shuffle=True)
+    
+training_args = {
+    'loader_args': {
+        'batch_size': 5,
+        'drop_last': True
+    }
+}
+```
+
+Leads to the following data loader definition:
+
+```python
+loader = DataLoader(dataset, shuffle=True, batch_size=5, drop_last=True)
+```
+
+!!! warning "Double-specified loader arguments"
+    Keyword arguments passed to the `DataManager` class take precedence over arguments with the same name provided
+    in the `loader_args` dictionary.
+
 For PyTorch and scikit-learn experiments, the `DataLoaders` have been heavily inspired by the
 [`torch.utils.data.DataLoader`](https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader) 
 class, so please refer to that documentation for the meaning of the supported keyword arguments. For example:
-
-```python
-class MyTrainingPlan(SKLearnTrainingPlan):
-    def training_data(self, batch_size):
-        return DataManager(dataset=X, target=Y, 
-                           # The following arguments will be passed to the DataLoader:
-                           batch_size=batch_size, shuffle=True, drop_last=False)
-```
-
-#### The special case of batch size
-
-As you may have noticed below, `batch_size` represents a special case since it can be provided as argument to the 
-`training_data` function. 
-
-!!! Note "Recommended approach"
-    For `batch_size`, we recommend that you always include it is argument to the `training_data` function, and forward
-    that value as keyworkd argument to the `DataManager`, as such:
-    ```python
-    class MyTrainingPlan(SKLearnTrainingPlan):
-        def training_data(self, batch_size):
-            return DataManager(dataset=X, target=Y, batch_size=batch_size)
-    ```
-
-It is not useful to set a default value for the `batch_size` argument, as it will be ignored in favour of Fed-BioMed's 
-internal default value set in the `TrainingArgs` class. 
 
 ## Conclusion
 

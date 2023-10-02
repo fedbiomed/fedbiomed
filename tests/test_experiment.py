@@ -71,10 +71,17 @@ class TestExperiment(ResearcherTestCase):
             `issubclass` of `TorchTrainingPlan`
         """
 
+        def __init__(self):
+            super().__init__()
+            # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
+            # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate,
+            # according to our test coding rules
+            self._dp_controller = MagicMock()
+            do_nothing = lambda x: x
+            self._dp_controller.side_effect = do_nothing
+
         def init_model(self, args):
             pass
-
-        pass
 
     @staticmethod
     def create_fake_training_plan_file(name: str):
@@ -802,18 +809,18 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_training_args("this is not a dict")
 
         # Test setting model_args properly with dict
-        ma_expected = {'batch_size': 25}
+        ma_expected = {'loader_args': {'batch_size': 25}}
         train_args = self.test_exp.set_training_args(ma_expected)
         self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
 
         # test update of testing_args with argument `reset` set to False
-        ma_expected_2 = {'batch_size': 10}
+        ma_expected_2 = {'loader_args': {'batch_size': 10}}
         train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False)
         ma_expected_2.update(ma_expected_2)
         self.assertSubDictInDict(ma_expected_2, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
-        ma_expected_3 = {'batch_size': 1}
+        ma_expected_3 = {'loader_args': {'batch_size': 1}}
         train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset=True)
         self.assertSubDictInDict(ma_expected_3, train_args_3)
         self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
@@ -825,11 +832,12 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)  # required for set_job below
         with patch('fedbiomed.researcher.job.Repository', new=MagicMock()) as patched_repo, \
              patch('fedbiomed.researcher.job.Job.update_parameters', return_value=None) as patched_update_params, \
-             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate:
-            self.test_exp.set_job()  # create an actual Job inside the experiment
+             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate, \
+             patch('fedbiomed.researcher.job.Job._load_training_plan_from_file') as patched_load_tp:
+                        self.test_exp.set_job()  # create an actual Job inside the experiment
         # First, make sure that the training_args are the same as above
         self.assertSubDictInDict(ma_expected_3, train_args_3)
-        new_args = {'batch_size': 42}
+        new_args = {'loader_args': {'batch_size': 42}}
         # Then we set new arguments
         _ = self.test_exp.set_training_args(new_args)
         # Test that the new args have been correctly set in the experiment
@@ -1209,7 +1217,9 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_experiment_26_run_once_with_scaffold_and_training_args(self,
+    @patch('fedbiomed.researcher.job.Job.__init__')
+    def test_experiment_25_run_once_with_scaffold_and_training_args(self,
+                                                                    mock_job_init,
                                                                     mock_job_updates_params,
                                                                     mock_job_training,
                                                                     mock_job_training_replies,
@@ -1220,6 +1230,7 @@ class TestExperiment(ResearcherTestCase):
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
+        mock_job_init.return_value = None
         mock_job_training.return_value = None
 
         mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
@@ -1237,6 +1248,7 @@ class TestExperiment(ResearcherTestCase):
         tp.optimizer.return_value = MagicMock(spec=NativeTorchOptimizer)
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
+        tp.after_training_params = MagicMock(return_value = None)
         mock_job_training_plan_type.return_value = tp
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(tp)

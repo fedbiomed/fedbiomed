@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
+import fedbiomed
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -27,6 +28,9 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import fedbiomed.researcher.job # needed for specific mocking
+
+
+training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
 
 
 class TestJob(ResearcherTestCase):
@@ -78,13 +82,17 @@ class TestJob(ResearcherTestCase):
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
-
+        # We also patch the function for loading from a file, because below we mock the training plan class
+        # used in the job. This has the effect that `save_code` actually does not save any code, therefore we cannot
+        # load anything.
+        self.patch_tp_load_from_file = patch('fedbiomed.researcher.job.Job._load_training_plan_from_file')
 
         self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
         self.mock_request_create = self.patcher4.start()
         self.mock_atexit = self.patcher5.start()
+        self.mock_tp_load_from_file = self.patch_tp_load_from_file.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
@@ -92,11 +100,12 @@ class TestJob(ResearcherTestCase):
 
         self.fds.data = MagicMock(return_value={})
         self.mock_request_create.side_effect = TestJob.msg_side_effect
+        self.mock_tp_load_from_file.return_value = self.model
 
         # Build Global Job that will be used in most of the tests
         self.job = Job(
             training_plan_class=self.model,
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=self.fds
         )
 
@@ -107,6 +116,7 @@ class TestJob(ResearcherTestCase):
         self.patcher3.stop()
         self.patcher4.stop()
         self.patcher5.stop()
+        self.patch_tp_load_from_file.stop()
 
         # shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
@@ -131,7 +141,7 @@ class TestJob(ResearcherTestCase):
 
         j = Job(training_plan_class=self.model,
                 data=self.fds,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 keep_files_dir=environ['TMP_DIR'])
 
         # Check keep files dir properly set
@@ -142,22 +152,31 @@ class TestJob(ResearcherTestCase):
 
         reqs = Requests()
         j = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds,
                 reqs=reqs)
 
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
     def test_job_04_init_building_model_from_path(self):
-        """ Test model is passed as static python file with training_plan_path """
+        """ Test model is passed as static python file with training_plan_path
+
+        Note about patching the function to load from file:
+        In this specific case we cannot rely on the basic mock from above because we would end up testing whether the
+        mocked return value is indeed what we expect. But since we set the mock return value in the first place, this
+        would not be a very significant test. Instead, we turn off the mocking and rely on the fact that, differently
+        from the other test cases, here we will actually save the training plan's code.
+        """
 
         # Get source of the model and save in tmp directory for just test purposes
         tmp_dir_model = TestJob.create_fake_model('fake_model.py')
         self.mock_upload_file.reset_mock()
 
+        self.patch_tp_load_from_file.stop()
         j = Job(training_plan_path=tmp_dir_model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 training_plan_class='FakeModel')
+        self.patch_tp_load_from_file.start()
 
         self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
                          'Provided model and model instance of Job do not match, '
@@ -184,7 +203,7 @@ class TestJob(ResearcherTestCase):
 
         with self.assertRaises(SystemExit):
             _ = Job(training_plan_path=tmp_dir_model,
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_args=training_args_for_testing,
                     training_plan_class='FakeModel')
             mock_logger_critical.assert_called_once()
 
@@ -197,7 +216,7 @@ class TestJob(ResearcherTestCase):
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
                 _ = Job(training_plan_class='FakeModel',
-                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                        training_args=training_args_for_testing,
                         data=self.fds)
                 mock_logger_critical.assert_called_once()
 
@@ -212,7 +231,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -223,7 +242,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -246,9 +265,9 @@ class TestJob(ResearcherTestCase):
         tr = self.job.training_replies
         self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        self.job.training_args = TrainingArgs({'batch_size': 33})
+        self.job.training_args = TrainingArgs({'loader_args': {'batch_size': 33}})
         targs = self.job.training_args
-        self.assertEqual(33, targs['batch_size'], 'Can not get or set training_args correctly')
+        self.assertEqual(33, targs['loader_args']['batch_size'], 'Can not get or set training_args correctly')
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
@@ -622,84 +641,6 @@ class TestJob(ResearcherTestCase):
             call("dir/aux_var_node_node-2_uuid.mpk"),
         ], any_order=True)
 
-    @patch('fedbiomed.common.logger.logger.error')
-    def test_job_19_check_dataset_quality(self, mock_logger_error):
-        """ Test for checking data quality in Job by providing different FederatedDatasets """
-
-        # CSV - Check dataset when everything is okay
-        self.fds.data.return_value = {
-            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
-            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
-        }
-        try:
-            self.job.check_data_quality()
-        except:
-            self.assertTrue(True, 'Raised error when given CSV datasets are OK')
-
-        # CSV - Check when data types are different
-        self.fds.data.return_value = {
-            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]},
-            'node-2': {'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
-        }
-        with self.assertRaises(Exception):
-            self.job.check_data_quality()
-
-        # CSV - Check when dimensions are different
-        self.fds.data.return_value = {
-            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]},
-            'node-2': {'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}
-        }
-        with self.assertRaises(Exception):
-            self.job.check_data_quality()
-
-        # CSV - Check when dtypes do not match
-        self.fds.data.return_value = {
-            'node-1': {'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]},
-            'node-2': {'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}
-        }
-        with self.assertRaises(Exception):
-            self.job.check_data_quality()
-
-        # Image Dataset - Check when datasets are OK
-        self.fds.data.return_value = {
-            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
-            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
-        }
-        try:
-            self.job.check_data_quality()
-        except:
-            self.assertTrue(True, 'Raised error when given datasets are OK')
-
-        # Image Dataset - Check when color channels do not match
-        self.fds.data.return_value = {
-            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
-            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
-        }
-        # Logs error instead of raising error
-        mock_logger_error.reset_mock()
-        self.job.check_data_quality()
-        mock_logger_error.assert_called_once()
-
-        # Image Dataset - Check when dimensions do not match
-        self.fds.data.return_value = {
-            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
-            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]},
-        }
-        # Logs error instead of raising error
-        mock_logger_error.reset_mock()
-        self.job.check_data_quality()
-        mock_logger_error.assert_called_once()
-
-        # Image Dataset - Check when dimensions and color channels do not match
-        self.fds.data.return_value = {
-            'client-1': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]},
-            'client-2': {'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]},
-        }
-        # Logs error instead of raising error
-        mock_logger_error.reset_mock()
-        self.job.check_data_quality()
-        self.assertEqual(mock_logger_error.call_count, 2)
-
     def test_job_20_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
@@ -775,7 +716,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job with a mock training plan
         test_job_torch = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
         # second create a `training_replies` variable
@@ -848,7 +789,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job
         test_job_sklearn = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
 
@@ -1030,6 +971,30 @@ class TestJob(ResearcherTestCase):
         # Call the method and verify that it returns an empty dict.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         self.assertDictEqual(aux_var, {})
+
+    def test_job_27_name_error_bug_864(self):
+        class ShouldNotRaiseNameErrorTrainingPlan(BaseTrainingPlan):
+            def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+                d = defaultdict()
+            def init_dependencies(self):
+                return ['from collections import defaultdict']
+            def model(self):
+                pass
+            def training_routine(self):
+                pass
+            def init_optimizer(self):
+                pass
+
+        self.patch_tp_load_from_file.stop()
+        j = Job(reqs=MagicMock(),
+                nodes=None,
+                training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
+                training_plan_path=None,
+                training_args={},
+                model_args={},
+                data=None,
+                keep_files_dir='some/path')
+        self.patch_tp_load_from_file.start()
 
 
 if __name__ == '__main__':  # pragma: no cover

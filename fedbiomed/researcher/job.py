@@ -24,6 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
@@ -98,10 +99,6 @@ class Job:
         self.last_msg = None
         self._data = data
 
-        # Check dataset quality
-        if self._data is not None:
-            self.check_data_quality()
-
         # Model is mandatory
         if self._training_plan_class is None:
             mess = "Missing training plan class name or instance in Job arguments"
@@ -142,8 +139,7 @@ class Job:
 
         else:
             self._training_plan = self._training_plan_class
-        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
-                                      training_args=self._training_args)
+        self._training_plan.configure_dependencies()
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
@@ -151,7 +147,8 @@ class Job:
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
 
-        self._training_plan_file = os.path.join(self._keep_files_dir, 'my_model_' + str(uuid.uuid4()) + '.py')
+        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
@@ -163,6 +160,9 @@ class Job:
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
+        self._training_plan = self._load_training_plan_from_file(training_plan_module)
+        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+                                      training_args=self._training_args)
         # Save model parameters to a local file and upload it to the remote repository.
         # The filename and remote url are assigned to attributes through this call.
         try:
@@ -177,6 +177,21 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
+
+    def _load_training_plan_from_file(self, training_plan_module: str) -> BaseTrainingPlan:
+        """Import a training plan class from a file and create a training plan object instance.
+
+        Args:
+            training_plan_module: module name of the training plan file
+
+        Returns:
+            The training plan object created
+        """
+        sys.path.insert(0, self._keep_files_dir)
+        module = importlib.import_module(training_plan_module)
+        train_class = getattr(module, self._training_plan_name)
+        sys.path.pop(0)
+        return train_class()
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -802,66 +817,6 @@ class Job:
             training_replies[round_] = loaded_training_reply
 
         return training_replies
-
-    def check_data_quality(self):
-        """Does quality check by comparing datasets that have been found in different nodes. """
-
-        data = self._data.data()
-        # If there are more than two nodes ready for the job
-        if len(data.keys()) > 1:
-
-            # First check data types are same based on searched tags
-            logger.info('Checking data quality of federated datasets...')
-
-            data_types = []  # CSV, Image or default
-            shapes = []  # dimensions
-            dtypes = []  # variable types for CSV datasets
-
-            # Extract features into arrays for comparison
-            for feature in data.values():
-                data_types.append(feature["data_type"])
-                dtypes.append(feature["dtypes"])
-                shapes.append(feature["shape"])
-
-            if len(set(data_types)) > 1:
-                raise FedbiomedDataQualityCheckError(
-                    f'Different type of datasets has been loaded with same tag: {data_types}'
-                )
-
-            if data_types[0] == 'csv':
-                if len(set([s[1] for s in shapes])) > 1:
-                    raise FedbiomedDataQualityCheckError(
-                        f'Number of columns of federated datasets do not match {shapes}.'
-                    )
-
-                dtypes_t = list(map(list, zip(*dtypes)))
-                for t in dtypes_t:
-                    if len(set(t)) > 1:
-                        # FIXME: specifying a specific use case (in the condition above) should be avoided
-                        raise FedbiomedDataQualityCheckError(
-                            f'Variable data types do not match in federated datasets {dtypes}'
-                        )
-
-            elif data_types[0] == 'images':
-                shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
-                dim_state = True
-                for s in shapes_t:
-                    if len(set(s)) != 1:
-                        dim_state = False
-
-                if not dim_state:
-                    logger.error(f'Dimensions of the images in federated datasets \
-                                 do not match. Please consider using resize. {shapes} ')
-
-                if len(set([k[1] for k in shapes])) != 1:
-                    logger.error(f'Color channels of the images in federated \
-                                    datasets do not match. {shapes}')
-
-            # If it is default MNIST dataset pass
-            else:
-                pass
-
-        pass
 
 
 class localJob:

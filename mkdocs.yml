@@ -1,5 +1,5 @@
 site_name: Fed-BioMed
-site_url: https://fedbiomed.org/
+site_url: https://fedbiomed.org/latest
 site_dir: public
 
 site_description: >- 
@@ -46,6 +46,8 @@ nav:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
         - 'Regression with Scikit-Learn':  './tutorials/scikit-learn/02_sklearn_sgd_regressor_tutorial.ipynb'
         - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
+      - Optimizers:
+        - 'Advanced Optimizers': './tutorials/optimizers/01-fedopt-and-scaffold.ipynb'
       - FLamby:
         - 'General Concepts': "./tutorials/flamby/flamby.md"
         - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
@@ -81,6 +83,7 @@ nav:
         - "Listing Datasets and Selecting Nodes" : './user-guide/researcher/listing-datasets-and-selecting-nodes.md'
         - "Model Validation on the Node Side": './user-guide/researcher/model-testing-during-federated-training.md'
         - "Tensorboard" : './user-guide/researcher/tensorboard.md'
+      - Optimization: './user-guide/advanced-optimization.md'
       - "Secure Aggregation":
           - "Introduction": './user-guide/secagg/introduction.md'
           - "Configuration": './user-guide/secagg/configuration.md'
@@ -127,6 +130,7 @@ nav:
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
+        - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - Footer:
     - 'News' : './news/index.md'
@@ -257,6 +261,9 @@ plugins:
             - https://scikit-learn.org/stable/objects.inv
             - https://pytorch.org/docs/stable/objects.inv
           options:
+            filters:
+              - "!^__"
+              - "!^_"
             docstring_style: google
             docstring_options:
               ignore_init_summary: yes
@@ -269,6 +276,7 @@ plugins:
             disable_private: true
             show_category_heading: true
             show_root_toc_entry: no
+            show_root_full_path: true
   - minify:
       minify_html: true
 

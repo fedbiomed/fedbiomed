@@ -3,11 +3,12 @@
 {% set features = config.theme.features or [] %}
 
   <body>
-    {%- block nav %}
-        {% include "./include/top-nav.html" %}
-        {% include "./include/top-nav-mobile.html" %}
-    {%- endblock %}
-
+    <header>
+        {%- block nav %}
+            {% include "./include/top-nav.html" %}
+            {% include "./include/top-nav-mobile.html" %}
+        {%- endblock %}
+    </header>
     <div class="main">
 
         {% if page.abs_url %}

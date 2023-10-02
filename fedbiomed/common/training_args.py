@@ -131,11 +131,9 @@ class TrainingArgs:
         """ Extracts data loader arguments
 
         Returns:
-            Contains loader arguments for PyTorch dataloader
+            The dictionary of arguments for dataloader
         """
-        keys = ["batch_size"]
-
-        return self._extract_args(keys)
+        return self["loader_args"]
 
     def optimizer_arguments(self) -> Dict:
 
@@ -154,8 +152,7 @@ class TrainingArgs:
                 "dry_run",
                 "epochs",
                 "use_gpu",
-                "num_updates",
-                "batch_size"]
+                "num_updates"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -285,7 +282,7 @@ class TrainingArgs:
         | argument | meaning |
         | -------- | ------- |
         | optimizer_args | supplemental arguments for initializing the optimizer |
-        | batch_size | the number of samples in a batch |
+        | loader_args | supplemental arguments passed to the data loader |
         | epochs | the number of epochs performed during local training on each node |
         | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
         | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
@@ -307,8 +304,8 @@ class TrainingArgs:
             "optimizer_args": {
                 "rules": [dict], "required": True, "default": {}
             },
-            "batch_size": {
-                "rules": [int], "required": True, "default": 1
+            "loader_args": {
+                "rules": [dict], "required": True, "default": {}
             },
             "epochs": {
                 "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": True, "default": None

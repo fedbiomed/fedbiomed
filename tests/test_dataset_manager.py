@@ -547,9 +547,9 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('tinydb.table.Table.remove')
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
+    @patch('fedbiomed.common.db.DBTable.get')
     def test_dataset_manager_19_remove_database(self,
-                                             search_by_tags_patch,
+                                             get,
                                              db_remove_patch):
         """
         Tests `remove_database` method by simulating the removal of a database
@@ -560,8 +560,8 @@ class TestDatasetManager(NodeTestCase):
         # (usually, datasets are added with an integer from 1 to the number of datasets
         # contained in the database)
 
-        dataset_tags = ['some', 'tags']
-        search_result = [doc1]
+        dataset_id= 'some-id'
+        get_result = ({}, doc1)
 
 
         def db_remove_side_effect(doc_ids: List[int]):
@@ -574,17 +574,27 @@ class TestDatasetManager(NodeTestCase):
             for doc_id in doc_ids:
                 self.fake_database.pop(str(doc_id))
 
+        # case 1 : existing dataset id
+
         # patchers
-        search_by_tags_patch.return_value = search_result
+        get.return_value = get_result
         db_remove_patch.side_effect = db_remove_side_effect
 
         # action
-        self.dataset_manager.remove_database(dataset_tags)
+        self.dataset_manager.remove_database(dataset_id)
 
         # checks
-        search_by_tags_patch.assert_called_once_with(dataset_tags)
         db_remove_patch.assert_called_once_with(doc_ids=[1])
         self.assertFalse(self.fake_database.get('1', False))
+
+        # case 2 : non existing dataset id
+
+        # patchers
+        get.return_value = None, None
+
+        # action + check
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            self.dataset_manager.remove_database(dataset_id)
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
@@ -798,127 +808,6 @@ class TestDatasetManager(NodeTestCase):
         self.assertIsInstance(res, Dataset)
 
 
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.read_csv')
-    @patch('os.path.isfile')
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
-    def test_dataset_manager_25_load_data_file(self,
-                                            search_by_tags_patch,
-                                            os_isfile_patch,
-                                            read_csv_patch
-                                            ):
-        """
-        Tests `load_data` method where a file is loaded (either a pandas
-        dataframe, numpy array, or torch tensor)
-        """
-        # arguments
-        tags = ['some', 'tags']
-        search_by_tags_query = {'dataset_id': 'datset_id_1234',
-                                'path': 'path/to/my/dataset',
-                                'data_type': 'csv'}
-        # arguments: generating random data for third test
-        pandas_dataset_test_3 = pd.DataFrame(np.random.rand(100, 10))
-
-        # patchers
-        search_by_tags_patch.return_value = [search_by_tags_query]
-        os_isfile_patch.return_value = True
-        pandas_dataset = pd.DataFrame(self.dummy_data)
-        read_csv_patch.return_value = pandas_dataset
-
-        # action: first test with mode = 'pandas'
-        pandas_df = self.dataset_manager.load_data(tags, mode = 'pandas')
-
-        # first test checks
-        search_by_tags_patch.assert_called_once_with(tags)
-        # nota: `np.testing.assert_array_equal` returns None when
-        # test passed
-        self.assertIsNone(
-            np.testing.assert_array_equal(pandas_df.values, pandas_dataset.values)
-        )
-
-        # resetting Mocks for second test
-        search_by_tags_patch.reset_mock()
-        search_by_tags_patch.return_value = [search_by_tags_query]
-        read_csv_patch.return_value = pandas_dataset.drop(columns='chars')
-        # action: second test with mode = 'numpy'
-        np_array = self.dataset_manager.load_data(tags, mode = 'numpy')
-
-        # second test checks
-        search_by_tags_patch.assert_called_once_with(tags)
-        self.assertIsNone(
-            np.testing.assert_array_equal(np_array,
-                                          pandas_dataset.drop(columns='chars').values)
-        )
-
-        # resetting Mocks for third test
-        search_by_tags_patch.reset_mock()
-        search_by_tags_patch.return_value = [search_by_tags_query]
-        read_csv_patch.return_value = pd.DataFrame(pandas_dataset_test_3)
-        # action: third test with mode = 'torch_tensor'
-        torch_tensor = self.dataset_manager.load_data(tags, mode = 'torch_tensor')
-
-        # third test checks
-        search_by_tags_patch.assert_called_once_with(tags)
-        self.assertIsNone(
-            np.testing.assert_array_equal(torch_tensor,
-                                          pandas_dataset_test_3.values)
-        )
-
-
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.load_as_dataloader')
-    @patch('os.path.isdir')
-    @patch('os.path.isfile')
-    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
-    def test_dataset_manager_26_load_data_folder(self,
-                                              search_by_tags_patch,
-                                              os_isfile_patch,
-                                              os_isdir_patch,
-                                              load_as_dataloader_patch):
-        """
-        Tests `load_data` method, in the cae where a folder is loaded
-        """
-        # arguments
-        tags = ['some', 'tags']
-        search_by_tags_query = {'dataset_id': 'datset_id_1234',
-                                'path': 'path/to/my/folder',
-                                'data_type': 'images'}
-        # patches
-        search_by_tags_patch.return_value = [search_by_tags_query]
-        # mimicking behaviour where a folder has been found through search query
-        os_isfile_patch.return_value = False
-        os_isdir_patch.return_value = True
-
-        load_as_dataloader_patch.return_value = self.fake_dataset
-
-        # action: Test 1, loading with argument 'mode' = 'torch_dataset'
-        torch_dataset = self.dataset_manager.load_data(tags, mode= 'torcH_dataset')
-
-        # checks
-        search_by_tags_patch.assert_called_once_with(tags)
-        load_as_dataloader_patch.assert_called_once_with(search_by_tags_query)
-        self.assertIsInstance(torch_dataset, Dataset)
-        self.assertEqual(len(torch_dataset), self.fake_dataset_shape[0])
-
-        # In this last part of the test, we are going to check if exceptions
-        # (for the other modes) are raised
-        with self.assertRaises(NotImplementedError):
-            self.dataset_manager.load_data(tags, mode='torch_tensor')
-        with self.assertRaises(NotImplementedError):
-            self.dataset_manager.load_data(tags, mode='numpy')
-        with self.assertRaises(NotImplementedError):
-            self.dataset_manager.load_data(tags, mode='pandas')
-
-    def test_dataset_manager_27_load_data_exception(self):
-        """
-        Tests if an exception is raised when passing an
-        unknown mode to `load_data` method
-        """
-        # arguments
-        tags = ['some', 'tags']
-
-        # action and check
-        with self.assertRaises(NotImplementedError):
-            self.dataset_manager.load_data(tags, mode='unknown_mode')
-
     def test_dataset_manager_28_load_existing_mednist_dataset(self):
         """
         Tests case where one is loading mednist dataset without downloading it
@@ -1099,6 +988,16 @@ class TestDatasetManager(NodeTestCase):
         self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dlb2.data)
 
         dataset_manager._db.close()
+
+    def test_dataset_manager_33_get_dlp_by_id_nonexisting_dlp(self):
+        """
+        Test `get_dlp_by_id` method with a non existing dlp_id
+        """
+        # action (should return an empty array)
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            res = self.dataset_manager.get_dlp_by_id('dlp_id_1234')
+        
+
 
 
 if __name__ == '__main__':  # pragma: no cover
