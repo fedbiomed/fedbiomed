@@ -5,9 +5,9 @@ from tinydb import TinyDB, Query
 from tinydb.table import Table
 
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
-from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, VAR_FOLDER_NAME, NODE_STATE_PREFIX, JOB_ID_PREFIX,
+from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, NODE_STATE_PREFIX, 
                                         __node_state_version__)
-from fedbiomed.common.exceptions import FedbiomedNodeStateManager
+from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.environ import environ
 
@@ -28,7 +28,7 @@ class NodeStateManager:
     #FIXME: should all Manager classes be inhereting from the same ManagerBase object?
     def __init__(self, db_path: str):
         
-            
+        # NOTA: constructor has been designed wrt other object handling DataBase
         self._query: Query = Query()
         self._node_state_base_dir: str = None  # node state base directory, where all node state related files are saved
         self.state_id: str = None
@@ -36,13 +36,13 @@ class NodeStateManager:
         try:
             self._db: Table = TinyDB(db_path).table(name=NODE_STATE_TABLE_NAME, cache_size=0) 
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Error found when loading database") from e
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Error found when loading database") from e
     
     def get(self, job_id: str, state_id: str) -> Dict:
         state = self._load_state(job_id, state_id)
         
         if state is None:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: no entries matching job_id and state_id found"
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching job_id and state_id found"
                                             " in the DataBase")
         # from this point, state should be a dictionary
         self._check_version(state.get("version_node_id"))
@@ -70,7 +70,7 @@ class NodeStateManager:
         try:
             res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
         logger.debug("Successfully loaded previous state!")
         return res
     
@@ -78,7 +78,7 @@ class NodeStateManager:
         try:
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: failing to"
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: failing to"
                                             " save node state into DataBase") from e
         return True
 
@@ -90,7 +90,7 @@ class NodeStateManager:
         try:
             os.makedirs(self._node_state_base_dir, exist_ok=True)
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to create"
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create"
                                             f" directories {self._node_state_base_dir}") from e
         return True
 
@@ -105,7 +105,7 @@ class NodeStateManager:
         try:
             os.makedirs(base_dir, exist_ok=True)
         except Exception as e:
-            raise FedbiomedNodeStateManager(f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}") from e
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}") from e
         # TODO catch exception here
         file_name = element.value % (round_nb, self.state_id)
         return os.path.join(base_dir, file_name)

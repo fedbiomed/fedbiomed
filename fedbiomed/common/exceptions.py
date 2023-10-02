@@ -298,7 +298,7 @@ class FedbiomedVersionError(FedbiomedError):
     """
 
 
-class FedbiomedNodeStateManager(FedbiomedError):
+class FedbiomedNodeStateManagerError(FedbiomedError):
     """
     Error in Node State Manager
     """
