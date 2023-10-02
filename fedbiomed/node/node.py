@@ -286,9 +286,9 @@ class Node:
             # don't want to treat again in case of failure
             self.tasks_queue.task_done()
 
-            logger.debug(f"[TASKS QUEUE] Task received by task manager: Command: "
-                         f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
-            logger.info("This log is for researcher")
+            logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
+                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}",
+                        researcher_id=item['researcher_id'])
             try:
 
                 item = NodeMessages.format_incoming_message(item)

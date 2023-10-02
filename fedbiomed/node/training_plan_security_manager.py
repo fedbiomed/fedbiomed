@@ -260,7 +260,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + " : database insertion failed with"
                                            f" following error: {str(err)}")
-        return  training_plan_id
+        return training_plan_id
 
     def check_hashes_for_registered_training_plans(self):
         """Checks registered training plans (training plans either rejected or approved).
@@ -294,8 +294,8 @@ class TrainingPlanSecurityManager:
                     rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                     try:
                         self._db.update({'hash': hashing,
-                                            'algorithm': algorithm,
-                                            'date_last_action': rtime},
+                                         'algorithm': algorithm,
+                                         'date_last_action': rtime},
                                         self._database.training_plan_id.all(training_plan["training_plan_id"]))
                     except Exception as err:
                         raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
@@ -537,20 +537,22 @@ class TrainingPlanSecurityManager:
                 # if same training plan is sent twice to Node for approval
             except Exception as err:
                 reply['success'] = False
-                logger.error(f"Cannot add training plan '{msg['description']} 'into database due to error : {err}")
+                logger.error(f"Cannot add training plan into database due to error : {err}")
             else:
                 reply['success'] = True
-                logger.debug(f"Training plan '{msg['description']}' successfully received by Node for approval")
+                logger.debug("Training plan successfully received by Node for approval")
 
         elif is_existant and downloadable_checkable:
             if self.check_training_plan_status(training_plan, TrainingPlanApprovalStatus.PENDING)[0]:
-                logger.info(f"Training plan '{msg['description']}' already sent for Approval (status Pending). "
-                            "Please wait for Node approval.")
+                logger.info("Training plan already sent for Approval (status Pending). "
+                            "Please wait for Node approval.", researcher_id=msg['researcher_id'])
             elif self.check_training_plan_status(training_plan, TrainingPlanApprovalStatus.APPROVED)[0]:
                 logger.info(
-                    f"Training plan '{msg['description']}' is already Approved. Ready to train on this training plan.")
+                    f"Training plan '{msg['description']}' is already Approved. Ready to train on this training plan.",
+                    researcher_id=msg['researcher_id'])
             else:
-                logger.warning(f"Training plan '{msg['description']}' already exists in database. Aborting")
+                logger.warning("Training plan already exists in database. Aborting", 
+                               researcher_id=msg['researcher_id'])
             reply['success'] = True
         else:
             # case where training plan is non-downloadable or non-checkable
@@ -686,19 +688,24 @@ class TrainingPlanSecurityManager:
             try:
                 training_plan_info = self._db.get(self._database.name == training_plan)
             except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
-                                                                f": failed to get training_plan info for training plan {training_plan}"
-                                                                f"Details : {str(err)}")
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value +
+                    f": failed to get training_plan info for training plan {training_plan}"
+                f"Details : {str(err)}")
+            
             # Check if hashing algorithm has changed
             try:
-                hash, algorithm, _ = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], training_plan))
+                hash, algorithm, _ = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], 
+                                                                    training_plan))
 
                 if training_plan_info['algorithm'] != environ['HASHING_ALGORITHM']:
                     # Verify no such training plan already exists in DB
                     self._check_training_plan_not_existing(None, hash, algorithm)
 
                     logger.info(
-                        f'Recreating hashing for : {training_plan_info["name"]} \t {training_plan_info["training_plan_id"]}')
+                        f'Recreating hashing for : {training_plan_info["name"]} \t'
+                        '{training_plan_info["training_plan_id"]}')
+
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
                                     self._database.training_plan_id == training_plan_info["training_plan_id"])
@@ -710,8 +717,9 @@ class TrainingPlanSecurityManager:
                         # Verify no such training plan already exists in DB
                         self._check_training_plan_not_existing(None, hash, algorithm)
 
-                    logger.info(
-                        f"Modified default training plan file has been detected. Hashing will be updated for: {training_plan}")
+                    logger.info("Modified default training plan file has been detected. "
+                                f"Hashing will be updated for: {training_plan}")
+                    
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
