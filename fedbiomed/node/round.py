@@ -230,7 +230,8 @@ class Round:
                     self._send_round_reply(False,
                                            f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
                 else:
-                    logger.info(f'Training plan has been approved by the node {training_plan_["name"]}')
+                    logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
+                                researcher_id=self.researcher_id)
             except Exception as e:
                 # FIXME: this will trigger if model is not approved by node
                 error_message = f"Cannot download training plan files: {repr(e)}"
@@ -306,13 +307,14 @@ class Round:
                                                        before_train=True)
                 except FedbiomedError as e:
                     logger.error(f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
-                                 f"{repr(e)}")
+                                 f"{repr(e)}", researcher_id=self.researcher_id)
                 except Exception as e:
                     logger.error(f"Undetermined error during the testing phase on global parameter updates: "
-                                 f"{repr(e)}")
+                                 f"{repr(e)}", researcher_id=self.researcher_id)
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
-                             f"Please make sure that `test_ratio` has been set correctly")
+                             f"Please make sure that `test_ratio` has been set correctly", 
+                             researcher_id=self.researcher_id)
 
         # If training is activated.
         if self.training:
@@ -351,21 +353,23 @@ class Round:
                     except FedbiomedError as e:
                         logger.error(
                             f"{ErrorNumbers.FB314.value}: During the validation phase on local parameter updates; "
-                            f"{repr(e)}")
+                            f"{repr(e)}", researcher_id=self.researcher_id)
                     except Exception as e:
                         logger.error(f"Undetermined error during the validation phase on local parameter updates"
-                                     f"{repr(e)}")
+                                     f"{repr(e)}", researcher_id=self.researcher_id)
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
-                        f"dataset please make sure that test_ratio has been set correctly")
+                        f"dataset please make sure that test_ratio has been set correctly", 
+                        researcher_id=self.researcher_id)
 
             results["sample_size"] = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
             model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
             if self._use_secagg:
-                logger.info("Encrypting model parameters. This process can take some time depending on model size.")
+                logger.info("Encrypting model parameters. This process can take some time depending on model size.",
+                            researcher_id=self.researcher_id)
 
                 encrypt = functools.partial(
                     self._secagg_crypter.encrypt,
@@ -379,7 +383,8 @@ class Round:
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-                logger.info("Encryption is completed!")
+                logger.info("Encryption is completed!", 
+                            researcher_id=self.researcher_id)
 
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
