@@ -48,6 +48,11 @@ class Requests(metaclass=SingletonMeta):
         # eg: a notebook not quitted and launching a script
         self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
+        # defines the sequence used for ping protocol
+        self._sequence = 0
+
+        self._monitor_message_callback = None
+
         # Creates grpc server and starts it
         self._grpc_server = GrpcServer(
             host=environ["SERVER_HOST"],
@@ -55,11 +60,6 @@ class Requests(metaclass=SingletonMeta):
             on_message=self.on_message
         )
         self.start_messaging()
-
-        # defines the sequence used for ping protocol
-        self._sequence = 0
-
-        self._monitor_message_callback = None
 
     def start_messaging(self):
         """Start communications endpoint
