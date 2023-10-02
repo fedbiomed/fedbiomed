@@ -296,7 +296,6 @@ provided script and dataset is not validated by this launcher
 ```
 
 The script algorithm is:
-- start the network component
 - start one separate node for each provided dataset
 - start the researcher component
 - stop and clean all components

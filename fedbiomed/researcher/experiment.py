@@ -593,7 +593,7 @@ class Experiment:
 
     @exp_exceptions
     def training_plan(self) -> Union[Typevar_TrainingPlanObject, None]:
-        """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
+        """ Retrieves training plan instance that has been built and send the nodes through the network service
         for each round of training.
 
         !!! info "Loading aggregated parameters"

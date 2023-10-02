@@ -42,7 +42,7 @@ Install/update conda environments for fedbiomed. If several ENV
 are provided, only these components will be updated. If no ENV is
 provided, all components will be updated.
 
-ENV can be network, node, researcher, gui (or a combination of them)
+ENV can be node, researcher, gui (or a combination of them)
 
  -h, --help            this help
  -n, --dry-run         do nothing, just print what the script would do
@@ -208,7 +208,7 @@ else
 
         if [ $found -eq 0 ]
         then
-            bad_usage "unknown component: $c (should be network/node/researcher)"
+            bad_usage "unknown component: $c (should be: ${fed_envs[@]})"
         fi
     done
     FINAL_COMPONENTS=("${COMPONENTS[@]}")
