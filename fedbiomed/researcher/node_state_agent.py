@@ -32,15 +32,7 @@ class NodeStateAgent:
         if self._collection_state_ids is None:
             self._initiate_collection_state_data()
         # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
-        _previous_node_ids = copy.deepcopy(set(self._collection_state_ids.keys()))
-        for node_id in self._data:
-            if self._collection_state_ids.get(node_id, False) is False:
-                self._collection_state_ids[node_id] = None
-        for node_id in _previous_node_ids:
-            if node_id not in self._data:
-                # remove previous node_ids of collection_state_ids if _data has changed
-                print("REMOVED", node_id, _previous_node_ids)
-                self._collection_state_ids.pop(node_id)
+        self._update_collection_state_ids()
         if resp is not None:
             print("RESPONSES", self._data)
             for node_reply in resp:
@@ -53,6 +45,17 @@ class NodeStateAgent:
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 
+    def _update_collection_state_ids(self):
+        _previous_node_ids = copy.deepcopy(set(self._collection_state_ids.keys()))
+        for node_id in self._data:
+            if self._collection_state_ids.get(node_id, False) is False:
+                self._collection_state_ids[node_id] = None
+        for node_id in _previous_node_ids:
+            if node_id not in self._data:
+                # remove previous node_ids of collection_state_ids if _data has changed
+                print("REMOVED", node_id, _previous_node_ids)
+                self._collection_state_ids.pop(node_id)
+                
     def _initiate_collection_state_data(self):
 
         self._collection_state_ids: Dict[str, str] = {

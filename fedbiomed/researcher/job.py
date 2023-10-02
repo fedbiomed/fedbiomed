@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError, FedbiomedRepositoryError, FedbiomedDataQualityCheckError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
@@ -533,7 +533,7 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
-        print("RESONSES", response)
+        
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
@@ -732,8 +732,15 @@ class Job:
             self._node_state_agent.update_node_states(self._data)
         else:
             # extract last node state
-            last_tr_entry = list(self.training_replies.keys())[-1]
-            # FIXME: for some aggregators, we may want to retrieve even more previous Node replies
+            # FIXME: for now we are only considering the case where we need last Round update,
+            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
+            # previous Node replies)
+            try:
+                last_tr_entry = list(self.training_replies.keys())[-1]
+            except IndexError as ie:
+                raise FedBiomedNodeStateAgentError("Error: Cannot update NodeStateAgent if No replies form"
+                                                   " Node(s) has(ve) been recieved!") from ie
+
             self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
 
     def save_state(self, breakpoint_path: str) -> dict:
