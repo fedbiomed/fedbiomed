@@ -94,7 +94,7 @@ function activate_environment() {
     then
         echo conda env update --file "$file"
     else
-        conda env update --file "$file" 2>/tmp/${0##*/}_${logfile}.log
+	conda env update --file "$file" 2> >(tee /tmp/${0##*/}_${logfile}.log)
     fi
 
 }
