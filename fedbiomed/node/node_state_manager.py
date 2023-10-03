@@ -16,10 +16,8 @@ NODE_STATE_TABLE_NAME = "Node_states"
 
 class NodeStateFileName(_BaseEnum):
     """
-    File names should contains 2 %s: one for round number, the second for state_id
-
-    Args:
-        _BaseEnum (_type_): _description_
+    File names should contains 2 `%s`: one for round number, the second for state_id
+    Example: VALUE = "some_values_%s_%s"
     """
     OPTIMIZER: str = "optim_state_%s_%s"
 
@@ -68,6 +66,7 @@ class NodeStateManager:
 
     def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
         try:
+            print("REQ content", (self._query.job_id), (self._query.state_id))
             res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
