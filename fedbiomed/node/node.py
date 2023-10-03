@@ -4,7 +4,7 @@
 '''
 Core code of the node component.
 '''
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -344,10 +344,14 @@ class Node:
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
-    def start_messaging(self):
+    def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.
+
+        Args:
+            on_finish: Called when the tasks for handling all known researchers have finished.
+                Callable has no argument.
         """
-        self._grpc_client.start()
+        self._grpc_client.start(on_finish)
 
     def is_connected(self) -> bool:
         """Checks if node is ready for communication with researcher

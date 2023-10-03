@@ -50,7 +50,7 @@ readline.parse_and_bind("tab: complete")
 _node = None
 
 
-def node_signal_handler(signum: int, frame: Union[FrameType, None]):
+def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """Signal handler that terminates the process.
 
     Args:
@@ -70,18 +70,24 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
                              extra_msg = "Node is stopped",
                              broadcast=True)
             time.sleep(2)
-            logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
         else:
             # take care of logger level used because message cannot be sent to node
             logger.info("Cannot send error message to researcher (node not initialized yet)")
-            logger.info("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
     finally:
         # give some time to send messages to the researcher
         time.sleep(0.5)
         sys.exit(signum)
 
 
-def manage_node(node_args: Union[dict, None] = None):
+def _node_signal_trigger_term() -> None:
+    """Triggers a TERM signal to the current process
+    """
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def _manage_node(node_args: Union[dict, None] = None):
     """Runs the node component and blocks until the node terminates.
 
     Intended to be launched by the node in a separate process/thread.
@@ -97,7 +103,7 @@ def manage_node(node_args: Union[dict, None] = None):
     global _node
 
     try:
-        signal.signal(signal.SIGTERM, node_signal_handler)
+        signal.signal(signal.SIGTERM, _node_signal_handler)
 
         logger.info('Launching node...')
 
@@ -116,7 +122,7 @@ def manage_node(node_args: Union[dict, None] = None):
         _node = Node(dataset_manager=dataset_manager,
                      tp_security_manager=tp_security_manager,
                      node_args=node_args)
-        _node.start_messaging()
+        _node.start_messaging(_node_signal_trigger_term)
 
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue
@@ -154,7 +160,7 @@ def launch_node(node_args: Union[dict, None] = None):
             See `Round()` for details.
     """
 
-    p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
+    p = Process(target=_manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
     p.daemon = True
     p.start()
 

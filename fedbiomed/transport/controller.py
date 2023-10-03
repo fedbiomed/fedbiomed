@@ -155,9 +155,15 @@ class GrpcController(GrpcAsyncTaskController):
 
     _thread: Optional[threading.Thread] = None
 
-    def _run(self) -> None:
-        """Runs async task controller"""
+    def _run(self, on_finish: Callable) -> None:
+        """Runs async task controller.
+
+        Args:
+            on_finish: Called when the tasks for handling all known researchers have finished.
+                Callable has no argument.
+        """
         try:
+            print(f"THREAD {on_finish}")
             asyncio.run(super().start(), debug=self._debug)
         except Exception as e:
             logger.critical(
@@ -165,14 +171,21 @@ class GrpcController(GrpcAsyncTaskController):
                 f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
             logger.info("Node is stopped!")
 
-    def start(self) -> None:
-        """Start GRPCClients in a thread"""
+            if isinstance(on_finish, Callable):
+                on_finish()
+
+    def start(self, on_finish: Optional[Callable] = None) -> None:
+        """Start GRPCClients in a thread.
+
+        Args:
+            on_finish: Called when the tasks for handling all known researchers have finished. 
+                Callable has no argument. If None, then no action is taken.
+        """
         # Adds grpc handler to send node logs to researchers
         logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
-        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread = threading.Thread(target=self._run, args=(on_finish,), daemon=True)
         self._thread.start()
-
 
     def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends given message to researcher
