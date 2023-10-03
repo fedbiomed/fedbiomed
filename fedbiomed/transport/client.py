@@ -29,7 +29,7 @@ class ClientStatus(Enum):
     FAILED = 2
 
 
-# timeout in seconds for retrying connection to the server when it does not reply
+# timeout in seconds for retrying connection to the server when it does not reply or returns an error
 GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
 
 # timeout in seconds of a request to the server for a task (payload) to run on the node
@@ -251,13 +251,14 @@ class TaskListener(Listener):
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
-                                     f"bug on the researcher side: {exp}")
-                        raise FedbiomedCommunicationError(
-                            f"{ErrorNumbers.FB628}: Task listener stopped due to error on the researcher side")
+                                     f"bug on the researcher side: {exp}. Will retry connect in "
+                                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                     case _:
                         self._on_status_change(ClientStatus.FAILED)
-                        raise FedbiomedCommunicationError(
-                            f"{ErrorNumbers.FB628}: Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
+                        logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
+                                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
 
             except Exception as exp:
                 self._on_status_change(ClientStatus.FAILED)
@@ -359,12 +360,8 @@ class Sender(Listener):
                         self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
                                      f"bug on the researcher side: {exp}")
-                        raise FedbiomedCommunicationError(
-                            f"{ErrorNumbers.FB628}: Sender stopped due to error on the researcher side")
                     case _:
                         self._on_status_change(ClientStatus.FAILED)
-                        raise FedbiomedCommunicationError(
-                            f"{ErrorNumbers.FB628}: Unhandled gRPC call status {exp.code()}. Exception: {exp}") from exp
 
             except Exception as exp:
                 self._on_status_change(ClientStatus.FAILED)

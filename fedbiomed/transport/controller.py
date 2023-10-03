@@ -163,7 +163,6 @@ class GrpcController(GrpcAsyncTaskController):
                 Callable has no argument.
         """
         try:
-            print(f"THREAD {on_finish}")
             asyncio.run(super().start(), debug=self._debug)
         except Exception as e:
             logger.critical(
