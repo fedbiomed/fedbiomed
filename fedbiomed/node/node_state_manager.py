@@ -47,16 +47,17 @@ class NodeStateManager:
         return state
 
     def add(self, job_id: str, state: Dict) -> str:
-        state_id = self._generate_new_state_id()
+        if self.state_id is None:
+            self._generate_new_state_id()
         header = {
             "version_node_id": str(__node_state_version__),
-            "state_id": state_id,
+            "state_id": self.state_id,
             "job_id": job_id
         }
         
         state.update(header)
-        self._save_state(state_id, state)
-        return state_id
+        self._save_state(self.state_id, state)
+        return self.state_id
     
     def remove(self, job_id: Optional[str], state_id: Optional[str]):
         raise NotImplementedError
@@ -66,7 +67,7 @@ class NodeStateManager:
 
     def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
         try:
-            print("REQ content", (self._query.job_id), (self._query.state_id))
+            
             res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase") from e
@@ -75,6 +76,7 @@ class NodeStateManager:
     
     def _save_state(self, state_id: str, state_entry: Dict) -> True:
         try:
+            print("REQ content",  (self._query.state_id))
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: failing to"
@@ -100,9 +102,18 @@ class NodeStateManager:
                                              job_id: str,
                                              round_nb: int,
                                              element: NodeStateFileName) -> str:
-        base_dir = os.path.join(self.get_node_state_base_dir(), "job_id_%s" % job_id)
+        
+        node_state_base_dir = self.get_node_state_base_dir()
+        if node_state_base_dir is None:
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: working directory has not been "
+                                                 "initialized, have you run `initialize` method ?")
+            
+        if self.state_id is None:
+            self._generate_new_state_id()
+        base_dir = os.path.join(node_state_base_dir, "job_id_%s" % job_id)
         try:
             os.makedirs(base_dir, exist_ok=True)
+
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}") from e
         # TODO catch exception here

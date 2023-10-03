@@ -1,7 +1,12 @@
+import copy
+import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+from fedbiomed.common.constants import NODE_STATE_PREFIX, __node_state_version__
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
+from testsupport.fake_uuid import FakeUuid
 import testsupport.fake_researcher_environ  ## noqa (remove flake8 false warning)
 
 
@@ -16,6 +21,11 @@ class TestNodeStateManager(unittest.TestCase):
         self.table_mock = self.table_patcher.start()
         self.test_nsm = NodeStateManager("path/to/db")
     
+        self.fake_declearn_optimizer_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
+            ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
+                                 }, 'states': {'modules': [
+                                     ('adam', {'steps': 0, 'vmax': None, 'momentum': {'state': 0.0}, 'velocity': {'state': 0.0}})]}}
+
     def tearDown(self) -> None:
         self.query_patcher.stop()
         self.table_patcher.stop()
@@ -68,23 +78,114 @@ class TestNodeStateManager(unittest.TestCase):
         with self.assertRaises(FedbiomedNodeStateManagerError):
             self.test_nsm.get(job_id, state_id) 
         
-
-    def test_node_state_manager_4_add(self):
-        fake_state = {}
-        self.table_mock.return_value.table = MagicMock(upsert=fake_state)
-        # TODO: to be finished
+    @patch('uuid.uuid4', autospec=True)
+    def test_node_state_manager_4_add(self, uuid_patch):
         
+        job_id = 'job_id'
+        
+        # TODO: add states that are framework native (here we are using format that is very similar to Declearn optimizers)
+        
+        
+        expected_state_id = NODE_STATE_PREFIX + str(FakeUuid.VALUE)
+        header = {
+            "version_node_id": str(__node_state_version__),
+            "state_id": expected_state_id,
+            "job_id": job_id
+        }
+        
+        
+        uuid_patch.return_value = FakeUuid()
+        
+        self.query_mock.return_value.state_id = expected_state_id
 
+        res = self.test_nsm.add(job_id, self.fake_declearn_optimizer_state)
+        
+        # checks
+        expected_state = copy.deepcopy(self.fake_declearn_optimizer_state)
+        expected_state.update(header)
+        self.assertEqual(res, expected_state_id)
+        self.table_mock.return_value.table.return_value.upsert.assert_called_once_with(
+            expected_state, True
+        )
+      
+    @patch('uuid.uuid4', autospec=True)  
+    def test_node_state_manager_5_add_saving_failure(self, uuid_patch):
+        # test case where private `_save_state` method fails
+        uuid_patch.return_value = FakeUuid()
+        self.table_mock.return_value.table.return_value.upsert = MagicMock(
+            side_effect=RuntimeError("this error is raised for the sake of testing")
+            )
+
+        with self.assertRaises(FedbiomedNodeStateManagerError):
+            self.test_nsm.add(job_id='job_id', state=self.fake_declearn_optimizer_state)
+
+
+    def test_node_state_manager_6_initialize_node_state_manager(self):
+        
+        fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
+        side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
+        previous_state_id = 'previous_state_id'
+        with (patch('os.makedirs') as os_mkdirs_mock,
+              patch('fedbiomed.node.node_state_manager.environ') as node_environ_patch):
+            node_environ_patch.__getitem__.side_effect = side_effect_env
+            self.test_nsm.initialize(previous_state_id=previous_state_id)
+            
+            expected_path = os.path.join(fake_var_dir, "node_state_%s" % fake_node_id)
+            os_mkdirs_mock.assert_called_once_with(expected_path,
+                                                   exist_ok=True)
+            
+        self.assertEqual(previous_state_id, self.test_nsm.previous_state_id)
+        self.assertEqual(self.test_nsm.get_node_state_base_dir(), expected_path)
+    
+    def test_node_state_manager_7_initialize_node_state_manager_fails(self):
+        with patch('os.makedirs') as os_mkdirs_mock:
+            os_mkdirs_mock.side_effect = PermissionError("raised for the sake of testing")
+            with self.assertRaises(FedbiomedNodeStateManagerError):
+                self.test_nsm.initialize()
+
+    @patch('uuid.uuid4', autospec=True)  
+    def test_node_state_manager_8_generate_folder_and_create_file_name(self, uuid_patch):
+        # testing values for initializing NodeStateManager folder structure
+        fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
+        side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
+        
+        # testing values for initializing folders for a given job and round
+        file_name = "file_name_for_elem_%s_%s"
+        job_id, round_nb, opt_file_name = 'job_id', 4321, MagicMock(spec=NodeStateFileName, 
+                                                                    value=file_name)
+        uuid_patch.return_value = FakeUuid()
+        state_id = FakeUuid.VALUE
+        with (patch('os.makedirs') as os_mkdirs_mock,
+              patch('fedbiomed.node.node_state_manager.environ') as node_environ_patch):
+            node_environ_patch.__getitem__.side_effect = side_effect_env
+            self.test_nsm.initialize()
+            
+            os_mkdirs_mock.reset_mock()
+            
+            res = self.test_nsm.generate_folder_and_create_file_name(job_id, round_nb, opt_file_name)
+            
+            # checks
+            os_mkdirs_mock.assert_called_once_with(
+                os.path.join(self.test_nsm.get_node_state_base_dir(),
+                             'job_id_%s' % job_id),
+                exist_ok=True
+                )
+
+        self.assertEqual(res, os.path.join('fake/var/dir','node_state_fake_node_id_xxx', 'job_id_%s' % job_id,
+                                            file_name % (str(round_nb), "node_state_%s" % state_id)))
+            
+            
+    #FIXME; should state_id be private?
+    
 class TestNodeStateFileName(unittest.TestCase):
-    def test_node_state_file_name_1_correct_entries(self):
+    def test_node_state_file_name_1_correct_format_entries(self):
         # here we test that all entries of NodeStateFIleName enum class respect convention
-        
-        
+
         for entry_value in NodeStateFileName.list():
             try:
                 entry_value % ('string_1', 'string_2')
             except TypeError as te:
-                self.assertTrue(False, f"error in NodeStateFileName, entry {entry_value} doesnot respect convention"
+                self.assertTrue(False, f"error in NodeStateFileName, entry {entry_value} doesnot respect formatting convention"
                                 f" details : {te}") 
 
 
