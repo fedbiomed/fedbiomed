@@ -116,7 +116,7 @@ def manage_node(node_args: Union[dict, None] = None):
         _node = Node(dataset_manager=dataset_manager,
                      tp_security_manager=tp_security_manager,
                      node_args=node_args)
-        _node.start_messaging(block=False)
+        _node.start_messaging()
 
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue

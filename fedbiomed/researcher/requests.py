@@ -61,6 +61,7 @@ class Requests(metaclass=SingletonMeta):
         )
         self.start_messaging()
 
+
     def start_messaging(self):
         """Start communications endpoint
         """

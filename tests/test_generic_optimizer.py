@@ -161,7 +161,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             node_id: node_id
             node_model: torch node model that will be optimized
             node_optim_w: declearn optimizer wrapper for Node
-            global_model_weights: aggregated model parameters (sent form Researcher to Nodes)
+            global_model_weights: aggregated model parameters (sent from Researcher to Nodes)
             aux_var: auxiliary  variables sent from Researcher to Nodes
             data: data to be used for training the model
             targets: data to be used for training the model

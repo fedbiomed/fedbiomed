@@ -13,7 +13,7 @@ from fedbiomed.common.message import Message
 class GrpcAsyncTaskController:
     """RPC asynchronous task controller
 
-    Launches async tasks for listening the requests/tasks coming form researcher as well as
+    Launches async tasks for listening the requests/tasks coming from researcher as well as
     listener to send the replies that are created by the node. All the methods of this class
     are awaitable, except the constructor.
     """

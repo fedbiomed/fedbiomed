@@ -45,7 +45,7 @@ class Node:
             node_args: Command line arguments for node.
         """
 
-        self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
+        self._tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         # TODO: extend for multiple researchers, currently expect only one
         res = environ["RESEARCHERS"][0]
         self._grpc_client = GrpcController(
@@ -64,7 +64,7 @@ class Node:
         Args:
             task: A `Message` object describing a training task
         """
-        self.tasks_queue.add(task)
+        self._tasks_queue.add(task)
 
     def on_message(self, msg: dict, topic: str = None):
         """Handler to be used with `Messaging` class (ie the messager).
@@ -282,9 +282,9 @@ class Node:
         """
 
         while True:
-            item = self.tasks_queue.get()
+            item = self._tasks_queue.get()
             # don't want to treat again in case of failure
-            self.tasks_queue.task_done()
+            self._tasks_queue.task_done()
 
             logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
                         f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}",
@@ -344,13 +344,9 @@ class Node:
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
-    def start_messaging(self, block: Optional[bool] = False):
+    def start_messaging(self):
         """Calls the start method of messaging class.
-
-        Args:
-            block: Whether messager is blocking (or not). Defaults to False.
         """
-        # TODO: remove the `block` quote ? Now non blocking only. Or start in blocking mode ?
         self._grpc_client.start()
 
     def is_connected(self) -> bool:

@@ -285,7 +285,7 @@ class TaskListener(Listener):
                     continue
                 else:
                     # Execute callback
-                    logger.debug("New task received form researcher")
+                    logger.debug("New task received from researcher")
                     task = Serializer.loads(reply)
 
                     # Guess ID of connected researcher, for un-authenticated connection
