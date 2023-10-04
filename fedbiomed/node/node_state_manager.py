@@ -92,7 +92,7 @@ class NodeStateManager:
             os.makedirs(self._node_state_base_dir, exist_ok=True)
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create"
-                                            f" directories {self._node_state_base_dir}") from e
+                                                 f" directories {self._node_state_base_dir}") from e
         return True
 
     def get_node_state_base_dir(self) -> str:
@@ -106,7 +106,7 @@ class NodeStateManager:
         node_state_base_dir = self.get_node_state_base_dir()
         if node_state_base_dir is None:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: working directory has not been "
-                                                 "initialized, have you run `initialize` method ?")
+                                                 "initialized, have you run `initialize` method beforehand ?")
             
         if self.state_id is None:
             self._generate_new_state_id()
