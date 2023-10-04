@@ -30,7 +30,7 @@ from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.models import TorchModel
+from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
@@ -61,7 +61,7 @@ class TestRound(NodeTestCase):
             return fake_node_msg
 
         cls.node_msg_side_effect = node_msg_side_effect
-
+    
     @patch('fedbiomed.common.repository.Repository.__init__')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.__init__')
     def setUp(self,
@@ -1171,6 +1171,68 @@ class TestRound(NodeTestCase):
         with self.assertRaises(FedbiomedRoundError):
             r._split_train_and_test_data()
 
+    @patch('fedbiomed.node.round.OptimizerBuilder', autospec=True)
+    @patch('fedbiomed.node.round.Serializer')
+    @patch('fedbiomed.node.round.Round._get_base_optimizer')
+    @patch('fedbiomed.node.round.NodeStateManager')
+    def test_round_27_load_round_state(self,
+                                       node_state_manager_patch,
+                                       get_optim_patch,
+                                       serializer_patch,
+                                       optimizer_builder_patch
+                                       ):
+        
+        # FIXME: this test is rather specific to declearn optimizers, but 
+        r = Round(job_id='1234')
+        state_id = 'state_id_1234'
+        path_state = '/path/to/state'
+        
+        training_plan_mock = MagicMock(spec=BaseTrainingPlan,
+                                    type=MagicMock(),
+                                    _model=MagicMock(spec=Model))
+        r.training_plan = training_plan_mock
+
+        
+        node_state = {
+            'optimizer_state': {
+                'optimizer_type': 'optimizer_type',
+                'state_path': path_state,
+            }
+        }
+        node_state_manager_patch.return_value.get.return_value = node_state
+        get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
+                                                 __name__='optimizer_type',
+                                                )
+        r.load_round_state(state_id)
+        
+        # checks
+        serializer_patch.load.assert_called_once_with(path_state)
+        # check `training_plan.set_optimizer` call
+        r.training_plan.set_optimizer.assert_called_once_with(optimizer_builder_patch.return_value.build.return_value)
+        
+        # check OptimizerBuilder calls
+        optimizer_builder_patch.assert_called_once()
+        optimizer_builder_patch.return_value.build.assert_called_once_with(training_plan_mock.type(),
+                                                                           training_plan_mock._model,
+                                                                           get_optim_patch.return_value.optimizer)
+        
+        # check Optimizer.load_state call
+        optimizer_builder_patch.return_value.build.return_value.load_state.assert_called_once_with(
+            serializer_patch.load.return_value,
+            load_from_state=True
+        )
+
+    def test_round_28_load_round_state_declearn_optim(self):
+        # same test as previous, but with a real declearn optimizer 
+         optim_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
+            ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
+                                 }, 'states': {'modules': [
+                                     ('adam', {'steps': 0, 'vmax': None, 'momentum': {'state': 0.0}, 'velocity': {'state': 0.0}})]}}
+
+    def test_round_xx_save_and_load_state(self):
+        pass
+    # TODO: finish test
+    
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

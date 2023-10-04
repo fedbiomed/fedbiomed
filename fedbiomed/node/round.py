@@ -597,33 +597,37 @@ class Round:
         state = self._node_state_manager.get(self.job_id, state_id)
 
         optimizer = self._get_base_optimizer()
-        if state['optimizer_state'] is not None and str(type(optimizer)) == state['optimizer_state']['optimizer_type']:
+        print("STATE", state)
+        if state['optimizer_state'] is not None and optimizer.__name__ == state['optimizer_state']['optimizer_type']:
             optim_state_path = state['optimizer_state'].get('state_path')
             try:
                 optim_state = Serializer.load(optim_state_path)
                 optim = OptimizerBuilder().build(self.training_plan.type(),
                                                  self.training_plan._model, optimizer.optimizer)
+
                 optim.load_state(optim_state, load_from_state=True)
                 logger.debug(f"Optimizer loaded state {optim_state}")
                 self.training_plan.set_optimizer(optim)
+                logger.info(f"State {state_id} loaded")
+
             except Exception as err:
                 logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"
-                               "with efault state")
+                               f"with default Optimizer state. Error detail {err}")
+                
 
-            logger.info(f"State {state_id} loaded")
-
-            logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
+            #logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
     
     def save_round_state(self) -> Dict:
         state: Dict[str, Any] = {}
         _success: bool = True
-        # optimizer state
+
+        # saving optimizer state
         optimizer = self._get_base_optimizer()
         
         optimizer_state = optimizer.save_state()
         print("OPT STATE", optimizer_state)
-        logger.warning(f"optimizer info bfore aving {optimizer_state}, {type(optimizer)}")
+        logger.warning(f"optimizer info before aving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
@@ -635,7 +639,7 @@ class Round:
             logger.warning(f"saving optim state{optimizer_state}")
 
             optimizer_state_entry: Dict = {
-                'optimizer_type': str(type(optimizer)),
+                'optimizer_type': optimizer.__name__,
                 'state_path': optim_path
             }
             # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
