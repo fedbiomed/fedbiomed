@@ -14,7 +14,7 @@ from fedbiomed.common.utils import get_method_spec, get_class_source
 class FederatedPlan(ABC):
     def __init__(self) -> None:
         """Construct the base training plan."""
-        self._dependencies: List[str] = []
+        self._dependencies: List[str] = self.init_dependencies()
 
     def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
@@ -22,7 +22,8 @@ class FederatedPlan(ABC):
         Returns:
             Empty list as default
         """
-        return []
+        return ["from fedbiomed.common.training_plans import FederatedDataPlan",
+                "from fedbiomed.common.data import DataManager"]
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
