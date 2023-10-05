@@ -10,177 +10,25 @@ on the datasets belonging to the federation of Fed-BioMed nodes in an experiment
 
 from functools import reduce
 from typing import Any, Dict, List, Tuple, TypeVar
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.common.serializer import Serializer
+from fedbiomed.researcher._federated_workflow import FederatedWorkflow
 
 
 QueryResult = Any  # generic type indicating the result from an analytics query
 NodeId = str
 TDataset = TypeVar('FedbiomedDataset')  # to be defined
-TExperiment = TypeVar('Experiment')  # fedbiomed.researcher.experiment.Experiment
 TResponses = TypeVar('Responses')  # fedbiomed.researcher.responses.Responses
 
 
-def fed_mean(exp_instance: TExperiment, **kwargs) -> QueryResult:
-    """
-    Computes federated mean.
-
-    !!! warning "Not standalone"
-        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
-        decorator.
-
-    Args:
-        exp_instance: the instance of the experiment
-        kwargs: any keyword arguments as defined by the corresponding `mean` function implemented in the `Dataset`
-                class
-
-    Returns:
-        Results as implemented in the `Dataset` class.
-    """
-    return exp_instance._submit_fed_analytics_query(query_type='mean', query_kwargs=kwargs)
-
-
-def fed_std(exp_instance: TExperiment, **kwargs) -> QueryResult:
-    """
-    Computes federated standard deviation.
-
-    !!! warning "Not standalone"
-        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
-        decorator.
-
-    Args:
-        exp_instance: the instance of the experiment
-        kwargs: any keyword arguments as defined by the corresponding `std` function implemented in the `Dataset`
-                class
-
-    Returns:
-        Results as implemented in the `Dataset` class.
-    """
-    return exp_instance._submit_fed_analytics_query(query_type='std', query_kwargs=kwargs)
-
-
-def _submit_fed_analytics_query(exp_instance: TExperiment,
-                                query_type: str,
-                                query_kwargs: dict) -> Tuple[QueryResult, Dict[NodeId, QueryResult]]:
-    """Helper function executing one round of communication for executing an analytics query on the nodes.
-
-    !!! warning "Not standalone"
-        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
-        decorator.
-
-    Args:
-        exp_instance: the instance of the experiment
-        query_type: identifier for the name of the analytics function to be executed on the node. The
-                    `Dataset` class must implement a function with the same name
-        query_kwargs: keyword arguments to be passed to the query function executed on the nodes
-
-    Returns:
-        - the aggregated result
-        - a dictionary of {node_id: node-specific results}
-    """
-    # serialize query arguments
-    serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
-    # set participating nodes
-    exp_instance.job().nodes = exp_instance.job().data.node_ids()
-    # setup secagg
-    secagg_arguments = exp_instance.secagg_setup()
-    # prepare query request
-    msg = {
-        'researcher_id': environ["ID"],
-        'job_id': exp_instance.job().id,
-        'command': 'analytics_query',
-        'query_type': query_type,
-        'query_kwargs': serialized_query_kwargs,
-        'training_plan_url': exp_instance.job()._repository_args['training_plan_url'],
-        'training_plan_class': exp_instance.job()._repository_args['training_plan_class'],
-        'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
-        'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
-        'secagg_random': secagg_arguments.get('secagg_random'),
-        'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
-    }
-    # send query request to nodes
-    for cli in exp_instance.job().nodes:
-        msg['dataset_id'] = exp_instance.job().data.data()[cli]['dataset_id']
-        exp_instance.job().requests.send_message(msg, cli)
-    # collect query results from nodes
-    exp_instance._analytics_responses_history.append(Responses(list()))
-    while exp_instance.job().waiting_for_nodes(exp_instance._analytics_responses_history[-1]):
-        query_results = exp_instance.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
-                                                          only_successful=False)
-        for result in query_results.data():
-            result['results'] = Serializer.loads(bytes.fromhex(result['results']))
-            exp_instance._analytics_responses_history[-1].append(result)
-    # parse results
-    results = [x['results'] for x in exp_instance._analytics_responses_history[-1]]
-    # prepare data manager (only static methods from the dataset can be used)
-    dataset_class = exp_instance.training_plan().dataset_class
-    # aggregate results
-    if exp_instance.secagg.active:
-        aggregation_result = exp_instance._secure_aggregate(query_type, results, dataset_class)
-    else:
-        aggregation_function = getattr(dataset_class, 'aggregate_' + query_type)
-        aggregation_result = aggregation_function(results)
-    # combine aggregated and node-specific results
-    combined_result = (
-        aggregation_result,
-        {x['node_id']: x['results'] for x in exp_instance._analytics_responses_history[-1].data()}
-    )
-    # store combined results in history
-    exp_instance._aggregation_results_history.append(combined_result)
-    return combined_result
-
-
-def _secure_aggregate(exp_instance: TExperiment,
-                      query_type: str,
-                      results: List[QueryResult],
-                      dataset_class: TDataset) -> QueryResult:
-    """Computes secure aggregation of analytics query results from each node.
-
-    !!! warning "Not standalone"
-        This may not be used as a standalone function, it is intended to be used only as support for the fed_analytics
-        decorator.
-
-    !!! warning "Limitations"
-        The only supported aggregation method is plain (i.e. unweighted) averaging. Thus secure aggregation will
-        only yield correct results if the number of samples on each node is the same, and if averaging is the
-        correct aggregation operation for a given query.
-
-    Args:
-        exp_instance: the instance of the experiment
-        results: the list of query results from each node
-        data_manager: the data manager class obtained from the training plan
-    """
-    # compute average of flattened query results
-    flattened = exp_instance.secagg.aggregate(
-        round_=1,
-        encryption_factors={
-            x['node_id']: x['results']['encryption_factor'] for x in exp_instance._analytics_responses_history[-1]
-        },
-        total_sample_size=reduce(
-            lambda x,y: x + y['results']['num_samples'],
-            exp_instance._analytics_responses_history[-1], 0),
-        model_params={
-            x['node_id']: x['results']['flat'] for x in exp_instance._analytics_responses_history[-1]
-        }
-    )
-    # unflatten aggregated results
-    unflatten = getattr(dataset_class, 'unflatten_' + query_type)
-    return unflatten({
-        'flat': flattened,
-        'format': results[0]['format']})
-
-def fed_analytics(cls):
+class FederatedAnalytics(FederatedWorkflow):
     """
     Decorator providing federated analytics API for researcher.
 
     This decorator defines the public API for the analytics queries that can be run within the Fed-BioMed federation.
     This decorator also defines the logic for "translating" an analytics query request by the researcher into a job
     to be executed on the nodes, and for orchestrating said job.
-
-    !!! info "`Experiment` decorator"
-        The intention of this module is to provide additional methods to `Experiment` without cluttering it. Hence,
-        it is implemented as a decorator.
 
     Assumptions:
 
@@ -258,13 +106,132 @@ def fed_analytics(cls):
     - the summed encrypted weights are decrypted and averaged (unweighted). Finally, the results are unflattened
 
     """
-    # Additional attributes for Experiment class
-    cls._analytics_responses_history: List[TResponses] = list()
-    cls._aggregation_results_history: List[Tuple[QueryResult, Dict[NodeId, QueryResult]]] = list()
-    # Analytics Public API
-    cls.fed_mean = fed_mean
-    cls.fed_std = fed_std
-    # Analytics private methods
-    cls._submit_fed_analytics_query = _submit_fed_analytics_query
-    cls._secure_aggregate = _secure_aggregate
-    return cls
+
+    def __init__(self):
+        self._analytics_responses_history: List[TResponses] = list()
+        self._aggregation_results_history: List[Tuple[QueryResult, Dict[NodeId, QueryResult]]] = list()
+
+    def fed_mean(self, **kwargs) -> QueryResult:
+        """
+        Computes federated mean.
+
+        Args:
+            kwargs: any keyword arguments as defined by the corresponding `mean` function implemented in the `Dataset`
+                    class
+
+        Returns:
+            Results as implemented in the `Dataset` class.
+        """
+        return self._submit_fed_analytics_query(query_type='mean', query_kwargs=kwargs)
+
+    def fed_std(self, **kwargs) -> QueryResult:
+        """
+        Computes federated standard deviation.
+
+        Args:
+            kwargs: any keyword arguments as defined by the corresponding `std` function implemented in the `Dataset`
+                    class
+
+        Returns:
+            Results as implemented in the `Dataset` class.
+        """
+        return self._submit_fed_analytics_query(query_type='std', query_kwargs=kwargs)
+
+    def _submit_fed_analytics_query(self,
+                                    query_type: str,
+                                    query_kwargs: dict) -> Tuple[QueryResult, Dict[NodeId, QueryResult]]:
+        """Helper function executing one round of communication for executing an analytics query on the nodes.
+
+        Args:
+            query_type: identifier for the name of the analytics function to be executed on the node. The
+                        `Dataset` class must implement a function with the same name
+            query_kwargs: keyword arguments to be passed to the query function executed on the nodes
+
+        Returns:
+            - the aggregated result
+            - a dictionary of {node_id: node-specific results}
+        """
+        # serialize query arguments
+        serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
+        # set participating nodes
+        self.job().nodes = self.job().data.node_ids()
+        # setup secagg
+        secagg_arguments = self.secagg_setup()
+        # prepare query request
+        msg = {
+            'researcher_id': environ["ID"],
+            'job_id': self.job().id,
+            'command': 'analytics_query',
+            'query_type': query_type,
+            'query_kwargs': serialized_query_kwargs,
+            'training_plan_url': self.job()._repository_args['training_plan_url'],
+            'training_plan_class': self.job()._repository_args['training_plan_class'],
+            'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
+            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
+            'secagg_random': secagg_arguments.get('secagg_random'),
+            'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
+        }
+        # send query request to nodes
+        for cli in self.job().nodes:
+            msg['dataset_id'] = self.job().data.data()[cli]['dataset_id']
+            self.job().requests.send_message(msg, cli)
+        # collect query results from nodes
+        self._analytics_responses_history.append(Responses(list()))
+        while self.job().waiting_for_nodes(self._analytics_responses_history[-1]):
+            query_results = self.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
+                                                              only_successful=False)
+            for result in query_results.data():
+                result['results'] = Serializer.loads(bytes.fromhex(result['results']))
+                self._analytics_responses_history[-1].append(result)
+        # parse results
+        results = [x['results'] for x in self._analytics_responses_history[-1]]
+        # prepare data manager (only static methods from the dataset can be used)
+        dataset_class = self.training_plan().dataset_class
+        # aggregate results
+        if self.secagg.active:
+            aggregation_result = self._secure_aggregate(query_type, results, dataset_class)
+        else:
+            aggregation_function = getattr(dataset_class, 'aggregate_' + query_type)
+            aggregation_result = aggregation_function(results)
+        # combine aggregated and node-specific results
+        combined_result = (
+            aggregation_result,
+            {x['node_id']: x['results'] for x in self._analytics_responses_history[-1].data()}
+        )
+        # store combined results in history
+        self._aggregation_results_history.append(combined_result)
+        return combined_result
+
+    def _secure_aggregate(self,
+                          query_type: str,
+                          results: List[QueryResult],
+                          dataset_class: TDataset) -> QueryResult:
+        """Computes secure aggregation of analytics query results from each node.
+
+        !!! warning "Limitations"
+            The only supported aggregation method is plain (i.e. unweighted) averaging. Thus secure aggregation will
+            only yield correct results if the number of samples on each node is the same, and if averaging is the
+            correct aggregation operation for a given query.
+
+        Args:
+            results: the list of query results from each node
+            data_manager: the data manager class obtained from the training plan
+        """
+        # compute average of flattened query results
+        flattened = self.secagg.aggregate(
+            round_=1,
+            encryption_factors={
+                x['node_id']: x['results']['encryption_factor'] for x in self._analytics_responses_history[-1]
+            },
+            total_sample_size=reduce(
+                lambda x,y: x + y['results']['num_samples'],
+                self._analytics_responses_history[-1], 0),
+            model_params={
+                x['node_id']: x['results']['flat'] for x in self._analytics_responses_history[-1]
+            }
+        )
+        # unflatten aggregated results
+        unflatten = getattr(dataset_class, 'unflatten_' + query_type)
+        return unflatten({
+            'flat': flattened,
+            'format': results[0]['format']})
