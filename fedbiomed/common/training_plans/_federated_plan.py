@@ -1,10 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-import importlib
-import os
-import sys
 from abc import ABC
-from typing import List, Union
+from typing import List
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
@@ -15,7 +12,7 @@ from fedbiomed.common.utils import get_method_spec, get_class_source
 class FederatedPlan(ABC):
     def __init__(self) -> None:
         """Construct the base training plan."""
-        self._dependencies: List[str] = self.init_dependencies()
+        self._dependencies: List[str] = []
 
     def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
@@ -23,8 +20,7 @@ class FederatedPlan(ABC):
         Returns:
             Empty list as default
         """
-        return ["from fedbiomed.common.training_plans import FederatedDataPlan",
-                "from fedbiomed.common.data import DataManager"]
+        return []
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -93,25 +89,4 @@ class FederatedPlan(ABC):
         except OSError as exc:
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.critical(_msg)
-            raise FedbiomedTrainingPlanError(_msg) from exc
-
-    @staticmethod
-    def load_training_plan_from_file(
-            module_file_path: Union[str, os.PathLike],
-            training_plan_module: str,
-            training_plan_name: str) -> 'FederatedPlan':
-        """Import a training plan class from a file and create a training plan object instance.
-
-        Args:
-            module_file_path: the OS path to the directory containing the module file (often the experiment's tmp dir)
-            training_plan_module: module name of the training plan file
-            training_plan_name: the name of the training plan class
-
-        Returns:
-            The default-constructed training plan object
-        """
-        sys.path.insert(0, module_file_path)
-        module = importlib.import_module(training_plan_module)
-        train_class = getattr(module, training_plan_name)
-        sys.path.pop(0)
-        return train_class()
+            raise FedbiomedTrainingPlanError(msg) from exc

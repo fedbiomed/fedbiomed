@@ -33,15 +33,19 @@ class FederatedDataPlan(FederatedPlan, ABC):
 
     def post_init(
             self,
+            model_args: Dict[str, Any],
             training_args: Dict[str, Any],
-            **kwargs
+            aggregator_args: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
+            model_args: Arguments defined to instantiate the wrapped model.
             training_args: Arguments that are used in training routines
                 such as epoch, dry_run etc.
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
+            aggregator_args: Arguments managed by and shared with the
+                researcher-side aggregator.
         """
 
         # Store various arguments provided by the researcher
