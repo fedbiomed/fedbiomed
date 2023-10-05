@@ -11,6 +11,7 @@ from ._torchnn import TorchTrainingPlan
 from ._sklearn_training_plan import SKLearnTrainingPlan
 from ._sklearn_models import FedPerceptron, FedSGDClassifier, FedSGDRegressor
 from ._base_training_plan import BaseTrainingPlan
+from ._federated_data_plan import FederatedDataPlan
 
 __all__ = [
     "TorchTrainingPlan",
@@ -18,5 +19,6 @@ __all__ = [
     "FedPerceptron",
     "FedSGDRegressor",
     'FedSGDClassifier',
+    'FederatedDataPlan',
     "BaseTrainingPlan"
 ]
