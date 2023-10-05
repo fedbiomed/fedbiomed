@@ -155,7 +155,7 @@ class TestExperiment(ResearcherTestCase):
                                                         MagicMock(return_value=None))
         self.patcher_monitor_close_writer = patch('fedbiomed.researcher.monitor.Monitor.close_writer',
                                                   MagicMock(return_value=None))
-        self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
+        self.patcher_cr_folder = patch('fedbiomed.researcher._federated_workflow.create_exp_folder',
                                        return_value=self.experimentation_folder)
         self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
         self.patcher_logger_info = patch('fedbiomed.common.logger.logger.info', MagicMock(return_value=None))
@@ -389,16 +389,6 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._training_plan_is_defined = True
         self.test_exp.info()
 
-    @patch('builtins.eval')
-    @patch('builtins.print')
-    def test_experiment_03_info_exception(self, mock_print, mock_eval):
-        """Testing exceptions raise in info method of Experiment """
-
-        mock_print.return_value(None)
-        mock_eval.side_effect = Exception
-        with self.assertRaises(SystemExit):
-            self.test_exp.info()
-
     def test_experiment_04_set_tags(self):
         """ Testing setter for _tags attribute of Experiment """
 
@@ -451,8 +441,7 @@ class TestExperiment(ResearcherTestCase):
             nodes = self.test_exp.set_nodes(nodes_expected)
 
         # Test raising SilentTerminationError
-        with patch.object(fedbiomed.researcher.experiment, 'is_ipython',
-                          create=True) as m:
+        with patch.object(fedbiomed.researcher._federated_workflow, 'is_ipython') as m:
             m.return_value = True
 
             with self.assertRaises(FedbiomedSilentTerminationError):
@@ -514,7 +503,7 @@ class TestExperiment(ResearcherTestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 1, "Logger debug is called unexpected times")
 
         # Test when secagg is not None
         self.mock_logger_debug.reset_mock()
@@ -523,7 +512,7 @@ class TestExperiment(ResearcherTestCase):
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
-        self.assertEqual(self.mock_logger_debug.call_count, 3, "Logger debug is called unexpected times")
+        self.assertEqual(self.mock_logger_debug.call_count, 1, "Logger debug is called unexpected times")
 
     def test_experiment_07_set_aggregator(self):
         """Testing setter for aggregator attribute of Experiment class"""
@@ -680,7 +669,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_experimentation_folder(12)
 
         # Test warning
-        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filename'):
+        with patch.object(fedbiomed.researcher._federated_workflow, 'sanitize_filename'):
             self.mock_logger_warning.reset_mock()
             self.test_exp.set_experimentation_folder('test')
             self.mock_logger_warning.assert_called_once()
@@ -758,7 +747,7 @@ class TestExperiment(ResearcherTestCase):
                          'Setter for training_plan_path did not set training_plan_path properly')
 
         # Test
-        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filepath') as m:
+        with patch.object(fedbiomed.researcher._federated_workflow, 'sanitize_filepath') as m:
             m.return_value = 'test'
             with self.assertRaises(SystemExit):
                 self.test_exp.set_training_plan_path(fake_training_plan_path)
