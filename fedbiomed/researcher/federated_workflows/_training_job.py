@@ -10,6 +10,7 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
