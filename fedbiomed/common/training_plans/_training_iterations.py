@@ -177,9 +177,11 @@ class MiniBatchTrainingIterationsAccountant:
         # second scenario: researcher specified num_updates
         else:
             if self._training_plan.training_args()['epochs'] is not None:
-                logger.warning('Both epochs and num_updates specified. num_updates takes precedence.')
+                logger.warning('Both epochs and num_updates specified. num_updates takes precedence.',
+                               broadcast=True)
             if self._training_plan.training_args()['batch_maxnum'] is not None:
-                logger.warning('Both batch_maxnum and num_updates specified. batch_maxnum will be ignored.')
+                logger.warning('Both batch_maxnum and num_updates specified. batch_maxnum will be ignored.',
+                               broadcast=True)
                 # revert num_batches_per_epoch to correct value, ignoring batch_maxnum
                 num_batches_per_epoch = len(self._training_plan.training_data_loader)
             epochs = self._training_plan.training_args()['num_updates'] // num_batches_per_epoch

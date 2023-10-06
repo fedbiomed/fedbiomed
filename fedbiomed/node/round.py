@@ -491,7 +491,8 @@ class Round:
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
                                'Researcher, but those are not encrypted with SecAgg.'
                                'Auxiliary Variables may contain sensitive information about the Nodes.'
-                               'This issue will be fixed in a future version of Fed-BioMed')
+                               'This issue will be fixed in a future version of Fed-BioMed',
+                               researcher_id=self.researcher_id)
             return aux_var
         return {}
 
@@ -531,12 +532,15 @@ class Round:
         if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
             logger.warning("Validation will not be perform for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
-                           "experiment.")
+                           "experiment.",
+                           researcher_id=self.researcher_id)
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning(
                 'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
+                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored',
+                researcher_id=self.researcher_id
+            )
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
