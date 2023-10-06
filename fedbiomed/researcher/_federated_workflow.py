@@ -893,3 +893,11 @@ class FederatedWorkflow(ABC):
                                                 description,
                                                 nodes,
                                                 timeout)
+
+    def secagg_setup(self):
+        secagg_arguments = {}
+        if self._secagg.active:
+            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
+                               job_id=self._job.id)
+            secagg_arguments = self._secagg.train_arguments()
+        return secagg_arguments

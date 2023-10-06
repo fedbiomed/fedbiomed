@@ -875,13 +875,8 @@ class Experiment(FederatedWorkflow):
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
-        # If secure aggregation is activated ---------------------------------------------------------------------
-        secagg_arguments = None
-        if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
-                               job_id=self._job.id)
-            secagg_arguments = self._secagg.train_arguments()
-        # --------------------------------------------------------------------------------------------------------
+        # Setup Secure Aggregation (it's a noop if not active)
+        secagg_arguments = self.secagg_setup()
 
         # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
