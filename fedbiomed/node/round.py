@@ -624,10 +624,10 @@ class Round:
 
         # saving optimizer state
         optimizer = self._get_base_optimizer()
-        
+
         optimizer_state = optimizer.save_state()
-        print("OPT STATE", optimizer_state)
-        logger.warning(f"optimizer info before aving {optimizer_state}, {type(optimizer)}")
+        print("OPT STATE", optimizer_state, optimizer)
+        logger.warning(f"optimizer info before saving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
@@ -636,7 +636,7 @@ class Round:
                 NodeStateFileName.OPTIMIZER  
             )
             Serializer.dump(optimizer_state, path=optim_path)
-            logger.warning(f"saving optim state{optimizer_state}")
+            logger.warning(f"saving optim state {optimizer_state}")
 
             optimizer_state_entry: Dict = {
                 'optimizer_type': optimizer.__name__,
@@ -644,7 +644,6 @@ class Round:
             }
             # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
 
-            
         else:
             logger.warning(f"Unable to save optimizer state of type {type(optimizer)}. Skipping...")
             _success = False

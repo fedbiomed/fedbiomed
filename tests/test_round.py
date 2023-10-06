@@ -9,6 +9,7 @@ from typing import Any, Dict, Tuple
 from unittest.mock import MagicMock, create_autospec, patch
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.node.node_state_manager import NodeStateFileName
 
 
 #############################################################
@@ -1181,15 +1182,14 @@ class TestRound(NodeTestCase):
                                        serializer_patch,
                                        optimizer_builder_patch
                                        ):
-        
-        # FIXME: this test is rather specific to declearn optimizers, but 
+
         r = Round(job_id='1234')
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
-        
+
         training_plan_mock = MagicMock(spec=BaseTrainingPlan,
-                                    type=MagicMock(),
-                                    _model=MagicMock(spec=Model))
+                                       type=MagicMock(),
+                                       _model=MagicMock(spec=Model))
         r.training_plan = training_plan_mock
 
         
@@ -1206,6 +1206,7 @@ class TestRound(NodeTestCase):
         r.load_round_state(state_id)
         
         # checks
+        # FIXME: in future version, we should check each call to Serializer.load
         serializer_patch.load.assert_called_once_with(path_state)
         # check `training_plan.set_optimizer` call
         r.training_plan.set_optimizer.assert_called_once_with(optimizer_builder_patch.return_value.build.return_value)
@@ -1222,17 +1223,135 @@ class TestRound(NodeTestCase):
             load_from_state=True
         )
 
-    def test_round_28_load_round_state_declearn_optim(self):
-        # same test as previous, but with a real declearn optimizer 
-         optim_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
-            ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
-                                 }, 'states': {'modules': [
-                                     ('adam', {'steps': 0, 'vmax': None, 'momentum': {'state': 0.0}, 'velocity': {'state': 0.0}})]}}
+    @patch('fedbiomed.node.round.Serializer', autospec=True)
+    @patch('fedbiomed.node.round.Round._get_base_optimizer')
+    @patch('fedbiomed.node.round.NodeStateManager', autospec=True)
+    def test_round_28_save_round_state(self, 
+                                       node_state_manager_patch,
+                                       get_optim_patch,
+                                       serializer_patch):
+        
+        job_id, round_nb = '1234', 34
+        r = Round(job_id=job_id, round_number=round_nb)
+        
+        optim_path = 'path/to/folder/containing/state/files'
+        node_state_manager_patch.return_value.generate_folder_and_create_file_name.return_value = optim_path
+        get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
+                                                 __name__='optimizer_type',
+                                                )
+        
+        node_state_manager_patch.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
+                                                                                      'state_id': 'state_id_1234'})
 
-    def test_round_xx_save_and_load_state(self):
-        pass
-    # TODO: finish test
+        res = r.save_round_state()
+
+        added_state = {
+            'optimizer_state': {
+                'optimizer_type': 'optimizer_type',
+                'state_path': optim_path
+            }
+        }
+
+        expected_state = copy.deepcopy(added_state)
+        expected_state.update(
+            {'version_node_id': '1',
+            'state_id': 'state_id_1234'}
+        )
+        get_optim_patch.return_value.save_state.assert_called_once()
+        serializer_patch.dump.assert_called_once_with(
+            get_optim_patch.return_value.save_state.return_value,
+            path=optim_path)
+        
+        node_state_manager_patch.return_value.add.assert_called_once_with(job_id, 
+                                                                          expected_state)
+        self.assertDictEqual(expected_state, res)
+
+    @patch('fedbiomed.node.round.NodeStateManager.add')
+    @patch('fedbiomed.node.round.Round._get_base_optimizer')
+    def test_round_29_save_round_state_failure_saving_optimizer(self,
+                                                                get_optim_patch,
+                                                                node_state_manager_add_patch):
+        job_id, round_nb = '1234', 34
+        #r = Round(job_id=job_id, round_number=round_nb)
+        get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
+        
+
+        node_state_manager_add_patch.side_effect = lambda x,y: y.update({'version_node_id': '1',
+                                                                         'state_id': 'state_id_1234'})
+        res = self.r1.save_round_state()
+        expected_state = {
+            'optimizer_state': None,
+            'version_node_id': '1',
+            'state_id': 'state_id_1234'
+        }
+        
+        self.assertDictEqual(res, expected_state)
     
+    @patch('fedbiomed.node.node_state_manager.os.makedirs')
+    @patch('fedbiomed.node.node_state_manager.NodeStateManager.get_node_state_base_dir')
+    @patch('fedbiomed.node.node_state_manager.NodeStateManager._check_version')
+    @patch('fedbiomed.node.node_state_manager.NodeStateManager._load_state')
+    @patch('fedbiomed.node.node_state_manager.NodeStateManager._save_state')
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.node.round.Serializer', autospec=True)
+    def test_round_30_save_and_load_state(self,
+                                          serializer_patch,
+                                          uuid_patch,
+                                          save_patch,
+                                          load_patch,
+                                          check_version_patch,
+                                          get_node_state_base_dir_patch,
+                                          os_makedirs_patch):
+        
+        optim_mock = MagicMock(spec=BaseOptimizer,
+                               __name__='optimizer_type')
+
+        training_plan_mock = MagicMock(spec=BaseTrainingPlan,
+                                       )
+        training_plan_mock.optimizer.return_value = optim_mock
+        get_node_state_base_dir_patch.return_value = "/path/to/base/dir"
+
+        uuid_patch.return_value = FakeUuid()
+        job_id = _id = FakeUuid.VALUE
+        state_id = f'node_state_{_id}'
+        path = "/path/to/base/dir" + f"/job_id_{job_id}/" + NodeStateFileName.OPTIMIZER.value % (0, state_id)
+        
+        # first create state
+        self.r1.training_plan = training_plan_mock
+        
+        self.r1.initialize_node_state_manager()
+        state = self.r1.save_round_state()
+        self.r1.load_round_state(state_id)
+        
+        expected_state = {
+            "version_node_id": '1',
+            'state_id': state_id,
+            "job_id": str(job_id),
+            'optimizer_state': {
+                'optimizer_type': 'optimizer_type',
+                'state_path': path
+            }
+        }
+        self.assertDictEqual(state, expected_state)
+    
+    @patch('fedbiomed.node.round.NodeStateManager.initialize')
+    def test_round_31_initialize_node_state_manager(self,
+                                                    node_state_manager_initialize_patch):
+        previous_state_id = 'state_id_1234'
+        self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
+        
+        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id)
+        
+    # def test_round_28_load_save_round_state_declearn_optim(self):
+    # # same test as previous, but with a real declearn optimizer 
+    #     optim_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
+    #     ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
+    #                             }, 'states': {'modules': [
+    #                                 ('adam', {'steps': 0, 'vmax': None, 'momentum': {'state': 0.0}, 'velocity': {'state': 0.0}})]}}
+
+    # def test_round_28_load_save_round_state_framework_native_optim(self):
+    #     pass
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
