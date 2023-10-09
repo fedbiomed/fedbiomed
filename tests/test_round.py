@@ -1201,7 +1201,7 @@ class TestRound(NodeTestCase):
         }
         node_state_manager_patch.return_value.get.return_value = node_state
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
-                                                 __name__='optimizer_type',
+                                                 __class__='optimizer_type',
                                                 )
         r.load_round_state(state_id)
         
@@ -1237,9 +1237,10 @@ class TestRound(NodeTestCase):
         optim_path = 'path/to/folder/containing/state/files'
         node_state_manager_patch.return_value.generate_folder_and_create_file_name.return_value = optim_path
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
-                                                 __name__='optimizer_type',
+                                                 __class__='optimizer_type',
                                                 )
         
+        # adding a funcition that add additional dictionary entries through reference 
         node_state_manager_patch.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
                                                                                       'state_id': 'state_id_1234'})
 
@@ -1304,7 +1305,7 @@ class TestRound(NodeTestCase):
                                           os_makedirs_patch):
         
         optim_mock = MagicMock(spec=BaseOptimizer,
-                               __name__='optimizer_type')
+                               __class__='optimizer_type')
 
         training_plan_mock = MagicMock(spec=BaseTrainingPlan,
                                        )
@@ -1321,7 +1322,7 @@ class TestRound(NodeTestCase):
         
         self.r1.initialize_node_state_manager()
         state = self.r1.save_round_state()
-        self.r1.load_round_state(state_id)
+        self.r1.load_round_state(state['state_id'])
         
         expected_state = {
             "version_node_id": '1',

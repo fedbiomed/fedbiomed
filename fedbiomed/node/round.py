@@ -598,7 +598,7 @@ class Round:
 
         optimizer = self._get_base_optimizer()
         print("STATE", state)
-        if state['optimizer_state'] is not None and optimizer.__name__ == state['optimizer_state']['optimizer_type']:
+        if state['optimizer_state'] is not None and str(optimizer.__class__) == state['optimizer_state']['optimizer_type']:
             optim_state_path = state['optimizer_state'].get('state_path')
             try:
                 optim_state = Serializer.load(optim_state_path)
@@ -626,7 +626,6 @@ class Round:
         optimizer = self._get_base_optimizer()
 
         optimizer_state = optimizer.save_state()
-        print("OPT STATE", optimizer_state, optimizer)
         logger.warning(f"optimizer info before saving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
@@ -639,7 +638,7 @@ class Round:
             logger.warning(f"saving optim state {optimizer_state}")
 
             optimizer_state_entry: Dict = {
-                'optimizer_type': optimizer.__name__,
+                'optimizer_type': str(optimizer.__class__),
                 'state_path': optim_path
             }
             # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
