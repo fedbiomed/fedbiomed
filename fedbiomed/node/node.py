@@ -304,7 +304,7 @@ class Node:
                 dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
                 aux_var_urls=aux_var_urls,
             )
-            # FIXME: should round stop just because it cannot initialize NodeStateManager ?
+            # the round raises an error if it cannot initialize
             round.initialize_node_state_manager(state_id)  # initialize node state manager
 
         return round
