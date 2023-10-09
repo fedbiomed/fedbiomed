@@ -159,7 +159,7 @@ class DeclearnOptimizer(BaseOptimizer):
         aux = self.optimizer.get_aux()
         return aux
 
-    def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
+    def load_state(self, optim_state: Dict[str, Any], load_from_state: bool = False) -> 'DeclearnOptimizer':
         """Reconfigures optimizer from a given state (contained in `optim_state`).
         Usage:
         ```python

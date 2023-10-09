@@ -147,6 +147,7 @@ class TestRound(NodeTestCase):
 
         # test 1: case where argument `model_kwargs` = None
         # action!
+        self.r1.initialize_node_state_manager()
         msg_test1 = self.r1.run_model_training()
 
         # check results
@@ -173,6 +174,7 @@ class TestRound(NodeTestCase):
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
         serialize_load_patch.reset_mock()
+        self.r2.initialize_node_state_manager()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
@@ -251,6 +253,7 @@ class TestRound(NodeTestCase):
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
         ):
+            self.r1.initialize_node_state_manager()
             msg = self.r1.run_model_training()
             self.assertTrue(msg.get("success"))
 
@@ -314,6 +317,7 @@ class TestRound(NodeTestCase):
             file.write(dummy_training_plan_test)
 
         # action
+        self.r1.initialize_node_state_manager()
         msg_test = self.r1.run_model_training()
         print("NSG", msg_test)
         # checks
@@ -879,6 +883,7 @@ class TestRound(NodeTestCase):
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
+        self.r1.initialize_node_state_manager()
         msg_test1 = self.r1.run_model_training(secagg_arguments={
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
@@ -1321,8 +1326,8 @@ class TestRound(NodeTestCase):
         self.r1.training_plan = training_plan_mock
         
         self.r1.initialize_node_state_manager()
-        state = self.r1.save_round_state()
-        self.r1.load_round_state(state['state_id'])
+        state = self.r1._save_round_state()
+        self.r1._load_round_state(state['state_id'])
         
         expected_state = {
             "version_node_id": '1',
@@ -1334,6 +1339,9 @@ class TestRound(NodeTestCase):
             }
         }
         self.assertDictEqual(state, expected_state)
+        load_patch.assert_called_once_with(str(job_id), state_id)
+        save_patch.assert_called_once_with(state_id, 
+                                           expected_state)
     
     @patch('fedbiomed.node.round.NodeStateManager.initialize')
     def test_round_31_initialize_node_state_manager(self,

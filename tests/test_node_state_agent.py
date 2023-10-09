@@ -89,8 +89,8 @@ class TestNodeStateAgent(unittest.TestCase):
                     'node_id_4321': MagicMock(),
                     'node_id_0987': MagicMock()}
 
-        nsa = NodeStateAgent(fds)
-        
+        nsa = NodeStateAgent()
+        nsa.set_federated_dataset(fds)
         # case where Responses is None
         
         nsa.update_node_states(fds_data_2)
@@ -100,7 +100,7 @@ class TestNodeStateAgent(unittest.TestCase):
         all_node_ids = list(fds_data_2.keys())
         all_node_ids.extend(list(self.fds_data_1))
         expected_res = {k: None for k in fds_data_2.keys()}
-        self.assertDictEqual(res, expected_res)  # we check here that keys and ini
+        self.assertDictEqual(res, expected_res)  # we check here that keys and initialization has been done
         
         # now we update wrt Responses
         
@@ -135,7 +135,19 @@ class TestNodeStateAgent(unittest.TestCase):
         for node_id in nodes_replies_content_nodes_id:
             self.assertIn(node_id, list(fds_data_2.keys()))
 
-    def test_node_state_agent_5_save_state_ids_in_bkpt(self):
+    def test_node_state_agent_5_update_node_state_failure(self):
+        fds = MagicMock(spec=FederatedDataSet, data=MagicMock(return_value=self.fds_data_1))
+        nsa = NodeStateAgent(fds)
+        
+        bad_resp = Responses([{'node_id': 'node_id_1234',
+                               'state_id': 'node_state_1234'}, 
+                              {'node_id': 'node_id_5678', }
+                              ])
+        
+        with self.assertRaises(FedbiomedNodeStateAgentError):
+            nsa.update_node_states(fds, bad_resp)
+        
+    def test_node_state_agent_6_save_state_ids_in_bkpt(self):
         nsa = NodeStateAgent(self.fds_data_1)
         
         nsa_bkpt = nsa.save_state_ids_in_bkpt()
@@ -144,7 +156,7 @@ class TestNodeStateAgent(unittest.TestCase):
         self.assertDictEqual(nsa_bkpt, res)
         self.assertListEqual(list(nsa_bkpt.keys()), list(self.fds_data_1.keys()))
     
-    def test_node_state_agent_6_load_state_ids_in_bkpt(self):
+    def test_node_state_agent_7_load_state_ids_in_bkpt(self):
         nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
                              'node_id_5678': 'state_id_5678',
                              'node_id_9012': 'state_id_9012'}
@@ -156,16 +168,20 @@ class TestNodeStateAgent(unittest.TestCase):
 
         self.assertDictEqual(nodes_states_bkpt, reloaded_nodes_states_bkpt)
 
-    def test_node_state_agent_7_load_state_ids_in_bkpt_raise_error(self):
+    def test_node_state_agent_8_load_state_ids_in_bkpt_raise_error(self):
         nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
                              'node_id_5678': 'state_id_5678',
                              'node_id_unknown': 'state_id_unknown'}
-        
+
         nsa = NodeStateAgent(self.fds_data_1)
         with self.assertRaises(FedbiomedNodeStateAgentError):
             nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
-        
-    def test_node_state_agent_8_save_and_load_bkpt(self):
+
+        nsa = NodeStateAgent()
+        with self.assertRaises(FedbiomedNodeStateAgentError):
+            nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
+
+    def test_node_state_agent_9_save_and_load_bkpt(self):
         nsa = NodeStateAgent(self.fds_data_1)
         last_nodes_states_before_saving = nsa.get_last_node_states()
 
