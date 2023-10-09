@@ -163,6 +163,7 @@ class Job:
         self._training_plan = self._load_training_plan_from_file(training_plan_module)
         self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                       training_args=self._training_args)
+
         # Save model parameters to a local file and upload it to the remote repository.
         # The filename and remote url are assigned to attributes through this call.
         try:
@@ -177,21 +178,6 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class', 'params_url'])
-
-    def _load_training_plan_from_file(self, training_plan_module: str) -> BaseTrainingPlan:
-        """Import a training plan class from a file and create a training plan object instance.
-
-        Args:
-            training_plan_module: module name of the training plan file
-
-        Returns:
-            The training plan object created
-        """
-        sys.path.insert(0, self._keep_files_dir)
-        module = importlib.import_module(training_plan_module)
-        train_class = getattr(module, self._training_plan_name)
-        sys.path.pop(0)
-        return train_class()
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
