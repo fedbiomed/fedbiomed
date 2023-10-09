@@ -606,9 +606,7 @@ class TrainingPlanSecurityManager:
                                                 researcher_id=msg['researcher_id'],
                                                 notes=None
                                                 )
-                    print(training_plan_object)
                     self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
-                    print("AFTER_UPSERT")
                     # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                     # if same training plan is sent twice to Node for approval
                 except Exception as err:

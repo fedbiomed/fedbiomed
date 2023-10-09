@@ -83,7 +83,6 @@ class NodeStateManager:
 
     def _save_state(self, state_id: str, state_entry: Dict) -> True:
         try:
-            print("REQ content", (self._query.state_id))
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: failing to "

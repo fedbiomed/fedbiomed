@@ -26,7 +26,6 @@ class NodeStateAgent:
             self._initiate_collection_state_data()
 
     def get_last_node_states(self) -> Dict[str, str]:
-        print("LAST STATE ID", self._collection_state_ids)
         return self._collection_state_ids
 
     def update_node_states(self, fds: FederatedDataSet, resp: Optional[Responses] = None):
@@ -36,14 +35,12 @@ class NodeStateAgent:
         # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
         self._update_collection_state_ids()
         if resp is not None:
-            print("RESPONSES", self._data)
             for node_reply in resp:
                 # adds Node responses
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
                     raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Missing entry in Response") from ke
-                print("STATE_ID", state_id)
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 
@@ -55,7 +52,6 @@ class NodeStateAgent:
         for node_id in _previous_node_ids:
             if node_id not in self._data:
                 # remove previous node_ids of collection_state_ids if _data has changed
-                print("REMOVED", node_id, _previous_node_ids)
                 self._collection_state_ids.pop(node_id)
 
     def _initiate_collection_state_data(self):
@@ -81,7 +77,6 @@ class NodeStateAgent:
 
     def load_state_ids_from_bkpt(self, collection_state_ids: Optional[Dict[str, str]] = None) -> 'NodeStateAgent':
         if collection_state_ids is not None:
-            print("OADING COLLECTION STATE", set(collection_state_ids.keys()) , set(self._data))
             if set(collection_state_ids.keys()) <= set(self._data):
                 self._collection_state_ids.update(collection_state_ids)
             else:

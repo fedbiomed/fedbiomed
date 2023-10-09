@@ -56,7 +56,7 @@ class SklearnOptimizerProcessing:
             type: Union[type[BaseException], None],
             value: Union[BaseException, None],
             traceback: Union[TracebackType, None],
-        ) -> None:
+    ) -> None:
         """Called when leaving context manager.
 
         Args:
@@ -210,7 +210,6 @@ class DeclearnOptimizer(BaseOptimizer):
                     component,
                     components_to_keep
                 )
-                print("CHECK", optim_state, components_to_keep)
                 for mod in components_to_keep:
                     for elem in ( 'states',):
                         for mod_state in optim_state_copy[elem][component]:
@@ -237,16 +236,13 @@ class DeclearnOptimizer(BaseOptimizer):
             optim_state (Dict): previous optimizer state
             component_name (str): component string names that access the list of OptiModule or Regularizers
                 (usually either 'modules' or 'regularizers')
-            components_to_keep (List[Tuple[str, int]]): list containing tuples of common modules between `init_state` and `optim_state`
-                (module_name, index of the list).
+            components_to_keep (List[Tuple[str, int]]): list containing tuples of common modules between `init_state`
+                and `optim_state` (module_name, index of the list).
         """
         idx: int = 0  # list index
-        print(component_name)
-
 
         for init_module, new_module in zip(init_state['states'][component_name],
-                                            optim_state['states'][component_name]):
-            print(init_module[0] , new_module[0])
+                                           optim_state['states'][component_name]):
             if init_module[0] == new_module[0]:
                 # if we have the same modules from last to current round, update module wrt last saved state
                 components_to_keep.append((new_module[0], idx))
@@ -268,12 +264,15 @@ class DeclearnOptimizer(BaseOptimizer):
         """
         # warning: specific for pytorch
         if not isinstance(self._model, TorchModel):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}. This method can only be used for TorchModel, but got {self._model}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}. This method can only be used for TorchModel, "
+                                          f"but got {self._model}")
         self._model.model.zero_grad()
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
-        """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly disabling scikit-learn
-        internal optimizer. Also, checks if `model_args` dictionary contains training parameters that
+        """Provides a context manager able to do some actions before and after setting up an Optimizer, mainly
+        disabling scikit-learn internal optimizer.
+
+        Also, checks if `model_args` dictionary contains training parameters that
         won't be used or have any effect on the training, because of disabling the scikit-learn optimizer (
         such as initial learning rate, learnig rate scheduler, ...). If disabling the internal optimizer leads
         to such changes, displays a warning.
@@ -291,13 +290,15 @@ class DeclearnOptimizer(BaseOptimizer):
         if isinstance(self._model, SkLearnModel):
             return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
         else:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used only with SkLearnModel, but model is {self._model}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used "
+                                          f"only with SkLearnModel, but model is {self._model}")
 
 
 class NativeTorchOptimizer(BaseOptimizer):
     """Optimizer wrapper for pytorch native optimizers and models.
     """
     _model_cls: Type[TorchModel] = TorchModel
+
     def __init__(self, model: TorchModel, optimizer: torch.optim.Optimizer):
         """Constructor of the optimizer wrapper
 
@@ -306,10 +307,12 @@ class NativeTorchOptimizer(BaseOptimizer):
             optimizer: pytorch native optimizers (inhereting from `torch.optim.Optimizer`)
 
         Raises:
-            FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer` object.
+            FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer`
+                object.
         """
         if not isinstance(optimizer, torch.optim.Optimizer):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value} Expected a native pytorch `torch.optim` optimizer, but got {type(optimizer)}")
+            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value} Expected a native pytorch `torch.optim` "
+                                          f"optimizer, but got {type(optimizer)}")
         super().__init__(model, optimizer)
         logger.debug("using native torch optimizer")
 
@@ -327,7 +330,10 @@ class NativeTorchOptimizer(BaseOptimizer):
     def get_learning_rate(self) -> Dict[str, float]:
         """Gets learning rates from param groups in Pytorch optimizer.
 
-        For each optimizer param group, it iterates over all parameters in that parameter group and searches for the corresponding parameter of the model by iterating over all model parameters. If it finds a correspondence, it saves the learning rate value. This function assumes that the parameters in the optimizer and the model have the same reference.
+        For each optimizer param group, it iterates over all parameters in that parameter group and searches for the "
+        corresponding parameter of the model by iterating over all model parameters. If it finds a correspondence,
+        it saves the learning rate value. This function assumes that the parameters in the optimizer and the model
+        have the same reference.
 
 
         !!! warning
@@ -344,7 +350,7 @@ class NativeTorchOptimizer(BaseOptimizer):
 
         for param_group in self.optimizer.param_groups:
             for layer_params in param_group['params']:
-                for  layer_name, tensor in self._model.model.named_parameters():
+                for layer_name, tensor in self._model.model.named_parameters():
                     if layer_params is tensor:
                         mapping_lr_layer_name[layer_name] = param_group['lr']
         return mapping_lr_layer_name
@@ -363,7 +369,7 @@ class NativeSkLearnOptimizer(BaseOptimizer):
             optimizer: unused. Defaults to None.
         """
 
-        if optimizer is  not None:
+        if optimizer is not None:
             logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
         super().__init__(model, None)
         logger.debug("Using native Sklearn Optimizer")
@@ -418,7 +424,7 @@ class OptimizerBuilder:
         tp_type: TrainingPlans,
         model: Model,
         optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]] = None,
-     ) -> 'BaseOptimizer':
+    ) -> 'BaseOptimizer':
         """Builds a Optimizer wrapper based on TrainingPlans and optimizer type
 
         Args:
