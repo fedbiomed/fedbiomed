@@ -607,7 +607,13 @@ class Round:
         If loading fails, skip the loading part and loads `Optimizer` with default values.
 
         Args:
-            state_id: state_id from which to recover 
+            state_id: state_id from which to recover `Node`'s state
+
+        Raises:
+            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
+
+        Returns:
+            True
         """
 
         # define here all the object that should be reloaded from the node state database

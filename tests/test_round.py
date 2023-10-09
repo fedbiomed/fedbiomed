@@ -1203,7 +1203,7 @@ class TestRound(NodeTestCase):
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
                                                  __class__='optimizer_type',
                                                 )
-        r._load_round_state(state_id)
+        r.load_round_state(state_id)
         
         # checks
         # FIXME: in future version, we should check each call to Serializer.load
@@ -1322,7 +1322,7 @@ class TestRound(NodeTestCase):
         
         self.r1.initialize_node_state_manager()
         state = self.r1.save_round_state()
-        self.r1._load_round_state(state['state_id'])
+        self.r1.load_round_state(state['state_id'])
         
         expected_state = {
             "version_node_id": '1',
