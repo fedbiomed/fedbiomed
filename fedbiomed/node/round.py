@@ -371,7 +371,7 @@ class Round:
         # load node state
         previous_state_id = self._node_state_manager.previous_state_id
         if previous_state_id is not None:
-            self.load_round_state(previous_state_id)
+            self._load_round_state(previous_state_id)
 
         # import model params into the training plan instance
         try:
@@ -588,14 +588,10 @@ class Round:
             )
         return ""
 
-    def load_round_state(self, state_id: str) -> True:
+    def _load_round_state(self, state_id: str) -> None:
         """TODO: add docstring"""
 
-        # TODO: check state_id is not None
-
-        # define here all the object that should be relaoded from the node state database
-        if self.job_id is None:
-            raise FedbiomedRoundError("job_id should not be None")
+        # define here all the object that should be reloaded from the node state database
         state = self._node_state_manager.get(self.job_id, state_id)
 
         optimizer = self._get_base_optimizer()

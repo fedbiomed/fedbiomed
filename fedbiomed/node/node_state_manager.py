@@ -28,8 +28,16 @@ class NodeStateFileName(_BaseEnum):
 
 
 class NodeStateManager:
-    # FIXME: should all Manager classes be inhereting from the same ManagerBase object?
+    """Keeps track of some job parameters from one payload (eg: training) to another."""
     def __init__(self, db_path: str):
+        """Constructor of the class.
+
+        Args:
+            db_path: path to the node state database
+
+        Raises:
+            FedbiomedNodeStateManagerError: failed to access the database
+        """
 
         # NOTA: constructor has been designed wrt other object handling DataBase
         self._query: Query = Query()
@@ -44,15 +52,36 @@ class NodeStateManager:
 
     @property
     def state_id(self) -> str:
-        """Getter for state ID"""
+        """Getter for state ID
+
+        Returns:
+            state ID
+        """
         return self._state_id
 
     @property
     def previous_state_id(self) -> Optional[str]:
-        """Getter for previous state ID"""
+        """Getter for previous state ID
+
+        Returns:
+            previous state ID, or None if it does not exist
+        """
         return self._previous_state_id
 
     def get(self, job_id: str, state_id: str) -> Dict:
+        """Returns a state of a job.
+
+        Args:
+            job_id: the job for which a state is requested
+            state_id: the unique identifier of the job
+
+        Returns:
+            dict containing the job state
+
+        Raises:
+            FedbiomedNodeStateManagerError: cannot read the database
+            FedbiomedNodeStateManagerError: no matching state in the database
+        """
         state = self._load_state(job_id, state_id)
 
         if state is None:
