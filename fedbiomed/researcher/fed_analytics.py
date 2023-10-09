@@ -9,12 +9,14 @@ on the datasets belonging to the federation of Fed-BioMed nodes in an experiment
 """
 
 from functools import reduce
-from typing import Any, Dict, List, Tuple, TypeVar
+from typing import Any, Dict, List, Tuple, TypeVar, Union
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher._federated_workflow import FederatedWorkflow
-
+from fedbiomed.researcher._federated_workflow import FederatedWorkflow, Type_TrainingPlan
+from fedbiomed.researcher.secagg import SecureAggregation
 
 QueryResult = Any  # generic type indicating the result from an analytics query
 NodeId = str
@@ -107,7 +109,27 @@ class FederatedAnalytics(FederatedWorkflow):
 
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        tags: Union[List[str], str, None] = None,
+        nodes: Union[List[str], None] = None,
+        training_data: Union[FederatedDataSet, dict, None] = None,
+        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_path: Union[str, None] = None,
+        training_args: Union[TrainingArgs, dict, None] = None,
+        experimentation_folder: Union[str, None] = None,
+        secagg: Union[bool, SecureAggregation] = False,
+    ):
+        super().__init__(
+            tags,
+            nodes,
+            training_data,
+            training_plan_class,
+            training_plan_path,
+            training_args,
+            experimentation_folder,
+            secagg
+        )
         self._analytics_responses_history: List[TResponses] = list()
         self._aggregation_results_history: List[Tuple[QueryResult, Dict[NodeId, QueryResult]]] = list()
 
