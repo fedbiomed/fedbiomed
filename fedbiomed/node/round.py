@@ -559,7 +559,7 @@ class Round:
                                                      'command': 'train',
                                                      'success': success,
                                                      'dataset_id': self.dataset['dataset_id'] if success else '',
-                                           are also aved in files          'params_url': params_url,
+                                                     'params_url': params_url,
                                                      'msg': message,
                                                      'sample_size': sample_size,
                                                      'timing': timing}).get_dict()
