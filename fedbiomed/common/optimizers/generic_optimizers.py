@@ -103,10 +103,12 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """
 
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> Union['BaseOptimizer', None]:
+        """TODO: add docstring"""
         logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
         return None
 
     def save_state(self) -> Union[Dict, None]:
+        """TODO: add docstring"""
         logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
         return None
 
@@ -219,8 +221,8 @@ class DeclearnOptimizer(BaseOptimizer):
                                 optim_state[elem][component][mod[1]] = mod_state
 
         logger.info(f"Loading optimizer with the following state {optim_state}")
-        relaoded_optim = FedOptimizer.load_state(optim_state)
-        self.optimizer = relaoded_optim
+        reloaded_optim = FedOptimizer.load_state(optim_state)
+        self.optimizer = reloaded_optim
         return self
 
     def _collect_common_optimodules(self,

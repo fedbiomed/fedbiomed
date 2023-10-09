@@ -34,13 +34,23 @@ class NodeStateManager:
         # NOTA: constructor has been designed wrt other object handling DataBase
         self._query: Query = Query()
         self._node_state_base_dir: str = None  # node state base directory, where all node state related files are saved
-        self.state_id: str = None
-        self.previous_state_id: Optional[str] = None
+        self._state_id: str = None
+        self._previous_state_id: Optional[str] = None
         try:
             self._db: Table = TinyDB(db_path).table(name=NODE_STATE_TABLE_NAME, cache_size=0)
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: "
                                                  "Error found when loading database") from e
+
+    @property
+    def state_id(self) -> str:
+        """Getter for state ID"""
+        return self._state_id
+
+    @property
+    def previous_state_id(self) -> Optional[str]:
+        """Getter for previous state ID"""
+        return self._previous_state_id
 
     def get(self, job_id: str, state_id: str) -> Dict:
         state = self._load_state(job_id, state_id)
@@ -53,17 +63,17 @@ class NodeStateManager:
         return state
 
     def add(self, job_id: str, state: Dict) -> str:
-        if self.state_id is None:
+        if self._state_id is None:
             self._generate_new_state_id()
         header = {
             "version_node_id": str(__node_state_version__),
-            "state_id": self.state_id,
+            "state_id": self._state_id,
             "job_id": job_id
         }
 
         state.update(header)
-        self._save_state(self.state_id, state)
-        return self.state_id
+        self._save_state(self._state_id, state)
+        return self._state_id
 
     def remove(self, job_id: Optional[str], state_id: Optional[str]):
         raise NotImplementedError
@@ -90,7 +100,7 @@ class NodeStateManager:
         return True
 
     def initialize(self, previous_state_id: Optional[str] = None) -> True:
-        self.previous_state_id = previous_state_id
+        self._previous_state_id = previous_state_id
         # self._generate_new_state_id()
         self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
         # Should we ALWAYS create a folder when saving a state, even if the folder is empty?
@@ -114,7 +124,7 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: working directory has not been "
                                                  "initialized, have you run `initialize` method beforehand ?")
 
-        if self.state_id is None:
+        if self._state_id is None:
             self._generate_new_state_id()
         base_dir = os.path.join(node_state_base_dir, "job_id_%s" % job_id)
         try:
@@ -124,13 +134,13 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create directories "
                                                  f"{base_dir}") from e
         # TODO catch exception here
-        file_name = element.value % (round_nb, self.state_id)
+        file_name = element.value % (round_nb, self._state_id)
         return os.path.join(base_dir, file_name)
 
     def _generate_new_state_id(self) -> str:
-        self.state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
+        self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
         # TODO: would be better to check if state_id doesnot belong to the database
-        return self.state_id
+        return self._state_id
 
     def _check_first_entry_version(self):
         # assuming that this method has been run on each added entry in the database
