@@ -686,6 +686,7 @@ class Round:
         # add here other object states (ie model state, ...)
 
         # save completed node state
+        
         self._node_state_manager.add(self.job_id, state)
         if _success:
             logger.debug("Node state saved into DataBase")
