@@ -377,7 +377,7 @@ class Round:
         # load node state
         previous_state_id = self._node_state_manager.previous_state_id
         if previous_state_id is not None:
-            self.load_round_state(previous_state_id)
+            self._load_round_state(previous_state_id)
 
         # import model params into the training plan instance
         try:
@@ -594,12 +594,12 @@ class Round:
             )
         return ""
 
-    def load_round_state(self, state_id: str) -> True:
+    def load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
+
         Loads optimizer with default values if optimizer entry hasnot been found
         or if Optimizer type has changed between current and previous `Round`. Should
         be called at the begining of a `Round`, before training a model.
-        
         If loading fails, skip the loading part and loads `Optimizer` with default values.
 
         Args:
@@ -612,11 +612,7 @@ class Round:
             True
         """
 
-        # TODO: check state_id is not None
-
-        # define here all the object that should be relaoded from the node state database
-        if self.job_id is None:
-            raise FedbiomedRoundError("job_id should not be None")
+        # define here all the object that should be reloaded from the node state database
         state = self._node_state_manager.get(self.job_id, state_id)
 
         optimizer = self._get_base_optimizer()
@@ -642,10 +638,12 @@ class Round:
             # logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
 
+
     def save_round_state(self) -> Dict:
         """Saves `Round` state (mainly Optimizer state) in database through
         [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
-        Some peice of information such as Optimizer state are also aved in files (located under
+
+        Some piece of information such as Optimizer state are also aved in files (located under
         $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 

@@ -32,31 +32,24 @@ class NodeStateManager:
     """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
     given a `state_id`.
     Interfaces with database use to save and load Node State entries.
-    
-    Attributes:
-        state_id: current state_id. Generated randomly during a `Round`. Defaults to None.
-        previous_state_id: previous state_id from which to load Node state.
-    
-    DataBase entries:
+
     Database Table that handles Node states is built with the following entries:
         - state_id
         - job_id
         - version_node_id: state id version, that checks if states can be used regarding FedBioMed versions.
         - state_entries: content of each entry that cmposes a Node State
-        
     """
-    #FIXME: should all Manager classes be inhereting from the same ManagerBase object?
+
     def __init__(self, db_path: str):
-        """Constructor of NodeStateManager. Initializes Table for Node state in database, as name
-        NODE_STATE_TABLE_NAME
+        """Constructor of the class.
 
         Args:
-            db_path: path needed to load Table from Database.
+            db_path: path to the node state database
 
         Raises:
-            FedbiomedNodeStateManagerError: raised if Tabe in Database cannot be created.
-        """
+            FedbiomedNodeStateManagerError: failed to access the database
 
+    """
         # NOTA: constructor has been designed wrt other object handling DataBase
         self._query: Query = Query()
         self._node_state_base_dir: str = None  # node state base directory, where all node state related files are saved
@@ -70,26 +63,34 @@ class NodeStateManager:
 
     @property
     def state_id(self) -> str:
-        """Getter for state ID"""
+        """Getter for state ID
+
+        Returns:
+            state ID
+        """
         return self._state_id
 
     @property
     def previous_state_id(self) -> Optional[str]:
-        """Getter for previous state ID"""
+        """Getter for previous state ID
+
+        Returns:
+            previous state ID, or None if it does not exist
+        """
         return self._previous_state_id
 
     def get(self, job_id: str, state_id: str) -> Dict:
-        """Retrieves state from Database through a `job_id` and a `state_id`
+        """Returns a state of a job.
 
         Args:
-            job_id: job_id from which to retrieve state
-            state_id: state_id from which to retrieve state
-
-        Raises:
-            FedbiomedNodeStateManagerError: raised if no entries in database has been found.
+            job_id: the job for which a state is requested
+            state_id: the unique identifier of the job
 
         Returns:
-            Dict: loaded state.
+            dict containing the job state
+
+        Raises:
+            FedbiomedNodeStateManagerError: no matching state in the database
         """
         state = self._load_state(job_id, state_id)
 
@@ -132,7 +133,7 @@ class NodeStateManager:
 
     def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
         """Loads Node state from DataBase. Directy interfaces with database request.
-        
+
         Args:
             job_id: job_id from which to retrieve state
             state_id: state_id from which to retrieve state
@@ -151,7 +152,7 @@ class NodeStateManager:
                                                  "in DataBase") from e
         logger.debug("Successfully loaded previous state!")
         return res
-    
+
     def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> True:
         """Saves Node state in Database. Interfaces with Database request. Issues a 
         `upsert` request in Database.
@@ -221,7 +222,6 @@ class NodeStateManager:
         Returns:
             path to the file that corresponds to the object that needs to be saved.
         """
-        
 
         node_state_base_dir = self.get_node_state_base_dir()
         if node_state_base_dir is None:
