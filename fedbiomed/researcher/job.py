@@ -18,8 +18,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import validators
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError, FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
@@ -71,7 +71,7 @@ class Job:
             NameError: If model is not defined or if the class can not to be inspected
         """
 
-        self._id = str(uuid.uuid4())  # creating a unique job id
+        self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
@@ -738,8 +738,8 @@ class Job:
             try:
                 last_tr_entry = list(self.training_replies.keys())[-1]
             except IndexError as ie:
-                raise FedBiomedNodeStateAgentError("Error: Cannot update NodeStateAgent if No replies form"
-                                                   " Node(s) has(ve) been recieved!") from ie
+                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                                                   "replies form Node(s) has(ve) been recieved!") from ie
 
             self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
 

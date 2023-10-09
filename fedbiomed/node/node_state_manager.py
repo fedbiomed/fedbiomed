@@ -1,14 +1,19 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 from typing import Dict, Optional, Union
 import uuid
+
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
+from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, NODE_STATE_PREFIX, 
                                         __node_state_version__)
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
+
 from fedbiomed.node.environ import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"

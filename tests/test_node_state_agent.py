@@ -2,7 +2,7 @@ import unittest
 
 from typing import Any, Dict
 from unittest.mock import MagicMock, call, create_autospec, patch
-from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
@@ -79,7 +79,7 @@ class TestNodeStateAgent(unittest.TestCase):
         for fds_data in (fds_data_1, fds_data_2, ):
             test_nsa = NodeStateAgent(fds_data)
             
-            with self.assertRaises(FedBiomedNodeStateAgentError):
+            with self.assertRaises(FedbiomedNodeStateAgentError):
                 test_nsa.set_federated_dataset(MagicMock())
 
     def test_node_state_agent_4_upate_node_state(self):
@@ -162,7 +162,7 @@ class TestNodeStateAgent(unittest.TestCase):
                              'node_id_unknown': 'state_id_unknown'}
         
         nsa = NodeStateAgent(self.fds_data_1)
-        with self.assertRaises(FedBiomedNodeStateAgentError):
+        with self.assertRaises(FedbiomedNodeStateAgentError):
             nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
         
     def test_node_state_agent_8_save_and_load_bkpt(self):

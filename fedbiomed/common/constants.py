@@ -31,10 +31,10 @@ NODE_PREFIX = 'node_'
 """Prefix for node ID"""
 
 NODE_STATE_PREFIX = 'node_state_'
-"""Prefix for Node state"""
+"""Prefix for Node state ID"""
 
-JOB_ID_PREFIX = 'job_id_'
-"""Prefix for job id"""
+JOB_PREFIX = 'job_'
+"""Prefix for job ID"""
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
@@ -272,6 +272,8 @@ class ErrorNumbers(_BaseEnum):
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: Secure aggregation error"
+    FB418 = "FB418: Node state agent error"
+
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

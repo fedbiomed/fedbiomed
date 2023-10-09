@@ -1,9 +1,11 @@
-
-
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
 
 import copy
 from typing import Dict, Optional, Union
-from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.responses import Responses
@@ -40,7 +42,7 @@ class NodeStateAgent:
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
-                    raise FedBiomedNodeStateAgentError("Missing entry in Response") from ke
+                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Missing entry in Response") from ke
                 print("STATE_ID", state_id)
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
@@ -68,8 +70,8 @@ class NodeStateAgent:
         elif isinstance(fds, dict):
             data: Dict[str, str] = fds
         else:
-            raise FedBiomedNodeStateAgentError("fds argument should be either a FederatedDataset or a dict,"
-                                              f" not a {type(fds)}")
+            raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: fds argument should be either a "
+                                               f"FederatedDataset or a dict, not a {type(fds)}")
         self._data = data
 
     def save_state_ids_in_bkpt(self) -> Dict[str, str]:
@@ -82,6 +84,6 @@ class NodeStateAgent:
             if set(collection_state_ids.keys()) <= set(self._data):
                 self._collection_state_ids.update(collection_state_ids)
             else:
-                raise FedBiomedNodeStateAgentError("Error while loading breakpoints: some Node ids "
-                                                   f"{set(collection_state_ids.keys()) - set(self._data)} in the state"
-                                                   " agent are not present in the Federated Dataset!")
+                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Error while loading breakpoints: some "
+                                                   f"Node ids {set(collection_state_ids.keys()) - set(self._data)} in "
+                                                   "the state agent are not present in the Federated Dataset!")
