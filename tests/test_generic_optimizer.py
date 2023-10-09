@@ -611,9 +611,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
             current_round_optim = FedOptimizer(lr=current_r_lr, 
                                             modules=[YogiMomentumModule(), AdamModule()])
             previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
+                            
+            model.set_init_params({'n_features': 4, 'n_classes': 2})
             for _ in range(n_iter):
-                
-                model.set_init_params({'n_features': 4, 'n_classes': 2})
                 
                 with previous_round_optim_w.optimizer_processing():
                     previous_round_optim_w.init_training()
@@ -637,8 +637,22 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 else:
                     self.assertNotEqual(curr_module_state, prev_module_state)
 
+    def test_declearnoptimizer_08_loading_state_failure(self):
         
-    def test_declearnoptimizer_08_declearn_optimizers_1_sklearnModel(self):
+        learning_rate, w_decay = .1234, 3.
+        bad_states = (123, set((1, 2, 3,)), ['a', 'b', 'c'],)
+        for model in self._torch_model_wrappers:
+            dec_optim = FedOptimizer(lr=learning_rate,
+                                     decay=w_decay,
+                                     modules=[AdamModule(), YogiMomentumModule()],
+                                     regularizers=[LassoRegularizer()])
+
+            optim_wrapper = DeclearnOptimizer(model, dec_optim)
+            for bad_state in bad_states:
+                with self.assertRaises(FedbiomedOptimizerError):
+                    optim_wrapper.load_state(bad_state)
+
+    def test_declearnoptimizer_09_declearn_optimizers_1_sklearnModel(self):
         # performs a number of optimization steps with randomly created optimizers
         # FIXME: nothing is being asserted here...
         nb_tests = 10  # number of time the following test will be executed
@@ -662,7 +676,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     model.train(data, targets)
                     optim_w.step()
 
-    def test_declearnoptimizer_08_declearn_optimizers_2_torchmodel(self):
+    def test_declearnoptimizer_09_declearn_optimizers_2_torchmodel(self):
         # performs a number of optimization steps with randomly created optimizers
         # FIXME: nothing is being asserted here...
         data = torch.Tensor([[1,1,1,1],
@@ -687,7 +701,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 optim_w.step()
 
     
-    def test_declearnoptimizer_09_declearn_scaffold_1_sklearnModel(self):
+    def test_declearnoptimizer_10_declearn_scaffold_1_sklearnModel(self):
         # FIXME: this test is more a funcitonal test and should belong to trainingplan tests
         # test with one server and one node on a SklearnModel
         
@@ -792,7 +806,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     for  (k, v) in model.get_weights().items():
                         self.assertTrue(np.array_equal(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]))
 
-    def test_declearnoptimizer_09_declearn_scaffold_2_torchModel(self):
+    def test_declearnoptimizer_10_declearn_scaffold_2_torchModel(self):
         # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables for scaffold
         # in addition to model parameters
         # it tests:
@@ -903,7 +917,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     for  (k, v) in model.get_weights().items():
                         self.assertTrue(torch.isclose(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]).all())
 
-    def test_declearnoptimizer_10_multiple_scaffold(self):
+    def test_declearnoptimizer_11_multiple_scaffold(self):
         # the goal of this test is to check that user will get error if specifying non sensical 
         # Optimizer when passing both `ScaffoldServerModule()`and `ScaffoldClientModule()` modules
 

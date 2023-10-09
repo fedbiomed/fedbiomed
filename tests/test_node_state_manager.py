@@ -101,7 +101,7 @@ class TestNodeStateManager(unittest.TestCase):
         uuid_patch.return_value = FakeUuid()
 
         self.query_mock.return_value.state_id = expected_state_id
-
+        self.test_nsm.initialize()
         res = self.test_nsm.add(job_id, self.fake_declearn_optimizer_state)
 
         # checks
