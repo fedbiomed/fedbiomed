@@ -13,10 +13,10 @@ from fedbiomed.researcher.responses import Responses
 
 class NodeStateAgent:
     """
-    Node states saving facility, 
+    Node states saving facility,
     """
     def __init__(self, fds: Optional[Union[FederatedDataSet, Dict[str, str]]] = None) -> None:
-        # NOTA: job's training_replies contains all previous Node states_id, 
+        # NOTA: job's training_replies contains all previous Node states_id,
         # please consider using it to load previous Rounds
         self._data: Union[FederatedDataSet, Dict[str, str]] = None  # Mapping <node_id, state_id>
         self._collection_state_ids: Dict[str, str] = None
@@ -38,7 +38,7 @@ class NodeStateAgent:
         if resp is not None:
             print("RESPONSES", self._data)
             for node_reply in resp:
-                # adds Node responses 
+                # adds Node responses
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
@@ -57,14 +57,15 @@ class NodeStateAgent:
                 # remove previous node_ids of collection_state_ids if _data has changed
                 print("REMOVED", node_id, _previous_node_ids)
                 self._collection_state_ids.pop(node_id)
-                
+
     def _initiate_collection_state_data(self):
 
         self._collection_state_ids: Dict[str, str] = {
             node_id: None for node_id in self._data
         }
 
-    def set_federated_dataset(self, fds: Union[FederatedDataSet, Dict[str, str]]) -> Union[FederatedDataSet, Dict[str, str]]:
+    def set_federated_dataset(self, fds: Union[FederatedDataSet, Dict[str, str]]) -> \
+            Union[FederatedDataSet, Dict[str, str]]:
         if isinstance(fds, FederatedDataSet):
             data: Dict[str, str] = fds.data()
         elif isinstance(fds, dict):

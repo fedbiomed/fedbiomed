@@ -105,7 +105,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> Union['BaseOptimizer', None]:
         logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
         return None
-    
+
     def save_state(self) -> Union[Dict, None]:
         logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
         return None
@@ -115,9 +115,9 @@ class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
     optimizer = None
-    model = None 
-    
-    
+    model = None
+
+
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
@@ -166,7 +166,7 @@ class DeclearnOptimizer(BaseOptimizer):
         >>> model = nn.Linear(4, 2)
         >>> optimizer = Optimizer(lr=.1)
         >>> optim = DeclearnOptimizer(model, optimizer)
-        
+
         >>> optim.load_state(state)  # provided state contains the state one wants to load the optimizer with
         ```
 
@@ -183,7 +183,7 @@ class DeclearnOptimizer(BaseOptimizer):
             FedbiomedOptimizerError: raised if state is not of dict type.
 
         Returns:
-            DeclearnOptimizer: Optimizer wrapper reloaded from `optim_state` 
+            DeclearnOptimizer: Optimizer wrapper reloaded from `optim_state`
         """
         # state: breakpoint content for optimizer
         if not isinstance(optim_state, Dict):
@@ -192,7 +192,7 @@ class DeclearnOptimizer(BaseOptimizer):
 
         if load_from_state:
             # first get init state
-            
+
             init_optim_state = self.optimizer.get_state()
 
             optim_state_copy = copy.deepcopy(optim_state)
@@ -201,7 +201,7 @@ class DeclearnOptimizer(BaseOptimizer):
             # if it has changed, find common modules and update common states
             for component in ( 'modules', 'regularizers',):
                 components_to_keep = []
-                
+
                 if not init_optim_state['states'].get(component):
                     continue
                 self._collect_common_optimodules(
@@ -215,7 +215,7 @@ class DeclearnOptimizer(BaseOptimizer):
                     for elem in ( 'states',):
                         for mod_state in optim_state_copy[elem][component]:
                             if mod[0] == mod_state[0]:
-                                # if we do find same module in the current optimizer than the previous one, 
+                                # if we do find same module in the current optimizer than the previous one,
                                 # we load the previous optimizer module state into the current one
                                 optim_state[elem][component][mod[1]] = mod_state
 
@@ -242,7 +242,7 @@ class DeclearnOptimizer(BaseOptimizer):
         """
         idx: int = 0  # list index
         print(component_name)
-        
+
 
         for init_module, new_module in zip(init_state['states'][component_name],
                                             optim_state['states'][component_name]):
@@ -251,8 +251,8 @@ class DeclearnOptimizer(BaseOptimizer):
                 # if we have the same modules from last to current round, update module wrt last saved state
                 components_to_keep.append((new_module[0], idx))
             idx += 1
-            
-                
+
+
     def save_state(self) -> Dict:
         optim_state = self.optimizer.get_state()
         return optim_state
@@ -326,9 +326,9 @@ class NativeTorchOptimizer(BaseOptimizer):
 
     def get_learning_rate(self) -> Dict[str, float]:
         """Gets learning rates from param groups in Pytorch optimizer.
-        
+
         For each optimizer param group, it iterates over all parameters in that parameter group and searches for the corresponding parameter of the model by iterating over all model parameters. If it finds a correspondence, it saves the learning rate value. This function assumes that the parameters in the optimizer and the model have the same reference.
-        
+
 
         !!! warning
             This function gathers the base learning rate applied to the model weights,
