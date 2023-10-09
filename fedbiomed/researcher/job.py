@@ -432,7 +432,7 @@ class Job:
             msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
 
             msg['state_id'] = nodes_state_ids.get(cli)
-            print("STATE ID ", msg['state_id'])
+
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
                 msg['aggregator_args'] = aggregator_args_thr_msg[cli]
@@ -533,7 +533,7 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
-        
+
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
 
@@ -728,6 +728,18 @@ class Job:
             sys.exit(-1)
 
     def update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest state_id coming
+        from `Nodes` contained among all `Nodes` within [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+
+        Args:
+            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
+                - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
+
+        Raises:
+            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
+
+        """
         if before_training:
             self._node_state_agent.update_node_states(self._data)
         else:

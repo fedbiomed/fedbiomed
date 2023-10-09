@@ -162,7 +162,7 @@ class DeclearnOptimizer(BaseOptimizer):
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> 'DeclearnOptimizer':
         """Reconfigures optimizer from a given state (contained in `optim_state`).
         Usage:
-        ```
+        ```python
         >>> import torch.nn as nn
         >>> from fedbiomed.common.optimizers import Optimizer
         >>> model = nn.Linear(4, 2)
@@ -173,19 +173,19 @@ class DeclearnOptimizer(BaseOptimizer):
         ```
 
         Args:
-            optim_state (Dict): state of the Optimizer to be loaded. Will change the current state of the optimizer
+            optim_state: state of the Optimizer to be loaded. It will change the current state of the optimizer
                 with the one loaded
-            load_from_state (bool, optional): strategy for loading states: whether to load from saved states (True) or
+            load_from_state (optional): strategy for loading states: whether to load from saved states (True) or
                 from breakpoint (False).
                 If set to True, loading is done partially in the sense that if some of the OptimModules is different in
-                the optim_state and the original state of the optimizer,it loads only the OptiModule that they have in
-                common. Defaults to False.
+                the optim_state and the original state of the optimizer, it loads only the OptiModule(s) from the
+                latest state that both state has in common. Defaults to False.
 
         Raises:
             FedbiomedOptimizerError: raised if state is not of dict type.
 
         Returns:
-            DeclearnOptimizer: Optimizer wrapper reloaded from `optim_state`
+            Optimizer wrapper reloaded from `optim_state` argument.
         """
         # state: breakpoint content for optimizer
         if not isinstance(optim_state, Dict):
@@ -231,15 +231,15 @@ class DeclearnOptimizer(BaseOptimizer):
                                     component_name: str,
                                     components_to_keep: List[Tuple[str, int]]):
         """Methods that checks which methods are common from `init_state`, the current state Optimizer state,
-        and `optim_state`, the previous optimizer state.
+        and `optim_state`, the previous optimizer state. Populates in that regard the components_to_keep list
 
         Args:
-            init_state (Dict): current state Optimizer state
-            optim_state (Dict): previous optimizer state
-            component_name (str): component string names that access the list of OptiModule or Regularizers
+            init_state: current state Optimizer state
+            optim_state: previous optimizer state
+            component_name: component string names that access the list of OptiModule or Regularizers
                 (usually either 'modules' or 'regularizers')
-            components_to_keep (List[Tuple[str, int]]): list containing tuples of common modules between `init_state`
-                and `optim_state` (module_name, index of the list).
+            components_to_keep: list containing tuples of common modules between `init_state`
+                and `optim_state`. Each list item has the following entry: (module_name, index of the list).
         """
         idx: int = 0  # list index
 
