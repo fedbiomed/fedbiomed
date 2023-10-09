@@ -201,14 +201,14 @@ training_args = {
     'loader_args': {
         'batch_size': 48,
     },
-    'epochs': 20, 
-    'dry_run': False,  
+    'epochs': 20,
+    'dry_run': False,
 }
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
-tags =  ['#MNIST', '#dataset']
+tags = ['#MNIST', '#dataset']
 rounds = 2
 
 # model training

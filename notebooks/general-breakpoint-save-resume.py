@@ -121,7 +121,7 @@ training_args = {
 # Breakpoints will be saved under `Experiment_xxxx` folder at
 # `${FEDBIOMED_DIR}/var/experiments/Experiment_xxxx/breakpoints_yyyy` (by default).
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']

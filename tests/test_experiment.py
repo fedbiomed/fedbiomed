@@ -36,17 +36,16 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.constants import __breakpoints_version__
 
-import fedbiomed.researcher.experiment
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer, NativeTorchOptimizer
-from fedbiomed.common.training_plans import TorchTrainingPlan
+import fedbiomed.researcher.federated_workflows.experiment
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
@@ -1822,12 +1821,12 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(final_state['secagg']["module"], 'fedbiomed.researcher.secagg._secure_aggregation')
 
         # Test errors while writing brkp json file
-        with patch.object(fedbiomed.researcher.experiment, 'open') as m:
+        with patch.object(fedbiomed.researcher.federated_workflows.experiment, 'open') as m:
             m.side_effect = OSError
             with self.assertRaises(SystemExit):
                 self.test_exp.breakpoint()
 
-        with patch.object(fedbiomed.researcher.experiment.json, 'dump') as m:
+        with patch.object(fedbiomed.researcher.federated_workflows.experiment.json, 'dump') as m:
             m.side_effect = OSError
             with self.assertRaises(SystemExit):
                 self.test_exp.breakpoint()
@@ -1998,8 +1997,8 @@ class TestExperiment(ResearcherTestCase):
             Experiment.load_breakpoint(breakpoint_folder_path=True)  # Not str
 
         # Test if open `open`  and json.load returns exception
-        with patch.object(fedbiomed.researcher.experiment, 'open') as m_open, \
-                patch.object(fedbiomed.researcher.experiment.json, 'load') as m_load:
+        with patch.object(fedbiomed.researcher.federated_workflows.experiment, 'open') as m_open, \
+                patch.object(fedbiomed.researcher.federated_workflows.experiment.json, 'load') as m_load:
 
             m_load = MagicMock()
             m_open.side_effect = OSError
@@ -2368,7 +2367,7 @@ class TestExperiment(ResearcherTestCase):
         # action
 
         # Test `eval` exception while building class
-        with patch.object(fedbiomed.researcher.experiment, 'eval') as m_eval:
+        with patch.object(fedbiomed.researcher.federated_workflows.experiment, 'eval') as m_eval:
             m_eval.side_effect = Exception
             with self.assertRaises(SystemExit):
                 Experiment._create_object(object_def)

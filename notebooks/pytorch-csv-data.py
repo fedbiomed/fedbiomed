@@ -31,7 +31,6 @@ import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
-from torch.utils.data import Dataset
 import pandas as pd
 
 # Here we define the model to be used. 
@@ -106,7 +105,7 @@ training_args = {
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
 # - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 # Calling the training data with specified tags

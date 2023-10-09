@@ -13,7 +13,8 @@ By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.resear
 be activated by setting the `secagg` as `True`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
+
 Experiment(
     secagg=True
 )
@@ -24,12 +25,13 @@ with default arguments as [`timeout`](#timeout) and [`clipping_range`](#clipping
 to create a secure aggregation instance by providing desired argument values.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.secagg import SecureAggregation
+
 Experiment(
-    #...
+    # ...
     secagg=SecureAggregation(timeout=5, clipping_range=30),
-    #....
+    # ....
 )
 ```
 
@@ -91,16 +93,16 @@ It is possible to access the secagg instance through the experiment object in or
 aggregation context by providing a list of parties and the experiment `job_id`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.environ import environ
 
 exp = Experiment(secagg=True,
-                 #....
+                 # ....
                  )
 
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.job().nodes,
-    job_id=exp.job().id
+    parties=parties = [environ["ID"]] + exp.job().nodes,
+                      job_id = exp.job().id
 )
 
 ```

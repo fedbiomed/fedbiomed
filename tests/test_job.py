@@ -24,10 +24,10 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.federated_workflows.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-import fedbiomed.researcher.job # needed for specific mocking
+import fedbiomed.researcher.federated_workflows.job  # needed for specific mocking
 
 
 training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
@@ -212,7 +212,7 @@ class TestJob(ResearcherTestCase):
                                               mock_logger_critical):
         """ Test initialization when inspect.isclass raises NameError"""
 
-        with patch.object(fedbiomed.researcher.job, 'inspect') as mock_inspect:
+        with patch.object(fedbiomed.researcher.federated_workflows.job, 'inspect') as mock_inspect:
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
                 _ = Job(training_plan_class='FakeModel',

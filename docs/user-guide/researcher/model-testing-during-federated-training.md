@@ -94,24 +94,25 @@ arguments in the training arguments and pass them to the experiment.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
+
 training_args = {
-    #....
+    # ....
     'optimizer_args': {
         'lr': 1e-3
     },
     'epochs': 2,
     'batch_maxnum': 100,
-    #...
-    'test_ratio' : 0.25,
+    # ...
+    'test_ratio': 0.25,
     'test_metric': MetricTypes.F1_SCORE,
     'test_on_global_updates': True,
     'test_on_local_updates': True,
     'test_metric_args': {'average': 'macro'}
 }
 
-exp = Experiment(# ....
-                 training_args=training_args)
+exp = Experiment(  # ....
+    training_args=training_args)
 ```
 
 ### Setting Validation Arguments using Setters of the Experiment Class
@@ -122,7 +123,7 @@ experiment should be created in advance.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 
 training_args = {
     'optimizer_args': {
@@ -136,7 +137,7 @@ exp = Experiment(training_args=training_args)
 exp.set_test_ratio(0.25)
 exp.set_test_on_local_updates(True)
 exp.set_test_on_global_updates(True)
-exp.set_test_metric(MetricTypes.F1_SCORE) # or exp.set_test_metric('F1_SCORE')
+exp.set_test_metric(MetricTypes.F1_SCORE)  # or exp.set_test_metric('F1_SCORE')
 exp.set_test_metric_args({'average': 'macro'})
 ```
 

@@ -729,7 +729,7 @@ class Job:
 
         state['model_params_path'] = create_unique_link(
             breakpoint_path, 'aggregated_params_current', '.mpk',
-            os.path.join('..', os.path.basename(state["model_params_path"]))
+            os.path.join('../..', os.path.basename(state["model_params_path"]))
         )
 
         for round_replies in state['training_replies']:

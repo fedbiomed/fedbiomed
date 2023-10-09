@@ -45,17 +45,10 @@
 
 # Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
-import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-import torch.nn.functional as F
-from torchvision import transforms
 from torch.utils.data import Dataset
 from fedbiomed.common.data import DataManager
-import pandas as pd
-import numpy as np
-from PIL import Image
-import os
 
 
 class CelebaTrainingPlan(TorchTrainingPlan):
@@ -185,7 +178,7 @@ training_args = {
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
 #    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#celeba']

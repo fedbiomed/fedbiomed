@@ -24,12 +24,9 @@
 # Declare a torch training plan MyTrainingPlan class to send for training on the node
 
 import os
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
-from torchvision import datasets, transforms
 
 
 # Here we define the model to be used. 
@@ -115,7 +112,7 @@ training_args = {
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
 # - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
@@ -163,8 +160,7 @@ datasets.MNIST(root = local_mnist, download = True, train = True, transform = tr
 # We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
 
 # The class local job mimics the class job used in the experiment
-from fedbiomed.researcher.job import localJob
-from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.federated_workflows.job import localJob
 
 rounds = 2
 

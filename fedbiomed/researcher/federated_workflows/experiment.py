@@ -27,7 +27,6 @@ from fedbiomed.common.utils import raise_for_version_compatibility, __default_ve
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import (
     choose_bkpt_file, create_unique_link, create_unique_file_link, find_breakpoint_path
 )
@@ -35,7 +34,8 @@ from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher._federated_workflow import exp_exceptions, FederatedWorkflow, Type_TrainingPlan
+from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, \
+    FederatedWorkflow, Type_TrainingPlan
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
@@ -1243,7 +1243,7 @@ class Experiment(FederatedWorkflow):
             'model_' + str("{:04d}".format(self._round_current - 1)), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
-            os.path.join('..', os.path.basename(state["training_plan_path"]))
+            os.path.join('../..', os.path.basename(state["training_plan_path"]))
         )
 
         # save state into a json file.

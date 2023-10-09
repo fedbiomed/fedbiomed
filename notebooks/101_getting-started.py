@@ -111,7 +111,7 @@ training_args = {
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
 #    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']

@@ -29,7 +29,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import (
     create_exp_folder
 )
-from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.federated_workflows.job import Job
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation

@@ -1,6 +1,5 @@
 import shutil
 import os
-import inspect
 import unittest
 
 
@@ -11,7 +10,7 @@ from testsupport.base_case import ResearcherTestCase
 
 from fedbiomed.researcher.environ import environ
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.researcher.job import localJob
+from fedbiomed.researcher.federated_workflows.job import localJob
 from testsupport.fake_training_plan import FakeModel
 
 

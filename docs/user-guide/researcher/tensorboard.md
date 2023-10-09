@@ -19,8 +19,7 @@ Tensorboard is one of the most useful tools to display various metrics during th
 During the training of each round, scalar values are sent by each node through the `monitoring` channel. The experiment does not write scalar values to the event file as long as it has been specified. To do that you need to set `tensorboard=True` while you are initializing an experiment (see below).  Afterward, the `Monitor` will be activated, and it will write the loss values coming from each node into a new log file. Thanks to that, it is possible to display and compare on the tensorboard loss evolution (and model performances) trained on each node. By default, losses are saved in files under  the `runs` directory.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
-
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 
 exp = Experiment(tags=tags,
                  model_args=model_args,
@@ -30,7 +29,7 @@ exp = Experiment(tags=tags,
                  aggregator=FedAverage(),
                  node_selection_strategy=None,
                  tensorboard=True
-                )
+                 )
 ```
 
 ## Launching Tensorboard

@@ -301,7 +301,7 @@ To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `
 Below an example using the `set_agg_optimizer` with `FedYogi`:
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from declearn.optimizer.modules import YogiModule as FedYogi
@@ -310,7 +310,7 @@ tags = ['#my-data']
 
 exp = Experiment()
 exp.set_training_plan_class(training_plan_class=MyTrainingPlan)
-exp.set_tags(tags = tags)
+exp.set_tags(tags=tags)
 exp.set_aggregator(aggregator=FedAverage())
 exp.set_round_limit(2)
 exp.set_training_data(training_data=None, from_tags=True)
@@ -330,15 +330,13 @@ exp.run(increase=True)
 One can also pass directly the `agg_optimizer` in the `Experiment` object constructor:
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from declearn.optimizer.modules import YogiModule as FedYogi
 
-
 tags = ['#my-data']
 fed_opt = Optimizer(lr=.8, modules=[FedYogi()])
-
 
 exp = Experiment(tags=tags,
                  training_plan_class=MyTrainingPlan,
@@ -401,15 +399,13 @@ class MyTrainingPlan(TorchTrainingPlan):
 This is how `Experiment` can be designed (on the `Researcher` side)
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows.experiment import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from declearn.optimizer.modules import ScaffoldServerModule
 
-
 tags = ['#my-data']
 fed_opt = Optimizer(lr=.8, modules=[ScaffoldServerModule()])
-
 
 exp = Experiment(tags=tags,
                  training_plan_class=MyTrainingPlan,
