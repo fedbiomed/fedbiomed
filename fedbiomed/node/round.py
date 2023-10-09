@@ -123,6 +123,12 @@ class Round:
         self.loader_arguments = self.training_arguments.loader_arguments()
 
     def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
+        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
+
+        Args:
+            previous_state_id (optional): previous state_id from which to load `Node` state.
+            Defaults to None (which is the value for `Round` 0).
+        """
         self._node_state_manager.initialize(previous_state_id=previous_state_id)
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
@@ -553,7 +559,7 @@ class Round:
                                                      'command': 'train',
                                                      'success': success,
                                                      'dataset_id': self.dataset['dataset_id'] if success else '',
-                                                     'params_url': params_url,
+                                           are also aved in files          'params_url': params_url,
                                                      'msg': message,
                                                      'sample_size': sample_size,
                                                      'timing': timing}).get_dict()
@@ -589,6 +595,22 @@ class Round:
         return ""
 
     def load_round_state(self, state_id: str) -> True:
+        """Loads optimizer state of previous `Round`, given a `state_id`.
+        Loads optimizer with default values if optimizer entry hasnot been found
+        or if Optimizer type has changed between current and previous `Round`. Should
+        be called at the begining of a `Round`, before training a model.
+        
+        If loading fails, skip the loading part and loads `Optimizer` with default values.
+
+        Args:
+            state_id: state_id from which to recover 
+
+        Raises:
+            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
+
+        Returns:
+            True
+        """
         # TODO: check state_id is not None
         
         # define here all the object that should be relaoded from the node state database
@@ -612,13 +634,26 @@ class Round:
 
             except Exception as err:
                 logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"
-                               f"with default Optimizer state. Error detail {err}")
-                
+                               f"with default Optimizer state. Error detail {err}")         
 
             #logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
-    
+
     def save_round_state(self) -> Dict:
+        """Saves `Round` state (mainly Optimizer state) in database through
+        [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+        Some peice of information such as Optimizer state are also aved in files (located under
+        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
+        Should be called at the end of a `Round`, once the model has been trained.
+
+        Entries saved in State:
+        - optimizer_state:
+            - optimizer_type (str)
+            - state_path (str)
+
+        Returns:
+            `Round` state that will be saved in the database.
+        """
         state: Dict[str, Any] = {}
         _success: bool = True
 
