@@ -278,7 +278,7 @@ class Round:
 
     def run_model_training(
             self,
-            #state_id: Optional[str] = None,
+            # state_id: Optional[str] = None,
             secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
@@ -323,7 +323,7 @@ class Round:
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
             status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
-            
+
             if status != 200:
                 error_message = "Cannot download training plan file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
@@ -611,16 +611,18 @@ class Round:
         Returns:
             True
         """
+
         # TODO: check state_id is not None
-        
+
         # define here all the object that should be relaoded from the node state database
         if self.job_id is None:
             raise FedbiomedRoundError("job_id should not be None")
         state = self._node_state_manager.get(self.job_id, state_id)
 
         optimizer = self._get_base_optimizer()
-        print("STATE", state)
-        if state['optimizer_state'] is not None and str(optimizer.__class__) == state['optimizer_state']['optimizer_type']:
+        if state['optimizer_state'] is not None and \
+           str(optimizer.__class__) == state['optimizer_state']['optimizer_type']:
+
             optim_state_path = state['optimizer_state'].get('state_path')
             try:
                 optim_state = Serializer.load(optim_state_path)
@@ -633,10 +635,11 @@ class Round:
                 logger.info(f"State {state_id} loaded")
 
             except Exception as err:
-                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"
-                               f"with default Optimizer state. Error detail {err}")         
+                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"  
+                               f"with default Optimizer state. Error detail {err}")
 
-            #logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
+
+            # logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
 
     def save_round_state(self) -> Dict:
@@ -654,6 +657,7 @@ class Round:
         Returns:
             `Round` state that will be saved in the database.
         """
+
         state: Dict[str, Any] = {}
         _success: bool = True
 
@@ -684,7 +688,7 @@ class Round:
             optimizer_state_entry = None
         state['optimizer_state'] = optimizer_state_entry
         # add here other object states (ie model state, ...)
-        
+
         # save completed node state
         self._node_state_manager.add(self.job_id, state)
         if _success:
@@ -692,7 +696,7 @@ class Round:
         else:
             logger.debug("Node state has been partially saved into the Database")
         return state
-    
+
     def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
@@ -707,7 +711,8 @@ class Round:
             if aux_var and self._use_secagg:
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
-                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, but those are not encrypted with SecAgg.'
+                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, '
+                                'but those are not encrypted with SecAgg.'
                                'Auxiliary Variables may contain sensitive information about the Nodes.' 
                                'This issue will be fixed in a future version of Fed-BioMed')
             return aux_var

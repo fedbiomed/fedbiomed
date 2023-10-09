@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 import numpy as np
 import torch
 import fedbiomed
-from fedbiomed.common.exceptions import FedBiomedNodeStateAgentError
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.datasets import FederatedDataSet
 
@@ -1123,7 +1123,7 @@ class TestJob(ResearcherTestCase):
 
         set_training_replies_through_bkpt(test_job, job_state)
 
-        with self.assertRaises(FedBiomedNodeStateAgentError):
+        with self.assertRaises(FedbiomedNodeStateAgentError):
             test_job.update_nodes_states_agent(before_training=False)
 
 
