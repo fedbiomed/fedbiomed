@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 import uuid
 
 from tinydb import TinyDB, Query
@@ -21,6 +21,7 @@ NODE_STATE_TABLE_NAME = "Node_states"
 
 class NodeStateFileName(_BaseEnum):
     """
+    Collection of File names that composes a `Node` state.
     File names should contains 2 `%s`: one for round number, the second for state_id
     Example: VALUE = "some_values_%s_%s"
     """
@@ -28,7 +29,17 @@ class NodeStateFileName(_BaseEnum):
 
 
 class NodeStateManager:
-    """Keeps track of some job parameters from one payload (eg: training) to another."""
+    """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
+    given a `state_id`.
+    Interfaces with database use to save and load Node State entries.
+
+    Database Table that handles Node states is built with the following entries:
+        - state_id
+        - job_id
+        - version_node_id: state id version, that checks if states can be used regarding FedBioMed versions.
+        - state_entries: content of each entry that cmposes a Node State
+    """
+
     def __init__(self, db_path: str):
         """Constructor of the class.
 
@@ -37,8 +48,8 @@ class NodeStateManager:
 
         Raises:
             FedbiomedNodeStateManagerError: failed to access the database
-        """
 
+    """
         # NOTA: constructor has been designed wrt other object handling DataBase
         self._query: Query = Query()
         self._node_state_base_dir: str = None  # node state base directory, where all node state related files are saved
@@ -79,19 +90,29 @@ class NodeStateManager:
             dict containing the job state
 
         Raises:
-            FedbiomedNodeStateManagerError: cannot read the database
             FedbiomedNodeStateManagerError: no matching state in the database
         """
         state = self._load_state(job_id, state_id)
 
         if state is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching job_id "
-                                                 "and state_id found in the DataBase")
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching job_id {job_id} and "
+                                                 f"state_id {state_id} found in the DataBase")
+
         # from this point, state should be a dictionary
         self._check_version(state.get("version_node_id"))
         return state
 
-    def add(self, job_id: str, state: Dict) -> str:
+    def add(self, job_id: str, state: Dict[str, Dict[str, str]]) -> str:
+        """Adds new `Node` State into Database.
+
+        Args:
+            job_id: job_id used to save entry in database
+            state: state to be saved in database.
+
+        Returns:
+            state_id
+        """
+
         if self._state_id is None:
             self._generate_new_state_id()
         header = {
@@ -111,6 +132,18 @@ class NodeStateManager:
         raise NotImplementedError
 
     def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
+        """Loads Node state from DataBase. Directy interfaces with database request.
+
+        Args:
+            job_id: job_id from which to retrieve state
+            state_id: state_id from which to retrieve state
+
+        Raises:
+            FedbiomedNodeStateManager: raised if request fails
+
+        Returns:
+            result of the request
+        """
         try:
 
             res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
@@ -120,7 +153,21 @@ class NodeStateManager:
         logger.debug("Successfully loaded previous state!")
         return res
 
-    def _save_state(self, state_id: str, state_entry: Dict) -> True:
+    def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> True:
+        """Saves Node state in Database. Interfaces with Database request. Issues a 
+        `upsert` request in Database.
+
+        Args:
+            state_id: state_id
+            state_entry: dictionary that maps entries with contents in the database
+
+        Raises:
+            FedbiomedNodeStateManagerError: raised if request fails
+
+        Returns:
+            True
+        """
+
         try:
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
@@ -129,6 +176,12 @@ class NodeStateManager:
         return True
 
     def initialize(self, previous_state_id: Optional[str] = None) -> True:
+        """Initializes NodeStateManager, by cerating folder that will contains Node state folders.
+
+        Args:
+            previous_state_id (optional): state_id from previous Round, from whch to reload a Node state
+        """
+
         self._previous_state_id = previous_state_id
         # self._generate_new_state_id()
         self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
@@ -141,12 +194,34 @@ class NodeStateManager:
         return True
 
     def get_node_state_base_dir(self) -> str:
+        """Returns `Node` State base directory path, in which are saved Node state files and other contents
+
+        Returns:
+            path to `Node` state base directory
+        """
         return self._node_state_base_dir
 
     def generate_folder_and_create_file_name(self,
                                              job_id: str,
                                              round_nb: int,
                                              element: NodeStateFileName) -> str:
+        """Creates folders and file name for each content (Optimizer, model, ...) that composes
+        a Node State.
+
+        Args:
+            job_id: job_id
+            round_nb: current Round number
+            element: a NodeStateFileName object used to create specific file names. For instance,
+                could be a NodeStateFileName.OPTIMIZER
+
+        Raises:
+            FedbiomedNodeStateManagerError: raised if private attirbute `_node_state_base_dir` 
+                has not been initialized.
+            FedbiomedNodeStateManagerError: raised if folder can not be created.
+
+        Returns:
+            path to the file that corresponds to the object that needs to be saved.
+        """
 
         node_state_base_dir = self.get_node_state_base_dir()
         if node_state_base_dir is None:
@@ -167,16 +242,28 @@ class NodeStateManager:
         return os.path.join(base_dir, file_name)
 
     def _generate_new_state_id(self) -> str:
+        """Generates randomly a state_id. Should be created at each Round, before saving Node State into Database.
+
+        Returns:
+            new state_id
+        """
         self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
         # TODO: would be better to check if state_id doesnot belong to the database
         return self._state_id
 
     def _check_first_entry_version(self):
+        """Checks consistency of database by checking version in first entry in the database
+        """
         # assuming that this method has been run on each added entry in the database
         # TODO: ask if such method should be implemented
         pass
 
-    def _check_version(self, version: str) -> bool:
+    def _check_version(self, version: str):
+        """Checks that database entry version matches the current version of FedBioMed.
+
+        Args:
+            version: version found in the DataBase entries.
+        """
 
         raise_for_version_compatibility(version, __node_state_version__,
                                         f"{ErrorNumbers.FB625.value}: Loaded a node state with version %s "

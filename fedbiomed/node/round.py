@@ -123,6 +123,12 @@ class Round:
         self.loader_arguments = self.training_arguments.loader_arguments()
 
     def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
+        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
+
+        Args:
+            previous_state_id (optional): previous state_id from which to load `Node` state.
+            Defaults to None (which is the value for `Round` 0).
+        """
         self._node_state_manager.initialize(previous_state_id=previous_state_id)
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
@@ -588,8 +594,17 @@ class Round:
             )
         return ""
 
-    def _load_round_state(self, state_id: str) -> None:
-        """TODO: add docstring"""
+    def load_round_state(self, state_id: str) -> None:
+        """Loads optimizer state of previous `Round`, given a `state_id`.
+
+        Loads optimizer with default values if optimizer entry hasnot been found
+        or if Optimizer type has changed between current and previous `Round`. Should
+        be called at the begining of a `Round`, before training a model.
+        If loading fails, skip the loading part and loads `Optimizer` with default values.
+
+        Args:
+            state_id: state_id from which to recover 
+        """
 
         # define here all the object that should be reloaded from the node state database
         state = self._node_state_manager.get(self.job_id, state_id)
@@ -610,7 +625,7 @@ class Round:
                 logger.info(f"State {state_id} loaded")
 
             except Exception as err:
-                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"
+                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"  
                                f"with default Optimizer state. Error detail {err}")
 
 
@@ -619,7 +634,22 @@ class Round:
 
 
     def save_round_state(self) -> Dict:
-        """TODO: add docstring"""
+        """Saves `Round` state (mainly Optimizer state) in database through
+        [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+
+        Some piece of information such as Optimizer state are also aved in files (located under
+        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
+        Should be called at the end of a `Round`, once the model has been trained.
+
+        Entries saved in State:
+        - optimizer_state:
+            - optimizer_type (str)
+            - state_path (str)
+
+        Returns:
+            `Round` state that will be saved in the database.
+        """
+
         state: Dict[str, Any] = {}
         _success: bool = True
 
