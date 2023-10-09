@@ -105,17 +105,14 @@ class _GrpcHandler(logging.Handler):
         Args:
             record: is automatically passed by the logger class
         """
+        
+        if hasattr(record, 'broadcast') or hasattr(record, 'researcher_id'):
 
-        if hasattr(record, 'broadcast') and hasattr(record, 'researcher_id'):
-
-            if not record.broadcast and record.researcher_id is None:
-                return
 
             msg = dict(
                 level=record.__dict__["levelname"],
                 msg=self.format(record),
                 node_id=self._node_id)
-
 
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
@@ -288,7 +285,7 @@ class FedLogger(metaclass=SingletonMeta):
     def add_grpc_handler(self,
                          on_log: Callable = None,
                          node_id: str = None,
-                         level: Any = logging.ERROR
+                         level: Any = logging.INFO
                          ):
 
         """Adds a gRPC handler, to publish error message on a topic

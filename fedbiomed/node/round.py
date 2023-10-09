@@ -367,7 +367,9 @@ class Round:
 
             results["encrypted"] = False
             model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
+
             if self._use_secagg:
+
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.",
                             researcher_id=self.researcher_id)
 

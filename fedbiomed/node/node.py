@@ -258,6 +258,7 @@ class Node:
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+
             round_ = Round(model_kwargs=msg.get_param('model_args') or {},
                            training_kwargs=msg.get_param('training_args') or {},
                            training=msg.get_param('training') or False,
@@ -287,8 +288,8 @@ class Node:
             self._tasks_queue.task_done()
 
             logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
-                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}",
-                        researcher_id=item['researcher_id'])
+                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
+            
             try:
 
                 item = NodeMessages.format_incoming_message(item)
@@ -310,6 +311,7 @@ class Node:
                 if command == 'train':
                     try:
                         round = self.parser_task_train(item)
+
                         # once task is out of queue, initiate training rounds
                         if round is not None:
                             # Runs model training and send message using callback

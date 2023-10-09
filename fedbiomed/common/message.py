@@ -7,7 +7,7 @@ Definition of messages exchanged by the researcher and the nodes
 
 import functools
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, get_args
+from typing import Any, Callable, Dict, Optional, get_args, Union, List
 
 from google.protobuf.message import Message as ProtobufMessage
 from google.protobuf.descriptor import FieldDescriptor
@@ -80,7 +80,7 @@ class Message(object):
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
+            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0,200] + "..." 
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
 
@@ -775,10 +775,10 @@ class TrainReply(Message, RequiresProtocolVersion):
     command: str
     sample_size: Optional[int] = None
     encrypted: bool = False
-    params: Optional[Dict] = None  # None for testing only
+    params: Optional[Union[Dict, List]] = None  # None for testing only
     optimizer_args: Optional[Dict] = None  # None for testing only
     optim_aux_var: Optional[Dict] = None  # None for testing only
-    encryption_factor: Optional[float] = None  # None for testing only
+    encryption_factor: Optional[List] = None  # None for testing only
 
 
 class MessageFactory:
