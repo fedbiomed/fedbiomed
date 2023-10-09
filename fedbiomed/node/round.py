@@ -377,7 +377,11 @@ class Round:
         # load node state
         previous_state_id = self._node_state_manager.previous_state_id
         if previous_state_id is not None:
-            self._load_round_state(previous_state_id)
+            try:
+                self._load_round_state(previous_state_id)
+            except Exception as e:
+                error_message = f"Can't read previous node state: {repr(e)}"
+                return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the training plan instance
         try:
@@ -509,7 +513,7 @@ class Round:
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
-            self.save_round_state()
+            self._save_round_state()
             # end : clean the namespace
             try:
                 del self.training_plan
@@ -594,7 +598,7 @@ class Round:
             )
         return ""
 
-    def load_round_state(self, state_id: str) -> None:
+    def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
 
         Loads optimizer with default values if optimizer entry hasnot been found
@@ -633,7 +637,7 @@ class Round:
         # add below other components that need to be reloaded from node state database
 
 
-    def save_round_state(self) -> Dict:
+    def _save_round_state(self) -> Dict:
         """Saves `Round` state (mainly Optimizer state) in database through
         [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
