@@ -3,25 +3,15 @@
 
 """Manage the training part of the experiment."""
 
-import atexit
 import copy
-import importlib
-import inspect
 import os
-import re
 import sys
-import shutil
-import tempfile
 import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-import validators
-
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
@@ -30,10 +20,10 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.federated_workflows.job import Job
+from fedbiomed.researcher.federated_workflows._job import Job
 
 
-class ExperimentJob(Job):
+class TrainingJob(Job):
     """
     Represents the entity that manage the training part at  the nodes level
 
