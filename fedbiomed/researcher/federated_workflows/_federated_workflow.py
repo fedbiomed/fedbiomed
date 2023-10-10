@@ -29,7 +29,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import (
     create_exp_folder
 )
-from fedbiomed.researcher.federated_workflows.job import Job
+from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
@@ -732,7 +732,7 @@ class FederatedWorkflow(ABC):
 
         return self._training_args.dict()
 
-    def set_job(self) -> Union[Job, None]:
+    def set_job(self) -> Union[TrainingJob, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
 
@@ -761,13 +761,13 @@ class FederatedWorkflow(ABC):
             logger.debug('Experiment not fully configured yet: no job. Missing training data')
         else:
             # meeting requisites for instantiating a job
-            self._job = Job(reqs=self._reqs,
-                            training_plan_class=self._training_plan_class,
-                            training_plan_path=self._training_plan_path,
-                            model_args=self._model_args if hasattr(self, '_model_args') else None,
-                            training_args=self._training_args,
-                            data=self._fds,
-                            keep_files_dir=self.experimentation_path())
+            self._job = TrainingJob(reqs=self._reqs,
+                                    training_plan_class=self._training_plan_class,
+                                    training_plan_path=self._training_plan_path,
+                                    model_args=self._model_args if hasattr(self, '_model_args') else None,
+                                    training_args=self._training_args,
+                                    data=self._fds,
+                                    keep_files_dir=self.experimentation_path())
 
         return self._job
 
