@@ -379,9 +379,9 @@ class Round:
         if previous_state_id is not None:
             try:
                 self._load_round_state(previous_state_id)
-            except Exception as e:
-                error_message = f"Can't read previous node state: {repr(e)}"
-                return self._send_round_reply(success=False, message=error_message)
+            except Exception:
+                # don't send error details
+                return self._send_round_reply(success=False, message="Can't read previous node state.")
 
         # import model params into the training plan instance
         try:
@@ -513,7 +513,11 @@ class Round:
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
-            self._save_round_state()
+            try:
+                self._save_round_state()
+            except Exception:
+                # don't send details to researcher
+                return self._send_round_reply(success=False, message="Can't save new node state.")
             # end : clean the namespace
             try:
                 del self.training_plan
