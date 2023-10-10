@@ -220,22 +220,18 @@ class Round:
 
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
-            try:
-                approved, training_plan_ = self.tp_security_manager.\
-                    check_training_plan_status(
-                        self.training_plan_source,
-                        TrainingPlanApprovalStatus.APPROVED)
-
-                if not approved:
-                    self._send_round_reply(False,
-                                           f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
-                else:
-                    logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
-                                researcher_id=self.researcher_id)
-            except Exception as e:
-                # FIXME: this will trigger if model is not approved by node
-                error_message = f"Cannot download training plan files: {repr(e)}"
-                return self._send_round_reply(success=False, message=error_message)
+            approved, training_plan_ = self.tp_security_manager.\
+                check_training_plan_status(
+                    self.training_plan_source,
+                    TrainingPlanApprovalStatus.APPROVED)
+            
+            if not approved:
+                return self._send_round_reply(
+                    False,
+                    f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
+            else:
+                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
+                            researcher_id=self.researcher_id)
 
 
         # Import training plan, save to file, reload, instantiate a training plan
