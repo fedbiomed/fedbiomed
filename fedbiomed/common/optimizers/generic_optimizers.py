@@ -103,12 +103,28 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         """
 
     def load_state(self, optim_state: Dict, load_from_state: bool = False) -> Union['BaseOptimizer', None]:
-        """TODO: add docstring"""
+        """Reconfigures optimizer from a given state.
+
+        This is the default method for optimizers that don't support state. Does nothing.
+
+        Args:
+            optim_state: not used
+            load_from_state (optional): not used
+
+        Returns:
+            None
+        """
         logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
         return None
 
     def save_state(self) -> Union[Dict, None]:
-        """TODO: add docstring"""
+        """Gets optimizer state.
+
+        This is the default method for optimizers that don't support state. Does nothing.
+
+        Returns:
+            None
+        """
         logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
         return None
 
@@ -274,6 +290,11 @@ class DeclearnOptimizer(BaseOptimizer):
 
 
     def save_state(self) -> Dict:
+        """Gets optimizer state.
+
+        Returns:
+            optimizer state
+        """
         optim_state = self.optimizer.get_state()
         return optim_state
 

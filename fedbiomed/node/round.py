@@ -379,9 +379,9 @@ class Round:
         if previous_state_id is not None:
             try:
                 self._load_round_state(previous_state_id)
-            except Exception as e:
-                error_message = f"Can't read previous node state: {repr(e)}"
-                return self._send_round_reply(success=False, message=error_message)
+            except Exception:
+                # don't send error details
+                return self._send_round_reply(success=False, message="Can't read previous node state.")
 
         # import model params into the training plan instance
         try:
@@ -513,7 +513,11 @@ class Round:
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
-            self._save_round_state()
+            try:
+                self._save_round_state()
+            except Exception:
+                # don't send details to researcher
+                return self._send_round_reply(success=False, message="Can't save new node state.")
             # end : clean the namespace
             try:
                 del self.training_plan
@@ -665,7 +669,7 @@ class Round:
         optimizer = self._get_base_optimizer()
 
         optimizer_state = optimizer.save_state()
-        logger.warning(f"optimizer info before saving {optimizer_state}, {type(optimizer)}")
+        logger.debug(f"optimizer info before saving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
@@ -674,7 +678,7 @@ class Round:
                 NodeStateFileName.OPTIMIZER  
             )
             Serializer.dump(optimizer_state, path=optim_path)
-            logger.warning(f"saving optim state {optimizer_state}")
+            logger.debug(f"saving optim state {optimizer_state}")
 
             optimizer_state_entry: Dict = {
                 'optimizer_type': str(optimizer.__class__),
@@ -690,7 +694,7 @@ class Round:
         # add here other object states (ie model state, ...)
 
         # save completed node state
-        
+
         self._node_state_manager.add(self.job_id, state)
         if _success:
             logger.debug("Node state saved into DataBase")
