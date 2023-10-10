@@ -50,7 +50,7 @@ class Node:
         res = environ["RESEARCHERS"][0]
         self._grpc_client = GrpcController(
             node_id=environ["ID"],
-            researchers=[ResearcherCredentials(port=res['port'], host=res['host'], certificate=res['certificate'])],
+            researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
         self.dataset_manager = dataset_manager

@@ -111,7 +111,7 @@ class NodeEnviron(Environ):
             self._values["RESEARCHERS"] = [
                 {
                     'port': os.getenv('RESEARCHER_SERVER_PORT', '50051'),  # use default port if not specified
-                    'host': os.getenv('RESEARCHER_SERVER_HOST'),
+                    'ip': os.getenv('RESEARCHER_SERVER_HOST'),
                     'certificate': None
                 }
             ]
@@ -120,7 +120,7 @@ class NodeEnviron(Environ):
             for section in researcher_sections:
                 self._values["RESEARCHERS"].append({
                     'port': self.from_config(section, "port"),
-                    'host': self.from_config(section, "ip"),
+                    'ip': self.from_config(section, "ip"),
                     'certificate': None
                 })
 
