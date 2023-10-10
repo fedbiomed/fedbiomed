@@ -61,15 +61,6 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.environ_training_plan.__getitem__.side_effect = side_effect
         self.environ_training_plan.__setitem__.side_effect = side_effect_set_item
 
-        self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_some_error))
-        self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_some_error))
-        self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_some_error))
-        self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_some_error))
-        self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_some_error))
-        self.patcher_db_all = patch('tinydb.table.Table.all', MagicMock(side_effect=self.raise_some_error))
-        # ---------------------------------------------------------------------------
-
-
         # DB patch start
         self.db_patch = patch('fedbiomed.node.training_plan_security_manager.DBTable', autospec=True)
         
@@ -78,9 +69,6 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         # handle case where previous test did not properly clean
         if os.path.exists(environ['DB_PATH']):
             os.remove(environ['DB_PATH'])
-        #
-        # import nose.tools
-        # nose.tools.set_trace()
 
 
         # Build TrainingPlanSecurityManager
