@@ -353,6 +353,7 @@ class ApprovalReply(Message, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
+    message: str
     node_id: str
     sequence: int
     status: int
