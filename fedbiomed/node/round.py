@@ -619,27 +619,25 @@ class Round:
         # define here all the object that should be reloaded from the node state database
         state = self._node_state_manager.get(self.job_id, state_id)
 
-        optimizer = self._get_base_optimizer()
+        optimizer_wrapper = self._get_base_optimizer()  # optimizer from TrainingPlan
         if state['optimizer_state'] is not None and \
-           str(optimizer.__class__) == state['optimizer_state']['optimizer_type']:
+           str(optimizer_wrapper.__class__) == state['optimizer_state']['optimizer_type']:
 
             optim_state_path = state['optimizer_state'].get('state_path')
             try:
                 optim_state = Serializer.load(optim_state_path)
-                optim = OptimizerBuilder().build(self.training_plan.type(),
-                                                 self.training_plan._model, optimizer.optimizer)
+                # optimizer_wrapper_loaded = OptimizerBuilder().build(self.training_plan.type(),
+                #                                  self.training_plan._model, optimizer_wrapper.optimizer)
 
-                optim.load_state(optim_state, load_from_state=True)
+                optimizer_wrapper.load_state(optim_state, load_from_state=True)
                 logger.debug(f"Optimizer loaded state {optim_state}")
-                self.training_plan.set_optimizer(optim)
+                #self.training_plan.set_optimizer(optimizer_wrapper)
                 logger.info(f"State {state_id} loaded")
 
             except Exception as err:
                 logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"  
                                f"with default Optimizer state. Error detail {err}")
 
-
-            # logger.warning(f"Optimizer 2loaded state {optim.save_state()}")
         # add below other components that need to be reloaded from node state database
 
 

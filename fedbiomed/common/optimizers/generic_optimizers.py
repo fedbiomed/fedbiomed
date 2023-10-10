@@ -160,16 +160,38 @@ class DeclearnOptimizer(BaseOptimizer):
         return aux
 
     def load_state(self, optim_state: Dict[str, Any], load_from_state: bool = False) -> 'DeclearnOptimizer':
-        """Reconfigures optimizer from a given state (contained in `optim_state`).
+        """Reconfigures optimizer from a given state (contained in `optim_state` argument).
         Usage:
         ```python
         >>> import torch.nn as nn
         >>> from fedbiomed.common.optimizers import Optimizer
-        >>> model = nn.Linear(4, 2)
+        >>> from fedbiomed.common.models import TorchModel
+        >>> model = TorchModel(nn.Linear(4, 2))
         >>> optimizer = Optimizer(lr=.1)
         >>> optim = DeclearnOptimizer(model, optimizer)
 
         >>> optim.load_state(state)  # provided state contains the state one wants to load the optimizer with
+        ```
+        If `load_from_state` argument is True, it completes the current optimizer state with `optim_state` argument
+        
+        ```python
+        >>> import torch.nn as nn
+        >>> from fedbiomed.common.optimizers import Optimizer
+        >>> from fedbiomed.common.models import TorchModel
+        >>> model = TorchModel(nn.Linear(4, 2))
+        >>> optimizer = Optimizer(lr=.1, modules=[MomentumModule(), AdamModule()])
+        >>> optim_1 = DeclearnOptimizer(model, optimizer)
+        
+        >>> optimizer = Optimizer(lr=.1, modules=[AdamModule(), MomentumModule()])
+        >>> optim_2 = DeclearnOptimizer(model, optimizer)
+        >>> optim_2.load_state(optim_1.save_state())
+        >>> optim_2.save_state()['states']
+        {'modules': [('momentum', {'velocity': 0.0}),
+                ('adam',
+                {'steps': 0,
+                    'vmax': None,
+                    'momentum': {'state': 0.0},
+                    'velocity': {'state': 0.0}})]}
         ```
 
         Args:
@@ -204,7 +226,7 @@ class DeclearnOptimizer(BaseOptimizer):
             for component in ( 'modules', 'regularizers',):
                 components_to_keep = []
 
-                if not init_optim_state['states'].get(component):
+                if not init_optim_state['states'].get(component) or not optim_state_copy['states'].get(component):
                     continue
                 self._collect_common_optimodules(
                     init_optim_state,
@@ -213,12 +235,12 @@ class DeclearnOptimizer(BaseOptimizer):
                     components_to_keep
                 )
                 for mod in components_to_keep:
-                    for elem in ( 'states',):
-                        for mod_state in optim_state_copy[elem][component]:
-                            if mod[0] == mod_state[0]:
-                                # if we do find same module in the current optimizer than the previous one,
-                                # we load the previous optimizer module state into the current one
-                                optim_state[elem][component][mod[1]] = mod_state
+
+                    for mod_state in optim_state_copy['states'][component]:
+                        if mod[0] == mod_state[0]:
+                            # if we do find same module in the current optimizer than the previous one,
+                            # we load the previous optimizer module state into the current one
+                            optim_state['states'][component][mod[1]] = mod_state
 
         logger.info(f"Loading optimizer with the following state {optim_state}")
         reloaded_optim = FedOptimizer.load_state(optim_state)
