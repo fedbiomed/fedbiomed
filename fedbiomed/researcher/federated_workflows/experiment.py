@@ -36,6 +36,7 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, \
     FederatedWorkflow, Type_TrainingPlan
+from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
@@ -852,19 +853,14 @@ class Experiment(FederatedWorkflow):
                 logger.warning(f'Round limit of {self._round_limit} was reached, do nothing')
                 return 0
 
-        # at this point, self._aggregator always exists and is not None
-        # self.{_node_selection_strategy,_job} exist but may be None
-
         # check pre-requisites are met for running a round
-        # for component in (self._node_selection_strategy, self._job):
         if self._node_selection_strategy is None:
             msg = ErrorNumbers.FB411.value + ', missing `node_selection_strategy`'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        elif self._job is None:
-            msg = ErrorNumbers.FB411.value + ', missing `job`'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+
+        # Sample nodes for training
+        training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
@@ -872,8 +868,6 @@ class Experiment(FederatedWorkflow):
             # initial server state, before optimization/aggregation
 
         self._aggregator.set_training_plan_type(self._job.training_plan.type())
-        # Sample nodes using strategy (if given)
-        self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup()
@@ -881,16 +875,27 @@ class Experiment(FederatedWorkflow):
         # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._job.training_plan)
-        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
 
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                        self._job.nodes)
+                                                                                        training_nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        # Trigger training round on sampled nodes
-        self._job.start_nodes_training_round(
+        self._raise_for_missing_job_prerequities()
+        job = TrainingJob(reqs=self._reqs,
+                          nodes=training_nodes,
+                          training_plan_class=self._training_plan_class,
+                          model_args=self._model_args if hasattr(self, '_model_args') else None,
+                          training_args=self._training_args,
+                          data=self._fds,
+                          keep_files_dir=self.experimentation_path())
+        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path)
+        job.upload_workflow_code()
+
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
+
+        job.start_nodes_training_round(
             round_=self._round_current,
             aggregator_args_thr_msg=aggr_args_thr_msg,
             aggregator_args_thr_files=aggr_args_thr_file,
@@ -901,7 +906,7 @@ class Experiment(FederatedWorkflow):
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            self._job.training_replies[self._round_current], self._round_current)
+            job.training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
@@ -914,7 +919,7 @@ class Experiment(FederatedWorkflow):
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self._job.training_plan._model.unflatten(flatten_params)
+                job.training_plan._model.unflatten(flatten_params)
             )
 
         else:
@@ -922,9 +927,9 @@ class Experiment(FederatedWorkflow):
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
                                                            global_model=self._global_model,
-                                                           training_plan=self._job.training_plan,
-                                                           training_replies=self._job.training_replies,
-                                                           node_ids=self._job.nodes,
+                                                           training_plan=job.training_plan,
+                                                           training_replies=job.training_replies,
+                                                           node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
@@ -935,7 +940,7 @@ class Experiment(FederatedWorkflow):
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
-        aggregated_params_path, _ = self._job.update_parameters(aggregated_params)
+        aggregated_params_path, _ = job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 
@@ -955,11 +960,11 @@ class Experiment(FederatedWorkflow):
         if test_after:
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            self._job.nodes)
-            self._job.start_nodes_training_round(round_=self._round_current,
-                                                 aggregator_args_thr_msg=aggr_args_thr_msg,
-                                                 aggregator_args_thr_files=aggr_args_thr_file,
-                                                 do_training=False)
+                                                                                            training_nodes)
+            job.start_nodes_training_round(round_=self._round_current,
+                                           aggregator_args_thr_msg=aggr_args_thr_msg,
+                                           aggregator_args_thr_files=aggr_args_thr_file,
+                                           do_training=False)
 
         return 1
 

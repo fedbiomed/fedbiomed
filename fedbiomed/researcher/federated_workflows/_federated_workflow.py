@@ -187,8 +187,8 @@ class FederatedWorkflow(ABC):
         # predefine all class variables, so no need to write try/except
         # block each time we use it
         self._fds = None
-        self._job = None
         self._training_plan_path = None
+        self._training_plan = None
         self._reqs = None
         self._training_args = None
         self._tags = None
@@ -224,9 +224,6 @@ class FederatedWorkflow(ABC):
         # note: no need to set self._training_plan_is_defined before calling `set_training_plan_class`
         self.set_training_plan_class(training_plan_class)
         self.set_training_plan_path(training_plan_path)
-
-        # set self._job to Union[Job, None]
-        self.set_job()
 
     @property
     def secagg(self) -> SecureAggregation:
@@ -340,17 +337,6 @@ class FederatedWorkflow(ABC):
         return self._training_args.dict()
 
     @exp_exceptions
-    def job(self) -> Union[Job, None]:
-        """Retrieves the [`Job`][fedbiomed.researcher.job] that manages training rounds.
-
-        Returns:
-            Initialized `Job` object. None, if it isn't declared yet or not information to set to job. Please see
-                [`set_job`][fedbiomed.researcher.experiment.Experiment.set_job].
-        """
-
-        return self._job
-
-    @exp_exceptions
     def training_plan(self) -> Union[TrainingPlan, None]:
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
@@ -363,15 +349,9 @@ class FederatedWorkflow(ABC):
             training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
             ```
 
-        Returns:
-            Training plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
+        Returns plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
         """
-        # at this point `job` is defined but may be None
-        if self._job is None:
-            logger.error('No `job` defined for experiment, cannot get `training_plan`')
-            return None
-        else:
-            return self._job.training_plan
+        return self._training_plan
 
     # a specific getter-like
     @exp_exceptions
@@ -732,45 +712,6 @@ class FederatedWorkflow(ABC):
 
         return self._training_args.dict()
 
-    def set_job(self) -> Union[TrainingJob, None]:
-        """Setter for job, it verifies pre-requisites are met for creating a job
-        attached to this experiment. If yes, instantiate a job ; if no, return None.
-
-        Returns:
-            The object that is initialized for creating round jobs.
-        """
-        # at this point all are defined among:
-        # self.{_reqs,_fds,_training_plan_is_defined,_training_plan,_training_plan_path,_model_args,_training_args}
-        # self._experimentation_folder => self.experimentation_path()
-        # self._round_current
-
-        if self._job is not None:
-            # a job is already defined, and it may also have run some rounds
-            logger.debug('Experimentation `job` changed after running '
-                         '{self._round_current} rounds, may give inconsistent results')
-
-        if self._training_plan_is_defined is not True:
-            # training plan not properly defined yet
-            self._job = None
-            logger.debug('Experiment not fully configured yet: no job. Missing proper training plan '
-                         f'definition (training_plan={self._training_plan_class} '
-                         f'training_plan_path={self._training_plan_path})')
-        elif self._fds is None:
-            # not training data yet
-            self._job = None
-            logger.debug('Experiment not fully configured yet: no job. Missing training data')
-        else:
-            # meeting requisites for instantiating a job
-            self._job = TrainingJob(reqs=self._reqs,
-                                    training_plan_class=self._training_plan_class,
-                                    training_plan_path=self._training_plan_path,
-                                    model_args=self._model_args if hasattr(self, '_model_args') else None,
-                                    training_args=self._training_args,
-                                    data=self._fds,
-                                    keep_files_dir=self.experimentation_path())
-
-        return self._job
-
     @exp_exceptions
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
@@ -901,3 +842,18 @@ class FederatedWorkflow(ABC):
                                job_id=self._job.id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
+
+    def _raise_for_missing_job_prerequities(self) -> None:
+        """Setter for job, it verifies pre-requisites are met for creating a job
+        attached to this experiment. If yes, instantiate a job ; if no, return None.
+
+        """
+        if self._training_plan_is_defined is not True:
+            # training plan not properly defined yet
+            msg = f'Experiment not fully configured yet: no job. Missing proper training plan definition ' \
+                  f'(training_plan={self._training_plan_class} training_plan_path={self._training_plan_path})'
+            raise FedbiomedExperimentError(msg)
+        elif self._fds is None:
+            msg='Experiment not fully configured yet: no job. Missing training data'
+            raise FedbiomedExperimentError(msg)
+

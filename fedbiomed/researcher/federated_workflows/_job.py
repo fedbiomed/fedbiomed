@@ -47,7 +47,6 @@ class Job:
                  reqs: Requests = None,
                  nodes: dict = None,
                  training_plan_class: Union[Type[Callable], str] = None,
-                 training_plan_path: str = None,
                  training_args: TrainingArgs = None,
                  data: FederatedDataSet = None,
                  keep_files_dir: str = None):
@@ -76,6 +75,8 @@ class Job:
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
         self._training_plan_class = training_plan_class
+        self._training_plan = None
+        self._training_plan_name = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -92,7 +93,13 @@ class Job:
 
         self.last_msg = None
         self._data = data
+        self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
+        self._training_plan_module = 'my_model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
+    def create_workflow_instance_from_path(self,
+                                           training_plan_path: str = None,
+                                          ) -> 'FederatedWorkflow':
         # handle case when model is in a file
         if training_plan_path is not None:
             try:
@@ -133,10 +140,10 @@ class Job:
         # (it is `model` only in the case where `model` is not an instance)
         self._training_plan_name = self._training_plan.__class__.__name__
 
-        self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
+        return self._training_plan
 
-        self._training_plan_module = 'my_model_' + str(uuid.uuid4())
-        self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
+    def upload_workflow_code(self) -> None:
+
         try:
             self._training_plan.save_code(self._training_plan_file)
         except Exception as e:
