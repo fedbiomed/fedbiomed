@@ -165,50 +165,6 @@ class TestEnviron(TestCase):
         self.assertEqual(ip, "localhost", "Host is not set properly in config object")
         self.assertEqual(port, '14000', "Port is not set in config object")
 
-    def test_environ_06_configure_mqtt(self):
-        """Tests setting mqtt parameters in config"""
-
-        self.environ._configure_mqtt()
-        ip = self.environ._cfg.get("mqtt", "broker_ip")
-        port = self.environ._cfg.get("mqtt", "port")
-        keep_alive = self.environ._cfg.get("mqtt", "keep_alive")
-
-        self.assertEqual(ip, "localhost", "Ip is not set properly in config object")
-        self.assertEqual(port, '1883', "Port is not set in config object")
-        self.assertEqual(keep_alive, '60', "Port is not set in config object")
-
-    def test_environ_07_get_uploads_url(self):
-        """Test method to get correct uploads URL"""
-        if "UPLOADS_IP" in os.environ:
-            del os.environ["UPLOADS_IP"]
-
-        if "UPLOADS_URL" in os.environ:
-            del os.environ["UPLOADS_URL"]
-
-        uploads_url = "http://localhost:8844/"
-        self.environ._cfg["default"] = {"uploads_url": uploads_url}
-
-        url = self.environ._get_uploads_url(from_config=False)
-        self.assertEqual(url, uploads_url+'upload/')
-
-        url = self.environ._get_uploads_url(from_config=True)
-        self.assertEqual(url, uploads_url)
-
-        # Set IP as env variable
-        os.environ["UPLOADS_IP"] = "0.0.0.0"
-        url = self.environ._get_uploads_url(from_config=True)
-        self.assertEqual(url, "http://0.0.0.0:8844/upload/")
-
-        os.environ["UPLOADS_URL"] = "http://test"
-        url = self.environ._get_uploads_url(from_config=True)
-        self.assertEqual(url, "http://test")
-
-        os.environ["UPLOADS_URL"] = "http://test"
-        url = self.environ._get_uploads_url(from_config=False)
-        self.assertEqual(url, "http://test")
-
-        # Back to normal
-        os.environ["UPLOADS_URL"] = "http://0.0.0.0:8844/upload/"
 
     def test_environ_08_set_network_variables(self):
         """Tests setting network variables """
@@ -231,21 +187,10 @@ class TestEnviron(TestCase):
             'public_key': public_key,
             'private_key': private_key,
             'allow_default_biprimes': allow_default_biprimes,
-            }
+        }
 
         self.environ._cfg["default"] = {'uploads_url': uploads_url}
 
-        if "UPLOADS_URL" in os.environ:
-            del os.environ["UPLOADS_URL"]
-
-        if "UPLOADS_IP" in os.environ:
-            del os.environ["UPLOADS_IP"]
-
-        if "MQTT_BROKER" in os.environ:
-            del os.environ["MQTT_BROKER"]
-
-        if "MQTT_BROKER_PORT" in os.environ:
-            del os.environ["MQTT_BROKER_PORT"]
 
         if "ALLOW_DEFAULT_BIPRIMES" in os.environ:
             del os.environ["ALLOW_DEFAULT_BIPRIMES"]
@@ -258,9 +203,6 @@ class TestEnviron(TestCase):
         self.assertEqual(self.environ._values["TIMEOUT"], 5)
         self.assertEqual(self.environ._values["MPSPDZ_PORT"], mpspdz_port)
         self.assertEqual(self.environ._values["MPSPDZ_IP"], mpspdz_ip)
-        self.assertEqual(self.environ._values["UPLOADS_URL"], uploads_url)
-        self.assertEqual(self.environ._values["MQTT_BROKER"], broker_ip)
-        self.assertEqual(self.environ._values["MQTT_BROKER_PORT"], broker_port)
         self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_KEY"], os.path.join(self.config_dir, private_key))
         self.assertEqual(self.environ._values["MPSPDZ_CERTIFICATE_PEM"], os.path.join(self.config_dir, public_key))
         self.assertEqual(self.environ._values["ALLOW_DEFAULT_BIPRIMES"], allow_default_biprimes)
