@@ -414,6 +414,9 @@ class Job:
         msg = {**headers, **self._repository_args}
         time_start = {}
 
+        # update node states when used node list has changed from one round to another
+        self._update_nodes_states_agent()
+
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
@@ -426,7 +429,8 @@ class Job:
             aux_url_shared = None
             aux_url_bynode = {}
 
-        # FIXME: this should be part of a method called from Experiment (behaviour can be defined by user / changed by strategy)
+        # FIXME: should be part of a method called from Experiment
+        # (behaviour can be defined by user / changed by strategy)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
@@ -535,6 +539,9 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
+
+        # update node states with node answers + when used node list has changed during the round
+        self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -729,9 +736,10 @@ class Job:
             logger.error("'Job.update_parameters' failed with error: %s", exc)
             sys.exit(-1)
 
-    def update_nodes_states_agent(self, before_training: bool = True):
-        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest state_id coming
-        from `Nodes` contained among all `Nodes` within [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+    def _update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+        state_id coming from `Nodes` contained among all `Nodes` within
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
