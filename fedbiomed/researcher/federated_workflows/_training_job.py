@@ -67,8 +67,8 @@ class TrainingJob(Job):
         self._aggregator_args = None
 
     def instantiate_and_upload_workflow_parameters(self,
-                                                   training_plan: 'FederatedWorkflow',
-                                                   training_args: TrainingArgs):
+                                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
+                                                    training_args: TrainingArgs):
         training_plan_name = training_plan.__class__.__name__
         training_plan = training_plan.load_training_plan_from_file(
             self._keep_files_dir,

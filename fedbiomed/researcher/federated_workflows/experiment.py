@@ -152,7 +152,7 @@ class Experiment(FederatedWorkflow):
         self._client_states_dict = {}
         self._server_state = None
         self._save_breakpoints = None
-        self._training_replies = {}
+        self._training_replies: Dict = {}
 
         # set self._model_args and self._training_args to dict
         self.set_model_args(model_args)
@@ -654,8 +654,6 @@ class Experiment(FederatedWorkflow):
             raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
 
-        if self._job is not None:
-            logger.debug('Experimentation model_args changed, you may need to update `job`')
         return self._model_args
 
     @exp_exceptions
@@ -677,12 +675,6 @@ class Experiment(FederatedWorkflow):
             FedbiomedExperimentError: ratio is not within interval [0, 1]
         """
         self._training_args['test_ratio'] = ratio
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
-
         return ratio
 
     @exp_exceptions
@@ -707,12 +699,6 @@ class Experiment(FederatedWorkflow):
 
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
         self._training_args['test_metric_args'] = metric_args
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
-
         return metric, metric_args
 
     @exp_exceptions
@@ -731,12 +717,6 @@ class Experiment(FederatedWorkflow):
             FedbiomedExperimentError: bad flag type
         """
         self._training_args['test_on_local_updates'] = flag
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
-
         return self._training_args['test_on_local_updates']
 
     @exp_exceptions
@@ -755,12 +735,6 @@ class Experiment(FederatedWorkflow):
             FedbiomedExperimentError : bad flag type
         """
         self._training_args['test_on_global_updates'] = flag
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
-
         return self._training_args['test_on_global_updates']
 
     @exp_exceptions
@@ -865,7 +839,7 @@ class Experiment(FederatedWorkflow):
                           keep_files_dir=self.experimentation_path())
         self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path,
                                                                      self._training_plan_class)
-        job.upload_workflow_code(self._training_plan)
+        self._training_plan_file = job.upload_workflow_code(self._training_plan)
 
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:

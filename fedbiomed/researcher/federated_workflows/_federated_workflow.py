@@ -11,7 +11,7 @@ import inspect
 import traceback
 from copy import deepcopy
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import Any, Dict, List, Type, TypeVar, Union, Optional
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 
@@ -194,6 +194,7 @@ class FederatedWorkflow(ABC):
         self._tags = None
         self._experimentation_folder = None
         self._secagg = None
+        self._training_plan_file: Optional[str] = None
 
         # set self._secagg
         self.set_secagg(secagg)
@@ -524,9 +525,6 @@ class FederatedWorkflow(ABC):
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
 
-        if self._job is not None:
-            logger.debug('Training data changed, you may need to update `job`')
-
         return self._fds
 
     @exp_exceptions
@@ -559,9 +557,6 @@ class FederatedWorkflow(ABC):
             # at this point self._experimentation_folder is a str valid for a foldername
 
         # _job doesn't always exist at this point
-        if self._job is not None:
-            logger.debug('Experimentation folder changed, you may need to update `job`')
-
         return self._experimentation_folder
 
     @exp_exceptions
@@ -624,9 +619,6 @@ class FederatedWorkflow(ABC):
                          f'training_plan_class={self._training_plan_class} '
                          f'training_plan_class_path={self._training_plan_path}')
 
-        if self._job is not None:
-            logger.debug('Experimentation training_plan changed, you may need to update `job`')
-
         return self._training_plan_class
 
     @exp_exceptions
@@ -677,9 +669,6 @@ class FederatedWorkflow(ABC):
             logger.debug(f'Experiment not fully configured yet: no valid training plan, '
                          f'training_plan={self._training_plan_class} training_plan_path={self._training_plan_path}')
 
-        if self._job is not None:
-            logger.debug('Experimentation training_plan_path changed, you may need to update `job`')
-
         return self._training_plan_path
 
     # TODO: training_args need checking of dict items, to be done by Job and node
@@ -707,9 +696,6 @@ class FederatedWorkflow(ABC):
         else:
             self._training_args = TrainingArgs(training_args, only_required=False)
         # Propagate training arguments to job
-        if self._job is not None:
-            self._job.training_args = self._training_args
-
         return self._training_args.dict()
 
     @exp_exceptions
@@ -749,20 +735,10 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # at this point, self._job exists (initialized in constructor)
-        if self._job is None:
-            # cannot check training plan file if job not defined
-            msg = ErrorNumbers.FB412.value + \
-                  ', in method `training_plan_file` : no `job` defined for experiment'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        training_plan_file = self._job.training_plan_file
-
         # Display content so researcher can copy
         try:
             if display:
-                with open(training_plan_file) as file:
+                with open(self._training_plan_file) as file:
                     content = file.read()
                     file.close()
                     print(content)
@@ -773,7 +749,7 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        return self._job.training_plan_file
+        return self._training_plan_file
 
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses

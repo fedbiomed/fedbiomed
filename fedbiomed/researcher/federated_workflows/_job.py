@@ -4,7 +4,6 @@
 """Manage the training part of the experiment."""
 
 import atexit
-import copy
 import importlib
 import inspect
 import os
@@ -12,9 +11,8 @@ import re
 import sys
 import shutil
 import tempfile
-import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Type, Union
 
 import validators
 
@@ -136,7 +134,7 @@ class Job:
 
     def upload_workflow_code(self,
                              training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
-                             ) -> None:
+                             ) -> str:
 
         try:
             training_plan.save_code(self._training_plan_file)
@@ -157,6 +155,8 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['training_plan_url', 'training_plan_class'])
+
+        return self._training_plan_file
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
