@@ -236,7 +236,7 @@ class TestRound(NodeTestCase):
         _model_results = {
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
-            'state_id': None,
+            'state_id': f'node_state_{FakeUuid.VALUE}',
             'model_weights': MODEL_PARAMS,
             'node_id': environ['NODE_ID'],
             'optimizer_args': {},
@@ -1177,7 +1177,7 @@ class TestRound(NodeTestCase):
         with self.assertRaises(FedbiomedRoundError):
             r._split_train_and_test_data()
 
-    @patch('fedbiomed.node.round.OptimizerBuilder', autospec=True)
+
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
     @patch('fedbiomed.node.round.NodeStateManager')
@@ -1185,7 +1185,7 @@ class TestRound(NodeTestCase):
                                        node_state_manager_patch,
                                        get_optim_patch,
                                        serializer_patch,
-                                       optimizer_builder_patch
+
                                        ):
 
         r = Round(job_id='1234')
@@ -1208,22 +1208,15 @@ class TestRound(NodeTestCase):
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
                                                  __class__='optimizer_type',
                                                 )
-        r.load_round_state(state_id)
+        r._load_round_state(state_id)
         
         # checks
         # FIXME: in future version, we should check each call to Serializer.load
         serializer_patch.load.assert_called_once_with(path_state)
-        # check `training_plan.set_optimizer` call
-        r.training_plan.set_optimizer.assert_called_once_with(optimizer_builder_patch.return_value.build.return_value)
-        
-        # check OptimizerBuilder calls
-        optimizer_builder_patch.assert_called_once()
-        optimizer_builder_patch.return_value.build.assert_called_once_with(training_plan_mock.type(),
-                                                                           training_plan_mock._model,
-                                                                           get_optim_patch.return_value.optimizer)
+
         
         # check Optimizer.load_state call
-        optimizer_builder_patch.return_value.build.return_value.load_state.assert_called_once_with(
+        get_optim_patch.return_value.load_state.assert_called_once_with(
             serializer_patch.load.return_value,
             load_from_state=True
         )
@@ -1249,7 +1242,7 @@ class TestRound(NodeTestCase):
         node_state_manager_patch.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
                                                                                       'state_id': 'state_id_1234'})
 
-        res = r.save_round_state()
+        res = r._save_round_state()
 
         added_state = {
             'optimizer_state': {
@@ -1284,7 +1277,7 @@ class TestRound(NodeTestCase):
 
         node_state_manager_add_patch.side_effect = lambda x,y: y.update({'version_node_id': '1',
                                                                          'state_id': 'state_id_1234'})
-        res = self.r1.save_round_state()
+        res = self.r1._save_round_state()
         expected_state = {
             'optimizer_state': None,
             'version_node_id': '1',
