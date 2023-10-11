@@ -843,7 +843,10 @@ class TestJob(ResearcherTestCase):
         """
         test if the job state values correctly initialize job (from breakpoints)
         """
-        node_states = {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'}
+        node_states = {
+            'collection_state_ids': {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'},
+            'node_ids': ['node_id_xxx', 'node_2'],
+        }
         
         # modifying FederatedDataset mock 
         self.fds.data.return_value = node_states
@@ -853,7 +856,7 @@ class TestJob(ResearcherTestCase):
             'job_id': 'my_job_id_abcdefghij',
             'model_params_path': '/path/to/my/model_file.py',
             'training_replies': {0: 'un', 1: 'deux'},
-            'node_state_ids': node_states
+            'node_state': node_states
         }
         new_training_replies = {2: 'trois', 3: 'quatre'}
 
@@ -869,7 +872,8 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
         self.assertEqual(self.job._id, job_state['job_id'])
         self.assertEqual(self.job._training_replies, new_training_replies)
-        self.assertDictEqual(self.job._node_state_agent.get_last_node_states(), job_state['node_state_ids'])        
+        self.assertDictEqual(self.job._node_state_agent.get_last_node_states(), node_states['collection_state_ids'])
+        self.assertListEqual(self.job._node_state_agent._data, node_states['node_ids'])
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
@@ -933,7 +937,8 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
         self.assertEqual(test_job._id, save_state['job_id'])
         self.assertEqual(link_path, save_state['model_params_path'])
-        self.assertDictEqual(node_states, save_state['node_state_ids'])
+        self.assertDictEqual(node_states, save_state['node_state']['collection_state_ids'])
+        self.assertDictEqual(fds_content, save_state['node_state']['node_ids'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
             for response_i, _ in enumerate(round):
@@ -1094,7 +1099,8 @@ class TestJob(ResearcherTestCase):
         # action! collect Job state in order to retrieve state_ids
 
         job_state = test_job.save_state("path/to/bkpt")
-        self.assertListEqual(list(data.keys()), list(job_state['node_state_ids'].keys()))
+        self.assertListEqual(list(data.keys()), list(job_state['node_state']['node_ids'].keys()))
+        self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
 
         # case where `before_training` = False
         #self.job.training_replies(loaded_training_replies_torch)
@@ -1113,7 +1119,8 @@ class TestJob(ResearcherTestCase):
         extract_node_id_from_saving = lambda state: [k['node_id'] for k in state[-1]]
         # check that NodeStateAgent have been updated accordingly
         for node_id in extract_node_id_from_saving(loaded_training_replies_torch):
-            self.assertIn(node_id, list(job_state['node_state_ids']))
+            self.assertIn(node_id, list(job_state['node_state']['node_ids']))
+            self.assertIn(node_id, list(job_state['node_state']['collection_state_ids']))
 
         # finally we are testing that exception is raised if index cannot be extracted
 

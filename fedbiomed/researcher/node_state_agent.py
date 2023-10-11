@@ -27,7 +27,7 @@ class NodeStateAgent:
         self._data: Union[FederatedDataSet, Dict[str, str]] = None  # Mapping <node_id, state_id>
         self._collection_state_ids: Dict[str, str] = None  # Mapping <node_id, state_id>
         if fds is not None:
-            self.set_federated_dataset(fds)
+            self._set_federated_dataset(fds)
 
             self._initiate_collection_state_data()
 
@@ -52,7 +52,7 @@ class NodeStateAgent:
         Raises:
             FedbiomedNodeStateAgentError: raised if `Responses` has a missing entry that needs to be collected.
         """
-        self.set_federated_dataset(fds)
+        self._set_federated_dataset(fds)
         if self._collection_state_ids is None:
             self._initiate_collection_state_data()
         # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
@@ -88,7 +88,7 @@ class NodeStateAgent:
             node_id: None for node_id in self._data
         }
 
-    def set_federated_dataset(self, fds: Union[FederatedDataSet, Dict[str, str]]) -> \
+    def _set_federated_dataset(self, fds: Union[FederatedDataSet, Dict[str, str]]) -> \
             Union[FederatedDataSet, Dict[str, str]]:
         """Sets a new fds that provides all possible node_id that could reply during the `Experiment`.
 
@@ -104,34 +104,22 @@ class NodeStateAgent:
                                                f"FederatedDataset or a dict, not a {type(fds)}")
         self._data = data
 
-    def save_state_ids_in_bkpt(self) -> Dict[str, str]:
+    def save_state_breakpoint(self) -> Dict:
         """NodeStateAgent's state, to be saved in a breakpoint. 
 
         Returns:
-            Mapping of node_ids and latest state_id
+            Node state for breakpoint
         """
-        # FIXME: duplicate of get_last_node_state method
-        return self._collection_state_ids
+        return {
+            'node_ids': self._data,
+            'collection_state_ids': self._collection_state_ids
+        }
 
-    def load_state_ids_from_bkpt(self, collection_state_ids: Optional[Dict[str, str]] = None):
-        """Loads NodeStateAgent's state from collection_state_ids (which works as NodeStateAgent's state)
+    def load_state_breakpoint(self, node_state: Dict):
+        """Loads NodeStateAgent's state from saved state.
 
         Args:
-            collection_state_ids (optional): state of `NodeStateAgent` to be loaded. Defaults to None. If set to None, 
-                doesnot load anything.
-
-        Raises:
-            FedbiomedNodeStateAgentError: raised if `NodeStateAgent` doesnot contain any FederatedDataset.
-            FedbiomedNodeStateAgentError: raised if `collection_state_ids contains `node_ids` that doesnot belong to
-                                          the `NodeStateAgent` FederatedDataset.
+            node_state: state of `NodeStateAgent` to be loaded.
         """
-        if self._data is None:
-            raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: can not load breakpoint, FederatedDataset"
-                                               " missing. Please use `set_federated_dataset` beforehand")
-        if collection_state_ids is not None:
-            if set(collection_state_ids.keys()) <= set(self._data):
-                self._collection_state_ids.update(collection_state_ids)
-            else:
-                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Error while loading breakpoints: some "
-                                                   f"Node ids {set(collection_state_ids.keys()) - set(self._data)} in "
-                                                   "the state agent are not present in the Federated Dataset!")
+        self._data = node_state.get('node_ids')
+        self._collection_state_ids = node_state.get('collection_state_ids')

@@ -784,7 +784,7 @@ class Job:
             'job_id': self._id,
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies(self._training_replies),
-            'node_state_ids': self._node_state_agent.save_state_ids_in_bkpt()
+            'node_state': self._node_state_agent.save_state_breakpoint()
         }
 
         state['model_params_path'] = create_unique_link(
@@ -807,12 +807,10 @@ class Job:
         Args:
             saved_state: breakpoint content
         """
-        # update node_state_agent when reloading Job's state
-        self._node_state_agent.set_federated_dataset(self._data or self._nodes)
         # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
-        self._node_state_agent.load_state_ids_from_bkpt(saved_state.get('node_state_ids'))
+        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         # Upload the latest model parameters. This records the filename and url.
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reload the latest training replies.

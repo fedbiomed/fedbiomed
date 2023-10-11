@@ -63,7 +63,7 @@ class TestNodeStateAgent(unittest.TestCase):
             fds_data_new = MagicMock(spec=FederatedDataSet)
             fds_data_new.data = MagicMock(spec=dict)
 
-            test_nsa.set_federated_dataset(fds_data_new)
+            test_nsa._set_federated_dataset(fds_data_new)
             
             fds_data_new.data.assert_called_once()
             
@@ -80,7 +80,7 @@ class TestNodeStateAgent(unittest.TestCase):
             test_nsa = NodeStateAgent(fds_data)
             
             with self.assertRaises(FedbiomedNodeStateAgentError):
-                test_nsa.set_federated_dataset(MagicMock())
+                test_nsa._set_federated_dataset(MagicMock())
 
     def test_node_state_agent_4_upate_node_state(self):
         fds = MagicMock(spec=FederatedDataSet, data=MagicMock(return_value=self.fds_data_1))
@@ -90,7 +90,7 @@ class TestNodeStateAgent(unittest.TestCase):
                     'node_id_0987': MagicMock()}
 
         nsa = NodeStateAgent()
-        nsa.set_federated_dataset(fds)
+        nsa._set_federated_dataset(fds)
         # case where Responses is None
         
         nsa.update_node_states(fds_data_2)
@@ -147,47 +147,42 @@ class TestNodeStateAgent(unittest.TestCase):
         with self.assertRaises(FedbiomedNodeStateAgentError):
             nsa.update_node_states(fds, bad_resp)
         
-    def test_node_state_agent_6_save_state_ids_in_bkpt(self):
+    def test_node_state_agent_6_save_state_breakpoint(self):
         nsa = NodeStateAgent(self.fds_data_1)
         
-        nsa_bkpt = nsa.save_state_ids_in_bkpt()
+        nsa_bkpt = nsa.save_state_breakpoint()
         res = nsa.get_last_node_states()
         
-        self.assertDictEqual(nsa_bkpt, res)
-        self.assertListEqual(list(nsa_bkpt.keys()), list(self.fds_data_1.keys()))
+        self.assertDictEqual(nsa_bkpt['collection_state_ids'], res)
+        self.assertListEqual(list(nsa_bkpt['node_ids'].keys()), list(self.fds_data_1.keys()))
     
-    def test_node_state_agent_7_load_state_ids_in_bkpt(self):
-        nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
-                             'node_id_5678': 'state_id_5678',
-                             'node_id_9012': 'state_id_9012'}
+    def test_node_state_agent_7_load_state_breakpoint(self):
+        nodes_states_bkpt = {
+            'node_ids': [
+                'node_id_1234',
+                'node_id_abcd'
+            ],
+            'collection_state_ids': {
+                'node_id_1234': 'state_id_1234',
+                'node_id_5678': 'state_id_5678',
+                'node_id_9012': 'state_id_9012'
+            },
+        }
 
         nsa = NodeStateAgent(self.fds_data_1)
-        nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
+        nsa.load_state_breakpoint(nodes_states_bkpt)
 
-        reloaded_nodes_states_bkpt = nsa.save_state_ids_in_bkpt()
+        reloaded_nodes_states_bkpt = nsa.save_state_breakpoint()
 
         self.assertDictEqual(nodes_states_bkpt, reloaded_nodes_states_bkpt)
 
-    def test_node_state_agent_8_load_state_ids_in_bkpt_raise_error(self):
-        nodes_states_bkpt = {'node_id_1234': 'state_id_1234',
-                             'node_id_5678': 'state_id_5678',
-                             'node_id_unknown': 'state_id_unknown'}
-
-        nsa = NodeStateAgent(self.fds_data_1)
-        with self.assertRaises(FedbiomedNodeStateAgentError):
-            nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
-
-        nsa = NodeStateAgent()
-        with self.assertRaises(FedbiomedNodeStateAgentError):
-            nsa.load_state_ids_from_bkpt(nodes_states_bkpt)
-
-    def test_node_state_agent_9_save_and_load_bkpt(self):
+    def test_node_state_agent_8_save_and_load_bkpt(self):
         nsa = NodeStateAgent(self.fds_data_1)
         last_nodes_states_before_saving = nsa.get_last_node_states()
 
-        nodes_states_bkpt = nsa.save_state_ids_in_bkpt()
+        nodes_states_bkpt = nsa.save_state_breakpoint()
         nsa2 = NodeStateAgent(self.fds_data_1)
-        nsa2.load_state_ids_from_bkpt(nodes_states_bkpt)
+        nsa2.load_state_breakpoint(nodes_states_bkpt)
 
         last_nodes_states_after_saving = nsa2.get_last_node_states()
 
