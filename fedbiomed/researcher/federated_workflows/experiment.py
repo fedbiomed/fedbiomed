@@ -882,7 +882,7 @@ class Experiment(FederatedWorkflow):
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
         )
-        self._training_replies[self.round_current] = replies
+        self._training_replies[self._round_current] = replies
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
