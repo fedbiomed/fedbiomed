@@ -765,7 +765,7 @@ class Job:
 
             self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
 
-    def save_state(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -801,7 +801,7 @@ class Job:
 
         return state
 
-    def load_state(self, saved_state: Dict[str, Any]) -> None:
+    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:

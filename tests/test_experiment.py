@@ -1768,13 +1768,13 @@ class TestExperiment(ResearcherTestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self, breakpoint_path: str, **kwargs):
+            def save_state_breakpoint(self, breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
 
         class Strategy():
-            def save_state(self):
+            def save_state_breakpoint(self):
                 return strategy_state
 
         self.test_exp._node_selection_strategy = Strategy()
@@ -1790,7 +1790,7 @@ class TestExperiment(ResearcherTestCase):
             def __init__(self):
                 self._training_plan = None
 
-            def save_state(self, breakpoint_path):
+            def save_state_breakpoint(self, breakpoint_path):
                 return job_state
 
             @property
@@ -2355,7 +2355,7 @@ class TestExperiment(ResearcherTestCase):
             "class TestClass:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         class_source_exception = \
@@ -2363,7 +2363,7 @@ class TestExperiment(ResearcherTestCase):
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       raise Exception()\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         test_class_name = 'TestClass'

@@ -34,7 +34,7 @@ class FakeSecaggContext:
         """
         self.success = success
 
-    def load_state(self, *arg, **kwargs):
+    def load_state_breakpoint(self, *arg, **kwargs):
         pass
 
 

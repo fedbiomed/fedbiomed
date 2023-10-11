@@ -835,7 +835,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_22_load_state(
+    def test_job_22_load_state_breakpoint(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
@@ -867,7 +867,7 @@ class TestJob(ResearcherTestCase):
         patch_job_load_training_replies.return_value = new_training_replies
 
         # action
-        self.job.load_state(job_state)
+        self.job.load_state_breakpoint(job_state)
 
         self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
         self.assertEqual(self.job._id, job_state['job_id'])
@@ -878,7 +878,7 @@ class TestJob(ResearcherTestCase):
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_23_save_state(
+    def test_job_23_save_state_breakpoint(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -932,18 +932,18 @@ class TestJob(ResearcherTestCase):
         breakpoint_path = 'xxx'
 
         # action
-        save_state = test_job.save_state(breakpoint_path)
+        save_state_bkpt = test_job.save_state_breakpoint(breakpoint_path)
         node_states = {k: None for k in fds_content}
-        self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
-        self.assertEqual(test_job._id, save_state['job_id'])
-        self.assertEqual(link_path, save_state['model_params_path'])
-        self.assertDictEqual(node_states, save_state['node_state']['collection_state_ids'])
-        self.assertDictEqual(fds_content, save_state['node_state']['node_ids'])
+        self.assertEqual(environ['RESEARCHER_ID'], save_state_bkpt['researcher_id'])
+        self.assertEqual(test_job._id, save_state_bkpt['job_id'])
+        self.assertEqual(link_path, save_state_bkpt['model_params_path'])
+        self.assertDictEqual(node_states, save_state_bkpt['node_state']['collection_state_ids'])
+        self.assertDictEqual(fds_content, save_state_bkpt['node_state']['node_ids'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
             for response_i, _ in enumerate(round):
                 self.assertEqual(
-                    save_state['training_replies'][round_i][response_i]['params_path'],
+                    save_state_bkpt['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
                 
         # TODO: extend test with case when Job got replies form Nodes
@@ -1051,7 +1051,7 @@ class TestJob(ResearcherTestCase):
             with (patch('fedbiomed.researcher.job.Job.update_parameters') as update_param_patch,
                   patch.object( Serializer, 'load') as serializer_patch):
                 serializer_patch = MagicMock(return_value={'model_weights': 1234})
-                job.load_state(states)
+                job.load_state_breakpoint(states)
 
         data = {
             'node-1': [{'dataset_id': 'dataset-id-1',
@@ -1098,7 +1098,7 @@ class TestJob(ResearcherTestCase):
         test_job._update_nodes_states_agent(before_training=True)
         # action! collect Job state in order to retrieve state_ids
 
-        job_state = test_job.save_state("path/to/bkpt")
+        job_state = test_job.save_state_breakpoint("path/to/bkpt")
         self.assertListEqual(list(data.keys()), list(job_state['node_state']['node_ids'].keys()))
         self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
 
@@ -1114,7 +1114,7 @@ class TestJob(ResearcherTestCase):
         test_job._update_nodes_states_agent(before_training=False)
 
         # retrieving NodeAgentState through Job state
-        job_state = test_job.save_state("path/to/bkpt/2")
+        job_state = test_job.save_state_breakpoint("path/to/bkpt/2")
 
         extract_node_id_from_saving = lambda state: [k['node_id'] for k in state[-1]]
         # check that NodeStateAgent have been updated accordingly
