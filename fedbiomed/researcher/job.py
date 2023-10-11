@@ -101,7 +101,8 @@ class Job:
 
         self.last_msg = None
         self._data = data
-        self._node_state_agent = NodeStateAgent(self._data)
+        self._node_state_agent = NodeStateAgent(list(self._data.data().keys())
+                                                if self._data and self._data.data() else [])
 
         # Model is mandatory
         if self._training_plan_class is None:
@@ -750,8 +751,9 @@ class Job:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
 
         """
+        node_ids = list(self._data.data().keys()) if self._data and self._data.data() else []
         if before_training:
-            self._node_state_agent.update_node_states(self._data)
+            self._node_state_agent.update_node_states(node_ids)
         else:
             # extract last node state
             # FIXME: for now we are only considering the case where we need last Round update,
@@ -763,7 +765,7 @@ class Job:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                                                    "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
+            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
 
     def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
