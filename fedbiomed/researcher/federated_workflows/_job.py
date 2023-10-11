@@ -46,7 +46,6 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 training_plan_class: Union[Type[Callable], str] = None,
                  training_args: TrainingArgs = None,
                  data: FederatedDataSet = None,
                  keep_files_dir: str = None):
@@ -74,9 +73,6 @@ class Job:
         self._training_args = training_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
-        self._training_plan_class = training_plan_class
-        self._training_plan = None
-        self._training_plan_name = None
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -99,6 +95,7 @@ class Job:
 
     def create_workflow_instance_from_path(self,
                                            training_plan_path: str = None,
+                                           training_plan_class: Union[Type[Callable], str] = None,
                                           ) -> 'FederatedWorkflow':
         # handle case when model is in a file
         if training_plan_path is not None:
@@ -110,42 +107,41 @@ class Job:
                 sys.path.insert(0, os.path.dirname(training_plan_path))
 
                 module = importlib.import_module(model_module)
-                tr_class = getattr(module, self._training_plan_class)
-                self._training_plan_class = tr_class
+                tr_class = getattr(module, training_plan_class)
+                training_plan_class = tr_class
                 sys.path.pop(0)
 
             except Exception as e:
                 e = sys.exc_info()
-                logger.critical(f"Cannot import class {self._training_plan_class} from "
+                logger.critical(f"Cannot import class {training_plan_class} from "
                                 f"path {training_plan_path} - Error: {str(e)}")
                 sys.exit(-1)
 
         # check class is defined
         try:
-            _ = inspect.isclass(self._training_plan_class)
+            _ = inspect.isclass(training_plan_class)
         except NameError:
-            mess = f"Cannot find training plan for Job, training plan class {self._training_plan_class} is not defined"
+            mess = f"Cannot find training plan for Job, training plan class {training_plan_class} is not defined"
             logger.critical(mess)
             raise NameError(mess)
 
         # create/save TrainingPlan instance
-        if inspect.isclass(self._training_plan_class):
-            self._training_plan = self._training_plan_class()  # contains TrainingPlan
+        if inspect.isclass(training_plan_class):
+            training_plan = training_plan_class()  # contains TrainingPlan
 
         else:
-            self._training_plan = self._training_plan_class
-        self._training_plan.configure_dependencies()
+            training_plan = training_plan_class
+        training_plan.configure_dependencies()
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._training_plan_name = self._training_plan.__class__.__name__
 
-        return self._training_plan
+        return training_plan
 
-    def upload_workflow_code(self) -> None:
+    def upload_workflow_code(self, training_plan: 'FederatedWorkflow') -> None:
 
         try:
-            self._training_plan.save_code(self._training_plan_file)
+            training_plan.save_code(self._training_plan_file)
         except Exception as e:
             logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
             return
@@ -155,9 +151,10 @@ class Job:
 
         self._repository_args['training_plan_url'] = repo_response['file']
 
+        training_plan_name = training_plan.__class__.__name__
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
-        self._repository_args['training_plan_class'] = self._training_plan_name
+        self._repository_args['training_plan_class'] = training_plan_name
 
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
@@ -179,14 +176,6 @@ class Job:
     @property
     def id(self):
         return self._id
-
-    @property
-    def training_plan_name(self):
-        return self._training_plan_name
-
-    @property
-    def training_plan(self):
-        return self._training_plan
 
     @property
     def training_plan_file(self):

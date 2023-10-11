@@ -885,13 +885,13 @@ class Experiment(FederatedWorkflow):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
                           nodes=training_nodes,
-                          training_plan_class=self._training_plan_class,
                           model_args=self._model_args if hasattr(self, '_model_args') else None,
                           training_args=self._training_args,
                           data=self._fds,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path)
-        job.upload_workflow_code()
+        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path,
+                                                                     self._training_plan_class)
+        job.upload_workflow_code(self._training_plan)
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
