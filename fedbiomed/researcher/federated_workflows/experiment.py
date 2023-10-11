@@ -152,6 +152,7 @@ class Experiment(FederatedWorkflow):
         self._client_states_dict = {}
         self._server_state = None
         self._save_breakpoints = None
+        self._training_replies = {}
 
         # set self._model_args and self._training_args to dict
         self.set_model_args(model_args)
@@ -363,12 +364,7 @@ class Experiment(FederatedWorkflow):
                 [Job][fedbiomed.researcher.job] isn't declared or empty dict if there is no training round has been run.
         """
 
-        # at this point `job` is defined but may be None
-        if self._job is None:
-            logger.error('No `job` defined for experiment, cannot get `training_replies`')
-            return None
-        else:
-            return self._job.training_replies
+        return self._training_replies
 
     @exp_exceptions
     def save_breakpoints(self) -> bool:
@@ -893,7 +889,7 @@ class Experiment(FederatedWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        job.start_nodes_training_round(
+        replies, _ = job.start_nodes_training_round(
             round_=self._round_current,
             training_args=self._training_args,
             data=self._fds,
@@ -903,10 +899,11 @@ class Experiment(FederatedWorkflow):
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
         )
+        self._training_replies[self.round_current] = replies
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            job.training_replies[self._round_current], self._round_current)
+            self._training_replies[self._round_current], self._round_current)
 
         self._aggregator.set_fds(self._fds)
 
@@ -928,7 +925,7 @@ class Experiment(FederatedWorkflow):
                                                            weights,
                                                            global_model=self._global_model,
                                                            training_plan=self._training_plan,
-                                                           training_replies=job.training_replies,
+                                                           training_replies=self._training_replies,
                                                            node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
@@ -991,7 +988,8 @@ class Experiment(FederatedWorkflow):
         """
         # Collect auxiliary variables from participating nodes' replies.
         aux_var = self._job.extract_received_optimizer_aux_var_from_round(
-            self._round_current
+            self._round_current,
+            self._training_replies
         )
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:

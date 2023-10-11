@@ -139,7 +139,7 @@ class TrainingJob(Job):
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> None:
+    ) -> Tuple[Responses, dict]:
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -221,8 +221,8 @@ class TrainingJob(Job):
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round_] = Responses([])
-        while self.waiting_for_nodes(self._training_replies[round_]):
+        training_replies = Responses([])
+        while self.waiting_for_nodes(training_replies):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             # models_done = self._reqs.get_responses(look_for_commands=['train'])
@@ -297,10 +297,10 @@ class TrainingJob(Job):
                     'encryption_factor': encryption_factor,
                     'timing': timing,
                 })
-                self._training_replies[round_].append(response)
+                training_replies.append(response)
 
         # return the list of nodes which answered because nodes in error have been removed
-        return self._nodes
+        return training_replies, self._nodes
 
     def upload_agg_optimizer_aux_var(
         self,
@@ -396,6 +396,7 @@ class TrainingJob(Job):
     def extract_received_optimizer_aux_var_from_round(
         self,
         round_id: int,
+        training_replies: dict,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
 
@@ -407,7 +408,7 @@ class TrainingJob(Job):
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        for reply in self.training_replies[round_id]:
+        for reply in training_replies[round_id]:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():

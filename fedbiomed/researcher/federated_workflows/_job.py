@@ -69,7 +69,6 @@ class Job:
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._nodes = nodes
-        self._training_replies = {}  # will contain all node replies for every round
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
@@ -193,9 +192,6 @@ class Job:
         self._nodes = nodes
 
     @property
-    def training_replies(self):
-        return self._training_replies
-
     def check_training_plan_is_approved_by_nodes(self,
                                                  data: FederatedDataSet = None,
                                                  ) -> List:
