@@ -46,7 +46,6 @@ class Job:
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: dict = None,
                  training_plan_class: Union[Type[Callable], str] = None,
                  training_plan_path: str = None,
                  training_args: TrainingArgs = None,
@@ -58,7 +57,6 @@ class Job:
 
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
-            nodes: A dict of node_id containing the nodes used for training
             training_plan_class: instance or class of the TrainingPlan.
             training_plan_path: Path to file containing model class code
             training_args: Contains training parameters; lr, epochs, batch_size.
@@ -70,13 +68,17 @@ class Job:
         Raises:
             NameError: If model is not defined or if the class can not to be inspected
         """
+        # List of node ID of the nodes used in the current round
+        # - initially None (no current round yet)
+        # - then updated during the round with the list of nodes to be used in the round, then the nodes
+        #   that actually replied during the round
+        self._nodes : Optional[List[str]] = None
 
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
-        self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
@@ -412,6 +414,9 @@ class Job:
         msg = {**headers, **self._repository_args}
         time_start = {}
 
+        # update node states when used node list has changed from one round to another
+        self._update_nodes_states_agent()
+
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
@@ -424,7 +429,8 @@ class Job:
             aux_url_shared = None
             aux_url_bynode = {}
 
-        # FIXME: this should be part of a method called from Experiment (behaviour can be defined by user / changed by strategy)
+        # FIXME: should be part of a method called from Experiment
+        # (behaviour can be defined by user / changed by strategy)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
@@ -533,6 +539,9 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
+
+        # update node states with node answers + when used node list has changed during the round
+        self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -727,9 +736,10 @@ class Job:
             logger.error("'Job.update_parameters' failed with error: %s", exc)
             sys.exit(-1)
 
-    def update_nodes_states_agent(self, before_training: bool = True):
-        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest state_id coming
-        from `Nodes` contained among all `Nodes` within [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+    def _update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+        state_id coming from `Nodes` contained among all `Nodes` within
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:

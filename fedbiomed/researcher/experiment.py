@@ -1529,7 +1529,7 @@ class Experiment:
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                  f', in method `run_once` param `increase` : type {type(increase)}'
+                f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1586,9 +1586,6 @@ class Experiment:
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        # update NodeStateAgent in case fds has changed form one round to another
-        self._job.update_nodes_states_agent() 
-
         # Trigger training round on sampled nodes
         self._job.start_nodes_training_round(
             round_=self._round_current,
@@ -1605,8 +1602,6 @@ class Experiment:
 
         self._aggregator.set_fds(self._fds)
 
-        # update NodeStateAgent with the Responses got from Nodes
-        self._job.update_nodes_states_agent(before_training=False) 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(
                 round_=self._round_current,
@@ -1667,7 +1662,7 @@ class Experiment:
 
     def _collect_optim_aux_var(
             self,
-        ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, Dict[str, Any]]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
@@ -1688,7 +1683,6 @@ class Experiment:
         aux_var = self._job.extract_received_optimizer_aux_var_from_round(
             self._round_current
         )
-        print("TEST", aux_var)
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
             self._agg_optimizer.set_aux(aux_var)
@@ -1926,7 +1920,7 @@ class Experiment:
         if self._job is None:
             # cannot check training plan status if job not defined
             msg = ErrorNumbers.FB412.value + \
-                  ', in method `check_training_plan_status` : no `job` defined for experiment'
+                ', in method `check_training_plan_status` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -2004,7 +1998,7 @@ class Experiment:
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # agg state
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             # strategy state

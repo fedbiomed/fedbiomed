@@ -1019,7 +1019,6 @@ class TestJob(ResearcherTestCase):
 
         self.patch_tp_load_from_file.stop()
         j = Job(reqs=MagicMock(),
-                nodes=None,
                 training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
                 training_plan_path=None,
                 training_args={},
@@ -1091,7 +1090,7 @@ class TestJob(ResearcherTestCase):
             data=fds
         )
         # do test while `before_training` = True
-        test_job.update_nodes_states_agent(before_training=True)
+        test_job._update_nodes_states_agent(before_training=True)
         # action! collect Job state in order to retrieve state_ids
 
         job_state = test_job.save_state("path/to/bkpt")
@@ -1106,7 +1105,7 @@ class TestJob(ResearcherTestCase):
         set_training_replies_through_bkpt(test_job, job_state)
 
         # action! 
-        test_job.update_nodes_states_agent(before_training=False)
+        test_job._update_nodes_states_agent(before_training=False)
 
         # retrieving NodeAgentState through Job state
         job_state = test_job.save_state("path/to/bkpt/2")
@@ -1124,7 +1123,7 @@ class TestJob(ResearcherTestCase):
         set_training_replies_through_bkpt(test_job, job_state)
 
         with self.assertRaises(FedbiomedNodeStateAgentError):
-            test_job.update_nodes_states_agent(before_training=False)
+            test_job._update_nodes_states_agent(before_training=False)
 
 
 if __name__ == '__main__':  # pragma: no cover
