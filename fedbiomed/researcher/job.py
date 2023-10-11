@@ -101,7 +101,7 @@ class Job:
 
         self.last_msg = None
         self._data = data
-        self._node_state_agent = NodeStateAgent(self._data or self._nodes)
+        self._node_state_agent = NodeStateAgent(self._data)
 
         # Model is mandatory
         if self._training_plan_class is None:
