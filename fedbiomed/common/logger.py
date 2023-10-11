@@ -105,7 +105,7 @@ class _GrpcHandler(logging.Handler):
         Args:
             record: is automatically passed by the logger class
         """
-        
+
         if hasattr(record, 'broadcast') or hasattr(record, 'researcher_id'):
 
 
@@ -314,8 +314,6 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
-    def delGrpcHandler(self):
-        self._internal_add_handler("GRPC", None)
 
     def log(self, level: Any, msg: str):
         """Overrides the logging.log() method to allow the use of string instead of a logging.* level """

@@ -5,7 +5,8 @@ import tempfile
 import time
 import uuid
 
-import paho.mqtt.client as mqtt
+
+from unittest.mock import MagicMock
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
@@ -258,47 +259,26 @@ class TestLogger(unittest.TestCase):
         self._mqtt_is_connected = False
 
 
-    def test_logger_06_mqtt(self):
+    def test_logger_06_grpc_handler(self):
         '''
         test mqtt handler
         '''
 
-        # try to connect to MQTT
-        self._mqtt_is_connected  = False
-        self._node_id            = "test_logger_node_" + str(uuid.uuid4())
-        self._mqtt               = mqtt.Client(client_id = self._node_id)
-        self._mqtt.on_message    = self.on_message
-        self._mqtt.on_connect    = self.on_connect
-        self._mqtt.on_disconnect = self.on_disconnect
-
-        try:
-            self._mqtt.connect('localhost', 1883)
-        except:
-            # be silent -- no MQTT server
-            pass
-
-        self._mqtt.loop_start()
-        time.sleep(1)
-
-        # only test this if a mqtt server is available
-        if not self._mqtt_is_connected:
-            self.skipTest("no MQTT server - skipping test")
+        grpc = MagicMock()
 
         #
-        logger.addMqttHandler(
-            mqtt      = self._mqtt,
-            node_id   = self._node_id
+        logger.add_grpc_handler(
+            on_log=grpc.send,
+            node_id="dummy-id"
         )
 
-        logger.debug("mqtt+console DEBUG message")
-        logger.error("mqtt+console ERROR message")
+        logger.debug("console DEBUG message", researcher_id="test-id")
+        logger.error("console ERROR message")
 
         #
         logger.setLevel("DEBUG")
-        logger.delMqttHandler()
         logger.critical("verify that logger still works properly")
 
-        self._mqtt.loop_stop()
         pass
 
 
