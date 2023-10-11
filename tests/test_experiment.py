@@ -2125,7 +2125,8 @@ class TestExperiment(ResearcherTestCase):
             aggregated_params = {
                 '1': {'params_path': os.path.join(tempfolder_path, 'params_path_1.mpk')},
             }
-            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999,
+                   'node_state': {'node_ids': ['one'], 'collection_state_ids': {'node1': 'one', 'node2': 'two'}} }
             secagg_state = {
                 'class': "SecureAggregation",
                 'module': 'fedbiomed.researcher.secure_aggregation',
