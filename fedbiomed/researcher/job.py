@@ -46,7 +46,6 @@ class Job:
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: dict = None,
                  training_plan_class: Union[Type[Callable], str] = None,
                  training_plan_path: str = None,
                  training_args: TrainingArgs = None,
@@ -58,7 +57,6 @@ class Job:
 
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
-            nodes: A dict of node_id containing the nodes used for training
             training_plan_class: instance or class of the TrainingPlan.
             training_plan_path: Path to file containing model class code
             training_args: Contains training parameters; lr, epochs, batch_size.
@@ -70,13 +68,17 @@ class Job:
         Raises:
             NameError: If model is not defined or if the class can not to be inspected
         """
+        # List of node ID of the nodes used in the current round
+        # - initially None (no current round yet)
+        # - then updated during the round with the list of nodes to be used in the round, then the nodes
+        #   that actually replied during the round
+        self._nodes : Optional[List[str]] = None
 
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
-        self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params

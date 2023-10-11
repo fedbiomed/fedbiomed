@@ -1019,7 +1019,6 @@ class TestJob(ResearcherTestCase):
 
         self.patch_tp_load_from_file.stop()
         j = Job(reqs=MagicMock(),
-                nodes=None,
                 training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
                 training_plan_path=None,
                 training_args={},

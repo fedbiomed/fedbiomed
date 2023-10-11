@@ -16,7 +16,7 @@ class NodeStateAgent:
     Manages Node States collection, gathered from `Nodes` replies.
     """
     def __init__(self, fds: Optional[Union[FederatedDataSet, Dict[str, str]]] = None) -> None:
-        """Constructors for NodeStateAgent. If `fds` argument has been provided, initializes all state_id of each Node
+        """Constructor for NodeStateAgent. If `fds` argument has been provided, initializes all state_id of each Node
         provided in `fds` argument to None.
 
         Args:

@@ -1688,7 +1688,6 @@ class Experiment:
         aux_var = self._job.extract_received_optimizer_aux_var_from_round(
             self._round_current
         )
-        print("TEST", aux_var)
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
             self._agg_optimizer.set_aux(aux_var)
