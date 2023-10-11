@@ -239,6 +239,7 @@ class Round:
             code=self.training_plan_source, class_name=self.training_plan_class)
         self.training_plan = CurrentTrainingPlan()
 
+
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied

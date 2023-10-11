@@ -62,25 +62,50 @@ class TestRound(NodeTestCase):
 
         cls.node_msg_side_effect = node_msg_side_effect
 
-    @patch('fedbiomed.common.repository.Repository.__init__')
+
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.__init__')
     def setUp(self,
-              tp_security_manager_patch,
-              repository_patch):
+              tp_security_manager_patch):
+        
         tp_security_manager_patch.return_value = None
-        repository_patch.return_value = None
 
         # instantiate logger (we will see if exceptions are logged)
         # we are setting the logger level to "ERROR" to output
         # logs messages
+        history_monitor = MagicMock()
+
+        self.atexit_patcher = patch('fedbiomed.node.round.atexit')
+        self.atexit_mock = self.atexit_patcher.start() 
+
+        self.ic_from_spec_patch = patch("fedbiomed.node.round.utils.import_class_from_spec")
+        self.ic_from_file_patch = patch("fedbiomed.node.round.utils.import_class_object_from_file")
+
+        self.ic_from_spec_mock = self.ic_from_spec_patch.start()
+        self.ic_from_file_mock = self.ic_from_file_patch.start()
+        
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+            another_training_plan = FakeModel
+
+        self.ic_from_spec_mock.return_value = (FakeModule, FakeModule.MyTrainingPlan)
+        self.ic_from_file_mock.return_value = (FakeModule, FakeModule.MyTrainingPlan())
+
         logger.setLevel("ERROR")
         # instanciate Round class
-        self.r1 = Round(training_plan_url='http://somewhere/where/my/model?is_stored=True',
+        self.r1 = Round(training_plan='TP',
                         training_plan_class='MyTrainingPlan',
-                        params_url='https://url/to/model/params?ok=True',
+                        params={"x": 0},
                         training_kwargs={},
-                        training=True
-                        )
+                        model_kwargs={},
+                        researcher_id="researcher-id",
+                        history_monitor=history_monitor,
+                        dataset={"path": 'ssss'},
+                        job_id="job_id",
+                        training=True,
+                        node_args={},
+                        aggregator_args={})
+        
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
         self.r1.dataset = params
@@ -89,31 +114,33 @@ class TestRound(NodeTestCase):
         dummy_monitor = MagicMock()
         self.r1.history_monitor = dummy_monitor
 
-        self.r2 = Round(training_plan_url='http://a/b/c/model',
+        self.r2 = Round(training_plan='TP',
                         training_plan_class='another_training_plan',
-                        params_url='https://to/my/model/params',
+                        params={"x": 0},
                         training_kwargs={},
-                        training=True
-                        )
+                        model_kwargs={},
+                        researcher_id="researcher-id",
+                        history_monitor=history_monitor,
+                        dataset={"path": 'ssss'},
+                        job_id="job_id",
+                        training=True,
+                        node_args={},
+                        aggregator_args={})
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
+    def tearDown(self):
+        self.atexit_patcher.stop() 
+        self.ic_from_file_patch.stop()
+        self.ic_from_spec_patch.stop()
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.serializer.Serializer.load')
-    @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_01_run_model_training_normal_case(self,
                                                      uuid_patch,
-                                                     repository_download_patch,
                                                      tp_security_manager_patch,
-                                                     import_module_patch,
-                                                     serialize_load_patch,
-                                                     repository_upload_patch,
                                                      node_msg_patch,
                                                      mock_split_test_train_data,
                                                      ):
@@ -126,21 +153,12 @@ class TestRound(NodeTestCase):
 
         FakeModel.SLEEPING_TIME = 1
 
-        # initalisation of side effect function
-
-        def repository_side_effect(training_plan_url: str, model_name: str):
-            return 200, 'my_python_model'
-
-        class FakeModule:
-            MyTrainingPlan = FakeModel
-            another_training_plan = FakeModel
-
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.side_effect = repository_side_effect
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        import_module_patch.return_value = FakeModule
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
+
+
+
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
 
@@ -149,36 +167,23 @@ class TestRound(NodeTestCase):
         msg_test1 = self.r1.run_model_training()
 
         # check results
-        self.assertTrue(msg_test1.get('success', False))
-        serialize_load_patch.assert_called_once()
-        self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
-        self.assertEqual(msg_test1.get('command', False), 'train')
+        self.assertTrue(msg_test1.get_dict().get('success', False))
+        self.assertEqual(msg_test1.get_dict().get('params', False), {"coefs": [1, 2, 3, 4]})
+        self.assertEqual(msg_test1.get_dict().get('command', False), 'train')
 
-        # This test is not relevant since it just tests SLEEPING_TIME added in FakeModel
-        # and it fails in macosx-m1
-        # timing test - does not always work with self.assertAlmostEqual
-        # self.assertGreaterEqual(
-        #     msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
-        #     FakeModel.SLEEPING_TIME
-        # )
-        # self.assertLess(
-        #     msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
-        #     FakeModel.SLEEPING_TIME * 1.1
-        # )
 
         # test 2: redo test 1 but with the case where `model_kwargs` != None
         FakeModel.SLEEPING_TIME = 0
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
-        serialize_load_patch.reset_mock()
+
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
-        self.assertTrue(msg_test2.get('success', False))
-        serialize_load_patch.assert_called_once()
-        self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
-        self.assertEqual('train', msg_test2.get('command', False))
+        self.assertTrue(msg_test2.get_dict().get('success', False))
+        self.assertEqual({"coefs": [1, 2, 3, 4]}, msg_test2.get_dict().get('params', False))
+        self.assertEqual('train', msg_test2.get_dict().get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
