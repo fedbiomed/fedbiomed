@@ -796,7 +796,7 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         # always returns a `Responses()` object
-        responses = self._job.check_training_plan_is_approved_by_nodes()
+        responses = self._job.check_training_plan_is_approved_by_nodes(self._fds)
 
         return responses
 

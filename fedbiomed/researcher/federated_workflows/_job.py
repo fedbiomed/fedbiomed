@@ -46,7 +46,6 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 data: FederatedDataSet = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
@@ -86,7 +85,6 @@ class Job:
             self._reqs = reqs
 
         self.last_msg = None
-        self._data = data
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
         self._training_plan_module = 'my_model_' + str(uuid.uuid4())
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
@@ -195,7 +193,9 @@ class Job:
     def training_replies(self):
         return self._training_replies
 
-    def check_training_plan_is_approved_by_nodes(self) -> List:
+    def check_training_plan_is_approved_by_nodes(self,
+                                                 data: FederatedDataSet = None,
+                                                 ) -> List:
 
         """ Checks whether model is approved or not.
 
@@ -213,7 +213,7 @@ class Job:
 
         responses = Responses([])
         replied_nodes = []
-        node_ids = self._data.node_ids()
+        node_ids = data.node_ids()
 
         # Send message to each node that has been found after dataset search request
         for cli in node_ids:
