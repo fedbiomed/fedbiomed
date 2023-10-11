@@ -66,9 +66,10 @@ class TrainingJob(Job):
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._aggregator_args = None
 
-    def instantiate_and_upload_workflow_parameters(self,
+    def create_fully_parametrized_workflow_instance(self,
                                                     training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-                                                    training_args: TrainingArgs):
+                                                    training_args: TrainingArgs) \
+            -> 'fedbiomed.researcher.federated_workflows.FederatedWorkflow':
         training_plan_name = training_plan.__class__.__name__
         training_plan = training_plan.load_training_plan_from_file(
             self._keep_files_dir,
@@ -78,16 +79,7 @@ class TrainingJob(Job):
         training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
                                 training_args=training_args)
 
-        # Save model parameters to a local file and upload it to the remote repository.
-        # The filename and remote url are assigned to attributes through this call.
-        try:
-            self.update_parameters(training_plan)
-        except SystemExit:
-            return
-
-        # Validate fields in each argument
-        self.validate_minimal_arguments(self._repository_args,
-                                        ['training_plan_url', 'training_plan_class', 'params_url'])
+        return training_plan
 
     @property
     def aggregator_args(self):

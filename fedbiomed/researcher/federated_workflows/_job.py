@@ -86,10 +86,10 @@ class Job:
         self._training_plan_module = 'my_model_' + str(uuid.uuid4())
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
-    def create_workflow_instance_from_path(self,
-                                           training_plan_path: str,
-                                           training_plan_class: Union[Type[Callable], str],
-                                          ) -> 'FederatedWorkflow':
+    def create_skeleton_workflow_instance_from_path(self,
+                                                    training_plan_path: str,
+                                                    training_plan_class: Union[Type[Callable], str],
+                                                    ) -> 'FederatedWorkflow':
 
         # handle case when model is in a file
         if training_plan_path is not None:

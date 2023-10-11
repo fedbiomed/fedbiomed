@@ -141,7 +141,6 @@ class Experiment(FederatedWorkflow):
         )
         self._node_selection_strategy = None
         self._round_limit = None
-        self._training_plan_path = None
         self._monitor = None
         self._aggregator = None
         self._global_model = None
@@ -176,6 +175,18 @@ class Experiment(FederatedWorkflow):
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
+
+        self._raise_for_missing_job_prerequities()
+        job = TrainingJob(reqs=self._reqs,
+                          nodes=nodes,
+                          model_args=self._model_args if hasattr(self, '_model_args') else None,
+                          keep_files_dir=self.experimentation_path())
+        self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
+                                                                              self._training_plan_class)
+        job.upload_workflow_code(self._training_plan)
+        self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
+                                                                              self._training_args)
+        self._global_model = self._training_plan.after_training_params()
 
     # destructor
     @exp_exceptions
@@ -837,14 +848,12 @@ class Experiment(FederatedWorkflow):
                           nodes=training_nodes,
                           model_args=self._model_args if hasattr(self, '_model_args') else None,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path,
-                                                                     self._training_plan_class)
+        self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
+                                                                              self._training_plan_class)
         self._training_plan_file = job.upload_workflow_code(self._training_plan)
-
-        # Ready to execute a training round using the job, strategy and aggregator
-        if self._global_model is None:
-            self._global_model = self._training_plan.after_training_params()
-            # initial server state, before optimization/aggregation
+        self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
+                                                                              self._training_args)
+        job.update_parameters(self._training_plan, self._global_model)  # TODO catch errors if new training plan is no longer consistent with global_model, and provide public function to reinitialize
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
 
@@ -911,7 +920,7 @@ class Experiment(FederatedWorkflow):
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
-        aggregated_params_path, _ = job.update_parameters(aggregated_params)
+        aggregated_params_path, _ = job.update_parameters(self._training_plan, aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 
