@@ -46,7 +46,6 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 training_args: TrainingArgs = None,
                  data: FederatedDataSet = None,
                  keep_files_dir: str = None):
 
@@ -70,7 +69,6 @@ class Job:
         self._id = str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
-        self._training_args = training_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
 
@@ -196,14 +194,6 @@ class Job:
     @property
     def training_replies(self):
         return self._training_replies
-
-    @property
-    def training_args(self):
-        return self._training_args.dict()
-
-    @training_args.setter
-    def training_args(self, training_args: TrainingArgs):
-        self._training_args = training_args
 
     def check_training_plan_is_approved_by_nodes(self) -> List:
 
