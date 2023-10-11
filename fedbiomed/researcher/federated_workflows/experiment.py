@@ -914,8 +914,9 @@ class Experiment(FederatedWorkflow):
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var()
-        aggregated_params = self._run_agg_optimizer(aggregated_params)
+        self._process_optim_aux_var(job)
+        aggregated_params = self._run_agg_optimizer(self._training_plan,
+                                                    aggregated_params)
 
         # Export aggregated parameters to a local file and upload it.
         # Also assign the new values to the job's training plan's model.
@@ -960,6 +961,7 @@ class Experiment(FederatedWorkflow):
 
     def _process_optim_aux_var(
         self,
+        job: TrainingJob
     ) -> None:
         """Process Optimizer auxiliary variables received during last round.
 
@@ -970,7 +972,7 @@ class Experiment(FederatedWorkflow):
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
         # Collect auxiliary variables from participating nodes' replies.
-        aux_var = self._job.extract_received_optimizer_aux_var_from_round(
+        aux_var = job.extract_received_optimizer_aux_var_from_round(
             self._round_current,
             self._training_replies
         )
@@ -988,6 +990,7 @@ class Experiment(FederatedWorkflow):
 
     def _run_agg_optimizer(
         self,
+        training_plan,
         aggregated_params: Dict[str, T],
     ) -> Dict[str, T]:
         """Optionally refine aggregated parameters into model updates.
@@ -1013,7 +1016,7 @@ class Experiment(FederatedWorkflow):
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
         names = set(
-            self._job.training_plan.get_model_params(only_trainable=True)
+            training_plan.get_model_params(only_trainable=True)
         )
         init_params = Vector.build(
             {k: v for k, v in self._global_model.items() if k in names}
