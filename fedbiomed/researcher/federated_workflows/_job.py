@@ -90,9 +90,10 @@ class Job:
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
     def create_workflow_instance_from_path(self,
-                                           training_plan_path: str = None,
-                                           training_plan_class: Union[Type[Callable], str] = None,
+                                           training_plan_path: str,
+                                           training_plan_class: Union[Type[Callable], str],
                                           ) -> 'FederatedWorkflow':
+
         # handle case when model is in a file
         if training_plan_path is not None:
             try:
@@ -134,7 +135,9 @@ class Job:
 
         return training_plan
 
-    def upload_workflow_code(self, training_plan: 'FederatedWorkflow') -> None:
+    def upload_workflow_code(self,
+                             training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
+                             ) -> None:
 
         try:
             training_plan.save_code(self._training_plan_file)

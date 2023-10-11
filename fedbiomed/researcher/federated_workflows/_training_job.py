@@ -36,11 +36,7 @@ class TrainingJob(Job):
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 training_plan_class: Union[Type[Callable], str] = None,
-                 training_plan_path: str = None,
-                 training_args: TrainingArgs = None,
                  model_args: dict = None,
-                 data: FederatedDataSet = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
@@ -63,10 +59,6 @@ class TrainingJob(Job):
         super().__init__(
             reqs,
             nodes,
-            training_plan_class,
-            training_plan_path,
-            training_args,
-            data,
             keep_files_dir
         )
         self._model_args = model_args
@@ -74,24 +66,22 @@ class TrainingJob(Job):
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._aggregator_args = None
 
-        # Model is mandatory
-        if self._training_plan_class is None:
-            mess = "Missing training plan class name or instance in Job arguments"
-            logger.critical(mess)
-            raise NameError(mess)
-
-        self._training_plan = self.training_plan.load_training_plan_from_file(
+    def instantiate_and_upload_workflow_parameters(self,
+                                                   training_plan: 'FederatedWorkflow',
+                                                   training_args: TrainingArgs):
+        training_plan_name = training_plan.__class__.__name__
+        training_plan = training_plan.load_training_plan_from_file(
             self._keep_files_dir,
             self._training_plan_module,
-            self._training_plan_name)
+            training_plan_name)
 
-        self._training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
-                                      training_args=self._training_args)
+        training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+                                training_args=training_args)
 
         # Save model parameters to a local file and upload it to the remote repository.
         # The filename and remote url are assigned to attributes through this call.
         try:
-            self.update_parameters()
+            self.update_parameters(training_plan)
         except SystemExit:
             return
 
@@ -142,6 +132,8 @@ class TrainingJob(Job):
     def start_nodes_training_round(
         self,
         round_: int,
+        training_args: TrainingArgs,
+        data: FederatedDataSet,
         aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
         aggregator_args_thr_files: Dict[str, Dict[str, Any]],
         secagg_arguments: Union[Dict, None] = None,
@@ -174,7 +166,7 @@ class TrainingJob(Job):
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'training_args': self._training_args.dict(),
+            'training_args': training_args.dict(),
             'training': do_training,
             'model_args': self._model_args,
             'round': round_,
@@ -203,7 +195,7 @@ class TrainingJob(Job):
             aux_url_bynode = {}
 
         for cli in self._nodes:
-            msg['dataset_id'] = self._data.data()[cli]['dataset_id']
+            msg['dataset_id'] = data.data()[cli]['dataset_id']
             cli_aux_urls = (aux_url_shared, aux_url_bynode.get(cli, None))
             msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
 
@@ -424,6 +416,7 @@ class TrainingJob(Job):
 
     def update_parameters(
         self,
+        training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
         params: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None,
     ) -> Tuple[str, str]:
@@ -472,15 +465,15 @@ class TrainingJob(Job):
             # Case when uploading a pre-existing file: load the parameters.
             if filename:
                 params = Serializer.load(filename)["model_weights"]
-                self._training_plan.set_model_params(params)
+                training_plan.set_model_params(params)
             # Case when exporting current parameters: create a local dump file.
             else:
                 # Case when uploading the current parameters: gather them.
                 if params is None:
-                    params = self._training_plan.get_model_params()
+                    params = training_plan.get_model_params()
                 # Case when uploading a new set of parameters: assign them.
                 else:
-                    self._training_plan.set_model_params(params)
+                    training_plan.set_model_params(params)
                 # At any rate, create a local dump file.
                 filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
                 params_dump = {

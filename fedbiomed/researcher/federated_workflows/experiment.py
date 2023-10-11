@@ -862,19 +862,28 @@ class Experiment(FederatedWorkflow):
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
+        self._raise_for_missing_job_prerequities()
+        job = TrainingJob(reqs=self._reqs,
+                          nodes=training_nodes,
+                          model_args=self._model_args if hasattr(self, '_model_args') else None,
+                          keep_files_dir=self.experimentation_path())
+        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path,
+                                                                     self._training_plan_class)
+        job.upload_workflow_code(self._training_plan)
+
         # Ready to execute a training round using the job, strategy and aggregator
         if self._global_model is None:
-            self._global_model = self._job.training_plan.after_training_params()
+            self._global_model = self._training_plan.after_training_params()
             # initial server state, before optimization/aggregation
 
-        self._aggregator.set_training_plan_type(self._job.training_plan.type())
+        self._aggregator.set_training_plan_type(self._training_plan.type())
 
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup()
 
         # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
-                                      training_plan=self._job.training_plan)
+                                      training_plan=self._training_plan)
 
         aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                         training_nodes)
@@ -882,20 +891,12 @@ class Experiment(FederatedWorkflow):
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        self._raise_for_missing_job_prerequities()
-        job = TrainingJob(reqs=self._reqs,
-                          nodes=training_nodes,
-                          model_args=self._model_args if hasattr(self, '_model_args') else None,
-                          data=self._fds,
-                          keep_files_dir=self.experimentation_path())
-        self._training_plan = job.create_workflow_instance_from_path(self._training_plan_path,
-                                                                     self._training_plan_class)
-        job.upload_workflow_code(self._training_plan)
-
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
         job.start_nodes_training_round(
             round_=self._round_current,
+            training_args=self._training_args,
+            data=self._fds,
             aggregator_args_thr_msg=aggr_args_thr_msg,
             aggregator_args_thr_files=aggr_args_thr_file,
             do_training=True,
@@ -918,7 +919,7 @@ class Experiment(FederatedWorkflow):
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                job.training_plan._model.unflatten(flatten_params)
+                self._training_plan._model.unflatten(flatten_params)
             )
 
         else:
@@ -926,7 +927,7 @@ class Experiment(FederatedWorkflow):
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
                                                            global_model=self._global_model,
-                                                           training_plan=job.training_plan,
+                                                           training_plan=self._training_plan,
                                                            training_replies=job.training_replies,
                                                            node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
@@ -961,6 +962,8 @@ class Experiment(FederatedWorkflow):
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                             training_nodes)
             job.start_nodes_training_round(round_=self._round_current,
+                                           training_args=self._training_args,
+                                           data=self._fds,
                                            aggregator_args_thr_msg=aggr_args_thr_msg,
                                            aggregator_args_thr_files=aggr_args_thr_file,
                                            do_training=False)
