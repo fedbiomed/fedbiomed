@@ -8,8 +8,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan
 from fedbiomed.common.data import DataManager
+
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
 class FakeModel(BaseTrainingPlan):
@@ -100,7 +101,7 @@ class FakeModel(BaseTrainingPlan):
             results of the training. Unused in this method.
         """
 
-    def save_code(self, path: str):
+    def save_code(self, path: str, from_code: str = False):
         """
         Fakes `save_code` method of TrainingPlan classes, originally used for
         saving codes of model calss. Passed argument are unused.
@@ -129,6 +130,20 @@ class FakeModel(BaseTrainingPlan):
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
+
+
+class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
+
+
+    def init_model(self):
+        pass 
+
+    def training_data(self):
+        pass 
+
+    def training_step(self):
+        pass
+
 
 
 class DeclearnAuxVarModel(FakeModel):

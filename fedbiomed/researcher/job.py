@@ -70,12 +70,12 @@ class Job:
         """
         # Check arguments
         if not inspect.isclass(training_plan_class):
-            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
-            logger.critical(msg)
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             raise FedbiomedJobError(msg)
+        
         if not issubclass(training_plan_class, training_plans_types):
-            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
-            logger.critical(msg)
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
+                  " supported training plans {training_plan_class}"
             raise FedbiomedJobError(msg)
 
         self._id = str(uuid.uuid4())  # creating a unique job id
@@ -639,13 +639,13 @@ class localJob:
         """
         # Check arguments
         if not inspect.isclass(training_plan_class):
-            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
+            raise FedbiomedJobError(
+                f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {type(training_plan_class)}"
+            )
         if not issubclass(training_plan_class, training_plans_types):
-            msg = f"{ErrorNumbers.FB418}: bad type for argument `training_plan_class` {training_plan_class}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
+            raise FedbiomedJobError(
+                f"{ErrorNumbers.FB418}: bad type for argument " 
+                "`training_plan_class` {training_plan_class} is not subclass of training plans")
 
         # Initialize values
         self._training_args = training_args
