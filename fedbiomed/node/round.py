@@ -669,7 +669,6 @@ class Round:
         optimizer = self._get_base_optimizer()
 
         optimizer_state = optimizer.save_state()
-        logger.debug(f"optimizer info before saving {optimizer_state}, {type(optimizer)}")
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
@@ -678,7 +677,7 @@ class Round:
                 NodeStateFileName.OPTIMIZER  
             )
             Serializer.dump(optimizer_state, path=optim_path)
-            logger.debug(f"saving optim state {optimizer_state}")
+            logger.debug(f"Saving optim state")
 
             optimizer_state_entry: Dict = {
                 'optimizer_type': str(optimizer.__class__),

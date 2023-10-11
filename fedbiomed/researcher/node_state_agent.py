@@ -37,9 +37,10 @@ class NodeStateAgent:
         return self._collection_state_ids
 
     def update_node_states(self, node_ids: List[str], resp: Optional[Responses] = None):
-        """Updates the state_id collection with respect to current FederatedDataset and latest Nodes Responses.
+        """Updates the state_id collection with respect to current nodes and latest Nodes Responses.
+
         Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that 
-        does not belong to the current Round anymore.
+        do not belong to the current Round anymore.
 
         Args:
             node_ids: all possible nodes that can participate to the training.
