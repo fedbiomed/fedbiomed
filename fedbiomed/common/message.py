@@ -431,30 +431,6 @@ class ListReply(Message, RequiresProtocolVersion):
     command: str
 
 
-# Log message
-
-@catch_dataclass_exception
-@dataclass
-class LogMessage(Message, RequiresProtocolVersion):
-    """Describes a log message sent by the node.
-
-    Attributes:
-        researcher_id: ID of the researcher that will receive the log message
-        node_id: ID of the node that sends log message
-        level: Log level
-        msg: Log message
-        command: Reply command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    node_id: str
-    level: str
-    msg: str
-    command: str
-
-
 # TrainingPlanStatus messages
 
 @catch_dataclass_exception
@@ -740,7 +716,7 @@ class TrainRequest(Message, RequiresProtocolVersion):
     command: str
     round: int
     aggregator_args: Dict
-    aux_vars: list
+    aux_vars: Optional[list] = None
     secagg_servkey_id: Optional[str] = None
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
@@ -863,7 +839,6 @@ class ResearcherMessages(MessageFactory):
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                           'search': SearchReply,
                                           'pong': PingReply,
-                                          'log': LogMessage,
                                           'error': ErrorMessage,
                                           'list': ListReply,
                                           'add_scalar': Scalar,
@@ -902,7 +877,6 @@ class NodeMessages(MessageFactory):
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                           'search': SearchReply,
                                           'pong': PingReply,
-                                          'log': LogMessage,
                                           'error': ErrorMessage,
                                           'add_scalar': Scalar,
                                           'list': ListReply,

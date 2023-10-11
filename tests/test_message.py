@@ -35,7 +35,7 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             message.TrainReply,
             message.Scalar,
-            message.LogMessage,
+            message.Log,
             message.ErrorMessage,
             message.ApprovalReply,
             message.SearchRequest,
@@ -188,20 +188,17 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
             node_id='toto')
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
             command="toto")
 
         # too much arguments
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
             researcher_id='toto',
             success=True,
             databases=[1, 2, 3],
@@ -264,7 +261,6 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             expected_result=False,
             protocol_version='99.99',
-
             researcher_id='toto',
             success=True,
             databases="not a list",
@@ -276,7 +272,6 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             expected_result=False,
             protocol_version='99.99',
-
             researcher_id='toto',
             success="not_a_boolean",
             databases=[],
@@ -415,7 +410,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             sample_size=123,
             msg='message_in_a_bottle',
@@ -456,13 +451,13 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             expected_result=False,
 
-            params_url='string_param')
+            params={"x": 0})
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
 
-            params_url='string_param')
+            params={"x": 0})
 
         self.check_class_args(
             message.TrainReply,
@@ -491,7 +486,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             sample_size=None,
@@ -509,7 +504,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command='do_it')
@@ -524,7 +519,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command='do_it')
@@ -539,7 +534,7 @@ class TestMessage(unittest.TestCase):
             success='not_a_bool',
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command='do_it')
@@ -554,7 +549,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id=True,
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command='do_it')
@@ -569,7 +564,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id=True,
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command='do_it')
@@ -599,7 +594,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing="not_a_dict",
             msg='message_in_a_bottle',
             command='do_it')
@@ -614,7 +609,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg=True,
             command='do_it')
@@ -629,7 +624,7 @@ class TestMessage(unittest.TestCase):
             success=True,
             node_id='titi',
             dataset_id='my_data',
-            params_url='string_param',
+            params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             command=True)
@@ -781,8 +776,6 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.Scalar,
             expected_result=True,
-            protocol_version='99.99',
-            researcher_id='toto',
             node_id='titi',
             job_id='tutu',
             train=True,
@@ -795,32 +788,28 @@ class TestMessage(unittest.TestCase):
             total_samples=12,
             batch_samples=12,
             num_batches=12,
-            num_samples_trained=12,
-            command='do_it')
+            num_samples_trained=12)
 
         # bad param number
         self.check_class_args(
             message.Scalar,
             expected_result=False,
-            researcher_id='toto')
+            num_samples_trained=12)
 
         self.check_class_args(
             message.Scalar,
             expected_result=False,
-            researcher_id='toto',
             node_id='titi',
             job_id='tutu',
             iteration=666,
-            command='do_it',
             extra_arg='???')
 
         # bad param type
         self.check_class_args(
             message.Scalar,
             expected_result=False,
-            protocol_version='99.99',
-            researcher_id=False,
-            node_id='titi',
+
+            node_id=12,
             job_id='tutu',
             train=True,
             test=True,
@@ -831,65 +820,7 @@ class TestMessage(unittest.TestCase):
             epoch=12,
             total_samples=12,
             batch_samples=12,
-            num_batches=12,
-            command='add_scalar')
-
-        self.check_class_args(
-            message.Scalar,
-            expected_result=False,
-            protocol_version='99.99',
-            researcher_id=False,
-            node_id='titi',
-            job_id='tutu',
-            train=True,
-            test=True,
-            test_on_local_updates=True,
-            test_on_global_updates=True,
-            metric='pp',  # False
-            iteration=666,
-            epoch=12,
-            total_samples=12,
-            batch_samples=12,
-            num_batches=12,
-            command='add_scalar')
-
-        self.check_class_args(
-            message.Scalar,
-            expected_result=False,
-            protocol_version='99.99',
-            researcher_id=False,
-            node_id='titi',
-            job_id='tutu',
-            train=True,
-            test=True,
-            test_on_local_updates=True,
-            test_on_global_updates=True,
-            metric={'x' : 12},
-            iteration='666',
-            epoch='12',
-            total_samples='12',  # False
-            batch_samples='12',  # False
-            num_batches='12',  # False
-            command='add_scalar')
-
-        self.check_class_args(
-            message.Scalar,
-            expected_result=False,
-            protocol_version='99.99',
-            researcher_id=False,
-            node_id='titi',
-            job_id='tutu',
-            train='True',  # False
-            test='True',  # False
-            test_on_local_updates="True",  # False
-            test_on_global_updates='True',  # False
-            metric={'x' : 12},
-            iteration=666,
-            epoch=12,
-            total_samples=12,
-            batch_samples=12,
-            num_batches=12,
-            command='add_scalar')
+            num_batches=12,)
 
         pass
 
@@ -907,7 +838,7 @@ class TestMessage(unittest.TestCase):
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.APPROVED.value,
             msg='sdrt',
-            training_plan_url='url',
+            training_plan='TP',
             command='do_it')
 
         self.check_class_args(
@@ -922,7 +853,7 @@ class TestMessage(unittest.TestCase):
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.REJECTED.value,
             msg='sdrt',
-            training_plan_url='url',
+            training_plan='TP',
             command='do_it')
 
         self.check_class_args(
@@ -937,7 +868,7 @@ class TestMessage(unittest.TestCase):
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.PENDING.value,
             msg='sdrt',
-            training_plan_url='url',
+            training_plan='TP',
             command='do_it')
 
         self.check_class_args(
@@ -952,7 +883,7 @@ class TestMessage(unittest.TestCase):
             approval_obligation=True,
             status=True,
             msg='sdrt',
-            training_plan_url='url',
+            training_plan='TP',
             command='do_it')
 
         self.check_class_args(
@@ -967,7 +898,7 @@ class TestMessage(unittest.TestCase):
             approval_obligation='True',
             status='None',
             msg='sdrt',
-            training_plan_url='url',
+            training_plan='TP',
             command='do_it')
 
         self.check_class_args(
@@ -998,131 +929,81 @@ class TestMessage(unittest.TestCase):
             status=TrainingPlanApprovalStatus.REJECTED.value,
             msg='sdrt')
 
-        self.check_class_args(
-            message.TrainingPlanStatusReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            success='not a bool',
-            approval_obligation=True,
-            status=TrainingPlanApprovalStatus.APPROVED.value,
-            msg='sdrt')
 
     def test_message_08_log(self):
 
         # well formatted message
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=True,
-            protocol_version='99.99',
 
-            researcher_id='toto',
             node_id='titi',
             level='INFO',
             msg='this is an error message',
-            command='log'
         )
 
         # bad param number
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
 
             researcher_id='toto')
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
 
             node_id='titi')
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
 
             level='INFO')
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
 
             msg='this is an error message')
 
-        self.check_class_args(
-            message.LogMessage,
-            expected_result=False,
 
-            command='log')
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
 
-            researcher_id='toto',
             node_id='titi',
             level='INFO',
             msg='this is an error message',
-            command='log',
             extra_arg='???')
 
-        # bad param type
-        self.check_class_args(
-            message.LogMessage,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id=False,
-            node_id='titi',
-            level='INFO',
-            msg='this is an error message',
-            command='log'
-        )
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
-            protocol_version='99.99',
 
-            researcher_id='toto',
             node_id=False,
             level='INFO',
             msg='this is an error message',
-            command='log'
         )
 
-        self.check_class_args(
-            message.LogMessage,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            level=False,
-            msg='this is an error message',
-            command='log'
-        )
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
-            protocol_version='99.99',
 
-            researcher_id='toto',
             node_id='titi',
             level='INFO',
-            msg=[1, 2],
-            command='log')
+            msg=[1, 2],)
 
         self.check_class_args(
-            message.LogMessage,
+            message.Log,
             expected_result=False,
-            protocol_version='99.99',
 
-            researcher_id='toto',
             node_id='titi',
             level='INFO',
-            msg=[1, 2],
-            command=False)
+            msg=[1, 2],)
 
         pass
 
@@ -1136,7 +1017,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            errnum=ErrorNumbers.FB100,
+            errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
             command='log'
         )
@@ -1158,7 +1039,7 @@ class TestMessage(unittest.TestCase):
             message.ErrorMessage,
             expected_result=False,
 
-            errnum=ErrorNumbers.FB100)
+            errnum=ErrorNumbers.FB100.value)
 
         self.check_class_args(
             message.ErrorMessage,
@@ -1178,7 +1059,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            errnum=ErrorNumbers.FB100,
+            errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
             command='log',
             extra_arg='???')
@@ -1191,7 +1072,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=False,
             node_id='titi',
-            errnum=ErrorNumbers.FB100,
+            errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
             command='log'
         )
@@ -1203,7 +1084,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id=False,
-            errnum=ErrorNumbers.FB100,
+            errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
             command='log'
         )
@@ -1220,27 +1101,6 @@ class TestMessage(unittest.TestCase):
             command='log'
         )
 
-        self.check_class_args(
-            message.ErrorMessage,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            errnum=ErrorNumbers.FB100,
-            extra_msg=[1, 2],
-            command='log')
-
-        self.check_class_args(
-            message.ErrorMessage,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            errnum=ErrorNumbers.FB100,
-            extra_msg=[1, 2],
-            command=False)
 
         pass
 
@@ -1385,12 +1245,12 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=True,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="tp",
             training_plan_class='my_model',
             secagg_servkey_id=None,
             secagg_biprime_id=None,
@@ -1399,7 +1259,7 @@ class TestMessage(unittest.TestCase):
             round=1,
             command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'},
-            aux_var_urls=None,
+            aux_vars=None,
         )
 
         # bad param number
@@ -1419,7 +1279,7 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            params_url='this_is_an_url')
+            params= {"x": 0})
 
         self.check_class_args(
             message.TrainRequest,
@@ -1443,7 +1303,7 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            training_plan_url="http://dev.null")
+            training_plan="xxxx")
 
         self.check_class_args(
             message.TrainRequest,
@@ -1468,12 +1328,12 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class='my_model',
             command='do_it',
             extra_arg='???')
@@ -1486,31 +1346,16 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=False,
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class='my_model',
             command='do_it')
 
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-            protocol_version='99.99',
 
-            researcher_id='toto',
-            job_id=False,
-            params_url='this_is_an_url',
-            training_args={"a": 1, "b": 2},
-            dataset_id="MNIS",
-            training=False,
-            secagg_random=None,
-            model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
-            training_plan_class='my_model',
-            command='do_it')
 
         self.check_class_args(
             message.TrainRequest,
@@ -1536,12 +1381,12 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"foo": "not_a_str"},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class='my_model',
             command='do_it')
 
@@ -1552,16 +1397,17 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id={"foo": "not_a_str"},
             training=False,
             secagg_random=None,
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class='my_model',
             command='do_it')
+
 
         self.check_class_args(
             message.TrainRequest,
@@ -1570,30 +1416,12 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
-            training_args={"a": 1, "b": 2},
-            dataset_id="MNIS",
-            training="not a bool",
-            model_args={"c": 3, "d": 4},
-            secagg_random=None,
-            secagg_clipping_range=None,
-            training_plan_url="http://dev.null",
-            training_plan_class='my_model',
-            command='do_it')
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args="not_a_dict",
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class='my_model',
             command='do_it')
 
@@ -1604,13 +1432,13 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
-            training_plan_url=False,
+            training_plan=False,
             training_plan_class='my_model',
             command='do_it')
 
@@ -1621,13 +1449,13 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class=False,
             command='do_it')
 
@@ -1638,13 +1466,13 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
-            params_url='this_is_an_url',
+            params= {"x": 0},
             training_args={"a": 1, "b": 2},
             training_data="MNIS",
             training=False,
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
-            training_plan_url="http://dev.null",
+            training_plan="TP",
             training_plan_class="my_model",
             command=False)
 
@@ -1707,7 +1535,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='sdsd',
-            training_plan_url='do_it',
+            training_plan='TP',
             command='command-dummy')
 
         self.check_class_args(
@@ -1761,7 +1589,7 @@ class TestMessage(unittest.TestCase):
             "success": True,
             "node_id": 'titi',
             "dataset_id": 'my_data',
-            "params_url": 'string_param',
+            "params": {'x': 0},
             "timing": {"t0": 0.0, "t1": 1.0},
             "msg": 'message_in_a_bottle',
             "sample_size": 100,
@@ -1778,7 +1606,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
-            "params_url": "https://dev.null",
+            "params": {"x": 0},
             "training_args": {},
             "dataset_id": 'my_dataset',
             "training": True,
@@ -1788,10 +1616,10 @@ class TestMessage(unittest.TestCase):
             "secagg_random": 0.95,
             "secagg_clipping_range" : None,
             "round": 1,
-            "training_plan_url": "https://dev.null",
+            "training_plan": "TP",
             "training_plan_class": "my_model",
             "aggregator_args": {},
-            "aux_var_urls": ["https://dev.null", "https://dev.null"],
+            "aux_vars": ["https://dev.null", "https://dev.null"],
             "command": 'train'
         }
 
@@ -1883,22 +1711,6 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.PingRequest)
 
-    def test_message_19_logmessages(self):
-
-        # error
-        params = {
-            "protocol_version": '99.99',
-            "researcher_id": 'toto',
-            "node_id": 'titi',
-            "level": 'INFO',
-            "msg": 'bim boum badaboum',
-            "command": 'log'
-        }
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.LogMessage)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.LogMessage)
 
     def test_message_10_errormessages(self):
 
@@ -1907,7 +1719,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
-            "errnum": ErrorNumbers.FB100,
+            "errnum": ErrorNumbers.FB100.value,
             "extra_msg": 'bim boum badaboum',
             "command": 'error'
         }
@@ -1917,33 +1729,6 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.ErrorMessage)
 
-    def test_message_21_add_scalar_messages(self):
-
-        # addScalar
-        params = {
-            "protocol_version": '99.99',
-            "researcher_id": 'toto',
-            "node_id": 'titi',
-            "job_id": 'job_id',
-            "train": True,
-            "test": True,
-            "test_on_local_updates": True,
-            "test_on_global_updates": True,
-            "metric": {'x': 12},
-            "iteration": 666,
-            "epoch": 12,
-            "total_samples": 12,
-            "batch_samples": 12,
-            "num_batches": 12,
-            "num_samples_trained": 12,
-            "command": 'add_scalar'
-        }
-
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.Scalar)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.Scalar)
 
     def test_message_22_unknowmessages(self):
         # we only test one error (to get 100% coverage)
@@ -2045,7 +1830,7 @@ class TestMessage(unittest.TestCase):
             'approval_obligation': True,
             'status': TrainingPlanApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
-            'training_plan_url': 'url',
+            'training_plan': 'TP',
             'command': 'training-plan-status'
         }
 
@@ -2058,7 +1843,7 @@ class TestMessage(unittest.TestCase):
         params_request = {
             'researcher_id': 'toto',
             "job_id": 'titi',
-            "training_plan_url": 'url-dummy',
+            "training_plan": 'TP',
             "command": 'training-plan-status'
         }
 
@@ -2081,7 +1866,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            training_plan_url='http://dev.null',
+            training_plan='TP',
             command='do_it')
 
         # all these test should fail (bad number of args arguments or bad type)
@@ -2100,7 +1885,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             sequence=1234,
-            training_plan_url='http://dev.null',
+            training_plan='TP',
             command='do_it',
             unknown_extra_arg='whatever'
         )
@@ -2172,6 +1957,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             sequence=100,
+            message="xxx",
             status=200,
             success=True,
             command='do_it')
@@ -2182,6 +1968,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             researcher_id='toto',
+            message="xxx"
         )
 
         self.check_class_args(
@@ -2194,6 +1981,7 @@ class TestMessage(unittest.TestCase):
             sequence=100,
             status=200,
             success=True,
+            message="xxx",
             command='do_it',
             extra_arg='this will break'
         )
@@ -2204,6 +1992,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=False,
+            message="xxx",
             node_id='titi',
             sequence=100,
             status=200,
@@ -2216,6 +2005,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
+            message="xxx",
             node_id=False,
             sequence=100,
             status=200,
@@ -2228,6 +2018,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
+            message="xxx",
             node_id='titi',
             sequence="not an int",
             status=200,
@@ -2241,6 +2032,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
+            message="xxx",
             sequence=100,
             status="not an int",
             success=True,
@@ -2252,6 +2044,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
+            message="xxx",
             node_id='titi',
             sequence=100,
             status=200,
@@ -2265,6 +2058,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
+            message="xxx",
             sequence=100,
             status=200,
             success="not a bool",
@@ -2279,7 +2073,7 @@ class TestMessage(unittest.TestCase):
             "researcher_id": 'toto',
             "description": 'this string describes the sent object',
             "sequence": 12345,
-            "training_plan_url": "http://dev.null",
+            "training_plan": "TP",
             "command": "approval"
 
         }
@@ -2295,6 +2089,7 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "sequence": 12345,
             "status": 200,
+            "message": "xxx",
             "success": True,
             "command": "approval"
 
