@@ -630,17 +630,15 @@ class Round:
             optim_state_path = state['optimizer_state'].get('state_path')
             try:
                 optim_state = Serializer.load(optim_state_path)
-                # optimizer_wrapper_loaded = OptimizerBuilder().build(self.training_plan.type(),
-                #                                  self.training_plan._model, optimizer_wrapper.optimizer)
 
                 optimizer_wrapper.load_state(optim_state, load_from_state=True)
                 logger.debug(f"Optimizer loaded state {optim_state}")
-                #self.training_plan.set_optimizer(optimizer_wrapper)
                 logger.info(f"State {state_id} loaded")
 
             except Exception as err:
-                logger.warning(f"Loading Optimizer from state {state_id} failed with error {err}... Resuming Experiment"  
-                               f"with default Optimizer state. Error detail {err}")
+                logger.warning(f"Loading Optimizer from state {state_id} failed ... Resuming Experiment with default"
+                               "Optimizer state.")
+                logger.debug(f" Error detail {err}")
 
         # add below other components that need to be reloaded from node state database
 

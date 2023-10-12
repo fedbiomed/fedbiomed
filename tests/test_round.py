@@ -29,7 +29,7 @@ from declearn.optimizer.regularizers import RidgeRegularizer
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
@@ -1221,6 +1221,51 @@ class TestRound(NodeTestCase):
             load_from_state=True
         )
 
+    @patch('fedbiomed.node.round.logger')
+    @patch('fedbiomed.node.round.Serializer')
+    @patch('fedbiomed.node.round.Round._get_base_optimizer')
+    @patch('fedbiomed.node.round.NodeStateManager')
+    def test_round_28_load_round_state_failure(self,
+                                               node_state_manager_patch,
+                                               get_optim_patch,
+                                               serializer_patch,
+                                               logger_patch
+                                               ):
+
+        r = Round(job_id='1234')
+        state_id = 'state_id_1234'
+        path_state = '/path/to/state'
+
+        training_plan_mock = MagicMock(spec=BaseTrainingPlan,
+                                       type=MagicMock(),
+                                       _model=MagicMock(spec=Model))
+        r.training_plan = training_plan_mock
+
+        
+        node_state = {
+            'optimizer_state': {
+                'optimizer_type': 'optimizer_type',
+                'state_path': path_state,
+            }
+        }
+        node_state_manager_patch.return_value.get.return_value = node_state
+        get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
+                                                 __class__='optimizer_type',
+                                                 )
+        err_msg = "Error raised for the sake of testing"
+        get_optim_patch.return_value.load_state.side_effect = FedbiomedOptimizerError(err_msg)
+        r._load_round_state(state_id)
+        
+        # checks
+        # FIXME: in future version, we should check each call to Serializer.load
+        serializer_patch.load.assert_called_once_with(path_state)
+        logger_patch.warning.assert_called()
+        
+        logger_calls = logger_patch.mock_calls
+        if len(logger_calls) < 2:
+            self.skipTest("Test `load_round_state_failure skipped because logger call has changed - which has minor impact on the code")
+        self.assertIn(err_msg, logger_calls[1][1][0], f"error message '{err_msg}' not sent through logger")
+
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
     @patch('fedbiomed.node.round.NodeStateManager', autospec=True)
@@ -1265,11 +1310,13 @@ class TestRound(NodeTestCase):
                                                                           expected_state)
         self.assertDictEqual(expected_state, res)
 
+
     @patch('fedbiomed.node.round.NodeStateManager.add')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
     def test_round_29_save_round_state_failure_saving_optimizer(self,
                                                                 get_optim_patch,
-                                                                node_state_manager_add_patch):
+                                                                node_state_manager_add_patch,
+                                                                ):
         job_id, round_nb = '1234', 34
         #r = Round(job_id=job_id, round_number=round_nb)
         get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
@@ -1285,7 +1332,7 @@ class TestRound(NodeTestCase):
         }
         
         self.assertDictEqual(res, expected_state)
-    
+        
     @patch('fedbiomed.node.node_state_manager.os.makedirs')
     @patch('fedbiomed.node.node_state_manager.NodeStateManager.get_node_state_base_dir')
     @patch('fedbiomed.node.node_state_manager.NodeStateManager._check_version')

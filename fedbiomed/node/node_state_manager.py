@@ -7,6 +7,7 @@ import uuid
 
 from tinydb import TinyDB, Query
 from tinydb.table import Table
+from fedbiomed.common.db import DBTable
 
 from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, NODE_STATE_PREFIX,
@@ -57,7 +58,9 @@ class NodeStateManager:
         self._state_id: Optional[str] = None
         self._previous_state_id: Optional[str] = None
         try:
-            self._db: Table = TinyDB(db_path).table(name=NODE_STATE_TABLE_NAME, cache_size=0)
+            self._connection = TinyDB(db_path)
+            self._connection.table_class = DBTable 
+            self._db: Table = self._connection.table(name=NODE_STATE_TABLE_NAME, cache_size=0)
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: "
                                                  "Error found when loading database") from e
@@ -136,7 +139,7 @@ class NodeStateManager:
         raise NotImplementedError
 
     def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
-        """Loads Node state from DataBase. Directy interfaces with database request.
+        """Loads Node state from DataBase. Directly interfaces with database request.
 
         Args:
             job_id: job_id from which to retrieve state
@@ -168,7 +171,7 @@ class NodeStateManager:
         Raises:
             FedbiomedNodeStateManagerError: raised if request fails
         """
-
+        # TODISCUSS: should we make sure `state_id` doesnot already exist in database?`
         try:
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
