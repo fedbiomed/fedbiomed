@@ -847,8 +847,7 @@ class Experiment(FederatedWorkflow):
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
         job.upload_workflow_code(self._training_plan)
-        filename = job.save_params_to_file(self._training_plan)
-        job.upload_parameters(filename)
+        job.upload_parameters(self._training_plan)
         self._global_model = self._training_plan.get_model_params()
 
         self._aggregator.set_training_plan_type(self._training_plan.type())

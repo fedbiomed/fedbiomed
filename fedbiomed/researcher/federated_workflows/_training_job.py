@@ -434,7 +434,7 @@ class TrainingJob(Job):
         return filename
 
     def upload_parameters(self,
-                          filename: str,
+                          training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
     ) -> Tuple[str, str]:
         """Save and upload global model parameters, optionally after updating them.
 
@@ -475,7 +475,7 @@ class TrainingJob(Job):
         !!! warning "Warning":
             * The `params` and `filename` parameters are mutually-exclusive.
         """
-        # Case when exporting current parameters: create a local dump file.
+        filename = self.save_params_to_file(training_plan)
         # Upload the file and record its local and remote locations.
         self._model_params_file = filename
         repo_response = self.repo.upload_file(filename)
