@@ -74,8 +74,8 @@ class TrainingJob(Job):
                                           training_args: TrainingArgs,
                                           model_args: Optional[dict],
                                           ):
-        skeleton_training_plan = self.create_skeleton_workflow_instance_from_path(training_plan_path,
-                                                                                  training_plan_class)
+        skeleton_training_plan = self.get_default_constructed_workflow_instance(training_plan_path,
+                                                                                training_plan_class)
         self._save_workflow_code_to_file(skeleton_training_plan)
         training_plan = skeleton_training_plan.load_training_plan_from_file(
             self._keep_files_dir,
