@@ -64,6 +64,23 @@ class TrainingJob(Job):
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._aggregator_args = None
 
+    @property
+    def aggregator_args(self):
+        return self._aggregator_args
+
+    def get_initialized_workflow_instance(self,
+                                          training_plan_path: str,
+                                          training_plan_class: Union[Type[Callable], str],
+                                          training_args: TrainingArgs,
+                                          model_args: Optional[dict],
+                                          ):
+        training_plan = self.create_skeleton_workflow_instance_from_path(training_plan_path,
+                                                                         training_plan_class)
+        self._save_workflow_code_to_file(training_plan)
+        return self.create_fully_parametrized_workflow_instance(training_plan,
+                                                                training_args,
+                                                                model_args)
+
     def create_fully_parametrized_workflow_instance(self,
                                                     training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
                                                     training_args: TrainingArgs,
@@ -79,10 +96,6 @@ class TrainingJob(Job):
                                 training_args=training_args)
 
         return training_plan
-
-    @property
-    def aggregator_args(self):
-        return self._aggregator_args
 
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],

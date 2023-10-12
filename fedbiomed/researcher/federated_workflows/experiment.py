@@ -180,12 +180,10 @@ class Experiment(FederatedWorkflow):
         job = TrainingJob(reqs=self._reqs,
                           nodes=nodes,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
-                                                                              self._training_plan_class)
-        job.upload_workflow_code(self._training_plan)
-        self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
-                                                                              self._training_args,
-                                                                              self._model_args)
+        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
+                                                                    self._training_plan_class,
+                                                                    self._training_args,
+                                                                    self._model_args)
         self._global_model = self._training_plan.after_training_params()
 
     # destructor
@@ -847,12 +845,11 @@ class Experiment(FederatedWorkflow):
         job = TrainingJob(reqs=self._reqs,
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
-                                                                              self._training_plan_class)
-        self._training_plan_file = job.upload_workflow_code(self._training_plan)
-        self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
-                                                                              self._training_args,
-                                                                              self._model_args)
+        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
+                                                                    self._training_plan_class,
+                                                                    self._training_args,
+                                                                    self._model_args)
+        job.upload_workflow_code(self._training_plan)
         job.update_parameters(self._training_plan, self._global_model)  # TODO catch errors if new training plan is no longer consistent with global_model, and provide public function to reinitialize
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
