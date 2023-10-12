@@ -127,9 +127,6 @@ class Job:
             training_plan = training_plan_class
         training_plan.configure_dependencies()
 
-        # find the name of the class in any case
-        # (it is `model` only in the case where `model` is not an instance)
-
         return training_plan
 
     def upload_workflow_code(self,

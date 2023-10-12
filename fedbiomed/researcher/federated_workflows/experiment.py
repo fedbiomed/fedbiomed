@@ -179,13 +179,13 @@ class Experiment(FederatedWorkflow):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
                           nodes=nodes,
-                          model_args=self._model_args if hasattr(self, '_model_args') else None,
                           keep_files_dir=self.experimentation_path())
         self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
                                                                               self._training_plan_class)
         job.upload_workflow_code(self._training_plan)
         self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
-                                                                              self._training_args)
+                                                                              self._training_args,
+                                                                              self._model_args)
         self._global_model = self._training_plan.after_training_params()
 
     # destructor
@@ -846,13 +846,13 @@ class Experiment(FederatedWorkflow):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
                           nodes=training_nodes,
-                          model_args=self._model_args if hasattr(self, '_model_args') else None,
                           keep_files_dir=self.experimentation_path())
         self._training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
                                                                               self._training_plan_class)
         self._training_plan_file = job.upload_workflow_code(self._training_plan)
         self._training_plan = job.create_fully_parametrized_workflow_instance(self._training_plan,
-                                                                              self._training_args)
+                                                                              self._training_args,
+                                                                              self._model_args)
         job.update_parameters(self._training_plan, self._global_model)  # TODO catch errors if new training plan is no longer consistent with global_model, and provide public function to reinitialize
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
@@ -875,6 +875,7 @@ class Experiment(FederatedWorkflow):
         replies, _ = job.start_nodes_training_round(
             round_=self._round_current,
             training_args=self._training_args,
+            model_args=self._model_args,
             data=self._fds,
             aggregator_args_thr_msg=aggr_args_thr_msg,
             aggregator_args_thr_files=aggr_args_thr_file,
@@ -944,6 +945,7 @@ class Experiment(FederatedWorkflow):
                                                                                             training_nodes)
             job.start_nodes_training_round(round_=self._round_current,
                                            training_args=self._training_args,
+                                           model_args=self._model_args,
                                            data=self._fds,
                                            aggregator_args_thr_msg=aggr_args_thr_msg,
                                            aggregator_args_thr_files=aggr_args_thr_file,

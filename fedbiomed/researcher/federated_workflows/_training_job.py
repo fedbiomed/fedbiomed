@@ -36,7 +36,6 @@ class TrainingJob(Job):
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model_args: dict = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
@@ -61,14 +60,14 @@ class TrainingJob(Job):
             nodes,
             keep_files_dir
         )
-        self._model_args = model_args
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._aggregator_args = None
 
     def create_fully_parametrized_workflow_instance(self,
                                                     training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-                                                    training_args: TrainingArgs) \
+                                                    training_args: TrainingArgs,
+                                                    model_args: Optional[dict]) \
             -> 'fedbiomed.researcher.federated_workflows.FederatedWorkflow':
         training_plan_name = training_plan.__class__.__name__
         training_plan = training_plan.load_training_plan_from_file(
@@ -76,7 +75,7 @@ class TrainingJob(Job):
             self._training_plan_module,
             training_plan_name)
 
-        training_plan.post_init(model_args={} if self._model_args is None else self._model_args,
+        training_plan.post_init(model_args={} if model_args is None else model_args,
                                 training_args=training_args)
 
         return training_plan
@@ -125,6 +124,7 @@ class TrainingJob(Job):
         self,
         round_: int,
         training_args: TrainingArgs,
+        model_args: Optional[dict],
         data: FederatedDataSet,
         aggregator_args_thr_msg: Dict[str, Dict[str, Any]],
         aggregator_args_thr_files: Dict[str, Dict[str, Any]],
@@ -160,7 +160,7 @@ class TrainingJob(Job):
             'job_id': self._id,
             'training_args': training_args.dict(),
             'training': do_training,
-            'model_args': self._model_args,
+            'model_args': model_args if model_args is not None else {},
             'round': round_,
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
