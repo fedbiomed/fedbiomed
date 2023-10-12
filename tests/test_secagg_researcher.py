@@ -180,7 +180,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
             }
         }
 
-        state = self.secagg_context.save_state()
+        state = self.secagg_context.save_state_breakpoint()
         self.assertEqual(state, expected_state)
 
         # 2. Load complete breakpoint
@@ -202,7 +202,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
             }
         }
 
-        secagg_context = SecaggBiprimeContext.load_state(state)
+        secagg_context = SecaggBiprimeContext.load_state_breakpoint(state)
 
         self.assertEqual(state['attributes']['_status'], secagg_context.status)
         self.assertEqual(state['arguments']['secagg_id'], secagg_context.secagg_id)

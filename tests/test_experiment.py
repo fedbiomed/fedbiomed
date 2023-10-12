@@ -1768,13 +1768,13 @@ class TestExperiment(ResearcherTestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self, breakpoint_path: str, **kwargs):
+            def save_state_breakpoint(self, breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
 
         class Strategy():
-            def save_state(self):
+            def save_state_breakpoint(self):
                 return strategy_state
 
         self.test_exp._node_selection_strategy = Strategy()
@@ -1790,7 +1790,7 @@ class TestExperiment(ResearcherTestCase):
             def __init__(self):
                 self._training_plan = None
 
-            def save_state(self, breakpoint_path):
+            def save_state_breakpoint(self, breakpoint_path):
                 return job_state
 
             @property
@@ -2125,7 +2125,8 @@ class TestExperiment(ResearcherTestCase):
             aggregated_params = {
                 '1': {'params_path': os.path.join(tempfolder_path, 'params_path_1.mpk')},
             }
-            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999,
+                   'node_state': {'collection_state_ids': {'node1': 'one', 'node2': 'two'}} }
             secagg_state = {
                 'class': "SecureAggregation",
                 'module': 'fedbiomed.researcher.secure_aggregation',
@@ -2354,7 +2355,7 @@ class TestExperiment(ResearcherTestCase):
             "class TestClass:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         class_source_exception = \
@@ -2362,7 +2363,7 @@ class TestExperiment(ResearcherTestCase):
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       raise Exception()\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         test_class_name = 'TestClass'

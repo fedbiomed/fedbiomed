@@ -57,7 +57,7 @@ class ExperimentMock:
         self._training_args = TrainingArgs(only_required=False)
         self.aggregator_args = {}
         class Job:
-            def load_state(self, saved_state):
+            def load_state_breakpoint(self, saved_state):
                 self._saved_state = saved_state
 
         self._job = Job() # minimal

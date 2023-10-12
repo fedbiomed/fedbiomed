@@ -101,7 +101,8 @@ class Job:
 
         self.last_msg = None
         self._data = data
-        self._node_state_agent = NodeStateAgent(self._data or self._nodes)
+        self._node_state_agent = NodeStateAgent(list(self._data.data().keys())
+                                                if self._data and self._data.data() else [])
 
         # Model is mandatory
         if self._training_plan_class is None:
@@ -750,8 +751,9 @@ class Job:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
 
         """
+        node_ids = list(self._data.data().keys()) if self._data and self._data.data() else []
         if before_training:
-            self._node_state_agent.update_node_states(self._data)
+            self._node_state_agent.update_node_states(node_ids)
         else:
             # extract last node state
             # FIXME: for now we are only considering the case where we need last Round update,
@@ -763,9 +765,9 @@ class Job:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                                                    "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(self._data, self.training_replies[last_tr_entry])
+            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
 
-    def save_state(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -784,7 +786,7 @@ class Job:
             'job_id': self._id,
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies(self._training_replies),
-            'node_state_ids': self._node_state_agent.save_state_ids_in_bkpt()
+            'node_state': self._node_state_agent.save_state_breakpoint()
         }
 
         state['model_params_path'] = create_unique_link(
@@ -801,18 +803,16 @@ class Job:
 
         return state
 
-    def load_state(self, saved_state: Dict[str, Any]) -> None:
+    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
             saved_state: breakpoint content
         """
-        # update node_state_agent when reloading Job's state
-        self._node_state_agent.set_federated_dataset(self._data or self._nodes)
         # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
-        self._node_state_agent.load_state_ids_from_bkpt(saved_state.get('node_state_ids'))
+        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         # Upload the latest model parameters. This records the filename and url.
         self.update_parameters(filename=saved_state.get("model_params_path"))
         # Reload the latest training replies.

@@ -1998,15 +1998,16 @@ class Experiment:
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # agg state
+            # aggregator state
+            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
-            'node_selection_strategy': self._node_selection_strategy.save_state(),
+            'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
             # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'job': self._job.save_state(breakpoint_path),  # job state
-            'secagg': self._secagg.save_state()
+            'job': self._job.save_state_breakpoint(breakpoint_path),  # job state
+            'secagg': self._secagg.save_state_breakpoint()
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -2118,7 +2119,7 @@ class Experiment:
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
                          experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
+                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
@@ -2145,7 +2146,7 @@ class Experiment:
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
-        loaded_exp._job.load_state(saved_state.get('job'))
+        loaded_exp._job.load_state_breakpoint(saved_state.get('job'))
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -2346,11 +2347,11 @@ class Experiment:
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        if "training_plan" in inspect.signature(object_instance.load_state).parameters:
-            object_instance.load_state(args, training_plan=training_plan)
+        if "training_plan" in inspect.signature(object_instance.load_state_breakpoint).parameters:
+            object_instance.load_state_breakpoint(args, training_plan=training_plan)
         else:
-            object_instance.load_state(args)
-        # note: exceptions for `load_state` should be handled in training plan
+            object_instance.load_state_breakpoint(args)
+        # note: exceptions for `load_state_breakpoint` should be handled in training plan
 
         return object_instance
 

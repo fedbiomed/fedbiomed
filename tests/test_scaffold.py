@@ -264,7 +264,7 @@ class TestScaffold(ResearcherTestCase):
             self.assertDictEqual(agg_thr_file[node_id]['aggregator_correction'], agg.nodes_deltas[node_id])
 
     @patch('uuid.uuid4')
-    def test_7_save_state(self, uuid_patch):
+    def test_7_save_state_breakpoint(self, uuid_patch):
         uuid_patch.return_value = FakeUuid()
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
@@ -272,7 +272,7 @@ class TestScaffold(ResearcherTestCase):
         scaffold = Scaffold(server_lr, fds=fds)
         scaffold.init_correction_states(self.model.state_dict())
         with patch("fedbiomed.common.serializer.Serializer.dump") as save_patch:
-            state = scaffold.save_state(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
+            state = scaffold.save_state_breakpoint(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
         self.assertEqual(save_patch.call_count, self.n_nodes + 1,
                         f"'Serializer.dump' should be called {self.n_nodes} times: once for each node + \
                         one more time for global_state")
@@ -288,8 +288,8 @@ class TestScaffold(ResearcherTestCase):
         self.assertEqual(state['class'], Scaffold.__name__)
         self.assertEqual(state['module'], Scaffold.__module__)
 
-    def test_8_load_state(self):
-        """Test that 'load_state' triggers the proper amount of calls."""
+    def test_8_load_state_breakpoint(self):
+        """Test that 'load_state_breakpoint' triggers the proper amount of calls."""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
@@ -297,20 +297,20 @@ class TestScaffold(ResearcherTestCase):
 
         # create a state (not actually saving the associated contents)
         with patch("fedbiomed.common.serializer.Serializer.dump"):
-            state = scaffold.save_state(
+            state = scaffold.save_state_breakpoint(
                 breakpoint_path=bkpt_path, global_model=self.model.state_dict()
             )
 
         # action
         with patch("fedbiomed.common.serializer.Serializer.load") as load_patch:
-            scaffold.load_state(state)
+            scaffold.load_state_breakpoint(state)
 
         self.assertEqual(load_patch.call_count, self.n_nodes + 1,
                          f"'Serializer.load' should be called {self.n_nodes} times: once for each node + \
                          one more time for global_state")
 
     def test_9_load_state_2(self):
-        """Test that 'load_state' properly assigns loaded values."""
+        """Test that 'load_state_breakpoint' properly assigns loaded values."""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
@@ -318,7 +318,7 @@ class TestScaffold(ResearcherTestCase):
 
         # create a state (not actually saving the associated contents)
         with patch("fedbiomed.common.serializer.Serializer.dump"):
-            state = scaffold.save_state(
+            state = scaffold.save_state_breakpoint(
                 breakpoint_path=bkpt_path, global_model=self.model.state_dict()
             )
 
@@ -327,7 +327,7 @@ class TestScaffold(ResearcherTestCase):
             "fedbiomed.common.serializer.Serializer.load",
             return_value=self.model.state_dict()
         ):
-            scaffold.load_state(state)
+            scaffold.load_state_breakpoint(state)
 
         # tests
         for node_id in self.node_ids:
