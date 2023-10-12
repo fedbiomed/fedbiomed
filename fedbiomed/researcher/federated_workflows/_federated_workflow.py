@@ -21,7 +21,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan, FederatedDataPlan
 from fedbiomed.common.utils import is_ipython
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -29,7 +29,6 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import (
     create_exp_folder
 )
-from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
@@ -38,10 +37,11 @@ TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  #
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
-training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
+training_plans = (TorchTrainingPlan, SKLearnTrainingPlan, FederatedDataPlan)
 # for typing only
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan, FederatedDataPlan)
+Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan],
+                            Type[FederatedDataPlan])
 
 
 # Exception handling at top lever for researcher
