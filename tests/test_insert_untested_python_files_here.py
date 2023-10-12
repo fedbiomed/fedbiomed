@@ -28,7 +28,6 @@ import fedbiomed.common.environ
 import fedbiomed.common.exceptions
 import fedbiomed.common.logger
 import fedbiomed.common.message
-import fedbiomed.common.messaging
 import fedbiomed.common.metrics
 import fedbiomed.common.models.__init__
 import fedbiomed.common.models._model
@@ -41,7 +40,6 @@ import fedbiomed.common.privacy.__init__
 import fedbiomed.common.privacy._dp_controller
 import fedbiomed.common.secagg.__init__
 import fedbiomed.common.secagg._secagg_crypter
-import fedbiomed.common.repository
 import fedbiomed.common.secagg_manager
 import fedbiomed.common.serializer
 import fedbiomed.common.singleton
