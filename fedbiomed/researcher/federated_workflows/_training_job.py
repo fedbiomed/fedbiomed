@@ -465,39 +465,33 @@ class TrainingJob(Job):
         !!! warning "Warning":
             * The `params` and `filename` parameters are mutually-exclusive.
         """
-        try:
-            if params and filename:
-                raise ValueError("'update_parameters' received both filename and params: only one may be used.")
-            # Case when uploading a pre-existing file: load the parameters.
-            if filename:
-                params = Serializer.load(filename)["model_weights"]
-                training_plan.set_model_params(params)
-            # Case when exporting current parameters: create a local dump file.
+        if params and filename:
+            raise ValueError("'update_parameters' received both filename and params: only one may be used.")
+        # Case when uploading a pre-existing file: load the parameters.
+        if filename:
+            params = Serializer.load(filename)["model_weights"]
+            training_plan.set_model_params(params)
+        # Case when exporting current parameters: create a local dump file.
+        else:
+            # Case when uploading the current parameters: gather them.
+            if params is None:
+                params = training_plan.get_model_params()
+            # Case when uploading a new set of parameters: assign them.
             else:
-                # Case when uploading the current parameters: gather them.
-                if params is None:
-                    params = training_plan.get_model_params()
-                # Case when uploading a new set of parameters: assign them.
-                else:
-                    training_plan.set_model_params(params)
-                # At any rate, create a local dump file.
-                filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
-                params_dump = {
-                    "researcher_id": self._researcher_id,
-                    "model_weights": params,
-                }
-                Serializer.dump(params_dump, filename)
-            # Upload the file and record its local and remote locations.
-            self._model_params_file = filename
-            repo_response = self.repo.upload_file(filename)
-            self._repository_args["params_url"] = url = repo_response["file"]
-            # Return the local path and remote url to the file.
-            return filename, url
-        # Log exceptions and trigger a system exit if one is raised.
-        except Exception:
-            exc = sys.exc_info()
-            logger.error("'Job.update_parameters' failed with error: %s", exc)
-            sys.exit(-1)
+                training_plan.set_model_params(params)
+            # At any rate, create a local dump file.
+            filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
+            params_dump = {
+                "researcher_id": self._researcher_id,
+                "model_weights": params,
+            }
+            Serializer.dump(params_dump, filename)
+        # Upload the file and record its local and remote locations.
+        self._model_params_file = filename
+        repo_response = self.repo.upload_file(filename)
+        self._repository_args["params_url"] = url = repo_response["file"]
+        # Return the local path and remote url to the file.
+        return filename, url
 
     def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.

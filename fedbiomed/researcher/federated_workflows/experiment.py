@@ -187,7 +187,6 @@ class Experiment(FederatedWorkflow):
                                                                     self._model_args)
         self._global_model = self._training_plan.after_training_params()
 
-
     # destructor
     @exp_exceptions
     def __del__(self):
@@ -855,9 +854,9 @@ class Experiment(FederatedWorkflow):
 
         try:
             job.update_parameters(self._training_plan, self._global_model)
-        except RuntimeError as e:  # TODO: this exception is not caught correctly
-            msg = f"{ErrorNumbers.FB410.value}. Experiment global model is inconsistent with current model " \
-                  f"specifications: {repr(e)}. \n" \
+        except RuntimeError as e:
+            msg = f"{ErrorNumbers.FB410.value}.\n " \
+                  f"Experiment global model is inconsistent with current model specifications: {repr(e)}. \n\n" \
                   f"Try calling exp.reset_model_parameters() first."
             raise FedbiomedExperimentError(msg)
 
