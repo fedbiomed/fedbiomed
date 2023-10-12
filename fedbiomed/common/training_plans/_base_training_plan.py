@@ -2,11 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class defining the shared API of all training plans."""
-import importlib
 import random
-import sys
 from abc import abstractmethod
-from os import PathLike
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -406,26 +403,3 @@ class BaseTrainingPlan(FederatedDataPlan):
             Optimizer arguments
         """
         return self._optimizer_args
-
-    @staticmethod
-    def load_training_plan_from_file(
-            module_file_path: Union[str, PathLike],
-            training_plan_module: str,
-            training_plan_name: str) -> 'BaseTrainingPlan':
-        """Import a training plan class from a file and create a training plan object instance.
-
-        Args:
-            module_file_path: the OS path to the directory containing the module file (often the experiment's tmp dir)
-            training_plan_module: module name of the training plan file
-            training_plan_name: the name of the training plan class
-
-        Returns:
-            The default-constructed training plan object
-        """
-        sys.path.insert(0, module_file_path)
-        module = importlib.import_module(training_plan_module)
-        train_class = getattr(module, training_plan_name)
-        sys.path.pop(0)
-        return train_class()
-
-
